@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+build/
+*.tsbuildinfo
+
+# Local data / secrets (NUNCA commiteados)
+.env
+.env.*
+*.local
+brand-data/
+data/**/content/*.yml.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Research drafts
+docs/research/_drafts/
