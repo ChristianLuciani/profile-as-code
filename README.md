@@ -55,7 +55,8 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 | Prior-art research | ✅ `docs/research/01-prior-art.md` |
 | Spec | ✅ `docs/SPEC.md` (GEO, i18n, template user-brand-data, Substack) |
 | Investigación SOTA por plataforma | 🔜 pendiente — asistente **SOTA Research** en AionUi, ver `docs/research/RUN.md` |
-| Motor (schema → core → CLI) | ⏳ |
+| Schema JSON v1 (contrato) | ✅ `schema/profile.schema.json` |
+| Motor (core → CLI) | ⏳ |
 | Renderer GitHub (dogfood) | ⏳ |
 
 ## Estructura prevista
