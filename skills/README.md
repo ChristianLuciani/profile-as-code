@@ -45,3 +45,4 @@ skills/<plataforma>/
 3. `upwork` — servicio/cliente
 4. `x` — visibilidad
 5. `researchgate` — ciencia
+6. `substack` — newsletter/audiencia propia (superficie de contenido + perfil)

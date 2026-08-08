@@ -45,7 +45,7 @@ skills + deploy playbooks**.
   the chosen variant is committed and marked as active.
 - GitHub profile README + web are fully git/API-driven (dogfood: Christian's real profile).
 - Every quantitative claim in every skill has a dated source (claims-evidence enforced).
-- A fresh user can start from the `brand-data` template (fork/clone) in under 10 minutes.
+- A fresh user can start from the `user-brand-data` template (fork/clone) in under 10 minutes.
 
 ## 4. Architecture
 
@@ -60,14 +60,14 @@ skills + deploy playbooks**.
         └───────────────▲───────────────────────────────────────────┬──────────────────┘
                         │ data (per user)                           │ outputs ready
         ┌───────────────┴───────────────┐        ┌──────────────────┴─────────────────┐
-        │  brand-data (private repo)    │        │  deploy: paste (LinkedIn, Upwork…)  │
+        │  user-brand-data (private repo) │        │  deploy: paste (LinkedIn, Upwork…)  │
         │  content/*.yaml · profiles/   │        │  deploy: git/API (GitHub, web)      │
         │  CHANGELOG.md · CHECKLIST.md  │        │  verify: skill checks + checklist   │
         └───────────────────────────────┘        └─────────────────────────────────────┘
 ```
 
 - **Public repo** = product: schema, core, renderers, CLI, skills, templates, docs, examples (fictional person).
-- **brand-data** = per-user private workspace (or local-only). Never in the public repo.
+- **user-brand-data** = per-user private workspace (or local-only). Never in the public repo.
   Provided as a **GitHub template repo / forkable skeleton** — see §9.
 
 ## 5. Decisions (ADR-lite)
@@ -131,7 +131,7 @@ interface SkillChecks {  // from skills/<platform>/checks.yaml
 
 | Command | Purpose |
 |---|---|
-| `pac init` | scaffold a brand-data workspace from the template |
+| `pac init` | scaffold a user-brand-data workspace from the template |
 | `pac validate` | schema + drift + geo checks |
 | `pac build [platform] [--lang]` | render deterministic base texts |
 | `pac refine [platform] [--lang] [--variants N] [--hub]` | AI variants via hub; user picks; commit active |
@@ -191,7 +191,7 @@ Two different "templates" (previous confusion):
 
 ## 12. Roadmap
 
-1. **M1 (now)**: spec + brand-data template + schema v1 + core (validate/drift/geo) + CLI skeleton.
+1. **M1 (now)**: spec + user-brand-data template + schema v1 + core (validate/drift/geo) + CLI skeleton.
 2. **M2**: renderer `github-readme` + CI + dogfood (Christian's real GitHub README).
 3. **M3**: SOTA research per platform (GitHub→LinkedIn→Upwork→X→ResearchGate) → skills v1 + `pac refine` (hub).
 4. **M4**: renderers linkedin/upwork/x/researchgate + playbooks + `pac check` + checks.yaml per skill.

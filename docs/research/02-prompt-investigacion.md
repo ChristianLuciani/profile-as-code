@@ -10,9 +10,9 @@
 ## Contexto
 
 Estoy construyendo **profile-as-code**, un CLI open source que versiona la información profesional de una persona
-(SSOT en YAML) y genera textos optimizados por plataforma (LinkedIn, GitHub, Upwork, X, ResearchGate…), con
+(SSOT en YAML) y genera textos optimizados por plataforma (LinkedIn, GitHub, Upwork, X, ResearchGate, Substack…), con
 "skills" por plataforma que contienen el conocimiento SOTA de cada red. Cada skill debe codificar: límites
-oficiales, directrices de ranking/SEO, ángulos por audiencia, trampas y checks verificables.
+oficiales, directrices de ranking/SEO+GEO, ángulos por audiencia, trampas y checks verificables.
 
 Voy a ser el primer usuario: físico (USFQ/Cuenca), comunicador de ciencias, innovación educativa,
 contribuidor open source (sovereign AI, AionCore/ACP), publicaciones arbitradas (2006–2026).
@@ -88,6 +88,16 @@ Research questions sugeridas:
 - ¿Qué pesa en el RG Score y conviene/evita optimizar?
 - ¿Cómo sincronizar con ORCID/Crossref sin duplicar?
 - ORCID: ¿hay API de escritura disponible para individuos? (verificar estado actual)
+
+## Plataforma 6 — Substack
+
+Research questions sugeridas:
+- Límites del perfil (name, bio, notes) y de la página de publicación.
+- Descubrimiento: search, recommendations, tags, importación — ¿qué mueve suscriptores?
+- Estructura de un perfil de autor creíble para ciencia/IA/educación: bio, secciones, archivo, featured.
+- GEO: los LLM citan newsletters (RSS, indexación, llms.txt) — ¿qué hace citable una Substack?
+- Política de idioma (EN para audiencia global vs ES para el nicho local) y enlace cruzado con X/LinkedIn.
+- Benchmark: 3-5 Substack de autores científicos/IA bien posicionados.
 
 ## Reglas
 

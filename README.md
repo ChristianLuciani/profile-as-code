@@ -21,7 +21,8 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
         │  │  DATA   │→ │  CORE        │→ │  RENDERERS      │  │
         │  │  YAML   │  │  validación  │  │  linkedin/      │  │
         │  │  +schema│  │  normalización│ │  upwork/github/ │  │
-        │  │         │  │  drift-check │  │  x/researchgate │  │
+        │  │         │  │  drift-check │  │  x/researchgate/│  │
+        │  │         │  │  geo-check   │  │  substack       │  │
         │  └─────────┘  └──────────────┘  └─────────────────┘  │
         │        CI: validate · tests · links · drift           │
         └───────────────┬──────────────────────────┬───────────┘
@@ -52,7 +53,7 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 | Fase | Estado |
 |---|---|
 | Prior-art research | ✅ `docs/research/01-prior-art.md` |
-| Spec | ✅ `docs/SPEC.md` (incluye GEO, i18n, template brand-data) |
+| Spec | ✅ `docs/SPEC.md` (GEO, i18n, template user-brand-data, Substack) |
 | Investigación SOTA por plataforma | 🔜 pendiente — asistente **SOTA Research** en AionUi, ver `docs/research/RUN.md` |
 | Motor (schema → core → CLI) | ⏳ |
 | Renderer GitHub (dogfood) | ⏳ |
@@ -73,15 +74,15 @@ profile-as-code/
 │   └── …
 ├── templates/
 │   ├── playbooks/        # deploy por plataforma (pasos + verificación)
-│   └── brand-data/       # workspace de datos del usuario — template fork/clone (§9 de la SPEC)
+│   └── user-brand-data/  # workspace de datos del usuario — template fork/clone (§9 de la SPEC)
 ├── examples/             # data de muestra (persona ficticia)
 └── docs/
     ├── research/         # prior-art + prompts de investigación
     └── SPEC.md           # contrato del motor
 ```
 
-Los datos reales de cada usuario viven en un **repo privado separado** (`brand-data/`), nunca aquí.
-Cada usuario arranca con el template `templates/brand-data/` (fork o clone) — ver `docs/SPEC.md` §9.
+Los datos reales de cada usuario viven en un **repo privado separado** (`user-brand-data/`), nunca aquí.
+Cada usuario arranca con el template `templates/user-brand-data/` (fork o clone) — ver `docs/SPEC.md` §9.
 
 ## Contribuir
 

@@ -10,7 +10,7 @@ Este repo ya contiene todo lo necesario para lanzarla desde AionUi.
 3. **Pegá como primer mensaje el contenido de** [`02-prompt-investigacion.md`](./02-prompt-investigacion.md).
    Opcional: decile "seguí el prompt de docs/research/02-prompt-investigacion.md".
 4. **Por sesión:** una plataforma, o dos si el contexto alcanza. Recomendado por orden:
-   GitHub → LinkedIn → Upwork → X → ResearchGate.
+   GitHub → LinkedIn → Upwork → X → ResearchGate → Substack.
 5. **Guardá cada salida en** `research/SOTA-<año>/<plataforma>.md` dentro de este repo,
    con fuentes fechadas (la regla de evidencia está en el prompt).
 
