@@ -1,7 +1,9 @@
 # Build session — M1 core (`packages/core`)
 
 > Paste this prompt into a NEW agent session (one deliverable per session). Docs convention: EN (D8).
-> Session rules: NEVER touch main/master. Create YOUR OWN worktree + branch `aionui/pi/<feature>`.
+> Session rules: NEVER touch main/master. Create YOUR OWN worktree + branch per your session/harness
+> convention (this is a harness artifact, not a project convention — the project only requires
+> "never push to main, descriptive branch, maintainer merges").
 
 ## Context
 
@@ -48,11 +50,12 @@ already defined in the schema).
 - Zod is script-generated, the generator is versioned; types match the contract
   (`langMap.en` required, platform enum, `active` entry shape)
 - Short `packages/core/README.md` (what it does, how to test)
-- Commit + open a PR to `main` following the `aionui/pi/…` branch convention
+- Commit + open a PR to `main` on a descriptive feature branch (never main)
 
 ## Rules
 
-- NEVER touch main/master; own worktree (`../.worktrees/<name>`) + branch `aionui/pi/<feature>`.
+- NEVER touch main/master; own worktree (`../.worktrees/<name>`) + a branch per your
+  session/harness convention (harness artifact — not a project convention)
 - Minimal dependencies: Zod, `yaml`, vitest (+ `json-schema-to-zod` for the generator). Ask before adding more.
 - This session delivers CORE ONLY — no renderers, no CLI, no skills (`pac` is the next session).
 - Do not edit `docs/SPEC.md` except for factual errors; open questions → note them in the PR.
