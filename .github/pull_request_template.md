@@ -1,0 +1,16 @@
+## Summary
+
+<!-- What and why. Link the issue if any. -->
+
+## Changes
+
+- [ ] <!-- list concrete changes -->
+
+## Definition of Done
+
+- [ ] Branch follows the `aionui/pi/<feature>` convention — never commit to `main`
+- [ ] CI (`ci`) is green (schema contract self-test + `pnpm test` / `pnpm build`)
+- [ ] Tests added/updated for changed behavior (or explicit reason why not)
+- [ ] Docs updated if behavior, contract or schema changed (`docs/`, `schema/`)
+- [ ] Any quantitative claim carries a dated source (claims-evidence rule)
+- [ ] Reviewed against `docs/SPEC.md` decisions (D1–D14); open questions noted in the PR body

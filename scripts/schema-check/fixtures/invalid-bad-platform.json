@@ -1,0 +1,4 @@
+{
+  "identity": { "name": "Ada Example" },
+  "bios": [{ "platform": "tiktok", "lang": "en", "length": "short", "text": "not a supported platform" }]
+}

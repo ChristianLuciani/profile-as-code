@@ -1,0 +1,4 @@
+{
+  "identity": { "name": "Ada Example" },
+  "publications": [{ "title": "T", "venue": "V", "year": 2026, "doi": "not-a-doi" }]
+}

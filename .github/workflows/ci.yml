@@ -1,0 +1,47 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Contract self-test (D3): schema/profile.schema.json must stay valid and
+      # keep rejecting/accepting its fixtures. Runs even before the TS workspace exists.
+      - name: Validate schema contract (JSON Schema self-test)
+        run: |
+          python3 -m venv /tmp/schema-venv
+          /tmp/schema-venv/bin/pip install --quiet jsonschema
+          /tmp/schema-venv/bin/python scripts/schema-check/check.py
+
+      # TS workspace: these steps activate as soon as package.json lands (M1 core).
+      - name: Setup pnpm
+        if: hashFiles('package.json') != ''
+        uses: pnpm/action-setup@v4 # reads packageManager from package.json
+
+      - name: Setup Node
+        if: hashFiles('package.json') != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: hashFiles('package.json') != ''
+        run: pnpm install --frozen-lockfile
+
+      - name: Test
+        if: hashFiles('package.json') != ''
+        run: pnpm test
+
+      - name: Build
+        if: hashFiles('package.json') != ''
+        run: pnpm build
