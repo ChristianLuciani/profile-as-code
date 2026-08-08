@@ -1,0 +1,54 @@
+name: Bug report
+description: Report a reproducible problem with the engine, schema or CI
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Fill in what you can — the more precise, the faster it gets fixed.
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Tag, commit SHA or branch you're on.
+      placeholder: "v0.1.0 / 3ceaeb8"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal commands or fixture. If it involves a profile, paste (or redact) the data.
+      placeholder: |
+        1. pnpm test --filter @profile-as-code/core
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include error output / stack trace.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - core (load/drift/geo/compile)
+        - schema (contract)
+        - CLI
+        - renderer
+        - skill
+        - CI/CD
+        - docs
+        - other
+    validations:
+      required: true

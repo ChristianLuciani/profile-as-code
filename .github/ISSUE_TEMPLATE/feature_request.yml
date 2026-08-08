@@ -1,0 +1,43 @@
+name: Feature request
+description: Propose a feature, platform, renderer or skill
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check `docs/SPEC.md` (decisions D1–D14, roadmap §12) first — some things are intentionally out of scope.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem / need?
+      description: The user need behind the request, not the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: Sketch of the solution. For big changes, expect a spec discussion (ADR-lite).
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - core
+        - schema
+        - CLI
+        - new renderer (platform)
+        - new skill (platform)
+        - GEO / i18n
+        - CI/CD
+        - docs
+        - other
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Acceptance basics
+      options:
+        - label: I've read SPEC §2 (goals / non-goals) and my request is not a non-goal
+        - label: Quantitative claims I make have a source + date
