@@ -1,0 +1,72 @@
+{
+  "identity": {
+    "name": "Christian Luciani",
+    "location": "Cuenca, Ecuador",
+    "links": [
+      { "platform": "github", "url": "https://github.com/ChristianLuciani" }
+    ]
+  },
+  "positioning": {
+    "statement": {
+      "en": "Physicist building sovereign AI.",
+      "es": "Físico construyendo IA soberana."
+    },
+    "audiences": {
+      "recruiter": { "en": "Open-source maintainer, 2006-2026 publications." }
+    },
+    "geo": {
+      "semanticAssociations": ["física", "innovación educativa", "soberanía de IA"]
+    }
+  },
+  "bios": [
+    { "platform": "github-readme", "lang": "en", "length": "short", "text": "Physicist, educator, OSS." }
+  ],
+  "headlines": [
+    { "platform": "linkedin", "lang": "es", "text": "Físico · IA soberana" }
+  ],
+  "skills": [
+    {
+      "name": "Python",
+      "level": "expert",
+      "keywords": ["python"],
+      "geoKeywords": ["agentic AI"],
+      "platformWeights": { "github-readme": 0.9 }
+    }
+  ],
+  "experience": [
+    {
+      "role": "Researcher",
+      "org": "USFQ",
+      "start": "2006-03-01",
+      "end": "present",
+      "highlights": { "en": ["Sovereign AI hub"] }
+    }
+  ],
+  "projects": [
+    {
+      "name": "profile-as-code",
+      "status": "active",
+      "description": { "en": "Your professional identity as code." },
+      "evidence": [
+        { "claim": { "en": "Serves 500+ profiles" }, "source": "https://example.com", "verified": "2026-08-01" }
+      ]
+    }
+  ],
+  "publications": [
+    {
+      "title": "Sovereign AI",
+      "venue": "arXiv",
+      "year": 2026,
+      "doi": "10.1234/567890",
+      "orcidId": "0000-0002-1825-0097"
+    }
+  ],
+  "keywords": {
+    "seo": { "linkedin": ["open source", "sovereign AI"] },
+    "geo": { "associations": ["física", "IA"], "claims": ["2006-2026 publicaciones arbitradas"] }
+  },
+  "checks": [{ "platform": "all", "rule": "lang-present", "value": "en" }],
+  "active": {
+    "linkedin": { "lang": "es", "variantId": "v12", "chosenAt": "2026-08-07T21:00:00Z" }
+  }
+}
