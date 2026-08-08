@@ -12,7 +12,7 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Contract self-test (D3): schema/profile.schema.json must stay valid and
       # keep rejecting/accepting its fixtures. Runs even before the TS workspace exists.
@@ -25,7 +25,7 @@ jobs:
       # TS workspace: these steps activate as soon as package.json lands (M1 core).
       - name: Setup pnpm
         if: hashFiles('package.json') != ''
-        uses: pnpm/action-setup@v4 # reads packageManager from package.json
+        uses: pnpm/action-setup@v6 # reads packageManager from package.json
 
       - name: Setup Node
         if: hashFiles('package.json') != ''
