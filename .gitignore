@@ -6,6 +6,8 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+# (exception: docs/build/ hosts build prompts / construction docs, not TS output)
+!docs/build/
 
 # Local data / secrets (NUNCA commiteados)
 .env
