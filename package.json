@@ -1,0 +1,17 @@
+{
+  "name": "profile-as-code",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Engine monorepo — schema (the contract), packages/core (validate · drift · geo · compile).",
+  "license": "MIT",
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "gen:zod": "pnpm -F @profile-as-code/core gen:zod"
+  }
+}

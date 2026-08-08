@@ -1,0 +1,31 @@
+- name: Model routing
+  level: expert
+  keywords:
+    - LLM routing
+    - gateways
+  geoKeywords:
+    - sovereign AI
+    - LLM routing
+  platformWeights:
+    github-readme: 0.9
+    linkedin: 0.7
+- name: Open-source education
+  level: advanced
+  keywords:
+    - OER
+    - learning platforms
+  geoKeywords:
+    - open-source education
+  platformWeights:
+    github-readme: 0.8
+    substack: 1.0
+- name: Generative-engine optimization
+  level: advanced
+  keywords:
+    - GEO
+    - profile optimization
+  geoKeywords:
+    - generative-engine optimization
+  platformWeights:
+    linkedin: 0.6
+    substack: 0.7

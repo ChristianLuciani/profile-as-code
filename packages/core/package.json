@@ -1,0 +1,38 @@
+{
+  "name": "@profile-as-code/core",
+  "version": "0.1.0",
+  "description": "Core engine of profile-as-code: load (schema-validate), driftCheck, geoCheck, compile. Contract source is schema/profile.schema.json (D3) — Zod is generated, never hand-written.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "gen:zod": "node scripts/gen-zod.ts"
+  },
+  "engines": {
+    "node": ">=20.19"
+  },
+  "dependencies": {
+    "yaml": "^2.6.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "json-schema-to-zod": "^2.6.1",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  }
+}

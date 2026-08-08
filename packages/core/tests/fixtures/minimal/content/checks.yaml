@@ -1,0 +1,12 @@
+- id: gh-bio-max
+  platform: github-readme
+  rule: max-chars
+  value: 1000
+- id: x-bio-short
+  platform: x
+  rule: max-chars
+  value: 280
+- id: geo-anchors
+  platform: all
+  rule: geo-consistent
+  value: true

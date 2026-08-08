@@ -1,0 +1,9 @@
+packages:
+  - packages/*
+
+allowBuilds:
+  esbuild: true
+
+# esbuild's postinstall fetches its platform binary (used by vitest's transform pipeline).
+onlyBuiltDependencies:
+  - esbuild
