@@ -90,7 +90,11 @@ skills + deploy playbooks**.
 | D13 | Model-agnostic default; sah as future default path | Revisit when sovereign hub matures (Q3→RESOLVED). |
 | D14 | User data in **separate repo** `user-brand-data`, integrated by configured path, no symlink in normal flow | Symlink mount only as advanced CI option (Q4→RESOLVED). |
 
-## 6. Data model (schema v1 sketch)
+## 6. Data model (schema v1)
+
+The executable contract lives in **`schema/profile.schema.json`** (JSON Schema, draft 2020-12 — D3;
+Zod generated from it in core, never hand-written). See `schema/README.md` for file mapping and
+validation semantics. The sketch below is the illustrative overview:
 
 All textual fields support `{ lang: value }` maps (EN required; ES, FR optional per field).
 Facts (dates, DOIs, URLs) are language-independent — **the GEO anchor**.
@@ -207,7 +211,7 @@ Two different "templates" (previous confusion):
 
 ## 12. Roadmap
 
-1. **M1 (now)**: spec + user-brand-data template (done) + schema v1 + core (validate/drift/geo) + CLI skeleton.
+1. **M1 (now)**: spec + user-brand-data template (done) + schema v1 ✅ (`schema/profile.schema.json`) + core (validate/drift/geo) + CLI skeleton.
 2. **M2**: renderer `github-readme` + CI + dogfood (Christian's real GitHub README).
 3. **M3**: SOTA research per platform (GitHub→LinkedIn→Upwork→X→ResearchGate→Substack) → skills v1 + `pac refine`.
 4. **M4**: renderers linkedin/upwork/x/researchgate/substack + playbooks + `pac check` + checks.yaml per skill.
