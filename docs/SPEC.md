@@ -1,12 +1,12 @@
 # SPEC — profile-as-code engine
 
-> Status: draft v0.1 · Lang: EN (docs convention; data supports any language)
+> Status: draft v0.2 · Lang: EN (docs convention; data supports any language)
 > Owner: Christian Luciani · Method: spec-driven · Related: `docs/research/01-prior-art.md`
 
 ## 1. Context
 
-A professional identity lives across 8+ platforms (LinkedIn, Upwork, GitHub, X, ResearchGate…) with
-different rules, limits, audiences and languages. Profiles drift out of sync, facts contradict each
+A professional identity lives across 8+ platforms (LinkedIn, Upwork, GitHub, X, ResearchGate, Substack…)
+with different rules, limits, audiences and languages. Profiles drift out of sync, facts contradict each
 other across networks, and there is no way to *version* one's professional presence or to make it
 consistent without copy-pasting.
 
@@ -39,10 +39,11 @@ skills + deploy playbooks**.
 
 ## 3. Success criteria (v1)
 
-- `pac build` renders all platforms from one YAML workspace; `pac validate` rejects drift and
-  schema violations; `pac check` runs skill-declared checks (char limits, live links, fact presence).
-- `pac refine <platform> [--lang en] [--variants 3]` produces N text variants via the local hub;
-  the chosen variant is committed and marked as active.
+- `pac build` renders all platforms from one YAML workspace; `pac validate` rejects schema violations,
+  warns on drift/geo (facts); `pac check` runs skill-declared checks (char limits, live links, fact presence).
+- `pac refine <platform> [--lang] [--variants N]` produces N text variants, **agent-driven and
+  model-agnostic** (the executing agent's model — AionUi, OpenHands, Claude Code, Cursor…). The chosen
+  variant is committed and marked as active. Sah/hub may become the default path once it matures (D13).
 - GitHub profile README + web are fully git/API-driven (dogfood: Christian's real profile).
 - Every quantitative claim in every skill has a dated source (claims-evidence enforced).
 - A fresh user can start from the `user-brand-data` template (fork/clone) in under 10 minutes.
@@ -53,14 +54,14 @@ skills + deploy playbooks**.
         ┌──────────────────────────── REPO PUBLIC (product) ────────────────────────────┐
         │  schema/          packages/core       packages/renderers/<platform>           │
         │  (JSON Schema) →  validate ·          (adapters: github-readme, linkedin,     │
-        │  the contract       normalize ·         upwork, x, researchgate)              │
+        │  the contract       normalize ·         upwork, x, researchgate, substack)    │
         │                     drift-check ·     packages/cli  (pac)                     │
         │                     geo-check         skills/<platform>/  (SKILL.md, research,│
         │  CI: validate · tests · links · drift  playbook, checks.yaml)                 │
         └───────────────▲───────────────────────────────────────────┬──────────────────┘
                         │ data (per user)                           │ outputs ready
         ┌───────────────┴───────────────┐        ┌──────────────────┴─────────────────┐
-        │  user-brand-data (private repo) │        │  deploy: paste (LinkedIn, Upwork…)  │
+        │  user-brand-data (private)    │        │  deploy: paste (LinkedIn, Upwork…)  │
         │  content/*.yaml · profiles/   │        │  deploy: git/API (GitHub, web)      │
         │  CHANGELOG.md · CHECKLIST.md  │        │  verify: skill checks + checklist   │
         └───────────────────────────────┘        └─────────────────────────────────────┘
@@ -83,7 +84,11 @@ skills + deploy playbooks**.
 | D7 | GEO is a cross-cutting layer | LLMs read/cite profiles today; consistency IS citability. Enforced in core, skills, renderers. |
 | D8 | Docs in EN, content multilingual (EN/ES/FR) | Open-source convention + international recruiters; user's native ES. |
 | D9 | Deploy via checklist for no-API platforms; git/API for GitHub/web | Reality of platform APIs (verified in prior art). |
-| D10 | `pac refine` uses the local sovereign hub (LiteLLM :4000 cascade) | Zero-cost, model-routing policy: mechanical→small model, judgment→bigger. |
+| D10 | `pac refine` is **model-agnostic** (executing agent's model); sah/hub as future opt-in | User decision; revisit when sah matures. |
+| D11 | Refinement is **agnostic agent-driven** (AionUi, OpenHands, Claude Code, Cursor…) | Skills drive, `pac` executes; user picks variant. No closed CLI picker. |
+| D12 | Drift-check: **warn on facts, fail on schema** | Users may have different intents per platform; integrity vs flexibility. |
+| D13 | Model-agnostic default; sah as future default path | Revisit when sovereign hub matures (Q3→RESOLVED). |
+| D14 | User data in **separate repo** `user-brand-data`, integrated by configured path, no symlink in normal flow | Symlink mount only as advanced CI option (Q4→RESOLVED). |
 
 ## 6. Data model (schema v1 sketch)
 
@@ -117,7 +122,7 @@ interface Core {
 }
 
 interface Renderer {
-  id: 'github-readme' | 'linkedin' | 'upwork' | 'x' | 'researchgate';
+  id: 'github-readme' | 'linkedin' | 'upwork' | 'x' | 'researchgate' | 'substack';
   render(p: PlatformProfile, opts): { text: string; assets?: string[] };
   deploySpec: 'git' | 'api' | 'manual';   // manual → playbook + checks
 }
@@ -132,9 +137,9 @@ interface SkillChecks {  // from skills/<platform>/checks.yaml
 | Command | Purpose |
 |---|---|
 | `pac init` | scaffold a user-brand-data workspace from the template |
-| `pac validate` | schema + drift + geo checks |
+| `pac validate` | schema (fail) + drift/geo checks (facts warn) |
 | `pac build [platform] [--lang]` | render deterministic base texts |
-| `pac refine [platform] [--lang] [--variants N] [--hub]` | AI variants via hub; user picks; commit active |
+| `pac refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
 | `pac check [platform]` | run skill-declared checks before deploy |
 | `pac diff` | what changed since last release (→ CHANGELOG hint) |
 | `pac skills:install <agent>` | project repo skills → agent skill studio (zhiweio pattern) |
@@ -148,27 +153,37 @@ GEO is not a renderer — it is enforced in four places:
    must find the same dates/roles/papers), structured-data readiness (schema.org `Person` JSON-LD
    for the web renderer), semantic association anchors (what an LLM should associate the person with).
 3. **Skills**: each platform's research includes a GEO section (how that platform is read/cited by LLMs,
-   e.g. LinkedIn/`loop` agent, X via tweet citations, GitHub README as agent context).
+   e.g. LinkedIn/`loop` agent, X via tweet citations, GitHub README as agent context, Substack via RSS).
 4. **Renderers**: web/github outputs may embed machine-readable metadata (JSON-LD, clean headers).
 
 Anti-patterns to forbid: keyword stuffing (LLMs discount it), contradictions (auto-filtered),
 unverifiable claims (no source → dropped by cite-aware systems).
 
-## 9. brand-data template (fork/clone flow)
+## 9. user-brand-data template (fork/clone flow)
 
-Delivered as `templates/brand-data/` in this repo **and** as a GitHub template repository
-(`ChristianLuciani/brand-data-template`), so a new user can `Use this template` or fork:
+Delivered as a **GitHub template repository** (`ChristianLuciani/user-brand-data-template`), so a new
+user can `Use this template` or fork. The folder `templates/user-brand-data/` in the engine repo is a
+**pointer** to it (no duplication → no drift).
+
+Name rationale: the *user-* prefix makes explicit the workspace is **per user** — individual profiles
+today, **commercial/brand identities** later (multi-workspace: one workspace per identity, same engine).
 
 ```
-brand-data/
+user-brand-data/
 ├── README.md            # instructions: fork/clone, install pac, first build
 ├── content/             # identity.yaml, positioning.yaml, bios.yaml, skills.yaml,
 │                        # experience.yaml, projects.yaml, publications.yaml, keywords.yaml
 ├── profiles/            # generated outputs (committed: they ARE the deploy artifacts)
 ├── CHANGELOG.md         # every change: date + which platforms need re-paste
 ├── CHECKLIST.md         # per-platform verification after pasting
-└── .pacrc               # points to installed pac + hub URL + defaults
+└── .pacrc               # workspace path, defaults (D11–D14)
 ```
+
+**Integration (Q4→D14):** the engine never copies or owns user data — it reads the workspace by
+**configured path** (`.pacrc → workspace`). No symlink in the normal flow. A **symlink mount**
+(`workspaces/<user>/` → external repo) is an advanced option so engine-CI can validate user data
+without copying it. The engine only writes to the workspace when the user runs `pac refine`
+and picks a variant.
 
 Private by default (GitHub private repo or local git). Never part of the public product repo.
 
@@ -178,7 +193,8 @@ Two different "templates" (previous confusion):
 
 - `templates/playbooks/` — per-platform **deploy playbooks** (copy-paste steps, verification) that the
   product ships; referenced by `manual` renderers.
-- `templates/brand-data/` — the **user data workspace skeleton** (§9). Fork/clone, not built-in.
+- `templates/user-brand-data/` — **pointer** to the per-user workspace skeleton repo (§9). Fork/clone,
+  not built-in.
 
 ## 11. i18n strategy
 
@@ -191,15 +207,26 @@ Two different "templates" (previous confusion):
 
 ## 12. Roadmap
 
-1. **M1 (now)**: spec + user-brand-data template + schema v1 + core (validate/drift/geo) + CLI skeleton.
+1. **M1 (now)**: spec + user-brand-data template (done) + schema v1 + core (validate/drift/geo) + CLI skeleton.
 2. **M2**: renderer `github-readme` + CI + dogfood (Christian's real GitHub README).
-3. **M3**: SOTA research per platform (GitHub→LinkedIn→Upwork→X→ResearchGate) → skills v1 + `pac refine` (hub).
-4. **M4**: renderers linkedin/upwork/x/researchgate + playbooks + `pac check` + checks.yaml per skill.
-5. **M5**: web renderer (cv-cluciani consumes generated profiles), template repo release, CONTRIBUTING.
+3. **M3**: SOTA research per platform (GitHub→LinkedIn→Upwork→X→ResearchGate→Substack) → skills v1 + `pac refine`.
+4. **M4**: renderers linkedin/upwork/x/researchgate/substack + playbooks + `pac check` + checks.yaml per skill.
+5. **M5**: web renderer (cv-cluciani consumes generated profiles), template release, CONTRIBUTING.
 
-## 13. Open questions
+## 13. Resolved decisions (former open questions)
 
-- Q1: variant selection UX — CLI picker vs agent-driven conversation? (proposal: agent-driven via skill)
-- Q2: drift-check granularity — warnings vs hard-fail in CI? (proposal: warn on facts, fail on schema)
-- Q3: `--hub` default model cascade per skill frontmatter (model-routing policy) — confirm with sah skill.
-- Q4: should brand-data be a separate GitHub repo or a gitignored dir of a monorepo? (proposal: separate repo)
+- **Q1 → D11 (RESOLVED):** refinement is **agnostic agent-driven** — works with any agent
+  (AionUi, OpenHands, Claude Code, Cursor…). No closed CLI picker; the agent (running `pac refine` or
+  the platform skill) produces variants, the user picks, the chosen variant is committed.
+- **Q2 → D12 (RESOLVED):** drift-check **warns on facts, fails on schema** — users may legitimately
+  have different intents per platform; facts warn (visibility), schema violations fail (integrity).
+- **Q3 → D13 (RESOLVED):** model-agnostic by default — uses the executing agent's model. When `sah`
+  (sovereign-agentic-hub) matures, revisit as default path.
+- **Q4 → D14 (RESOLVED):** **separate repo** `user-brand-data`; integration by **configured path**
+  (`.pacrc → workspace`), no symlink in the normal flow; symlink mount only as engine-CI option.
+
+## 14. Open questions (remaining)
+
+- Q5: Substack adds a *content* surface (newsletter) beyond profile fields — v1 covers the profile
+  page only, or also issue templates?
+- Q6: CI-as-a-service for user workspaces (symlink mount) — worth it in v1 or later?
