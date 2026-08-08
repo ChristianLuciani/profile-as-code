@@ -22,3 +22,6 @@ Thumbs.db
 
 # Research drafts
 docs/research/_drafts/
+
+# Harness artifacts (pi/AionUi session skills)
+.pi/
