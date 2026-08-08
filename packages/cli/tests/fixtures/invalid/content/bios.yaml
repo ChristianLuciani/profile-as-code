@@ -1,0 +1,4 @@
+- platform: github-readme
+  lang: en
+  length: short
+  text: Missing identity — schema requires identity.name
