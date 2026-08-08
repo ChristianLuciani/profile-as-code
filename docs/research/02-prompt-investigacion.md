@@ -98,4 +98,18 @@ Research questions sugeridas:
 - No optimices para el engagement vacío: la prioridad es credibilidad + conversión real (reclutador, cliente).
 - Al final: **veredicto de 3 bullets** por plataforma ("lo que la skill DEBE codificar", "lo que DEBE evitar", "riesgos").
 
+## Sección GEO transversal (obligatoria en TODA plataforma)
+
+Los LLM (ChatGPT, Gemini, Perplexity, Claude…) leen perfiles y los citan o los descartan. Para cada plataforma, agregá al final de tu investigación una sub-sección `## GEO — cómo los LLM leen esta plataforma` con:
+
+- ¿Cómo accede un LLM a esta plataforma? (p. ej. LinkedIn: agentes/`loop`/API de partners; GitHub: README como contexto; X: citas y enlaces; ResearchGate: indexación).
+- ¿Qué usa un LLM para citar a una persona como fuente/autoridad (consistencia factual entre redes, DOI/ORCID resolubles, presencia en datasets públicos)?
+- Checks de GEO que la skill debe codificar: los hechos que deben ser IDÉNTICOS en todas las superficies (fechas, roles, papers) — una contradicción entre LinkedIn y GitHub es motivo de descarte.
+- Structured data: ¿qué campos de schema.org (`Person`, `author`, `sameAs`) aplican al renderer web/GitHub?
+- Anclas semánticas: 3-5 asociaciones que un LLM debería conectar con la persona (p. ej. "física + innovación educativa + soberanía de IA") y cómo sembrarlas sin stuffing.
+
+## Multilingüe
+
+Cada plataforma: indicá la **política de idioma** (qué `lang` priorizar y por qué — p. ej. Upwork overview EN-first para clientes internacionales; LinkedIn según mercado objetivo; X mixto EN/ES). Los textos del producto soportan EN/ES/FR; la investigación debe cubrir cómo el idioma afecta ranking y percepción en cada red.
+
 ## Fin del prompt

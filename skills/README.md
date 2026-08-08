@@ -29,9 +29,13 @@ skills/<plataforma>/
    `[BENCHMARK]` patrón observado en perfiles reales · `[?]` sin confirmar.
 3. **Frontmatter con modelo sugerido:** las skills declaran qué nivel de modelo requieren
    (mecánico = modelo pequeño; juicio = modelo grande) para el refinamiento vía `pac refine`.
-4. **Contribución:** PR de skills para plataformas que no cubrimos. Toda skill pasa por
+4. **GEO obligatorio por skill:** además de SEO, cada skill documenta cómo los LLM leen/citan
+   esa plataforma (p. ej. LinkedIn vía agentes, X vía citas, GitHub README como contexto de agente)
+   y qué checks de consistencia factual aplican.
+5. **i18n por skill:** la política de idioma de cada plataforma (qué `lang` prioriza y por qué).
+6. **Contribución:** PR de skills para plataformas que no cubrimos. Toda skill pasa por
    sanitización + security scan + test de comportamiento antes de aceptarse.
-5. **No optimizar engagement vacío:** la prioridad es credibilidad + conversión real
+7. **No optimizar engagement vacío:** la prioridad es credibilidad + conversión real
    (reclutador, cliente), no métricas superficiales.
 
 ## Plataformas objetivo (orden de prioridad)

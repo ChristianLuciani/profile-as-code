@@ -36,8 +36,14 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 
 - **Hechos y storytelling separados:** los datos son deterministas (schema, validación, drift-check);
   los textos son *ángulos* por plataforma, generados con IA y **elegidos por vos** (3 variantes → elegís una).
-- **Skills por plataforma** (una por LinkedIn, Upwork, GitHub, X…): límites oficiales, ranking/SEO,
+- **Skills por plataforma** (una por LinkedIn, Upwork, GitHub, X…): límites oficiales, ranking/**SEO+GEO**,
   ángulos por audiencia, trampas y *checks* ejecutables. Se proyectan a tu skill-studio de agente.
+- **GEO (generative engine optimization) como capa transversal:** los LLM leen y citan perfiles hoy.
+  La consistencia factual cross-platform ES citabilidad — un modelo que cruza LinkedIn vs GitHub y encuentra
+  contradicciones te descarta. El `geoCheck` del core garantiza hechos idénticos, anclas semánticas y
+  readiness para datos estructurados (schema.org JSON-LD).
+- **Multilingüe:** contenido por idioma (`EN` esencial para reclutadores internacionales, `ES` nativo,
+  `FR` deseable). Docs del repo en inglés.
 - **Deploy como checklist:** las plataformas sin API (LinkedIn, Upwork) se marcan como "pegar + verificar";
   las con API (GitHub) se actualizan por git/API.
 
@@ -46,8 +52,8 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 | Fase | Estado |
 |---|---|
 | Prior-art research | ✅ `docs/research/01-prior-art.md` |
-| Investigación SOTA por plataforma | 🔜 pendiente — ver `docs/research/RUN.md` |
-| Spec | ⏳ |
+| Spec | ✅ `docs/SPEC.md` (incluye GEO, i18n, template brand-data) |
+| Investigación SOTA por plataforma | 🔜 pendiente — asistente **SOTA Research** en AionUi, ver `docs/research/RUN.md` |
 | Motor (schema → core → CLI) | ⏳ |
 | Renderer GitHub (dogfood) | ⏳ |
 
@@ -65,14 +71,17 @@ profile-as-code/
 │   ├── upwork/
 │   ├── github-readme/
 │   └── …
-├── templates/            # playbooks de deploy por plataforma
+├── templates/
+│   ├── playbooks/        # deploy por plataforma (pasos + verificación)
+│   └── brand-data/       # workspace de datos del usuario — template fork/clone (§9 de la SPEC)
 ├── examples/             # data de muestra (persona ficticia)
 └── docs/
     ├── research/         # prior-art + prompts de investigación
-    └── SPEC.md           # (próximo)
+    └── SPEC.md           # contrato del motor
 ```
 
-Los datos reales de cada usuario viven en un **repo privado separado** (p. ej. `brand-data/`), nunca aquí.
+Los datos reales de cada usuario viven en un **repo privado separado** (`brand-data/`), nunca aquí.
+Cada usuario arranca con el template `templates/brand-data/` (fork o clone) — ver `docs/SPEC.md` §9.
 
 ## Contribuir
 
