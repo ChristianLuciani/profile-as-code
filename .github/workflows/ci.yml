@@ -12,7 +12,7 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Contract self-test (D3): schema/profile.schema.json must stay valid and
       # keep rejecting/accepting its fixtures. Runs even before the TS workspace exists.
