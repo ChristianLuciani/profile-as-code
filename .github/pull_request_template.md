@@ -8,7 +8,7 @@
 
 ## Definition of Done
 
-- [ ] Branch follows the `aionui/pi/<feature>` convention — never commit to `main`
+- [ ] Never committed to `main` — changes live on a descriptive feature branch
 - [ ] CI (`ci`) is green (schema contract self-test + `pnpm test` / `pnpm build`)
 - [ ] Tests added/updated for changed behavior (or explicit reason why not)
 - [ ] Docs updated if behavior, contract or schema changed (`docs/`, `schema/`)

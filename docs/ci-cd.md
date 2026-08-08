@@ -1,12 +1,14 @@
 # Repo configuration — branch protection, CI/CD (free plan)
 
-> How this repository is protected and automated. Status: active on `main`.
-> All features below work on **GitHub Free** because the repository is **public**
-> (public repos get branch protection, unlimited Actions minutes and Dependabot for free).
+> How this repository is protected and automated. Status: **private** (per `docs/STANDARDS.md`).
+> **Free-plan reality:** branch protection and rulesets are ONLY available on public repos (or
+> GitHub Pro). While this repo is private, protection is enforced by **process**: access control +
+> PR-only flow + maintainer-only merges. The API calls below are the **public-ready step** —
+> re-apply them the moment the repo goes public.
 
 ## Branch protection — `main`
 
-Applied via the REST API (see "How to change" below). Current rule:
+Applied via the REST API (see "How to change" below) when the repo is public. Current rule:
 
 | Setting | Value | Why |
 |---|---|---|
@@ -17,7 +19,7 @@ Applied via the REST API (see "How to change" below). Current rule:
 | Enforce for admins | ✅ | Even the owner/agents cannot bypass — this is the point of protection (agent-work safety). Emergency hotfix: temporarily disable the rule, then re-enable |
 | Allow force pushes | ❌ | History on `main` is immutable |
 | Allow deletions | ❌ | `main` cannot be deleted |
-| Automatically delete head branches | ✅ | Merged PR branches are auto-deleted (this session's `aionui/pi/*` branches) |
+| Automatically delete head branches | ✅ | Merged PR branches are auto-deleted |
 
 ## CI — `.github/workflows/ci.yml`
 

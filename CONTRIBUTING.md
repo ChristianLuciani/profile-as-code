@@ -18,8 +18,9 @@ every decision lives in [`docs/SPEC.md`](docs/SPEC.md) (decisions D1–D14). Rea
 
 1. **Never push to `main`.** It is protected: every change goes through a PR with the `ci`
    check green (schema contract self-test + `pnpm test` + `pnpm build`).
-2. **Branch convention:** work on a branch named `aionui/pi/<feature>` (or `fix/<topic>` for
-   small fixes). If you use worktrees (recommended): `../.worktrees/<name>`.
+2. **Work on a descriptive branch** (e.g. `feat/<topic>`, `fix/<topic>`) — never push to
+   `main`. The maintainer merges PRs. (Note: `aionui/pi/…` branch names come from the author's
+   agent harness, not a project convention.)
 3. **Evidence rule (skills):** every quantitative claim carries a URL + verification date.
    `[OFICIAL]` / `[EXPERTO]` / `[BENCHMARK]` / `[?]` — no source, no entry.
 4. **Docs in English (D8).** Code comments too, when present.
@@ -50,7 +51,7 @@ python3 -m venv /tmp/schema-venv
 
 1. Pick an issue (or open one first — discuss before big changes; the contract and core
    interfaces are deliberately designed, see SPEC §7).
-2. Create your branch (`aionui/pi/<feature>`), commit in small logical steps.
+2. Create your branch (descriptive name, e.g. `feat/<topic>`), commit in small logical steps.
 3. Push and open a PR. Use the [PR template](.github/pull_request_template.md) (auto-applied).
 4. Ensure the `ci` check is green and your branch is up to date with `main`.
 5. Address review comments; all conversations must be resolved before merge.
