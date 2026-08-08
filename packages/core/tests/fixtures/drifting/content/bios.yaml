@@ -1,0 +1,12 @@
+- platform: github-readme
+  lang: en
+  length: short
+  text: Sovereign AI infrastructure engineer.
+- platform: github-readme
+  lang: en
+  length: short
+  text: Sovereign AI infra engineer (duplicate).
+- platform: linkedin
+  lang: en
+  length: medium
+  text: Senior AI engineer at Nimbus Labs since 2022.

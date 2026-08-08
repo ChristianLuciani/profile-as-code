@@ -1,0 +1,8 @@
+- name: Model routing
+  level: expert
+  keywords:
+    - LLM routing
+- name: Model routing
+  level: novice
+  keywords:
+    - LLM routing

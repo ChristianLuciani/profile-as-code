@@ -1,0 +1,29 @@
+- platform: github-readme
+  lang: en
+  length: long
+  text: Elena Vasquez builds sovereign AI infrastructure. She leads the open-source
+    sovereign-agentic-hub project, routes LLM traffic to local-first providers and
+    writes about generative-engine optimization for professional profiles.
+- platform: github-readme
+  lang: en
+  length: short
+  text: Sovereign AI infrastructure · open-source education · generative-engine optimization.
+- platform: linkedin
+  lang: en
+  length: medium
+  text: Senior AI engineer designing local-first LLM infrastructure used by 12+
+    deployments. Previously ML engineer at Dataforge. 8 years in ML platforms.
+- platform: linkedin
+  lang: es
+  length: medium
+  text: Ingeniera senior de IA diseñando infraestructura local-first para LLMs,
+    usada en más de 12 despliegues. Antes ingeniera de ML en Dataforge.
+- platform: upwork
+  lang: en
+  length: long
+  text: "I architect sovereign AI stacks: model routing, local inference, and
+    evaluation pipelines for teams that want provider independence."
+- platform: x
+  lang: en
+  length: short
+  text: Building sovereign AI infra. Open education. GEO for profiles.

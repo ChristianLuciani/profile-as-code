@@ -1,0 +1,12 @@
+name: Elena Vasquez
+location: Madrid, Spain
+links:
+  - platform: github
+    label: GitHub
+    url: https://github.com/elenavasquez
+  - platform: github
+    label: GitHub (duplicate)
+    url: https://github.com/elenavasquez
+  - platform: orcid
+    label: ORCID
+    url: https://orcid.org/0000-0002-2222-2222
