@@ -11,7 +11,7 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 export interface PacrcDefaults {
   lang?: 'en' | 'es' | 'fr';
@@ -64,9 +64,10 @@ export function resolveWorkspace(cwd: string, flag?: string): string {
 
   const found = readPacrc(cwd);
   if (found !== null && found.pacrc.workspace !== undefined) {
-    // Relative to the .pacrc file, so a workspace in another directory works
-    // and `"workspace": "."` at the workspace root works.
-    return resolve(found.pacrcPath, found.pacrc.workspace);
+    // Relative to the DIRECTORY that holds the .pacrc file (dirname), so a
+    // workspace in another directory works and `"workspace": "."` at the
+    // workspace root resolves to the workspace root itself.
+    return resolve(dirname(found.pacrcPath), found.pacrc.workspace);
   }
   return cwd;
 }
