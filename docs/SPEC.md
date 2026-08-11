@@ -5,7 +5,7 @@
 
 ## 1. Context
 
-A professional identity lives across 8+ platforms (LinkedIn, Upwork, GitHub, X, ResearchGate, Substack…)
+A professional identity lives across 8+ platforms (LinkedIn, Upwork, GitHub, X, ResearchGate, Substack, Patreon…)
 with different rules, limits, audiences and languages. Profiles drift out of sync, facts contradict each
 other across networks, and there is no way to *version* one's professional presence or to make it
 consistent without copy-pasting.

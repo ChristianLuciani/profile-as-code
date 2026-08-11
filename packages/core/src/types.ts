@@ -49,6 +49,7 @@ export const PLATFORMS: readonly Platform[] = [
   'x',
   'researchgate',
   'substack',
+  'patreon',
 ] as const;
 
 export const LANGS: readonly Lang[] = ['en', 'es', 'fr'] as const;

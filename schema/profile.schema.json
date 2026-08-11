@@ -87,8 +87,8 @@
 
     "platform": {
       "type": "string",
-      "enum": ["github-readme", "linkedin", "upwork", "x", "researchgate", "substack"],
-      "description": "v1 platform set. Substack added in D-scope; web renderer consumes compiled profiles (M5)."
+      "enum": ["github-readme", "linkedin", "upwork", "x", "researchgate", "substack", "patreon"],
+      "description": "v1 platform set. Substack and Patreon added in D-scope; web renderer consumes compiled profiles (M5)."
     },
 
     "identity": {
