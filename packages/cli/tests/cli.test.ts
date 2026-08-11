@@ -304,6 +304,18 @@ describe('workspace resolution (D14: .pacrc → configured path)', () => {
     expect(r.stdout).toContain('valid');
   });
 
+  it('resolves a RELATIVE .pacrc workspace against the .pacrc dir (regression: dirname, not file path)', () => {
+    // Fixture workspace copied into a temp dir; .pacrc at its root uses the
+    // documented `"workspace": "."` form (workspace root itself).
+    const dir = tempDir();
+    copyFixture(MINIMAL, dir);
+    writeFileSync(join(dir, '.pacrc'), JSON.stringify({ workspace: '.' }));
+    const r = run(['validate'], dir); // cwd = dir with .pacrc
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain('valid');
+    expect(r.stdout).not.toContain('no content/');
+  });
+
   it('--workspace flag wins over .pacrc', () => {
     const dir = tempDir();
     writeFileSync(join(dir, '.pacrc'), JSON.stringify({ workspace: '/nonexistent' }));
