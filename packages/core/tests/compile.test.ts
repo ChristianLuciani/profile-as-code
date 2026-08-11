@@ -1,12 +1,37 @@
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { compile, load } from '../src/index.js';
+import { compile, load, PLATFORMS } from '../src/index.js';
 import type { Platform } from '../src/index.js';
 
 const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
 const minimal = () => load(fixture('minimal'));
 
 describe('compile(profile, platform, lang)', () => {
+  it('accepts every platform in the schema enum (incl. patreon)', () => {
+    const platforms: readonly Platform[] = [
+      'github-readme',
+      'linkedin',
+      'upwork',
+      'x',
+      'researchgate',
+      'substack',
+      'patreon',
+    ];
+    for (const p of platforms) {
+      expect(() => compile(minimal(), p, 'en')).not.toThrow();
+    }
+  });
+
+  it('PLATFORMS mirrors the schema enum (single source of truth guard)', () => {
+    // Regression guard for the duplication fix: packages/core/src/types.ts PLATFORMS
+    // must never drift from schema/profile.schema.json $defs.platform.enum.
+    const schema = JSON.parse(
+      readFileSync(fileURLToPath(new URL('../../../schema/profile.schema.json', import.meta.url)), 'utf8'),
+    ) as { $defs: { platform: { enum: string[] } } };
+    expect([...PLATFORMS].sort()).toEqual([...schema.$defs.platform.enum].sort());
+  });
+
   it('slices bios and headlines by platform+lang', () => {
     const compiled = compile(minimal(), 'linkedin', 'en');
 

@@ -176,6 +176,7 @@ describe('pac build (compile slices)', () => {
       'x',
       'researchgate',
       'substack',
+      'patreon',
     ]);
     // only renderer platforms write artifacts (github-readme in M2)
     expect(data.data.written.map((w) => w.platform)).toEqual(['github-readme']);

@@ -5,18 +5,14 @@
  * platform (that is what makes them GEO-citable). Only text (bios, headlines,
  * statement, audiences, citationsGoal) is filtered by platform+lang, falling back
  * to `en` when the requested lang is absent (EN is always required by the schema).
+ *
+ * The platform set is the single `PLATFORMS` const from types.js (mirror of the
+ * schema enum) — never duplicated here.
  */
 
 import type { Lang, Platform, PlatformProfile, Profile } from './types.js';
+import { PLATFORMS } from './types.js';
 
-const PLATFORM_IDS: readonly string[] = [
-  'github-readme',
-  'linkedin',
-  'upwork',
-  'x',
-  'researchgate',
-  'substack',
-] as const;
 const LANG_IDS: readonly string[] = ['en', 'es', 'fr'] as const;
 
 /**
@@ -26,8 +22,8 @@ const LANG_IDS: readonly string[] = ['en', 'es', 'fr'] as const;
  *   not a user-data problem).
  */
 export function compile(profile: Profile, platform: Platform, lang: Lang = 'en'): PlatformProfile {
-  if (!(PLATFORM_IDS as readonly string[]).includes(platform)) {
-    throw new TypeError(`compile: unknown platform "${String(platform)}" (allowed: ${PLATFORM_IDS.join(', ')})`);
+  if (!(PLATFORMS as readonly string[]).includes(platform)) {
+    throw new TypeError(`compile: unknown platform "${String(platform)}" (allowed: ${PLATFORMS.join(', ')})`);
   }
   if (!(LANG_IDS as readonly string[]).includes(lang)) {
     throw new TypeError(`compile: unknown language "${String(lang)}" (allowed: ${LANG_IDS.join(', ')})`);
