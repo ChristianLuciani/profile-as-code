@@ -57,7 +57,7 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 | Fase | Estado |
 |---|---|
 | Prior-art research | ✅ `docs/research/01-prior-art.md` |
-| Spec (D1–D14 resueltas) | ✅ `docs/SPEC.md` (GEO, i18n, user-brand-data, Substack) |
+| Spec (D1–D14 resueltas) | ✅ `docs/SPEC.md` (GEO, i18n, profile-data, Substack) |
 | Investigación SOTA por plataforma | 🔜 pendiente — asistente **SOTA Research**, ver `docs/research/RUN.md` |
 | Schema JSON v1 (contrato) | ✅ `schema/profile.schema.json` |
 | Core engine (load · drift · geo · compile) | ✅ `packages/core` (37 tests, CI) |
@@ -88,7 +88,7 @@ pnpm gen:zod         # regenera Zod desde schema/profile.schema.json (D3)
 2. **M2** renderer `github-readme` + CI + dogfood
 3. **M3** investigación SOTA → skills v1 + `pac refine` (hub local)
 4. **M4** renderers linkedin/upwork/x/researchgate/substack + playbooks + `pac check`
-5. **M5** renderer web, template `user-brand-data` release, CONTRIBUTING completo
+5. **M5** renderer web, template `profile-data` release, CONTRIBUTING completo
 
 ## Estructura
 
@@ -102,13 +102,13 @@ profile-as-code/
 ├── skills/               # skills por plataforma (conocimiento SOTA)
 ├── templates/
 │   ├── playbooks/        # deploy por plataforma (pasos + verificación)
-│   └── user-brand-data/  # workspace de datos del usuario — template fork/clone (SPEC §9)
+│   └── profile-data/  # workspace de datos del usuario — template fork/clone (SPEC §9)
 ├── examples/             # data de muestra (persona ficticia)
 └── docs/                 # SPEC, research, ci-cd, build prompts
 ```
 
-Los datos reales de cada usuario viven en un **repo privado separado** (`user-brand-data/`), nunca aquí.
-Cada usuario arranca con el template `templates/user-brand-data/` (fork o clone) — ver `docs/SPEC.md` §9.
+Los datos reales de cada usuario viven en un **repo privado separado** (`profile-data/`), nunca aquí.
+Cada usuario arranca con el template `templates/profile-data/` (fork o clone) — ver `docs/SPEC.md` §9.
 
 ## Comunidad
 

@@ -13,7 +13,7 @@ Repo: `/Users/eva/PROJECTOS/GitHub/ChristianLuciani/profile-as-code` — worktre
 - **Contract**: `schema/profile.schema.json` — JSON Schema 2020-12, the single contract source (D3)
 - **Contract doc**: `schema/README.md` (content file → property mapping, validation semantics)
 
-Milestone M1 status: spec ✅ · user-brand-data template ✅ · schema v1 ✅ → **core + repo bootstrap** is next.
+Milestone M1 status: spec ✅ · profile-data template ✅ · schema v1 ✅ → **core + repo bootstrap** is next.
 
 In parallel, the SOTA research per platform (GitHub → LinkedIn → Upwork → X → ResearchGate → Substack) runs in
 another AionUi session. The core does NOT depend on it: interfaces are platform-agnostic (the 6-platform enum is

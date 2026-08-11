@@ -1,5 +1,5 @@
 /**
- * load(workspace) — parse `content/*.yaml` of a user-brand-data workspace, merge
+ * load(workspace) — parse `content/*.yaml` of a profile-data workspace, merge
  * into one Profile, validate against the generated Zod schema (fail on schema,
  * D12) and normalize.
  *
@@ -106,7 +106,7 @@ function readContentFiles(workspace: string): Record<string, unknown> {
 }
 
 /**
- * Load a user-brand-data workspace into a normalized, schema-valid Profile.
+ * Load a profile-data workspace into a normalized, schema-valid Profile.
  *
  * @param workspace path to the workspace root (must contain `content/`)
  * @throws LoadError — workspace problems (missing content dir, YAML errors, duplicate root keys)

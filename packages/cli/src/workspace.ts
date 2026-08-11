@@ -1,5 +1,5 @@
 /**
- * Workspace resolution (D14): `pac` reads a user-brand-data workspace by
+ * Workspace resolution (D14): `pac` reads a profile-data workspace by
  * CONFIGURED PATH, never by copying or owning user data.
  *
  * Resolution order:
@@ -12,6 +12,14 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+
+/**
+ * The workspace product name (SPEC §9 terminology) — the SSOT repo a user
+ * owns with their professional facts. Single source for every user-facing
+ * string that names the workspace (init templates, help text) — never
+ * hardcoded per file.
+ */
+export const WORKSPACE_NAME = 'profile-data';
 
 export interface PacrcDefaults {
   lang?: 'en' | 'es' | 'fr';

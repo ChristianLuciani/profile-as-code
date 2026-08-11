@@ -12,7 +12,7 @@ minor versions may contain breaking contract changes.
 ### Added
 
 - **Schema contract v1** — `schema/profile.schema.json` (JSON Schema 2020-12, D3): the single
-  contract for a `user-brand-data` workspace. i18n `langMap` with EN required, GEO anchors,
+  contract for a `profile-data` workspace. i18n `langMap` with EN required, GEO anchors,
   evidence claims, declarative checks, active variant selection.
 - **Core engine (M1)** — `packages/core`: `load()` (YAML → validate → normalize), `driftCheck()`
   (factual contradictions, warn semantics D12), `geoCheck()` (consistency score + structured-data
@@ -25,7 +25,7 @@ minor versions may contain breaking contract changes.
 
 ### Changed
 
-- Spec consolidated (D1–D14 resolved): Substack as platform, user-brand-data as separate repo,
+- Spec consolidated (D1–D14 resolved): Substack as platform, profile-data as separate repo,
   model-agnostic `pac refine`.
 
 ### Planned (roadmap)
@@ -33,4 +33,4 @@ minor versions may contain breaking contract changes.
 - Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
 - CLI `pac`: build · validate · diff · check · refine · skills:install (M1/M3)
 - Per-platform skills v1 from SOTA research (M3)
-- `user-brand-data` template repo + web renderer (M5)
+- `profile-data` template repo + web renderer (M5)

@@ -1,6 +1,6 @@
 # schema/ — the contract (D3)
 
-`profile.schema.json` is the **single source of contract truth** for a user-brand-data
+`profile.schema.json` is the **single source of contract truth** for a profile-data
 workspace (JSON Schema, draft 2020-12). Per D3, JSON Schema is the contract source and
 **Zod schemas are generated from it** in `packages/core` — never hand-written in parallel.
 
