@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@profile-as-code/core": "workspace:*",
+    "@profile-as-code/renderers-github-readme": "workspace:*",
     "yaml": "^2.6.1"
   },
   "devDependencies": {
