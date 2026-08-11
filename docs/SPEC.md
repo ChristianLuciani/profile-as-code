@@ -322,3 +322,49 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
 
 Publications lack `authors`/`url` fields and identity lacks `handle`/`timezone` — the SSOT keeps
 these as workspace-local comments until the contract amendments land (schema v1.1, spec-first).
+
+## 16. M3 — platform skills + `pac refine` (detail)
+
+M3 delivers the **communicative layer** (D4/D5): skills per platform that an executing
+agent applies to the SSOT data to produce prose variants the user chooses. The deterministic
+renderer (M2) stays as the ground-truth layer; the skill is the judgment layer.
+
+### 16.1 Skill structure (per platform)
+
+```
+skills/<platform>/
+├── SKILL.md            # frontmatter (model needed, projection) + communicative strategy
+├── research/           # SOTA-<year>.md — dated, evidence-tagged sources
+├── playbook.md         # deploy steps + post-deploy verification
+└── checks.yaml         # machine-readable criteria for `pac check` (rule catalog)
+```
+
+First platform: **`github-readme`** — the only 100% git/API-deployable surface.
+
+### 16.2 Refine flow (D10/D11/D13 — agnostic agent-driven)
+
+1. `pac refine <platform> [--lang] [--variants N]` emits the agent task: the facts
+   (compile slice) + a pointer to `skills/<platform>/SKILL.md`. The CLI never calls an
+   LLM and never wires the hub (D13).
+2. The executing agent (AionUi, OpenHands, Claude Code, Cursor, pi…) reads the skill
+   and produces N variants in prose — the human picks one.
+3. `pac refine <platform> --choose <variantId>` records the choice in `content/active.yaml`
+   (the LIVE variant per platform, D11).
+
+### 16.3 github-readme skill — strategy (summary)
+
+- **Pattern**: OSS Maintainer / minimalist-senior (stewardship signal, not CV dump).
+- **Structure**: header (name + one-liner + canonical badges) → hook (who + why, prose)
+  → what I'm building NOW (2–3 projects with evidence) → stewardship evidence
+  (upstream PRs, papers) → stack as signal (4–6 techs) → ONE CTA → visual footer.
+- **Aesthetic**: dark-first, restraint (one stats widget max, no typing animations),
+  `<details>` accordions for secondary material, centered header, no decorative emoji.
+- **Integrity**: facts byte-identical to the SSOT; URLs only from `identity.links`;
+  GEO anchors woven naturally (no stuffing).
+- **Sources**: `skills/github-readme/research/SOTA-2026.md` (dated, evidence-tagged).
+
+### 16.4 Dogfood acceptance (M3)
+
+Christian's profile README becomes a **curated prose variant** (chosen by him) recorded
+as active — the deterministic build stays as the verification snapshot. The generated
+README no longer ships as the final page; the skill-produced variant does.

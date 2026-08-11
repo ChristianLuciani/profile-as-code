@@ -11,7 +11,8 @@
 import { compile, load, LoadError, SchemaValidationError } from '@profile-as-code/core';
 import type { Lang, Platform } from '@profile-as-code/core';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseDocument, stringify } from 'yaml';
 import { parseLang, parsePlatform, parseVariants, UsageError } from '../contract.js';
 import { EXIT } from '../exit.js';
@@ -20,7 +21,20 @@ import type { Pacrc } from '../workspace.js';
 import { defaultsLang } from '../workspace.js';
 
 export const REFINE_OWNER =
-  'M3 SOTA research per platform → skills v1 + the full refine flow (SPEC §12 M3); model-agnostic (D10/D11/D13)';
+  'M3 SOTA research per platform → skills v1 + the full refine flow (SPEC §12/§16 M3); model-agnostic (D10/D11/D13)';
+
+/**
+ * Locate the platform skill (SPEC §16.1) relative to the CLI install
+ * (repo dev flow: <repo>/skills/<platform>/SKILL.md). Returns undefined when
+ * the skill is not installed (e.g. npm-installed CLI without skills shipped).
+ */
+function platformSkillPath(platform: string): string | undefined {
+  const here = dirname(fileURLToPath(import.meta.url)); // packages/cli/dist/commands
+  const candidates = [
+    join(here, '..', '..', '..', '..', 'skills', platform, 'SKILL.md'), // repo dev
+  ];
+  return candidates.find((p) => existsSync(p));
+}
 
 export interface RefineArgs {
   workspace: string;
@@ -108,13 +122,17 @@ export function runRefine(args: RefineArgs): number {
   const projects = slice.projects.map((p) => p.name).join(', ');
   const publications = slice.publications.map((p) => p.title).join(' | ');
   const anchors = slice.keywords.geo.associations?.join(', ') ?? '';
+  const skillPath = platformSkillPath(platform);
 
   const template = [
-    `# pac refine — task template (STUB, agent-driven: D10/D11/D13; no LLM call, no hub)`,
-    `Write ${variants} variant(s) of the ${platform} profile text in ${lang}.`,
+    `# pac refine — agent task (agent-driven: D10/D11/D13; no LLM call, no hub)`,
+    `Write ${variants} variant(s) of the ${platform} profile in ${lang} — in PROSE, per the platform skill.`,
     ``,
     `Platform: ${platform}`,
     `Language: ${lang}`,
+    `Skill (communicative strategy — READ IT FIRST): ${skillPath ?? '(not installed — fall back to the deterministic renderer output)'}`,
+    `Research (dated sources): ${skillPath === undefined ? '—' : skillPath.replace(/SKILL\.md$/, 'research/SOTA-2026.md')}`,
+    `Variant id convention: ${platform.replace(/[^a-z]/g, '')}-${lang}-<n> (e.g. gh-en-1, gh-en-2, gh-en-3).`,
     ``,
     `Facts (language-independent — MUST stay byte-identical across variants and platforms):`,
     `  name: ${identity.name}`,
@@ -135,12 +153,10 @@ export function runRefine(args: RefineArgs): number {
     `  - Facts never change (D4) — only storytelling/angles vary.`,
     `  - Every text langMap must include 'en' (contract requirement) and the requested lang.`,
     `  - Never invent URLs, DOIs or numbers — evidence claims stay untouched.`,
-    `  - Platform-specific limits come from the platform skill (M3) — not enforced in M1.`,
+    `  - Platform-specific limits come from the platform skill (SPEC §16) + checks.yaml.`,
     ``,
-    `Workflow: produce the ${variants} variant(s); the user picks one; record it with:`,
+    `Workflow: read the skill → produce the ${variants} variant(s) → the user picks one → record it:`,
     `  pac refine ${platform} --lang ${lang} --choose <variantId>`,
-    ``,
-    `Stub owner: ${REFINE_OWNER}.`,
     ``,
   ].join('\n');
 

@@ -1,0 +1,32 @@
+# checks.yaml — criterios machine-readable para `pac check github-readme`
+# (unión con content/checks.yaml del workspace; misma rule catalog que el schema).
+
+- id: gh-bio-max
+  platform: github-readme
+  rule: max-chars
+  value: 280
+  note: "Bio corta (one-liner) — el README se lee en ~30s (SOTA-2026 §1)."
+
+- id: gh-facts-identity
+  platform: github-readme
+  rule: fact-present
+  value: true
+  note: "Los hechos del README deben estar byte-idénticos al SSOT (D4)."
+
+- id: gh-links-identity
+  platform: github-readme
+  rule: link-in-identity
+  value: true
+  note: "Toda URL del README vive en identity.links (regla drift)."
+
+- id: gh-geo-consistent
+  platform: github-readme
+  rule: geo-consistent
+  value: true
+  note: "Hechos consistentes con las otras superficies (CV, LinkedIn) = citabilidad."
+
+- id: gh-cta-one
+  platform: github-readme
+  rule: lang-present
+  value: en
+  note: "EN requerido (D8/§11); un CTA primario por variante."
