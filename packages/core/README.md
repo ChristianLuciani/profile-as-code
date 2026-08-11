@@ -1,6 +1,6 @@
 # @profile-as-code/core
 
-The core engine of **profile-as-code** (M1): load a user-brand-data workspace,
+The core engine of **profile-as-code** (M1): load a profile-data workspace,
 validate it against the contract, and run the drift / GEO / compile layers.
 
 The contract source is `schema/profile.schema.json` (D3) — Zod schemas are
@@ -11,7 +11,7 @@ The contract source is `schema/profile.schema.json` (D3) — Zod schemas are
 ```ts
 import { load, driftCheck, geoCheck, compile } from '@profile-as-code/core';
 
-const profile = load('/path/to/user-brand-data');        // parse content/*.yaml + validate (FAIL on schema, D12)
+const profile = load('/path/to/profile-data');        // parse content/*.yaml + validate (FAIL on schema, D12)
 const issues  = driftCheck(profile);                     // Issue[] — WARN only, never throws (D12)
 const geo     = geoCheck(profile);                       // GeoReport — 0..100 score, not a gate (§8)
 const slice   = compile(profile, 'linkedin', 'es');      // PlatformProfile — language-aware renderer slice

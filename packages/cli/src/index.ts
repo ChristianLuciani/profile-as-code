@@ -18,6 +18,7 @@ import { runRefine } from './commands/refine.js';
 import { runSkillsInstall } from './commands/skills-install.js';
 import { runValidate } from './commands/validate.js';
 import { UsageError } from './contract.js';
+import { WORKSPACE_NAME } from './workspace.js';
 import { EXIT } from './exit.js';
 import { setJsonMode } from './output.js';
 import { ConfigError, readWorkspacePacrc, resolveWorkspace } from './workspace.js';
@@ -36,7 +37,7 @@ const VERSION = (() => {
 const GLOBAL_HELP = `pac — profile-as-code CLI v${VERSION}
 
 Commands:
-  init [dir]                    Scaffold a user-brand-data workspace (content/, README.md, .pacrc)
+  init [dir]                    Scaffold a ${WORKSPACE_NAME} workspace (content/, README.md, .pacrc)
   validate [--json]             Schema (FAIL, exit 1) + drift/geo (WARN, exit 0) — D12
   build [platform] [--lang]     Deterministic base texts per platform+lang
   diff [--json]                 Changes since the last release tag (git-based → CHANGELOG hint)
@@ -94,7 +95,7 @@ function parseCommandFlags(args: string[], extra: Record<string, { type: 'string
 
 const COMMAND_HELP: Record<string, string> = {
   init: `pac init [dir]
-Scaffold a user-brand-data workspace skeleton (SPEC §9): content/identity.yaml,
+Scaffold a ${WORKSPACE_NAME} workspace skeleton (SPEC §9): content/identity.yaml,
 README.md, .pacrc. Minimal but pac validate-clean. Refuses to overwrite.
   dir   target directory (default: current directory)`,
   validate: `pac validate [--json] [--workspace <path>]

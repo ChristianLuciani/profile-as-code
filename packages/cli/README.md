@@ -8,7 +8,7 @@ The profile-as-code CLI (M1). Consumes `@profile-as-code/core` (`load`/`driftChe
 
 | Command | Purpose | Status |
 |---|---|---|
-| `pac init [dir]` | Scaffold a user-brand-data workspace (`content/identity.yaml`, `README.md`, `.pacrc`) — `pac validate`-clean | ✅ |
+| `pac init [dir]` | Scaffold a profile-data workspace (`content/identity.yaml`, `README.md`, `.pacrc`) — `pac validate`-clean | ✅ |
 | `pac validate [--json]` | Schema **fail** (exit 1) + drift/geo **warn** (exit 0) — D12 | ✅ |
 | `pac build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (github-readme, M2) also write `profiles/<platform>/README.md` | ✅ |
 | `pac diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
@@ -25,7 +25,7 @@ that owns them (SPEC §12 M3/M4) — see `src/commands/refine.ts`, `check.ts`,
 ```sh
 pac --help                 # full help
 pac validate               # workspace from .pacrc (or cwd)
-pac validate --workspace ~/user-brand-data --json
+pac validate --workspace ~/profile-data --json
 pac build github-readme --lang en
 pac diff
 pac refine linkedin --variants 3            # emits the agent task template (stub)

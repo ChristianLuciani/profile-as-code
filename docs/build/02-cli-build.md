@@ -22,7 +22,7 @@ In parallel, other sessions run the SOTA research (M3) and prompt-studio project
 
 1. **Bootstrap `packages/cli`** (pnpm workspace, package `@profile-as-code/cli`, binary `pac`). Root workspaces already configured.
 2. **Command surface v1** (SPEC §7 table):
-   - `pac init` — scaffold a user-brand-data workspace skeleton (layout per SPEC §9: `content/` yaml files, `README.md`, `.pacrc`; minimal but `pac validate`-clean)
+   - `pac init` — scaffold a profile-data workspace skeleton (layout per SPEC §9: `content/` yaml files, `README.md`, `.pacrc`; minimal but `pac validate`-clean)
    - `pac validate [--json]` — load + **schema (FAIL, exit 1)** + **drift (WARN, exit 0)** + geo report (D12)
    - `pac build [platform] [--lang] [--json]` — `compile()` slices → deterministic base texts per platform+lang
    - `pac diff` — what changed since the last release marker (git-based → CHANGELOG hint)

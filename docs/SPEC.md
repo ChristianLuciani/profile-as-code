@@ -46,7 +46,7 @@ skills + deploy playbooks**.
   variant is committed and marked as active. Sah/hub may become the default path once it matures (D13).
 - GitHub profile README + web are fully git/API-driven (dogfood: Christian's real profile).
 - Every quantitative claim in every skill has a dated source (claims-evidence enforced).
-- A fresh user can start from the `user-brand-data` template (fork/clone) in under 10 minutes.
+- A fresh user can start from the `profile-data` template (fork/clone) in under 10 minutes.
 
 ## 4. Architecture
 
@@ -61,14 +61,14 @@ skills + deploy playbooks**.
         └───────────────▲───────────────────────────────────────────┬──────────────────┘
                         │ data (per user)                           │ outputs ready
         ┌───────────────┴───────────────┐        ┌──────────────────┴─────────────────┐
-        │  user-brand-data (private)    │        │  deploy: paste (LinkedIn, Upwork…)  │
+        │  profile-data (private)    │        │  deploy: paste (LinkedIn, Upwork…)  │
         │  content/*.yaml · profiles/   │        │  deploy: git/API (GitHub, web)      │
         │  CHANGELOG.md · CHECKLIST.md  │        │  verify: skill checks + checklist   │
         └───────────────────────────────┘        └─────────────────────────────────────┘
 ```
 
 - **Public repo** = product: schema, core, renderers, CLI, skills, templates, docs, examples (fictional person).
-- **user-brand-data** = per-user private workspace (or local-only). Never in the public repo.
+- **profile-data** = per-user private workspace (or local-only). Never in the public repo.
   Provided as a **GitHub template repo / forkable skeleton** — see §9.
 
 ## 5. Decisions (ADR-lite)
@@ -88,7 +88,7 @@ skills + deploy playbooks**.
 | D11 | Refinement is **agnostic agent-driven** (AionUi, OpenHands, Claude Code, Cursor…) | Skills drive, `pac` executes; user picks variant. No closed CLI picker. |
 | D12 | Drift-check: **warn on facts, fail on schema** | Users may have different intents per platform; integrity vs flexibility. |
 | D13 | Model-agnostic default; sah as future default path | Revisit when sovereign hub matures (Q3→RESOLVED). |
-| D14 | User data in **separate repo** `user-brand-data`, integrated by configured path, no symlink in normal flow | Symlink mount only as advanced CI option (Q4→RESOLVED). |
+| D14 | User data in **separate repo** `profile-data`, integrated by configured path, no symlink in normal flow | Symlink mount only as advanced CI option (Q4→RESOLVED). |
 
 ## 6. Data model (schema v1)
 
@@ -140,7 +140,7 @@ interface SkillChecks {  // from skills/<platform>/checks.yaml
 
 | Command | Purpose |
 |---|---|
-| `pac init` | scaffold a user-brand-data workspace from the template |
+| `pac init` | scaffold a profile-data workspace from the template |
 | `pac validate` | schema (fail) + drift/geo checks (facts warn) |
 | `pac build [platform] [--lang]` | render deterministic base texts |
 | `pac refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
@@ -163,17 +163,30 @@ GEO is not a renderer — it is enforced in four places:
 Anti-patterns to forbid: keyword stuffing (LLMs discount it), contradictions (auto-filtered),
 unverifiable claims (no source → dropped by cite-aware systems).
 
-## 9. user-brand-data template (fork/clone flow)
+## 9. profile-data template (fork/clone flow)
 
-Delivered as a **GitHub template repository** (`ChristianLuciani/user-brand-data-template`), so a new
-user can `Use this template` or fork. The folder `templates/user-brand-data/` in the engine repo is a
-**pointer** to it (no duplication → no drift).
+### 9.1 Terminology — the profile-* family (single source of naming)
 
-Name rationale: the *user-* prefix makes explicit the workspace is **per user** — individual profiles
-today, **commercial/brand identities** later (multi-workspace: one workspace per identity, same engine).
+"profile" is always the FIRST word — alphabetical grouping and one mental model.
+This table is the canonical terminology; docs and code reference it, never invent names:
+
+| Surface | Name | Visibility | Role |
+|---|---|---|---|
+| Engine | `profile-as-code` | public (product) | schema, core, CLI `pac`, renderers |
+| Template | `profile-data-template` | public | fork/clone skeleton (empty workspace + instructions) |
+| Workspace (per user) | `profile-data` | private by default | the user's facts (SSOT) — what they edit |
+| Deploy surfaces | e.g. `ChristianLuciani/ChristianLuciani`, CV site | public | rendered output (never edited by hand) |
+
+Future workspaces follow the same family: individual identities today, **commercial/brand
+identities** later (multi-workspace: one workspace per identity, same engine) — the naming
+stays `profile-data`-first regardless of the identity's nature.
+
+Delivered as a **GitHub template repository** (`ChristianLuciani/profile-data-template`), so a new
+user can `Use this template` or fork (then rename the fork to `profile-data` and make it private).
+The folder `templates/profile-data/` in the engine repo is a **pointer** to it (no duplication → no drift).
 
 ```
-user-brand-data/
+profile-data/
 ├── README.md            # instructions: fork/clone, install pac, first build
 ├── content/             # identity.yaml, positioning.yaml, bios.yaml, skills.yaml,
 │                        # experience.yaml, projects.yaml, publications.yaml, keywords.yaml
@@ -197,7 +210,7 @@ Two different "templates" (previous confusion):
 
 - `templates/playbooks/` — per-platform **deploy playbooks** (copy-paste steps, verification) that the
   product ships; referenced by `manual` renderers.
-- `templates/user-brand-data/` — **pointer** to the per-user workspace skeleton repo (§9). Fork/clone,
+- `templates/profile-data/` — **pointer** to the per-user workspace skeleton repo (§9). Fork/clone,
   not built-in.
 
 ## 11. i18n strategy
@@ -211,7 +224,7 @@ Two different "templates" (previous confusion):
 
 ## 12. Roadmap
 
-1. **M1 (now)**: spec + user-brand-data template (done) + schema v1 ✅ (`schema/profile.schema.json`) + core (validate/drift/geo) + CLI skeleton ✅.
+1. **M1 (now)**: spec + profile-data template (done) + schema v1 ✅ (`schema/profile.schema.json`) + core (validate/drift/geo) + CLI skeleton ✅.
 2. **M2**: renderer `github-readme` + CI + dogfood (Christian's real GitHub README) — detailed in §15.
 3. **M3**: SOTA research per platform (GitHub→LinkedIn→Upwork→X→ResearchGate→Substack) → skills v1 + `pac refine`.
 4. **M4**: renderers linkedin/upwork/x/researchgate/substack + playbooks + `pac check` + checks.yaml per skill.
@@ -226,7 +239,7 @@ Two different "templates" (previous confusion):
   have different intents per platform; facts warn (visibility), schema violations fail (integrity).
 - **Q3 → D13 (RESOLVED):** model-agnostic by default — uses the executing agent's model. When `sah`
   (sovereign-agentic-hub) matures, revisit as default path.
-- **Q4 → D14 (RESOLVED):** **separate repo** `user-brand-data`; integration by **configured path**
+- **Q4 → D14 (RESOLVED):** **separate repo** `profile-data`; integration by **configured path**
   (`.pacrc → workspace`), no symlink in the normal flow; symlink mount only as engine-CI option.
 
 ## 14. Open questions (remaining)
@@ -234,6 +247,12 @@ Two different "templates" (previous confusion):
 - Q5: Substack adds a *content* surface (newsletter) beyond profile fields — v1 covers the profile
   page only, or also issue templates?
 - Q6: CI-as-a-service for user workspaces (symlink mount) — worth it in v1 or later?
+- Q7 (**idea, not a decision**): `profile-me` — a command/skill/experience layer that APPLIES the
+  engine to the user's `profile-data` to produce results (today: `pac build`/`pac refine`);
+  productized as a single user-facing flow. Name reserved in the profile-* family.
+- Q8 (**idea, not a decision**): `profile-brand` — the future commercial/brand workspace flavor
+  (monetized identities, multi-identity for orgs). The engine stays profile-agnostic; naming
+  stays `profile-data`-first (SPEC §9.1).
 
 ## 15. M2 — `github-readme` renderer (detail)
 
@@ -250,7 +269,7 @@ output, not hand-maintained prose.
    profile repo and commits (deploy = git push; human merges, per repo-governance).
 3. GEO by construction: `schema.org/Person` JSON-LD embedded (LD+JSON), canonical links as
    `sameAs` (SPEC §8/geoCheck structured-data readiness), facts verbatim from the SSOT.
-4. Dogfood acceptance: Christian's real workspace (private `user-brand-data`) renders a README
+4. Dogfood acceptance: Christian's real workspace (private `profile-data`) renders a README
    that contains every fact from the CV SSOT with zero drift warnings.
 
 ### 15.2 Interface (deep module)
@@ -293,7 +312,7 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
 
 - Engine CI: renderer unit tests (fixtures, byte-stable output) + a CI check that builds the README
   from the minimal fixture and diffs it.
-- Dogfood: `user-brand-data` (private) → `pac build github-readme` → PR to
+- Dogfood: `profile-data` (private) → `pac build github-readme` → PR to
   `ChristianLuciani/ChristianLuciani` (human merges). Drift check on the real workspace must
   report 0 fact-contradiction warnings.
 - First-render acceptance: Christian reviews the generated README vs the CV site — every fact

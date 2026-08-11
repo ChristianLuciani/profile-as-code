@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://profile-as-code.dev/schema/v1/profile.schema.json",
   "title": "profile-as-code — user profile contract (v1)",
-  "description": "Contract source (D3) for a user-brand-data workspace. The core `load()` parses content/*.yaml, merges them into a single Profile and validates against THIS schema. Facts (dates, DOIs, URLs, ORCID) are language-independent and are the GEO anchor. Every text field is a langMap ({lang: value}) with EN required (D8, §11).",
+  "description": "Contract source (D3) for a profile-data workspace. The core `load()` parses content/*.yaml, merges them into a single Profile and validates against THIS schema. Facts (dates, DOIs, URLs, ORCID) are language-independent and are the GEO anchor. Every text field is a langMap ({lang: value}) with EN required (D8, §11).",
   "type": "object",
   "additionalProperties": false,
   "required": ["identity"],

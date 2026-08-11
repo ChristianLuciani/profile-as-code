@@ -1,5 +1,5 @@
 /**
- * pac init — scaffold a user-brand-data workspace skeleton (SPEC §9): content/
+ * pac init — scaffold a profile-data workspace skeleton (SPEC §9): content/
  * YAML files, README.md, .pacrc. Minimal but `pac validate`-clean (exit 0).
  */
 
@@ -7,8 +7,9 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { EXIT } from '../exit.js';
 import { line, report, section } from '../output.js';
+import { WORKSPACE_NAME } from '../workspace.js';
 
-const IDENTITY_TEMPLATE = `# user-brand-data workspace — content/ identity (contract: schema/profile.schema.json)
+const IDENTITY_TEMPLATE = `# ${WORKSPACE_NAME} workspace — content/ identity (contract: schema/profile.schema.json)
 # Only "name" is required. Comments are examples — uncomment and adapt.
 name: Your Name
 # location: City, Country
@@ -22,7 +23,7 @@ name: Your Name
 #     url: https://linkedin.com/in/you
 `;
 
-const README_TEMPLATE = `# user-brand-data
+const README_TEMPLATE = `# ${WORKSPACE_NAME}
 
 Per-user workspace for [profile-as-code](https://github.com/ChristianLuciani/profile-as-code).
 Your professional facts live here as text-first YAML (SPEC §2.1); the engine validates,
@@ -85,7 +86,7 @@ export function runInit(args: InitArgs): number {
   mkdirSync(contentDir, { recursive: true });
   for (const t of targets) writeFileSync(t.path, t.content);
 
-  section('scaffolded user-brand-data workspace');
+  section(`scaffolded ${WORKSPACE_NAME} workspace`);
   for (const t of targets) line(`  created ${t.path}`);
   line('  next: pac validate && pac build github-readme --lang en');
 
