@@ -70,15 +70,16 @@ function skillWeight(s: Skill): number {
 
 /**
  * Featured-project ordering (SPEC §15.3): the best github-readme skill weight
- * among skills sharing at least one keyword with the project. Deterministic:
- * weight desc, then name asc.
+ * among skills sharing at least one keyword OR geoKeyword with the project
+ * (geoKeywords = the GEO match surface, D7). Deterministic: weight desc,
+ * then name asc.
  */
 function projectWeight(p: Project, skills: readonly Skill[]): number {
   const pk = new Set((p.keywords ?? []).map((k) => k.toLowerCase().trim()));
   if (pk.size === 0) return 0;
   let best = 0;
   for (const s of skills) {
-    const sk = new Set((s.keywords ?? []).map((k) => k.toLowerCase().trim()));
+    const sk = new Set([...(s.keywords ?? []), ...(s.geoKeywords ?? [])].map((k) => k.toLowerCase().trim()));
     if ([...pk].some((k) => sk.has(k))) best = Math.max(best, skillWeight(s));
   }
   return best;
@@ -93,11 +94,17 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   const headline = p.headlines.find((h) => h.lang === lang);
   if (headline !== undefined) out.push('', `### ${headline.text}`);
 
+  // Badges: ONE per platform, in identity.links order — the canonical profile
+  // links first (project/repo links share the github platform but are not
+  // badges; they live in Projects/Links sections).
+  const seenBadge = new Set<string>();
   const badges: string[] = [];
   for (const l of p.identity.links ?? []) {
     if (l.platform === undefined) continue;
+    if (seenBadge.has(l.platform)) continue;
     const b = BADGE[l.platform];
     if (b === undefined) continue;
+    seenBadge.add(l.platform);
     badges.push(`[![${b.label}](https://img.shields.io/badge/${b.label}-${hostname(l.url)}-${b.color}?style=flat&logo=${b.logo}&logoColor=white)](${l.url})`);
   }
   if (badges.length > 0) out.push('', badges.join(' '));
