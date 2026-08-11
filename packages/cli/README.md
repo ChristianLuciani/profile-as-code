@@ -10,7 +10,7 @@ The profile-as-code CLI (M1). Consumes `@profile-as-code/core` (`load`/`driftChe
 |---|---|---|
 | `pac init [dir]` | Scaffold a user-brand-data workspace (`content/identity.yaml`, `README.md`, `.pacrc`) — `pac validate`-clean | ✅ |
 | `pac validate [--json]` | Schema **fail** (exit 1) + drift/geo **warn** (exit 0) — D12 | ✅ |
-| `pac build [platform] [--lang]` | Deterministic base texts per platform+lang (compile slices) | ✅ |
+| `pac build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (github-readme, M2) also write `profiles/<platform>/README.md` | ✅ |
 | `pac diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
 | `pac refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13) | 🚧 stub |
 | `pac check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) | 🚧 stub |
