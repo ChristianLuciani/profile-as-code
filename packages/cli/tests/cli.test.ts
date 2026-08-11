@@ -248,11 +248,12 @@ describe('pac init (scaffold)', () => {
 });
 
 describe('pac refine (stub: template + record)', () => {
-  it('emits the agent task template (no LLM call)', () => {
+  it('emits the agent task (no LLM call) pointing at the platform skill', () => {
     const r = run(['refine', 'linkedin', '--variants', '2', '--workspace', MINIMAL]);
     expect(r.code).toBe(0);
-    expect(r.stdout).toContain('task template');
+    expect(r.stdout).toContain('agent task');
     expect(r.stdout).toContain('Platform: linkedin');
+    expect(r.stdout).toContain('Skill (communicative strategy — READ IT FIRST)');
     expect(r.stdout).toContain('Facts');
     expect(r.stdout).toContain('--choose <variantId>');
   });
