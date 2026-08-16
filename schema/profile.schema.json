@@ -243,12 +243,18 @@
       "additionalProperties": false,
       "required": ["degree", "institution", "start"],
       "properties": {
-        "degree": { "type": "string", "minLength": 1 },
+        "degree": {
+          "anyOf": [{ "type": "string", "minLength": 1 }, { "$ref": "#/$defs/langMap" }],
+          "description": "v1.1: degree title (string or bilingual langMap)."
+        },
         "institution": {
           "anyOf": [{ "type": "string", "minLength": 1 }, { "$ref": "#/$defs/langMap" }],
           "description": "v1.1 (additive): institution name (string or bilingual langMap)."
         },
-        "field": { "type": "string" },
+        "field": {
+          "anyOf": [{ "type": "string" }, { "$ref": "#/$defs/langMap" }],
+          "description": "v1.1: field of study (string or bilingual langMap)."
+        },
         "start": { "$ref": "#/$defs/date" },
         "end": { "anyOf": [{ "$ref": "#/$defs/date" }, { "const": "present" }] },
         "note": { "$ref": "#/$defs/langMap" }
