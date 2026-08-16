@@ -94,6 +94,16 @@ function toLangMapShape(): JsonNode {
   };
 }
 
+/** Same idea for langMapList (v1.1): values are string arrays instead of strings. */
+function toLangMapListShape(): JsonNode {
+  return {
+    type: 'object',
+    properties: { en: { type: 'array', items: { type: 'string' } } },
+    required: ['en'],
+    additionalProperties: { type: 'array', items: { type: 'string' } },
+  };
+}
+
 // ---------------------------------------------------------------------------
 
 const raw = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8')) as JsonNode & {
@@ -103,6 +113,8 @@ const raw = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8')) as JsonNode & {
 const defs = raw.$defs ?? {};
 if (!defs.langMap) throw new Error('gen-zod: $defs.langMap missing from schema');
 defs.langMap = toLangMapShape();
+if (!defs.langMapList) throw new Error('gen-zod: $defs.langMapList missing from schema (v1.1)');
+defs.langMapList = toLangMapListShape();
 
 const inlined = inlineDefs(raw, defs) as JsonNode;
 const generated = jsonSchemaToZod(inlined, { module: 'esm', name: 'profileSchema', zodVersion: 4 });
@@ -117,7 +129,16 @@ const langMapCount = generated.split(LANG_MAP_EXPR).length - 1;
 if (langMapCount === 0) {
   throw new Error(`gen-zod: no langMap expression found — expected at least one "${LANG_MAP_EXPR}"`);
 }
-const withKeyGuard = generated.split(LANG_MAP_EXPR).join(`langMapKeys(${LANG_MAP_EXPR})`);
+const LANG_MAP_LIST_EXPR = 'z.object({ "en": z.array(z.string()) }).catchall(z.array(z.string()))';
+const langMapListCount = generated.split(LANG_MAP_LIST_EXPR).length - 1;
+if (langMapListCount === 0) {
+  throw new Error(`gen-zod: no langMapList expression found — expected at least one "${LANG_MAP_LIST_EXPR}" (v1.1)`);
+}
+const withKeyGuard = generated
+  .split(LANG_MAP_EXPR)
+  .join(`langMapKeys(${LANG_MAP_EXPR})`)
+  .split(LANG_MAP_LIST_EXPR)
+  .join(`langMapKeys(${LANG_MAP_LIST_EXPR})`);
 
 const FOOTER = `
 /* ---------------------------------------------------------------------------

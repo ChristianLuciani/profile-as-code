@@ -318,10 +318,21 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
 - First-render acceptance: Christian reviews the generated README vs the CV site — every fact
   present in both surfaces, byte-consistent where overlapping.
 
-### 15.6 v1.1 schema notes (NOT in M2 scope)
+### 15.6 v1.1 schema notes (RESOLVED — schema v1.1, 2026-08-16)
 
-Publications lack `authors`/`url` fields and identity lacks `handle`/`timezone` — the SSOT keeps
-these as workspace-local comments until the contract amendments land (schema v1.1, spec-first).
+The v1 gaps are closed additively in `schema/profile.schema.json` v1.1 (semver minor —
+every v1 workspace still validates):
+
+- `publication.authors` + `publication.url` (preprints/abstracts without DOI are representable).
+- `identity.handle` + `identity.timezone`.
+- `experience.role`/`org` as langMap (bilingual titles) — v1 strings remain valid (`anyOf`).
+- `experience.highlights` as string[] per lang (langMapList) — v1 separator-delimited
+  strings remain valid (`anyOf`).
+- Root `education[]` (formal education, `education.yaml`) and `languages[]`
+  (`languages.yaml`) — v1 workspaces keep education inside `experience[]`.
+- `patreon` added to the checks platform enum (consistency with the platform set).
+
+Regenerate the Zod contract with `pnpm gen:zod` (packages/core — generated, never hand-written).
 
 ## 16. M3 — platform skills + `pac refine` (detail)
 
