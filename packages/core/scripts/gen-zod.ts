@@ -8,6 +8,9 @@
  * Run (from packages/core):  pnpm gen:zod
  *
  * Why this script does more than a bare json-schema-to-zod call:
+ *  - zod 4 is installed (dependabot bump): `zodVersion: 4` so records emit
+ *    `z.record(z.string(), …)` — zod 4 dropped the 1-arg form (build regression
+ *    when the zod bump landed without regenerating).
  *  - `json-schema-to-zod@2.8.1` does NOT resolve `$defs`/`$ref` (it emits `z.any()`
  *    for them), so we inline `#/$defs/*` references first.
  *  - It ignores `propertyNames`, so the langMap key restriction (en/es/fr only) and
@@ -105,7 +108,7 @@ if (!defs.langMap) throw new Error('gen-zod: $defs.langMap missing from schema')
 defs.langMap = toLangMapShape();
 
 const inlined = inlineDefs(raw, defs) as JsonNode;
-const generated = jsonSchemaToZod(inlined, { module: 'esm', name: 'profileSchema', zodVersion: 3 });
+const generated = jsonSchemaToZod(inlined, { module: 'esm', name: 'profileSchema', zodVersion: 4 });
 
 // Safety nets — a schema change that silently breaks generation must fail CI.
 if (generated.includes('z.any()')) {

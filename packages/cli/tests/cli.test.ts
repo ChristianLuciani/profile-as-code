@@ -111,7 +111,9 @@ describe('pac validate (D12: fail on schema, warn on drift)', () => {
   it('exits 1 on schema violation', () => {
     const r = run(['validate', '--workspace', INVALID]);
     expect(r.code).toBe(1);
-    expect(r.stderr).toContain('identity: Required');
+    // zod 4 wording (post-dependabot bump); the path `identity` is stable across zod versions
+    expect(r.stderr).toContain('identity');
+    expect(r.stderr).toMatch(/invalid input|required/i);
   });
 
   it('--json is machine-readable: clean workspace', () => {
