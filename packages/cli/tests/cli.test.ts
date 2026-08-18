@@ -111,7 +111,9 @@ describe('pac validate (D12: fail on schema, warn on drift)', () => {
   it('exits 1 on schema violation', () => {
     const r = run(['validate', '--workspace', INVALID]);
     expect(r.code).toBe(1);
-    expect(r.stderr).toContain('identity: Required');
+    // Contract: issue path is stable; the message wording is Zod-version-specific
+    // (Zod 3: "Required" · Zod 4: "Invalid input: ...") — assert the path only.
+    expect(r.stderr).toMatch(/identity: /);
   });
 
   it('--json is machine-readable: clean workspace', () => {
