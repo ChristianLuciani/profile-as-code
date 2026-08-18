@@ -1,8 +1,9 @@
 /**
  * Schema v1.1 (additive — semver minor): every v1 workspace must still validate,
  * and the new forms must load + normalize. See schema/profile.schema.json
- * (v1.1 additions: role/org langMap, highlights string[] per lang, root
- * education + languages, publication.authors/url, identity.handle/timezone).
+ * (v1.1 additions: role langMap, highlights string[] per lang, root
+ * education + languages, publication.authors/url, identity.handle/timezone.
+ * Proper nouns — org, institution — stay plain strings (SPEC §11).
  */
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -47,16 +48,14 @@ describe('schema v1.1 (additive)', () => {
     }
   });
 
-  it('accepts role/org as langMap + highlights as string[] (langMapList)', () => {
+  it('accepts role as langMap + org as invariant string + highlights as string[] (langMapList)', () => {
     const dir = makeWorkspace({
       'identity.yaml': IDENTITY,
       'experience.yaml': [
         '- role:',
         '    en: Strategic Systems Consultant',
         '    es: Consultor Estratégico de Sistemas',
-        '  org:',
-        '    en: USFQ — Quito, Ecuador',
-        '    es: USFQ — Quito, Ecuador',
+        '  org: USFQ',
         '  start: 2019-01-01',
         '  end: 2024-12-01',
         '  highlights:',
@@ -72,7 +71,8 @@ describe('schema v1.1 (additive)', () => {
     const profile = load(dir);
     const item = profile.experience[0]!;
     expect(item.role).toEqual({ en: 'Strategic Systems Consultant', es: 'Consultor Estratégico de Sistemas' });
-    expect(item.org).toEqual({ en: 'USFQ — Quito, Ecuador', es: 'USFQ — Quito, Ecuador' });
+    // Proper noun (D4 fact) — invariant, never a langMap (SPEC §11).
+    expect(item.org).toBe('USFQ');
     expect(item.highlights?.en).toEqual(['800+ students per year', '36 original laboratory guides']);
     expect(item.highlights?.es).toEqual(['800+ estudiantes anuales', '36 guías de laboratorio originales']);
     try {
@@ -109,10 +109,10 @@ describe('schema v1.1 (additive)', () => {
     const dir = makeWorkspace({
       'identity.yaml': IDENTITY,
       'education.yaml': [
-        '- degree: B.Sc. in Physics',
-        '  institution:',
-        '    en: Central University of Venezuela',
-        '    es: Universidad Central de Venezuela',
+        '- degree:',
+        '    en: B.Sc. in Physics',
+        '    es: Licenciatura en Física',
+        '  institution: Universidad Central de Venezuela',
         '  field: Physics',
         '  start: 1997-01-01',
         '  end: 2003-12-01',
@@ -133,10 +133,9 @@ describe('schema v1.1 (additive)', () => {
     });
     const profile = load(dir);
     expect(profile.education).toHaveLength(1);
-    expect(profile.education[0]?.institution).toEqual({
-      en: 'Central University of Venezuela',
-      es: 'Universidad Central de Venezuela',
-    });
+    // Proper noun (D4 fact) — invariant across languages (SPEC §11).
+    expect(profile.education[0]?.institution).toBe('Universidad Central de Venezuela');
+    expect(profile.education[0]?.degree).toEqual({ en: 'B.Sc. in Physics', es: 'Licenciatura en Física' });
     expect(profile.languages?.map((l) => `${l.code}:${l.level}`)).toEqual([
       'es:native',
       'en:intermediate',

@@ -63,7 +63,7 @@ function currentRole(profile: Profile): { jobTitle?: string; worksFor?: string }
   const current = items.filter((item) => item.end === 'present').sort(byStart)[0];
   const latest = items.sort(byStart)[0];
   const pick = current ?? latest;
-  return pick ? { jobTitle: textOf(pick.role), worksFor: textOf(pick.org) } : {};
+  return pick ? { jobTitle: textOf(pick.role), worksFor: pick.org } : {};
 }
 
 function structuredData(profile: Profile): StructuredDataReadiness {

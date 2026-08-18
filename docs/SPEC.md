@@ -218,6 +218,10 @@ Two different "templates" (previous confusion):
 - **Repo docs/README/SPEC**: EN (open-source lingua franca). User-facing summaries may be ES/FR.
 - **CLI output**: EN with `--lang` for generated texts.
 - **Content**: every text field is `{ lang: value }`; EN required (recruiters), ES native, FR optional.
+- **Proper nouns are invariant**: organization/institution names (`org`, `institution`), venue names
+  and people names are **never a langMap** — they are plain strings, identical in every language.
+  Only descriptive text (role, degree, field, statement, bios, highlights) is localizable.
+  Rationale: a name is a fact (D4) — translating it changes the fact and breaks GEO consistency (D7).
 - **Per-platform language policy**: e.g. Upwork overview EN-first (international clients), LinkedIn
   per-target-market; the skill for each platform documents the language policy.
 - **Validation**: a schema rule requires at least one `lang` per text block; `pac validate` enforces.
@@ -325,11 +329,15 @@ every v1 workspace still validates):
 
 - `publication.authors` + `publication.url` (preprints/abstracts without DOI are representable).
 - `identity.handle` + `identity.timezone`.
-- `experience.role`/`org` as langMap (bilingual titles) — v1 strings remain valid (`anyOf`).
+- `experience.role` as langMap (bilingual titles) — v1 strings remain valid (`anyOf`);
+  `experience.org` stays a plain string: **proper nouns (org, institution, venue) are
+  invariant across languages** — never a langMap (names are not translated, §11).
 - `experience.highlights` as string[] per lang (langMapList) — v1 separator-delimited
   strings remain valid (`anyOf`).
 - Root `education[]` (formal education, `education.yaml`) and `languages[]`
   (`languages.yaml`) — v1 workspaces keep education inside `experience[]`.
+  `education.institution` is a plain string (proper noun); `degree`/`field` are
+  localizable descriptors (`anyOf` string|langMap).
 - `patreon` added to the checks platform enum (consistency with the platform set).
 
 Regenerate the Zod contract with `pnpm gen:zod` (packages/core — generated, never hand-written).

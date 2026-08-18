@@ -140,13 +140,13 @@ export function driftCheck(profile: Profile): Issue[] {
       push(
         warn(
           'drift/date-range-inverted',
-          `start (${item.start}) is after end (${item.end}) for "${textOf(item.role)}" at ${textOf(item.org)}`,
+          `start (${item.start}) is after end (${item.end}) for "${textOf(item.role)}" at ${item.org}`,
           `experience[${index}]`,
         ),
       );
     }
   }
-  const expGroups = groupBy(experience, (item) => `${textOf(item.role).toLowerCase()} @ ${textOf(item.org).toLowerCase()}`);
+  const expGroups = groupBy(experience, (item) => `${textOf(item.role).toLowerCase()} @ ${item.org.toLowerCase()}`);
   for (const [key, indices] of expGroups) {
     if (indices.length < 2) continue;
     const dates = indices.map((i) => `${experience[i]?.start}–${experience[i]?.end ?? '?'}`);
