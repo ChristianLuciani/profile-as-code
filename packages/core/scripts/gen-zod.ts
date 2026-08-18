@@ -105,7 +105,7 @@ if (!defs.langMap) throw new Error('gen-zod: $defs.langMap missing from schema')
 defs.langMap = toLangMapShape();
 
 const inlined = inlineDefs(raw, defs) as JsonNode;
-const generated = jsonSchemaToZod(inlined, { module: 'esm', name: 'profileSchema', zodVersion: 3 });
+const generated = jsonSchemaToZod(inlined, { module: 'esm', name: 'profileSchema', zodVersion: 4 });
 
 // Safety nets — a schema change that silently breaks generation must fail CI.
 if (generated.includes('z.any()')) {
