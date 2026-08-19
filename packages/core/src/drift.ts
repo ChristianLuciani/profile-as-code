@@ -202,8 +202,6 @@ export function driftCheck(profile: Profile): Issue[] {
       // identity.links has a URL whose host matches the platform and whose path
       // contains the handle (offline proxy — live reachability is the skill's job).
       const hasOwnUrl = handle.url !== undefined;
-      const linkedInIdentity =
-        handle.url !== undefined && identityUrls.has(normalizeUrl(handle.url));
       const resolvedElsewhere = (identity.links ?? []).some((link) => {
         const host = hostOf(link.url);
         if (host === undefined || !hostMatchesPlatform(handle.platform, host)) return false;
@@ -220,7 +218,7 @@ export function driftCheck(profile: Profile): Issue[] {
           ),
         );
       }
-      if (hasOwnUrl && !linkedInIdentity && handle.url !== undefined) {
+      if (hasOwnUrl && handle.url !== undefined) {
         const host = hostOf(handle.url);
         if (host !== undefined && !hostMatchesPlatform(handle.platform, host)) {
           push(
