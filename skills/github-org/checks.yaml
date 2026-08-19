@@ -1,0 +1,40 @@
+# checks.yaml — criterios machine-readable para `pac check github-org`
+# (unión con content/checks.yaml del workspace; misma rule catalog que el schema).
+# v1.1/§17: handle-claimed y handle-consistent se EJECUTAN offline en pac check
+# (drift codes); url-live es la verificación de red (skill, no drift).
+
+- id: org-handle-claimed
+  platform: github-org
+  rule: handle-claimed
+  value: true
+  note: "Todo handle claimed debe resolver a una URL (offline: drift/handle-claimed-not-linked; live: url-live)."
+
+- id: org-handle-consistent
+  platform: github-org
+  rule: handle-consistent
+  value: true
+  note: "La handle matrix es el SSOT: una fila por plataforma, hosts correctos (offline: drift/duplicate-handle, drift/handle-host-mismatch)."
+
+- id: org-mission-identity
+  platform: github-org
+  rule: fact-present
+  value: true
+  note: "name/mission/tagline del README byte-idénticos al SSOT (D4)."
+
+- id: org-links-identity
+  platform: github-org
+  rule: link-in-identity
+  value: true
+  note: "Toda URL del README vive en identity.links o socialHandles[].url (regla drift, §17.1)."
+
+- id: org-jsonld-org
+  platform: github-org
+  rule: geo-consistent
+  value: true
+  note: "JSON-LD schema.org/Organization con sameAs = links + claimed handles (GEO, §17.1)."
+
+- id: org-cta-one
+  platform: github-org
+  rule: lang-present
+  value: en
+  note: "EN requerido (D8/§11); un CTA primario por variante (suscribirse al newsletter)."

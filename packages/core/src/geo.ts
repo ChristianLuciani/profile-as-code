@@ -46,6 +46,12 @@ const CONFLICT_CODES = new Set([
   'drift/orcid-conflict',
   'drift/orcid-mismatch',
   'drift/skill-conflict',
+  // brand handle matrix (v1.1/§17) — handle inconsistencies are fact
+  // contradictions for a brand (an LLM triangulating surfaces must find the
+  // same handle/URL set).
+  'drift/duplicate-handle',
+  'drift/handle-claimed-not-linked',
+  'drift/handle-host-mismatch',
 ]);
 
 function clamp01(value: number): number {
@@ -68,7 +74,50 @@ function currentRole(profile: Profile): { jobTitle?: string; worksFor?: string }
 
 function structuredData(profile: Profile): StructuredDataReadiness {
   const identity = profile.identity;
-  const sameAs = (identity.links ?? []).map((link) => link.url);
+  const isBrand = profile.flavor === 'brand';
+
+  // sameAs: canonical identity.links + every claimed handle's URL (deduped). For a
+  // brand the socialHandles matrix IS the canonical surface set (§17.1).
+  const sameAs = [
+    ...(identity.links ?? []).map((link) => link.url),
+    ...(profile.socialHandles ?? [])
+      .filter((h) => h.status === 'claimed' && h.url !== undefined)
+      .map((h) => h.url as string),
+  ].filter((url, index, all) => all.indexOf(url) === index);
+
+  if (isBrand) {
+    const slogan = identity.tagline?.en;
+    const description = identity.mission?.en;
+    const fields = {
+      name: Boolean(identity.name),
+      sameAs,
+      ...(identity.logo ? { logo: identity.logo } : {}),
+      ...(identity.established ? { foundingDate: identity.established } : {}),
+      ...(slogan ? { slogan } : {}),
+      ...(description ? { description } : {}),
+      ...(identity.location ? { address: identity.location } : {}),
+    };
+    const considered = ['name', 'sameAs', 'logo', 'foundingDate', 'slogan', 'description', 'address'];
+    const populated =
+      1 + (sameAs.length > 0 ? 1 : 0) + (identity.logo ? 1 : 0) + (identity.established ? 1 : 0) + (slogan ? 1 : 0) + (description ? 1 : 0) + (identity.location ? 1 : 0);
+    const ready = Boolean(identity.name) && sameAs.length > 0 && Boolean(identity.logo || description || identity.established);
+    const jsonLd =
+      identity.name && sameAs.length > 0
+        ? {
+            '@context': 'https://schema.org' as const,
+            '@type': 'Organization' as const,
+            name: identity.name,
+            sameAs,
+            ...(identity.logo ? { logo: identity.logo } : {}),
+            ...(identity.established ? { foundingDate: identity.established } : {}),
+            ...(slogan ? { slogan } : {}),
+            ...(description ? { description } : {}),
+            ...(identity.location ? { address: identity.location } : {}),
+          }
+        : undefined;
+    return { entityType: 'Organization', ready, completeness: populated / considered.length, fields, ...(jsonLd ? { jsonLd } : {}) };
+  }
+
   const role = currentRole(profile);
   const fields = {
     name: Boolean(identity.name),
@@ -93,7 +142,7 @@ function structuredData(profile: Profile): StructuredDataReadiness {
         ...(role.worksFor ? { worksFor: role.worksFor } : {}),
       }
     : undefined;
-  return { ready, completeness: populated / considered.length, fields, ...(jsonLd ? { jsonLd } : {}) };
+  return { entityType: 'Person', ready, completeness: populated / considered.length, fields, ...(jsonLd ? { jsonLd } : {}) };
 }
 
 /** Which platforms the user targets (has any curated surface for). */
@@ -201,10 +250,16 @@ export function geoCheck(profile: Profile): GeoReport {
     },
     {
       code: 'geo/structured-person',
-      label: 'Person fields beyond the minimum (photo/location/jobTitle)',
+      label: 'Entity fields beyond the minimum (photo/location/jobTitle — logo/description/foundingDate for brand)',
       weight: 0.1,
-      score: (Number(Boolean(identity.photo)) + Number(Boolean(identity.location)) + Number(Boolean(sd.fields.jobTitle))) / 3,
-      detail: `photo: ${identity.photo ? 'yes' : 'no'} · location: ${identity.location ? 'yes' : 'no'} · jobTitle: ${sd.fields.jobTitle ? 'yes' : 'no'}`,
+      score:
+        profile.flavor === 'brand'
+          ? (Number(Boolean(identity.logo)) + Number(Boolean(identity.mission)) + Number(Boolean(identity.established))) / 3
+          : (Number(Boolean(identity.photo)) + Number(Boolean(identity.location)) + Number(Boolean(sd.fields.jobTitle))) / 3,
+      detail:
+        profile.flavor === 'brand'
+          ? `logo: ${identity.logo ? 'yes' : 'no'} · description(mission): ${identity.mission ? 'yes' : 'no'} · foundingDate: ${identity.established ? 'yes' : 'no'}`
+          : `photo: ${identity.photo ? 'yes' : 'no'} · location: ${identity.location ? 'yes' : 'no'} · jobTitle: ${sd.fields.jobTitle ? 'yes' : 'no'}`,
     },
     {
       code: 'geo/semantic-anchors',
@@ -256,7 +311,7 @@ export function geoCheck(profile: Profile): GeoReport {
     structuredData: {
       ...section(
         'Structured-data readiness',
-        `schema.org Person JSON-LD ${sd.ready ? 'ready for the web renderer' : 'not ready (need name + ≥1 sameAs link)'}.`,
+        `schema.org ${sd.entityType} JSON-LD ${sd.ready ? 'ready for the web renderer' : 'not ready (need name + ≥1 sameAs link)'}.`,
         checks.filter((c) => c.code.startsWith('geo/sameas') || c.code.startsWith('geo/structured')),
       ),
       readiness: sd,

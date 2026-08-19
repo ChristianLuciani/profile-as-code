@@ -1,10 +1,11 @@
 /**
- * Platform/lang parsing — mirrors the contract enum (core exports PLATFORMS;
- * lang enum is en/es/fr per D8/§11). Usage errors are exit code 2.
+ * Platform/lang/flavor parsing — mirrors the contract enums (core exports
+ * PLATFORMS; lang enum is en/es/fr per D8/§11; flavor is person|brand per D15).
+ * Usage errors are exit code 2.
  */
 
 import { PLATFORMS } from '@profile-as-code/core';
-import type { Lang, Platform } from '@profile-as-code/core';
+import type { Flavor, Lang, Platform } from '@profile-as-code/core';
 
 export class UsageError extends Error {
   constructor(message: string) {
@@ -14,6 +15,7 @@ export class UsageError extends Error {
 }
 
 const LANGS: readonly string[] = ['en', 'es', 'fr'] as const;
+const FLAVORS: readonly string[] = ['person', 'brand'] as const;
 
 export function parsePlatform(value: string): Platform {
   if ((PLATFORMS as readonly string[]).includes(value)) return value as Platform;
@@ -23,6 +25,11 @@ export function parsePlatform(value: string): Platform {
 export function parseLang(value: string): Lang {
   if (LANGS.includes(value)) return value as Lang;
   throw new UsageError(`unknown language "${value}" (allowed: ${LANGS.join(', ')})`);
+}
+
+export function parseFlavor(value: string): Flavor {
+  if ((FLAVORS as readonly string[]).includes(value)) return value as Flavor;
+  throw new UsageError(`unknown flavor "${value}" (allowed: ${FLAVORS.join(', ')})`);
 }
 
 export function parseVariants(value: string | undefined, fallback: number): number {

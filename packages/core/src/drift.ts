@@ -27,11 +27,16 @@
  *   drift/active-variant-missing  active entry has no curated bio/headline for its
  *                                platform+lang (the chosen variant has no base).
  *   drift/skill-conflict          same skill name with different levels.
+ *   drift/duplicate-handle         same platform listed twice in socialHandles (brand).
+ *   drift/handle-claimed-not-linked  a claimed handle has no url and no identity.links entry.
+ *   drift/handle-host-mismatch     a handle's url host does not match the platform's hosts
+ *                                (offline proxy of handle-consistency; live checks ship in skills).
  *
  * Out of scope for v1 (documented in the PR): free-text mining of bio/headline text
  * (year/date extraction from prose is too fragile), DOI resolvability (network —
- * renderers/skills later), and the variants store (active.variantId points there;
- * we only validate the platform+lang base).
+ * renderers/skills later), the variants store (active.variantId points there;
+ * we only validate the platform+lang base), and live handle reachability (network —
+ * the github-org skill's checks.yaml runs `url-live`; drift is deterministic/offline).
  */
 
 import { PLATFORMS } from './types.js';
@@ -39,7 +44,9 @@ import type { Bio, Issue, Platform, Profile } from './types.js';
 
 /** Hosts that represent a person's platform presence. A URL on one of these that
  *  is not in identity.links is an uncanonicalized duplicate (the drift source the
- *  contract rule "URLs only from identity.links" targets). */
+ *  contract rule "URLs only from identity.links" targets). v1.1 adds the brand
+ *  surfaces (github-org, bluesky, instagram, tiktok, youtube, spotify, reddit,
+ *  mastodon, soundcloud). */
 const PLATFORM_HOSTS: readonly string[] = [
   'github.com',
   'linkedin.com',
@@ -48,7 +55,46 @@ const PLATFORM_HOSTS: readonly string[] = [
   'twitter.com',
   'researchgate.net',
   'substack.com',
+  'bsky.app',
+  'bluesky.social',
+  'instagram.com',
+  'tiktok.com',
+  'youtube.com',
+  'open.spotify.com',
+  'spotify.com',
+  'reddit.com',
+  'mastodon.social',
+  'soundcloud.com',
 ];
+
+/** Expected URL hosts per brand handle platform — the offline handle-consistency
+ *  proxy (`drift/handle-host-mismatch`). Live reachability is the skill's job
+ *  (`url-live` in checks.yaml), not drift's. */
+const HANDLE_HOSTS: Record<string, readonly string[]> = {
+  github: ['github.com'],
+  'github-org': ['github.com'],
+  x: ['x.com', 'twitter.com'],
+  bluesky: ['bsky.app', 'bluesky.social'],
+  substack: ['substack.com'],
+  instagram: ['instagram.com'],
+  tiktok: ['tiktok.com'],
+  youtube: ['youtube.com'],
+  spotify: ['open.spotify.com', 'spotify.com'],
+  reddit: ['reddit.com'],
+  mastodon: ['mastodon.social'],
+  soundcloud: ['soundcloud.com'],
+};
+
+/** True when `host` is a valid host for `platform`'s handle URLs (or the platform
+ *  has no registered hosts — then any URL is allowed). Substack profiles live on
+ *  `*.substack.com` subdomains. */
+function hostMatchesPlatform(platform: string, host: string): boolean {
+  const hosts = HANDLE_HOSTS[platform];
+  if (hosts === undefined) return true;
+  if (hosts.includes(host)) return true;
+  if (platform === 'substack' && host.endsWith('.substack.com')) return true;
+  return false;
+}
 
 function hostOf(url: string): string | undefined {
   try {
@@ -129,6 +175,62 @@ export function driftCheck(profile: Profile): Issue[] {
             `projects[${projectIndex}].links[${linkIndex}]`,
           ),
         );
+      }
+    }
+  }
+
+  // --- socialHandles: brand handle matrix (v1.1/§17) --------------------------
+  // Offline, deterministic — live reachability ships in the github-org skill's
+  // checks.yaml (`url-live`), not here (drift is a pure function of the SSOT).
+  const handles = profile.socialHandles ?? [];
+  if (handles.length > 0) {
+    const handleGroups = groupBy(handles, (h) => h.platform);
+    for (const [platform, indices] of handleGroups) {
+      if (indices.length > 1) {
+        push(
+          warn(
+            'drift/duplicate-handle',
+            `socialHandles lists ${indices.length} rows for platform "${platform}" (indices ${indices.join(', ')}) — one row per platform, the handle matrix is the SSOT`,
+            `socialHandles[${indices[0]}]`,
+          ),
+        );
+      }
+    }
+    for (const [index, handle] of handles.entries()) {
+      if (handle.status !== 'claimed') continue;
+      // A claimed surface must resolve: either the matrix row carries the URL, or
+      // identity.links has a URL whose host matches the platform and whose path
+      // contains the handle (offline proxy — live reachability is the skill's job).
+      const hasOwnUrl = handle.url !== undefined;
+      const linkedInIdentity =
+        handle.url !== undefined && identityUrls.has(normalizeUrl(handle.url));
+      const resolvedElsewhere = (identity.links ?? []).some((link) => {
+        const host = hostOf(link.url);
+        if (host === undefined || !hostMatchesPlatform(handle.platform, host)) return false;
+        const path = new URL(link.url).pathname.toLowerCase();
+        const handleLower = handle.handle.toLowerCase().replace(/^@/, '');
+        return handleLower.length > 0 && path.includes(handleLower);
+      });
+      if (!hasOwnUrl && !resolvedElsewhere) {
+        push(
+          warn(
+            'drift/handle-claimed-not-linked',
+            `claimed handle @${handle.handle} (${handle.platform}) has no url and no matching identity.links entry — a claimed surface must resolve (handle-claimed rule)`,
+            `socialHandles[${index}]`,
+          ),
+        );
+      }
+      if (hasOwnUrl && !linkedInIdentity && handle.url !== undefined) {
+        const host = hostOf(handle.url);
+        if (host !== undefined && !hostMatchesPlatform(handle.platform, host)) {
+          push(
+            warn(
+              'drift/handle-host-mismatch',
+              `handle @${handle.handle} (${handle.platform}) points at ${host}, expected ${HANDLE_HOSTS[handle.platform]?.join(' or ') ?? 'any'} — handle-consistent violation (offline proxy)`,
+              `socialHandles[${index}].url`,
+            ),
+          );
+        }
       }
     }
   }

@@ -1,4 +1,4 @@
 {
   "identity": { "name": "Ada Example" },
-  "bios": [{ "platform": "tiktok", "lang": "en", "length": "short", "text": "not a supported platform" }]
+  "bios": [{ "platform": "myspace", "lang": "en", "length": "short", "text": "not a supported platform" }]
 }

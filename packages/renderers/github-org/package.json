@@ -1,0 +1,35 @@
+{
+  "name": "@profile-as-code/renderers-github-org",
+  "version": "0.1.0",
+  "description": "Renderer github-org (M6, brand flavor): deterministic, byte-stable org README.md from a brand PlatformProfile (compile() slice). Pure function of the SSOT — no network, no AI, no randomness. SPEC §17.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "pnpm --filter @profile-as-code/core build && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm build && vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=20.19"
+  },
+  "dependencies": {
+    "@profile-as-code/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  }
+}

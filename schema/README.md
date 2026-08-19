@@ -14,6 +14,12 @@ validates the result against this schema. File → root property mapping:
 | File (content/) | Root property(s) | Notes |
 |---|---|---|
 | `identity.yaml` | `identity` | Required at profile level (the GEO anchor) |
+| `flavor.yaml` | `flavor` | v1.1 (D15): `person` \| `brand`. **The file value IS the root value** — a bare scalar (`brand`), not a key:value map |
+| `socialHandles.yaml` | `socialHandles[]` | v1.1 (brand): handle matrix (platform → handle + `status: claimed\|pending`) |
+| `newsletter.yaml` | `newsletter` | v1.1 (brand): Substack/Ghost |
+| `podcast.yaml` | `podcast` | v1.1 (brand): Spotify/RSS |
+| `press.yaml` | `press[]` | v1.1 (brand): media mentions |
+| `audiences.yaml` | `audiences` | v1.1 (brand): reader profiles |
 | `positioning.yaml` | `positioning` | Statement, audience angles, GEO intent |
 | `bios.yaml` | `bios[]` | Generated + curated; variant chosen lives here |
 | `headlines.yaml` | `headlines[]` | Per platform+lang |
@@ -36,8 +42,12 @@ false`) — that IS the "fail on schema" side of D12.
 2. **Drift (facts)** — cross-platform contradictions (same date/role/paper written differently
    on two surfaces), link duplication outside `identity.links`, `start > end`, unresolved
    DOI/ORCID. → **WARN** (exit 0) — D12: users may have different intents per platform.
+   v1.1 (brand): the handle-matrix rules run here too (`drift/duplicate-handle`,
+   `drift/handle-claimed-not-linked`, `drift/handle-host-mismatch`) — offline and
+   deterministic; live reachability ships in `skills/github-org/checks.yaml` (`url-live`).
 3. **GEO** — `geoCheck`: fact consistency score, semantic-association coverage, structured-data
-   readiness (schema.org `Person`/`sameAs` for the web renderer). → report, not a gate.
+   readiness. Brand workspaces emit `schema.org/Organization` (sameAs = identity.links +
+   claimed handle urls, §17.1); person workspaces keep `schema.org/Person`. → report, not a gate.
 
 ## Rules enforced by the schema
 
@@ -49,6 +59,7 @@ false`) — that IS the "fail on schema" side of D12.
 - **Checks catalog:** `rule` is an enum (`max-chars`, `min-chars`, `url-live`, `fact-present`,
   `geo-consistent`, `lang-present`, `link-in-identity`) — the same catalog used by
   `skills/<platform>/checks.yaml`, so `pac check` runs the **union** of user + skill checks.
+  v1.1 (brand): `handle-claimed` and `handle-consistent` join the catalog.
 
 ## Non-goals of the schema
 
@@ -64,3 +75,6 @@ false`) — that IS the "fail on schema" side of D12.
 - The schema is versioned by directory: `schema/v1/…` when v2 arrives (breaking changes only).
 - Additive changes (new optional fields) can land in v1; `additionalProperties: false`
   guarantees unknown fields never silently pass.
+- **v1.1** (in this file, additive): brand flavor (D15/§17) — `flavor`, org identity
+  variant, `socialHandles`/`newsletter`/`podcast`/`press`/`audiences`, brand platforms,
+  `handle-claimed`/`handle-consistent` rules. Every v1 workspace still validates.

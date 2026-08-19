@@ -56,11 +56,13 @@ export function validateProfile(value: unknown): Profile {
 /**
  * Normalize a validated profile: the contract makes most root collections optional,
  * but consumers (drift/geo/compile) should never null-check. Returns the same data
- * with array properties defaulted to empty arrays.
+ * with array properties defaulted to empty arrays and `flavor` defaulted to `person`
+ * (D15: absent flavor = person — every v1 workspace stays valid).
  */
 export function normalizeProfile(profile: Profile): LoadedProfile {
   return {
     ...profile,
+    flavor: profile.flavor ?? 'person',
     bios: profile.bios ?? [],
     headlines: profile.headlines ?? [],
     skills: profile.skills ?? [],
@@ -68,6 +70,8 @@ export function normalizeProfile(profile: Profile): LoadedProfile {
     projects: profile.projects ?? [],
     publications: profile.publications ?? [],
     checks: profile.checks ?? [],
+    socialHandles: profile.socialHandles ?? [],
+    press: profile.press ?? [],
   };
 }
 

@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://profile-as-code.dev/schema/v1/profile.schema.json",
-  "title": "profile-as-code — user profile contract (v1)",
-  "description": "Contract source (D3) for a profile-data workspace. The core `load()` parses content/*.yaml, merges them into a single Profile and validates against THIS schema. Facts (dates, DOIs, URLs, ORCID) are language-independent and are the GEO anchor. Every text field is a langMap ({lang: value}) with EN required (D8, §11).",
+  "$id": "https://profile-as-code.dev/schema/v1.1/profile.schema.json",
+  "title": "profile-as-code — user profile contract (v1.1)",
+  "description": "Contract source (D3) for a profile-data workspace. The core `load()` parses content/*.yaml, merges them into a single Profile and validates against THIS schema. Facts (dates, DOIs, URLs, ORCID) are language-independent and are the GEO anchor. Every text field is a langMap ({lang: value}) with EN required (D8, §11). v1.1 is ADDITIVE (semver minor): every v1 workspace still validates. New in v1.1: brand flavor (D15/§17) — `flavor`, org identity variant (orgName/logo/brandVoice/mission/tagline/established), socialHandles/newsletter/podcast/press/audiences blocks, brand platforms, handle checks.",
   "type": "object",
   "additionalProperties": false,
   "required": ["identity"],
@@ -10,6 +10,34 @@
     "identity": {
       "$ref": "#/$defs/identity",
       "description": "Canonical identity. THE source of truth for URLs and names (GEO anchor)."
+    },
+    "flavor": {
+      "type": "string",
+      "enum": ["person", "brand"],
+      "description": "v1.1 (additive): workspace flavor (D15). person (default, absent = person) or brand. Brand enables the org identity variant, the socialHandles/newsletter/podcast/press/audiences blocks and Organization GEO (§17)."
+    },
+    "socialHandles": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/socialHandle" },
+      "description": "v1.1 (additive, brand): the brand handle matrix — one row per platform with claim status. Seeded from the operator's brand-handles availability sweep (§17)."
+    },
+    "newsletter": {
+      "$ref": "#/$defs/newsletter",
+      "description": "v1.1 (additive, brand): the brand's newsletter surface (Substack/Ghost)."
+    },
+    "podcast": {
+      "$ref": "#/$defs/podcast",
+      "description": "v1.1 (additive, brand): the brand's podcast (Spotify show/RSS)."
+    },
+    "press": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/pressItem" },
+      "description": "v1.1 (additive, brand): media mentions of the brand (verifiable, dated)."
+    },
+    "audiences": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/langMap" },
+      "description": "v1.1 (additive, brand): brand audiences — reader profiles (not recruiters). Audience name → per-lang angle (same shape as positioning.audiences; brand-facing)."
     },
     "positioning": {
       "$ref": "#/$defs/positioning",
@@ -87,8 +115,8 @@
 
     "platform": {
       "type": "string",
-      "enum": ["github-readme", "linkedin", "upwork", "x", "researchgate", "substack", "patreon"],
-      "description": "v1 platform set. Substack and Patreon added in D-scope; web renderer consumes compiled profiles (M5)."
+      "enum": ["github-readme", "linkedin", "upwork", "x", "researchgate", "substack", "patreon", "github-org", "bluesky", "instagram", "tiktok", "youtube", "spotify", "reddit", "mastodon", "soundcloud"],
+      "description": "Platform set (ONE source, dedup). v1: person surfaces. v1.1 (additive, brand §17): github-org, bluesky, instagram, tiktok, youtube, spotify, reddit, mastodon, soundcloud — brand surfaces + the socialHandles matrix key space."
     },
 
     "identity": {
@@ -97,6 +125,12 @@
       "required": ["name"],
       "properties": {
         "name": { "type": "string", "minLength": 1 },
+        "orgName": { "type": "string", "minLength": 1, "description": "v1.1 (additive, brand): legal/registered org name when it differs from the display name (name = display, e.g. 'Topia Press')." },
+        "logo": { "$ref": "#/$defs/url", "description": "v1.1 (additive, brand): logo URL (schema.org Organization logo)." },
+        "brandVoice": { "$ref": "#/$defs/brandVoice", "description": "v1.1 (additive, brand): tone matrix seed — tone + values + avoid. Per-platform voice lives in the platform skill." },
+        "mission": { "$ref": "#/$defs/langMap", "description": "v1.1 (additive, brand): the brand's mission (schema.org Organization description)." },
+        "tagline": { "$ref": "#/$defs/langMap", "description": "v1.1 (additive, brand): the one-line tagline (schema.org Organization slogan)." },
+        "established": { "$ref": "#/$defs/date", "description": "v1.1 (additive, brand): founding date (schema.org Organization foundingDate)." },
         "location": { "type": "string" },
         "photo": { "$ref": "#/$defs/url" },
         "links": {
@@ -267,7 +301,7 @@
       "required": ["platform", "rule", "value"],
       "properties": {
         "id": { "type": "string" },
-        "platform": { "type": "string", "enum": ["all", "github-readme", "linkedin", "upwork", "x", "researchgate", "substack"] },
+        "platform": { "type": "string", "enum": ["all", "github-readme", "linkedin", "upwork", "x", "researchgate", "substack", "patreon", "github-org", "bluesky", "instagram", "tiktok", "youtube", "spotify", "reddit", "mastodon", "soundcloud"] },
         "rule": {
           "type": "string",
           "enum": [
@@ -277,9 +311,11 @@
             "fact-present",
             "geo-consistent",
             "lang-present",
-            "link-in-identity"
+            "link-in-identity",
+            "handle-claimed",
+            "handle-consistent"
           ],
-          "description": "Rule catalog (extensible). Skills' checks.yaml use the same catalog; `pac check` runs the union."
+          "description": "Rule catalog (extensible). Skills' checks.yaml use the same catalog; `pac check` runs the union. v1.1 (brand §17): handle-claimed (a claimed handle must resolve to a URL) and handle-consistent (handle matrix coherent across surfaces)."
         },
         "value": {
           "oneOf": [
@@ -303,6 +339,85 @@
         "chosenAt": { "type": "string", "format": "date-time" }
       },
       "description": "The chosen variant id — user picked it (D11); variant body lives in the workspace variants store."
+    },
+
+    "brandVoice": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tone": { "$ref": "#/$defs/langMap" },
+        "values": { "type": "array", "items": { "type": "string" } },
+        "avoid": { "type": "array", "items": { "type": "string" } }
+      },
+      "description": "v1.1 (additive, brand): tone matrix seed — overall tone (langMap), core values, words/tones to avoid. Per-platform voice refinement lives in the platform skill (§17)."
+    },
+
+    "socialHandle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "handle", "status"],
+      "properties": {
+        "platform": { "$ref": "#/$defs/platform" },
+        "handle": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "enum": ["claimed", "pending"] },
+        "url": { "$ref": "#/$defs/url", "description": "v1.1 (additive, brand): direct profile URL. A claimed handle should carry one, or match an identity.links entry (drift rule handle-claimed-not-linked)." },
+        "note": { "type": "string" }
+      },
+      "description": "v1.1 (additive, brand): one row of the brand handle matrix (platform → handle + claim status). Seed source: the operator's brand-handles availability sweep (§17)."
+    },
+
+    "newsletterPlatform": {
+      "type": "string",
+      "enum": ["substack", "ghost"],
+      "description": "v1.1 (additive, brand): newsletter hosts the engine models (Substack now, Ghost later)."
+    },
+
+    "newsletter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["platform", "url"],
+      "properties": {
+        "platform": { "$ref": "#/$defs/newsletterPlatform" },
+        "url": { "$ref": "#/$defs/url" },
+        "name": { "$ref": "#/$defs/langMap" },
+        "description": { "$ref": "#/$defs/langMap" },
+        "cadence": { "type": "string" }
+      },
+      "description": "v1.1 (additive, brand): the brand's newsletter surface. The name/description double as the GEO-visible text (RSS/LLM-readable)."
+    },
+
+    "podcastPlatform": {
+      "type": "string",
+      "enum": ["spotify", "rss"],
+      "description": "v1.1 (additive, brand): podcast distribution modeled in v1.1 (Spotify for Creators / standalone RSS)."
+    },
+
+    "podcast": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title"],
+      "properties": {
+        "title": { "$ref": "#/$defs/langMap" },
+        "platform": { "$ref": "#/$defs/podcastPlatform" },
+        "url": { "$ref": "#/$defs/url" },
+        "rss": { "$ref": "#/$defs/url" },
+        "description": { "$ref": "#/$defs/langMap" },
+        "status": { "type": "string", "enum": ["planned", "live"] }
+      },
+      "description": "v1.1 (additive, brand): the brand's podcast — show metadata + RSS (GEO-citable via RSS)."
+    },
+
+    "pressItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outlet", "title", "url", "date"],
+      "properties": {
+        "outlet": { "anyOf": [{ "type": "string", "minLength": 1 }, { "$ref": "#/$defs/langMap" }] },
+        "title": { "$ref": "#/$defs/langMap" },
+        "url": { "$ref": "#/$defs/url" },
+        "date": { "$ref": "#/$defs/date" }
+      },
+      "description": "v1.1 (additive, brand): a media mention — outlet, headline, resolvable URL, date (verifiable claims, §8)."
     }
   }
 }
