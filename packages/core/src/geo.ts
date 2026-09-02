@@ -23,7 +23,7 @@
  */
 
 import { driftCheck } from './drift.js';
-import { PLATFORMS } from './types.js';
+import { PLATFORMS, textOf } from './types.js';
 import type {
   GeoCheck,
   GeoReport,
@@ -69,7 +69,7 @@ function currentRole(profile: Profile): { jobTitle?: string; worksFor?: string }
   const current = items.filter((item) => item.end === 'present').sort(byStart)[0];
   const latest = items.sort(byStart)[0];
   const pick = current ?? latest;
-  return pick ? { jobTitle: pick.role, worksFor: pick.org } : {};
+  return pick ? { jobTitle: textOf(pick.role), worksFor: pick.org } : {};
 }
 
 function structuredData(profile: Profile): StructuredDataReadiness {

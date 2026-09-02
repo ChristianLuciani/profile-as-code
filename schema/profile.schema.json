@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://profile-as-code.dev/schema/v1.1/profile.schema.json",
   "title": "profile-as-code — user profile contract (v1.1)",
-  "description": "Contract source (D3) for a profile-data workspace. The core `load()` parses content/*.yaml, merges them into a single Profile and validates against THIS schema. Facts (dates, DOIs, URLs, ORCID) are language-independent and are the GEO anchor. Every text field is a langMap ({lang: value}) with EN required (D8, §11). v1.1 is ADDITIVE (semver minor): every v1 workspace still validates. New in v1.1: brand flavor (D15/§17) — `flavor`, org identity variant (orgName/logo/brandVoice/mission/tagline/established), socialHandles/newsletter/podcast/press/audiences blocks, brand platforms, handle checks.",
+  "description": "Contract source (D3) for a profile-data workspace. The core `load()` parses content/*.yaml, merges them into a single Profile and validates against THIS schema. Facts (dates, DOIs, URLs, ORCID) are language-independent and are the GEO anchor. Every text field is a langMap ({lang: value}) with EN required (D8, §11). v1.1 is ADDITIVE (semver minor): every v1 workspace still validates. New in v1.1: role as langMap (org stays invariant string), highlights as string[] per lang, publication.authors/url, root languages + education, identity.handle/timezone, patreon in checks; brand flavor (D15/§17) — `flavor`, org identity variant (orgName/logo/brandVoice/mission/tagline/established), socialHandles/newsletter/podcast/press/audiences blocks, brand platforms, handle checks.",
   "type": "object",
   "additionalProperties": false,
   "required": ["identity"],
@@ -61,6 +61,24 @@
       "type": "array",
       "items": { "$ref": "#/$defs/experienceItem" }
     },
+    "education": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/educationItem" },
+      "description": "v1.1 (additive): formal education. v1 workspaces keep education inside experience[] with role = degree."
+    },
+    "languages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "level"],
+        "properties": {
+          "code": { "$ref": "#/$defs/lang" },
+          "level": { "type": "string", "enum": ["native", "fluent", "advanced", "intermediate", "basic"] }
+        }
+      },
+      "description": "v1.1 (additive): spoken languages. v1 workspaces document them as comments in skills.yaml."
+    },
     "projects": {
       "type": "array",
       "items": { "$ref": "#/$defs/project" }
@@ -101,6 +119,14 @@
       "minProperties": 1
     },
 
+    "langMapList": {
+      "type": "object",
+      "required": ["en"],
+      "propertyNames": { "$ref": "#/$defs/lang" },
+      "additionalProperties": { "type": "array", "items": { "type": "string" } },
+      "description": "v1.1 (additive): like langMap but values are string arrays (bullets). Used by experience.highlights to express list-shaped content per language."
+    },
+
     "url": {
       "type": "string",
       "format": "uri",
@@ -125,6 +151,8 @@
       "required": ["name"],
       "properties": {
         "name": { "type": "string", "minLength": 1 },
+        "handle": { "type": "string", "description": "v1.1: primary handle (e.g. X @cluciani_ve)." },
+        "timezone": { "type": "string", "description": "v1.1: IANA timezone (e.g. America/Guayaquil)." },
         "orgName": { "type": "string", "minLength": 1, "description": "v1.1 (additive, brand): legal/registered org name when it differs from the display name (name = display, e.g. 'Topia Press')." },
         "logo": { "$ref": "#/$defs/url", "description": "v1.1 (additive, brand): logo URL (schema.org Organization logo)." },
         "brandVoice": { "$ref": "#/$defs/brandVoice", "description": "v1.1 (additive, brand): tone matrix seed — tone + values + avoid. Per-platform voice lives in the platform skill." },
@@ -226,13 +254,48 @@
       "additionalProperties": false,
       "required": ["role", "org", "start"],
       "properties": {
-        "role": { "type": "string", "minLength": 1 },
-        "org": { "type": "string", "minLength": 1 },
+        "role": {
+          "anyOf": [{ "type": "string", "minLength": 1 }, { "$ref": "#/$defs/langMap" }],
+          "description": "v1: string. v1.1 (additive): langMap — bilingual role titles."
+        },
+        "org": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Proper noun — invariant across languages (e.g. 'USFQ', 'Nimbus Labs'). Not a langMap: institutions are never translated (SPEC §11)."
+        },
         "start": { "$ref": "#/$defs/date" },
         "end": { "anyOf": [{ "$ref": "#/$defs/date" }, { "const": "present" }] },
-        "highlights": { "$ref": "#/$defs/langMap" }
+        "highlights": {
+          "anyOf": [{ "$ref": "#/$defs/langMap" }, { "$ref": "#/$defs/langMapList" }],
+          "description": "v1: langMap of strings (separator-delimited). v1.1 (additive): langMap of string arrays (bullets)."
+        }
       },
       "description": "start <= end is NOT expressible in JSON Schema — enforced by core.driftCheck (§12 note)."
+    },
+
+    "educationItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["degree", "institution", "start"],
+      "properties": {
+        "degree": {
+          "anyOf": [{ "type": "string", "minLength": 1 }, { "$ref": "#/$defs/langMap" }],
+          "description": "v1.1: degree title (string or bilingual langMap)."
+        },
+        "institution": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Proper noun — invariant across languages (e.g. 'Universidad Central de Venezuela'). Not a langMap: institutions are never translated (SPEC §11)."
+        },
+        "field": {
+          "anyOf": [{ "type": "string" }, { "$ref": "#/$defs/langMap" }],
+          "description": "v1.1: field of study (string or bilingual langMap)."
+        },
+        "start": { "$ref": "#/$defs/date" },
+        "end": { "anyOf": [{ "$ref": "#/$defs/date" }, { "const": "present" }] },
+        "note": { "$ref": "#/$defs/langMap" }
+      },
+      "description": "v1.1 (additive): formal education entry."
     },
 
     "project": {
@@ -269,8 +332,10 @@
         "title": { "type": "string", "minLength": 1 },
         "venue": { "type": "string", "minLength": 1 },
         "year": { "type": "integer", "minimum": 1900, "maximum": 2100 },
+        "authors": { "type": "string", "description": "v1.1: author string (e.g. 'Luciani, C.' or 'Zambrano et al.')." },
         "doi": { "type": "string", "pattern": "^10\\.\\d{4,9}/\\S+$" },
-        "orcidId": { "type": "string", "pattern": "^\\d{4}-\\d{4}-\\d{4}-\\d{3}[\\dX]$" }
+        "orcidId": { "type": "string", "pattern": "^\\d{4}-\\d{4}-\\d{4}-\\d{3}[\\dX]$" },
+        "url": { "$ref": "#/$defs/url", "description": "v1.1: resolvable URL for outputs without DOI (preprint, conference abstract)." }
       },
       "description": "DOI/ORCID must be resolvable — GEO citability anchor (LLMs resolve them)."
     },

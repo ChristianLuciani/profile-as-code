@@ -72,6 +72,8 @@ export function normalizeProfile(profile: Profile): LoadedProfile {
     checks: profile.checks ?? [],
     socialHandles: profile.socialHandles ?? [],
     press: profile.press ?? [],
+    education: profile.education ?? [],
+    languages: profile.languages ?? [],
   };
 }
 

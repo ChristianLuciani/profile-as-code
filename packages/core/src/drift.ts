@@ -39,7 +39,7 @@
  * the github-org skill's checks.yaml runs `url-live`; drift is deterministic/offline).
  */
 
-import { PLATFORMS } from './types.js';
+import { PLATFORMS, textOf } from './types.js';
 import type { Bio, Issue, Platform, Profile } from './types.js';
 
 /** Hosts that represent a person's platform presence. A URL on one of these that
@@ -240,13 +240,13 @@ export function driftCheck(profile: Profile): Issue[] {
       push(
         warn(
           'drift/date-range-inverted',
-          `start (${item.start}) is after end (${item.end}) for "${item.role}" at ${item.org}`,
+          `start (${item.start}) is after end (${item.end}) for "${textOf(item.role)}" at ${item.org}`,
           `experience[${index}]`,
         ),
       );
     }
   }
-  const expGroups = groupBy(experience, (item) => `${item.role.toLowerCase()} @ ${item.org.toLowerCase()}`);
+  const expGroups = groupBy(experience, (item) => `${textOf(item.role).toLowerCase()} @ ${item.org.toLowerCase()}`);
   for (const [key, indices] of expGroups) {
     if (indices.length < 2) continue;
     const dates = indices.map((i) => `${experience[i]?.start}–${experience[i]?.end ?? '?'}`);
