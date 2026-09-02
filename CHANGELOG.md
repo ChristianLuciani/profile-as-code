@@ -12,10 +12,12 @@ minor versions may contain breaking contract changes.
 ### Added
 
 - **Platform set — Postiz parity + operator extras (v1.2 schema, D16 — issue #30)** — el
-  enum compartido de plataformas (person + brand) pasa de 16 a **41**: la unión de las 32
-  redes soportadas por Postiz ([OFICIAL] docs.postiz.com, fetched 2026-09-01) + extras del
-  operador (`ghost`, `spotify`, `soundcloud`). Slugs nuevos Postiz verbatim
-  (`linkedin-page`, `instagram-standalone`, `devto`, `gmb`, `warpcast`, `moltbook`).
+  enum compartido de plataformas (person + brand) pasa de 16 a **43**: la unión de las 34
+  redes soportadas por Postiz ([OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02) + 9
+  extras del operador (`ghost`, `spotify`, `soundcloud`, y las seis superficies v1 no-Postiz:
+  `github-readme`, `upwork`, `researchgate`, `substack`, `patreon`, `github-org`). Slugs
+  nuevos Postiz verbatim (`linkedin-page`, `instagram-standalone`, `devto`, `gmb`,
+  `warpcast`, `moltbook`, `mewe`, `tumblr`).
   - **Schema v1.2 (aditivo)** — `$id`/`title` bump; `check.platform` == `['all', ...platform]`
     asertado por `scripts/schema-check` (dedup guard, no confianza manual).
   - **Core** — `PLATFORMS` espeja el enum (contract test vitest: schema ↔ types.ts); drift

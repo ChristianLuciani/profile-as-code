@@ -95,16 +95,20 @@ const PLATFORM_HOSTS: readonly string[] = [
   'whop.com',
   'business.google.com',
   'threads.net',
+  'threads.com',
   'njump.me',
   'primal.net',
+  'iris.to',
   'moltbook.com',
   'patreon.com',
   'ghost.io',
+  'mewe.com',
+  'tumblr.com',
 ];
 
 /** Profile URLs that live on SUBDOMAINS of a host (e.g. `user.substack.com`,
- *  `site.wordpress.com`, `team.slack.com`). Maps platform → the host whose
- *  subdomains are platform surfaces. */
+ *  `site.wordpress.com`, `team.slack.com`, `blog.tumblr.com`). Maps platform → the
+ *  host whose subdomains are platform surfaces. */
 const PLATFORM_SUBDOMAIN_HOSTS: Record<string, readonly string[]> = {
   substack: ['substack.com'],
   ghost: ['ghost.io'],
@@ -112,6 +116,7 @@ const PLATFORM_SUBDOMAIN_HOSTS: Record<string, readonly string[]> = {
   medium: ['medium.com'],
   wordpress: ['wordpress.com'],
   slack: ['slack.com'],
+  tumblr: ['tumblr.com'],
 };
 
 /** Expected URL hosts per brand handle platform — the offline handle-consistency
@@ -146,12 +151,14 @@ const HANDLE_HOSTS: Record<string, readonly string[]> = {
   hashnode: ['hashnode.dev'],
   wordpress: ['wordpress.com'],
   twitch: ['twitch.tv'],
-  threads: ['threads.net'],
+  threads: ['threads.net', 'threads.com'],
   telegram: ['t.me', 'telegram.org'],
   nostr: ['njump.me', 'primal.net', 'iris.to'],
   vk: ['vk.com'],
   kick: ['kick.com'],
   moltbook: ['moltbook.com'],
+  mewe: ['mewe.com'],
+  tumblr: ['tumblr.com'],
   // Any-host platforms (no HANDLE_HOSTS entry → any URL allowed):
   //   - lemmy: federated (hundreds of instances) — a curated list would actively
   //     reject legitimate handles (mastodon.social-only is a v1.1 leftover, see #30 follow-up)

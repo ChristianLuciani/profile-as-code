@@ -35,9 +35,13 @@ def main() -> int:
 
     # 1b. Platform-set dedup contract (D16): check.platform MUST equal
     #     ["all", ...$defs/platform.enum]. Keeps the two enums from drifting.
-    platform_enum = schema["$defs"]["platform"]["enum"]
-    check_def = schema["$defs"]["check"]  # checks.items is a $ref to this
-    check_enum = check_def["properties"]["platform"]["enum"]
+    try:
+        platform_enum = schema["$defs"]["platform"]["enum"]
+        check_def = schema["$defs"]["check"]  # checks.items is a $ref to this
+        check_enum = check_def["properties"]["platform"]["enum"]
+    except KeyError as exc:
+        print(f"FAIL: schema structure changed, dedup guard cannot resolve paths: {exc}")
+        return 1
     expected = ["all", *platform_enum]
     if check_enum != expected:
         missing = sorted(set(expected) - set(check_enum))

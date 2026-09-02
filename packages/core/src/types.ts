@@ -103,6 +103,8 @@ export const PLATFORMS: readonly Platform[] = [
   'kick',
   'moltbook',
   'ghost',
+  'mewe',
+  'tumblr',
 ] as const;
 
 export const LANGS: readonly Lang[] = ['en', 'es', 'fr'] as const;
