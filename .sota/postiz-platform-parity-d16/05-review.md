@@ -90,6 +90,35 @@ See commit `8160a6f` message for the per-finding fix list. Gates after: schema-c
 (v1.2 identity), gen:zod deterministic, typecheck + build clean, tests 58 core + 5 + 4 +
 32 CLI green.
 
+## Fresh-context reconcile — round 2 (headless clean-context pass, 2026-09-02)
+
+Second fresh pass, orchestrated per protocol: headless `pi -p` session on a **fresh clone**
+with `.sota/` physically stripped (the reviewer physically cannot read the author's claims),
+prompt = contract only (PR #31 + issue #30 + SPEC D16). Findings re-verified by this session
+against live sources before classifying (doubt-driven step 4).
+
+| # | Finding | Class | Action |
+|---|---|---|---|
+| F1 | Postiz parity incomplete — MeWe + Tumblr missing; cited page's "32" header undercounts its own tables | **Valid + actionable** (MAJOR) | **Verified live** (llms.txt: "34 social platforms", providers/mewe.md + tumblr.md, fetched 2026-09-02) → added `mewe` + `tumblr`; enum 43 = 34 Postiz + 9 extras |
+| F2 | SPEC §6 arithmetic: "32 + 3 extras" = 35, set was 41 — six v1 non-Postiz surfaces uncounted | **Valid + actionable** (MAJOR) | SPEC + CHANGELOG rewritten with real composition: 34 + 9 = 43 |
+| F3 | iris.to in HANDLE_HOSTS.nostr but not PLATFORM_HOSTS (guard asymmetry) | **Valid + actionable** (NIT) | Added to PLATFORM_HOSTS |
+| F4 | threads.net only; profiles migrated to threads.com [INF] | **Valid + actionable** (NIT) | Added threads.com to both host maps (cheap, advisory) |
+| F5 | linkedin/upwork/researchgate any-host vs linkedin-page guarded | **Valid trade-off** (NIT) | Pre-existing from base PR #27 — same bucket as round-1 F10; flagged for the base PR's review |
+| F6 | check.py KeyError traceback on structural drift | **Valid + actionable** (NIT) | try/except → clean FAIL message |
+| F7 | CHANGELOG entry in ES vs D8 "docs EN" | **Noise** | Pre-existing repo convention (adjacent v1.1 entry is also ES) — tension declared, not introduced here |
+
+Buckets: 5 actionable (fixed, commit `b6a028a`) · 1 trade-off (F5, documented) · 0 contract
+misreads · 1 noise (F7, convention noted). The fresh pass also refuted and failed to break:
+the 41/42 invariants, additivity, the patreon regression fix, moltbook-as-Postiz-verbatim,
+`pac build` on renderer-less platforms, the weibo fixture promise, and subdomain matching
+(no trivial bypass) — all survived.
+
+**Loop bound (step 11):** two fresh rounds, both reconciled, zero BLOCKERs. Round-2 MAJORs
+were completeness/accuracy fixes (all applied and gate-verified). A third fresh pass is the
+operator's call; per the skill, the gate is met once corrections land green. The reviewer
+tier note stands: `glm-5.3-flash:cloud` (equal to builder — permitted; a stronger-tier pass
+would add confidence, not coverage).
+
 ## Verdict
 
 **PASS** — 0 BLOCKER, 0 MAJOR, 2 NIT. Rounds: 1 (no corrections needed).
