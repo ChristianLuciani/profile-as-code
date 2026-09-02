@@ -4,7 +4,11 @@
 workspace (JSON Schema, draft 2020-12). Per D3, JSON Schema is the contract source and
 **Zod schemas are generated from it** in `packages/core` — never hand-written in parallel.
 
-> Status: **v1** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
+> Status: **v1.1** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
+> v1.1 is **additive** (semver minor): every v1 workspace still validates unchanged. New:
+> `role` as langMap (org stays invariant string), `experience.highlights` as string[] per lang (langMapList),
+> root `education` + `languages`, `publication.authors`/`url`, `identity.handle`/`timezone`,
+> `patreon` in the checks platform enum.
 
 ## How content files map to the profile
 
@@ -24,7 +28,9 @@ validates the result against this schema. File → root property mapping:
 | `bios.yaml` | `bios[]` | Generated + curated; variant chosen lives here |
 | `headlines.yaml` | `headlines[]` | Per platform+lang |
 | `skills.yaml` | `skills[]` | With `geoKeywords` + `platformWeights` |
-| `experience.yaml` | `experience[]` | start/end as facts (dates are language-independent) |
+| `experience.yaml` | `experience[]` | start/end as facts (dates are language-independent); v1.1: role langMap, highlights string[] — org stays invariant string (proper noun) |
+| `education.yaml` | `education[]` | v1.1: formal education (degree/institution/start/end/note) |
+| `languages.yaml` | `languages[]` | v1.1: spoken languages (code + level) |
 | `projects.yaml` | `projects[]` | With `evidence[]` (verifiable claims) |
 | `publications.yaml` | `publications[]` | DOI/ORCID resolvable → GEO citability |
 | `keywords.yaml` | `keywords` | SEO per platform + GEO associations/claims |
