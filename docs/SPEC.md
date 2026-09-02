@@ -89,6 +89,7 @@ skills + deploy playbooks**.
 | D12 | Drift-check: **warn on facts, fail on schema** | Users may have different intents per platform; integrity vs flexibility. |
 | D13 | Model-agnostic default; sah as future default path | Revisit when sovereign hub matures (Q3→RESOLVED). |
 | D14 | User data in **separate repo** `profile-data`, integrated by configured path, no symlink in normal flow | Symlink mount only as advanced CI option (Q4→RESOLVED). |
+| D15 | **Brand flavor** (`flavor: brand`): the same engine models commercial/brand identities — org schema, `socialHandles` matrix, brand surfaces. Workspace flavor is a **contract field**, not a separate product | The Topia brand needs the same SSOT→validate→refine→check→deploy machinery; one engine, one schema, one CLI — flavor only changes which blocks/checks apply (Q8→RESOLVED). |
 
 ## 6. Data model (schema v1)
 
@@ -98,6 +99,12 @@ validation semantics. The sketch below is the illustrative overview:
 
 All textual fields support `{ lang: value }` maps (EN required; ES, FR optional per field).
 Facts (dates, DOIs, URLs) are language-independent — **the GEO anchor**.
+
+**Brand flavor (D15, §17 — additive, v1.1):** `flavor: person | brand` at root; brand
+workspaces add `socialHandles[]` (handle matrix, `status: claimed|pending`), `newsletter`,
+`podcast`, `press[]`, `audiences`, and the org identity variant (`orgName`, `logo`,
+`brandVoice`, `mission`, `tagline`, `established`). Person-only root blocks (`experience`,
+`publications`) stay optional and keep their meaning (essays/issues for a brand).
 
 ```yaml
 identity:      { name, location, photo, links[] }            # canonical links: THE source of URLs
@@ -178,8 +185,15 @@ This table is the canonical terminology; docs and code reference it, never inven
 | Deploy surfaces | e.g. `ChristianLuciani/ChristianLuciani`, CV site | public | rendered output (never edited by hand) |
 
 Future workspaces follow the same family: individual identities today, **commercial/brand
-identities** later (multi-workspace: one workspace per identity, same engine) — the naming
-stays `profile-data`-first regardless of the identity's nature.
+identities** now (multi-workspace: one workspace per identity, same engine) — the naming
+stays `profile-data`-first regardless of the identity's nature, so a brand workspace is
+`profile-data-topia`, not `topia-data` (the family prefix wins; D15).
+
+**Workspace flavor (D15):** every workspace declares its flavor in `content/flavor.yaml`
+(`flavor: person | brand`, default `person`). The flavor is a contract field, not a separate
+product: it only changes which blocks/checks apply (brand adds `socialHandles`, `newsletter`,
+`podcast`, `press`, `audiences` and org identity fields; GEO emits `schema.org/Organization`
+instead of `Person`). See §17.
 
 Delivered as a **GitHub template repository** (`ChristianLuciani/profile-data-template`), so a new
 user can `Use this template` or fork (then rename the fork to `profile-data` and make it private).
@@ -233,6 +247,7 @@ Two different "templates" (previous confusion):
 3. **M3**: SOTA research per platform (GitHub→LinkedIn→Upwork→X→ResearchGate→Substack) → skills v1 + `pac refine`.
 4. **M4**: renderers linkedin/upwork/x/researchgate/substack + playbooks + `pac check` + checks.yaml per skill.
 5. **M5**: web renderer (cv-cluciani consumes generated profiles), template release, CONTRIBUTING.
+6. **M6 (brand flavor)**: schema v1.1 brand additions (§17) + `pac init --flavor brand` + renderer `github-org` + handle-matrix checks + `skills/github-org/` + dogfood `profile-data-topia` (private).
 
 ## 13. Resolved decisions (former open questions)
 
@@ -248,15 +263,12 @@ Two different "templates" (previous confusion):
 
 ## 14. Open questions (remaining)
 
-- Q5: Substack adds a *content* surface (newsletter) beyond profile fields — v1 covers the profile
-  page only, or also issue templates?
+- Q5: Substack adds a *content* surface (newsletter) beyond profile fields — the brand flavor
+  ships `newsletter` as a block (§17); the person-flavor newsletter *issue* surface stays open.
 - Q6: CI-as-a-service for user workspaces (symlink mount) — worth it in v1 or later?
 - Q7 (**idea, not a decision**): `profile-me` — a command/skill/experience layer that APPLIES the
   engine to the user's `profile-data` to produce results (today: `pac build`/`pac refine`);
   productized as a single user-facing flow. Name reserved in the profile-* family.
-- Q8 (**idea, not a decision**): `profile-brand` — the future commercial/brand workspace flavor
-  (monetized identities, multi-identity for orgs). The engine stays profile-agnostic; naming
-  stays `profile-data`-first (SPEC §9.1).
 
 ## 15. M2 — `github-readme` renderer (detail)
 
@@ -387,3 +399,47 @@ First platform: **`github-readme`** — the only 100% git/API-deployable surface
 Christian's profile README becomes a **curated prose variant** (chosen by him) recorded
 as active — the deterministic build stays as the verification snapshot. The generated
 README no longer ships as the final page; the skill-produced variant does.
+
+## 17. Brand flavor (`flavor: brand`) — M6 detail
+
+D15 resolves Q8: `profile-brand` is not a separate product — it is the **brand flavor** of
+this engine. First brand workspace: **Topia** (`profile-data-topia`, private; editorial
+newsletter/press "de la distopía a la utopía", `@topiapress` on X/Bluesky, `topia.press`).
+The brand tracks its handle matrix today by hand in docs — the exact drift problem the
+engine solves (issue #25).
+
+### 17.1 What changes vs the person flavor
+
+1. **Schema (v1.1, additive — every v1 workspace still validates):**
+   - `flavor: person | brand` at root (default `person`).
+   - `identity` org variant: `orgName`, `logo`, `brandVoice` (tone matrix), `mission`,
+     `tagline`, `established` — all optional; person-only fields (`experience`,
+     `publications`…) stay optional and map naturally (essays/issues, not CV items).
+   - Brand blocks: `socialHandles` (platform → handle + `status: claimed|pending`),
+     `newsletter` (Substack/Ghost), `podcast` (Spotify/RSS), `press` (media mentions),
+     `audiences` (reader profile, not recruiter).
+   - Checks catalog gains `handle-claimed` and `handle-consistent`.
+2. **GEO:** brand workspaces emit `schema.org/Organization` JSON-LD with
+   `sameAs` = `identity.links` + claimed `socialHandles[].url`; `logo`/`foundingDate`/
+   `slogan`/`description` map to `identity.logo`/`established`/`tagline`/`mission`.
+3. **CLI:** `pac init --flavor brand` scaffolds the brand skeleton; `pac check` runs the
+   handle-matrix rules (offline, deterministic); `pac build github-org` renders the org
+   README (deploySpec `git`).
+4. **Skills:** `skills/github-org/` — brand voice ≠ personal voice, handle-consistency
+   checks, trademark/impersonation considerations (e.g. `topia.com` is an unrelated live
+   company; the brand always signs as "Topia Press").
+
+### 17.2 Multi-workspace by design
+
+`.pacrc → workspace` (D14) already gives each identity its own repo: a brand workspace
+lives in its own private repo (`profile-data-topia`), scaffolded with
+`pac init --flavor brand`, and is never mixed with the personal workspace. The engine
+is agnostic — flavor is just data.
+
+### 17.3 Dogfood acceptance (Topia)
+
+First brand workspace = Topia (private), seeded from the operator's brand-handles matrix
+(availability sweep verified 2026-08-18). Acceptance: `pac validate` reports **zero drift
+warnings** on the handle matrix, `pac build github-org` renders the org README with every
+claimed surface, and `pac check` confirms `handle-claimed`/`handle-consistent` across the
+matrix.

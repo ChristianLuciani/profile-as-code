@@ -17,7 +17,7 @@ import { runInit } from './commands/init.js';
 import { runRefine } from './commands/refine.js';
 import { runSkillsInstall } from './commands/skills-install.js';
 import { runValidate } from './commands/validate.js';
-import { UsageError } from './contract.js';
+import { parseFlavor, UsageError } from './contract.js';
 import { WORKSPACE_NAME } from './workspace.js';
 import { EXIT } from './exit.js';
 import { setJsonMode } from './output.js';
@@ -64,6 +64,7 @@ interface FlagOptions {
   lang?: string;
   variants?: string;
   choose?: string;
+  flavor?: string;
 }
 
 function parseCommandFlags(args: string[], extra: Record<string, { type: 'string' | 'boolean' }> = {}): {
@@ -94,9 +95,12 @@ function parseCommandFlags(args: string[], extra: Record<string, { type: 'string
 }
 
 const COMMAND_HELP: Record<string, string> = {
-  init: `pac init [dir]
+  init: `pac init [dir] [--flavor person|brand]
 Scaffold a ${WORKSPACE_NAME} workspace skeleton (SPEC §9): content/identity.yaml,
 README.md, .pacrc. Minimal but pac validate-clean. Refuses to overwrite.
+  --flavor person|brand   workspace flavor (D15/§17); brand scaffolds the org
+                          identity variant + socialHandles/newsletter/podcast/
+                          press/audiences blocks. Default: person.
   dir   target directory (default: current directory)`,
   validate: `pac validate [--json] [--workspace <path>]
 Load + validate the workspace (D12): schema violations FAIL (exit 1); drift and
@@ -141,14 +145,18 @@ function runMain(): number {
       process.stdout.write(`pac ${VERSION}\n`);
       return EXIT.OK;
     case 'init': {
-      const { flags, positionals } = parseCommandFlags(rest);
+      const { flags, positionals } = parseCommandFlags(rest, { flavor: { type: 'string' } });
       if (flags.help === true) {
         process.stdout.write(COMMAND_HELP.init + '\n');
         return EXIT.OK;
       }
-      if (positionals.length > 1) throw new UsageError('usage: pac init [dir]');
+      if (positionals.length > 1) throw new UsageError('usage: pac init [dir] [--flavor person|brand]');
       setJsonMode(flags.json === true);
-      return runInit({ cwd: process.cwd(), dir: positionals[0] });
+      return runInit({
+        cwd: process.cwd(),
+        dir: positionals[0],
+        ...(flags.flavor !== undefined ? { flavor: parseFlavor(flags.flavor) } : {}),
+      });
     }
     case 'validate': {
       const { flags, positionals } = parseCommandFlags(rest);

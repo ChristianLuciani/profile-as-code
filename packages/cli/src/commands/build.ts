@@ -9,6 +9,7 @@
 import { compile, load, LoadError, PLATFORMS, SchemaValidationError } from '@profile-as-code/core';
 import type { PlatformProfile } from '@profile-as-code/core';
 import { render as renderGithubReadme } from '@profile-as-code/renderers-github-readme';
+import { render as renderGithubOrg } from '@profile-as-code/renderers-github-org';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseLang, parsePlatform } from '../contract.js';
@@ -17,9 +18,10 @@ import { isJsonMode, line, report, section } from '../output.js';
 import type { Pacrc } from '../workspace.js';
 import { defaultsLang } from '../workspace.js';
 
-/** Platforms with an implemented renderer (M2: github-readme; M4 adds the rest). */
+/** Platforms with an implemented renderer (M2: github-readme; M6: github-org; M4 adds the rest). */
 const RENDERERS: Partial<Record<string, (slice: PlatformProfile) => string>> = {
   'github-readme': (slice) => renderGithubReadme(slice).text,
+  'github-org': (slice) => renderGithubOrg(slice).text,
 };
 
 export interface BuildArgs {
@@ -55,10 +57,12 @@ export function runBuild(args: BuildArgs): number {
   const slices: PlatformProfile[] = platforms.map((p) => compile(profile, p, lang));
 
   // Renderer platforms: write the deploy artifact (SPEC §15.5 — profiles/ ARE the deploy artifacts).
+  // github-org is a brand surface (D15/§17) — only rendered for brand workspaces.
   const written: { platform: string; path: string }[] = [];
   for (const s of slices) {
     const renderer = RENDERERS[s.platform];
     if (renderer === undefined) continue;
+    if (s.platform === 'github-org' && profile.flavor !== 'brand') continue;
     const dir = join(args.workspace, 'profiles', s.platform);
     mkdirSync(dir, { recursive: true });
     const path = join(dir, 'README.md');

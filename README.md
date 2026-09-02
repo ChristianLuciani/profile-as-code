@@ -57,12 +57,16 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 | Fase | Estado |
 |---|---|
 | Prior-art research | ✅ `docs/research/01-prior-art.md` |
-| Spec (D1–D14 resueltas) | ✅ `docs/SPEC.md` (GEO, i18n, profile-data, Substack) |
+| Spec (D1–D15 resueltas) | ✅ `docs/SPEC.md` (GEO, i18n, profile-data, Substack, **brand flavor D15/§17**) |
 | Investigación SOTA por plataforma | 🔜 pendiente — asistente **SOTA Research**, ver `docs/research/RUN.md` |
-| Schema JSON v1 (contrato) | ✅ `schema/profile.schema.json` |
-| Core engine (load · drift · geo · compile) | ✅ `packages/core` (37 tests, CI) |
-| CLI `pac` | ⏳ |
-| Renderer GitHub (dogfood) | ⏳ |
+| Schema JSON v1.1 (contrato) | ✅ `schema/profile.schema.json` (person + brand flavor) |
+| Core engine (load · drift · geo · compile) | ✅ `packages/core` (tests, CI) |
+| CLI `pac` | ⏳ (`init --flavor brand`, `check` handle-matrix, `build` github-org) |
+| Renderer GitHub (dogfood) | ✅ `github-readme` + `github-org` (brand) |
+
+**Brand flavor (M6, D15):** el mismo engine modela identidades de marca — `pac init
+--flavor brand`, handle matrix (`socialHandles`), `schema.org/Organization` GEO,
+renderer `github-org`. Primer workspace: Topia (`profile-data-topia`, privado).
 
 ## Arranque (dev)
 
@@ -76,7 +80,7 @@ pnpm gen:zod         # regenera Zod desde schema/profile.schema.json (D3)
 
 ## Documentación
 
-- [`docs/SPEC.md`](docs/SPEC.md) — el contrato del motor: goals, decisiones D1–D14, data model, core interfaces, GEO, roadmap.
+- [`docs/SPEC.md`](docs/SPEC.md) — el contrato del motor: goals, decisiones D1–D15, data model, core interfaces, GEO, roadmap, brand flavor (§17).
 - [`docs/research/`](docs/research/) — prior-art + prompts de investigación SOTA por plataforma.
 - [`schema/README.md`](schema/README.md) — el contrato de datos: mapping de archivos, semántica de validación.
 - [`docs/ci-cd.md`](docs/ci-cd.md) — protección de main, CI, dependabot (cómo y por qué).

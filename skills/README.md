@@ -46,3 +46,9 @@ skills/<plataforma>/
 4. `x` — visibilidad
 5. `researchgate` — ciencia
 6. `substack` — newsletter/audiencia propia (superficie de contenido + perfil)
+
+## Brand flavor (M6, §17)
+
+`github-org` — README del GitHub **org** para workspaces `flavor: brand`: voz de
+marca (≠ voz personal), handle-matrix checks (`handle-claimed`/`handle-consistent`,
+offline en `pac check`), trademark/impersonación. Ver `skills/github-org/`.

@@ -49,17 +49,31 @@ export function compile(profile: Profile, platform: Platform, lang: Lang = 'en')
     if (text !== undefined) audiences[name] = text;
   }
 
+  // Brand blocks (v1.1/§17): text is lang-filtered (falling back to en), facts
+  // (urls, dates, status) pass through untouched.
+  const brandAudiences: Record<string, string> = {};
+  for (const [name, map] of Object.entries(profile.audiences ?? {})) {
+    const text = langText(map, `audiences.${name}`);
+    if (text !== undefined) brandAudiences[name] = text;
+  }
+
   const platformChecks = (profile.checks ?? []).filter((c) => c.platform === 'all' || c.platform === platform);
 
   return {
     platform,
     lang,
+    flavor: profile.flavor ?? 'person',
     // facts — untouched
     identity: profile.identity,
     experience: profile.experience ?? [],
     projects: profile.projects ?? [],
     publications: profile.publications ?? [],
     skills: profile.skills ?? [],
+    socialHandles: profile.socialHandles ?? [],
+    newsletter: profile.newsletter,
+    podcast: profile.podcast,
+    press: profile.press ?? [],
+    brandAudiences,
     // language-aware text
     bios: (profile.bios ?? []).filter((b) => b.platform === platform && b.lang === lang),
     headlines: (profile.headlines ?? []).filter((h) => h.platform === platform && h.lang === lang),

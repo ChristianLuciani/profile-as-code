@@ -101,7 +101,7 @@ describe('compile(profile, platform, lang)', () => {
   });
 
   it('throws a TypeError for platforms/languages outside the contract enum', () => {
-    expect(() => compile(minimal(), 'tiktok' as Platform, 'en')).toThrow(TypeError);
+    expect(() => compile(minimal(), 'myspace' as Platform, 'en')).toThrow(TypeError);
     expect(() => compile(minimal(), 'linkedin', 'de' as never)).toThrow(TypeError);
   });
 

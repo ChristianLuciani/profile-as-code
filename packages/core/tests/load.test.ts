@@ -141,7 +141,7 @@ describe('load(workspace)', () => {
   });
 
   it('fails when bios use an unknown platform', () => {
-    const dir = makeWorkspace({ 'identity.yaml': 'name: X\n', 'bios.yaml': '- platform: tiktok\n  lang: en\n  length: short\n  text: hi\n' });
+    const dir = makeWorkspace({ 'identity.yaml': 'name: X\n', 'bios.yaml': '- platform: myspace\n  lang: en\n  length: short\n  text: hi\n' });
     try {
       expect(() => load(dir)).toThrow(SchemaValidationError);
     } finally {

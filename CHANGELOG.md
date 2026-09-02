@@ -11,6 +11,25 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **Brand flavor (M6, D15/§17 — issue #25)** — el engine modela identidades de marca:
+  - **Schema v1.1 (aditivo)** — `flavor: person|brand`, variante org de `identity`
+    (`orgName`, `logo`, `brandVoice`, `mission`, `tagline`, `established`), bloques
+    `socialHandles` (handle matrix con `status: claimed|pending`), `newsletter`,
+    `podcast`, `press`, `audiences`; plataformas brand (`github-org`, `bluesky`,
+    `instagram`, `tiktok`, `youtube`, `spotify`, `reddit`, `mastodon`, `soundcloud`);
+    reglas de check `handle-claimed` / `handle-consistent`.
+  - **Core** — `flavor` normalizado (default person), drift handle-matrix
+    (`drift/duplicate-handle`, `drift/handle-claimed-not-linked`,
+    `drift/handle-host-mismatch`), GEO `schema.org/Organization` (sameAs = links +
+    claimed handle urls), compile con bloques brand.
+  - **Renderer `github-org`** — README de org determinista (badges de handles
+    claimed, newsletter, podcast, press, audiences, JSON-LD Organization).
+  - **CLI** — `pac init --flavor brand`, `pac build github-org` (solo brand),
+    `pac check` ejecuta las handle rules offline.
+  - **Skill `github-org`** — voz de marca ≠ voz personal, checks de handle matrix,
+    trademark/impersonación (firmar siempre como el nombre completo).
+  - **Templates** — puntero `templates/profile-data-brand/` (multi-workspace §9.1).
+
 - **Schema contract v1** — `schema/profile.schema.json` (JSON Schema 2020-12, D3): the single
   contract for a `profile-data` workspace. i18n `langMap` with EN required, GEO anchors,
   evidence claims, declarative checks, active variant selection.

@@ -16,11 +16,15 @@ import type { profileSchema } from './generated/schema.zod.js';
 /** The profile as defined by the contract (schema/profile.schema.json). */
 export type Profile = import('zod').z.infer<typeof profileSchema>;
 
+/** Workspace flavor (D15, §17): person (default) or brand. */
+export type Flavor = NonNullable<Profile['flavor']>;
+
 /** Normalized profile: array properties are always defined (empty when absent). */
 export type LoadedProfile = Omit<
   Profile,
-  'bios' | 'headlines' | 'skills' | 'experience' | 'projects' | 'publications' | 'checks' | 'education' | 'languages'
+  'bios' | 'headlines' | 'skills' | 'experience' | 'projects' | 'publications' | 'checks' | 'socialHandles' | 'press' | 'education' | 'languages'
 > & {
+  flavor: Flavor;
   bios: NonNullable<Profile['bios']>;
   headlines: NonNullable<Profile['headlines']>;
   skills: NonNullable<Profile['skills']>;
@@ -28,6 +32,8 @@ export type LoadedProfile = Omit<
   projects: NonNullable<Profile['projects']>;
   publications: NonNullable<Profile['publications']>;
   checks: NonNullable<Profile['checks']>;
+  socialHandles: NonNullable<Profile['socialHandles']>;
+  press: NonNullable<Profile['press']>;
   education: NonNullable<Profile['education']>;
   languages: NonNullable<Profile['languages']>;
 };
@@ -39,6 +45,11 @@ export type Skill = NonNullable<Profile['skills']>[number];
 export type ExperienceItem = NonNullable<Profile['experience']>[number];
 export type Project = NonNullable<Profile['projects']>[number];
 export type Publication = NonNullable<Profile['publications']>[number];
+export type SocialHandle = NonNullable<Profile['socialHandles']>[number];
+export type Newsletter = NonNullable<Profile['newsletter']>;
+export type Podcast = NonNullable<Profile['podcast']>;
+export type PressItem = NonNullable<Profile['press']>[number];
+export type BrandVoice = NonNullable<Identity['brandVoice']>;
 export type ActiveEntry = NonNullable<Profile['active']>[string];
 
 export type Lang = Bio['lang'];
@@ -59,7 +70,8 @@ export function textOf(v: string | GeneratedLangMap | undefined): string {
   return typeof v === 'string' ? v : (v.en ?? '');
 }
 
-/** The v1 platform set — mirrors the schema enum (never hand-maintained here). */
+/** The v1 platform set — mirrors the schema enum (never hand-maintained here).
+ *  v1.1 adds the brand surfaces (D15/§17): github-org + the handle-matrix platforms. */
 export const PLATFORMS: readonly Platform[] = [
   'github-readme',
   'linkedin',
@@ -68,6 +80,15 @@ export const PLATFORMS: readonly Platform[] = [
   'researchgate',
   'substack',
   'patreon',
+  'github-org',
+  'bluesky',
+  'instagram',
+  'tiktok',
+  'youtube',
+  'spotify',
+  'reddit',
+  'mastodon',
+  'soundcloud',
 ] as const;
 
 export const LANGS: readonly Lang[] = ['en', 'es', 'fr'] as const;
@@ -106,9 +127,11 @@ export interface GeoSection {
 }
 
 export interface StructuredDataReadiness {
-  /** True when a schema.org `Person` JSON-LD can be emitted by the web renderer. */
+  /** schema.org entity emitted: `Person` (default) or `Organization` (brand flavor, D15/§17). */
+  entityType: 'Person' | 'Organization';
+  /** True when a schema.org JSON-LD can be emitted by the web renderer. */
   ready: boolean;
-  /** Share of the considered Person fields that are populated (0..1). */
+  /** Share of the considered fields that are populated (0..1). */
   completeness: number;
   fields: {
     name: boolean;
@@ -117,17 +140,26 @@ export interface StructuredDataReadiness {
     address?: string;
     jobTitle?: string;
     worksFor?: string;
+    /** brand (Organization) */
+    logo?: string;
+    foundingDate?: string;
+    slogan?: string;
+    description?: string;
   };
   /** Ready-to-embed JSON-LD (web renderer consumes it). */
   jsonLd?: {
     '@context': 'https://schema.org';
-    '@type': 'Person';
+    '@type': 'Person' | 'Organization';
     name: string;
     sameAs: string[];
     image?: string;
     address?: string;
     jobTitle?: string;
     worksFor?: string;
+    logo?: string;
+    foundingDate?: string;
+    slogan?: string;
+    description?: string;
   };
 }
 
@@ -161,6 +193,8 @@ export interface GeoReport {
 export interface PlatformProfile {
   platform: Platform;
   lang: Lang;
+  /** Workspace flavor (D15) — renderers branch on person vs brand surfaces. */
+  flavor: Flavor;
   /** Facts — passed through untouched from the profile. */
   identity: Identity;
   experience: ExperienceItem[];
@@ -175,6 +209,12 @@ export interface PlatformProfile {
   citationsGoal?: string;
   /** SEO set for this platform + GEO associations/claims. */
   keywords: { seo: string[]; geo: { associations?: string[]; claims?: string[] } };
+  /** Brand blocks (v1.1/§17) — pass through untouched, lang-filtered where textual. */
+  socialHandles: SocialHandle[];
+  newsletter?: Newsletter;
+  podcast?: Podcast;
+  press: PressItem[];
+  brandAudiences: Record<string, string>;
   /** User checks targeting this platform (platform `all` included). */
   checks: NonNullable<Profile['checks']>;
   active?: ActiveEntry;
