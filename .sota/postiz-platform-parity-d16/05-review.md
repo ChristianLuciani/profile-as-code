@@ -52,6 +52,44 @@
   platforms but not surplus ones (surplus still fails the comparison, message is less helpful
   than it could be). Cosmetic.
 
+## Fresh-context reconcile (premerge-review report, classified 2026-09-02)
+
+Fresh report verdict: PASS-CON-RIESGOS (informativo). 10 findings — each re-read against
+the diff before classifying (doubt-driven step 4). All 10 confirmed real on inspection.
+
+| # | Finding | Class | Action |
+|---|---|---|---|
+| F1 | wordpress/slack subdomain profiles → false handle-host-mismatch + under-warning | **Valid + actionable** (MAJOR) | Fixed: `PLATFORM_SUBDOMAIN_HOSTS += wordpress, slack` |
+| F2 | lemmy federated → curated list actively rejects legit instances | **Valid + actionable** (MAJOR) | Fixed: removed from HANDLE_HOSTS (any host, module philosophy) |
+| F3 | gmb expected login dashboard, not public surface | **Valid + actionable** (MAJOR) | Fixed: removed from HANDLE_HOSTS (live check = skill's job) |
+| F4 | schema identity stale at v1.1 + CHANGELOG no entry | **Valid + actionable** (MAJOR) | Fixed: `$id`/`title`/description → v1.2, CHANGELOG Added entry, regen zod |
+| F5 | PR body stacking says #25 (issue) instead of #27 (base PR) | **Valid + actionable** (MAJOR) | Fixed: `gh pr edit 31` |
+| F6 | ghost self-hosted (canonical §17 case) → mismatch | **Valid + actionable** (NIT, operator-canonical) | Fixed: any-host, parity with listmonk; ghost.io Pro stays a surface |
+| F7 | dedup message lists missing but not surplus | **Valid + actionable** (NIT) | Fixed: prints both |
+| F8 | stale "6 platform ids" count | **Valid + actionable** (NIT) | Fixed: count dropped |
+| F9 | EOF newline contract.test.ts | **Valid + actionable** (NIT) | Fixed |
+| F10 | HANDLE_HOSTS leftovers: mastodon curated, unreachable `github` key, linkedin unrestricted vs linkedin-page | **Valid trade-off** | NOT fixed here — pre-existing from base PR #27; flagged for the base PR's review. Recorded, not silently dropped |
+
+Buckets: 9 actionable (fixed, commit `8160a6f`) · 1 trade-off (F10, documented above) ·
+0 contract misreads · 0 noise. The fresh pass also re-verified independently: exact 41-union
+against a live Postiz fetch, dedup double-enforcement, additivity, the weibo fixture change,
+the patreon regression fix, and the CLI test determinism — all survived refutation.
+
+**Loop bound (step 11):** one fresh round, one correction round, all gates green after.
+Per the skill, consecutive-NITs-only or a second fresh pass is the operator's call —
+recommended once more before merge (clean session), not mandatory: F1–F4 were MAJOR,
+so a confirmation pass is proportionate.
+
+**Process note:** the review file is now versioned on the branch (correction commit included
+it via `git add -A`). Accepted — sota-review treats 05-review.md as a persistent pipeline
+artifact; the earlier "untracked" statement is superseded by this note.
+
+## Corrections round 1 (applied)
+
+See commit `8160a6f` message for the per-finding fix list. Gates after: schema-check OK
+(v1.2 identity), gen:zod deterministic, typecheck + build clean, tests 58 core + 5 + 4 +
+32 CLI green.
+
 ## Verdict
 
 **PASS** — 0 BLOCKER, 0 MAJOR, 2 NIT. Rounds: 1 (no corrections needed).
