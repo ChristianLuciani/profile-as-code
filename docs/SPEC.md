@@ -218,6 +218,10 @@ Two different "templates" (previous confusion):
 - **Repo docs/README/SPEC**: EN (open-source lingua franca). User-facing summaries may be ES/FR.
 - **CLI output**: EN with `--lang` for generated texts.
 - **Content**: every text field is `{ lang: value }`; EN required (recruiters), ES native, FR optional.
+- **Proper nouns are invariant**: organization/institution names (`org`, `institution`), venue names
+  and people names are **never a langMap** — they are plain strings, identical in every language.
+  Only descriptive text (role, degree, field, statement, bios, highlights) is localizable.
+  Rationale: a name is a fact (D4) — translating it changes the fact and breaks GEO consistency (D7).
 - **Per-platform language policy**: e.g. Upwork overview EN-first (international clients), LinkedIn
   per-target-market; the skill for each platform documents the language policy.
 - **Validation**: a schema rule requires at least one `lang` per text block; `pac validate` enforces.
@@ -318,10 +322,25 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
 - First-render acceptance: Christian reviews the generated README vs the CV site — every fact
   present in both surfaces, byte-consistent where overlapping.
 
-### 15.6 v1.1 schema notes (NOT in M2 scope)
+### 15.6 v1.1 schema notes (RESOLVED — schema v1.1, 2026-08-16)
 
-Publications lack `authors`/`url` fields and identity lacks `handle`/`timezone` — the SSOT keeps
-these as workspace-local comments until the contract amendments land (schema v1.1, spec-first).
+The v1 gaps are closed additively in `schema/profile.schema.json` v1.1 (semver minor —
+every v1 workspace still validates):
+
+- `publication.authors` + `publication.url` (preprints/abstracts without DOI are representable).
+- `identity.handle` + `identity.timezone`.
+- `experience.role` as langMap (bilingual titles) — v1 strings remain valid (`anyOf`);
+  `experience.org` stays a plain string: **proper nouns (org, institution, venue) are
+  invariant across languages** — never a langMap (names are not translated, §11).
+- `experience.highlights` as string[] per lang (langMapList) — v1 separator-delimited
+  strings remain valid (`anyOf`).
+- Root `education[]` (formal education, `education.yaml`) and `languages[]`
+  (`languages.yaml`) — v1 workspaces keep education inside `experience[]`.
+  `education.institution` is a plain string (proper noun); `degree`/`field` are
+  localizable descriptors (`anyOf` string|langMap).
+- `patreon` added to the checks platform enum (consistency with the platform set).
+
+Regenerate the Zod contract with `pnpm gen:zod` (packages/core — generated, never hand-written).
 
 ## 16. M3 — platform skills + `pac refine` (detail)
 

@@ -68,6 +68,8 @@ export function normalizeProfile(profile: Profile): LoadedProfile {
     projects: profile.projects ?? [],
     publications: profile.publications ?? [],
     checks: profile.checks ?? [],
+    education: profile.education ?? [],
+    languages: profile.languages ?? [],
   };
 }
 
