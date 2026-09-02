@@ -55,9 +55,11 @@ export type Platform = Bio['platform'];
 export type BioLength = Bio['length'];
 export type LangMap = Record<Lang, string>;
 
-/** The v1 platform set — mirrors the schema enum (never hand-maintained here).
- *  v1.1 adds the brand surfaces (D15/§17): github-org + the handle-matrix platforms. */
+/** The platform set — mirrors the schema enum (never hand-maintained here).
+ *  v1.1 adds the brand surfaces (D15/§17); v1.2 adds Postiz parity + operator
+ *  extras (D16) — enforced by the vitest contract test (tests/contract.test.ts). */
 export const PLATFORMS: readonly Platform[] = [
+  // v1 person surfaces
   'github-readme',
   'linkedin',
   'upwork',
@@ -65,6 +67,7 @@ export const PLATFORMS: readonly Platform[] = [
   'researchgate',
   'substack',
   'patreon',
+  // v1.1 brand surfaces (D15/§17)
   'github-org',
   'bluesky',
   'instagram',
@@ -74,6 +77,32 @@ export const PLATFORMS: readonly Platform[] = [
   'reddit',
   'mastodon',
   'soundcloud',
+  // v1.2 Postiz parity + operator extras (D16)
+  'facebook',
+  'linkedin-page',
+  'instagram-standalone',
+  'warpcast',
+  'lemmy',
+  'discord',
+  'slack',
+  'skool',
+  'whop',
+  'pinterest',
+  'dribbble',
+  'medium',
+  'devto',
+  'hashnode',
+  'wordpress',
+  'gmb',
+  'listmonk',
+  'twitch',
+  'threads',
+  'telegram',
+  'nostr',
+  'vk',
+  'kick',
+  'moltbook',
+  'ghost',
 ] as const;
 
 export const LANGS: readonly Lang[] = ['en', 'es', 'fr'] as const;

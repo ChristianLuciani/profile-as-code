@@ -115,8 +115,8 @@
 
     "platform": {
       "type": "string",
-      "enum": ["github-readme", "linkedin", "upwork", "x", "researchgate", "substack", "patreon", "github-org", "bluesky", "instagram", "tiktok", "youtube", "spotify", "reddit", "mastodon", "soundcloud"],
-      "description": "Platform set (ONE source, dedup). v1: person surfaces. v1.1 (additive, brand §17): github-org, bluesky, instagram, tiktok, youtube, spotify, reddit, mastodon, soundcloud — brand surfaces + the socialHandles matrix key space."
+      "enum": ["github-readme", "linkedin", "upwork", "x", "researchgate", "substack", "patreon", "github-org", "bluesky", "instagram", "tiktok", "youtube", "spotify", "reddit", "mastodon", "soundcloud", "facebook", "linkedin-page", "instagram-standalone", "warpcast", "lemmy", "discord", "slack", "skool", "whop", "pinterest", "dribbble", "medium", "devto", "hashnode", "wordpress", "gmb", "listmonk", "twitch", "threads", "telegram", "nostr", "vk", "kick", "moltbook", "ghost"],
+      "description": "Platform set (ONE source, dedup). v1: person surfaces. v1.1 (additive, brand §17): brand surfaces + the socialHandles matrix key space. v1.2 (additive, D16): Postiz parity + operator extras — 41 platforms; new slugs Postiz-aligned verbatim (linkedin-page, instagram-standalone, devto, gmb, warpcast, moltbook); ghost is an operator extra Postiz lacks (docs.postiz.com, fetched 2026-09-01)."
     },
 
     "identity": {
@@ -301,7 +301,7 @@
       "required": ["platform", "rule", "value"],
       "properties": {
         "id": { "type": "string" },
-        "platform": { "type": "string", "enum": ["all", "github-readme", "linkedin", "upwork", "x", "researchgate", "substack", "patreon", "github-org", "bluesky", "instagram", "tiktok", "youtube", "spotify", "reddit", "mastodon", "soundcloud"] },
+        "platform": { "type": "string", "enum": ["all", "github-readme", "linkedin", "upwork", "x", "researchgate", "substack", "patreon", "github-org", "bluesky", "instagram", "tiktok", "youtube", "spotify", "reddit", "mastodon", "soundcloud", "facebook", "linkedin-page", "instagram-standalone", "warpcast", "lemmy", "discord", "slack", "skool", "whop", "pinterest", "dribbble", "medium", "devto", "hashnode", "wordpress", "gmb", "listmonk", "twitch", "threads", "telegram", "nostr", "vk", "kick", "moltbook", "ghost"], "description": "Dedup contract: MUST equal ['all', ...$defs/platform.enum] — scripts/schema-check asserts it (D16)."},
         "rule": {
           "type": "string",
           "enum": [

@@ -1,4 +1,6 @@
-facebook:
+# weibo: deliberately unknown platform id (post-D16 set covers Postiz + extras;
+# weibo is not in it) → drift/active-platform-unknown.
+weibo:
   lang: en
   variantId: fb-2025-01
   chosenAt: 2025-01-15T09:30:00Z
