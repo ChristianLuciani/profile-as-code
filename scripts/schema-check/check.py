@@ -33,6 +33,28 @@ def main() -> int:
         return 1
     print(f"PASS: schema/{SCHEMA_PATH.name} is a valid JSON Schema")
 
+    # 1b. Platform-set dedup contract (D16): check.platform MUST equal
+    #     ["all", ...$defs/platform.enum]. Keeps the two enums from drifting.
+    try:
+        platform_enum = schema["$defs"]["platform"]["enum"]
+        check_def = schema["$defs"]["check"]  # checks.items is a $ref to this
+        check_enum = check_def["properties"]["platform"]["enum"]
+    except KeyError as exc:
+        print(f"FAIL: schema structure changed, dedup guard cannot resolve paths: {exc}")
+        return 1
+    expected = ["all", *platform_enum]
+    if check_enum != expected:
+        missing = sorted(set(expected) - set(check_enum))
+        surplus = sorted(set(check_enum) - set(expected))
+        print(
+            "FAIL: check.platform enum drifted from $defs/platform — "
+            f"expected ['all', ...platform] ({len(expected)}), got {len(check_enum)}. "
+            + ("Missing: " + ", ".join(missing) if missing else "")
+            + ("Surplus: " + ", ".join(surplus) if surplus else "")
+        )
+        return 1
+    print(f"PASS: check.platform enum == ['all', ...platform] ({len(expected)} entries)")
+
     # 2. Every fixture must behave as its name promises.
     validator = Draft202012Validator(schema)
     failures = 0

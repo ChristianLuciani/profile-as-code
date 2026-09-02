@@ -23,7 +23,7 @@
  *   drift/orcid-conflict          publications carry different ORCIDs.
  *   drift/orcid-mismatch          publication ORCID differs from the identity ORCID
  *                                (the one in identity.links, if any).
- *   drift/active-platform-unknown active key is not one of the 6 platform ids.
+ *   drift/active-platform-unknown active key is not one of the platform ids.
  *   drift/active-variant-missing  active entry has no curated bio/headline for its
  *                                platform+lang (the chosen variant has no base).
  *   drift/skill-conflict          same skill name with different levels.
@@ -42,12 +42,17 @@
 import { PLATFORMS, textOf } from './types.js';
 import type { Bio, Issue, Platform, Profile } from './types.js';
 
-/** Hosts that represent a person's platform presence. A URL on one of these that
+/** Hosts that represent a person's/brand's platform presence. A URL on one of these that
  *  is not in identity.links is an uncanonicalized duplicate (the drift source the
  *  contract rule "URLs only from identity.links" targets). v1.1 adds the brand
  *  surfaces (github-org, bluesky, instagram, tiktok, youtube, spotify, reddit,
- *  mastodon, soundcloud). */
+ *  mastodon, soundcloud); v1.2 (D16) adds the Postiz-parity set + ghost. The same
+ *  host often serves content too (a YouTube demo video in projects.links) — drift
+ *  is advisory (severity warn, D12), so over-warnings are safe. Open-ended instance
+ *  networks (mastodon/lemmy/nostr beyond the curated entries) stay unflagged — drift
+ *  never guesses hosts it can't verify. */
 const PLATFORM_HOSTS: readonly string[] = [
+  // v1 person
   'github.com',
   'linkedin.com',
   'upwork.com',
@@ -55,6 +60,7 @@ const PLATFORM_HOSTS: readonly string[] = [
   'twitter.com',
   'researchgate.net',
   'substack.com',
+  // v1.1 brand (§17)
   'bsky.app',
   'bluesky.social',
   'instagram.com',
@@ -65,7 +71,53 @@ const PLATFORM_HOSTS: readonly string[] = [
   'reddit.com',
   'mastodon.social',
   'soundcloud.com',
+  // v1.2 Postiz parity + operator extras (D16)
+  'facebook.com',
+  'pinterest.com',
+  'dribbble.com',
+  'medium.com',
+  'dev.to',
+  'hashnode.dev',
+  'wordpress.com',
+  't.me',
+  'telegram.org',
+  'twitch.tv',
+  'kick.com',
+  'vk.com',
+  'warpcast.com',
+  'farcaster.xyz',
+  'lemmy.ml',
+  'lemmy.world',
+  'discord.com',
+  'discord.gg',
+  'slack.com',
+  'skool.com',
+  'whop.com',
+  'business.google.com',
+  'threads.net',
+  'threads.com',
+  'njump.me',
+  'primal.net',
+  'iris.to',
+  'moltbook.com',
+  'patreon.com',
+  'ghost.io',
+  'mewe.com',
+  'tumblr.com',
 ];
+
+/** Profile URLs that live on SUBDOMAINS of a host (e.g. `user.substack.com`,
+ *  `site.wordpress.com`, `team.slack.com`, `blog.tumblr.com`). Maps platform → the
+ *  host whose subdomains are platform surfaces. */
+const PLATFORM_SUBDOMAIN_HOSTS: Record<string, readonly string[]> = {
+  substack: ['substack.com'],
+  ghost: ['ghost.io'],
+  hashnode: ['hashnode.dev'],
+  medium: ['medium.com'],
+  wordpress: ['wordpress.com'],
+  slack: ['slack.com'],
+  tumblr: ['tumblr.com'],
+};
 
 /** Expected URL hosts per brand handle platform — the offline handle-consistency
  *  proxy (`drift/handle-host-mismatch`). Live reachability is the skill's job
@@ -76,23 +128,56 @@ const HANDLE_HOSTS: Record<string, readonly string[]> = {
   x: ['x.com', 'twitter.com'],
   bluesky: ['bsky.app', 'bluesky.social'],
   substack: ['substack.com'],
+  patreon: ['patreon.com'],
   instagram: ['instagram.com'],
+  'instagram-standalone': ['instagram.com'],
   tiktok: ['tiktok.com'],
   youtube: ['youtube.com'],
   spotify: ['open.spotify.com', 'spotify.com'],
   reddit: ['reddit.com'],
   mastodon: ['mastodon.social'],
   soundcloud: ['soundcloud.com'],
+  facebook: ['facebook.com'],
+  'linkedin-page': ['linkedin.com'],
+  warpcast: ['warpcast.com', 'farcaster.xyz'],
+  discord: ['discord.com', 'discord.gg'],
+  slack: ['slack.com'],
+  skool: ['skool.com'],
+  whop: ['whop.com'],
+  pinterest: ['pinterest.com'],
+  dribbble: ['dribbble.com'],
+  medium: ['medium.com'],
+  devto: ['dev.to'],
+  hashnode: ['hashnode.dev'],
+  wordpress: ['wordpress.com'],
+  twitch: ['twitch.tv'],
+  threads: ['threads.net', 'threads.com'],
+  telegram: ['t.me', 'telegram.org'],
+  nostr: ['njump.me', 'primal.net', 'iris.to'],
+  vk: ['vk.com'],
+  kick: ['kick.com'],
+  moltbook: ['moltbook.com'],
+  mewe: ['mewe.com'],
+  tumblr: ['tumblr.com'],
+  // Any-host platforms (no HANDLE_HOSTS entry → any URL allowed):
+  //   - lemmy: federated (hundreds of instances) — a curated list would actively
+  //     reject legitimate handles (mastodon.social-only is a v1.1 leftover, see #30 follow-up)
+  //   - gmb: the public surface varies (g.page / google.com/maps) and the dashboard
+  //     host is login-only — live reachability is the skill's job
+  //   - ghost: self-hosted on an own domain is the canonical case (§17); ghost.io Pro
+  //     is still a platform surface via PLATFORM_SUBDOMAIN_HOSTS
+  //   - listmonk: self-hosted, no canonical host
 };
 
 /** True when `host` is a valid host for `platform`'s handle URLs (or the platform
- *  has no registered hosts — then any URL is allowed). Substack profiles live on
- *  `*.substack.com` subdomains. */
+ *  has no registered hosts — then any URL is allowed). Some platforms host profiles
+ *  on subdomains (`user.substack.com`, `blog.ghost.io`) — PLATFORM_SUBDOMAIN_HOSTS. */
 function hostMatchesPlatform(platform: string, host: string): boolean {
   const hosts = HANDLE_HOSTS[platform];
   if (hosts === undefined) return true;
   if (hosts.includes(host)) return true;
-  if (platform === 'substack' && host.endsWith('.substack.com')) return true;
+  const subdomainHosts = PLATFORM_SUBDOMAIN_HOSTS[platform];
+  if (subdomainHosts?.some((h) => host === h || host.endsWith(`.${h}`))) return true;
   return false;
 }
 
@@ -112,7 +197,10 @@ function normalizeUrl(url: string): string {
 function isPlatformSurface(url: string): boolean {
   const host = hostOf(url);
   if (!host) return false;
-  return PLATFORM_HOSTS.includes(host) || host.endsWith('.substack.com');
+  if (PLATFORM_HOSTS.includes(host)) return true;
+  return Object.values(PLATFORM_SUBDOMAIN_HOSTS)
+    .flat()
+    .some((h) => host.endsWith(`.${h}`));
 }
 
 function warn(code: string, message: string, path: string, surfaces?: Platform[]): Issue {

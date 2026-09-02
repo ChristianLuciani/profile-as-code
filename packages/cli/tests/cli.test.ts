@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
+import { PLATFORMS } from '@profile-as-code/core';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI = join(__dirname, '..', 'dist', 'index.js');
@@ -171,24 +172,7 @@ describe('pac build (compile slices)', () => {
     const r = run(['build', '--json', '--workspace', ws]);
     expect(r.code).toBe(0);
     const data = JSON.parse(r.stdout) as { data: { platforms: { platform: string }[]; written: { platform: string; path: string }[] } };
-    expect(data.data.platforms.map((p) => p.platform)).toEqual([
-      'github-readme',
-      'linkedin',
-      'upwork',
-      'x',
-      'researchgate',
-      'substack',
-      'patreon',
-      'github-org',
-      'bluesky',
-      'instagram',
-      'tiktok',
-      'youtube',
-      'spotify',
-      'reddit',
-      'mastodon',
-      'soundcloud',
-    ]);
+    expect(data.data.platforms.map((p) => p.platform)).toEqual([...PLATFORMS]);
     // only renderer platforms write artifacts; github-org is brand-only (D15) so a person workspace writes only github-readme
     expect(data.data.written.map((w) => w.platform)).toEqual(['github-readme']);
   });

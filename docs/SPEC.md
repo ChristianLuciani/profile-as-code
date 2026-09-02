@@ -90,6 +90,7 @@ skills + deploy playbooks**.
 | D13 | Model-agnostic default; sah as future default path | Revisit when sovereign hub matures (Q3→RESOLVED). |
 | D14 | User data in **separate repo** `profile-data`, integrated by configured path, no symlink in normal flow | Symlink mount only as advanced CI option (Q4→RESOLVED). |
 | D15 | **Brand flavor** (`flavor: brand`): the same engine models commercial/brand identities — org schema, `socialHandles` matrix, brand surfaces. Workspace flavor is a **contract field**, not a separate product | The Topia brand needs the same SSOT→validate→refine→check→deploy machinery; one engine, one schema, one CLI — flavor only changes which blocks/checks apply (Q8→RESOLVED). |
+| D16 | **Platform set = Postiz parity + operator extras** (union, 43): ONE shared enum for person + brand flavors; new slugs Postiz verbatim (`linkedin-page`, `instagram-standalone`, `devto`, `gmb`, `warpcast`, `moltbook`, `mewe`, `tumblr`); single-source discipline enforced by contract self-tests (schema-check asserts `check.platform == ['all', ...platform]`; vitest asserts core `PLATFORMS` == schema enum) | The operator's surfaces must cover every network a cross-posting tool can reach (Postiz's 34 — [OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02; the API intro page's own "32" header undercounts its tables); `ghost` is an operator extra Postiz lacks. Schema parity ≠ skill coverage — per-platform skills are separate follow-ups (issue #30). |
 
 ## 6. Data model (schema v1)
 
@@ -105,6 +106,17 @@ workspaces add `socialHandles[]` (handle matrix, `status: claimed|pending`), `ne
 `podcast`, `press[]`, `audiences`, and the org identity variant (`orgName`, `logo`,
 `brandVoice`, `mission`, `tagline`, `established`). Person-only root blocks (`experience`,
 `publications`) stay optional and keep their meaning (essays/issues for a brand).
+
+**Platform set (D16 — additive, v1.2):** ONE shared enum for both flavors — the union of
+Postiz's 34 supported networks ([OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02) plus
+**9 operator extras**: `ghost`, `spotify`, `soundcloud`, and the six v1 non-Postiz surfaces
+(`github-readme`, `upwork`, `researchgate`, `substack`, `patreon`, `github-org`). 34 + 9 = **43**.
+New slugs are Postiz verbatim (`linkedin-page`, `instagram-standalone`, `devto`, `gmb`,
+`warpcast`, `moltbook`, `mewe`, `tumblr`); v1 person surfaces keep their names. The enum is
+also the `socialHandles` key space. Single-source discipline is enforced, not trusted:
+`check.platform` MUST equal `["all", ...platform]` (schema-check self-test) and core
+`PLATFORMS` MUST mirror the schema enum (vitest contract test). Schema parity ≠ skill
+coverage — per-platform skills are separate follow-ups.
 
 ```yaml
 identity:      { name, location, photo, links[] }            # canonical links: THE source of URLs

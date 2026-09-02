@@ -11,6 +11,21 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **Platform set — Postiz parity + operator extras (v1.2 schema, D16 — issue #30)** — el
+  enum compartido de plataformas (person + brand) pasa de 16 a **43**: la unión de las 34
+  redes soportadas por Postiz ([OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02) + 9
+  extras del operador (`ghost`, `spotify`, `soundcloud`, y las seis superficies v1 no-Postiz:
+  `github-readme`, `upwork`, `researchgate`, `substack`, `patreon`, `github-org`). Slugs
+  nuevos Postiz verbatim (`linkedin-page`, `instagram-standalone`, `devto`, `gmb`,
+  `warpcast`, `moltbook`, `mewe`, `tumblr`).
+  - **Schema v1.2 (aditivo)** — `$id`/`title` bump; `check.platform` == `['all', ...platform]`
+    asertado por `scripts/schema-check` (dedup guard, no confianza manual).
+  - **Core** — `PLATFORMS` espeja el enum (contract test vitest: schema ↔ types.ts); drift
+    reconoce los hosts nuevos (incluye subdominios `*.ghost.io`, `*.hashnode.dev`,
+    `*.medium.com`, `*.wordpress.com`, `*.slack.com`) y corrige el bug pre-existente de
+    `patreon.com` ausente en PLATFORM_HOSTS.
+  - **Fuera de scope** — skills por plataforma: follow-ups, un issue por plataforma.
+
 - **Brand flavor (M6, D15/§17 — issue #25)** — el engine modela identidades de marca:
   - **Schema v1.1 (aditivo)** — `flavor: person|brand`, variante org de `identity`
     (`orgName`, `logo`, `brandVoice`, `mission`, `tagline`, `established`), bloques
