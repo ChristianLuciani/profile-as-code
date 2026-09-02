@@ -23,7 +23,7 @@
  *   drift/orcid-conflict          publications carry different ORCIDs.
  *   drift/orcid-mismatch          publication ORCID differs from the identity ORCID
  *                                (the one in identity.links, if any).
- *   drift/active-platform-unknown active key is not one of the 6 platform ids.
+ *   drift/active-platform-unknown active key is not one of the platform ids.
  *   drift/active-variant-missing  active entry has no curated bio/headline for its
  *                                platform+lang (the chosen variant has no base).
  *   drift/skill-conflict          same skill name with different levels.
@@ -102,13 +102,16 @@ const PLATFORM_HOSTS: readonly string[] = [
   'ghost.io',
 ];
 
-/** Profile URLs that live on SUBDOMAINS of a host (e.g. `user.substack.com`).
- *  Maps platform → the host whose subdomains are platform surfaces. */
+/** Profile URLs that live on SUBDOMAINS of a host (e.g. `user.substack.com`,
+ *  `site.wordpress.com`, `team.slack.com`). Maps platform → the host whose
+ *  subdomains are platform surfaces. */
 const PLATFORM_SUBDOMAIN_HOSTS: Record<string, readonly string[]> = {
   substack: ['substack.com'],
   ghost: ['ghost.io'],
   hashnode: ['hashnode.dev'],
   medium: ['medium.com'],
+  wordpress: ['wordpress.com'],
+  slack: ['slack.com'],
 };
 
 /** Expected URL hosts per brand handle platform — the offline handle-consistency
@@ -132,7 +135,6 @@ const HANDLE_HOSTS: Record<string, readonly string[]> = {
   facebook: ['facebook.com'],
   'linkedin-page': ['linkedin.com'],
   warpcast: ['warpcast.com', 'farcaster.xyz'],
-  lemmy: ['lemmy.ml', 'lemmy.world'],
   discord: ['discord.com', 'discord.gg'],
   slack: ['slack.com'],
   skool: ['skool.com'],
@@ -143,7 +145,6 @@ const HANDLE_HOSTS: Record<string, readonly string[]> = {
   devto: ['dev.to'],
   hashnode: ['hashnode.dev'],
   wordpress: ['wordpress.com'],
-  gmb: ['business.google.com'],
   twitch: ['twitch.tv'],
   threads: ['threads.net'],
   telegram: ['t.me', 'telegram.org'],
@@ -151,9 +152,14 @@ const HANDLE_HOSTS: Record<string, readonly string[]> = {
   vk: ['vk.com'],
   kick: ['kick.com'],
   moltbook: ['moltbook.com'],
-  ghost: ['ghost.io'],
-  // listmonk is self-hosted — no canonical host, any URL allowed (handled by
-  // hostMatchesPlatform: unknown key → true).
+  // Any-host platforms (no HANDLE_HOSTS entry → any URL allowed):
+  //   - lemmy: federated (hundreds of instances) — a curated list would actively
+  //     reject legitimate handles (mastodon.social-only is a v1.1 leftover, see #30 follow-up)
+  //   - gmb: the public surface varies (g.page / google.com/maps) and the dashboard
+  //     host is login-only — live reachability is the skill's job
+  //   - ghost: self-hosted on an own domain is the canonical case (§17); ghost.io Pro
+  //     is still a platform surface via PLATFORM_SUBDOMAIN_HOSTS
+  //   - listmonk: self-hosted, no canonical host
 };
 
 /** True when `host` is a valid host for `platform`'s handle URLs (or the platform

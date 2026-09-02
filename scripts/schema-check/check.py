@@ -40,10 +40,13 @@ def main() -> int:
     check_enum = check_def["properties"]["platform"]["enum"]
     expected = ["all", *platform_enum]
     if check_enum != expected:
+        missing = sorted(set(expected) - set(check_enum))
+        surplus = sorted(set(check_enum) - set(expected))
         print(
             "FAIL: check.platform enum drifted from $defs/platform — "
             f"expected ['all', ...platform] ({len(expected)}), got {len(check_enum)}. "
-            "Missing: " + ", ".join(sorted(set(expected) - set(check_enum)))
+            + ("Missing: " + ", ".join(missing) if missing else "")
+            + ("Surplus: " + ", ".join(surplus) if surplus else "")
         )
         return 1
     print(f"PASS: check.platform enum == ['all', ...platform] ({len(expected)} entries)")

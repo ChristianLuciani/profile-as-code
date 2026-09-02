@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://profile-as-code.dev/schema/v1.1/profile.schema.json",
-  "title": "profile-as-code — user profile contract (v1.1)",
-  "description": "Contract source (D3) for a profile-data workspace. The core `load()` parses content/*.yaml, merges them into a single Profile and validates against THIS schema. Facts (dates, DOIs, URLs, ORCID) are language-independent and are the GEO anchor. Every text field is a langMap ({lang: value}) with EN required (D8, §11). v1.1 is ADDITIVE (semver minor): every v1 workspace still validates. New in v1.1: brand flavor (D15/§17) — `flavor`, org identity variant (orgName/logo/brandVoice/mission/tagline/established), socialHandles/newsletter/podcast/press/audiences blocks, brand platforms, handle checks.",
+  "$id": "https://profile-as-code.dev/schema/v1.2/profile.schema.json",
+  "title": "profile-as-code — user profile contract (v1.2)",
+  "description": "Contract source (D3) for a profile-data workspace. The core `load()` parses content/*.yaml, merges them into a single Profile and validates against THIS schema. Facts (dates, DOIs, URLs, ORCID) are language-independent and are the GEO anchor. Every text field is a langMap ({lang: value}) with EN required (D8, §11). Additive since v1 (semver minor): every earlier workspace still validates. v1.1: brand flavor (D15/§17) — `flavor`, org identity variant (orgName/logo/brandVoice/mission/tagline/established), socialHandles/newsletter/podcast/press/audiences blocks, brand platforms, handle checks. New in v1.2 (D16): platform set = Postiz parity + operator extras — 41 platforms, one shared enum for both flavors, single-source dedup guard (check.platform).",
   "type": "object",
   "additionalProperties": false,
   "required": ["identity"],
