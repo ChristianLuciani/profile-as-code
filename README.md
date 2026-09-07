@@ -112,7 +112,7 @@ profile-as-code/
 └── docs/                 # SPEC, research, ci-cd, build prompts
 ```
 
-Los datos reales de cada usuario viven en un **repo privado separado** (`profile-data/`), nunca aquí.
+Los datos reales de cada usuario viven en un **repo privado separado** (`profile-data-<username>/`), nunca aquí.
 Cada usuario arranca con el template `templates/profile-data/` (fork o clone) — ver `docs/SPEC.md` §9.
 
 ## Comunidad

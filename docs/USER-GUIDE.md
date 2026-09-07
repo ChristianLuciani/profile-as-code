@@ -17,7 +17,7 @@ Two repos, two roles. You never mix them.
 | Repo | What it is | Who owns it | You touch it? |
 |---|---|---|---|
 | `profile-as-code` (this repo) | The **engine**: schema, core, CLI `pac`, renderers, platform skills | Product (public) | Install it, update it — never put your data here |
-| `profile-data` | **Your** workspace: facts as YAML, generated outputs, changelog | You (private by default) | Yes — this is where you edit everything |
+| `profile-data-<username>` | **Your** workspace: facts as YAML, generated outputs, changelog | You (private by default) | Yes — this is where you edit everything |
 
 Core principles (SPEC D1–D15, abbreviated):
 
@@ -87,28 +87,52 @@ You should see the command list (`init`, `validate`, `build`, `diff`, `refine`,
 `check`, `skills:install`) and the exit-code contract: `0` ok · `1` schema or
 workspace failure · `2` usage error.
 
+> **npm package status** [WEB: npm registry, checked 2026-09-07]: the unscoped
+> name `profile-as-code` is still unclaimed and `@profile-as-code/cli` is not
+> published — installing from source is the only path today. When publishing
+> lands, `npm i -g profile-as-code` will provide `pac`. Note: an unrelated npm
+> package named `pac` (`pac@1.0.0`) already ships a `pac` binary, so two global
+> installs could conflict over the bin name; the scoped `@profile-as-code/cli`
+> keeps the CLI itself isolated. Reserving the npm name (publishing a
+> placeholder) is an operator decision — publishing stays human-only.
+
 > Updating the engine later? See [§8.2](#82-update-the-engine).
 
 ---
 
-## 3. Create your workspace (`profile-data`)
+## 3. Create your workspace (`profile-data-<username>`)
 
 You need a place for your facts. Two ways:
 
 ### Option A — the template repo (recommended)
 
-`ChristianLuciani/profile-data-template` is a GitHub template repository with a
-complete, documented example (a fictional person) plus `CHANGELOG.md` and
-`CHECKLIST.md` already wired for the workflow.
+[`ChristianLuciani/profile-data-template`](https://github.com/ChristianLuciani/profile-data-template)
+is a GitHub template repository with a complete, documented example (a fictional
+person) plus `CHANGELOG.md` and `CHECKLIST.md` already wired for the workflow.
 
-1. On GitHub: **Use this template** (or fork) `profile-data-template`.
-2. Rename the result to **`profile-data`** and make it **private** — your data
-   is yours (private by default).
-3. Clone it locally:
+1. Create your workspace from the template — CLI (recommended):
 
    ```sh
-   git clone git@github.com:<you>/profile-data.git
-   cd profile-data
+   gh repo create profile-data-<username> \
+     --template https://github.com/ChristianLuciani/profile-data-template \
+     --private
+   ```
+
+   Or on GitHub: **Use this template**, then rename the result to
+   **`profile-data-<username>`** and make it **private**:
+
+   ```sh
+   gh repo edit <you>/profile-data-<username> --visibility private \
+     --accept-visibility-change-consequences
+   # (or Settings → General → Danger Zone → Change visibility)
+   ```
+
+   Your data is yours — private by default.
+2. Clone it locally:
+
+   ```sh
+   git clone git@github.com:<you>/profile-data-<username>.git
+   cd profile-data-<username>
    ```
 
 The template ships every content file as a commented example — replace the
@@ -117,8 +141,8 @@ fiction with your own facts (see §4).
 ### Option B — `pac init` (minimal local scaffold)
 
 ```sh
-pac init ~/profile-data              # person flavor (default)
-pac init ~/profile-data --flavor brand   # commercial/brand identity (D15)
+pac init ~/profile-data-<username>              # person flavor (default)
+pac init ~/profile-data-<username> --flavor brand   # commercial/brand identity (D15)
 ```
 
 `pac init` scaffolds a minimal, `pac validate`-clean skeleton and **refuses to
@@ -394,7 +418,7 @@ Any life event — new role, new paper, new project, changed positioning — is 
 same loop:
 
 ```sh
-cd ~/profile-data
+cd ~/profile-data-<username>
 $EDITOR content/<file>.yaml
 pac validate                       # fix schema; read drift warnings
 pac build                          # regenerate outputs
@@ -436,7 +460,8 @@ pac validate && pac build
 
 One workspace per identity, same engine (D14/D15):
 
-- Naming family: the `profile-data` prefix wins — `profile-data` (you),
+- Naming family: the `profile-data-` prefix wins and every workspace repo names
+  its owner — `profile-data-<username>` (you, e.g. `profile-data-maria`),
   `profile-data-topia` (a brand), never `topia-data`.
 - Each identity lives in its own repo; scaffold a brand with
   `pac init --flavor brand`.
@@ -470,7 +495,7 @@ One workspace per identity, same engine (D14/D15):
 | Renderers | this repo, `packages/renderers` | deterministic per-platform artifacts |
 | Platform skills (SOTA knowledge) | this repo, `skills/<platform>/` | applied by your agent during `pac refine` (M3) |
 | Deploy playbooks | this repo, `templates/playbooks/` | copy-paste + verification steps |
-| Your facts | `profile-data` (private), `content/*.yaml` | the SSOT — the only thing you edit |
+| Your facts | `profile-data-<username>` (private), `content/*.yaml` | the SSOT — the only thing you edit |
 | Generated outputs | your workspace, `profiles/` | committed deploy artifacts — never hand-edited |
 | Chosen variants | your workspace, `content/active.yaml` | what is live per platform/lang |
 | Re-paste ledger | your workspace, `CHANGELOG.md` + `CHECKLIST.md` | what changed and what was verified |

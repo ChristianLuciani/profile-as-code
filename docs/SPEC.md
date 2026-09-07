@@ -193,13 +193,17 @@ This table is the canonical terminology; docs and code reference it, never inven
 |---|---|---|---|
 | Engine | `profile-as-code` | public (product) | schema, core, CLI `pac`, renderers |
 | Template | `profile-data-template` | public | fork/clone skeleton (empty workspace + instructions) |
-| Workspace (per user) | `profile-data` | private by default | the user's facts (SSOT) — what they edit |
+| Workspace (per user) | `profile-data-<username>` | private by default | the user's facts (SSOT) — what they edit |
 | Deploy surfaces | e.g. `ChristianLuciani/ChristianLuciani`, CV site | public | rendered output (never edited by hand) |
 
 Future workspaces follow the same family: individual identities today, **commercial/brand
 identities** now (multi-workspace: one workspace per identity, same engine) — the naming
 stays `profile-data`-first regardless of the identity's nature, so a brand workspace is
 `profile-data-topia`, not `topia-data` (the family prefix wins; D15).
+
+**Per-user naming (2026-09-07):** every workspace repo carries its owner —
+`profile-data-<username>` (e.g. `profile-data-christianluciani`). The operator's first
+workspace (`profile-data`, no suffix) predates the convention and keeps its name.
 
 **Workspace flavor (D15):** every workspace declares its flavor in `content/flavor.yaml`
 (`flavor: person | brand`, default `person`). The flavor is a contract field, not a separate
@@ -208,7 +212,7 @@ product: it only changes which blocks/checks apply (brand adds `socialHandles`, 
 instead of `Person`). See §17.
 
 Delivered as a **GitHub template repository** (`ChristianLuciani/profile-data-template`), so a new
-user can `Use this template` or fork (then rename the fork to `profile-data` and make it private).
+user can `Use this template` or fork (then rename the fork to `profile-data-<username>` and make it private).
 The folder `templates/profile-data/` in the engine repo is a **pointer** to it (no duplication → no drift).
 
 ```
