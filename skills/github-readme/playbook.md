@@ -6,10 +6,10 @@ Sin pegar a mano, sin API.
 
 ## Flujo
 
-1. **Refine**: `pac refine github-readme --variants 3` → el agente (esta skill)
+1. **Refine**: `pasco refine github-readme --variants 3` → el agente (esta skill)
    produce 3 variantes en prosa. Elegí una:
-   `pac refine github-readme --choose gh-en-2`.
-2. **Build determinista** (control de verdad): `pac build github-readme` → regenera
+   `pasco refine github-readme --choose gh-en-2`.
+2. **Build determinista** (control de verdad): `pasco build github-readme` → regenera
    `profiles/github-readme/README.md` (snapshot byte-stable del SSOT).
 3. **Deploy**: copiá la variante elegida al repo-perfil y commit:
    ```sh
@@ -27,7 +27,7 @@ Sin pegar a mano, sin API.
 - [ ] Facts byte-idénticos al CV (fechas, roles, papers, DOIs)
 - [ ] UN CTA primario (Patreon + un link más)
 - [ ] Se lee en ~30 segundos
-- [ ] `pac validate` exit 0 con la variante activa registrada
+- [ ] `pasco validate` exit 0 con la variante activa registrada
 
 ## Rollback
 

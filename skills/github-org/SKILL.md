@@ -22,7 +22,7 @@ sources: skills/github-org/research/SOTA-2026.md
 Convertir los HECHOS del workspace brand (SSOT) en la página de aterrizaje del
 org de GitHub: quién es la marca, qué publica, dónde vive (handle matrix), y
 POR QUÉ importa. El dump determinista ya lo produce el renderer
-(`pac build github-org`) — esta skill es la capa de **juicio y voz** (D4/D5).
+(`pasco build github-org`) — esta skill es la capa de **juicio y voz** (D4/D5).
 
 ## Regla de oro
 
@@ -73,10 +73,10 @@ se cita, se ignora.
 
 ## Checklist de deploy (manual + git)
 
-1. `pac validate` — schema OK y 0 drift warnings en la handle matrix.
-2. `pac check` — handle-claimed / handle-consistent OK (offline) + `url-live` de
+1. `pasco validate` — schema OK y 0 drift warnings en la handle matrix.
+2. `pasco check` — handle-claimed / handle-consistent OK (offline) + `url-live` de
    cada handle claimed (network, verificación manual).
-3. `pac build github-org --lang en` → `profiles/github-org/README.md`.
+3. `pasco build github-org --lang en` → `profiles/github-org/README.md`.
 4. Copiar el README al repo del org (deploySpec: git; el humano mergea —
    repo-governance).
 5. Verificación post-deploy: cada badge/link del README resuelve; los handles

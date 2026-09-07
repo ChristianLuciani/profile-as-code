@@ -12,7 +12,7 @@ workspace (JSON Schema, draft 2020-12). Per D3, JSON Schema is the contract sour
 
 ## How content files map to the profile
 
-`pac load(workspace)` reads `content/*.yaml`, **merges** them into one Profile object and
+`pasco load(workspace)` reads `content/*.yaml`, **merges** them into one Profile object and
 validates the result against this schema. File → root property mapping:
 
 | File (content/) | Root property(s) | Notes |
@@ -41,7 +41,7 @@ Files are optional (a fresh user may start with `identity.yaml` only); the schem
 requires `identity`. Unknown top-level properties **fail validation** (`additionalProperties:
 false`) — that IS the "fail on schema" side of D12.
 
-## Validation semantics (`pac validate`)
+## Validation semantics (`pasco validate`)
 
 1. **Schema** — merged profile must conform to `profile.schema.json`. Violations → **FAIL**
    (exit code 1) and a precise path + message per error.
@@ -64,7 +64,7 @@ false`) — that IS the "fail on schema" side of D12.
   claims carry a resolvable `source` + `verified` date.
 - **Checks catalog:** `rule` is an enum (`max-chars`, `min-chars`, `url-live`, `fact-present`,
   `geo-consistent`, `lang-present`, `link-in-identity`) — the same catalog used by
-  `skills/<platform>/checks.yaml`, so `pac check` runs the **union** of user + skill checks.
+  `skills/<platform>/checks.yaml`, so `pasco check` runs the **union** of user + skill checks.
   v1.1 (brand): `handle-claimed` and `handle-consistent` join the catalog.
 
 ## Non-goals of the schema

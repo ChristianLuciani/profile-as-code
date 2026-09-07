@@ -53,7 +53,7 @@ Ningún proyecto combina: **SSOT versionable + renderers multi-plataforma + opti
 3. Pipeline obligatorio de humanización + variantes + elección del usuario antes de publicar.
 4. Reusar convenciones de fields de JSON Resume para import futuro y compatibilidad mental.
 5. Multi-idioma (ES/EN) desde el día 1.
-6. `pac skills:install <agent>` como comando de proyección a skill-studio local.
+6. `pasco skills:install <agent>` como comando de proyección a skill-studio local.
 7. Deploy playbooks + checks machine-readable = diferenciador no cubierto por nadie.
 8. Si algún día hace falta CV/PDF: delegar a yamlresume/JSON Resume (un renderer más), no reinventar.
 9. Capa de identidad tipo `brand.yaml` (brandspec) como base del `positioning`.

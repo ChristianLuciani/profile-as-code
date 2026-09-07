@@ -1,7 +1,7 @@
 /**
- * pac diff — what changed since the last release (git-based → CHANGELOG hint,
+ * pasco diff — what changed since the last release (git-based → CHANGELOG hint,
  * SPEC §7). Release marker = the latest tag matching `release-*` (configurable
- * in .pacrc diff.tagPattern). No release tag → diff against the first commit.
+ * in .pascorc diff.tagPattern). No release tag → diff against the first commit.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -9,7 +9,7 @@ import { realpathSync } from 'node:fs';
 import { relative } from 'node:path';
 import { EXIT } from '../exit.js';
 import { isJsonMode, line, report, section } from '../output.js';
-import type { Pacrc } from '../workspace.js';
+import type { Pascorc } from '../workspace.js';
 
 interface GitOk {
   ok: true;
@@ -49,7 +49,7 @@ const TEXT_OR_FACT_ROOTS = new Set([
 
 export interface DiffArgs {
   workspace: string;
-  pacrc: Pacrc;
+  pascorc: Pascorc;
 }
 
 export function runDiff(args: DiffArgs): number {
@@ -58,13 +58,13 @@ export function runDiff(args: DiffArgs): number {
     return report('diff', false, EXIT.FAIL, {
       error: {
         kind: 'git',
-        message: `${args.workspace} is not inside a git repository — pac diff is git-based (release markers = tags)`,
+        message: `${args.workspace} is not inside a git repository — pasco diff is git-based (release markers = tags)`,
       },
     });
   }
   const root = rootRes.out.trim();
 
-  const tagPattern = args.pacrc.diff?.tagPattern ?? 'release-*';
+  const tagPattern = args.pascorc.diff?.tagPattern ?? 'release-*';
   const tags = lines(git(root, ['tag', '-l', '--sort=-creatordate', tagPattern]));
   const tag = tags[0] ?? null;
 
@@ -115,7 +115,7 @@ export function runDiff(args: DiffArgs): number {
     } else if (changedRoots.has('active')) {
       hint = 'variant selection changed — candidate for CHANGELOG';
     } else if (changedRoots.has('checks')) {
-      hint = 'check catalog changed — re-run pac check before deploying';
+      hint = 'check catalog changed — re-run pasco check before deploying';
     }
   }
 

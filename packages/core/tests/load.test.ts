@@ -9,7 +9,7 @@ const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, im
 
 /** Create a throwaway workspace with the given content files. */
 function makeWorkspace(files: Record<string, string>): string {
-  const dir = mkdtempSync(join(tmpdir(), 'pac-core-'));
+  const dir = mkdtempSync(join(tmpdir(), 'pasco-core-'));
   const content = join(dir, 'content');
   mkdirSync(content, { recursive: true });
   for (const [name, body] of Object.entries(files)) {
@@ -59,7 +59,7 @@ describe('load(workspace)', () => {
   });
 
   it('throws LoadError when the workspace has no content/ directory', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'pac-core-'));
+    const dir = mkdtempSync(join(tmpdir(), 'pasco-core-'));
     try {
       expect(() => load(dir)).toThrow(LoadError);
     } finally {

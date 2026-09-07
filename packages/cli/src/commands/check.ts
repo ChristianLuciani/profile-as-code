@@ -1,11 +1,11 @@
 /**
- * pac check [platform]
+ * pasco check [platform]
  *
  * Runs the deterministic, offline rules NOW (brand handle matrix, v1.1/§17) and
  * reports the user's declarative checks from content/checks.yaml (the
  * schema-validated catalog) per platform. Rule EXECUTION for the remaining
  * catalog (limits, live links, fact presence) ships with the skills checks.yaml
- * union (M3) + the full `pac check` (M4, SPEC §7).
+ * union (M3) + the full `pasco check` (M4, SPEC §7).
  *
  * Brand flavor (D15/§17): `handle-claimed` and `handle-consistent` are executed
  * here — drift's handle codes (duplicate-handle, handle-claimed-not-linked,
@@ -102,13 +102,13 @@ export function runCheck(args: CheckArgs): number {
     }
   }
 
-  line('pac check: STUB for the remaining catalog — rule engine ships M3/M4');
+  line('pasco check: STUB for the remaining catalog — rule engine ships M3/M4');
   section(`user checks (content/checks.yaml, schema-validated catalog)${platform !== undefined ? ` for ${platform}` : ''}: ${checks.length}`);
   for (const c of checks) {
     const note = c.note !== undefined ? ` note="${c.note}"` : '';
     line(`  [${c.id ?? '?'}] platform=${c.platform} rule=${c.rule} value=${JSON.stringify(c.value)}${note}`);
   }
-  line('  not executed — rule execution ships with the skills checks.yaml union (M3) and pac check (M4)');
+  line('  not executed — rule execution ships with the skills checks.yaml union (M3) and pasco check (M4)');
   line(`  owner: ${CHECK_OWNER}`);
 
   return EXIT.OK;
