@@ -80,6 +80,7 @@ pnpm gen:zod         # regenera Zod desde schema/profile.schema.json (D3)
 
 ## Documentación
 
+- [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md) — guía de usuario: instalación → workspace → primer load de datos → updates (EN).
 - [`docs/SPEC.md`](docs/SPEC.md) — el contrato del motor: goals, decisiones D1–D15, data model, core interfaces, GEO, roadmap, brand flavor (§17).
 - [`docs/research/`](docs/research/) — prior-art + prompts de investigación SOTA por plataforma.
 - [`schema/README.md`](schema/README.md) — el contrato de datos: mapping de archivos, semántica de validación.
@@ -111,7 +112,7 @@ profile-as-code/
 └── docs/                 # SPEC, research, ci-cd, build prompts
 ```
 
-Los datos reales de cada usuario viven en un **repo privado separado** (`profile-data/`), nunca aquí.
+Los datos reales de cada usuario viven en un **repo privado separado** (`profile-data-<username>/`), nunca aquí.
 Cada usuario arranca con el template `templates/profile-data/` (fork o clone) — ver `docs/SPEC.md` §9.
 
 ## Comunidad

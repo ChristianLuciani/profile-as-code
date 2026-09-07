@@ -9,7 +9,8 @@ esqueleto; este README es el puntero.
 
 ## Flujo
 
-1. El usuario forkea / usa el template → `profile-data` (privado recomendado).
+1. El usuario forkea / usa el template → `profile-data-<username>` (privado recomendado:
+   `gh repo create profile-data-<username> --template https://github.com/ChristianLuciani/profile-data-template --private`).
 2. Llena `content/` con sus datos (el ejemplo incluido es ficticio y documenta el schema).
 3. Corre `pac validate` / `pac build` / `pac refine` (engine, por ruta — ver `.pacrc`).
 4. Deploy: manual con `CHECKLIST.md` (LinkedIn, Upwork…) o git/API (GitHub README).

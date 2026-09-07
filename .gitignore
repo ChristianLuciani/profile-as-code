@@ -27,3 +27,6 @@ docs/research/_drafts/
 
 # Harness artifacts (pi/AionUi session skills)
 .pi/
+
+# Session worktrees (AGOS W3: {repo}/.worktrees/{branch}/)
+.worktrees/
