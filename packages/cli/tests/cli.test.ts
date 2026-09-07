@@ -143,6 +143,24 @@ describe('pasco validate (D12: fail on schema, warn on drift)', () => {
   });
 });
 
+describe('legacy .pacrc detection (issue #38 migration guard)', () => {
+  it('fails with a migration hint when a legacy .pacrc is present', () => {
+    const dir = tempDir();
+    writeFileSync(join(dir, '.pacrc'), JSON.stringify({ workspace: '.' }));
+    const r = run(['validate', '--json'], dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toMatch(/legacy \.pacrc/);
+    expect(r.stderr).toMatch(/\.pascorc/);
+  });
+
+  it('does not complain when no config file exists', () => {
+    const dir = tempDir();
+    const r = run(['validate', '--json', '--workspace', MINIMAL], dir);
+    expect(r.code).toBe(0);
+    expect(r.stderr).not.toMatch(/legacy/);
+  });
+});
+
 describe('pasco build (compile slices)', () => {
   it('renders base texts for one platform+lang and writes the deploy artifact', () => {
     const ws = tempDir();

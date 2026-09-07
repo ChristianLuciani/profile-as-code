@@ -90,7 +90,7 @@ workspace failure · `2` usage error.
 > **npm package status** [WEB: npm registry, checked 2026-09-07]: the unscoped
 > name `profile-as-code` is still unclaimed and `@profile-as-code/cli` is not
 > published — installing from source is the only path today. When publishing
-> lands, `npm i -g profile-as-code` will provide `pasco`. Note: the bin was
+> lands, `npm i -g @profile-as-code/cli` will provide `pasco`. Note: the bin was
 > renamed `pac` → `pasco` (issue #38) precisely because an unrelated npm package
 > named `pac` (`pac@1.0.0`, 2015) already ships a `pac` binary — `pasco` itself
 > is unclaimed on npm (verified 2026-09-07), so there is no global-install bin

@@ -223,7 +223,7 @@ profile-data/
 ├── profiles/            # generated outputs (committed: they ARE the deploy artifacts)
 ├── CHANGELOG.md         # every change: date + which platforms need re-paste
 ├── CHECKLIST.md         # per-platform verification after pasting
-└── .pascorc               # workspace path, defaults (D11–D14)
+└── .pascorc             # workspace path, defaults (D11–D14)
 ```
 
 **Integration (Q4→D14):** the engine never copies or owns user data — it reads the workspace by

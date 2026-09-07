@@ -42,7 +42,18 @@ export class ConfigError extends Error {
 
 export function readPascorc(dir: string): { pascorc: Pascorc; pascorcPath: string } | null {
   const pascorcPath = join(dir, '.pascorc');
-  if (!existsSync(pascorcPath)) return null;
+  if (!existsSync(pascorcPath)) {
+    // Migration guard (issue #38, sota-review round 2): a legacy `.pacrc` would be
+    // silently ignored — its `workspace` path and defaults would vanish. Make the
+    // stale state self-announcing instead of silent (poka-yoke).
+    const legacy = join(dir, '.pacrc');
+    if (existsSync(legacy)) {
+      throw new ConfigError(
+        `legacy .pacrc found at ${legacy} — rename it to .pascorc (the bin was renamed pac → pasco; issue #38)`,
+      );
+    }
+    return null;
+  }
   let raw: string;
   try {
     raw = readFileSync(pascorcPath, 'utf8');
@@ -80,7 +91,8 @@ export function resolveWorkspace(cwd: string, flag?: string): string {
   return cwd;
 }
 
-/** Read .pascorc for the resolved workspace (defaults, diff config). Never throws for absence. */
+/** Read .pascorc for the resolved workspace (defaults, diff config). Never throws when no
+ *  config file exists; throws with a migration hint when a legacy `.pacrc` is present. */
 export function readWorkspacePascorc(workspace: string): Pascorc {
   const found = readPascorc(workspace);
   return found?.pascorc ?? {};
