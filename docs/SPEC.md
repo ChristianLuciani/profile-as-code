@@ -663,13 +663,20 @@ deployments:
 - **ledgerKey** — stable, prefixed identity of a *trackable unit* (§18.2).
 - **surface** — a platform slug from the ONE enum (D16); schema-validated via
   `propertyNames`.
-- **contentHash** — SHA-256 over a canonical serialization (sorted keys) of the unit.
-  Staleness is therefore **exact and release-tag-independent**: `pasco status` compares
-  the current hash against the recorded one. `pasco diff` stays what it is — the
-  release/CHANGELOG view.
+- **contentHash** — SHA-256 over a canonical serialization (sorted keys) of the **parsed**
+  unit — YAML formatting and comments don't affect it, so cosmetic edits never go stale.
+  Staleness is therefore **exact and release-tag-independent**: `stale` iff current hash ≠
+  recorded hash, with no intersection with `pasco diff` (the diff delta is file- and
+  release-tag-scoped; gating staleness on it would hide true staleness whenever release
+  tags lag behind real deploys — the common solo case). `pasco diff` stays what it is —
+  the release/CHANGELOG view.
 - The ledger is **append/update-only state**: removing a row from `content/` does not
   remove its ledger key (audit trail); `pasco status` reports the dangling key as
   `removed`.
+- Exactly **one record per `(ledgerKey, surface)` pair** — the ledger holds *current
+  deploy state*. Deploy **history** is not a growing in-file event log: it is the
+  workspace's own git history (every `--mark` is a commit in the user's repo, D2
+  text-first) — no duplicated event store to drift.
 
 ### 18.2 Entry identity (`id`) and provenance (`origin`)
 
@@ -681,10 +688,16 @@ Trackable units and their ledger keys:
 | `bios[]` | `bios:<platform>:<lang>:<length>` | natural composite key |
 | `headlines[]` | `headlines:<platform>:<lang>` | natural composite key |
 | `skills[]` | `skills:<name>` | `name` is the natural key |
+| `socialHandles[]` (brand, D15) | `socialHandles:<platform>` | the platform key (D16 enum) |
 | `identity` / `positioning` / `keywords` | the block name | the block itself |
 
 Rows **without** an `id` are listed by `pasco status` as *untracked* (add an `id` to track
 them). `id` stays optional so every existing workspace validates (additive, semver minor).
+
+Keys are unique **by validation, not by hope**: core checks one `id` per block and one
+row per composite key (`bios:*`, `headlines:*`, `skills:*`, `socialHandles:*`) and fails
+validation on duplicates (JSON Schema cannot express either) — the ledger must never be
+ambiguously addressable.
 
 **origin**: optional `origin: template` flag on content items. The `profile-data-template`
 ships its fictional examples **with** the flag; user-authored entries simply don't have it
@@ -702,6 +715,10 @@ copied template example keeps the provenance (still true — it *is* template-de
 
 Fresh-workspace guarantee: an empty ledger reports `never` everywhere and `stale`
 nowhere — zero false positives (acceptance, issue #37).
+
+Variant selection (`refine --choose`) **never** writes the ledger: choosing a variant is
+not deploying it — the surface keeps the old text until the paste is confirmed with
+`--mark` (or a future deploy command writes it on real deploy).
 
 ### 18.4 Alternatives considered (why not extend `active`, D11)
 
