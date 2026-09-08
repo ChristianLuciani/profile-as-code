@@ -92,6 +92,7 @@ skills + deploy playbooks**.
 | D15 | **Brand flavor** (`flavor: brand`): the same engine models commercial/brand identities — org schema, `socialHandles` matrix, brand surfaces. Workspace flavor is a **contract field**, not a separate product | The Topia brand needs the same SSOT→validate→refine→check→deploy machinery; one engine, one schema, one CLI — flavor only changes which blocks/checks apply (Q8→RESOLVED). |
 | D16 | **Platform set = Postiz parity + operator extras** (union, 43): ONE shared enum for person + brand flavors; new slugs Postiz verbatim (`linkedin-page`, `instagram-standalone`, `devto`, `gmb`, `warpcast`, `moltbook`, `mewe`, `tumblr`); single-source discipline enforced by contract self-tests (schema-check asserts `check.platform == ['all', ...platform]`; vitest asserts core `PLATFORMS` == schema enum) | The operator's surfaces must cover every network a cross-posting tool can reach (Postiz's 34 — [OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02; the API intro page's own "32" header undercounts its tables); `ghost` is an operator extra Postiz lacks. Schema parity ≠ skill coverage — per-platform skills are separate follow-ups (issue #30). |
 | D17 | **Evidence registry is pointer-first** (§18): two typed root blocks — `credentials[]` (third-party attestations) and `artifacts[]` (works/media) — with a **locator-capability matrix**; in-workspace `media/` reaches public surfaces only via renderer `assets/` output; external paths resolve via per-machine `PASCO_EVIDENCE_ROOT` (env/gitignored override, never committed); symlink/stow = documented power-user convenience only | A claim is not an artifact, and neither duplicates `publications[]`/`press[]` (naming discipline §9.1/§18.1); a private workspace is not a public media host (D14) — the capability matrix protects byte-stability (§15.1) and the URL SSOT (§15.4/§18.4). Direction ratified by the operator (issue #48) |
+| D18 | **Per-entry deploy ledger as data** (schema-additive v1.3): `deployments` map (`content/deployments.yaml`) + optional stable entry `id`s + `origin: template` provenance flag + `pasco status`; deploy state is `pasco`-owned data and `CHECKLIST.md` becomes a generated view (issue #37, §19) | The per-entry question — *mine vs template? published where? in-sync or stale?* — is unanswerable from platform-granularity state (`active`, D11, answers *which variant is live* only); staleness = `contentHash` compare, exact and release-tag-independent (`pasco diff` stays the CHANGELOG hint); only `pasco` mutates the ledger — same write rule as `refine --choose` (D14) |
 
 ## 6. Data model (schema v1)
 
@@ -125,14 +126,15 @@ positioning:   { statement: {lang}, audiences: {lang: angle}, geo: { semanticAss
 bios:          [ { platform, lang, length: short|medium|long, text } ]   # generated + curated
 headlines:     [ { platform, lang, text } ]                   # per-platform, per-lang
 skills:        [ { name, level, keywords[], geoKeywords[], platformWeights{} } ]
-experience:    [ { role, org, start, end, highlights{lang} } ]
-projects:      [ { name, status, description{lang}, links, keywords{}, evidence[] } ]
-publications:  [ { title, venue, year, doi, orcidId } ]
+experience:    [ { id?, origin?, role, org, start, end, highlights{lang} } ]   # id/origin — D18 §19
+projects:      [ { id?, origin?, name, status, description{lang}, links, keywords{}, evidence[] } ]
+publications:  [ { id?, origin?, title, venue, year, doi, orcidId } ]
 credentials:   [ { id, kind, title, issuer, credentialId?, verifyUrl, issued, expires?, visibility } ]
 artifacts:     [ { id, kind, title, description{lang}?, locator, checksum?, license?, tags[], visibility } ]
 keywords:      { seo: { platform: [] }, geo: { associations: [], claims: [] } }
 checks:        [ { platform, rule, value } ]                  # declarative; executed by `pasco check`
 active:        { platform: { lang, variantId, chosenAt } }    # which variant is live
+deployments:   { <ledgerKey>: { <surface>: { deployedAt, contentHash, source } } }   # per-entry deploy ledger (D18, §19)
 ```
 
 **Evidence registry (D17, §18 — additive, v1.3):** `credentials[]` and `artifacts[]` are
@@ -140,6 +142,13 @@ the proof layer — pointer-first, visibility-scoped. `projects[].evidence[]` ke
 claim semantics and may reference registry ids (`credentialId`/`artifactId`); canonical
 blocks (`publications[]`, `press[]`) keep their domains and gain `artifactRefs` instead of
 becoming registry kinds. Naming discipline: the word "evidence" stays claims-only (§18.1).
+
+**Deploy ledger (D18 — additive, v1.3):** `deployments` records, per *trackable unit*
+(row entries with a stable `id`, composite `bios`/`headlines` keys, root fact blocks),
+which **surface** the unit was confirmed deployed to, when (`deployedAt`), and its
+`contentHash` at deploy time. `pasco status` derives the sync state (`in-sync` / `stale` /
+`never`) from that hash, and `origin: template` (shipped by the template's fictional
+examples) marks template-provenance entries — absent means user-authored. Detail: §19.
 
 ## 7. Core interfaces (deep module)
 
@@ -174,6 +183,7 @@ interface SkillChecks {  // from skills/<platform>/checks.yaml
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
 | `pasco check [platform]` | run skill-declared checks before deploy |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
+| `pasco status [platform] [--mark <ledgerKey> <surface>] [--write-checklist]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D17, §18); `--mark` confirms a manual paste (ledger write path) |
 | `pasco skills:install <agent>` | project repo skills → agent skill studio (zhiweio pattern) |
 
 ## 8. GEO as a cross-cutting layer
@@ -270,7 +280,7 @@ Two different "templates" (previous confusion):
 1. **M1 (now)**: spec + profile-data template (done) + schema v1 ✅ (`schema/profile.schema.json`) + core (validate/drift/geo) + CLI skeleton ✅.
 2. **M2**: renderer `github-readme` + CI + dogfood (Christian's real GitHub README) — detailed in §15.
 3. **M3**: SOTA research per platform (GitHub→LinkedIn→Upwork→X→ResearchGate→Substack) → skills v1 + `pasco refine`.
-4. **M4**: renderers linkedin/upwork/x/researchgate/substack + playbooks + `pasco check` + checks.yaml per skill.
+4. **M4**: renderers linkedin/upwork/x/researchgate/substack + playbooks + `pasco check` + checks.yaml per skill + per-entry deploy ledger (D17 — `deployments` + `pasco status`: deploy state becomes data, CHECKLIST becomes a generated view).
 5. **M5**: web renderer (cv-cluciani consumes generated profiles), template release, CONTRIBUTING.
 6. **M6 (brand flavor)**: schema v1.1 brand additions (§17) + `pasco init --flavor brand` + renderer `github-org` + handle-matrix checks + `skills/github-org/` + dogfood `profile-data-topia` (private).
 7. **M7 (evidence core)**: schema v1.3 — `credentials[]`/`artifacts[]` + cross-refs (§18) · `pasco check`: `credential-expiry`, registry live-links, `no-private-in-public-output` · JSON-LD `hasCredential` · compact registry section in `github-readme` · template: `media/` scaffold + `docs/evidence-packs.md` + power-user symlink/stow doc (issue #48).
@@ -623,3 +633,87 @@ rendering guidance lives in `skills/<platform>/` (D5). **The engine learns no do
 - **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable,
   checksummed bundling — resolves Q9) · deploy playbooks publish media · portfolio-site
   consumption (with the M5 web renderer) · git-lfs guidance.
+## 18. D17 — per-entry deploy-status ledger (detail)
+
+Raised by issue #37 while writing the user guide (`docs/USER-GUIDE.md`): the deploy loop
+tracks status at **platform granularity** only — `active` (D11) records the chosen
+*variant*, `pasco diff` reports changed *files* since the last release, and
+`CHANGELOG.md` + `CHECKLIST.md` are hand-maintained prose. Nothing answers the operator's
+actual question (2026-09-07):
+
+> For **each piece of data**: is this mine (vs template)? Is it published or not yet?
+> In which profile is it published and in sync — and which ones are out of date?
+
+D17 makes deploy state **data** (schema-additive, v1.3) with a single owner — `pasco` —
+instead of hand-maintained prose the operator must remember to update.
+
+### 18.1 The ledger (`deployments`)
+
+New optional root property in `content/deployments.yaml` (file name = root property, §6):
+
+```yaml
+deployments:
+  <ledgerKey>:
+    <surface>:
+      deployedAt: 2026-09-08T10:00:00Z   # ISO 8601 — when the deploy was confirmed
+      contentHash: <sha256-hex>          # hash of the trackable unit AT deploy time
+      source: manual | git | api        # how it landed (paste confirm vs deploy script)
+```
+
+- **ledgerKey** — stable, prefixed identity of a *trackable unit* (§18.2).
+- **surface** — a platform slug from the ONE enum (D16); schema-validated via
+  `propertyNames`.
+- **contentHash** — SHA-256 over a canonical serialization (sorted keys) of the unit.
+  Staleness is therefore **exact and release-tag-independent**: `pasco status` compares
+  the current hash against the recorded one. `pasco diff` stays what it is — the
+  release/CHANGELOG view.
+- The ledger is **append/update-only state**: removing a row from `content/` does not
+  remove its ledger key (audit trail); `pasco status` reports the dangling key as
+  `removed`.
+
+### 18.2 Entry identity (`id`) and provenance (`origin`)
+
+Trackable units and their ledger keys:
+
+| Unit | Ledger key | Identity |
+|---|---|---|
+| `experience[]` / `projects[]` / `publications[]` / `education[]` / `press[]` rows | `<block>:<id>` | new **optional** `id` (slug pattern, unique per block — uniqueness is core-checked and fails validation; JSON Schema cannot express it) |
+| `bios[]` | `bios:<platform>:<lang>:<length>` | natural composite key |
+| `headlines[]` | `headlines:<platform>:<lang>` | natural composite key |
+| `skills[]` | `skills:<name>` | `name` is the natural key |
+| `identity` / `positioning` / `keywords` | the block name | the block itself |
+
+Rows **without** an `id` are listed by `pasco status` as *untracked* (add an `id` to track
+them). `id` stays optional so every existing workspace validates (additive, semver minor).
+
+**origin**: optional `origin: template` flag on content items. The `profile-data-template`
+ships its fictional examples **with** the flag; user-authored entries simply don't have it
+(absent = user). `pasco status` flags template-origin entries automatically; editing a
+copied template example keeps the provenance (still true — it *is* template-derived).
+
+### 18.3 `pasco status [platform]`
+
+| Invocation | Behavior |
+|---|---|
+| `pasco status [platform]` | per-unit report: ledger key · origin (template/user) · surfaces published · sync state per surface: `in-sync` \| `stale` (hash mismatch) \| `never` |
+| `pasco status --mark <ledgerKey> <surface> [--at <iso8601>]` | confirm a (manual) paste — records `deployedAt` + the **current** `contentHash` and (when relevant) `source: manual`; **only `pasco` mutates the ledger** (same rule as `refine --choose`, D14) |
+| `pasco status --write-checklist` | regenerates `CHECKLIST.md` from the ledger (AUTO-GENERATED header) — the checklist becomes a *view*, not a second source of truth |
+| `--json` | machine-readable report, consistent with the other commands |
+
+Fresh-workspace guarantee: an empty ledger reports `never` everywhere and `stale`
+nowhere — zero false positives (acceptance, issue #37).
+
+### 18.4 Alternatives considered (why not extend `active`, D11)
+
+**Option B — fold per-entry status maps into `active`** was rejected. `active` answers
+*which variant is live* — the contract of `refine --choose`, keyed by platform, with its own
+lifecycle (re-refinement). Deploy state answers *where facts/texts landed and when* —
+keyed by entry, spanning surfaces, with its own lifecycle (paste/verify/confirm). Mixing
+them entangles two write paths and two concepts under one platform-keyed map, and makes the
+operator's entry-centric question ("where is this experience row published and stale?")
+second-class. A separate additive ledger keeps D11 untouched, and lets CHECKLIST/CHANGELOG
+remain *views* of state `pasco` owns.
+
+CHANGELOG.md stays hand-written (the dated *narrative* of what changed); CHECKLIST.md
+becomes generated (the *state* of what is deployed) — one less thing to maintain by hand,
+one less chance of prose drifting from truth.
