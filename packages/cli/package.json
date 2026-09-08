@@ -7,11 +7,21 @@
   "bin": {
     "pasco": "./dist/index.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChristianLuciani/profile-as-code.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/ChristianLuciani/profile-as-code/issues"
+  },
+  "homepage": "https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/cli#readme",
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "pnpm --filter @profile-as-code/core build && tsc -p tsconfig.json",
+    "build": "pnpm --filter @profile-as-code/core build && pnpm --filter @profile-as-code/renderers-github-readme build && pnpm --filter @profile-as-code/renderers-github-org build && tsup && node -e \"process.platform !== 'win32' && require('node:fs').chmodSync('dist/index.js', 0o755)\"",
+    "verify:pack": "node scripts/verify-pack.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm build && vitest run",
     "test:watch": "vitest"
@@ -20,13 +30,15 @@
     "node": ">=20.19"
   },
   "dependencies": {
-    "@profile-as-code/core": "workspace:*",
-    "@profile-as-code/renderers-github-readme": "workspace:*",
     "yaml": "^2.6.1",
-    "@profile-as-code/renderers-github-org": "workspace:*"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@profile-as-code/core": "workspace:*",
+    "@profile-as-code/renderers-github-org": "workspace:*",
+    "@profile-as-code/renderers-github-readme": "workspace:*",
     "@types/node": "^26.4.1",
+    "tsup": "^8.5.1",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0"
   }
