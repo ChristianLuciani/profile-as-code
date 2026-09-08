@@ -13,7 +13,7 @@ import { load } from '../src/index.js';
 
 /** Create a throwaway workspace with the given content files. */
 function makeWorkspace(files: Record<string, string>): string {
-  const dir = mkdtempSync(join(tmpdir(), 'pac-v11-'));
+  const dir = mkdtempSync(join(tmpdir(), 'pasco-v11-'));
   const content = join(dir, 'content');
   mkdirSync(content, { recursive: true });
   for (const [name, body] of Object.entries(files)) {

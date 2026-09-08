@@ -1,11 +1,11 @@
 {
   "name": "@profile-as-code/cli",
   "version": "0.1.0",
-  "description": "pac — the profile-as-code CLI (M1): init, validate, build, diff + explicit stubs (refine/check/skills:install). Consumes @profile-as-code/core; never re-implements load/drift/geo/compile.",
+  "description": "pasco — the profile-as-code CLI (M1): init, validate, build, diff + explicit stubs (refine/check/skills:install). Consumes @profile-as-code/core; never re-implements load/drift/geo/compile.",
   "type": "module",
   "license": "MIT",
   "bin": {
-    "pac": "./dist/index.js"
+    "pasco": "./dist/index.js"
   },
   "files": [
     "dist"

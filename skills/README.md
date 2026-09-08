@@ -12,7 +12,7 @@ skills/<plataforma>/
 ├── research/             # investigación versionada, con fuentes fechadas
 │   └── SOTA-<año>.md
 ├── playbook.md           # pasos de deploy manual + verificación post-pega
-└── checks.yaml           # criterios machine-readable que ejecuta `pac check`
+└── checks.yaml           # criterios machine-readable que ejecuta `pasco check`
 ```
 
 ## División de responsabilidades
@@ -28,7 +28,7 @@ skills/<plataforma>/
 2. **Distinción de fuentes:** `[OFICIAL]` docs de la plataforma · `[EXPERTO]` artículo de autor reconocido ·
    `[BENCHMARK]` patrón observado en perfiles reales · `[?]` sin confirmar.
 3. **Frontmatter con modelo sugerido:** las skills declaran qué nivel de modelo requieren
-   (mecánico = modelo pequeño; juicio = modelo grande) para el refinamiento vía `pac refine`.
+   (mecánico = modelo pequeño; juicio = modelo grande) para el refinamiento vía `pasco refine`.
 4. **GEO obligatorio por skill:** además de SEO, cada skill documenta cómo los LLM leen/citan
    esa plataforma (p. ej. LinkedIn vía agentes, X vía citas, GitHub README como contexto de agente)
    y qué checks de consistencia factual aplican.
@@ -51,4 +51,4 @@ skills/<plataforma>/
 
 `github-org` — README del GitHub **org** para workspaces `flavor: brand`: voz de
 marca (≠ voz personal), handle-matrix checks (`handle-claimed`/`handle-consistent`,
-offline en `pac check`), trademark/impersonación. Ver `skills/github-org/`.
+offline en `pasco check`), trademark/impersonación. Ver `skills/github-org/`.

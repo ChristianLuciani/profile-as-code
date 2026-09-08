@@ -1,5 +1,5 @@
 /**
- * pac refine <platform> [--lang] [--variants N] [--choose <variantId>]
+ * pasco refine <platform> [--lang] [--variants N] [--choose <variantId>]
  *
  * STUB — agent-driven refinement (D10/D11/D13): the CLI never calls an LLM and
  * never wires the hub. It emits the task template the executing agent works from,
@@ -17,7 +17,7 @@ import { parseDocument, stringify } from 'yaml';
 import { parseLang, parsePlatform, parseVariants, UsageError } from '../contract.js';
 import { EXIT } from '../exit.js';
 import { isJsonMode, line, report } from '../output.js';
-import type { Pacrc } from '../workspace.js';
+import type { Pascorc } from '../workspace.js';
 import { defaultsLang } from '../workspace.js';
 
 export const REFINE_OWNER =
@@ -42,7 +42,7 @@ export interface RefineArgs {
   langArg?: string;
   variantsArg?: string;
   choose?: string;
-  pacrc: Pacrc;
+  pascorc: Pascorc;
 }
 
 function loadProfile(workspace: string): ReturnType<typeof load> | number {
@@ -89,11 +89,11 @@ function recordVariant(workspace: string, platform: Platform, lang: Lang, varian
 
 export function runRefine(args: RefineArgs): number {
   if (args.platformArg === undefined) {
-    throw new UsageError('usage: pac refine <platform> [--lang <l>] [--variants N] [--choose <variantId>]');
+    throw new UsageError('usage: pasco refine <platform> [--lang <l>] [--variants N] [--choose <variantId>]');
   }
   const platform = parsePlatform(args.platformArg);
-  const lang = parseLang(defaultsLang(args.pacrc, args.langArg));
-  const variants = parseVariants(args.variantsArg, args.pacrc.defaults?.variants ?? 3);
+  const lang = parseLang(defaultsLang(args.pascorc, args.langArg));
+  const variants = parseVariants(args.variantsArg, args.pascorc.defaults?.variants ?? 3);
 
   const loaded = loadProfile(args.workspace);
   if (typeof loaded === 'number') return loaded;
@@ -125,7 +125,7 @@ export function runRefine(args: RefineArgs): number {
   const skillPath = platformSkillPath(platform);
 
   const template = [
-    `# pac refine — agent task (agent-driven: D10/D11/D13; no LLM call, no hub)`,
+    `# pasco refine — agent task (agent-driven: D10/D11/D13; no LLM call, no hub)`,
     `Write ${variants} variant(s) of the ${platform} profile in ${lang} — in PROSE, per the platform skill.`,
     ``,
     `Platform: ${platform}`,
@@ -156,7 +156,7 @@ export function runRefine(args: RefineArgs): number {
     `  - Platform-specific limits come from the platform skill (SPEC §16) + checks.yaml.`,
     ``,
     `Workflow: read the skill → produce the ${variants} variant(s) → the user picks one → record it:`,
-    `  pac refine ${platform} --lang ${lang} --choose <variantId>`,
+    `  pasco refine ${platform} --lang ${lang} --choose <variantId>`,
     ``,
   ].join('\n');
 

@@ -6,7 +6,7 @@ updated, and stay in sync as the engine evolves.
 
 > Audience: a **user** of the engine (not an engine contributor). Contributor
 > docs live in [CONTRIBUTING.md](../CONTRIBUTING.md); the product contract is
-> [SPEC.md](SPEC.md). This guide reflects the M1–M2 state of the CLI (`pac`).
+> [SPEC.md](SPEC.md). This guide reflects the M1–M2 state of the CLI (`pasco`).
 
 ---
 
@@ -16,7 +16,7 @@ Two repos, two roles. You never mix them.
 
 | Repo | What it is | Who owns it | You touch it? |
 |---|---|---|---|
-| `profile-as-code` (this repo) | The **engine**: schema, core, CLI `pac`, renderers, platform skills | Product (public) | Install it, update it — never put your data here |
+| `profile-as-code` (this repo) | The **engine**: schema, core, CLI `pasco`, renderers, platform skills | Product (public) | Install it, update it — never put your data here |
 | `profile-data-<username>` | **Your** workspace: facts as YAML, generated outputs, changelog | You (private by default) | Yes — this is where you edit everything |
 
 Core principles (SPEC D1–D15, abbreviated):
@@ -25,10 +25,10 @@ Core principles (SPEC D1–D15, abbreviated):
   (schema + drift-check). Prose (bios, headlines) is generated per platform, in
   variants **you** choose.
 - **The schema is the contract.** `schema/profile.schema.json` — every
-  `content/*.yaml` file must satisfy it. `pac validate` is the judge.
+  `content/*.yaml` file must satisfy it. `pasco validate` is the judge.
 - **The engine never owns your data.** It reads your workspace by configured
   path (D14). The only thing it writes into your workspace is the variant you
-  pick with `pac refine --choose` (→ `content/active.yaml`).
+  pick with `pasco refine --choose` (→ `content/active.yaml`).
 - **GEO is consistency.** An LLM that reads your LinkedIn and your GitHub must
   find identical facts — contradictions get you filtered out. That is why the
   engine checks drift across platforms.
@@ -43,13 +43,13 @@ Core principles (SPEC D1–D15, abbreviated):
 | pnpm | >= 9 | `pnpm -v` |
 | git | any recent | `git --version` |
 
-`pac` is a Node CLI built from TypeScript — no database, no server, no accounts.
+`pasco` is a Node CLI built from TypeScript — no database, no server, no accounts.
 
 ---
 
-## 2. Install the engine and the `pac` CLI
+## 2. Install the engine and the `pasco` CLI
 
-Today `pac` installs from source (an npm global package is planned for a later
+Today `pasco` installs from source (an npm global package is planned for a later
 milestone — see the engine roadmap).
 
 ```sh
@@ -65,22 +65,22 @@ pnpm --filter @profile-as-code/cli build
 # → packages/cli/dist/index.js
 ```
 
-Make `pac` callable from anywhere (pick one):
+Make `pasco` callable from anywhere (pick one):
 
 ```sh
 # Option A — symlink into a PATH dir (recommended)
 mkdir -p ~/.local/bin
-ln -s "$(realpath packages/cli/dist/index.js)" ~/.local/bin/pac
+ln -s "$(realpath packages/cli/dist/index.js)" ~/.local/bin/pasco
 # make sure ~/.local/bin is in your PATH (add to ~/.zshrc if needed)
 
 # Option B — alias
-alias pac='node /absolute/path/to/profile-as-code/packages/cli/dist/index.js'
+alias pasco='node /absolute/path/to/profile-as-code/packages/cli/dist/index.js'
 ```
 
 Verify:
 
 ```sh
-pac --help
+pasco --help
 ```
 
 You should see the command list (`init`, `validate`, `build`, `diff`, `refine`,
@@ -90,11 +90,13 @@ workspace failure · `2` usage error.
 > **npm package status** [WEB: npm registry, checked 2026-09-07]: the unscoped
 > name `profile-as-code` is still unclaimed and `@profile-as-code/cli` is not
 > published — installing from source is the only path today. When publishing
-> lands, `npm i -g profile-as-code` will provide `pac`. Note: an unrelated npm
-> package named `pac` (`pac@1.0.0`) already ships a `pac` binary, so two global
-> installs could conflict over the bin name; the scoped `@profile-as-code/cli`
-> keeps the CLI itself isolated. Reserving the npm name (publishing a
-> placeholder) is an operator decision — publishing stays human-only.
+> lands, `npm i -g @profile-as-code/cli` will provide `pasco`. Note: the bin was
+> renamed `pac` → `pasco` (issue #38) precisely because an unrelated npm package
+> named `pac` (`pac@1.0.0`, 2015) already ships a `pac` binary — `pasco` itself
+> is unclaimed on npm (verified 2026-09-07), so there is no global-install bin
+> conflict. The scoped `@profile-as-code/cli` keeps the CLI itself isolated.
+> Reserving the npm name (publishing a placeholder) is an operator decision —
+> publishing stays human-only.
 
 > Updating the engine later? See [§8.2](#82-update-the-engine).
 
@@ -138,28 +140,28 @@ person) plus `CHANGELOG.md` and `CHECKLIST.md` already wired for the workflow.
 The template ships every content file as a commented example — replace the
 fiction with your own facts (see §4).
 
-### Option B — `pac init` (minimal local scaffold)
+### Option B — `pasco init` (minimal local scaffold)
 
 ```sh
-pac init ~/profile-data-<username>              # person flavor (default)
-pac init ~/profile-data-<username> --flavor brand   # commercial/brand identity (D15)
+pasco init ~/profile-data-<username>              # person flavor (default)
+pasco init ~/profile-data-<username> --flavor brand   # commercial/brand identity (D15)
 ```
 
-`pac init` scaffolds a minimal, `pac validate`-clean skeleton and **refuses to
+`pasco init` scaffolds a minimal, `pasco validate`-clean skeleton and **refuses to
 overwrite** anything that exists:
 
 | Flavor | What it creates |
 |---|---|
-| `person` (default) | `content/identity.yaml` + `README.md` + `.pacrc` |
-| `brand` | `content/{identity,socialHandles,newsletter,podcast,press,audiences,flavor}.yaml` + `README.md` + `.pacrc` |
+| `person` (default) | `content/identity.yaml` + `README.md` + `.pascorc` |
+| `brand` | `content/{identity,socialHandles,newsletter,podcast,press,audiences,flavor}.yaml` + `README.md` + `.pascorc` |
 
 Option B starts you nearly empty — you add the other blocks yourself as you
 need them (they are optional; see §4). The template repo (Option A) gives you
 the full example to learn from; most users should start there.
 
-### Configure `.pacrc` (optional but useful)
+### Configure `.pascorc` (optional but useful)
 
-`.pacrc` is JSON at the workspace root:
+`.pascorc` is JSON at the workspace root:
 
 ```json
 {
@@ -170,11 +172,11 @@ the full example to learn from; most users should start there.
 ```
 
 - `defaults.lang` — language used when `--lang` is not passed.
-- `defaults.variants` — default for `pac refine --variants N`.
-- `diff.tagPattern` — the git tag pattern that marks a release (used by `pac diff`).
+- `defaults.variants` — default for `pasco refine --variants N`.
+- `diff.tagPattern` — the git tag pattern that marks a release (used by `pasco diff`).
 
-Workspace resolution order (D14): `--workspace <path>` flag → `.pacrc` →
-current directory. With `workspace: "."`, run `pac` from the workspace root and
+Workspace resolution order (D14): `--workspace <path>` flag → `.pascorc` →
+current directory. With `workspace: "."`, run `pasco` from the workspace root and
 you never need flags.
 
 ---
@@ -252,7 +254,7 @@ Brand flavor (D15) adds: `socialHandles` (handle matrix with claim status),
 Start minimal (identity + positioning is enough to begin), then add blocks:
 
 ```sh
-pac validate    # run this after EVERY edit
+pasco validate    # run this after EVERY edit
 ```
 
 Two kinds of results (D12):
@@ -269,24 +271,24 @@ Two kinds of results (D12):
 ## 5. Validate & build
 
 ```sh
-pac validate [--json]              # schema (FAIL, exit 1) + drift/geo (WARN, exit 0)
-pac build [platform] [--lang]      # deterministic base texts per platform+lang
-pac diff [--json]                  # what changed since the last release tag
+pasco validate [--json]              # schema (FAIL, exit 1) + drift/geo (WARN, exit 0)
+pasco build [platform] [--lang]      # deterministic base texts per platform+lang
+pasco diff [--json]                  # what changed since the last release tag
 ```
 
-- `pac build` without an argument renders **all** platforms; with
-  `--lang` you pick the language slice (defaults to `.pacrc → defaults.lang`).
+- `pasco build` without an argument renders **all** platforms; with
+  `--lang` you pick the language slice (defaults to `.pascorc → defaults.lang`).
 - Platforms with a **renderer** write deploy artifacts into your workspace:
   `profiles/<platform>/README.md`. Today: `github-readme` (person) and
   `github-org` (brand only — skipped for person workspaces). Other platforms
   print their text slices in the terminal.
 - **`profiles/` are committed** — they ARE the deploy artifacts — and are
-  regenerated by `pac build`. Never edit them by hand; your edits get overwritten.
-- `pac diff` compares your workspace against the latest `release-*` git tag
+  regenerated by `pasco build`. Never edit them by hand; your edits get overwritten.
+- `pasco diff` compares your workspace against the latest `release-*` git tag
   (no tag yet → the first commit) and hints what belongs in `CHANGELOG.md`.
 
 All commands accept `--json` for machine-readable output, and `--workspace <path>`
-to target a workspace other than the one in `.pacrc`.
+to target a workspace other than the one in `.pascorc`.
 
 ---
 
@@ -297,9 +299,9 @@ The routine never changes:
 ```sh
 # 1. Edit content/<file>.yaml
 # 2. Validate
-pac validate
+pasco validate
 # 3. Build (regenerate outputs)
-pac build            # or a single platform: pac build github-readme --lang en
+pasco build            # or a single platform: pasco build github-readme --lang en
 # 4. Record the change
 $EDITOR CHANGELOG.md # date + what changed + which platforms need re-paste
 git add -A && git commit -m "feat: add <what>"
@@ -362,15 +364,15 @@ shows first:
 `status: claimed|pending`; a claimed handle should carry its URL (or match
 `identity.links`) so the handle-consistency rules hold.
 
-### AI-refined texts (`pac refine`)
+### AI-refined texts (`pasco refine`)
 
-Bios and headlines exist in two layers: the deterministic `pac build` base
+Bios and headlines exist in two layers: the deterministic `pasco build` base
 texts, and per-platform **variants** produced by an executing agent (AionUi,
 Claude Code, Cursor, pi… — the CLI never calls an LLM itself, D10/D13):
 
 ```sh
-pac refine linkedin --variants 3    # emits the agent task: facts + platform skill
-pac refine linkedin --choose li-en-2   # records YOUR pick in content/active.yaml
+pasco refine linkedin --variants 3    # emits the agent task: facts + platform skill
+pasco refine linkedin --choose li-en-2   # records YOUR pick in content/active.yaml
 ```
 
 The full variant generation flow lands with M3; `--choose` already works and is
@@ -379,13 +381,13 @@ the only thing the engine ever writes into your workspace.
 ### Keep `CHANGELOG.md` and tags honest
 
 Every workspace change gets a CHANGELOG line (date + what changed + which
-platforms need re-pasting). Tag meaningful points so `pac diff` has a baseline:
+platforms need re-pasting). Tag meaningful points so `pasco diff` has a baseline:
 
 ```sh
 git tag release-2026-09 && git push --tags
 ```
 
-`pac diff` then tells you exactly which files changed since that release —
+`pasco diff` then tells you exactly which files changed since that release —
 your re-paste list.
 
 ---
@@ -420,16 +422,16 @@ same loop:
 ```sh
 cd ~/profile-data-<username>
 $EDITOR content/<file>.yaml
-pac validate                       # fix schema; read drift warnings
-pac build                          # regenerate outputs
+pasco validate                       # fix schema; read drift warnings
+pasco build                          # regenerate outputs
 $EDITOR CHANGELOG.md               # what changed → which platforms to re-paste
 git add -A && git commit -m "feat: <what>"
 git push
 # deploy (paste / PR per §7) → check the box in CHECKLIST.md
-git tag release-YYYY-MM && git push --tags   # baseline for the next pac diff
+git tag release-YYYY-MM && git push --tags   # baseline for the next pasco diff
 ```
 
-`pac diff` between releases is your **re-paste list**: it names the changed
+`pasco diff` between releases is your **re-paste list**: it names the changed
 facts so you know which platforms need attention and which bios became stale.
 
 ### 8.2 Update the engine
@@ -444,16 +446,16 @@ pnpm --filter @profile-as-code/cli build   # rebuild core + cli
 Then re-run against your workspace:
 
 ```sh
-pac validate && pac build
+pasco validate && pasco build
 ```
 
 - Schema releases are **additive** (semver minor) — an existing workspace keeps
   validating; new fields are opt-in. See `schema/README.md` in the engine for
   what changed and the engine's `CHANGELOG.md`/README for milestone notes.
-- If `pac build` output changes (byte-diff in `profiles/`), commit the
+- If `pasco build` output changes (byte-diff in `profiles/`), commit the
   regenerated files — `profiles/` are pure functions of your content, so any
   byte change is either your data or an engine release doing its job.
-- If a *new* renderer/platform lands, nothing to migrate: `pac build` picks it
+- If a *new* renderer/platform lands, nothing to migrate: `pasco build` picks it
   up; add data only when you want that surface.
 
 ### 8.3 Multiple identities (person + brand, multi-workspace)
@@ -464,8 +466,8 @@ One workspace per identity, same engine (D14/D15):
   its owner — `profile-data-<username>` (you, e.g. `profile-data-maria`),
   `profile-data-topia` (a brand), never `topia-data`.
 - Each identity lives in its own repo; scaffold a brand with
-  `pac init --flavor brand`.
-- Switch workspaces with `pac --workspace <path> <cmd>`, or keep one `.pacrc`
+  `pasco init --flavor brand`.
+- Switch workspaces with `pasco --workspace <path> <cmd>`, or keep one `.pascorc`
   per working directory (its `workspace` field points where you want).
 
 ---
@@ -474,14 +476,14 @@ One workspace per identity, same engine (D14/D15):
 
 | Symptom | Cause & fix |
 |---|---|
-| `pac: command not found` | Symlink/alias missing — redo §2 Option A/B, check `$PATH`. |
-| Exit `2` on a command | Usage error: unknown command/platform/lang. Run `pac <cmd> --help`. |
+| `pasco: command not found` | Symlink/alias missing — redo §2 Option A/B, check `$PATH`. |
+| Exit `2` on a command | Usage error: unknown command/platform/lang. Run `pasco <cmd> --help`. |
 | Exit `1` on `validate` | Schema violation — read the message (file + value). Most common: a langMap where a plain string is required (proper nouns!), a missing `en`, or a bad date format. |
-| Exit `1` on `diff` | Not a git repo (or no git history) — `pac diff` needs your workspace to be a git repository. |
+| Exit `1` on `diff` | Not a git repo (or no git history) — `pasco diff` needs your workspace to be a git repository. |
 | Drift warnings but exit `0` | Expected (D12): facts warn, schema fails. Fix contradictions — they are citability leaks, not blockers. |
 | `profiles/<platform>/` missing after `build` | That platform has no renderer yet (M4+) — its slice prints to the terminal instead. `github-org` requires flavor `brand`. |
-| `refusing to scaffold` on `pac init` | A workspace already exists in the target dir — `init` never overwrites. |
-| Workspace not found | Resolution is `--workspace` → `.pacrc` → cwd. Run from the workspace root or pass `--workspace`. |
+| `refusing to scaffold` on `pasco init` | A workspace already exists in the target dir — `init` never overwrites. |
+| Workspace not found | Resolution is `--workspace` → `.pascorc` → cwd. Run from the workspace root or pass `--workspace`. |
 
 ---
 
@@ -491,9 +493,9 @@ One workspace per identity, same engine (D14/D15):
 |---|---|---|
 | Schema (the contract) | this repo, `schema/profile.schema.json` + `schema/README.md` | what data must look like |
 | Core engine | this repo, `packages/core` | load · drift · geo · compile |
-| CLI | this repo, `packages/cli` (`pac`) | everything above, as commands |
+| CLI | this repo, `packages/cli` (`pasco`) | everything above, as commands |
 | Renderers | this repo, `packages/renderers` | deterministic per-platform artifacts |
-| Platform skills (SOTA knowledge) | this repo, `skills/<platform>/` | applied by your agent during `pac refine` (M3) |
+| Platform skills (SOTA knowledge) | this repo, `skills/<platform>/` | applied by your agent during `pasco refine` (M3) |
 | Deploy playbooks | this repo, `templates/playbooks/` | copy-paste + verification steps |
 | Your facts | `profile-data-<username>` (private), `content/*.yaml` | the SSOT — the only thing you edit |
 | Generated outputs | your workspace, `profiles/` | committed deploy artifacts — never hand-edited |
@@ -505,16 +507,16 @@ One workspace per identity, same engine (D14/D15):
 ## Command cheat sheet
 
 ```sh
-pac init [dir] [--flavor person|brand]   # scaffold a workspace (never overwrites)
-pac validate [--json]                    # schema FAIL + drift/geo WARN (D12)
-pac build [platform] [--lang] [--json]   # base texts; renderers write profiles/
-pac diff [--json]                        # changes since last release-* tag
-pac refine <platform> [--lang] [--variants N]   # emit agent task (stub → M3)
-pac refine <platform> --choose <id>      # record chosen variant in content/active.yaml
-pac check [platform]                     # declarative checks catalog (stub → M4)
-pac skills:install <agent>               # project platform skills to your agent (stub)
-pac --workspace <path> <cmd>             # target a workspace explicitly
-pac --json <cmd>                         # machine-readable output
+pasco init [dir] [--flavor person|brand]   # scaffold a workspace (never overwrites)
+pasco validate [--json]                    # schema FAIL + drift/geo WARN (D12)
+pasco build [platform] [--lang] [--json]   # base texts; renderers write profiles/
+pasco diff [--json]                        # changes since last release-* tag
+pasco refine <platform> [--lang] [--variants N]   # emit agent task (stub → M3)
+pasco refine <platform> --choose <id>      # record chosen variant in content/active.yaml
+pasco check [platform]                     # declarative checks catalog (stub → M4)
+pasco skills:install <agent>               # project platform skills to your agent (stub)
+pasco --workspace <path> <cmd>             # target a workspace explicitly
+pasco --json <cmd>                         # machine-readable output
 ```
 
 Exit codes: `0` ok (drift warnings still 0) · `1` schema/workspace failure · `2` usage error.

@@ -39,9 +39,9 @@ skills + deploy playbooks**.
 
 ## 3. Success criteria (v1)
 
-- `pac build` renders all platforms from one YAML workspace; `pac validate` rejects schema violations,
-  warns on drift/geo (facts); `pac check` runs skill-declared checks (char limits, live links, fact presence).
-- `pac refine <platform> [--lang] [--variants N]` produces N text variants, **agent-driven and
+- `pasco build` renders all platforms from one YAML workspace; `pasco validate` rejects schema violations,
+  warns on drift/geo (facts); `pasco check` runs skill-declared checks (char limits, live links, fact presence).
+- `pasco refine <platform> [--lang] [--variants N]` produces N text variants, **agent-driven and
   model-agnostic** (the executing agent's model — AionUi, OpenHands, Claude Code, Cursor…). The chosen
   variant is committed and marked as active. Sah/hub may become the default path once it matures (D13).
 - GitHub profile README + web are fully git/API-driven (dogfood: Christian's real profile).
@@ -55,7 +55,7 @@ skills + deploy playbooks**.
         │  schema/          packages/core       packages/renderers/<platform>           │
         │  (JSON Schema) →  validate ·          (adapters: github-readme, linkedin,     │
         │  the contract       normalize ·         upwork, x, researchgate, substack)    │
-        │                     drift-check ·     packages/cli  (pac)                     │
+        │                     drift-check ·     packages/cli  (pasco)                   │
         │                     geo-check         skills/<platform>/  (SKILL.md, research,│
         │  CI: validate · tests · links · drift  playbook, checks.yaml)                 │
         └───────────────▲───────────────────────────────────────────┬──────────────────┘
@@ -84,8 +84,8 @@ skills + deploy playbooks**.
 | D7 | GEO is a cross-cutting layer | LLMs read/cite profiles today; consistency IS citability. Enforced in core, skills, renderers. |
 | D8 | Docs in EN, content multilingual (EN/ES/FR) | Open-source convention + international recruiters; user's native ES. |
 | D9 | Deploy via checklist for no-API platforms; git/API for GitHub/web | Reality of platform APIs (verified in prior art). |
-| D10 | `pac refine` is **model-agnostic** (executing agent's model); sah/hub as future opt-in | User decision; revisit when sah matures. |
-| D11 | Refinement is **agnostic agent-driven** (AionUi, OpenHands, Claude Code, Cursor…) | Skills drive, `pac` executes; user picks variant. No closed CLI picker. |
+| D10 | `pasco refine` is **model-agnostic** (executing agent's model); sah/hub as future opt-in | User decision; revisit when sah matures. |
+| D11 | Refinement is **agnostic agent-driven** (AionUi, OpenHands, Claude Code, Cursor…) | Skills drive, `pasco` executes; user picks variant. No closed CLI picker. |
 | D12 | Drift-check: **warn on facts, fail on schema** | Users may have different intents per platform; integrity vs flexibility. |
 | D13 | Model-agnostic default; sah as future default path | Revisit when sovereign hub matures (Q3→RESOLVED). |
 | D14 | User data in **separate repo** `profile-data`, integrated by configured path, no symlink in normal flow | Symlink mount only as advanced CI option (Q4→RESOLVED). |
@@ -128,7 +128,7 @@ experience:    [ { role, org, start, end, highlights{lang} } ]
 projects:      [ { name, status, description{lang}, links, keywords{}, evidence[] } ]
 publications:  [ { title, venue, year, doi, orcidId } ]
 keywords:      { seo: { platform: [] }, geo: { associations: [], claims: [] } }
-checks:        [ { platform, rule, value } ]                  # declarative; executed by `pac check`
+checks:        [ { platform, rule, value } ]                  # declarative; executed by `pasco check`
 active:        { platform: { lang, variantId, chosenAt } }    # which variant is live
 ```
 
@@ -155,17 +155,17 @@ interface SkillChecks {  // from skills/<platform>/checks.yaml
 }
 ```
 
-`pac` (CLI) commands — v1:
+`pasco` (CLI) commands — v1:
 
 | Command | Purpose |
 |---|---|
-| `pac init` | scaffold a profile-data workspace from the template |
-| `pac validate` | schema (fail) + drift/geo checks (facts warn) |
-| `pac build [platform] [--lang]` | render deterministic base texts |
-| `pac refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
-| `pac check [platform]` | run skill-declared checks before deploy |
-| `pac diff` | what changed since last release (→ CHANGELOG hint) |
-| `pac skills:install <agent>` | project repo skills → agent skill studio (zhiweio pattern) |
+| `pasco init` | scaffold a profile-data workspace from the template |
+| `pasco validate` | schema (fail) + drift/geo checks (facts warn) |
+| `pasco build [platform] [--lang]` | render deterministic base texts |
+| `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
+| `pasco check [platform]` | run skill-declared checks before deploy |
+| `pasco diff` | what changed since last release (→ CHANGELOG hint) |
+| `pasco skills:install <agent>` | project repo skills → agent skill studio (zhiweio pattern) |
 
 ## 8. GEO as a cross-cutting layer
 
@@ -191,7 +191,7 @@ This table is the canonical terminology; docs and code reference it, never inven
 
 | Surface | Name | Visibility | Role |
 |---|---|---|---|
-| Engine | `profile-as-code` | public (product) | schema, core, CLI `pac`, renderers |
+| Engine | `profile-as-code` | public (product) | schema, core, CLI `pasco`, renderers |
 | Template | `profile-data-template` | public | fork/clone skeleton (empty workspace + instructions) |
 | Workspace (per user) | `profile-data-<username>` | private by default | the user's facts (SSOT) — what they edit |
 | Deploy surfaces | e.g. `ChristianLuciani/ChristianLuciani`, CV site | public | rendered output (never edited by hand) |
@@ -217,19 +217,19 @@ The folder `templates/profile-data/` in the engine repo is a **pointer** to it (
 
 ```
 profile-data/
-├── README.md            # instructions: fork/clone, install pac, first build
+├── README.md            # instructions: fork/clone, install pasco, first build
 ├── content/             # identity.yaml, positioning.yaml, bios.yaml, skills.yaml,
 │                        # experience.yaml, projects.yaml, publications.yaml, keywords.yaml
 ├── profiles/            # generated outputs (committed: they ARE the deploy artifacts)
 ├── CHANGELOG.md         # every change: date + which platforms need re-paste
 ├── CHECKLIST.md         # per-platform verification after pasting
-└── .pacrc               # workspace path, defaults (D11–D14)
+└── .pascorc             # workspace path, defaults (D11–D14)
 ```
 
 **Integration (Q4→D14):** the engine never copies or owns user data — it reads the workspace by
-**configured path** (`.pacrc → workspace`). No symlink in the normal flow. A **symlink mount**
+**configured path** (`.pascorc → workspace`). No symlink in the normal flow. A **symlink mount**
 (`workspaces/<user>/` → external repo) is an advanced option so engine-CI can validate user data
-without copying it. The engine only writes to the workspace when the user runs `pac refine`
+without copying it. The engine only writes to the workspace when the user runs `pasco refine`
 and picks a variant.
 
 Private by default (GitHub private repo or local git). Never part of the public product repo.
@@ -254,28 +254,28 @@ Two different "templates" (previous confusion):
   Rationale: a name is a fact (D4) — translating it changes the fact and breaks GEO consistency (D7).
 - **Per-platform language policy**: e.g. Upwork overview EN-first (international clients), LinkedIn
   per-target-market; the skill for each platform documents the language policy.
-- **Validation**: a schema rule requires at least one `lang` per text block; `pac validate` enforces.
+- **Validation**: a schema rule requires at least one `lang` per text block; `pasco validate` enforces.
 
 ## 12. Roadmap
 
 1. **M1 (now)**: spec + profile-data template (done) + schema v1 ✅ (`schema/profile.schema.json`) + core (validate/drift/geo) + CLI skeleton ✅.
 2. **M2**: renderer `github-readme` + CI + dogfood (Christian's real GitHub README) — detailed in §15.
-3. **M3**: SOTA research per platform (GitHub→LinkedIn→Upwork→X→ResearchGate→Substack) → skills v1 + `pac refine`.
-4. **M4**: renderers linkedin/upwork/x/researchgate/substack + playbooks + `pac check` + checks.yaml per skill.
+3. **M3**: SOTA research per platform (GitHub→LinkedIn→Upwork→X→ResearchGate→Substack) → skills v1 + `pasco refine`.
+4. **M4**: renderers linkedin/upwork/x/researchgate/substack + playbooks + `pasco check` + checks.yaml per skill.
 5. **M5**: web renderer (cv-cluciani consumes generated profiles), template release, CONTRIBUTING.
-6. **M6 (brand flavor)**: schema v1.1 brand additions (§17) + `pac init --flavor brand` + renderer `github-org` + handle-matrix checks + `skills/github-org/` + dogfood `profile-data-topia` (private).
+6. **M6 (brand flavor)**: schema v1.1 brand additions (§17) + `pasco init --flavor brand` + renderer `github-org` + handle-matrix checks + `skills/github-org/` + dogfood `profile-data-topia` (private).
 
 ## 13. Resolved decisions (former open questions)
 
 - **Q1 → D11 (RESOLVED):** refinement is **agnostic agent-driven** — works with any agent
-  (AionUi, OpenHands, Claude Code, Cursor…). No closed CLI picker; the agent (running `pac refine` or
+  (AionUi, OpenHands, Claude Code, Cursor…). No closed CLI picker; the agent (running `pasco refine` or
   the platform skill) produces variants, the user picks, the chosen variant is committed.
 - **Q2 → D12 (RESOLVED):** drift-check **warns on facts, fails on schema** — users may legitimately
   have different intents per platform; facts warn (visibility), schema violations fail (integrity).
 - **Q3 → D13 (RESOLVED):** model-agnostic by default — uses the executing agent's model. When `sah`
   (sovereign-agentic-hub) matures, revisit as default path.
 - **Q4 → D14 (RESOLVED):** **separate repo** `profile-data`; integration by **configured path**
-  (`.pacrc → workspace`), no symlink in the normal flow; symlink mount only as engine-CI option.
+  (`.pascorc → workspace`), no symlink in the normal flow; symlink mount only as engine-CI option.
 
 ## 14. Open questions (remaining)
 
@@ -283,7 +283,7 @@ Two different "templates" (previous confusion):
   ships `newsletter` as a block (§17); the person-flavor newsletter *issue* surface stays open.
 - Q6: CI-as-a-service for user workspaces (symlink mount) — worth it in v1 or later?
 - Q7 (**idea, not a decision**): `profile-me` — a command/skill/experience layer that APPLIES the
-  engine to the user's `profile-data` to produce results (today: `pac build`/`pac refine`);
+  engine to the user's `profile-data` to produce results (today: `pasco build`/`pasco refine`);
   productized as a single user-facing flow. Name reserved in the profile-* family.
 
 ## 15. M2 — `github-readme` renderer (detail)
@@ -331,7 +331,7 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
 5. **Skills** (ordered by weight): `name` + keywords, from the SSOT. No invented prose.
 6. **Links**: `identity.links` as the `sameAs` block + JSON-LD `Person` (LD+JSON, `@id` = canonical
    URL, `sameAs` = all `identity.links`).
-7. **Footer**: generated marker `<!-- generated by profile-as-code pac build github-readme -->` +
+7. **Footer**: generated marker `<!-- generated by profile-as-code pasco build github-readme -->` +
    fact-count (deterministic, for diff/CI assertions).
 
 ### 15.4 Drift/GEO contract
@@ -344,7 +344,7 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
 
 - Engine CI: renderer unit tests (fixtures, byte-stable output) + a CI check that builds the README
   from the minimal fixture and diffs it.
-- Dogfood: `profile-data` (private) → `pac build github-readme` → PR to
+- Dogfood: `profile-data` (private) → `pasco build github-readme` → PR to
   `ChristianLuciani/ChristianLuciani` (human merges). Drift check on the real workspace must
   report 0 fact-contradiction warnings.
 - First-render acceptance: Christian reviews the generated README vs the CV site — every fact
@@ -370,7 +370,7 @@ every v1 workspace still validates):
 
 Regenerate the Zod contract with `pnpm gen:zod` (packages/core — generated, never hand-written).
 
-## 16. M3 — platform skills + `pac refine` (detail)
+## 16. M3 — platform skills + `pasco refine` (detail)
 
 M3 delivers the **communicative layer** (D4/D5): skills per platform that an executing
 agent applies to the SSOT data to produce prose variants the user chooses. The deterministic
@@ -383,19 +383,19 @@ skills/<platform>/
 ├── SKILL.md            # frontmatter (model needed, projection) + communicative strategy
 ├── research/           # SOTA-<year>.md — dated, evidence-tagged sources
 ├── playbook.md         # deploy steps + post-deploy verification
-└── checks.yaml         # machine-readable criteria for `pac check` (rule catalog)
+└── checks.yaml         # machine-readable criteria for `pasco check` (rule catalog)
 ```
 
 First platform: **`github-readme`** — the only 100% git/API-deployable surface.
 
 ### 16.2 Refine flow (D10/D11/D13 — agnostic agent-driven)
 
-1. `pac refine <platform> [--lang] [--variants N]` emits the agent task: the facts
+1. `pasco refine <platform> [--lang] [--variants N]` emits the agent task: the facts
    (compile slice) + a pointer to `skills/<platform>/SKILL.md`. The CLI never calls an
    LLM and never wires the hub (D13).
 2. The executing agent (AionUi, OpenHands, Claude Code, Cursor, pi…) reads the skill
    and produces N variants in prose — the human picks one.
-3. `pac refine <platform> --choose <variantId>` records the choice in `content/active.yaml`
+3. `pasco refine <platform> --choose <variantId>` records the choice in `content/active.yaml`
    (the LIVE variant per platform, D11).
 
 ### 16.3 github-readme skill — strategy (summary)
@@ -438,8 +438,8 @@ engine solves (issue #25).
 2. **GEO:** brand workspaces emit `schema.org/Organization` JSON-LD with
    `sameAs` = `identity.links` + claimed `socialHandles[].url`; `logo`/`foundingDate`/
    `slogan`/`description` map to `identity.logo`/`established`/`tagline`/`mission`.
-3. **CLI:** `pac init --flavor brand` scaffolds the brand skeleton; `pac check` runs the
-   handle-matrix rules (offline, deterministic); `pac build github-org` renders the org
+3. **CLI:** `pasco init --flavor brand` scaffolds the brand skeleton; `pasco check` runs the
+   handle-matrix rules (offline, deterministic); `pasco build github-org` renders the org
    README (deploySpec `git`).
 4. **Skills:** `skills/github-org/` — brand voice ≠ personal voice, handle-consistency
    checks, trademark/impersonation considerations (e.g. `topia.com` is an unrelated live
@@ -447,15 +447,15 @@ engine solves (issue #25).
 
 ### 17.2 Multi-workspace by design
 
-`.pacrc → workspace` (D14) already gives each identity its own repo: a brand workspace
+`.pascorc → workspace` (D14) already gives each identity its own repo: a brand workspace
 lives in its own private repo (`profile-data-topia`), scaffolded with
-`pac init --flavor brand`, and is never mixed with the personal workspace. The engine
+`pasco init --flavor brand`, and is never mixed with the personal workspace. The engine
 is agnostic — flavor is just data.
 
 ### 17.3 Dogfood acceptance (Topia)
 
 First brand workspace = Topia (private), seeded from the operator's brand-handles matrix
-(availability sweep verified 2026-08-18). Acceptance: `pac validate` reports **zero drift
-warnings** on the handle matrix, `pac build github-org` renders the org README with every
-claimed surface, and `pac check` confirms `handle-claimed`/`handle-consistent` across the
+(availability sweep verified 2026-08-18). Acceptance: `pasco validate` reports **zero drift
+warnings** on the handle matrix, `pasco build github-org` renders the org README with every
+claimed surface, and `pasco check` confirms `handle-claimed`/`handle-consistent` across the
 matrix.

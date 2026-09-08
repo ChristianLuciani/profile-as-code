@@ -1,4 +1,4 @@
-# `@profile-as-code/cli` — `pac`
+# `@profile-as-code/cli` — `pasco`
 
 The profile-as-code CLI (M1). Consumes `@profile-as-code/core` (`load`/`driftCheck`/
 `geoCheck`/`compile`) — it never re-implements them. The contract source is
@@ -8,13 +8,13 @@ The profile-as-code CLI (M1). Consumes `@profile-as-code/core` (`load`/`driftChe
 
 | Command | Purpose | Status |
 |---|---|---|
-| `pac init [dir]` | Scaffold a profile-data workspace (`content/identity.yaml`, `README.md`, `.pacrc`) — `pac validate`-clean | ✅ |
-| `pac validate [--json]` | Schema **fail** (exit 1) + drift/geo **warn** (exit 0) — D12 | ✅ |
-| `pac build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (github-readme, M2) also write `profiles/<platform>/README.md` | ✅ |
-| `pac diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
-| `pac refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13) | 🚧 stub |
-| `pac check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) | 🚧 stub |
-| `pac skills:install <agent>` | Skills-studio projection command (AGOS) | 🚧 stub |
+| `pasco init [dir]` | Scaffold a profile-data workspace (`content/identity.yaml`, `README.md`, `.pascorc`) — `pasco validate`-clean | ✅ |
+| `pasco validate [--json]` | Schema **fail** (exit 1) + drift/geo **warn** (exit 0) — D12 | ✅ |
+| `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (github-readme, M2) also write `profiles/<platform>/README.md` | ✅ |
+| `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
+| `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13) | 🚧 stub |
+| `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) | 🚧 stub |
+| `pasco skills:install <agent>` | Skills-studio projection command (AGOS) | 🚧 stub |
 
 Stubs are explicit: they print a clear "not implemented" message plus the session
 that owns them (SPEC §12 M3/M4) — see `src/commands/refine.ts`, `check.ts`,
@@ -23,23 +23,23 @@ that owns them (SPEC §12 M3/M4) — see `src/commands/refine.ts`, `check.ts`,
 ## Usage
 
 ```sh
-pac --help                 # full help
-pac validate               # workspace from .pacrc (or cwd)
-pac validate --workspace ~/profile-data --json
-pac build github-readme --lang en
-pac diff
-pac refine linkedin --variants 3            # emits the agent task template (stub)
-pac refine linkedin --choose li-en-2        # records the chosen variant in content/active.yaml
-pac check github-readme
-pac skills:install pi
+pasco --help                 # full help
+pasco validate               # workspace from .pascorc (or cwd)
+pasco validate --workspace ~/profile-data --json
+pasco build github-readme --lang en
+pasco diff
+pasco refine linkedin --variants 3            # emits the agent task template (stub)
+pasco refine linkedin --choose li-en-2        # records the chosen variant in content/active.yaml
+pasco check github-readme
+pasco skills:install pi
 ```
 
 ## Workspace resolution (D14)
 
-`--workspace <path>` > `.pacrc` (`workspace` field, relative to the `.pacrc`
+`--workspace <path>` > `.pascorc` (`workspace` field, relative to the `.pascorc`
 file) > current directory.
 
-`.pacrc` (JSON, at the workspace root):
+`.pascorc` (JSON, at the workspace root):
 
 ```json
 {

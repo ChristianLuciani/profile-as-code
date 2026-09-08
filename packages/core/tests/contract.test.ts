@@ -23,7 +23,7 @@ const SCHEMA = JSON.parse(
 ) as { $defs: { platform: { enum: string[] }; check: { properties: { platform: { enum: string[] } } } } };
 
 function makeWorkspace(files: Record<string, string>): string {
-  const dir = mkdtempSync(join(tmpdir(), 'pac-contract-'));
+  const dir = mkdtempSync(join(tmpdir(), 'pasco-contract-'));
   const content = join(dir, 'content');
   mkdirSync(content, { recursive: true });
   for (const [name, body] of Object.entries(files)) {

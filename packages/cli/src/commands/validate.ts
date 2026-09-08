@@ -1,5 +1,5 @@
 /**
- * pac validate — load + schema (FAIL, exit 1, D12) + drift (WARN, exit 0) + geo
+ * pasco validate — load + schema (FAIL, exit 1, D12) + drift (WARN, exit 0) + geo
  * report (not a gate). Mirror of schema/README.md "Validation semantics".
  */
 

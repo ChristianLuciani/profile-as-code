@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { SchemaValidationError, driftCheck, geoCheck, load } from '../src/index.js';
 
 function makeWorkspace(files: Record<string, string>): string {
-  const dir = mkdtempSync(join(tmpdir(), 'pac-brand-'));
+  const dir = mkdtempSync(join(tmpdir(), 'pasco-brand-'));
   const content = join(dir, 'content');
   mkdirSync(content, { recursive: true });
   for (const [name, body] of Object.entries(files)) {

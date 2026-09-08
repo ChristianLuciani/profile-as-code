@@ -1,7 +1,7 @@
 /**
- * pac init [dir] [--flavor person|brand] — scaffold a workspace skeleton
- * (SPEC §9): content/ YAML files, README.md, .pacrc. Minimal but
- * `pac validate`-clean (exit 0).
+ * pasco init [dir] [--flavor person|brand] — scaffold a workspace skeleton
+ * (SPEC §9): content/ YAML files, README.md, .pascorc. Minimal but
+ * `pasco validate`-clean (exit 0).
  *
  * Two flavors (D15/§17):
  *   - person (default): individual professional identity (identity.yaml + a
@@ -117,14 +117,14 @@ private by default and never leaves your control (D14: integration by configured
 
 - \`content/*.yaml\` — the profile (file name = root property, see schema/README.md)
 - \`profiles/\` — generated outputs (created by renderers; committed: they ARE the deploy artifacts)
-- \`.pacrc\` — workspace config (defaults)
+- \`.pascorc\` — workspace config (defaults)
 
 ## Workflow
 
 \`\`\`sh
-pac validate          # schema (fail) + drift/geo (warn) — D12
-pac build github-readme --lang en   # deterministic base texts
-pac refine github-readme --variants 3   # agent-driven variants (stub in M1)
+pasco validate          # schema (fail) + drift/geo (warn) — D12
+pasco build github-readme --lang en   # deterministic base texts
+pasco refine github-readme --variants 3   # agent-driven variants (stub in M1)
 \`\`\`
 
 See packages/cli/README.md for the full command reference.
@@ -141,20 +141,20 @@ checks drift and renders brand surfaces. Private by default (D14: configured pat
 
 - \`content/*.yaml\` — the brand profile (file name = root property, see schema/README.md)
 - \`profiles/\` — generated outputs (github-org README is the first deploy artifact)
-- \`.pacrc\` — workspace config (defaults)
+- \`.pascorc\` — workspace config (defaults)
 
 ## Workflow
 
 \`\`\`sh
-pac validate                # schema (fail) + drift/geo (warn) — D12
-pac check                   # handle-matrix rules (handle-claimed / handle-consistent)
-pac build github-org --lang en   # org README (git deploy)
+pasco validate                # schema (fail) + drift/geo (warn) — D12
+pasco check                   # handle-matrix rules (handle-claimed / handle-consistent)
+pasco build github-org --lang en   # org README (git deploy)
 \`\`\`
 
 See packages/cli/README.md for the full command reference.
 `;
 
-const PACRC_TEMPLATE = `{
+const PASCORC_TEMPLATE = `{
   "workspace": ".",
   "defaults": { "lang": "en", "variants": 3 },
   "diff": { "tagPattern": "release-*" }
@@ -177,7 +177,7 @@ const BRAND_FILES: Record<string, string> = {
   'flavor.yaml': FLAVOR_BRAND_TEMPLATE,
 };
 
-/** `pac init [dir] [--flavor person|brand]` — scaffold into <dir> (default: cwd). Refuses to overwrite. */
+/** `pasco init [dir] [--flavor person|brand]` — scaffold into <dir> (default: cwd). Refuses to overwrite. */
 export function runInit(args: InitArgs): number {
   const dir = resolve(args.cwd, args.dir ?? '.');
   const contentDir = join(dir, 'content');
@@ -194,7 +194,7 @@ export function runInit(args: InitArgs): number {
   const targets: { path: string; content: string }[] = [
     ...Object.entries(files).map(([name, content]) => ({ path: join(contentDir, name), content })),
     { path: join(dir, 'README.md'), content: brand ? BRAND_README_TEMPLATE : README_TEMPLATE },
-    { path: join(dir, '.pacrc'), content: PACRC_TEMPLATE },
+    { path: join(dir, '.pascorc'), content: PASCORC_TEMPLATE },
   ];
   for (const t of targets) {
     if (existsSync(t.path)) {
@@ -209,7 +209,7 @@ export function runInit(args: InitArgs): number {
 
   section(`scaffolded ${WORKSPACE_NAME} workspace (flavor: ${brand ? 'brand' : 'person'})`);
   for (const t of targets) line(`  created ${t.path}`);
-  line(brand ? '  next: pac validate && pac check && pac build github-org --lang en' : '  next: pac validate && pac build github-readme --lang en');
+  line(brand ? '  next: pasco validate && pasco check && pasco build github-org --lang en' : '  next: pasco validate && pasco build github-readme --lang en');
 
   return report('init', true, EXIT.OK, {
     data: { workspace: dir, flavor: brand ? 'brand' : 'person', created: targets.map((t) => t.path) },

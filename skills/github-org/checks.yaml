@@ -1,6 +1,6 @@
-# checks.yaml — criterios machine-readable para `pac check github-org`
+# checks.yaml — criterios machine-readable para `pasco check github-org`
 # (unión con content/checks.yaml del workspace; misma rule catalog que el schema).
-# v1.1/§17: handle-claimed y handle-consistent se EJECUTAN offline en pac check
+# v1.1/§17: handle-claimed y handle-consistent se EJECUTAN offline en pasco check
 # (drift codes); url-live es la verificación de red (skill, no drift).
 
 - id: org-handle-claimed

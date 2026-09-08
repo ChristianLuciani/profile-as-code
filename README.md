@@ -61,10 +61,10 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 | Investigación SOTA por plataforma | 🔜 pendiente — asistente **SOTA Research**, ver `docs/research/RUN.md` |
 | Schema JSON v1.1 (contrato) | ✅ `schema/profile.schema.json` (person + brand flavor) |
 | Core engine (load · drift · geo · compile) | ✅ `packages/core` (tests, CI) |
-| CLI `pac` | ⏳ (`init --flavor brand`, `check` handle-matrix, `build` github-org) |
+| CLI `pasco` | ⏳ (`init --flavor brand`, `check` handle-matrix, `build` github-org) |
 | Renderer GitHub (dogfood) | ✅ `github-readme` + `github-org` (brand) |
 
-**Brand flavor (M6, D15):** el mismo engine modela identidades de marca — `pac init
+**Brand flavor (M6, D15):** el mismo engine modela identidades de marca — `pasco init
 --flavor brand`, handle matrix (`socialHandles`), `schema.org/Organization` GEO,
 renderer `github-org`. Primer workspace: Topia (`profile-data-topia`, privado).
 
@@ -89,10 +89,10 @@ pnpm gen:zod         # regenera Zod desde schema/profile.schema.json (D3)
 
 ## Roadmap (M1–M5, detalle en SPEC §12)
 
-1. **M1** spec + schema + core ✅ → **CLI `pac`** ⏳
+1. **M1** spec + schema + core ✅ → **CLI `pasco`** ⏳
 2. **M2** renderer `github-readme` + CI + dogfood
-3. **M3** investigación SOTA → skills v1 + `pac refine` (hub local)
-4. **M4** renderers linkedin/upwork/x/researchgate/substack + playbooks + `pac check`
+3. **M3** investigación SOTA → skills v1 + `pasco refine` (hub local)
+4. **M4** renderers linkedin/upwork/x/researchgate/substack + playbooks + `pasco check`
 5. **M5** renderer web, template `profile-data` release, CONTRIBUTING completo
 
 ## Estructura
@@ -103,7 +103,7 @@ profile-as-code/
 ├── packages/
 │   ├── core/             # ✅ load · drift · geo · compile (Zod desde schema)
 │   ├── renderers/        # ⏳ un adapter por plataforma (seam de contribución)
-│   └── cli/              # ⏳ pac build|validate|diff|check|refine|skills:install
+│   └── cli/              # ⏳ pasco build|validate|diff|check|refine|skills:install
 ├── skills/               # skills por plataforma (conocimiento SOTA)
 ├── templates/
 │   ├── playbooks/        # deploy por plataforma (pasos + verificación)

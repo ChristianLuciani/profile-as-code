@@ -216,7 +216,7 @@ export interface GeoReport {
     semanticAssociations: GeoSection & { anchors: SemanticAssociationCoverage };
     citability: GeoSection;
   };
-  /** Flat list of every scored check (for `pac validate` output). */
+  /** Flat list of every scored check (for `pasco validate` output). */
   checks: GeoCheck[];
 }
 

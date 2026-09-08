@@ -1,6 +1,6 @@
 /**
- * pac build [platform] [--lang] — deterministic base texts per platform+lang
- * (SPEC §7 `pac build`) + rendered deploy artifacts (SPEC §15). Pure compile()
+ * pasco build [platform] [--lang] — deterministic base texts per platform+lang
+ * (SPEC §7 `pasco build`) + rendered deploy artifacts (SPEC §15). Pure compile()
  * slices; no AI. Platforms WITH a renderer (github-readme, M2) also write the
  * rendered artifact to profiles/<platform>/README.md (deploy spec: git, D9);
  * platforms without a renderer print their slices (renderers land in M4).
@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { parseLang, parsePlatform } from '../contract.js';
 import { EXIT } from '../exit.js';
 import { isJsonMode, line, report, section } from '../output.js';
-import type { Pacrc } from '../workspace.js';
+import type { Pascorc } from '../workspace.js';
 import { defaultsLang } from '../workspace.js';
 
 /** Platforms with an implemented renderer (M2: github-readme; M6: github-org; M4 adds the rest). */
@@ -28,7 +28,7 @@ export interface BuildArgs {
   workspace: string;
   platformArg?: string;
   langArg?: string;
-  pacrc: Pacrc;
+  pascorc: Pascorc;
 }
 
 export function runBuild(args: BuildArgs): number {
@@ -52,7 +52,7 @@ export function runBuild(args: BuildArgs): number {
   }
 
   const platforms = args.platformArg !== undefined ? [parsePlatform(args.platformArg)] : [...PLATFORMS];
-  const lang = parseLang(defaultsLang(args.pacrc, args.langArg));
+  const lang = parseLang(defaultsLang(args.pascorc, args.langArg));
 
   const slices: PlatformProfile[] = platforms.map((p) => compile(profile, p, lang));
 

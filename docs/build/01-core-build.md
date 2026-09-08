@@ -57,7 +57,7 @@ already defined in the schema).
 - NEVER touch main/master; own worktree (`../.worktrees/<name>`) + a branch per your
   session/harness convention (harness artifact — not a project convention)
 - Minimal dependencies: Zod, `yaml`, vitest (+ `json-schema-to-zod` for the generator). Ask before adding more.
-- This session delivers CORE ONLY — no renderers, no CLI, no skills (`pac` is the next session).
+- This session delivers CORE ONLY — no renderers, no CLI, no skills (`pasco` is the next session).
 - Do not edit `docs/SPEC.md` except for factual errors; open questions → note them in the PR.
 - If a schema rule is ambiguous (e.g. date precision, checks catalog), pick the least-surprising reading
   and document it in the PR body.

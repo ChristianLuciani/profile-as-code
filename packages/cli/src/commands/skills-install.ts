@@ -1,5 +1,5 @@
 /**
- * pac skills:install <agent>
+ * pasco skills:install <agent>
  *
  * STUB — per-platform skills (D5/D6) are authored in skills-studio and projected
  * to each harness by the studio's `bin/project.sh` (AGOS). The CLI only prints
@@ -22,7 +22,7 @@ export interface SkillsInstallArgs {
 
 export function runSkillsInstall(args: SkillsInstallArgs): number {
   if (args.agent === undefined) {
-    throw new UsageError(`usage: pac skills:install <agent> (${AGENTS.join(' | ')})`);
+    throw new UsageError(`usage: pasco skills:install <agent> (${AGENTS.join(' | ')})`);
   }
   if (!(AGENTS as readonly string[]).includes(args.agent)) {
     throw new UsageError(`unknown agent "${args.agent}" (allowed: ${AGENTS.join(', ')})`);
@@ -36,7 +36,7 @@ export function runSkillsInstall(args: SkillsInstallArgs): number {
     });
   }
 
-  line('pac skills:install: STUB — projection is the skills-studio job (AGOS), not the CLI');
+  line('pasco skills:install: STUB — projection is the skills-studio job (AGOS), not the CLI');
   line(`  run: ${projection}`);
   line('  profile-as-code platform skills (per-platform living knowledge, D5/D6) land with M3 research.');
   return EXIT.OK;
