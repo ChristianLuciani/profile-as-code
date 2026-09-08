@@ -1,0 +1,28 @@
+{
+  "identity": { "name": "Ada Example" },
+  "experience": [
+    {
+      "id": "exp-example-labs",
+      "origin": "template",
+      "role": "Example Engineer",
+      "org": "Example Labs",
+      "start": "2024-01-01"
+    }
+  ],
+  "deployments": {
+    "identity": {
+      "linkedin": {
+        "deployedAt": "2026-09-08T10:00:00Z",
+        "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source": "manual"
+      }
+    },
+    "experience:exp-example-labs": {
+      "github-readme": {
+        "deployedAt": "2026-09-08T10:00:00Z",
+        "contentHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "source": "git"
+      }
+    }
+  }
+}

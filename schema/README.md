@@ -36,6 +36,7 @@ validates the result against this schema. File → root property mapping:
 | `keywords.yaml` | `keywords` | SEO per platform + GEO associations/claims |
 | `checks.yaml` | `checks[]` | User-level rules; unioned with skill `checks.yaml` |
 | `active.yaml` | `active` | Which variant is LIVE per platform (D11) |
+| `deployments.yaml` | `deployments` | v1.3 (D17): per-entry deploy ledger — ledgerKey → surface → `{deployedAt, contentHash, source}`. Key space: root block names (`identity`/`positioning`/`keywords`) or `block:key` composites (`bios:…`, `headlines:…`, `skills:…`, `socialHandles:…`, `experience:<id>`…). Only `pasco` mutates it (`--mark` / deploy commands, D14) |
 
 Files are optional (a fresh user may start with `identity.yaml` only); the schema only
 requires `identity`. Unknown top-level properties **fail validation** (`additionalProperties:
@@ -54,6 +55,12 @@ false`) — that IS the "fail on schema" side of D12.
 3. **GEO** — `geoCheck`: fact consistency score, semantic-association coverage, structured-data
    readiness. Brand workspaces emit `schema.org/Organization` (sameAs = identity.links +
    claimed handle urls, §17.1); person workspaces keep `schema.org/Person`. → report, not a gate.
+4. **Ledger integrity (v1.3, D17 §18.2 — post-Zod, same FAIL class as schema)** — checks the
+   generated Zod cannot express: duplicate `id` per row block; ambiguous composite key
+   (`bios:*`, `headlines:*`, `skills:*`, `socialHandles:*`) **when the ledger addresses it**;
+   ledger keys outside the §18.2 key space; surfaces outside the D16 enum. The JSON Schema
+   declares the key constraints via `propertyNames`, but gen-zod drops `propertyNames` —
+   core re-checks, so `pasco validate` and `scripts/schema-check` enforce one behavior.
 
 ## Rules enforced by the schema
 

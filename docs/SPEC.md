@@ -665,6 +665,8 @@ deployments:
   `propertyNames`.
 - **contentHash** — SHA-256 over a canonical serialization (sorted keys) of the **parsed**
   unit — YAML formatting and comments don't affect it, so cosmetic edits never go stale.
+  Ledger metadata (`id`, `origin`) is **stripped before hashing**: it is provenance/identity,
+  not content — adding an `id` to an already-deployed entry must not flip it `stale`.
   Staleness is therefore **exact and release-tag-independent**: `stale` iff current hash ≠
   recorded hash, with no intersection with `pasco diff` (the diff delta is file- and
   release-tag-scoped; gating staleness on it would hide true staleness whenever release
@@ -694,10 +696,14 @@ Trackable units and their ledger keys:
 Rows **without** an `id` are listed by `pasco status` as *untracked* (add an `id` to track
 them). `id` stays optional so every existing workspace validates (additive, semver minor).
 
-Keys are unique **by validation, not by hope**: core checks one `id` per block and one
-row per composite key (`bios:*`, `headlines:*`, `skills:*`, `socialHandles:*`) and fails
-validation on duplicates (JSON Schema cannot express either) — the ledger must never be
-ambiguously addressable.
+Keys are unique **by validation, not by hope** — the ledger must never be ambiguously
+addressable (JSON Schema cannot express either check; core runs them post-Zod):
+- duplicate **`id` within a block** → always a validation failure (the field is new — no
+  pre-v1.3 workspace can carry one, so this can never break a legacy workspace);
+- duplicate **composite key** (`bios:*`, `headlines:*`, `skills:*`, `socialHandles:*`) →
+  fails **only when the key is addressed by `deployments`** — a legacy workspace may
+  legitimately carry two rows with the same natural key today; ambiguity is only a defect
+  when something tries to address it (additivity preserved: old workspaces still validate).
 
 **origin**: optional `origin: template` flag on content items. The `profile-data-template`
 ships its fictional examples **with** the flag; user-authored entries simply don't have it

@@ -16,6 +16,7 @@ import { runDiff } from './commands/diff.js';
 import { runInit } from './commands/init.js';
 import { runRefine } from './commands/refine.js';
 import { runSkillsInstall } from './commands/skills-install.js';
+import { runStatus } from './commands/status.js';
 import { runValidate } from './commands/validate.js';
 import { parseFlavor, UsageError } from './contract.js';
 import { WORKSPACE_NAME } from './workspace.js';
@@ -44,6 +45,7 @@ Commands:
   refine <platform> [--lang]    STUB: emit agent task template; --choose <id> records the
           [--variants N]        chosen variant in content/active.yaml (agent-driven, D11/D13)
   check [platform]              STUB: list user checks from content (schema-validated catalog)
+  status [platform] [--mark …]   Per-entry deploy report — origin · surfaces · in-sync/stale/never (D17)
   skills:install <agent>        STUB: print the skills-studio projection command
 
 Common flags (after the command):
@@ -65,6 +67,9 @@ interface FlagOptions {
   variants?: string;
   choose?: string;
   flavor?: string;
+  mark?: string;
+  at?: string;
+  'write-checklist'?: boolean;
 }
 
 function parseCommandFlags(args: string[], extra: Record<string, { type: 'string' | 'boolean' }> = {}): {
@@ -121,6 +126,15 @@ catalog). Rule execution ships with M3 (skills checks.yaml union) + M4.`,
   'skills:install': `pasco skills:install <agent>
 STUB: prints the skills-studio projection command for <agent> (pi|claude|aionui|opencode).
 Projection is the skills-studio job (AGOS), not implemented in M1.`,
+  status: `pasco status [platform] [--mark <ledgerKey> <surface>] [--at <iso8601>] [--write-checklist] [--json] [--workspace <path>]
+Per-entry deploy-status report (D17, §18): ledger key · origin (template/user) ·
+surfaces published · sync state (in-sync / stale / never) — plus untracked rows
+(add an id to track) and removed keys (ledger keeps the audit trail).
+  --mark <ledgerKey> <surface>  confirm a manual paste: records deployedAt + the
+        CURRENT contentHash in content/deployments.yaml (only pasco writes it,
+        D14). --at overrides the timestamp.
+  --write-checklist             regenerate CHECKLIST.md from the ledger
+        (AUTO-GENERATED view — do not edit by hand).`,
 };
 
 function runMain(): number {
@@ -231,6 +245,32 @@ function runMain(): number {
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       return runCheck({ workspace, platformArg: positionals[0] });
+    }
+    case 'status': {
+      const { flags, positionals } = parseCommandFlags(rest, {
+        mark: { type: 'string' },
+        at: { type: 'string' },
+        'write-checklist': { type: 'boolean' },
+      });
+      if (flags.help === true) {
+        process.stdout.write(COMMAND_HELP.status + '\n');
+        return EXIT.OK;
+      }
+      if (flags.mark !== undefined && positionals.length !== 1) {
+        throw new UsageError('usage: pasco status --mark <ledgerKey> <surface> [--at <iso8601>]');
+      }
+      if (flags.mark === undefined && positionals.length > 1) {
+        throw new UsageError('usage: pasco status [platform] [--write-checklist] [--json]');
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      return runStatus({
+        workspace,
+        platformArg: positionals[0],
+        markKey: flags.mark,
+        markAt: flags.at,
+        writeChecklist: flags['write-checklist'],
+      });
     }
     case 'skills:install': {
       const { flags, positionals } = parseCommandFlags(rest);
