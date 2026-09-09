@@ -10,11 +10,13 @@
  *    the JSON Schema keeps the oneOf; required-without-property does not
  *    survive Zod generation). load() throws on any violation.
  *
- * 2. `registryCheck(profile)` — the §18.8 `pasco check` rules, offline and
- *    deterministic: `credential-expiry` (warn when `expires` is in the past)
- *    and `no-private-in-public-output` (error when a public-rendered surface —
- *    evidence claims — references a non-public registry entry; §18.5: renderers
- *    emit only public, and the leak check is the gate that enforces it).
+ *  `registryCheck(profile)` — the §18.8 `pasco check` rules. Offline (no
+ *  network, no randomness); deterministic for a given machine date —
+ *  `credential-expiry` is a time-keyed warn (reproducible per-day, NOT across
+ *  days): warn when `expires` is in the past; `no-private-in-public-output`
+ *  (error) when a public-rendered surface — evidence claims — references a
+ *  non-public registry entry (§18.5: renderers emit only public, and the leak
+ *  check is the gate that enforces it).
  *
  * Naming discipline (§18.1): this module is the REGISTRY. `projects[].evidence[]`
  * stays claims-only — the word evidence never names this layer.
@@ -172,7 +174,9 @@ function todayIso(): string {
 }
 
 /**
- * §18.8 checks — offline, deterministic:
+ * §18.8 checks — offline (no network, no randomness). Deterministic for a
+ * given machine date: `credential-expiry` is keyed to today (time is an INPUT,
+ * not a defect — but it is not reproducible across days).
  * - `check/credential-expired` (warn): `expires` in the past.
  * - `check/private-in-public-output` (error, §18.5): a public-rendered surface
  *   (evidence claims — rendered on public platforms) references a credential or

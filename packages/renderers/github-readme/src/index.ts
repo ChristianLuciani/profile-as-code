@@ -184,7 +184,7 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   out.push('', '## Links');
   for (const l of p.identity.links ?? []) out.push('', `- [${l.label}](${l.url})`);
 
-  const publicCredentials = credentialLdEntries(credentials);
+  const publicCredentials = credentialLdEntries(p.credentials ?? []); // filters internally — no double pass
   const jsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Person',

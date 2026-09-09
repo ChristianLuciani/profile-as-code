@@ -331,8 +331,9 @@ describe('pasco check + pasco skills:install (stub)', () => {
   it('check --json reports implemented:true (registry checks, M7) + owner', () => {
     const r = run(['check', '--json', '--workspace', MINIMAL]);
     expect(r.code).toBe(0);
-    const data = JSON.parse(r.stdout) as { data: { implemented: boolean; checks: unknown[]; ownedBy: string } };
-    expect(data.data.implemented).toBe(true);
+    const data = JSON.parse(r.stdout) as { data: { implemented: { handleMatrix: boolean; registry: boolean }; checks: unknown[]; ownedBy: string } };
+    expect(data.data.implemented.registry).toBe(true);
+    expect(data.data.implemented.handleMatrix).toBe(false); // person flavor
     expect(data.data.checks).toHaveLength(3);
     expect(data.data.ownedBy).toContain('M6');
   });
@@ -353,10 +354,10 @@ describe('pasco check + pasco skills:install (stub)', () => {
     const j = run(['check', '--json', '--workspace', dir]);
     expect(j.code).toBe(0);
     const data = JSON.parse(j.stdout) as {
-      data: { flavor: string; implemented: boolean; handleMatrix: { platform: string; status: string }[]; handleIssues: { code: string }[] };
+      data: { flavor: string; implemented: { handleMatrix: boolean; registry: boolean }; handleMatrix: { platform: string; status: string }[]; handleIssues: { code: string }[] };
     };
     expect(data.data.flavor).toBe('brand');
-    expect(data.data.implemented).toBe(true);
+    expect(data.data.implemented.handleMatrix).toBe(true); // brand: handle rules run
     expect(data.data.handleMatrix).toHaveLength(2);
     expect(data.data.handleIssues.map((i) => i.code).sort()).toEqual(['drift/handle-claimed-not-linked', 'drift/handle-host-mismatch']);
   });

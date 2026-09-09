@@ -64,7 +64,6 @@ function langValues(langMap: Record<string, string> | undefined): string[] {
   return langMap ? Object.values(langMap) : [];
 }
 
-/** The most recent role — the one a schema.org Person would call jobTitle/worksFor. */
 /**
  * GEO payoff (D17/§18.9): public credentials → schema.org EducationalOccupationalCredential
  * entries. `hasCredential` applies to Person AND Organization (§17.1 — ISO certs, awards);
@@ -76,6 +75,7 @@ function hasCredentialLd(profile: Profile): EducationalOccupationalCredentialLd[
   return entries.length > 0 ? entries : undefined;
 }
 
+/** The most recent role — the one a schema.org Person would call jobTitle/worksFor. */
 function currentRole(profile: Profile): { jobTitle?: string; worksFor?: string } {
   const items = [...(profile.experience ?? [])];
   const byStart = (a: (typeof items)[number], b: (typeof items)[number]) => b.start.localeCompare(a.start);

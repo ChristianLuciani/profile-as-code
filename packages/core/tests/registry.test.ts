@@ -252,6 +252,26 @@ describe('registryCheck (§18.8, offline/deterministic)', () => {
     expect(leak?.severity).toBe('error');
   });
 
+  it('errors when a press mention references an unlisted artifact (leak gate covers press too)', () => {
+    const profile = load(
+      makeWorkspace({
+        'identity.yaml': IDENTITY,
+        'artifacts.yaml': `${ARTIFACT}${secondArtifact('work-unlisted', { visibility: 'unlisted' })}`,
+        'press.yaml': `- outlet: News
+  title:
+    en: Mention
+  url: https://news.example.com/story
+  date: '2024-06-01'
+  artifactRefs: [work-unlisted]
+`,
+      }),
+    );
+    const issues = registryCheck(profile);
+    const leak = issues.find((i) => i.code === 'check/private-in-public-output');
+    expect(leak?.severity).toBe('error');
+    expect(leak?.path).toContain('press');
+  });
+
   it('errors when a publication references an unlisted artifact', () => {
     const profile = load(
       makeWorkspace({

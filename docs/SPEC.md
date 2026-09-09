@@ -595,7 +595,7 @@ a locator resolves through a symlink outside the workspace without a checksum.
 
 ### 18.8 Checks (M7)
 
-`pasco check` additions — offline, deterministic, skill-declared (`checks[]` rule
+`pasco check` additions — offline, deterministic given the machine date (credential-expiry is a time-keyed warn — reproducible per-day, not across days), skill-declared (`checks[]` rule
 strings; no schema change):
 - `credential-expiry` — `expires` in the past → warn.
 - `live-link` — registry URLs join the existing live-link checks (§3).

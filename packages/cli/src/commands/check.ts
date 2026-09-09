@@ -78,7 +78,10 @@ export function runCheck(args: CheckArgs): number {
         workspace: args.workspace,
         platform: platform ?? 'all',
         flavor: profile.flavor,
-        implemented: true,
+        // Per-rule, machine-readable: handle rules exist for brand only (D15/§17),
+        // registry rules run for every flavor (D17/§18.8). A single boolean would
+        // overload two different facts.
+        implemented: { handleMatrix: profile.flavor === 'brand', registry: true },
         checks,
         handleMatrix,
         handleIssues,
