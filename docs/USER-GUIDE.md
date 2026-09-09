@@ -398,15 +398,22 @@ Two deploy classes (D9):
 
 | Class | Platforms | How |
 |---|---|---|
-| **manual** | LinkedIn, Upwork, X, ResearchGate, Substack, Patreon… | copy the generated/curated text → paste into the platform → verify → mark the box in `CHECKLIST.md` |
+| **manual** | LinkedIn, Upwork, X, ResearchGate, Substack, Patreon… | copy the generated/curated text → paste into the platform → verify → `pasco status --mark <key> <platform>` |
 | **git/API** | GitHub profile README, (web, M5) | the artifact is a file: `profiles/github-readme/README.md` → PR/commit it into your GitHub profile repo (e.g. `<you>/<you>`) — the human merges |
 
 Non-negotiables:
 
 - Never hand-edit a deployed surface. If it's wrong, fix `content/`, rebuild,
   redeploy — the SSOT is the only place edits happen.
-- After pasting, verify facts against `CHECKLIST.md` — cross-platform factual
-  consistency is the whole point (GEO).
+- After pasting, verify facts — cross-platform factual consistency is the whole
+  point (GEO). Then confirm the deploy in the ledger:
+  `pasco status --mark <ledgerKey> <platform>` records `deployedAt` + the current
+  `contentHash` — only `pasco` writes `content/deployments.yaml` (D14).
+- `pasco status` is the per-entry answer to "what is published where, and what's
+  out of date": every unit shows `in-sync` / `stale` / `never` per surface, plus
+  template-origin flags and untracked rows (add an `id` to track them).
+- `CHECKLIST.md` is a **generated view** of the ledger:
+  `pasco status --write-checklist` regenerates it — do not edit it by hand.
 - Each platform's `templates/playbooks/` (in the engine repo) documents the
   copy-paste steps and post-deploy verification for `manual` platforms.
 
@@ -427,12 +434,17 @@ pasco build                          # regenerate outputs
 $EDITOR CHANGELOG.md               # what changed → which platforms to re-paste
 git add -A && git commit -m "feat: <what>"
 git push
-# deploy (paste / PR per §7) → check the box in CHECKLIST.md
+# deploy (paste / PR per §7) → pasco status --mark <ledgerKey> <platform>
+pasco status                         # what's stale per surface (D18 deploy ledger)
+pasco status --write-checklist       # regenerate CHECKLIST.md from the ledger
+git add -A && git commit -m "chore: deploy ledger + checklist view"
 git tag release-YYYY-MM && git push --tags   # baseline for the next pasco diff
 ```
 
 `pasco diff` between releases is your **re-paste list**: it names the changed
-facts so you know which platforms need attention and which bios became stale.
+facts so you know which platforms need attention. `pasco status` is the
+**per-entry follow-through**: it tells you which of those re-pastes are done
+(`in-sync`) and which are still owed (`stale` / `never`) — see §7.
 
 ### 8.2 Update the engine
 

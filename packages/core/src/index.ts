@@ -9,6 +9,24 @@ export { load, validateProfile, normalizeProfile, LoadError, SchemaValidationErr
 export { driftCheck } from './drift.js';
 export { geoCheck } from './geo.js';
 export { compile } from './compile.js';
+export {
+  canonicalJson,
+  hashUnit,
+  LEDGER_KEY_PATTERN,
+  trackableUnits,
+  untrackedRows,
+  deployStatus,
+  checkLedgerIntegrity,
+} from './ledger.js';
+export type {
+  TrackableUnit,
+  UnitStatus,
+  UnitKind,
+  SyncState,
+  Origin,
+  LedgerReport,
+  LedgerIssue,
+} from './ledger.js';
 export { PLATFORMS, LANGS } from './types.js';
 export type {
   Profile,
@@ -27,6 +45,8 @@ export type {
   PressItem,
   BrandVoice,
   ActiveEntry,
+  DeploymentRecord,
+  Deployments,
   Lang,
   Platform,
   BioLength,

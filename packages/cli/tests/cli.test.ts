@@ -401,6 +401,134 @@ describe('workspace resolution (D14: .pascorc → configured path)', () => {
   });
 });
 
+describe('pasco status (D18 deploy ledger)', () => {
+  const mkws = (): string => {
+    const dir = tempDir();
+    copyFixture(MINIMAL, dir);
+    return dir;
+  };
+  const json = (out: string): { ok: boolean; exitCode: number; data: Record<string, unknown> } =>
+    JSON.parse(out) as { ok: boolean; exitCode: number; data: Record<string, unknown> };
+
+  it('fresh workspace: never everywhere, stale nowhere (acceptance #37)', () => {
+    const ws = mkws();
+    const res = run(['status', '--json', '--workspace', ws]);
+    expect(res.code).toBe(0);
+    const env = json(res.stdout);
+    const data = env.data as { stale: number; never: number; total: number; untracked: unknown[] };
+    expect(env.ok).toBe(true);
+    expect(data.stale).toBe(0);
+    expect(data.never).toBe(data.total);
+    expect(data.total).toBeGreaterThan(0);
+    expect(data.untracked.length).toBe(6); // 2 experience + 2 projects + 2 publications, no ids
+  });
+
+  it('--mark records the deploy and flips the unit in-sync', () => {
+    const ws = mkws();
+    const marked = run(['status', '--mark', 'identity', 'linkedin', '--at', '2026-09-08T10:00:00Z', '--json', '--workspace', ws]);
+    expect(marked.code).toBe(0);
+    expect(json(marked.stdout).data.mode).toBe('marked');
+    const ledger = readFileSync(join(ws, 'content', 'deployments.yaml'), 'utf8');
+    expect(ledger).toContain('identity:');
+    expect(ledger).toContain('deployedAt: 2026-09-08T10:00:00.000Z');
+    expect(ledger).toContain('source: manual');
+
+    const after = run(['status', '--json', '--workspace', ws]);
+    const units = (json(after.stdout).data as { units: { key: string; state: string; surfaces: Record<string, string> }[] }).units;
+    const identity = units.find((u) => u.key === 'identity');
+    expect(identity?.state).toBe('in-sync');
+    expect(identity?.surfaces.linkedin).toBe('in-sync');
+  });
+
+  it('SSOT edit after deploy → stale; re-mark → in-sync', () => {
+    const ws = mkws();
+    expect(run(['status', '--mark', 'identity', 'linkedin', '--workspace', ws]).code).toBe(0);
+    writeFileSync(join(ws, 'content', 'identity.yaml'), 'name: Elena V. Vasquez\nlocation: Madrid, Spain\n', 'utf8');
+
+    let units = (json(run(['status', '--json', '--workspace', ws]).stdout).data as { units: { key: string; state: string }[] }).units;
+    expect(units.find((u) => u.key === 'identity')?.state).toBe('stale');
+
+    expect(run(['status', '--mark', 'identity', 'linkedin', '--workspace', ws]).code).toBe(0);
+    units = (json(run(['status', '--json', '--workspace', ws]).stdout).data as { units: { key: string; state: string }[] }).units;
+    expect(units.find((u) => u.key === 'identity')?.state).toBe('in-sync');
+  });
+
+  it('--mark rejects unknown keys, untracked rows and bad surfaces', () => {
+    const ws = mkws();
+    expect(run(['status', '--mark', 'nope:nope', 'linkedin', '--workspace', ws]).code).toBe(1);
+    // rows without id are untracked → not addressable
+    expect(run(['status', '--mark', 'experience:exp-1', 'linkedin', '--workspace', ws]).code).toBe(1);
+    expect(run(['status', '--mark', 'identity', 'myspace', '--workspace', ws]).code).toBe(2);
+  });
+
+  it('surface filter reports that surface only; --write-checklist regenerates the view', () => {
+    const ws = mkws();
+    expect(run(['status', '--mark', 'identity', 'github-readme', '--workspace', ws]).code).toBe(0);
+    const linkedin = json(run(['status', 'linkedin', '--json', '--workspace', ws]).stdout).data as {
+      units: { key: string; state: string; surfaces: Record<string, string> }[];
+    };
+    const identity = linkedin.units.find((u) => u.key === 'identity');
+    expect(identity?.state).toBe('never');
+    expect(Object.keys(identity?.surfaces ?? {})).toEqual([]);
+
+    expect(run(['status', '--write-checklist', '--workspace', ws]).code).toBe(0);
+    const checklist = readFileSync(join(ws, 'CHECKLIST.md'), 'utf8');
+    expect(checklist).toContain('AUTO-GENERATED');
+    expect(checklist).toContain('`identity`');
+    expect(checklist).toContain('In sync');
+  });
+
+  it('premerge F2: --mark refuses ambiguous composite keys — workspace stays valid', () => {
+    const ws = tempDir();
+    mkdirSync(join(ws, 'content'));
+    writeFileSync(join(ws, 'content', 'identity.yaml'), 'name: Elena Vasquez\n', 'utf8');
+    writeFileSync(
+      join(ws, 'content', 'bios.yaml'),
+      [
+        '- platform: linkedin',
+        '  lang: en',
+        '  length: medium',
+        '  text: one',
+        '- platform: linkedin',
+        '  lang: en',
+        '  length: medium',
+        '  text: two',
+      ].join('\n'),
+      'utf8',
+    );
+    expect(run(['validate', '--workspace', ws]).code).toBe(0); // un-addressed duplicates are legal
+    const res = run(['status', '--mark', 'bios:linkedin:en:medium', 'linkedin', '--workspace', ws]);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain('ambiguous');
+    expect(existsSync(join(ws, 'content', 'deployments.yaml'))).toBe(false); // nothing persisted
+    expect(run(['validate', '--workspace', ws]).code).toBe(0); // workspace NOT bricked
+  });
+
+  it('premerge F3: --mark + --write-checklist is rejected, not silently ignored', () => {
+    const ws = mkws();
+    const res = run(['status', '--mark', 'identity', 'linkedin', '--write-checklist', '--workspace', ws]);
+    expect(res.code).toBe(2);
+    expect(res.stderr).toContain('mutually exclusive');
+  });
+
+  it('premerge F5: --mark on a removed key says removed, not unknown', () => {
+    const ws = mkws();
+    writeFileSync(join(ws, 'content', 'experience.yaml'), '- id: exp-1\n  role: A\n  org: O\n  start: 2020-01-01\n', 'utf8');
+    expect(run(['status', '--mark', 'experience:exp-1', 'linkedin', '--workspace', ws]).code).toBe(0);
+    rmSync(join(ws, 'content', 'experience.yaml')); // unit gone — ledger key dangles
+    const res = run(['status', '--mark', 'experience:exp-1', 'linkedin', '--workspace', ws]);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain('removed');
+  });
+
+  it('usage: --help works and missing surface in --mark is exit 2', () => {
+    const help = run(['status', '--help']);
+    expect(help.code).toBe(0);
+    expect(help.stdout).toContain('--mark');
+    expect(run(['status', '--mark', 'identity', '--workspace', mkws()]).code).toBe(2);
+  });
+});
+
 /** Recursive copy of a fixture workspace into a temp dir (tests mutate it). */
 function copyFixture(from: string, to: string): void {
   execFileSync('cp', ['-R', from + '/.', to + '/']);

@@ -21,6 +21,27 @@ minor versions may contain breaking contract changes.
   §15.4 (URL SSOT extendido), §17.1 (paridad brand). **Solo contrato** — la implementación
   (schema v1.3 + `pnpm gen:zod` + checks + JSON-LD `hasCredential`) es M7, PRs separados
   (dev-methodology §1).
+- **Per-entry deploy-status ledger (v1.3 schema, D18 — issue #37)** — el deploy loop pasa de
+  granularidad-plataforma y prosa mantenida a mano (`CHECKLIST.md`) a **estado por entrada como
+  dato** que solo `pasco` muta. Responde la pregunta del operador por bloque: ¿mío o del
+  template? ¿publicado? ¿en qué superficie y en sync — o desactualizado?
+  - **Schema v1.3 (aditivo, semver minor)** — nueva raíz `deployments`
+    (`content/deployments.yaml`: ledgerKey → surface → `{deployedAt, contentHash, source}`);
+    `id` opcional estable en `experience`/`projects`/`publications`/`education`/`press`;
+    flag de provenance `origin: template`. Restricciones de claves via `propertyNames`
+    (JSON Schema) **y** re-chequeadas post-Zod en core (gen-zod las descarta): unicidad de
+    `id` por bloque, claves compuestas ambiguas **solo cuando el ledger las direcciona**
+    (aditivo: workspaces legacy con duplicados siguen validando), surface ∈ enum D16.
+  - **Core** — `hashUnit`/`canonicalJson` (SHA-256 de la serialización canónica *sin*
+    metadatos del ledger: agregar un `id` nunca marca `stale`), `trackableUnits` (espacio de
+    claves §19.2: bloques raíz, bios/headlines/skills/handles compuestos, filas con id),
+    `deployStatus` (`in-sync`/`stale`/`never` + untracked + removed — detección de staleness
+    exacta por hash, independiente de release tags), `checkLedgerIntegrity` (post-Zod, D12).
+  - **CLI** — `pasco status [platform] [--mark <ledgerKey> <surface>] [--at <iso>]
+    [--write-checklist] [--json]`: reporte por entrada + camino de escritura del ledger
+    (regla D14) + `CHECKLIST.md` regenerado como vista AUTO-GENERATED.
+  - **Fixtures contract** — `valid-deployments` + `invalid-deployments-bad-surface` +
+    `invalid-deployments-bad-key` en `scripts/schema-check`.
 - **Platform set — Postiz parity + operator extras (v1.2 schema, D16 — issue #30)** — el
   enum compartido de plataformas (person + brand) pasa de 16 a **43**: la unión de las 34
   redes soportadas por Postiz ([OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02) + 9

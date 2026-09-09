@@ -22,7 +22,7 @@ export type Flavor = NonNullable<Profile['flavor']>;
 /** Normalized profile: array properties are always defined (empty when absent). */
 export type LoadedProfile = Omit<
   Profile,
-  'bios' | 'headlines' | 'skills' | 'experience' | 'projects' | 'publications' | 'checks' | 'socialHandles' | 'press' | 'education' | 'languages'
+  'bios' | 'headlines' | 'skills' | 'experience' | 'projects' | 'publications' | 'checks' | 'socialHandles' | 'press' | 'education' | 'languages' | 'deployments'
 > & {
   flavor: Flavor;
   bios: NonNullable<Profile['bios']>;
@@ -36,6 +36,7 @@ export type LoadedProfile = Omit<
   press: NonNullable<Profile['press']>;
   education: NonNullable<Profile['education']>;
   languages: NonNullable<Profile['languages']>;
+  deployments: NonNullable<Profile['deployments']>;
 };
 
 export type Identity = NonNullable<Profile['identity']>;
@@ -51,6 +52,11 @@ export type Podcast = NonNullable<Profile['podcast']>;
 export type PressItem = NonNullable<Profile['press']>[number];
 export type BrandVoice = NonNullable<Identity['brandVoice']>;
 export type ActiveEntry = NonNullable<Profile['active']>[string];
+
+/** v1.3 (D17, §18.1): one confirmed deploy of a trackable unit on one surface. */
+export type DeploymentRecord = NonNullable<NonNullable<Profile['deployments']>[string]>[string];
+/** v1.3 (D17, §18): the ledger — ledgerKey → surface → record. */
+export type Deployments = NonNullable<Profile['deployments']>;
 
 export type Lang = Bio['lang'];
 export type Platform = Bio['platform'];

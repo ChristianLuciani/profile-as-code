@@ -15,6 +15,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseDocument } from 'yaml';
+import { checkLedgerIntegrity } from './ledger.js';
 import { profileSchema } from './generated/schema.zod.js';
 import type { LoadedProfile, Profile } from './types.js';
 
@@ -74,6 +75,7 @@ export function normalizeProfile(profile: Profile): LoadedProfile {
     press: profile.press ?? [],
     education: profile.education ?? [],
     languages: profile.languages ?? [],
+    deployments: profile.deployments ?? {},
   };
 }
 
@@ -116,11 +118,18 @@ function readContentFiles(workspace: string): Record<string, unknown> {
  *
  * @param workspace path to the workspace root (must contain `content/`)
  * @throws LoadError — workspace problems (missing content dir, YAML errors, duplicate root keys)
- * @throws SchemaValidationError — merged profile violates the contract (D12: fail on schema)
+ * @throws SchemaValidationError — merged profile violates the contract (D12: fail on schema),
+ *   including the post-Zod ledger integrity checks (D17 §18.2: duplicate ids, ambiguous
+ *   composite keys when addressed, ledger key pattern, surface enum — gen-zod drops
+ *   `propertyNames`, so they cannot live in the generated schema)
  */
 export function load(workspace: string): LoadedProfile {
   const merged = readContentFiles(workspace);
   const profile = validateProfile(merged);
+  const ledgerIssues = checkLedgerIntegrity(profile);
+  if (ledgerIssues.length > 0) {
+    throw new SchemaValidationError(ledgerIssues);
+  }
   return normalizeProfile(profile);
 }
 
