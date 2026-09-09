@@ -22,16 +22,6 @@ jobs:
           /tmp/schema-venv/bin/pip install --quiet jsonschema
           /tmp/schema-venv/bin/python scripts/schema-check/check.py
 
-      # D3 freshness: the committed Zod (packages/core/src/generated/schema.zod.ts)
-      # must be exactly what the current schema generates — a schema edit without
-      # `pnpm gen:zod` must fail here, not drift silently.
-      - name: Generated Zod is in sync with the contract (D3)
-        if: hashFiles('package.json') != ''
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm gen:zod
-          git diff --exit-code packages/core/src/generated/schema.zod.ts
-
       # TS workspace: these steps activate as soon as package.json lands (M1 core).
       - name: Setup pnpm
         if: hashFiles('package.json') != ''
@@ -47,6 +37,15 @@ jobs:
       - name: Install dependencies
         if: hashFiles('package.json') != ''
         run: pnpm install --frozen-lockfile
+
+      # D3 freshness: the committed Zod (packages/core/src/generated/schema.zod.ts)
+      # must be exactly what the current schema generates — a schema edit without
+      # `pnpm gen:zod` must fail here, not drift silently.
+      - name: Generated Zod is in sync with the contract (D3)
+        if: hashFiles('package.json') != ''
+        run: |
+          pnpm gen:zod
+          git diff --exit-code packages/core/src/generated/schema.zod.ts
 
       - name: Test
         if: hashFiles('package.json') != ''
