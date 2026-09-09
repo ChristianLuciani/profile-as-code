@@ -23,7 +23,7 @@
     "gen:zod": "node scripts/gen-zod.ts"
   },
   "engines": {
-    "node": ">=20.19"
+    "node": ">=22"
   },
   "dependencies": {
     "yaml": "^2.6.1",

@@ -39,7 +39,7 @@ Core principles (SPEC D1–D15, abbreviated):
 
 | Tool | Version | Check |
 |---|---|---|
-| Node.js | >= 20.19 | `node -v` |
+| Node.js | >= 22 | `node -v` |
 | pnpm | >= 9 | `pnpm -v` |
 | git | any recent | `git --version` |
 
