@@ -68,6 +68,17 @@ function inlineDefs(
       seen.delete(name);
       return resolved;
     }
+    // `oneOf` of required-only alternatives ({ required: [..] } with no other
+    // keyword) — a JSON Schema XOR over sibling properties. zod cannot express
+    // "required without property" (renders z.any(), caught by the safety net
+    // below), so the oneOf is dropped for the Zod shape and the XOR is re-checked
+    // by core post-Zod (same fail-class precedent as the ledger's dropped
+    // propertyNames: D12). The JSON Schema itself keeps the oneOf.
+    if ('oneOf' in obj && Array.isArray(obj.oneOf) && (obj.oneOf as JsonNode[]).every((alt) => typeof alt === 'object' && alt !== null && Object.keys(alt).length > 0 && Object.keys(alt).every((k) => k === 'required'))) {
+      const { oneOf, ...rest } = obj;
+      void oneOf;
+      return inlineDefs(rest, defs, seen);
+    }
     // `oneOf` with no sibling keywords → `anyOf` (identical semantics for disjoint
     // primitive types; json-schema-to-zod emits a clean z.union for anyOf).
     if ('oneOf' in obj && !('anyOf' in obj) && Object.keys(obj).length === 1) {

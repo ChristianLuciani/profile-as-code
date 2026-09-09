@@ -13,12 +13,12 @@
  * github-org skill's `url-live` check (network, not drift).
  */
 
-import { driftCheck, load, LoadError, SchemaValidationError } from '@profile-as-code/core';
+import { driftCheck, load, LoadError, registryCheck, SchemaValidationError } from '@profile-as-code/core';
 import { parsePlatform } from '../contract.js';
 import { EXIT } from '../exit.js';
 import { isJsonMode, line, report, section } from '../output.js';
 
-export const CHECK_OWNER = 'M6: handle-matrix rules (brand, offline) executed; remaining catalog ships with M3/M4 (SPEC §7)';
+export const CHECK_OWNER = 'M6: handle-matrix rules (brand, offline) executed; M7 (D17/§18.8): registry checks (credential-expiry, no-private-in-public-output) executed; remaining catalog ships with M3/M4 (SPEC §7)';
 
 /** Handle drift codes the offline handle-matrix execution reports. */
 const HANDLE_CODES = new Set(['drift/duplicate-handle', 'drift/handle-claimed-not-linked', 'drift/handle-host-mismatch']);
@@ -66,19 +66,36 @@ export function runCheck(args: CheckArgs): number {
     ...(h.note !== undefined ? { note: h.note } : {}),
   }));
 
+  // Evidence registry (v1.4/D17, §18.8): offline, deterministic. Warn findings
+  // report; ERROR findings (the §18.5 leak gate `no-private-in-public-output`)
+  // fail the check — renderers emit only public, so a leak must block, not warn.
+  const registry = registryCheck(profile);
+  const registryErrors = registry.filter((f) => f.severity === 'error');
+
   if (isJsonMode()) {
-    return report('check', true, EXIT.OK, {
+    return report('check', registryErrors.length === 0, registryErrors.length === 0 ? EXIT.OK : EXIT.FAIL, {
       data: {
         workspace: args.workspace,
         platform: platform ?? 'all',
         flavor: profile.flavor,
-        implemented: profile.flavor === 'brand', // handle rules are implemented for brand
+        implemented: true,
         checks,
         handleMatrix,
         handleIssues,
+        registry,
         ownedBy: CHECK_OWNER,
       },
     });
+  }
+
+  section(`evidence registry (D17/§18.8)${platform !== undefined ? ` for ${platform}` : ''}: ${registry.length} finding(s)`);
+  for (const finding of registry) {
+    line(`  ${finding.severity}: [${finding.code}] ${finding.message} (${finding.path})`);
+  }
+  if (registry.length === 0) {
+    line('  credential-expiry / no-private-in-public-output: OK');
+  } else if (registryErrors.length > 0) {
+    line(`  ${registryErrors.length} leak error(s) — FAIL (§18.5: public output renders only public entries)`);
   }
 
   if (profile.flavor === 'brand') {
@@ -102,7 +119,7 @@ export function runCheck(args: CheckArgs): number {
     }
   }
 
-  line('pasco check: STUB for the remaining catalog — rule engine ships M3/M4');
+  line('pasco check: rule engine for the remaining catalog ships M3/M4 (registry + handle rules already executed above)');
   section(`user checks (content/checks.yaml, schema-validated catalog)${platform !== undefined ? ` for ${platform}` : ''}: ${checks.length}`);
   for (const c of checks) {
     const note = c.note !== undefined ? ` note="${c.note}"` : '';
@@ -111,5 +128,5 @@ export function runCheck(args: CheckArgs): number {
   line('  not executed — rule execution ships with the skills checks.yaml union (M3) and pasco check (M4)');
   line(`  owner: ${CHECK_OWNER}`);
 
-  return EXIT.OK;
+  return registryErrors.length === 0 ? EXIT.OK : EXIT.FAIL;
 }

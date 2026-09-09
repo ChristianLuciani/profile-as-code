@@ -25,6 +25,7 @@
 import { driftCheck } from './drift.js';
 import { PLATFORMS, textOf } from './types.js';
 import type {
+  EducationalOccupationalCredentialLd,
   GeoCheck,
   GeoReport,
   GeoSection,
@@ -63,6 +64,26 @@ function langValues(langMap: Record<string, string> | undefined): string[] {
 }
 
 /** The most recent role — the one a schema.org Person would call jobTitle/worksFor. */
+/**
+ * GEO payoff (D17/§18.9): public credentials → schema.org EducationalOccupationalCredential
+ * entries. `hasCredential` applies to Person AND Organization (§17.1 — ISO certs, awards);
+ * visibility first-class (§18.5): structured data emits only public. Term status: schema.org
+ * "new" area, adoption-feedback stage ([WEB] V30.0, fetched 2026-09-08).
+ */
+function hasCredentialLd(profile: Profile): EducationalOccupationalCredentialLd[] | undefined {
+  const entries = (profile.credentials ?? [])
+    .filter((c) => (c.visibility ?? 'public') === 'public')
+    .map((c) => ({
+      '@type': 'EducationalOccupationalCredential' as const,
+      ...(c.title ? { name: c.title } : {}),
+      ...(c.verifyUrl !== undefined ? { url: c.verifyUrl } : {}),
+      ...(c.issuer ? { awardedBy: { '@type': 'Organization' as const, name: c.issuer } } : {}),
+      ...(c.issued !== undefined ? { validFrom: c.issued } : {}),
+      ...(c.expires !== undefined ? { validThrough: c.expires } : {}),
+    }));
+  return entries.length > 0 ? entries : undefined;
+}
+
 function currentRole(profile: Profile): { jobTitle?: string; worksFor?: string } {
   const items = [...(profile.experience ?? [])];
   const byStart = (a: (typeof items)[number], b: (typeof items)[number]) => b.start.localeCompare(a.start);
@@ -75,6 +96,7 @@ function currentRole(profile: Profile): { jobTitle?: string; worksFor?: string }
 function structuredData(profile: Profile): StructuredDataReadiness {
   const identity = profile.identity;
   const isBrand = profile.flavor === 'brand';
+  const credentialsLd = hasCredentialLd(profile);
 
   // sameAs: canonical identity.links + every claimed handle's URL (deduped). For a
   // brand the socialHandles matrix IS the canonical surface set (§17.1).
@@ -108,6 +130,7 @@ function structuredData(profile: Profile): StructuredDataReadiness {
             '@type': 'Organization' as const,
             name: identity.name,
             sameAs,
+            ...(credentialsLd ? { hasCredential: credentialsLd } : {}),
             ...(identity.logo ? { logo: identity.logo } : {}),
             ...(identity.established ? { foundingDate: identity.established } : {}),
             ...(slogan ? { slogan } : {}),
@@ -136,6 +159,7 @@ function structuredData(profile: Profile): StructuredDataReadiness {
         '@type': 'Person' as const,
         name: identity.name,
         sameAs,
+        ...(credentialsLd ? { hasCredential: credentialsLd } : {}),
         ...(identity.photo ? { image: identity.photo } : {}),
         ...(identity.location ? { address: identity.location } : {}),
         ...(role.jobTitle ? { jobTitle: role.jobTitle } : {}),

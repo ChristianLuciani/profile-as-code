@@ -317,21 +317,22 @@ describe('pasco refine (stub: template + record)', () => {
   });
 });
 
-describe('pasco check (stub) + pasco skills:install (stub)', () => {
+describe('pasco check + pasco skills:install (stub)', () => {
   it('lists the user checks from the schema-validated catalog', () => {
     const r = run(['check', 'github-readme', '--workspace', MINIMAL]);
     expect(r.code).toBe(0);
-    expect(r.stdout).toContain('STUB');
+    expect(r.stdout).toContain('evidence registry (D17/§18.8)'); // M7 checks execute offline
+    expect(r.stdout).toContain('credential-expiry / no-private-in-public-output: OK');
     expect(r.stdout).toContain('gh-bio-max');
     expect(r.stdout).toContain('geo-consistent');
     expect(r.stdout).toContain('platform=all'); // union semantics: all applies to every platform
   });
 
-  it('check --json reports implemented:false + owner', () => {
+  it('check --json reports implemented:true (registry checks, M7) + owner', () => {
     const r = run(['check', '--json', '--workspace', MINIMAL]);
     expect(r.code).toBe(0);
     const data = JSON.parse(r.stdout) as { data: { implemented: boolean; checks: unknown[]; ownedBy: string } };
-    expect(data.data.implemented).toBe(false);
+    expect(data.data.implemented).toBe(true);
     expect(data.data.checks).toHaveLength(3);
     expect(data.data.ownedBy).toContain('M6');
   });

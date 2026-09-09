@@ -85,6 +85,9 @@ export function compile(profile: Profile, platform: Platform, lang: Lang = 'en')
       geo: profile.keywords?.geo ?? {},
     },
     checks: platformChecks,
+    // Evidence registry (v1.4/D17, §18) — facts, pass through untouched.
+    credentials: profile.credentials ?? [],
+    artifacts: profile.artifacts ?? [],
     ...(profile.active?.[platform] ? { active: profile.active[platform] } : {}),
     fallbacks,
   };

@@ -127,3 +127,92 @@ describe('renderer github-readme (SPEC §15)', () => {
     expect(badges!.indexOf('GitHub')).toBeLessThan(badges!.indexOf('ORCID'));
   });
 });
+
+describe('renderer github-readme — evidence registry (v1.4/D17/§18)', () => {
+  /** Build a slice with a registry from inline workspace files. */
+  function registrySlice(files: Record<string, string>, lang: 'en' | 'es' = 'en') {
+    const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require('node:fs') as typeof import('node:fs');
+    const { tmpdir } = require('node:os') as typeof import('node:os');
+    const dir = mkdtempSync(join(tmpdir(), 'pasco-render-'));
+    mkdirSync(join(dir, 'content'), { recursive: true });
+    for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, 'content', name), body, 'utf8');
+    try {
+      const profile = load(dir);
+      return { slice: compile(profile, 'github-readme', lang), cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+    } catch (err) {
+      rmSync(dir, { recursive: true, force: true });
+      throw err;
+    }
+  }
+
+  const FILES = {
+    'identity.yaml': 'name: Elena Vasquez\nlinks:\n  - label: GitHub\n    url: https://github.com/elena\n',
+    'credentials.yaml': `- id: cert-aws-ml
+  kind: certificate
+  title: AWS Certified ML - Specialty
+  issuer: Amazon Web Services
+  verifyUrl: https://aws.amazon.com/verify
+  issued: '2024-05-01'
+  expires: '2027-05-01'
+  visibility: public
+- id: cert-secret
+  kind: certificate
+  title: Secret Cert
+  issuer: Secret Issuer
+  visibility: private
+`,
+    'artifacts.yaml': `- id: reel-2025
+  kind: showreel
+  title: Reel 2025
+  description:
+    en: Selected work 2025.
+  locator:
+    url: https://vimeo.com/reel2025
+  license: CC-BY-4.0
+  visibility: public
+- id: gallery-local
+  kind: gallery
+  title: Local Gallery
+  locator:
+    path: media/photos/2025
+  visibility: public
+`,
+  };
+
+  it('emits a compact registry section with public entries only (§18.5)', () => {
+    const { slice, cleanup } = registrySlice(FILES);
+    try {
+      const out = render(slice);
+      expect(out.text).toContain('## Credentials');
+      expect(out.text).toContain('- **AWS Certified ML - Specialty** (certificate) — Amazon Web Services, 2024–2027 · [verify](https://aws.amazon.com/verify)');
+      expect(out.text).not.toContain('Secret Cert'); // private never leaves the workspace
+      expect(out.text).toContain('## Artifacts');
+      expect(out.text).toContain('[vimeo.com](https://vimeo.com/reel2025)');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('never emits a public URL for a path locator (capability matrix, §18.3/D14)', () => {
+    const { slice, cleanup } = registrySlice(FILES);
+    try {
+      const out = render(slice);
+      expect(out.text).toContain('- **Local Gallery** (gallery)');
+      expect(out.text).not.toContain('media/photos/2025');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('adds hasCredential (public credentials) to the inline JSON-LD (§18.9)', () => {
+    const { slice, cleanup } = registrySlice(FILES);
+    try {
+      const out = render(slice);
+      const json = out.text.split('```json')[1]!.split('```')[0]!;
+      const parsed = JSON.parse(json) as { hasCredential?: { name: string }[] };
+      expect(parsed.hasCredential).toEqual([{ name: 'AWS Certified ML - Specialty', url: 'https://aws.amazon.com/verify', awardedBy: { '@type': 'Organization', name: 'Amazon Web Services' }, validFrom: '2024-05-01', validThrough: '2027-05-01', '@type': 'EducationalOccupationalCredential' }]);
+    } finally {
+      cleanup();
+    }
+  });
+});

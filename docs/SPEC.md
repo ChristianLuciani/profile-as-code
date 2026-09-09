@@ -137,7 +137,7 @@ active:        { platform: { lang, variantId, chosenAt } }    # which variant is
 deployments:   { <ledgerKey>: { <surface>: { deployedAt, contentHash, source } } }   # per-entry deploy ledger (D18, §19)
 ```
 
-**Evidence registry (D17, §18 — additive, v1.3):** `credentials[]` and `artifacts[]` are
+**Evidence registry (D17, §18 — additive, v1.4):** `credentials[]` and `artifacts[]` are
 the proof layer — pointer-first, visibility-scoped. `projects[].evidence[]` keeps its
 claim semantics and may reference registry ids (`credentialId`/`artifactId`); canonical
 blocks (`publications[]`, `press[]`) keep their domains and gain `artifactRefs` instead of
@@ -283,7 +283,7 @@ Two different "templates" (previous confusion):
 4. **M4**: renderers linkedin/upwork/x/researchgate/substack + playbooks + `pasco check` + checks.yaml per skill + per-entry deploy ledger (D18 — `deployments` + `pasco status`: deploy state becomes data, CHECKLIST becomes a generated view).
 5. **M5**: web renderer (cv-cluciani consumes generated profiles), template release, CONTRIBUTING.
 6. **M6 (brand flavor)**: schema v1.1 brand additions (§17) + `pasco init --flavor brand` + renderer `github-org` + handle-matrix checks + `skills/github-org/` + dogfood `profile-data-topia` (private).
-7. **M7 (evidence core)**: schema v1.3 — `credentials[]`/`artifacts[]` + cross-refs (§18) · `pasco check`: `credential-expiry`, registry live-links, `no-private-in-public-output` · JSON-LD `hasCredential` · compact registry section in `github-readme` · template: `media/` scaffold + `docs/evidence-packs.md` + power-user symlink/stow doc (issue #48).
+7. **M7 (evidence core)**: schema v1.4 — `credentials[]`/`artifacts[]` + cross-refs (§18) · `pasco check`: `credential-expiry`, registry live-links, `no-private-in-public-output` · JSON-LD `hasCredential` · compact registry section in `github-readme` · template: `media/` scaffold + `docs/evidence-packs.md` + power-user symlink/stow doc (issue #48).
 8. **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable, checksummed bundling — resolves Q9) · deploy playbooks publish media to the public surface · portfolio-site consumption (with M5) · git-lfs guidance.
 
 ## 13. Resolved decisions (former open questions)
@@ -460,7 +460,7 @@ engine solves (issue #25).
    - Brand blocks: `socialHandles` (platform → handle + `status: claimed|pending`),
      `newsletter` (Substack/Ghost), `podcast` (Spotify/RSS), `press` (media mentions),
      `audiences` (reader profile, not recruiter).
-   - Proof layer (v1.3, D17/§18) applies to brands verbatim: `credentials[]` (ISO
+   - Proof layer (v1.4, D17/§18) applies to brands verbatim: `credentials[]` (ISO
      certifications, awards, patents) and `artifacts[]` (logo kits, product galleries) —
      `schema.org/hasCredential` is defined for `Organization` as well as `Person`.
    - Checks catalog gains `handle-claimed` and `handle-consistent`.
@@ -512,7 +512,7 @@ Canonical blocks keep their domains — **no duplication**: `publications[]` (pa
 and `press[]` (D15) are NOT registry kinds; they reference registry ids (`artifactRefs`).
 The registry is the home of what had none.
 
-### 18.2 Schema (additive, v1.3)
+### 18.2 Schema (additive, v1.4)
 
 Root additions — both optional, `additionalProperties: false` preserved, Zod regenerated
 (D3). Illustrative sketch:
@@ -626,7 +626,7 @@ rendering guidance lives in `skills/<platform>/` (D5). **The engine learns no do
 
 ### 18.11 Milestones
 
-- **M7 (evidence core)**: schema v1.3 (§18.2) + cross-refs · `pasco validate/check`
+- **M7 (evidence core)**: schema v1.4 (§18.2) + cross-refs · `pasco validate/check`
   (§18.8) · JSON-LD `hasCredential` · compact registry section in `github-readme` ·
   template `media/` scaffold + `docs/evidence-packs.md` + symlink/stow doc · dogfood:
   a workspace renders one credential + one artifact with zero drift warnings.

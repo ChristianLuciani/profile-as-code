@@ -28,6 +28,8 @@ export type {
   LedgerIssue,
 } from './ledger.js';
 export { PLATFORMS, LANGS } from './types.js';
+export { checkRegistryIntegrity, registryCheck } from './registry.js';
+export type { RegistryIssue, RegistryFinding } from './registry.js';
 export type {
   Profile,
   LoadedProfile,
@@ -47,6 +49,9 @@ export type {
   ActiveEntry,
   DeploymentRecord,
   Deployments,
+  Credential,
+  Artifact,
+  EducationalOccupationalCredentialLd,
   Lang,
   Platform,
   BioLength,
