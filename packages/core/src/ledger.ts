@@ -1,12 +1,12 @@
 /**
- * D17 — per-entry deploy-status ledger (SPEC §18, issue #37).
+ * D18 — per-entry deploy-status ledger (SPEC §19, issue #37).
  *
  * Deploy state is DATA (content/deployments.yaml), not hand-maintained prose.
  * This module owns everything the ledger needs beyond Zod:
  *
  *   - canonical hashing (sorted keys, sans ledger metadata id/origin — adding an
  *     id to an already-deployed entry must not flip it `stale`);
- *   - the §18.2 key space: root blocks, bios/headlines/skills/handles composite
+ *   - the §19.2 key space: root blocks, bios/headlines/skills/handles composite
  *     keys, row blocks addressed by their optional `id`;
  *   - integrity checks JSON Schema cannot express (uniqueness, ambiguity-when-
  *     addressed, key patterns — gen-zod drops `propertyNames`) — load() runs them
@@ -52,7 +52,7 @@ export function hashUnit(unit: unknown): string {
   return createHash('sha256').update(canonicalJson(stripped)).digest('hex');
 }
 
-/** The §18.2 ledger key space. Row blocks are prefixed `block:id`; scalar root
+/** The §19.2 ledger key space. Row blocks are prefixed `block:id`; scalar root
  *  blocks are addressed by their bare name. Enforced here AND in the schema's
  *  `propertyNames` (JSON Schema consumers) — Zod drops propertyNames, so load()
  *  re-checks with this exact pattern (single behavior, documented twice). */
@@ -102,7 +102,7 @@ const ROW_CONFIG: Record<(typeof ROW_BLOCKS)[number], RowConfig> = {
   press: { block: 'press', label: (r) => textOf(r.title as string | undefined) },
 };
 
-/** Enumerate every §18.2 trackable unit of a profile, in a deterministic order.
+/** Enumerate every §19.2 trackable unit of a profile, in a deterministic order.
  *  Rows without an `id` are NOT units — the caller lists them as untracked. */
 export function trackableUnits(profile: LoadedProfile): TrackableUnit[] {
   const units: TrackableUnit[] = [];
@@ -158,7 +158,7 @@ export function untrackedRows(profile: LoadedProfile): { block: string; label: s
   return out;
 }
 
-/** The status rollup (§18.3): current units ∩ ledger → in-sync / stale / never,
+/** The status rollup (§19.3): current units ∩ ledger → in-sync / stale / never,
  *  plus dangling ledger keys (removed units) and untracked rows. */
 export function deployStatus(profile: LoadedProfile): LedgerReport {
   const units = trackableUnits(profile);
@@ -214,7 +214,7 @@ export function checkLedgerIntegrity(profile: Profile): LedgerIssue[] {
       if (count > 0) {
         issues.push({
           path: `${block}[${index}].id`,
-          message: `duplicate id "${id}" in ${block} — entry ids must be unique per block (D17 §18.2)`,
+          message: `duplicate id "${id}" in ${block} — entry ids must be unique per block (D18 §19.2)`,
         });
       }
       seen.set(id, count + 1);
@@ -224,12 +224,12 @@ export function checkLedgerIntegrity(profile: Profile): LedgerIssue[] {
   const ledger = root.deployments as Record<string, Record<string, unknown>> | undefined;
   if (ledger === undefined) return issues;
 
-  // 2. Ledger keys must be in the §18.2 key space (propertyNames is dropped by gen-zod).
+  // 2. Ledger keys must be in the §19.2 key space (propertyNames is dropped by gen-zod).
   for (const key of Object.keys(ledger)) {
     if (!LEDGER_KEY_PATTERN.test(key)) {
       issues.push({
         path: `deployments.${key}`,
-        message: `"${key}" is not a valid ledger key (D17 §18.2 key space: root block names or block:key composite)`,
+        message: `"${key}" is not a valid ledger key (D18 §19.2 key space: root block names or block:key composite)`,
       });
     }
   }
@@ -261,7 +261,7 @@ export function checkLedgerIntegrity(profile: Profile): LedgerIssue[] {
       if (count > 1 && ledger[`${prefix}:${key2}`] !== undefined) {
         issues.push({
           path: `deployments.${prefix}:${key2}`,
-          message: `ambiguous ledger key "${prefix}:${key2}" — ${count} rows share this natural key; disambiguate before tracking (D17 §18.2)`,
+          message: `ambiguous ledger key "${prefix}:${key2}" — ${count} rows share this natural key; disambiguate before tracking (D18 §19.2)`,
         });
       }
     }

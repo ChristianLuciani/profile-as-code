@@ -183,7 +183,7 @@ interface SkillChecks {  // from skills/<platform>/checks.yaml
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
 | `pasco check [platform]` | run skill-declared checks before deploy |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
-| `pasco status [platform] [--mark <ledgerKey> <surface>] [--write-checklist]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D17, §18); `--mark` confirms a manual paste (ledger write path) |
+| `pasco status [platform] [--mark <ledgerKey> <surface>] [--write-checklist]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste (ledger write path) |
 | `pasco skills:install <agent>` | project repo skills → agent skill studio (zhiweio pattern) |
 
 ## 8. GEO as a cross-cutting layer
@@ -280,7 +280,7 @@ Two different "templates" (previous confusion):
 1. **M1 (now)**: spec + profile-data template (done) + schema v1 ✅ (`schema/profile.schema.json`) + core (validate/drift/geo) + CLI skeleton ✅.
 2. **M2**: renderer `github-readme` + CI + dogfood (Christian's real GitHub README) — detailed in §15.
 3. **M3**: SOTA research per platform (GitHub→LinkedIn→Upwork→X→ResearchGate→Substack) → skills v1 + `pasco refine`.
-4. **M4**: renderers linkedin/upwork/x/researchgate/substack + playbooks + `pasco check` + checks.yaml per skill + per-entry deploy ledger (D17 — `deployments` + `pasco status`: deploy state becomes data, CHECKLIST becomes a generated view).
+4. **M4**: renderers linkedin/upwork/x/researchgate/substack + playbooks + `pasco check` + checks.yaml per skill + per-entry deploy ledger (D18 — `deployments` + `pasco status`: deploy state becomes data, CHECKLIST becomes a generated view).
 5. **M5**: web renderer (cv-cluciani consumes generated profiles), template release, CONTRIBUTING.
 6. **M6 (brand flavor)**: schema v1.1 brand additions (§17) + `pasco init --flavor brand` + renderer `github-org` + handle-matrix checks + `skills/github-org/` + dogfood `profile-data-topia` (private).
 7. **M7 (evidence core)**: schema v1.3 — `credentials[]`/`artifacts[]` + cross-refs (§18) · `pasco check`: `credential-expiry`, registry live-links, `no-private-in-public-output` · JSON-LD `hasCredential` · compact registry section in `github-readme` · template: `media/` scaffold + `docs/evidence-packs.md` + power-user symlink/stow doc (issue #48).
@@ -633,7 +633,7 @@ rendering guidance lives in `skills/<platform>/` (D5). **The engine learns no do
 - **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable,
   checksummed bundling — resolves Q9) · deploy playbooks publish media · portfolio-site
   consumption (with the M5 web renderer) · git-lfs guidance.
-## 18. D17 — per-entry deploy-status ledger (detail)
+## 19. D18 — per-entry deploy-status ledger (detail)
 
 Raised by issue #37 while writing the user guide (`docs/USER-GUIDE.md`): the deploy loop
 tracks status at **platform granularity** only — `active` (D11) records the chosen
@@ -644,10 +644,10 @@ actual question (2026-09-07):
 > For **each piece of data**: is this mine (vs template)? Is it published or not yet?
 > In which profile is it published and in sync — and which ones are out of date?
 
-D17 makes deploy state **data** (schema-additive, v1.3) with a single owner — `pasco` —
+D18 makes deploy state **data** (schema-additive, v1.3) with a single owner — `pasco` —
 instead of hand-maintained prose the operator must remember to update.
 
-### 18.1 The ledger (`deployments`)
+### 19.1 The ledger (`deployments`)
 
 New optional root property in `content/deployments.yaml` (file name = root property, §6):
 
@@ -660,7 +660,7 @@ deployments:
       source: manual | git | api        # how it landed (paste confirm vs deploy script)
 ```
 
-- **ledgerKey** — stable, prefixed identity of a *trackable unit* (§18.2).
+- **ledgerKey** — stable, prefixed identity of a *trackable unit* (§19.2).
 - **surface** — a platform slug from the ONE enum (D16); schema-validated via
   `propertyNames`.
 - **contentHash** — SHA-256 over a canonical serialization (sorted keys) of the **parsed**
@@ -680,7 +680,7 @@ deployments:
   workspace's own git history (every `--mark` is a commit in the user's repo, D2
   text-first) — no duplicated event store to drift.
 
-### 18.2 Entry identity (`id`) and provenance (`origin`)
+### 19.2 Entry identity (`id`) and provenance (`origin`)
 
 Trackable units and their ledger keys:
 
@@ -710,7 +710,7 @@ ships its fictional examples **with** the flag; user-authored entries simply don
 (absent = user). `pasco status` flags template-origin entries automatically; editing a
 copied template example keeps the provenance (still true — it *is* template-derived).
 
-### 18.3 `pasco status [platform]`
+### 19.3 `pasco status [platform]`
 
 | Invocation | Behavior |
 |---|---|
@@ -726,7 +726,7 @@ Variant selection (`refine --choose`) **never** writes the ledger: choosing a va
 not deploying it — the surface keeps the old text until the paste is confirmed with
 `--mark` (or a future deploy command writes it on real deploy).
 
-### 18.4 Alternatives considered (why not extend `active`, D11)
+### 19.4 Alternatives considered (why not extend `active`, D11)
 
 **Option B — fold per-entry status maps into `active`** was rejected. `active` answers
 *which variant is live* — the contract of `refine --choose`, keyed by platform, with its own

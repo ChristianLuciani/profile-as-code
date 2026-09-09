@@ -435,7 +435,7 @@ $EDITOR CHANGELOG.md               # what changed → which platforms to re-past
 git add -A && git commit -m "feat: <what>"
 git push
 # deploy (paste / PR per §7) → pasco status --mark <ledgerKey> <platform>
-pasco status                         # what's stale per surface (D17 deploy ledger)
+pasco status                         # what's stale per surface (D18 deploy ledger)
 pasco status --write-checklist       # regenerate CHECKLIST.md from the ledger
 git add -A && git commit -m "chore: deploy ledger + checklist view"
 git tag release-YYYY-MM && git push --tags   # baseline for the next pasco diff

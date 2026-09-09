@@ -45,7 +45,7 @@ Commands:
   refine <platform> [--lang]    STUB: emit agent task template; --choose <id> records the
           [--variants N]        chosen variant in content/active.yaml (agent-driven, D11/D13)
   check [platform]              STUB: list user checks from content (schema-validated catalog)
-  status [platform] [--mark …]   Per-entry deploy report — origin · surfaces · in-sync/stale/never (D17)
+  status [platform] [--mark …]   Per-entry deploy report — origin · surfaces · in-sync/stale/never (D18)
   skills:install <agent>        STUB: print the skills-studio projection command
 
 Common flags (after the command):
@@ -127,7 +127,7 @@ catalog). Rule execution ships with M3 (skills checks.yaml union) + M4.`,
 STUB: prints the skills-studio projection command for <agent> (pi|claude|aionui|opencode).
 Projection is the skills-studio job (AGOS), not implemented in M1.`,
   status: `pasco status [platform] [--mark <ledgerKey> <surface>] [--at <iso8601>] [--write-checklist] [--json] [--workspace <path>]
-Per-entry deploy-status report (D17, §18): ledger key · origin (template/user) ·
+Per-entry deploy-status report (D18, §19): ledger key · origin (template/user) ·
 surfaces published · sync state (in-sync / stale / never) — plus untracked rows
 (add an id to track) and removed keys (ledger keeps the audit trail).
   --mark <ledgerKey> <surface>  confirm a manual paste: records deployedAt + the

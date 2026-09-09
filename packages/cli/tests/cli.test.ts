@@ -401,7 +401,7 @@ describe('workspace resolution (D14: .pascorc → configured path)', () => {
   });
 });
 
-describe('pasco status (D17 deploy ledger)', () => {
+describe('pasco status (D18 deploy ledger)', () => {
   const mkws = (): string => {
     const dir = tempDir();
     copyFixture(MINIMAL, dir);
@@ -476,6 +476,49 @@ describe('pasco status (D17 deploy ledger)', () => {
     expect(checklist).toContain('AUTO-GENERATED');
     expect(checklist).toContain('`identity`');
     expect(checklist).toContain('In sync');
+  });
+
+  it('premerge F2: --mark refuses ambiguous composite keys — workspace stays valid', () => {
+    const ws = tempDir();
+    mkdirSync(join(ws, 'content'));
+    writeFileSync(join(ws, 'content', 'identity.yaml'), 'name: Elena Vasquez\n', 'utf8');
+    writeFileSync(
+      join(ws, 'content', 'bios.yaml'),
+      [
+        '- platform: linkedin',
+        '  lang: en',
+        '  length: medium',
+        '  text: one',
+        '- platform: linkedin',
+        '  lang: en',
+        '  length: medium',
+        '  text: two',
+      ].join('\n'),
+      'utf8',
+    );
+    expect(run(['validate', '--workspace', ws]).code).toBe(0); // un-addressed duplicates are legal
+    const res = run(['status', '--mark', 'bios:linkedin:en:medium', 'linkedin', '--workspace', ws]);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain('ambiguous');
+    expect(existsSync(join(ws, 'content', 'deployments.yaml'))).toBe(false); // nothing persisted
+    expect(run(['validate', '--workspace', ws]).code).toBe(0); // workspace NOT bricked
+  });
+
+  it('premerge F3: --mark + --write-checklist is rejected, not silently ignored', () => {
+    const ws = mkws();
+    const res = run(['status', '--mark', 'identity', 'linkedin', '--write-checklist', '--workspace', ws]);
+    expect(res.code).toBe(2);
+    expect(res.stderr).toContain('mutually exclusive');
+  });
+
+  it('premerge F5: --mark on a removed key says removed, not unknown', () => {
+    const ws = mkws();
+    writeFileSync(join(ws, 'content', 'experience.yaml'), '- id: exp-1\n  role: A\n  org: O\n  start: 2020-01-01\n', 'utf8');
+    expect(run(['status', '--mark', 'experience:exp-1', 'linkedin', '--workspace', ws]).code).toBe(0);
+    rmSync(join(ws, 'content', 'experience.yaml')); // unit gone — ledger key dangles
+    const res = run(['status', '--mark', 'experience:exp-1', 'linkedin', '--workspace', ws]);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain('removed');
   });
 
   it('usage: --help works and missing surface in --mark is exit 2', () => {

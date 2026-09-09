@@ -12,7 +12,7 @@ The profile-as-code CLI (M1). Consumes `@profile-as-code/core` (`load`/`driftChe
 | `pasco validate [--json]` | Schema **fail** (exit 1) + drift/geo **warn** (exit 0) — D12 | ✅ |
 | `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (github-readme, M2) also write `profiles/<platform>/README.md` | ✅ |
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
-| `pasco status [platform] [--mark <ledgerKey> <surface>] [--write-checklist]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never + ledger write path (D17, §18) | ✅ |
+| `pasco status [platform] [--mark <ledgerKey> <surface>] [--write-checklist]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never + ledger write path (D18, §19) | ✅ |
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13) | 🚧 stub |
 | `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) | 🚧 stub |
 | `pasco skills:install <agent>` | Skills-studio projection command (AGOS) | 🚧 stub |

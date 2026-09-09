@@ -1,10 +1,10 @@
 /**
- * D17 — per-entry deploy-status ledger (issue #37, SPEC §18).
+ * D18 — per-entry deploy-status ledger (issue #37, SPEC §19).
  *
  * Behavior under test:
  *   - canonicalJson / hashUnit: stable across key order, insensitive to YAML
  *     formatting, and ledger metadata (id/origin) is stripped before hashing.
- *   - trackableUnits: every §18.2 unit is enumerated with its ledger key
+ *   - trackableUnits: every §19.2 unit is enumerated with its ledger key
  *     (root blocks, bios/headlines composite keys, skills, handles, rows with id);
  *     rows without id are untracked; origin defaults to user.
  *   - deployStatus: empty ledger → never everywhere, stale nowhere (acceptance);
@@ -44,7 +44,7 @@ const clean = (dir: string) => rmSync(dir, { recursive: true, force: true });
 
 const IDENTITY = 'name: Elena Vasquez\nlocation: Madrid, Spain\n';
 
-describe('canonicalJson / hashUnit (D17 §18.1)', () => {
+describe('canonicalJson / hashUnit (D18 §19.1)', () => {
   it('is stable across insertion/key order', () => {
     expect(canonicalJson({ b: 1, a: { d: 4, c: 3 } })).toBe(canonicalJson({ a: { c: 3, d: 4 }, b: 1 }));
   });
@@ -58,7 +58,7 @@ describe('canonicalJson / hashUnit (D17 §18.1)', () => {
   });
 });
 
-describe('trackableUnits (D17 §18.2)', () => {
+describe('trackableUnits (D18 §19.2)', () => {
   it('enumerates root blocks, bios, headlines, skills — and rows only when they carry an id', () => {
     const profile = load(MINIMAL);
     const units = trackableUnits(profile);
@@ -120,7 +120,7 @@ describe('trackableUnits (D17 §18.2)', () => {
   });
 });
 
-describe('deployStatus (D17 §18.3)', () => {
+describe('deployStatus (D18 §19.3)', () => {
   it('fresh workspace: never everywhere, stale nowhere (acceptance #37)', () => {
     const report = deployStatus(load(MINIMAL));
     expect(report.units.length).toBeGreaterThan(0);
@@ -269,7 +269,7 @@ describe('load() ledger integrity (post-Zod, D12-fail)', () => {
     }
   });
 
-  it('rejects a ledger key outside the §18.2 key space', () => {
+  it('rejects a ledger key outside the §19.2 key space', () => {
     const dir = makeWorkspace({
       'identity.yaml': IDENTITY,
       'deployments.yaml': [
