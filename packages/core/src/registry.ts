@@ -20,7 +20,7 @@
  * stays claims-only — the word evidence never names this layer.
  */
 
-import type { LoadedProfile, Profile } from './types.js';
+import type { EducationalOccupationalCredentialLd, LoadedProfile, Profile } from './types.js';
 
 
 /**
@@ -70,8 +70,6 @@ export interface RegistryFinding {
   /** Dot-path into the profile where the finding lives. */
   path: string;
 }
-
-import type { EducationalOccupationalCredentialLd } from './types.js';
 
 function integrity(path: string, message: string): RegistryIssue {
   return { path, message };
