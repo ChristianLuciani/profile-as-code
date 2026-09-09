@@ -11,6 +11,16 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **Evidence registry — capa de prueba pointer-first (D17/§18 — issue #48)** — el SPEC gana
+  la capa de evidencia del workspace: dos bloques tipados (`credentials[]` atestaciones de
+  terceros; `artifacts[]` obras/media), matriz de capacidades por locator (protege
+  byte-stability §15.1 y el URL SSOT §15.4), `media/` opcional en el workspace que llega a la
+  superficie pública solo vía `assets/` del renderer (define el slot de §15.2),
+  `PASCO_EVIDENCE_ROOT` per-machine (nunca commiteado), y symlink/stow relegado a
+  conveniencia documentada de power-user. Enmiendas: §5 (D17), §6, §12 (M7/M8), §14 (Q9),
+  §15.4 (URL SSOT extendido), §17.1 (paridad brand). **Solo contrato** — la implementación
+  (schema v1.3 + `pnpm gen:zod` + checks + JSON-LD `hasCredential`) es M7, PRs separados
+  (dev-methodology §1).
 - **Platform set — Postiz parity + operator extras (v1.2 schema, D16 — issue #30)** — el
   enum compartido de plataformas (person + brand) pasa de 16 a **43**: la unión de las 34
   redes soportadas por Postiz ([OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02) + 9

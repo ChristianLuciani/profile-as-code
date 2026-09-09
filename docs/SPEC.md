@@ -91,6 +91,7 @@ skills + deploy playbooks**.
 | D14 | User data in **separate repo** `profile-data`, integrated by configured path, no symlink in normal flow | Symlink mount only as advanced CI option (Q4→RESOLVED). |
 | D15 | **Brand flavor** (`flavor: brand`): the same engine models commercial/brand identities — org schema, `socialHandles` matrix, brand surfaces. Workspace flavor is a **contract field**, not a separate product | The Topia brand needs the same SSOT→validate→refine→check→deploy machinery; one engine, one schema, one CLI — flavor only changes which blocks/checks apply (Q8→RESOLVED). |
 | D16 | **Platform set = Postiz parity + operator extras** (union, 43): ONE shared enum for person + brand flavors; new slugs Postiz verbatim (`linkedin-page`, `instagram-standalone`, `devto`, `gmb`, `warpcast`, `moltbook`, `mewe`, `tumblr`); single-source discipline enforced by contract self-tests (schema-check asserts `check.platform == ['all', ...platform]`; vitest asserts core `PLATFORMS` == schema enum) | The operator's surfaces must cover every network a cross-posting tool can reach (Postiz's 34 — [OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02; the API intro page's own "32" header undercounts its tables); `ghost` is an operator extra Postiz lacks. Schema parity ≠ skill coverage — per-platform skills are separate follow-ups (issue #30). |
+| D17 | **Evidence registry is pointer-first** (§18): two typed root blocks — `credentials[]` (third-party attestations) and `artifacts[]` (works/media) — with a **locator-capability matrix**; in-workspace `media/` reaches public surfaces only via renderer `assets/` output; external paths resolve via per-machine `PASCO_EVIDENCE_ROOT` (env/gitignored override, never committed); symlink/stow = documented power-user convenience only | A claim is not an artifact, and neither duplicates `publications[]`/`press[]` (naming discipline §9.1/§18.1); a private workspace is not a public media host (D14) — the capability matrix protects byte-stability (§15.1) and the URL SSOT (§15.4/§18.4). Direction ratified by the operator (issue #48) |
 
 ## 6. Data model (schema v1)
 
@@ -127,10 +128,18 @@ skills:        [ { name, level, keywords[], geoKeywords[], platformWeights{} } ]
 experience:    [ { role, org, start, end, highlights{lang} } ]
 projects:      [ { name, status, description{lang}, links, keywords{}, evidence[] } ]
 publications:  [ { title, venue, year, doi, orcidId } ]
+credentials:   [ { id, kind, title, issuer, credentialId?, verifyUrl, issued, expires?, visibility } ]
+artifacts:     [ { id, kind, title, description{lang}?, locator, checksum?, license?, tags[], visibility } ]
 keywords:      { seo: { platform: [] }, geo: { associations: [], claims: [] } }
 checks:        [ { platform, rule, value } ]                  # declarative; executed by `pasco check`
 active:        { platform: { lang, variantId, chosenAt } }    # which variant is live
 ```
+
+**Evidence registry (D17, §18 — additive, v1.3):** `credentials[]` and `artifacts[]` are
+the proof layer — pointer-first, visibility-scoped. `projects[].evidence[]` keeps its
+claim semantics and may reference registry ids (`credentialId`/`artifactId`); canonical
+blocks (`publications[]`, `press[]`) keep their domains and gain `artifactRefs` instead of
+becoming registry kinds. Naming discipline: the word "evidence" stays claims-only (§18.1).
 
 ## 7. Core interfaces (deep module)
 
@@ -264,6 +273,8 @@ Two different "templates" (previous confusion):
 4. **M4**: renderers linkedin/upwork/x/researchgate/substack + playbooks + `pasco check` + checks.yaml per skill.
 5. **M5**: web renderer (cv-cluciani consumes generated profiles), template release, CONTRIBUTING.
 6. **M6 (brand flavor)**: schema v1.1 brand additions (§17) + `pasco init --flavor brand` + renderer `github-org` + handle-matrix checks + `skills/github-org/` + dogfood `profile-data-topia` (private).
+7. **M7 (evidence core)**: schema v1.3 — `credentials[]`/`artifacts[]` + cross-refs (§18) · `pasco check`: `credential-expiry`, registry live-links, `no-private-in-public-output` · JSON-LD `hasCredential` · compact registry section in `github-readme` · template: `media/` scaffold + `docs/evidence-packs.md` + power-user symlink/stow doc (issue #48).
+8. **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable, checksummed bundling — resolves Q9) · deploy playbooks publish media to the public surface · portfolio-site consumption (with M5) · git-lfs guidance.
 
 ## 13. Resolved decisions (former open questions)
 
@@ -285,6 +296,9 @@ Two different "templates" (previous confusion):
 - Q7 (**idea, not a decision**): `profile-me` — a command/skill/experience layer that APPLIES the
   engine to the user's `profile-data` to produce results (today: `pasco build`/`pasco refine`);
   productized as a single user-facing flow. Name reserved in the profile-* family.
+- Q9 (M8): deploy-bundle format for media assets — one `assets/` dir per platform output
+  vs. a content-addressed store shared by renderers; decide before the first media-carrying
+  renderer (§18.6).
 
 ## 15. M2 — `github-readme` renderer (detail)
 
@@ -336,7 +350,9 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
 
 ### 15.4 Drift/GEO contract
 
-- The renderer NEVER outputs a URL that is not in `identity.links` (the drift rule).
+- The renderer NEVER outputs a URL outside the **URL SSOT**: `identity.links` plus the proof
+  layer's pointer fields — `credentials[].verifyUrl`, `artifacts[].locator.url`,
+  `publications[].doi`, `press[].url` (the drift rule; extended by D17/§18.4).
 - The JSON-LD `sameAs` set = `identity.links` verbatim; `@id` = `identity.links[website]`.
 - Facts (dates, DOIs, roles, counts) appear byte-identical to the SSOT — that is citability (§8).
 
@@ -434,6 +450,9 @@ engine solves (issue #25).
    - Brand blocks: `socialHandles` (platform → handle + `status: claimed|pending`),
      `newsletter` (Substack/Ghost), `podcast` (Spotify/RSS), `press` (media mentions),
      `audiences` (reader profile, not recruiter).
+   - Proof layer (v1.3, D17/§18) applies to brands verbatim: `credentials[]` (ISO
+     certifications, awards, patents) and `artifacts[]` (logo kits, product galleries) —
+     `schema.org/hasCredential` is defined for `Organization` as well as `Person`.
    - Checks catalog gains `handle-claimed` and `handle-consistent`.
 2. **GEO:** brand workspaces emit `schema.org/Organization` JSON-LD with
    `sameAs` = `identity.links` + claimed `socialHandles[].url`; `logo`/`foundingDate`/
@@ -459,3 +478,148 @@ First brand workspace = Topia (private), seeded from the operator's brand-handle
 warnings** on the handle matrix, `pasco build github-org` renders the org README with every
 claimed surface, and `pasco check` confirms `handle-claimed`/`handle-consistent` across the
 matrix.
+
+## 18. Evidence registry — credentials & artifacts (M7/M8 detail)
+
+Profiles are believed when they are proven. D17 adds the **proof layer** (issue #48): a
+pointer-first registry of typed entries living in the workspace (SSOT), consumed by
+renderers under a fixed capability matrix. Design rule: **the workspace declares pointers;
+the engine never owns the binaries** — D14 applied to media.
+
+### 18.1 Concept: claim ≠ credential ≠ artifact (naming discipline)
+
+The word **evidence stays claims-only** (§9.1 single-source naming):
+`projects[].evidence[]` is a textual assertion + source URL (unchanged). The new blocks
+are never called "evidence":
+
+| Concept | Block | What it is | Example |
+|---|---|---|---|
+| Claim | `projects[].evidence[]` (existing) | textual assertion + source | "raised $2M seed" → TechCrunch link |
+| Credential | `credentials[]` (new) | third-party attestation | AWS certificate, university degree, award, patent |
+| Artifact | `artifacts[]` (new) | a work or media item | portfolio, photo gallery, showreel, dataset |
+
+Canonical blocks keep their domains — **no duplication**: `publications[]` (papers, DOI)
+and `press[]` (D15) are NOT registry kinds; they reference registry ids (`artifactRefs`).
+The registry is the home of what had none.
+
+### 18.2 Schema (additive, v1.3)
+
+Root additions — both optional, `additionalProperties: false` preserved, Zod regenerated
+(D3). Illustrative sketch:
+
+```yaml
+credentials:
+  - id: cert-aws-ml                    # referenced by evidence items / renderers
+    kind: certificate                  # certificate | title | award | patent
+    title: "AWS Certified ML - Specialty"   # proper noun → plain string, invariant (§11)
+    issuer: "Amazon Web Services"      # invariant (§11)
+    credentialId: "ML-S-1234"          # optional
+    verifyUrl: "https://aws.amazon.com/verification?..."   # THE verification pointer
+    issued: 2024-05-01                 # YYYY-MM-DD; month precision allowed (§6 date)
+    expires: 2027-05-01                # optional → `credential-expiry` check warns when past
+    visibility: public                 # public | unlisted | private (§18.5)
+
+artifacts:
+  - id: reel-2025
+    kind: showreel                    # portfolio | gallery | showreel | dataset | document | code
+    title: "Reel 2025"                 # proper noun → invariant
+    description: { en: "…", es: "…" }  # langMap, EN required (§11)
+    locator: { url: "https://vimeo.com/…" }   # §18.3
+    checksum: "sha256:…"              # immutable artifacts only (§18.6)
+    license: "CC-BY-4.0"              # optional — third-party media usage rights
+    tags: [film]                       # multi-area selection (§18.9)
+    visibility: public
+```
+
+Cross-refs (additive, all optional): `evidenceItem` gains `credentialId`/`artifactId`;
+`publications[]` and `press[]` gain `artifactRefs: [id]`.
+
+### 18.3 Locators — the capability matrix
+
+`locator` is `{ url }` or `{ path }`. Engine actions are **fixed per locator type** — this
+is what protects byte-stability (§15.1) and the URL SSOT (§15.4/§18.4):
+
+| Locator | Emit URL in render | Copy to renderer `assets/` | Verify |
+|---|---|---|---|
+| `url` (remote) | yes — if in the URL SSOT | n/a | live-link check (`pasco check`) |
+| `path` in-workspace | **no** while the workspace is private (raw URLs of a private repo are not public — D14) | yes — checksum recorded at compile, byte-stable | checksum |
+| `path` external (`PASCO_EVIDENCE_ROOT`) | no | local-only — not CI-safe without a checksummed mirror | existence + checksum (local) |
+
+Media in a public render travels through the renderer `assets/` output to the deploy
+surface (§18.6) — never a private raw URL.
+
+### 18.4 URL SSOT (extends the drift rule, §15.4)
+
+**Emitted URLs ⊆ `identity.links` ∪ `credentials[].verifyUrl` ∪ `artifacts[].locator.url`
+∪ `publications[].doi` ∪ `press[].url`.** Registry URLs are SSOT members: they feed
+badges and structured data verbatim; the renderer never invents or reformats them.
+
+### 18.5 Visibility & privacy
+
+`visibility: public | unlisted | private` on both blocks. Renderers emit only `public`;
+`unlisted` is shared on request (client DMs), `private` never leaves the workspace.
+`pasco check` rule `no-private-in-public-output` fails the build on a leak. Rationale:
+credentials carry PII (full legal name, IDs) — not every proof is for the open web.
+
+### 18.6 Media transport (M8)
+
+- **Optional `media/` folder** in the workspace (template scaffolds it empty + rules):
+  per-domain subfolders (`certificates/`, `photos/`, `press/`). For the small and
+  versionable; size guidance: warn > 50 MB, GitHub hard limit 100 MB → git-lfs or
+  external hosting + `url` locator.
+- **Private workspace ⇒ no hot-linking**: the pipeline is workspace `media/` → renderer
+  `assets/` output (checksummed at compile — this defines the `assets?: string[]` slot
+  of the renderer interface, §15.2) → deploy playbook copies to the public surface.
+  Same pattern as `profiles/`: generated outputs, committed to the deploy repo.
+- **External media without moving it**: `PASCO_EVIDENCE_ROOT` (env var) or a **gitignored**
+  `.pasco/local.toml` override — per-machine state, never committed (the D14 lesson
+  applied to config). External paths are local-check/bundle only (§18.3).
+
+### 18.7 Symlink / stow — power-user convenience, not the mechanism
+
+Git stores a symlink as its target text: absolute external targets break on CI and fresh
+clones. Stowing an external media dir into `media/` is allowed as a local convenience,
+documented with this tradeoff. It is never the canonical mechanism (D14 demoted symlink
+mounts for the workspace; the same stance holds for media). `pasco validate` WARNs when
+a locator resolves through a symlink outside the workspace without a checksum.
+
+### 18.8 Checks (M7)
+
+`pasco check` additions — offline, deterministic, skill-declared (`checks[]` rule
+strings; no schema change):
+- `credential-expiry` — `expires` in the past → warn.
+- `live-link` — registry URLs join the existing live-link checks (§3).
+- `no-private-in-public-output` — §18.5.
+
+### 18.9 GEO & multi-area
+
+- JSON-LD: `Person.hasCredential` → `EducationalOccupationalCredential` (`issuer`,
+  `validFrom`/`validThrough` from `issued`/`expires`). Term status: schema.org "new"
+  area, adoption-feedback stage — dated source in the platform skill research ([WEB]
+  schema.org V30.0, fetched 2026-09-08). Brand flavor: `hasCredential` applies to
+  `Organization` too (§17.1) — ISO certifications, awards.
+- Artifacts surface as structured links per platform (`CreativeWork`, `ImageGallery`,
+  `VideoObject`, `Dataset`) — emitted by the renderer from SSOT fields, curated by the
+  platform skill (D5).
+- **Multi-area** (one person, several fields — the operator's case): `tags[]` on
+  artifacts; renderers select by platform + lang + tags. One workspace, many areas;
+  separate identities remain separate workspaces (D15).
+
+### 18.10 Domain packs — knowledge, not engine code
+
+The template ships `docs/evidence-packs.md`: per-domain checklists of what proof looks
+like — designer (portfolio cases, shots), filmmaker (showreel, filmography, festival
+laurels, press), scientist (DOI, ORCID, datasets, talks), engineer (repos, demos,
+certs) — each mapped to registry kinds and their expected metadata. Per-platform
+rendering guidance lives in `skills/<platform>/` (D5). **The engine learns no domains**
+(AGENTS.md rule 7).
+
+### 18.11 Milestones
+
+- **M7 (evidence core)**: schema v1.3 (§18.2) + cross-refs · `pasco validate/check`
+  (§18.8) · JSON-LD `hasCredential` · compact registry section in `github-readme` ·
+  template `media/` scaffold + `docs/evidence-packs.md` + symlink/stow doc · dogfood:
+  a workspace renders one credential + one artifact with zero drift warnings.
+- **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable,
+  checksummed bundling — resolves Q9) · deploy playbooks publish media · portfolio-site
+  consumption (with the M5 web renderer) · git-lfs guidance.
