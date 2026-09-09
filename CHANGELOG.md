@@ -11,6 +11,15 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **Release pipeline para `@profile-as-code/cli` (issues #42/#43)** — `.github/workflows/release.yml`:
+  tag `v*` (o `workflow_dispatch`, con input `dry_run` para smoke del pipeline sin publicar) → guard
+  tag↔versión → build → test → assert del tarball → `npm publish --provenance --access public`
+  (`id-token: write` para provenance OIDC, secret `NPM_TOKEN`). El publish real lo dispara el
+  operador (#44). El tarball es self-contained: `@profile-as-code/core` + renderers se buclean en un
+  `dist/index.js` único (tsup, ~93 KB) porque no están en npm; `yaml`/`zod` quedan como dependencias
+  reales. Assert (`packages/cli/scripts/verify-pack.mjs`, corrido en `ci.yml` y pre-publish):
+  el tarball expone el bin `pasco` (existe, ejecutable, shebang, sin `workspace:` en las ranges que
+  resuelve el consumidor) + smoke de instalación aislada del bin linkeado (`pasco <versión>`).
 - **Evidence registry — capa de prueba pointer-first (D17/§18 — issue #48)** — el SPEC gana
   la capa de evidencia del workspace: dos bloques tipados (`credentials[]` atestaciones de
   terceros; `artifacts[]` obras/media), matriz de capacidades por locator (protege

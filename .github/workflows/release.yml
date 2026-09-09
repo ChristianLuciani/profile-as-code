@@ -1,0 +1,94 @@
+name: release
+
+# Publishes @profile-as-code/cli to npm on a version tag (issue #42).
+# Provenance: id-token: write (OIDC) + repository field in packages/cli/package.json
+# (issue #43). The FIRST tag push (v0.1.0) is the operator's publish action —
+# pushing the tag IS publishing (issue #44); workflow_dispatch is for retries.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Smoke the pipeline without publishing (skips the tag guard; does not validate NPM_TOKEN auth)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write # npm provenance (OIDC)
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Publish invariant: only tagged, version-matched releases may publish
+      # (fresh-review F1: the old guard was skipped on workflow_dispatch, the
+      # documented retry path — leaving that publish path unguarded).
+      # - Tag push: the pushed tag must match the package version.
+      # - Manual dispatch (real publish): the package version must already be
+      #   tagged on origin — no publish outside the tag=publish invariant.
+      # - Dry runs skip the guard (nothing is published); see the info step.
+      - name: Guard — published version must be a tagged release
+        if: github.event_name == 'push' || inputs.dry_run != true
+        run: |
+          PKG=$(node -p "require('./packages/cli/package.json').version")
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME#v}"
+            if [ "$TAG" != "$PKG" ]; then
+              echo "Tag v$TAG does not match package version $PKG — refusing to publish." >&2
+              exit 1
+            fi
+          else
+            git ls-remote --exit-code --tags origin "refs/tags/v$PKG" >/dev/null 2>&1 || {
+              echo "No tag v$PKG on origin — refusing to publish a version outside the tag=publish invariant." >&2
+              exit 1
+            }
+          fi
+
+      - name: Dry-run info — version and tag state (guard not exercised)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == true
+        run: |
+          PKG=$(node -p "require('./packages/cli/package.json').version")
+          echo "Dry run: would publish @profile-as-code/cli@$PKG"
+          if git ls-remote --tags origin "refs/tags/v$PKG" | grep -q .; then
+            echo "Tag v$PKG exists on origin."
+          else
+            echo "NOTE: tag v$PKG does not exist on origin yet (pre-tag smoke)."
+          fi
+
+      - uses: pnpm/action-setup@v6 # reads packageManager from package.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+      # npm pack --json does not reflect the bin — verify by packing, extracting
+      # and installing the tarball, then smoke-running the linked bin (issue #43).
+      # Must pass before any publish.
+      - name: Verify tarball exposes bin pasco
+        run: pnpm --filter @profile-as-code/cli verify:pack
+
+      - name: Publish
+        run: npm publish --provenance --access public ${{ (inputs.dry_run && '--dry-run') || '' }}
+        working-directory: packages/cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

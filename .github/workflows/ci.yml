@@ -45,3 +45,9 @@ jobs:
       - name: Build
         if: hashFiles('package.json') != ''
         run: pnpm build
+
+      # Issue #43: npm pack --json does not reflect the bin — pack, extract and
+      # install the tarball, then smoke-run the linked `pasco` bin.
+      - name: Verify tarball exposes bin pasco
+        if: hashFiles('package.json') != ''
+        run: pnpm --filter @profile-as-code/cli verify:pack
