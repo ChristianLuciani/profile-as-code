@@ -9,8 +9,9 @@
  *   1. `bin.pasco` points to a file present in the tarball
  *   2. that file is executable (mode bit survives npm pack)
  *   3. that file starts with a node shebang
- *   4. the packed `dependencies` contain no `workspace:` protocol ranges
- *      (a workspace-protocol dependency in a published tarball is unresolvable)
+ *   4. the packed dependency ranges (dependencies, peerDependencies,
+ *      optionalDependencies) contain no `workspace:` protocol — unresolvable
+ *      for any consumer installing from the registry
  *   5. full-fidelity smoke: the tarball is installed into an isolated prefix
  *      (network, like a real consumer) and the bin npm links at
  *      node_modules/.bin/pasco runs, printing `pasco <version>` — this is
@@ -36,8 +37,7 @@ import { fileURLToPath } from 'node:url';
 const pkgDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 function fail(msg) {
-  console.error(`verify-pack FAIL: ${msg}`);
-  process.exit(1);
+  throw new Error(`verify-pack FAIL: ${msg}`);
 }
 
 function run(cmd, args, opts = {}) {
@@ -49,13 +49,13 @@ function run(cmd, args, opts = {}) {
   });
 }
 
-if (!existsSync(join(pkgDir, 'dist'))) {
-  fail('dist/ missing — run `pnpm build` before verify:pack');
-}
-
 const tmp = mkdtempSync(join(tmpdir(), 'pasco-pack-'));
 
 try {
+  if (!existsSync(join(pkgDir, 'dist'))) {
+    fail('dist/ missing — run `pnpm build` before verify:pack');
+  }
+
   // 1. Pack a real tarball (not --dry-run: we need the on-disk file modes).
   const packed = run('npm', ['pack', '--pack-destination', tmp])
     .trim()
@@ -93,11 +93,12 @@ try {
     fail(`bin target "${binPath}" does not start with a shebang: "${firstLine}"`);
   }
 
-  // 6. No workspace: protocol in the packed dependencies.
-  const deps = { ...manifest.dependencies };
-  for (const [name, range] of Object.entries(deps)) {
-    if (String(range).includes('workspace:')) {
-      fail(`packed dependency "${name}" uses unresolvable "workspace:" protocol`);
+  // 6. No workspace: protocol in the ranges consumers actually resolve.
+  for (const field of ['dependencies', 'peerDependencies', 'optionalDependencies']) {
+    for (const [name, range] of Object.entries(manifest[field] ?? {})) {
+      if (String(range).includes('workspace:')) {
+        fail(`packed ${field} entry "${name}" uses unresolvable "workspace:" protocol`);
+      }
     }
   }
 
@@ -124,6 +125,9 @@ try {
   console.log(
     `verify-pack PASS: ${packed} exposes bin pasco (${binPath}, executable, shebang, installed smoke "${expected}")`,
   );
+} catch (err) {
+  console.error(err instanceof Error ? err.message : err);
+  process.exitCode = 1;
 } finally {
   rmSync(tmp, { recursive: true, force: true });
 }

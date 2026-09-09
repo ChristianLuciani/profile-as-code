@@ -9,6 +9,11 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Smoke the pipeline without publishing (does not validate NPM_TOKEN auth)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -59,7 +64,7 @@ jobs:
         run: pnpm --filter @profile-as-code/cli verify:pack
 
       - name: Publish
-        run: npm publish --provenance --access public
+        run: npm publish --provenance --access public ${{ (inputs.dry_run && '--dry-run') || '' }}
         working-directory: packages/cli
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
