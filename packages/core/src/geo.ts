@@ -23,6 +23,7 @@
  */
 
 import { driftCheck } from './drift.js';
+import { credentialLdEntries } from './registry.js';
 import { PLATFORMS, textOf } from './types.js';
 import type {
   EducationalOccupationalCredentialLd,
@@ -71,16 +72,7 @@ function langValues(langMap: Record<string, string> | undefined): string[] {
  * "new" area, adoption-feedback stage ([WEB] V30.0, fetched 2026-09-08).
  */
 function hasCredentialLd(profile: Profile): EducationalOccupationalCredentialLd[] | undefined {
-  const entries = (profile.credentials ?? [])
-    .filter((c) => (c.visibility ?? 'public') === 'public')
-    .map((c) => ({
-      '@type': 'EducationalOccupationalCredential' as const,
-      ...(c.title ? { name: c.title } : {}),
-      ...(c.verifyUrl !== undefined ? { url: c.verifyUrl } : {}),
-      ...(c.issuer ? { awardedBy: { '@type': 'Organization' as const, name: c.issuer } } : {}),
-      ...(c.issued !== undefined ? { validFrom: c.issued } : {}),
-      ...(c.expires !== undefined ? { validThrough: c.expires } : {}),
-    }));
+  const entries = credentialLdEntries(profile.credentials ?? []);
   return entries.length > 0 ? entries : undefined;
 }
 

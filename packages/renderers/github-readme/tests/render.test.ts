@@ -7,6 +7,8 @@
  */
 
 import { compile, load } from '@profile-as-code/core';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -131,8 +133,6 @@ describe('renderer github-readme (SPEC §15)', () => {
 describe('renderer github-readme — evidence registry (v1.4/D17/§18)', () => {
   /** Build a slice with a registry from inline workspace files. */
   function registrySlice(files: Record<string, string>, lang: 'en' | 'es' = 'en') {
-    const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require('node:fs') as typeof import('node:fs');
-    const { tmpdir } = require('node:os') as typeof import('node:os');
     const dir = mkdtempSync(join(tmpdir(), 'pasco-render-'));
     mkdirSync(join(dir, 'content'), { recursive: true });
     for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, 'content', name), body, 'utf8');

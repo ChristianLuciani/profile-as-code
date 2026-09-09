@@ -14,6 +14,7 @@
  * JSON-LD Person (with hasCredential, §18.9) · generated footer with fact-count.
  */
 
+import { credentialLdEntries, isPublicEntry } from '@profile-as-code/core';
 import type { Artifact, Credential, Lang, PlatformProfile, Project, Skill } from '@profile-as-code/core';
 
 export const deploySpec = 'git' as const;
@@ -25,11 +26,6 @@ export interface RenderResult {
 
 export interface RenderOptions {
   lang?: Lang;
-}
-
-/** Visibility gate (§18.5): renderers emit only `public`; absent = public. */
-function isPublic(entry: { visibility?: string }): boolean {
-  return (entry.visibility ?? 'public') === 'public';
 }
 
 /** Deterministic credential row: **Title** (kind) — issuer, years · [verify](url). */
@@ -173,8 +169,8 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   }
 
   // 6. Evidence registry (v1.4/D17/§18) — public entries only (§18.5), compact.
-  const credentials = (p.credentials ?? []).filter(isPublic);
-  const artifacts = (p.artifacts ?? []).filter(isPublic);
+  const credentials = (p.credentials ?? []).filter(isPublicEntry);
+  const artifacts = (p.artifacts ?? []).filter(isPublicEntry);
   if (credentials.length > 0) {
     out.push('', '## Credentials');
     for (const c of credentials) out.push('', credentialLine(c));
@@ -188,15 +184,7 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   out.push('', '## Links');
   for (const l of p.identity.links ?? []) out.push('', `- [${l.label}](${l.url})`);
 
-  const publicCredentials = credentials
-    .map((c) => ({
-      '@type': 'EducationalOccupationalCredential',
-      ...(c.title !== undefined ? { name: c.title } : {}),
-      ...(c.verifyUrl !== undefined ? { url: c.verifyUrl } : {}),
-      ...(c.issuer !== undefined ? { awardedBy: { '@type': 'Organization', name: c.issuer } } : {}),
-      ...(c.issued !== undefined ? { validFrom: c.issued } : {}),
-      ...(c.expires !== undefined ? { validThrough: c.expires } : {}),
-    }));
+  const publicCredentials = credentialLdEntries(credentials);
   const jsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'Person',

@@ -22,6 +22,38 @@
 
 import type { LoadedProfile, Profile } from './types.js';
 
+
+/**
+ * The §18.5 visibility rule in ONE place: renderers and structured data emit
+ * only `public`, and **absent = public** (the pre-registry profile was public
+ * by design — absence must not hide silently). Every consumer of registry
+ * visibility (geo JSON-LD, renderers, the leak check) calls this; no private
+ * re-implementations of the default.
+ */
+export function isPublicEntry(entry: { visibility?: string }): boolean {
+  return (entry.visibility ?? 'public') === 'public';
+}
+
+/**
+ * Canonical JSON-LD mapping (§18.9): public credentials → schema.org
+ * `EducationalOccupationalCredential` entries. Single source for every emitter
+ * (geoCheck structured data, github-readme JSON-LD) — the shape is the contract.
+ */
+export function credentialLdEntries(
+  credentials: readonly { title?: string; issuer?: string; verifyUrl?: string; issued?: string; expires?: string; visibility?: string }[],
+): EducationalOccupationalCredentialLd[] {
+  return credentials
+    .filter(isPublicEntry)
+    .map((c) => ({
+      '@type': 'EducationalOccupationalCredential' as const,
+      ...(c.title ? { name: c.title } : {}),
+      ...(c.verifyUrl !== undefined ? { url: c.verifyUrl } : {}),
+      ...(c.issuer ? { awardedBy: { '@type': 'Organization' as const, name: c.issuer } } : {}),
+      ...(c.issued !== undefined ? { validFrom: c.issued } : {}),
+      ...(c.expires !== undefined ? { validThrough: c.expires } : {}),
+    }));
+}
+
 /** Post-Zod contract violation (load fails on it, D12). */
 export interface RegistryIssue {
   path: string;
@@ -38,6 +70,8 @@ export interface RegistryFinding {
   /** Dot-path into the profile where the finding lives. */
   path: string;
 }
+
+import type { EducationalOccupationalCredentialLd } from './types.js';
 
 function integrity(path: string, message: string): RegistryIssue {
   return { path, message };
@@ -171,7 +205,9 @@ export function registryCheck(profile: LoadedProfile | Profile): RegistryFinding
   ): { blockPath: string; visibility: string; id: string } | undefined => {
     if (id === undefined) return undefined;
     const entry = list.find((e) => e.id === id);
-    if (entry === undefined || entry.visibility === undefined || entry.visibility === 'public') return undefined;
+    // `entry.visibility === undefined` narrows only — the default-public DECISION
+    // stays in isPublicEntry (the one §18.5 rule); this line never decides.
+    if (entry === undefined || entry.visibility === undefined || isPublicEntry(entry)) return undefined;
     return { blockPath: `${kind}[${list.indexOf(entry)}]`, visibility: entry.visibility, id };
   };
 

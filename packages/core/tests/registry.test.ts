@@ -297,6 +297,26 @@ describe('GEO payoff (§18.9): JSON-LD hasCredential', () => {
     ]);
   });
 
+  it('emits hasCredential for Organization too (brand parity, §17.1)', () => {
+    const brandIdentity = 'name: Topia Press\nlinks:\n  - label: Site\n    url: https://topia.press\n';
+    const profile = load(
+      makeWorkspace({ 'identity.yaml': brandIdentity, 'flavor.yaml': 'brand\n', 'credentials.yaml': CREDENTIAL }),
+    );
+    const geo = geoCheck(profile);
+    const jsonLd = geo.sections.structuredData.readiness.jsonLd;
+    expect(jsonLd?.['@type']).toBe('Organization');
+    expect(jsonLd?.hasCredential).toEqual([
+      {
+        '@type': 'EducationalOccupationalCredential',
+        name: 'AWS Certified ML - Specialty',
+        url: 'https://aws.amazon.com/verification/cert-aws-ml',
+        awardedBy: { '@type': 'Organization', name: 'Amazon Web Services' },
+        validFrom: '2024-05-01',
+        validThrough: '2027-05-01',
+      },
+    ]);
+  });
+
   it('omits private credentials from the JSON-LD (visibility first-class, §18.5)', () => {
     const profile = load(
       makeWorkspace({
