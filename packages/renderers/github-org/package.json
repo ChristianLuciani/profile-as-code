@@ -22,7 +22,7 @@
     "test:watch": "vitest"
   },
   "engines": {
-    "node": ">=20.19"
+    "node": ">=22"
   },
   "dependencies": {
     "@profile-as-code/core": "workspace:*"
