@@ -30,6 +30,29 @@ minor versions may contain breaking contract changes.
   §15.4 (URL SSOT extendido), §17.1 (paridad brand). **Solo contrato** — la implementación
   (schema v1.3 + `pnpm gen:zod` + checks + JSON-LD `hasCredential`) es M7, PRs separados
   (dev-methodology §1).
+- **Evidence registry core — schema v1.4 + checks + JSON-LD (M7, D17/§18 — issue #48)** —
+  la capa de prueba ratificada en la SPEC entra al motor:
+  - **Schema v1.4 (aditivo, semver minor)** — raíces nuevas `credentials[]`
+    (certificate/title/award/patent: issuer, credentialId, verifyUrl, issued/expires,
+    visibility) y `artifacts[]` (portfolio/gallery/showreel/dataset/document/code:
+    locator `{url|path}` con XOR, checksum sha256, license, tags, visibility);
+    cross-refs: `evidenceItem` gana `credentialId`/`artifactId`, `publications[]`/`press[]`
+    ganan `artifactRefs`. `visibility: public|unlisted|private` first-class (§18.5) —
+    ausente = public (el perfil pre-registro era público por diseño). El XOR del locator
+    vive en JSON Schema (`oneOf`) y se re-chequea post-Zod en core (el Zod generado no
+    puede expresar required-without-property; mismo fail-class que el ledger, D12).
+  - **Core** — `checkRegistryIntegrity` (load falla con clase D12: ids duplicados,
+    cross-refs colgantes, locator XOR) y `registryCheck` (§18.8 offline/determinista:
+    `credential-expiry` warn; `no-private-in-public-output` ERROR — el gate de leak §18.5:
+    evidencia/publicaciones/press públicos que referencian entradas non-public fallan
+    `pasco check`). JSON-LD (§18.9): `Person`/`Organization` ganan `hasCredential` →
+    `EducationalOccupationalCredential` (solo public; término en área "new" de schema.org,
+    fuente fechada en la SPEC). El registro viaja en el slice `compile()` (facts).
+  - **CLI** — `pasco check` ejecuta las reglas del registro (warn + error, exit FAIL en
+    leak). **Renderer** — `github-readme` emite sección compacta `## Credentials` /
+    `## Artifacts` (solo `public`; locators `path` NUNCA emiten URL pública — D14) y
+    `hasCredential` en su JSON-LD. Template-side (`media/` scaffold, evidence-packs,
+    symlink doc) vive en profile-data-template#8; M8 (pipeline de media) es el siguiente.
 - **Per-entry deploy-status ledger (v1.3 schema, D18 — issue #37)** — el deploy loop pasa de
   granularidad-plataforma y prosa mantenida a mano (`CHECKLIST.md`) a **estado por entrada como
   dato** que solo `pasco` muta. Responde la pregunta del operador por bloque: ¿mío o del

@@ -68,6 +68,18 @@ function inlineDefs(
       seen.delete(name);
       return resolved;
     }
+    // `oneOf` of required-only alternatives ({ required: [..] } with no other
+    // keyword) — a JSON Schema XOR over sibling properties. zod cannot express
+    // "required without property" (renders z.any(), caught by the safety net
+    // below), so the oneOf is dropped for the Zod shape and the XOR is re-checked
+    // by core post-Zod (same fail-class precedent as the ledger's dropped
+    // propertyNames: D12). The JSON Schema itself keeps the oneOf.
+    if ('oneOf' in obj && Array.isArray(obj.oneOf) && (obj.oneOf as JsonNode[]).every((alt) => typeof alt === 'object' && alt !== null && Object.keys(alt).length > 0 && Object.keys(alt).every((k) => k === 'required'))) {
+      const { oneOf, ...rest } = obj;
+      void oneOf;
+      droppedRequiredOnlyOneOf += 1; // never silent — surfaced in the summary line. NOTE: counted per VISIT — the same def body is walked once directly in $defs and once per ref-site inlining, so the count can exceed the number of distinct oneOfs.
+      return inlineDefs(rest, defs, seen);
+    }
     // `oneOf` with no sibling keywords → `anyOf` (identical semantics for disjoint
     // primitive types; json-schema-to-zod emits a clean z.union for anyOf).
     if ('oneOf' in obj && !('anyOf' in obj) && Object.keys(obj).length === 1) {
@@ -119,6 +131,7 @@ defs.langMap = toLangMapShape();
 if (!defs.langMapList) throw new Error('gen-zod: $defs.langMapList missing from schema (v1.1)');
 defs.langMapList = toLangMapListShape();
 
+let droppedRequiredOnlyOneOf = 0;
 const inlined = inlineDefs(raw, defs) as JsonNode;
 const generated = jsonSchemaToZod(inlined, { module: 'esm', name: 'profileSchema', zodVersion: 4 });
 
@@ -177,4 +190,9 @@ const BANNER = `/**
 
 mkdirSync(OUT_DIR, { recursive: true });
 writeFileSync(OUT_PATH, `${BANNER}${withKeyGuard}${FOOTER}`, 'utf8');
-console.log(`gen-zod: wrote ${OUT_PATH} (${langMapCount} langMap key-guards applied)`);
+console.log(
+  `gen-zod: wrote ${OUT_PATH} (${langMapCount} langMap key-guards applied)` +
+    (droppedRequiredOnlyOneOf > 0
+      ? ` — ${droppedRequiredOnlyOneOf} required-only oneOf occurrence(s) dropped from Zod (the XOR must be re-checked in core post-Zod — D12 fail class; the JSON Schema keeps it)`
+      : ''),
+);

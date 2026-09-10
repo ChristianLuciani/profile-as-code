@@ -22,7 +22,7 @@ export type Flavor = NonNullable<Profile['flavor']>;
 /** Normalized profile: array properties are always defined (empty when absent). */
 export type LoadedProfile = Omit<
   Profile,
-  'bios' | 'headlines' | 'skills' | 'experience' | 'projects' | 'publications' | 'checks' | 'socialHandles' | 'press' | 'education' | 'languages' | 'deployments'
+  'bios' | 'headlines' | 'skills' | 'experience' | 'projects' | 'publications' | 'checks' | 'socialHandles' | 'press' | 'education' | 'languages' | 'deployments' | 'credentials' | 'artifacts'
 > & {
   flavor: Flavor;
   bios: NonNullable<Profile['bios']>;
@@ -37,6 +37,8 @@ export type LoadedProfile = Omit<
   education: NonNullable<Profile['education']>;
   languages: NonNullable<Profile['languages']>;
   deployments: NonNullable<Profile['deployments']>;
+  credentials: NonNullable<Profile['credentials']>;
+  artifacts: NonNullable<Profile['artifacts']>;
 };
 
 export type Identity = NonNullable<Profile['identity']>;
@@ -53,10 +55,15 @@ export type PressItem = NonNullable<Profile['press']>[number];
 export type BrandVoice = NonNullable<Identity['brandVoice']>;
 export type ActiveEntry = NonNullable<Profile['active']>[string];
 
-/** v1.3 (D17, §18.1): one confirmed deploy of a trackable unit on one surface. */
+/** v1.3 (D18, §19.1): one confirmed deploy of a trackable unit on one surface. */
 export type DeploymentRecord = NonNullable<NonNullable<Profile['deployments']>[string]>[string];
-/** v1.3 (D17, §18): the ledger — ledgerKey → surface → record. */
+/** v1.3 (D18, §19): the ledger — ledgerKey → surface → record. */
 export type Deployments = NonNullable<Profile['deployments']>;
+
+/** v1.4 (D17, §18.2): one third-party attestation (certificate/title/award/patent). */
+export type Credential = NonNullable<Profile['credentials']>[number];
+/** v1.4 (D17, §18.2): one work/media item (portfolio/gallery/showreel/dataset/document/code). */
+export type Artifact = NonNullable<Profile['artifacts']>[number];
 
 export type Lang = Bio['lang'];
 export type Platform = Bio['platform'];
@@ -197,7 +204,22 @@ export interface StructuredDataReadiness {
     foundingDate?: string;
     slogan?: string;
     description?: string;
+    /** v1.4 (D17/§18.9): public credentials as EducationalOccupationalCredential
+     *  (Person and Organization both carry hasCredential in schema.org). */
+    hasCredential?: EducationalOccupationalCredentialLd[];
   };
+}
+
+/** schema.org EducationalOccupationalCredential emitted from a public credential (§18.9). */
+export interface EducationalOccupationalCredentialLd {
+  '@type': 'EducationalOccupationalCredential';
+  name?: string;
+  url?: string;
+  awardedBy?: { '@type': 'Organization'; name: string };
+  /** From `issued` (§18.2). */
+  validFrom?: string;
+  /** From `expires` (§18.2). */
+  validThrough?: string;
 }
 
 export interface SemanticAssociationCoverage {
@@ -254,6 +276,10 @@ export interface PlatformProfile {
   brandAudiences: Record<string, string>;
   /** User checks targeting this platform (platform `all` included). */
   checks: NonNullable<Profile['checks']>;
+  /** Evidence registry (v1.4/D17, §18) — facts, pass through untouched; renderers
+   *  emit only `visibility: public` entries (§18.5). */
+  credentials: Credential[];
+  artifacts: Artifact[];
   active?: ActiveEntry;
   /** Dot-paths of langMaps that fell back to `en` because `lang` was absent. */
   fallbacks: string[];

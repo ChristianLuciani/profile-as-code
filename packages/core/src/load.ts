@@ -16,6 +16,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseDocument } from 'yaml';
 import { checkLedgerIntegrity } from './ledger.js';
+import { checkRegistryIntegrity } from './registry.js';
 import { profileSchema } from './generated/schema.zod.js';
 import type { LoadedProfile, Profile } from './types.js';
 
@@ -76,6 +77,8 @@ export function normalizeProfile(profile: Profile): LoadedProfile {
     education: profile.education ?? [],
     languages: profile.languages ?? [],
     deployments: profile.deployments ?? {},
+    credentials: profile.credentials ?? [],
+    artifacts: profile.artifacts ?? [],
   };
 }
 
@@ -119,9 +122,10 @@ function readContentFiles(workspace: string): Record<string, unknown> {
  * @param workspace path to the workspace root (must contain `content/`)
  * @throws LoadError — workspace problems (missing content dir, YAML errors, duplicate root keys)
  * @throws SchemaValidationError — merged profile violates the contract (D12: fail on schema),
- *   including the post-Zod ledger integrity checks (D17 §18.2: duplicate ids, ambiguous
+ *   including the post-Zod ledger integrity checks (D18 §19: duplicate ids, ambiguous
  *   composite keys when addressed, ledger key pattern, surface enum — gen-zod drops
- *   `propertyNames`, so they cannot live in the generated schema)
+ *   `propertyNames`, so they cannot live in the generated schema) and the registry
+ *   integrity checks (D17 §18: duplicate ids, dangling cross-refs, locator XOR).
  */
 export function load(workspace: string): LoadedProfile {
   const merged = readContentFiles(workspace);
@@ -129,6 +133,10 @@ export function load(workspace: string): LoadedProfile {
   const ledgerIssues = checkLedgerIntegrity(profile);
   if (ledgerIssues.length > 0) {
     throw new SchemaValidationError(ledgerIssues);
+  }
+  const registryIssues = checkRegistryIntegrity(profile);
+  if (registryIssues.length > 0) {
+    throw new SchemaValidationError(registryIssues);
   }
   return normalizeProfile(profile);
 }

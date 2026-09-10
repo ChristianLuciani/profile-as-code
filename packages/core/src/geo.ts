@@ -23,8 +23,10 @@
  */
 
 import { driftCheck } from './drift.js';
+import { credentialLdEntries } from './registry.js';
 import { PLATFORMS, textOf } from './types.js';
 import type {
+  EducationalOccupationalCredentialLd,
   GeoCheck,
   GeoReport,
   GeoSection,
@@ -62,6 +64,17 @@ function langValues(langMap: Record<string, string> | undefined): string[] {
   return langMap ? Object.values(langMap) : [];
 }
 
+/**
+ * GEO payoff (D17/§18.9): public credentials → schema.org EducationalOccupationalCredential
+ * entries. `hasCredential` applies to Person AND Organization (§17.1 — ISO certs, awards);
+ * visibility first-class (§18.5): structured data emits only public. Term status: schema.org
+ * "new" area, adoption-feedback stage ([WEB] V30.0, fetched 2026-09-08).
+ */
+function hasCredentialLd(profile: Profile): EducationalOccupationalCredentialLd[] | undefined {
+  const entries = credentialLdEntries(profile.credentials ?? []);
+  return entries.length > 0 ? entries : undefined;
+}
+
 /** The most recent role — the one a schema.org Person would call jobTitle/worksFor. */
 function currentRole(profile: Profile): { jobTitle?: string; worksFor?: string } {
   const items = [...(profile.experience ?? [])];
@@ -75,6 +88,7 @@ function currentRole(profile: Profile): { jobTitle?: string; worksFor?: string }
 function structuredData(profile: Profile): StructuredDataReadiness {
   const identity = profile.identity;
   const isBrand = profile.flavor === 'brand';
+  const credentialsLd = hasCredentialLd(profile);
 
   // sameAs: canonical identity.links + every claimed handle's URL (deduped). For a
   // brand the socialHandles matrix IS the canonical surface set (§17.1).
@@ -108,6 +122,7 @@ function structuredData(profile: Profile): StructuredDataReadiness {
             '@type': 'Organization' as const,
             name: identity.name,
             sameAs,
+            ...(credentialsLd ? { hasCredential: credentialsLd } : {}),
             ...(identity.logo ? { logo: identity.logo } : {}),
             ...(identity.established ? { foundingDate: identity.established } : {}),
             ...(slogan ? { slogan } : {}),
@@ -136,6 +151,7 @@ function structuredData(profile: Profile): StructuredDataReadiness {
         '@type': 'Person' as const,
         name: identity.name,
         sameAs,
+        ...(credentialsLd ? { hasCredential: credentialsLd } : {}),
         ...(identity.photo ? { image: identity.photo } : {}),
         ...(identity.location ? { address: identity.location } : {}),
         ...(role.jobTitle ? { jobTitle: role.jobTitle } : {}),

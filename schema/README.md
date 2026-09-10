@@ -36,7 +36,9 @@ validates the result against this schema. File → root property mapping:
 | `keywords.yaml` | `keywords` | SEO per platform + GEO associations/claims |
 | `checks.yaml` | `checks[]` | User-level rules; unioned with skill `checks.yaml` |
 | `active.yaml` | `active` | Which variant is LIVE per platform (D11) |
-| `deployments.yaml` | `deployments` | v1.3 (D17): per-entry deploy ledger — ledgerKey → surface → `{deployedAt, contentHash, source}`. Key space: root block names (`identity`/`positioning`/`keywords`) or `block:key` composites (`bios:…`, `headlines:…`, `skills:…`, `socialHandles:…`, `experience:<id>`…). Only `pasco` mutates it (`--mark` / deploy commands, D14) |
+| `deployments.yaml` | `deployments` | v1.3 (D18): per-entry deploy ledger — ledgerKey → surface → `{deployedAt, contentHash, source}`. Key space: root block names (`identity`/`positioning`/`keywords`) or `block:key` composites (`bios:…`, `headlines:…`, `skills:…`, `socialHandles:…`, `experience:<id>`…). Only `pasco` mutates it (`--mark` / deploy commands, D14) |
+| `credentials.yaml` | `credentials[]` | v1.4 (D17): third-party attestations (certificate/title/award/patent) — issuer, verifyUrl, issued/expires, visibility (§18). Naming discipline: never called evidence (§18.1) |
+| `artifacts.yaml` | `artifacts[]` | v1.4 (D17): works/media (portfolio/gallery/showreel/dataset/document/code) — `locator: {url \| path}` (capability matrix §18.3), checksum, license, tags, visibility |
 
 Files are optional (a fresh user may start with `identity.yaml` only); the schema only
 requires `identity`. Unknown top-level properties **fail validation** (`additionalProperties:

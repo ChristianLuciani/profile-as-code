@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://profile-as-code.dev/schema/v1.3/profile.schema.json",
-  "title": "profile-as-code — user profile contract (v1.3)",
-  "description": "Contract source (D3) for a profile-data workspace. The core `load()` parses content/*.yaml, merges them into a single Profile and validates against THIS schema. Facts (dates, DOIs, URLs, ORCID) are language-independent and are the GEO anchor. Every text field is a langMap ({lang: value}) with EN required (D8, §11). Additive since v1 (semver minor): every earlier workspace still validates. v1.1: role as langMap (org stays invariant string), highlights as string[] per lang, publication.authors/url, root languages + education, identity.handle/timezone, patreon in checks; brand flavor (D15/§17) — `flavor`, org identity variant (orgName/logo/brandVoice/mission/tagline/established), socialHandles/newsletter/podcast/press/audiences blocks, brand platforms, handle checks. New in v1.2 (D16): platform set = Postiz parity + operator extras — 43 platforms, one shared enum for both flavors, single-source dedup guard (check.platform). New in v1.3 (D18): per-entry deploy ledger — `deployments` (ledgerKey → surface → deployedAt/contentHash/source), optional stable `id`s on row blocks (experience/projects/publications/education/press), `origin: template` provenance flag.",
+  "$id": "https://profile-as-code.dev/schema/v1.4/profile.schema.json",
+  "title": "profile-as-code — user profile contract (v1.4)",
+  "description": "Contract source (D3) for a profile-data workspace. The core `load()` parses content/*.yaml, merges them into a single Profile and validates against THIS schema. Facts (dates, DOIs, URLs, ORCID) are language-independent and are the GEO anchor. Every text field is a langMap ({lang: value}) with EN required (D8, §11). Additive since v1 (semver minor): every earlier workspace still validates. v1.1: role as langMap (org stays invariant string), highlights as string[] per lang, publication.authors/url, root languages + education, identity.handle/timezone, patreon in checks; brand flavor (D15/§17) — `flavor`, org identity variant (orgName/logo/brandVoice/mission/tagline/established), socialHandles/newsletter/podcast/press/audiences blocks, brand platforms, handle checks. New in v1.2 (D16): platform set = Postiz parity + operator extras — 43 platforms, one shared enum for both flavors, single-source dedup guard (check.platform). New in v1.3 (D18): per-entry deploy ledger — `deployments` (ledgerKey → surface → deployedAt/contentHash/source), optional stable `id`s on row blocks (experience/projects/publications/education/press), `origin: template` provenance flag. New in v1.4 (D17): evidence registry — `credentials[]` (third-party attestations: certificate/title/award/patent) and `artifacts[]` (works/media: portfolio/gallery/showreel/dataset/document/code), pointer-first (§18); `evidenceItem` gains `credentialId`/`artifactId` cross-refs, `publications[]`/`press[]` gain `artifactRefs`. Naming discipline (§18.1): the registry is never called evidence — `projects[].evidence[]` stays claims-only.",
   "type": "object",
   "additionalProperties": false,
   "required": ["identity"],
@@ -109,6 +109,17 @@
       },
       "additionalProperties": { "$ref": "#/$defs/deploymentSurfaces" },
       "description": "v1.3 (D18, §19): per-entry deploy ledger — ledgerKey → surface → record. Keys are constrained above for JSON Schema consumers; the generated Zod drops propertyNames, so core re-checks key patterns, surface enums, duplicate ids and ambiguous composite keys post-Zod (D12 fail class). Only `pasco` mutates this block (same write rule as refine --choose, D14)."
+    },
+
+    "credentials": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/credential" },
+      "description": "v1.4 (D17, §18): the proof layer — third-party attestations (certificates, titles, awards, patents). Pointer-first: the workspace declares pointers, the engine never owns binaries (D14). Naming discipline (§18.1): never called evidence."
+    },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifact" },
+      "description": "v1.4 (D17, §18): works/media items (portfolio, gallery, showreel, dataset, document, code), pointer-first via `locator`. Naming discipline (§18.1): never called evidence — canonical blocks keep their domains (publications/press are NOT registry kinds, they reference registry ids)."
     }
   },
 
@@ -334,7 +345,9 @@
       "properties": {
         "claim": { "$ref": "#/$defs/langMap" },
         "source": { "$ref": "#/$defs/url" },
-        "verified": { "$ref": "#/$defs/date" }
+        "verified": { "$ref": "#/$defs/date" },
+        "credentialId": { "$ref": "#/$defs/entryId", "description": "v1.4 (D17/§18.2): references `credentials[].id` — this claim is attested by that credential. Target resolved by core (load fails on a dangling ref)." },
+        "artifactId": { "$ref": "#/$defs/entryId", "description": "v1.4 (D17/§18.2): references `artifacts[].id` — this claim is proven by that artifact. Target resolved by core (load fails on a dangling ref)." }
       }
     },
 
@@ -351,7 +364,8 @@
         "authors": { "type": "string", "description": "v1.1: author string (e.g. 'Luciani, C.' or 'Zambrano et al.')." },
         "doi": { "type": "string", "pattern": "^10\\.\\d{4,9}/\\S+$" },
         "orcidId": { "type": "string", "pattern": "^\\d{4}-\\d{4}-\\d{4}-\\d{3}[\\dX]$" },
-        "url": { "$ref": "#/$defs/url", "description": "v1.1: resolvable URL for outputs without DOI (preprint, conference abstract)." }
+        "url": { "$ref": "#/$defs/url", "description": "v1.1: resolvable URL for outputs without DOI (preprint, conference abstract)." },
+        "artifactRefs": { "type": "array", "items": { "$ref": "#/$defs/entryId" }, "description": "v1.4 (D17/§18.1): references `artifacts[].id` — the dataset/code behind this paper. publications keep their domain (no duplication); targets resolved by core (load fails on a dangling ref)." }
       },
       "description": "DOI/ORCID must be resolvable — GEO citability anchor (LLMs resolve them)."
     },
@@ -531,9 +545,61 @@
         "outlet": { "anyOf": [{ "type": "string", "minLength": 1 }, { "$ref": "#/$defs/langMap" }] },
         "title": { "$ref": "#/$defs/langMap" },
         "url": { "$ref": "#/$defs/url" },
-        "date": { "$ref": "#/$defs/date" }
+        "date": { "$ref": "#/$defs/date" },
+        "artifactRefs": { "type": "array", "items": { "$ref": "#/$defs/entryId" }, "description": "v1.4 (D17/§18.1): references `artifacts[].id` — the work behind this mention. press keeps its domain (no duplication); targets resolved by core (load fails on a dangling ref)." }
       },
       "description": "v1.1 (additive, brand): a media mention — outlet, headline, resolvable URL, date (verifiable claims, §8)."
+    },
+
+    "visibility": {
+      "type": "string",
+      "enum": ["public", "unlisted", "private"],
+      "description": "D17/§18.5: first-class visibility. Renderers emit only `public`; `unlisted` is shared on request (client DMs); `private` never leaves the workspace. Absent = public (the pre-registry profile was public by design — absence must not hide silently)."
+    },
+
+    "credential": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "title", "issuer"],
+      "properties": {
+        "id": { "$ref": "#/$defs/entryId", "description": "Registry id — referenced by evidence items (`credentialId`) and renderers. Unique per block (core re-checks post-Zod: load fails on duplicates; JSON Schema cannot express uniqueness)." },
+        "kind": { "type": "string", "enum": ["certificate", "title", "award", "patent"], "description": "D17/§18.2: third-party attestation kind." },
+        "title": { "type": "string", "minLength": 1, "description": "Credential name (proper noun → invariant string, §11)." },
+        "issuer": { "type": "string", "minLength": 1, "description": "Third-party attester (proper noun → invariant string, §11)." },
+        "credentialId": { "type": "string", "minLength": 1, "description": "Issuer-side identifier (e.g. certificate serial). Certificates carry PII — visibility governs exposure (§18.5)." },
+        "verifyUrl": { "$ref": "#/$defs/url", "description": "THE verification pointer (§18.4: SSOT member — feeds badges and structured data verbatim)." },
+        "issued": { "$ref": "#/$defs/date" },
+        "expires": { "$ref": "#/$defs/date", "description": "Optional → `credential-expiry` check warns when in the past (§18.8)." },
+        "visibility": { "$ref": "#/$defs/visibility" }
+      },
+      "description": "v1.4 (D17, §18.2): a third-party attestation. JSON-LD payoff (§18.9): `Person.hasCredential` → `EducationalOccupationalCredential` (public only)."
+    },
+
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "title", "locator"],
+      "properties": {
+        "id": { "$ref": "#/$defs/entryId", "description": "Registry id — referenced by evidence items (`artifactId`) and publications/press (`artifactRefs`). Unique per block (core re-checks post-Zod)." },
+        "kind": { "type": "string", "enum": ["portfolio", "gallery", "showreel", "dataset", "document", "code"], "description": "D17/§18.2: work/media kind." },
+        "title": { "type": "string", "minLength": 1, "description": "Work title (proper noun → invariant string, §11)." },
+        "description": { "$ref": "#/$defs/langMap" },
+        "locator": {
+          "type": "object",
+          "additionalProperties": false,
+          "oneOf": [{ "required": ["url"] }, { "required": ["path"] }],
+          "properties": {
+            "url": { "$ref": "#/$defs/url", "description": "Remote pointer — emitted in renders (URL SSOT, §18.4) and live-link checked." },
+            "path": { "type": "string", "minLength": 1, "description": "In-workspace `media/…` or external under PASCO_EVIDENCE_ROOT — capability matrix (§18.3): NEVER emitted as a public URL while the workspace is private (D14); reaches public surfaces only via renderer assets/ output (M8)." }
+          },
+          "description": "Exactly one of `url` | `path` (§18.3 capability matrix). The oneOf expresses the XOR for JSON Schema consumers; the generated Zod cannot express required-without-property, so core re-checks the XOR post-Zod (D12 fail class, ledger precedent)."
+        },
+        "checksum": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$", "description": "Immutable artifacts only (§18.6): recorded at compile for byte-stable bundling (M8)." },
+        "license": { "type": "string", "minLength": 1, "description": "Usage rights for the work (e.g. CC-BY-4.0)." },
+        "tags": { "type": "array", "items": { "type": "string" }, "description": "Multi-area selection (§18.9): renderers select by platform + lang + tags; one workspace, many areas." },
+        "visibility": { "$ref": "#/$defs/visibility" }
+      },
+      "description": "v1.4 (D17, §18.2): a work or media item. JSON-LD payoff (§18.9): surfaces as CreativeWork/ImageGallery/VideoObject/Dataset per platform (renderer-curated, D5)."
     }
   }
 }
