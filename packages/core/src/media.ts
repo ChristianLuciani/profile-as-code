@@ -117,7 +117,9 @@ function resolveLocator(
   if (evidenceRoot === undefined) {
     return { origin: 'external', absolute: '', safe: true };
   }
-  const base = resolve(evidenceRoot);
+  // Relative roots anchor to the WORKSPACE, not the process CWD — `pasco check`
+  // must not change its verdict with the directory it was invoked from.
+  const base = resolve(workspaceRoot, evidenceRoot);
   const absolute = resolve(base, path);
   return { origin: 'external', absolute, safe: contains(base, absolute), base };
 }

@@ -63,7 +63,8 @@ minor versions may contain breaking contract changes.
     verificación del `checksum` declarado (mismatch = error, asset NO bundleado); cadena de
     resolución: `media/…` = workspace-relative (SSOT; missing/unsafe = error), resto =
     external bajo `PASCO_EVIDENCE_ROOT` (env > gitignored `.pasco/local.toml`, per-machine,
-    nunca commiteado; missing = warn, CI-degradable §18.3); guard de contención
+    nunca commiteado; missing = warn, CI-degradable §18.3; roots relativos anclan al
+    workspace, no al CWD de invocación); guard de contención
     (`media-path-unsafe`); symlink fuera del workspace sin checksum = warn (§18.7);
     oversize > 50 MB = warn (§18.6). Targets `assets/<id>/<basename>` (ids únicos
     core-checked → collision-free) — `artifactAssetTarget` es la derivación única que
@@ -71,8 +72,9 @@ minor versions may contain breaking contract changes.
   - **Renderer interface (§15.2)** — el slot `assets?: string[]` queda definido: el
     renderer DECLARA los targets deploy-relativos que su texto referencia (via
     `opts.assets`); sin bundle → path locators quedan sin link (output byte-idéntico al
-    pre-M8). `github-readme` emite ` — [assets/<id>/<basename>](…)` para los bundleados y
-    nunca un path interno del workspace.
+    pre-M8). `github-readme` emite ` — [assets/<id>/<basename>](href)` para los bundleados —
+    href percent-encoded (espacios/paréntesis rompen destinos CommonMark; el target del
+    manifest queda raw) — y nunca un path interno del workspace.
   - **Build** — copia exactamente los targets referenciados a
     `profiles/<platform>/assets/` y escribe `assets/manifest.json` (version, platform,
     lang, sha256/bytes/origin por asset); rebuild limpio — el output dir queda como
