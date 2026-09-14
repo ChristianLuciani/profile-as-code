@@ -16,7 +16,7 @@ before it is presented publicly — the first real end-to-end test is a hard req
 
 ## Public-readiness checklist (repo gate)
 
-| # | Ítem | Status | Evidence (date) |
+| # | Item | Status | Evidence (date) |
 |---|---|---|---|
 | — | Visibility | 🔒 **private** | per policy |
 | 1 | First real test (dogfood: real data rendered + deployed) | ✅ | renderers `github-readme` + `github-org` built and tested (`packages/renderers/`, 12 tests, CI green); real workspace: `profile-data` (private repo). Deploy evidence lives in the private workspace — re-run dogfood on current HEAD before flip |
@@ -37,7 +37,7 @@ maintainer's sign-off (items 4/6 may carry tracked issues only if they don't con
 The repo-gate checklist answers "is the product ready"; this one answers "is the repo ready for a
 community" (source: prompt-studio `registry/specs/community-first.md`).
 
-| # | Ítem | Status | Evidence (date) |
+| # | Item | Status | Evidence (date) |
 |---|---|---|---|
 | 1 | README.md at root (landing, state, how to run) | ✅ | landing + Estado + Roadmap tables; drift fixes in #55 |
 | 2 | LICENSE as file (not only metadata) | ✅ | MIT, 2026-08-07 |
@@ -47,7 +47,7 @@ community" (source: prompt-studio `registry/specs/community-first.md`).
 | 6 | docs/STANDARDS.md (this file) | ✅ | this PR |
 | 7 | Priorities visible (ROADMAP or pinned issue) | ⚠️ | README Roadmap table (M1–M5) serves; **no pinned issue** — pin #44 at flip |
 | 8 | AGENTS.md (repo >1/3 agent context window) | ✅ | present, with map + context-discipline rule |
-| 9 | Issue triage with intention (≤48h close-or-label) | ✅ | all 10 open issues labeled with type + priority (2026-09-10); `good first issue` + `help wanted` labels exist |
+| 9 | Issue triage with intention (≤48h close-or-label) | ✅ | all 10 open issues labeled (6 of 10 with a priority label, 2026-09-10); `good first issue` + `help wanted` labels exist |
 | 10 | Family mapped + cross-links + "try it" path e2e | ⚠️ | family: `profile-as-code` (hub) + `profile-data-template` (satellite, private) + `profile-data` (operator data, private — dogfood only, never linked publicly); template also lives in-repo (`templates/profile-data*`). Cross-links verified + USER-GUIDE "try it" e2e pending (#54) |
 
 ## Publication by families (community-first §9)
