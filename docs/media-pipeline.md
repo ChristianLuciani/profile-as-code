@@ -28,14 +28,15 @@ workspace media/ ──(collectMedia: sha256 + bytes)──▶ renderer assets/ 
    (§15.1: same input → same bytes).
 5. **Deploy playbook commits BOTH** `README.md` and `assets/` to the deploy repo (git
    deploySpec, D9). A deploy-relative link `assets/<id>/<basename>` resolves only on the
-   public surface — never a private raw URL.
+   public surface — never a private raw URL. The markdown href is percent-encoded
+   (spaces/parens break CommonMark destinations); the manifest keeps the raw target.
 
 ## Locator resolution rules
 
 | Path form | Meaning | Base | Missing file |
 |---|---|---|---|
 | `media/…` | in-workspace (the SSOT) | workspace root | **error** (`media-missing-workspace`) |
-| anything else | external | `PASCO_EVIDENCE_ROOT` env → gitignored `.pasco/local.toml` (`evidence_root = "…"`) | **warn** (`media-external-missing`) — local-only, CI-degradable |
+| anything else | external | `PASCO_EVIDENCE_ROOT` env → gitignored `.pasco/local.toml` (`evidence_root = "…"`) — a RELATIVE root anchors to the workspace, never the invoking CWD | **warn** (`media-external-missing`) — local-only, CI-degradable |
 
 - Containment: a resolved path must stay inside its base (workspace root or evidence
   root) — escapes fail with `media-path-unsafe` (error).

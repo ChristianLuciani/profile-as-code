@@ -149,6 +149,29 @@ describe('collectMedia (§18.6 media transport)', () => {
     expect(bundle.assets[0]).toMatchObject({ target: 'assets/doc/doc.pdf', origin: 'external' });
   });
 
+  it('anchors a RELATIVE evidence root to the workspace (not the process CWD — deterministic)', () => {
+    const root = tempDir();
+    mkdirSync(join(root, 'sets'), { recursive: true });
+    writeFileSync(join(root, 'sets/one.csv'), 'id\n1\n');
+    const ws = workspace(artifact('ext', 'sets/one.csv'));
+    mkdirSync(join(ws, '.pasco'), { recursive: true });
+    // relative root, written in the workspace's .pasco/local.toml: resolves
+    // against the workspace root, so invocation CWD cannot change the verdict
+    writeFileSync(join(ws, '.pasco/local.toml'), "evidence_root = '../" + root.split('/').pop() + "'\n");
+    const fromSomewhereElse = tempDir(); // a different CWD must not matter
+    const prev = process.cwd();
+    process.chdir(fromSomewhereElse);
+    try {
+      const bundle = collectMedia({ identity: { name: 'E' }, artifacts: [
+        { id: 'ext', kind: 'dataset', title: 'D', locator: { path: 'sets/one.csv' }, visibility: 'public' },
+      ] } as unknown as Profile, ws);
+      expect(bundle.findings).toEqual([]);
+      expect(bundle.assets[0]).toMatchObject({ target: 'assets/ext/one.csv', origin: 'external' });
+    } finally {
+      process.chdir(prev);
+    }
+  });
+
   it('errors when a declared checksum does not match the bundled bytes', () => {
     const ws = workspace(`- id: immut
   kind: dataset
