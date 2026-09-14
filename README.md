@@ -106,7 +106,6 @@ profile-as-code/
 │   └── cli/              # ⏳ pasco build|validate|diff|check|refine|skills:install
 ├── skills/               # skills por plataforma (conocimiento SOTA)
 ├── templates/
-│   ├── playbooks/        # deploy por plataforma (pasos + verificación)
 │   └── profile-data/  # workspace de datos del usuario — template fork/clone (SPEC §9)
 └── docs/                 # SPEC, research, ci-cd, build prompts
 ```
