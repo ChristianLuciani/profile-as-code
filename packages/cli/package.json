@@ -37,7 +37,7 @@
     "@profile-as-code/core": "workspace:*",
     "@profile-as-code/renderers-github-org": "workspace:*",
     "@profile-as-code/renderers-github-readme": "workspace:*",
-    "@types/node": "^26.4.1",
+    "@types/node": "^26.5.1",
     "tsup": "^8.5.1",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0"
