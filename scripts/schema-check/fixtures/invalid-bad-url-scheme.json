@@ -1,0 +1,12 @@
+{
+  "identity": {
+    "name": "Ada Example",
+    "links": [
+      {
+        "platform": "website",
+        "label": "Site",
+        "url": "javascript:alert(1)"
+      }
+    ]
+  }
+}

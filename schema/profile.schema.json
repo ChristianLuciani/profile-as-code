@@ -149,7 +149,9 @@
     "url": {
       "type": "string",
       "format": "uri",
-      "minLength": 7
+      "pattern": "^https?://",
+      "minLength": 7,
+      "description": "http(s) ONLY (issue #53): the SSOT validates the scheme at the boundary so renderers emit any SSOT URL verbatim with zero per-emit filtering. `format: uri` alone admits non-http schemes (javascript:, data:, vbscript:) — the pattern is the assertion; format stays as annotation for schema-aware consumers. Case-sensitive per ECMA-262 regex (JSON Schema patterns carry no flags); an uppercase scheme fails loudly (D12 fail class), it is not a security hole."
     },
 
     "date": {

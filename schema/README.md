@@ -10,6 +10,26 @@ workspace (JSON Schema, draft 2020-12). Per D3, JSON Schema is the contract sour
 > root `education` + `languages`, `publication.authors`/`url`, `identity.handle`/`timezone`,
 > `patreon` in the checks platform enum.
 
+## URL scheme rule (issue #53)
+
+Every URL field validates through the single `$defs/url` node, which carries
+`pattern: ^https?://` **on top of** `format: uri` and `minLength: 7`:
+
+- **http(s) only.** `format: uri` alone admits non-http schemes (`javascript:`,
+  `data:`, `vbscript:`). Renderers emit SSOT URLs verbatim (§15.4/§18.4: markdown
+  links, JSON-LD `sameAs`/`hasCredential.url`, badges), so the scheme is validated
+  once at the boundary — renderers need zero per-emit filtering.
+- **Single-source discipline.** All URL fields (`identity.links[]`, `photo`, `logo`,
+  `socialHandles[].url`, `newsletter.url`, `podcast.url/rss`, `press[].url`,
+  `publication.url`, `evidence[].source`, `projects[].links[]`,
+  `credential.verifyUrl`, `artifacts[].locator.url`) inherit the rule via `$ref` —
+  no per-field copies, no per-renderer allowlist.
+- **Case-sensitive.** JSON Schema `pattern` is ECMA-262 regex without flags; an
+  uppercase scheme (`HTTPS://…`) fails validation loudly (D12 fail class).
+- **Negative fixture:** `scripts/schema-check/fixtures/invalid-bad-url-scheme.json`
+  (a `javascript:` link must be rejected); load-side behavior is asserted in
+  `packages/core/tests/load.test.ts` (URL scheme boundary describe).
+
 ## How content files map to the profile
 
 `pasco load(workspace)` reads `content/*.yaml`, **merges** them into one Profile object and

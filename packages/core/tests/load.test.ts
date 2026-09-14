@@ -158,3 +158,46 @@ describe('load(workspace)', () => {
     }
   });
 });
+
+describe('URL scheme boundary (issue #53: http(s) only at $defs/url)', () => {
+  it('rejects a javascript: URL in identity.links (href-injection boundary)', () => {
+    const dir = makeWorkspace({
+      'identity.yaml': 'name: X\nlinks:\n  - platform: website\n    label: Site\n    url: "javascript:alert(1)"\n',
+    });
+    try {
+      expect(() => load(dir)).toThrow(SchemaValidationError);
+      try {
+        load(dir);
+      } catch (error) {
+        const e = error as SchemaValidationError;
+        expect(e.issues.some((issue) => issue.path === 'identity.links.0.url')).toBe(true);
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects data: and vbscript: schemes too', () => {
+    for (const url of ['data:text/html,hi', 'vbscript:msgbox(1)']) {
+      const dir = makeWorkspace({ 'identity.yaml': `name: X\nlinks:\n  - url: "${url}"\n` });
+      try {
+        expect(() => load(dir)).toThrow(SchemaValidationError);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('accepts http:// and https:// URLs (no false positives)', () => {
+    const dir = makeWorkspace({
+      'identity.yaml':
+        'name: X\nlinks:\n  - url: https://example.com\n  - platform: website\n    url: http://insecure.example.net\n',
+    });
+    try {
+      const profile = load(dir);
+      expect(profile.identity.links).toHaveLength(2);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
