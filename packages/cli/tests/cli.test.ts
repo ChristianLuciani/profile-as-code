@@ -584,14 +584,16 @@ describe('pasco build — media pipeline (M8, §18.6)', () => {
   it('rebuild is byte-stable and cleans stale assets (output dir = pure function of the workspace)', () => {
     const ws = mediaWorkspace();
     run(['build', 'github-readme', '--workspace', ws]);
+    const manifest1 = readFileSync(join(ws, 'profiles', 'github-readme', 'assets', 'manifest.json'), 'utf8');
     const stale = join(ws, 'profiles', 'github-readme', 'assets', 'old-one', 'x.bin');
     mkdirSync(join(ws, 'profiles', 'github-readme', 'assets', 'old-one'), { recursive: true });
     writeFileSync(stale, 'stale'); // simulates a removed artifact left behind
     const r = run(['build', 'github-readme', '--json', '--workspace', ws]);
     expect(r.code).toBe(0);
     expect(existsSync(stale)).toBe(false); // rebuilt clean
-    const manifest = readFileSync(join(ws, 'profiles', 'github-readme', 'assets', 'manifest.json'), 'utf8');
-    expect(manifest).not.toContain('old-one');
+    const manifest2 = readFileSync(join(ws, 'profiles', 'github-readme', 'assets', 'manifest.json'), 'utf8');
+    expect(manifest2).toBe(manifest1); // §15.1: same input → same bytes (manifest incl.)
+    expect(manifest2).not.toContain('old-one');
   });
 
   it('writes no assets/ dir when nothing is bundled (url locators only)', () => {

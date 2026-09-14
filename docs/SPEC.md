@@ -343,7 +343,7 @@ output, not hand-maintained prose.
 ```ts
 interface Renderer {
   id: 'github-readme';
-  render(p: PlatformProfile, opts?: { lang?: Lang }): { text: string; assets?: string[] };
+  render(p: PlatformProfile, opts?: { lang?: Lang; assets?: readonly MediaAsset[] }): { text: string; assets?: string[] };
   deploySpec: 'git';               // D9: output lands in a git-tracked file
 }
 ```
