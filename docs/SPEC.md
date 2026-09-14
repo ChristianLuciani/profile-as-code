@@ -359,7 +359,9 @@ derivation). The build owns the I/O: it collects the media bundle (`collectMedia
 targets into `profiles/<platform>/assets/`, and writes `assets/manifest.json`. The renderer
 receives the bundle via `opts.assets` and links ONLY bundled targets — absent → path locators
 stay link-free (byte-identical to the pre-M8 output). Renderers never touch the filesystem
-and never emit a workspace-internal path (D14).
+and never emit a workspace-internal path (D14). Markdown hrefs are percent-encoded
+(spaces/parens break CommonMark destinations); the manifest and the declared target keep
+the raw filesystem-relative path.
 
 ### 15.3 Output spec (`README.md`)
 
@@ -627,8 +629,10 @@ credentials carry PII (full legal name, IDs) — not every proof is for the open
 Git stores a symlink as its target text: absolute external targets break on CI and fresh
 clones. Stowing an external media dir into `media/` is allowed as a local convenience,
 documented with this tradeoff. It is never the canonical mechanism (D14 demoted symlink
-mounts for the workspace; the same stance holds for media). `pasco validate` WARNs when
-a locator resolves through a symlink outside the workspace without a checksum.
+mounts for the workspace; the same stance holds for media). `pasco check` WARNs when
+a locator resolves through a symlink outside the workspace without a checksum
+(`media-symlink-external` — the media rules live with the §18.8 check execution,
+not `pasco validate`).
 
 ### 18.8 Checks (M7)
 

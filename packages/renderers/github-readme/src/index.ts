@@ -39,6 +39,14 @@ function credentialLine(c: Credential): string {
   return `- **${c.title}** (${c.kind}) — ${c.issuer}${years}${verify}`;
 }
 
+/** CommonMark link destinations break on spaces and unbalanced parens — the
+ *  emitted href is percent-encoded; the manifest and the renderer's declared
+ *  target keep the RAW filesystem-relative path (they address the file, the
+ *  href addresses the URL on the deploy surface). */
+function assetHref(target: string): string {
+  return encodeURI(target).replace(/\(/g, '%28').replace(/\)/g, '%29');
+}
+
 /** Deterministic artifact row — capability matrix (§18.3): `url` locators link
  *  verbatim (URL SSOT); a BUNDLED `path` locator links its deploy-relative
  *  target `assets/<id>/<basename>` (M8/§18.6 — resolves on the public deploy
@@ -53,7 +61,7 @@ function artifactLine(a: Artifact, lang: Lang, assetsById: ReadonlyMap<string, M
     link = ` — [${hostname(a.locator.url)}](${a.locator.url})`;
   } else if (a.id !== undefined) {
     const asset = assetsById.get(a.id);
-    if (asset !== undefined) link = ` — [${asset.target}](${asset.target})`;
+    if (asset !== undefined) link = ` — [${asset.target}](${assetHref(asset.target)})`;
   }
   return `- **${a.title}** (${a.kind})${link}${license}${desc !== undefined ? ` — ${desc}` : ''}`;
 }

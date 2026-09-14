@@ -286,6 +286,18 @@ describe('renderer github-readme — media pipeline (M8, §18.6)', () => {
     }
   });
 
+  it('percent-encodes the href (spaces/parens break CommonMark destinations); the declared target stays raw', () => {
+    const { slice, cleanup } = mediaSlice(MEDIA);
+    try {
+      const spaced = { ...BUNDLE[0]!, artifactId: 'reel-local', target: 'assets/reel-local/my reel (1).mp4' };
+      const out = render(slice, { assets: [spaced] });
+      expect(out.text).toContain('[assets/reel-local/my reel (1).mp4](assets/reel-local/my%20reel%20%281%29.mp4)');
+      expect(out.assets).toEqual(['assets/reel-local/my reel (1).mp4']); // declaration + manifest stay raw
+    } finally {
+      cleanup();
+    }
+  });
+
   it('is deterministic with assets: same input → same bytes', () => {
     const { slice, cleanup } = mediaSlice(MEDIA);
     try {
