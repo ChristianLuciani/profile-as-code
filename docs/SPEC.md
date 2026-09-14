@@ -109,6 +109,12 @@ workspaces add `socialHandles[]` (handle matrix, `status: claimed|pending`), `ne
 `brandVoice`, `mission`, `tagline`, `established`). Person-only root blocks (`experience`,
 `publications`) stay optional and keep their meaning (essays/issues for a brand).
 
+**URL scheme boundary (issue #53):** every URL field validates `^https?://` at the single
+source (`$defs/url`, additive constraint on top of `format: uri`) — `format: uri` alone
+admits non-http schemes (`javascript:`, `data:`) that renderers would emit verbatim
+(§15.4/§18.4). The SSOT validates the scheme; renderers need zero per-emit filtering.
+Negative fixture in `scripts/schema-check/fixtures/` (invalid-bad-url-scheme).
+
 **Platform set (D16 — additive, v1.2):** ONE shared enum for both flavors — the union of
 Postiz's 34 supported networks ([OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02) plus
 **9 operator extras**: `ghost`, `spotify`, `soundcloud`, and the six v1 non-Postiz surfaces
