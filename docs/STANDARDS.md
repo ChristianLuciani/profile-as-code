@@ -24,7 +24,7 @@ before it is presented publicly — the first real end-to-end test is a hard req
 | 3 | Tagged release + changelog | ❌ **blocker** | no tag yet; `release.yml` ready but does not create a GitHub Release/artifacts (#58); publish is operator-gated (#44) |
 | 4 | Docs honest + quickstart verified | ⚠️ | 4 README/CONTRIBUTING/CHANGELOG drifts tracked in #55; USER-GUIDE exists (2026-09-09) but third-party quickstart verification pending (#54) |
 | 5 | No placeholders in critical paths | ✅ | no TODO/FIXME in `packages/*/src` (grep 2026-09-11); renderers + CLI built (8 commands: build, check, diff, init, refine, skills-install, status, validate); limitations tracked as issues |
-| 6 | Security baseline | ⚠️ | `SECURITY.md` present; full-history secret scan pending (#56, priority high); Dependabot recurring failures (#57) |
+| 6 | Security baseline | ⚠️ | `SECURITY.md` present; full-history secret scan **clean** — gitleaks 8.30.1, 133/133 commits of `git rev-list --all` (incl. merge diffs via `--diff-merges=first-parent`, remote-only dependabot ref via stdin scan) + working tree, **0 findings** (2026-09-14, #56); Dependabot recurring failures (#57) remains open |
 | 7 | Governance in place | ✅ | LICENSE (MIT), CODE_OF_CONDUCT, CONTRIBUTING, GOVERNANCE — D-refs swept to **D1–D18** across all prose surfaces (CONTRIBUTING, GOVERNANCE, AGENTS.md ×2, PR template, build doc, USER-GUIDE, README ×2); the CHANGELOG's dated release note stays as history |
 | 8 | Maintainer sign-off | ❌ | operator-only decision; requires items 1/3 done and 4/6 resolved |
 
