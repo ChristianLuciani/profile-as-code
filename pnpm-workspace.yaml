@@ -2,6 +2,18 @@ packages:
   - packages/*
   - packages/renderers/*
 
+# GHSA-g7r4-m6w7-qqqr (arbitrary file read via dev server on Windows) is patched
+# in esbuild 0.28.1. tsup/bundle-require auto-installed the vulnerable 0.27.7
+# peer into pnpm-lock.yaml, and Dependabot (npm ecosystem) cannot bump transitive
+# deps pinned there — its security update failed with `security_update_not_possible`
+# (issue #57). The override lifts every esbuild resolution to the first patched
+# version; future bumps ride tsup/vite updates or the weekly manual review.
+# Note: pnpm overrides replace dependency ranges globally, including direct
+# pins (e.g. vite's exact esbuild). Identical resolution today (0.28.1 is the
+# only matching version); CI gates catch any breakage on the next refresh.
+overrides:
+  esbuild: '>=0.28.1'
+
 allowBuilds:
   esbuild: true
 
