@@ -6,7 +6,7 @@ Lightweight governance for an early-stage, spec-driven open source project.
 
 - **Maintainer:** Christian Luciani (sole maintainer until co-maintainers earn trust).
 - **Decision record:** all architectural decisions are recorded as ADR-lite entries in
-  [`docs/SPEC.md`](docs/SPEC.md) — currently D1–D14. New decisions follow the same pattern:
+  [`docs/SPEC.md`](docs/SPEC.md) — currently D1–D15. New decisions follow the same pattern:
   rationale first, trade-off explicit, numbered.
 - **Spec-driven:** non-trivial changes require a spec/design discussion first (issue → spec →
   implementation). The contract (`schema/`) and core interfaces (SPEC §7) are deliberately

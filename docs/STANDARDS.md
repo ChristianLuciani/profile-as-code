@@ -1,29 +1,68 @@
 # Repository standards & public-readiness policy
 
+> Status table refreshed **2026-09-11** (audit for issue #45). Every status cites its evidence —
+> a claim without source + date does not belong here (evidence rule).
+
 ## Private by default
 
-Every repository in this project starts **private**. A repository becomes **public** only after it
-passes the Public-Readiness Checklist below, with the maintainer's explicit sign-off.
+This repository starts and stays **private** until it passes the Public-Readiness Checklists below,
+with the maintainer's explicit sign-off. Policy ratified in the operator's global contract
+(`repo-governance` §5, prompt-studio). The visibility flip and PR merges are **human-only** actions;
+agents prepare, verify and leave everything ready, but never publish or merge on their own.
 
 Rationale: a public repo is a commitment — anyone can fork, file issues and judge it. It must not
 expose unfinished, unverified or untested work. This product must prove itself on **real user data**
 before it is presented publicly — the first real end-to-end test is a hard requirement, not an option.
 
-## Public-readiness checklist
+## Public-readiness checklist (repo gate)
 
-1. **First real test passed** — the system ran end-to-end on real user data (dogfood: the
-   maintainer's own profile rendered + deployed), not only on fixtures. This is the minimum the
-   repo must have before going public.
-2. **CI is green and meaningful** — automated checks cover the contract and the core test suite;
-   `ci` required on `main`.
-3. **Versioned** — at least one tagged release (v0.1.0+) with a `CHANGELOG.md` entry describing it.
-4. **Docs honest** — README reflects actual state (no "⏳" for work that is actually done, no claims
-   about features that don't exist); quickstart verified by someone other than the author.
-5. **No placeholders in critical paths** — no TODOs/FIXMEs in shipped code paths; known limitations
-   tracked as issues, not hidden in code.
-6. **Security baseline** — `SECURITY.md` present, no secrets in history (scan), dependencies audited.
-7. **Governance in place** — LICENSE, CODE_OF_CONDUCT, CONTRIBUTING, GOVERNANCE.
-8. **Maintainer sign-off** — explicit decision recorded (this file's "Status" section below).
+| # | Ítem | Status | Evidence (date) |
+|---|---|---|---|
+| — | Visibility | 🔒 **private** | per policy |
+| 1 | First real test (dogfood: real data rendered + deployed) | ✅ | renderers `github-readme` + `github-org` built and tested (`packages/renderers/`, 12 tests, CI green); real workspace: `profile-data` (private repo). Deploy evidence lives in the private workspace — re-run dogfood on current HEAD before flip |
+| 2 | CI green + meaningful | ✅ | `ci.yml` green as of 2026-09-11 (schema self-test + core/cli/renderers suites: **155 tests**, 12 files — `pnpm test` local run) |
+| 3 | Tagged release + changelog | ❌ **blocker** | no tag yet; `release.yml` ready but does not create a GitHub Release/artifacts (#58); publish is operator-gated (#44) |
+| 4 | Docs honest + quickstart verified | ⚠️ | 4 README/CONTRIBUTING/CHANGELOG drifts tracked in #55; USER-GUIDE exists (2026-09-09) but third-party quickstart verification pending (#54) |
+| 5 | No placeholders in critical paths | ✅ | no TODO/FIXME in `packages/*/src` (grep 2026-09-11); renderers + CLI built (8 commands: build, check, diff, init, refine, skills-install, status, validate); limitations tracked as issues |
+| 6 | Security baseline | ⚠️ | `SECURITY.md` present; full-history secret scan pending (#56, priority high); Dependabot recurring failures (#57) |
+| 7 | Governance in place | ✅ | LICENSE (MIT), CODE_OF_CONDUCT, CONTRIBUTING, GOVERNANCE — D-refs refreshed to D1–D15 (this PR, 2026-09-11) |
+| 8 | Maintainer sign-off | ❌ | operator-only decision; requires items 1/3 done and 4/6 resolved |
+
+**To go public:** resolve item 3 (tag v0.1.0 via #44) + close #55/#56, re-verify dogfood on HEAD,
+re-apply branch protection (`docs/ci-cd.md` has the exact calls), then flip visibility with the
+maintainer's sign-off (items 4/6 may carry tracked issues only if they don't contradict the flip).
+
+## Community-first checklist (operator contract v1.1.0)
+
+The repo-gate checklist answers "is the product ready"; this one answers "is the repo ready for a
+community" (source: prompt-studio `registry/specs/community-first.md`).
+
+| # | Ítem | Status | Evidence (date) |
+|---|---|---|---|
+| 1 | README.md at root (landing, state, how to run) | ✅ | landing + Estado + Roadmap tables; drift fixes in #55 |
+| 2 | LICENSE as file (not only metadata) | ✅ | MIT, 2026-08-07 |
+| 3 | CONTRIBUTING: direction + hygiene + **escalation/latency** | ⚠️ | direction + hygiene present; **no escalation/latency section** (community-first §7) — gap, add before accepting external contributors |
+| 4 | CODE_OF_CONDUCT.md | ✅ | Contributor Covenant, 2026-08-08 |
+| 5 | CI green (tests, lint, docs/links gates) | ⚠️ | tests green (155); **lint/formatter not configured** (#59) — required before external contributions |
+| 6 | docs/STANDARDS.md (this file) | ✅ | this PR |
+| 7 | Priorities visible (ROADMAP or pinned issue) | ⚠️ | README Roadmap table (M1–M5) serves; **no pinned issue** — pin #44 at flip |
+| 8 | AGENTS.md (repo >1/3 agent context window) | ✅ | present, with map + context-discipline rule |
+| 9 | Issue triage with intention (≤48h close-or-label) | ✅ | all 10 open issues labeled with type + priority (2026-09-10); `good first issue` + `help wanted` labels exist |
+| 10 | Family mapped + cross-links + "try it" path e2e | ⚠️ | family: `profile-as-code` (hub) + `profile-data-template` (satellite, private) + `profile-data` (operator data, private — dogfood only, never linked publicly); template also lives in-repo (`templates/profile-data*`). Cross-links verified + USER-GUIDE "try it" e2e pending (#54) |
+
+## Publication by families (community-first §9)
+
+The publication unit is the **family**, not the single repo:
+
+- **Hub:** `profile-as-code` — the engine. Its docs reference the in-repo template
+  (`templates/profile-data*`), so the public "try it" path must work from this repo alone.
+- **Satellite:** `profile-data-template` (private) — referenced by engine docs; must be published
+  together with the hub or its links must not point to it while private.
+- **Operator data:** `profile-data` (private) — stays private permanently: it is dogfood evidence,
+  referenced nowhere in public artifacts (never expose private URLs).
+
+Before flipping the first repo, apply both checklists to the whole family and verify every
+cross-link resolves to a public target.
 
 ## Free-plan constraints (GitHub Free)
 
@@ -40,25 +79,10 @@ Workarounds while private:
   effectively require public or Pro). While private, treat dependency bumps as a manual weekly review.
 - **Actions:** 2,000 minutes/month on private free repos — ample for this CI (~1 min/run).
 
-## Status of this repository
-
-| # | Checklist item | Status |
-|---|---|---|
-| — | Visibility | 🔒 **private** (per policy) |
-| 1 | First real test (dogfood: own profile rendered + deployed) | ❌ **blocker** — needs renderer `github-readme` + real data (roadmap M2) |
-| 2 | CI green + meaningful | ✅ `ci` (schema self-test + core suite, 37 tests) |
-| 3 | Tagged release + changelog | ❌ no tag yet |
-| 4 | Docs honest + quickstart verified | ⚠️ README current; quickstart not yet verified by a third party |
-| 5 | No placeholders in critical paths | ⚠️ renderers/CLI not built (tracked in roadmap, not TODOs) |
-| 6 | Security baseline | ✅ SECURITY.md; secret scan pending |
-| 7 | Governance | ✅ LICENSE, CODE_OF_CONDUCT, CONTRIBUTING, GOVERNANCE |
-| 8 | Maintainer sign-off | ❌ pending |
-
-**To go public:** complete item 1 (dogfood) as the entry gate, tag v0.1.0, re-apply branch
-protection, then flip visibility with the maintainer's sign-off.
-
 ## Applying this policy to new projects
 
 When creating a new repository: `gh repo create <name> --private --source .` (or private in the
-UI). Record the checklist status in the new repo's `docs/STANDARDS.md` copy. Do not flip to public
-until all checklist items are ✅ and the maintainer signs off.
+UI). Record both checklist statuses in the new repo's `docs/STANDARDS.md` copy (reference:
+prompt-studio's own STANDARDS.md). Do not flip to public until all items are ✅ (or carry tracked,
+non-blocking issues) and the maintainer signs off. Refresh this table with dated evidence before
+every flip decision — a stale table is not a sign-off basis.
