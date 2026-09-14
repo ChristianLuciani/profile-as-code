@@ -16,7 +16,7 @@ minor versions may contain breaking contract changes.
   tag↔versión → build → test → assert del tarball → `npm publish --provenance --access public`
   (`id-token: write` para provenance OIDC, secret `NPM_TOKEN`). El publish real lo dispara el
   operador (#44). El tarball es self-contained: `@profile-as-code/core` + renderers se buclean en un
-  `dist/index.js` único (tsup, ~93 KB) porque no están en npm; `yaml`/`zod` quedan como dependencias
+  `dist/index.js` único (tsup; 129.83 KB, build 2026-09-10) porque no están en npm; `yaml`/`zod` quedan como dependencias
   reales. Assert (`packages/cli/scripts/verify-pack.mjs`, corrido en `ci.yml` y pre-publish):
   el tarball expone el bin `pasco` (existe, ejecutable, shebang, sin `workspace:` en las ranges que
   resuelve el consumidor) + smoke de instalación aislada del bin linkeado (`pasco <versión>`).
@@ -114,8 +114,11 @@ minor versions may contain breaking contract changes.
 - **Core engine (M1)** — `packages/core`: `load()` (YAML → validate → normalize), `driftCheck()`
   (factual contradictions, warn semantics D12), `geoCheck()` (consistency score + structured-data
   readiness), `compile()` (language-aware platform slices). Zod generated from the schema.
-- **CI/CD** — required `ci` check on `main` (schema self-test + pnpm test/build), Dependabot
-  (npm + actions), branch protection with auto-delete of merged branches.
+- **CI/CD** — `ci` check on every PR and on `main` (schema self-test + pnpm test/build),
+  Dependabot (npm + actions), auto-delete of merged head branches. Branch protection
+  (required status checks) is deferred while the repo is private on GitHub Free —
+  `main` is protected by access + process (`docs/STANDARDS.md`); re-applied on flip
+  (`docs/ci-cd.md`).
 - **Community scaffolding** — CONTRIBUTING, CODE_OF_CONDUCT, GOVERNANCE, SECURITY, PR/issue
   templates, GitHub Discussions.
 - **Prior-art research** — `docs/research/01-prior-art.md`, SOTA research prompts + runner.

@@ -16,8 +16,11 @@ every decision lives in [`docs/SPEC.md`](docs/SPEC.md) (decisions D1–D14). Rea
 
 ## Ground rules
 
-1. **Never push to `main`.** It is protected: every change goes through a PR with the `ci`
-   check green (schema contract self-test + `pnpm test` + `pnpm build`).
+1. **Never push to `main`.** Every change goes through a PR with the `ci` check green
+   (schema contract self-test + `pnpm test` + `pnpm build`); only the maintainer merges.
+   While the repo is private on GitHub Free, branch protection is not available — `main` is
+   protected by access + process (see [`docs/STANDARDS.md`](docs/STANDARDS.md)); it is
+   re-applied the moment the repo goes public (see [`docs/ci-cd.md`](docs/ci-cd.md)).
 2. **Work on a descriptive branch** (e.g. `feat/<topic>`, `fix/<topic>`) — never push to
    `main`. The maintainer merges PRs. (Note: `aionui/pi/…` branch names come from the author's
    agent harness, not a project convention.)
