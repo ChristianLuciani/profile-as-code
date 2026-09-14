@@ -13,4 +13,4 @@
 - [ ] Tests added/updated for changed behavior (or explicit reason why not)
 - [ ] Docs updated if behavior, contract or schema changed (`docs/`, `schema/`)
 - [ ] Any quantitative claim carries a dated source (claims-evidence rule)
-- [ ] Reviewed against `docs/SPEC.md` decisions (D1–D14); open questions noted in the PR body
+- [ ] Reviewed against `docs/SPEC.md` decisions (D1–D18); open questions noted in the PR body

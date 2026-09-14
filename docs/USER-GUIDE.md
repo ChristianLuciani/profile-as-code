@@ -19,7 +19,7 @@ Two repos, two roles. You never mix them.
 | `profile-as-code` (this repo) | The **engine**: schema, core, CLI `pasco`, renderers, platform skills | Product (public) | Install it, update it — never put your data here |
 | `profile-data-<username>` | **Your** workspace: facts as YAML, generated outputs, changelog | You (private by default) | Yes — this is where you edit everything |
 
-Core principles (SPEC D1–D15, abbreviated):
+Core principles (SPEC D1–D18, abbreviated):
 
 - **Facts vs storytelling.** Dates, roles, DOIs, projects are deterministic data
   (schema + drift-check). Prose (bios, headlines) is generated per platform, in

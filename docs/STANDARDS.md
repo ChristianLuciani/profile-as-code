@@ -19,18 +19,19 @@ before it is presented publicly — the first real end-to-end test is a hard req
 | # | Item | Status | Evidence (date) |
 |---|---|---|---|
 | — | Visibility | 🔒 **private** | per policy |
-| 1 | First real test (dogfood: real data rendered + deployed) | ✅ | renderers `github-readme` + `github-org` built and tested (`packages/renderers/`, 12 tests, CI green); real workspace: `profile-data` (private repo). Deploy evidence lives in the private workspace — re-run dogfood on current HEAD before flip |
-| 2 | CI green + meaningful | ✅ | `ci.yml` green as of 2026-09-11 (schema self-test + core/cli/renderers suites: **155 tests**, 12 files — `pnpm test` local run) |
+| 1 | First real test (dogfood: real data rendered + deployed) | ⚠️ | renderers `github-readme` + `github-org` built and tested (`packages/renderers/`, 12 tests, CI green); real workspace: `profile-data` (private repo). Deploy evidence is **not externally auditable** (private workspace) — entry gate: re-run dogfood on current HEAD and record a deploy artifact before flip (issue #45) |
+| 2 | CI green + meaningful | ✅ | `ci` check SUCCESS on PR head (Actions run 34862402503, 2026-09-14) + suites verified: **155 tests**, 12 files (`pnpm test`, 2026-09-11) |
 | 3 | Tagged release + changelog | ❌ **blocker** | no tag yet; `release.yml` ready but does not create a GitHub Release/artifacts (#58); publish is operator-gated (#44) |
 | 4 | Docs honest + quickstart verified | ⚠️ | 4 README/CONTRIBUTING/CHANGELOG drifts tracked in #55; USER-GUIDE exists (2026-09-09) but third-party quickstart verification pending (#54) |
 | 5 | No placeholders in critical paths | ✅ | no TODO/FIXME in `packages/*/src` (grep 2026-09-11); renderers + CLI built (8 commands: build, check, diff, init, refine, skills-install, status, validate); limitations tracked as issues |
 | 6 | Security baseline | ⚠️ | `SECURITY.md` present; full-history secret scan pending (#56, priority high); Dependabot recurring failures (#57) |
-| 7 | Governance in place | ✅ | LICENSE (MIT), CODE_OF_CONDUCT, CONTRIBUTING, GOVERNANCE — D-refs refreshed to D1–D15 (this PR, 2026-09-11) |
+| 7 | Governance in place | ✅ | LICENSE (MIT), CODE_OF_CONDUCT, CONTRIBUTING, GOVERNANCE — D-refs swept to **D1–D18** across all prose surfaces (CONTRIBUTING, GOVERNANCE, AGENTS.md ×2, PR template, build doc, USER-GUIDE, README ×2); the CHANGELOG's dated release note stays as history |
 | 8 | Maintainer sign-off | ❌ | operator-only decision; requires items 1/3 done and 4/6 resolved |
 
-**To go public:** resolve item 3 (tag v0.1.0 via #44) + close #55/#56, re-verify dogfood on HEAD,
-re-apply branch protection (`docs/ci-cd.md` has the exact calls), then flip visibility with the
-maintainer's sign-off (items 4/6 may carry tracked issues only if they don't contradict the flip).
+**To go public:** resolve item 3 (tag v0.1.0 via #44) + close #55/#56, re-verify dogfood on HEAD
+(item 1), flip visibility with the maintainer's sign-off, **then immediately re-apply branch
+protection** (`docs/ci-cd.md` has the exact calls — protection exists only once the repo is public
+on GitHub Free; items 4/6 may carry tracked issues only if they don't contradict the flip).
 
 ## Community-first checklist (operator contract v1.1.0)
 
@@ -54,12 +55,15 @@ community" (source: prompt-studio `registry/specs/community-first.md`).
 
 The publication unit is the **family**, not the single repo:
 
-- **Hub:** `profile-as-code` — the engine. Its docs reference the in-repo template
-  (`templates/profile-data*`), so the public "try it" path must work from this repo alone.
-- **Satellite:** `profile-data-template` (private) — referenced by engine docs; must be published
-  together with the hub or its links must not point to it while private.
-- **Operator data:** `profile-data` (private) — stays private permanently: it is dogfood evidence,
-  referenced nowhere in public artifacts (never expose private URLs).
+- **Hub:** `profile-as-code` — the engine. The in-repo `templates/` dirs are **pointers only**
+  (their READMEs link the satellite); the documented quickstart (`docs/USER-GUIDE.md`) creates a
+  workspace with `--template https://github.com/ChristianLuciani/profile-data-template`.
+- **Satellite:** `profile-data-template` (private) — **required for the "try it" path**: with the
+  satellite private, a newcomer cannot create a workspace. Either publish it together with the
+  hub, or disable/repurpose the quickstart links while it stays private.
+- **Operator data:** `profile-data` (private) — stays private permanently: dogfood evidence only.
+  Never expose its URL in public artifacts; name-only references as dogfood context are allowed
+  (community-first §9).
 
 Before flipping the first repo, apply both checklists to the whole family and verify every
 cross-link resolves to a public target.
