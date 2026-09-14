@@ -9,7 +9,7 @@
 
 Repo: `/Users/eva/PROJECTOS/GitHub/ChristianLuciani/profile-as-code` — worktrees live in `../.worktrees/`.
 
-- **SPEC**: `docs/SPEC.md` (decisions D1–D14; §6 data model; §7 core interfaces; §8 GEO layer)
+- **SPEC**: `docs/SPEC.md` (decisions D1–D18; §6 data model; §7 core interfaces; §8 GEO layer)
 - **Contract**: `schema/profile.schema.json` — JSON Schema 2020-12, the single contract source (D3)
 - **Contract doc**: `schema/README.md` (content file → property mapping, validation semantics)
 

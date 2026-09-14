@@ -1,7 +1,7 @@
 # Contributing to profile-as-code
 
 First off: thanks for considering a contribution. This is an early-stage, spec-driven project —
-every decision lives in [`docs/SPEC.md`](docs/SPEC.md) (decisions D1–D14). Read it before diving in.
+every decision lives in [`docs/SPEC.md`](docs/SPEC.md) (decisions D1–D18). Read it before diving in.
 
 ## What you can contribute
 
@@ -9,7 +9,7 @@ every decision lives in [`docs/SPEC.md`](docs/SPEC.md) (decisions D1–D14). Rea
 |---|---|---|
 | **Core engine** (load, drift, geo, compile) | `packages/core/` | [`good first issue`](https://github.com/ChristianLuciani/profile-as-code/labels/good%20first%20issue) |
 | **Schema** (the contract) | `schema/profile.schema.json` + `scripts/schema-check/` | Issue first — the contract is additive and reviewed carefully (D3) |
-| **Renderers** | `packages/renderers/<platform>/` (planned) | One adapter per platform — the contribution seam |
+| **Renderers** | `packages/renderers/<platform>/` — 2 shipped (`github-readme`, `github-org`); new platforms welcome | One adapter per platform — the contribution seam |
 | **Platform skills** | `skills/<platform>/` | SOTA knowledge for a platform we don't cover (Behance, Xing, Indeed…) — see `skills/README.md` |
 | **Research** | `docs/research/` | Prior-art and per-platform SOTA research, all claims sourced and dated |
 | **Docs** | `docs/`, `README.md` | Typos, clarifications, translation of docs |
