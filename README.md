@@ -66,7 +66,7 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 
 **Brand flavor (M6, D15):** el mismo engine modela identidades de marca — `pasco init
 --flavor brand`, handle matrix (`socialHandles`), `schema.org/Organization` GEO,
-renderer `github-org`. Primer workspace brand: Topia (privado; convención `profile-data-<username>` — SPEC §17).
+renderer `github-org`. Primer workspace brand: Topia — planeado como repo privado (`profile-data-<username>`, SPEC §9.1).
 
 ## Arranque (dev)
 
@@ -102,11 +102,12 @@ profile-as-code/
 ├── schema/               # EL contrato (JSON Schema, semver, aditivo)
 ├── packages/
 │   ├── core/             # ✅ load · drift · geo · compile (Zod desde schema)
-│   ├── renderers/        # ⏳ un adapter por plataforma (seam de contribución)
-│   └── cli/              # ⏳ pasco build|validate|diff|check|refine|skills:install
+│   ├── renderers/        # github-readme + github-org — más adapters por plataforma (seam de contribución)
+│   └── cli/              # pasco — init·validate·build·diff·status ✅ (refine/check/skills:install STUB, M3)
 ├── skills/               # skills por plataforma (conocimiento SOTA)
 ├── templates/
-│   └── profile-data/  # workspace de datos del usuario — template fork/clone (SPEC §9)
+│   ├── profile-data/       # workspace de datos del usuario — template fork/clone (SPEC §9)
+│   └── profile-data-brand/ # workspace brand — template fork/clone (multi-workspace, §9.1/§17.2)
 └── docs/                 # SPEC, research, ci-cd, build prompts
 ```
 
