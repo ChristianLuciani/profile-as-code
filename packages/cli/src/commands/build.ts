@@ -6,22 +6,24 @@
  * platforms without a renderer print their slices (renderers land in M4).
  */
 
-import { compile, load, LoadError, PLATFORMS, SchemaValidationError } from '@profile-as-code/core';
-import type { PlatformProfile } from '@profile-as-code/core';
+import { compile, collectMedia, load, LoadError, mediaManifest, PLATFORMS, SchemaValidationError } from '@profile-as-code/core';
+import type { MediaAsset, PlatformProfile } from '@profile-as-code/core';
 import { render as renderGithubReadme } from '@profile-as-code/renderers-github-readme';
 import { render as renderGithubOrg } from '@profile-as-code/renderers-github-org';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { parseLang, parsePlatform } from '../contract.js';
 import { EXIT } from '../exit.js';
 import { isJsonMode, line, report, section } from '../output.js';
 import type { Pascorc } from '../workspace.js';
 import { defaultsLang } from '../workspace.js';
 
-/** Platforms with an implemented renderer (M2: github-readme; M6: github-org; M4 adds the rest). */
-const RENDERERS: Partial<Record<string, (slice: PlatformProfile) => string>> = {
-  'github-readme': (slice) => renderGithubReadme(slice).text,
-  'github-org': (slice) => renderGithubOrg(slice).text,
+/** Platforms with an implemented renderer (M2: github-readme; M6: github-org; M4 adds the rest).
+ *  M8 (§18.6): renderers receive the media bundle and declare the deploy-relative
+ *  targets they reference — the build copies exactly those bytes (checksummed). */
+const RENDERERS: Partial<Record<string, (slice: PlatformProfile, assets: readonly MediaAsset[]) => { text: string; assets?: string[] }>> = {
+  'github-readme': (slice, assets) => renderGithubReadme(slice, { assets }),
+  'github-org': (slice) => renderGithubOrg(slice),
 };
 
 export interface BuildArgs {
@@ -58,16 +60,47 @@ export function runBuild(args: BuildArgs): number {
 
   // Renderer platforms: write the deploy artifact (SPEC §15.5 — profiles/ ARE the deploy artifacts).
   // github-org is a brand surface (D15/§17) — only rendered for brand workspaces.
-  const written: { platform: string; path: string }[] = [];
+  // M8 (§18.6 media transport): collect the bundle ONCE — public path-locator
+  // artifacts, sha256 + bytes recorded at compile, deterministic (sorted). The
+  // renderer decides WHICH targets its text references; the build copies exactly
+  // those bytes into profiles/<platform>/assets/ (the deploy surface). Findings
+  // are machine-state facts — build proceeds, `pasco check` is the gate.
+  const bundle = collectMedia(profile, args.workspace);
+
+  const written: { platform: string; path: string; assets?: number }[] = [];
   for (const s of slices) {
     const renderer = RENDERERS[s.platform];
     if (renderer === undefined) continue;
     if (s.platform === 'github-org' && profile.flavor !== 'brand') continue;
     const dir = join(args.workspace, 'profiles', s.platform);
     mkdirSync(dir, { recursive: true });
+    const result = renderer(s, bundle.assets);
     const path = join(dir, 'README.md');
-    writeFileSync(path, renderer(s));
-    written.push({ platform: s.platform, path });
+    writeFileSync(path, result.text);
+
+    // assets/ IS part of the platform output (Q9/D19 — one dir per platform,
+    // no shared content-addressed store): rebuild it clean so the output dir
+    // stays a pure function of the workspace (no stale drift, §15.1).
+    let bundled = 0;
+    const referenced = result.assets ?? [];
+    if (referenced.length > 0) {
+      const assetsDir = join(dir, 'assets');
+      rmSync(assetsDir, { recursive: true, force: true });
+      const byTarget = new Map(bundle.assets.map((a) => [a.target, a] as const));
+      const copied = referenced.map((target) => {
+        const asset = byTarget.get(target);
+        if (asset === undefined) {
+          throw new Error(`renderer "${s.platform}" declared asset "${target}" without a bundle entry — renderers may only reference collectMedia() targets (M8 contract)`);
+        }
+        const dest = join(assetsDir, ...asset.target.split('/').slice(1));
+        mkdirSync(dirname(dest), { recursive: true });
+        copyFileSync(asset.source, dest);
+        return asset;
+      });
+      writeFileSync(join(assetsDir, 'manifest.json'), JSON.stringify(mediaManifest(s.platform, s.lang, copied), null, 2) + '\n');
+      bundled = copied.length;
+    }
+    written.push({ platform: s.platform, path, ...(bundled > 0 ? { assets: bundled } : {}) });
   }
 
   if (isJsonMode()) {
@@ -87,6 +120,7 @@ export function runBuild(args: BuildArgs): number {
           fallbacks: s.fallbacks,
         })),
         written,
+        media: bundle.findings,
       },
     });
   }
@@ -103,7 +137,11 @@ export function runBuild(args: BuildArgs): number {
   }
   if (written.length > 0) {
     section('deploy artifacts written');
-    for (const w of written) line(`  ${w.path}`);
+    for (const w of written) line(`  ${w.path}${w.assets !== undefined ? ` (+${w.assets} asset(s) in assets/)` : ''}`);
+  }
+  if (bundle.findings.length > 0) {
+    section(`media pipeline (M8/§18.6): ${bundle.findings.length} finding(s)`);
+    for (const f of bundle.findings) line(`  ${f.severity}: [${f.code}] ${f.message} (${f.path})`);
   }
 
   return EXIT.OK;

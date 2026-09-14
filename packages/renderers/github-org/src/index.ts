@@ -12,7 +12,7 @@
  * links + claimed handle urls, §17.1) · generated footer with fact-count.
  */
 
-import type { Lang, PlatformProfile } from '@profile-as-code/core';
+import { credentialLdEntries, type Lang, type PlatformProfile } from '@profile-as-code/core';
 
 export const deploySpec = 'git' as const;
 
@@ -146,6 +146,11 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   if (tagline !== undefined) jsonLd.slogan = tagline;
   if (mission !== undefined) jsonLd.description = mission;
   jsonLd.sameAs = sameAs;
+  // §18.9 (D17): the brand flavor gets the same GEO payoff — Organization surfaces
+  // carry hasCredential too (ISO certifications, awards). credentialLdEntries
+  // filters internally (§18.5 — public only); absent → the key is not emitted.
+  const publicCredentials = credentialLdEntries(p.credentials ?? []);
+  if (publicCredentials.length > 0) jsonLd.hasCredential = publicCredentials;
   out.push('', '<!-- JSON-LD (schema.org Organization) -->', '```json', JSON.stringify(jsonLd, null, 2), '```');
 
   // 8. Footer — deterministic marker + fact count (for diff/CI assertions, §15.3).

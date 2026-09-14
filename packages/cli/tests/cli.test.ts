@@ -5,6 +5,7 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -535,3 +536,120 @@ describe('pasco status (D18 deploy ledger)', () => {
 function copyFixture(from: string, to: string): void {
   execFileSync('cp', ['-R', from + '/.', to + '/']);
 }
+
+describe('pasco build — media pipeline (M8, §18.6)', () => {
+  function mediaWorkspace(): string {
+    const ws = tempDir();
+    execFileSync('cp', ['-R', `${MINIMAL}/.`, ws]);
+    mkdirSync(join(ws, 'media', 'photos'), { recursive: true });
+    writeFileSync(join(ws, 'media', 'photos', 'reel-2025.mp4'), 'reel-bytes');
+    writeFileSync(
+      join(ws, 'content', 'artifacts.yaml'),
+      `- id: reel-local
+  kind: showreel
+  title: Reel 2025
+  locator:
+    path: media/photos/reel-2025.mp4
+  visibility: public
+`,
+    );
+    return ws;
+  }
+
+  it('bundles referenced assets into profiles/<platform>/assets/ with a deterministic manifest.json', () => {
+    const ws = mediaWorkspace();
+    const r = run(['build', 'github-readme', '--json', '--workspace', ws]);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as { data: { written: { platform: string; assets?: number }[] } };
+    expect(data.data.written[0]?.assets).toBe(1);
+
+    const assetPath = join(ws, 'profiles', 'github-readme', 'assets', 'reel-local', 'reel-2025.mp4');
+    expect(existsSync(assetPath)).toBe(true);
+    expect(readFileSync(assetPath, 'utf8')).toBe('reel-bytes'); // byte-for-byte copy
+
+    const manifest = JSON.parse(readFileSync(join(ws, 'profiles', 'github-readme', 'assets', 'manifest.json'), 'utf8')) as {
+      version: number;
+      platform: string;
+      lang: string;
+      assets: { id: string; target: string; sha256: string; bytes: number; origin: string }[];
+    };
+    expect(manifest.version).toBe(1);
+    expect(manifest.platform).toBe('github-readme');
+    expect(manifest.lang).toBe('en');
+    expect(manifest.assets).toEqual([
+      { id: 'reel-local', target: 'assets/reel-local/reel-2025.mp4', sha256: createHash('sha256').update('reel-bytes').digest('hex'), bytes: 'reel-bytes'.length, origin: 'workspace' },
+    ]);
+  });
+
+  it('rebuild is byte-stable and cleans stale assets (output dir = pure function of the workspace)', () => {
+    const ws = mediaWorkspace();
+    run(['build', 'github-readme', '--workspace', ws]);
+    const manifest1 = readFileSync(join(ws, 'profiles', 'github-readme', 'assets', 'manifest.json'), 'utf8');
+    const stale = join(ws, 'profiles', 'github-readme', 'assets', 'old-one', 'x.bin');
+    mkdirSync(join(ws, 'profiles', 'github-readme', 'assets', 'old-one'), { recursive: true });
+    writeFileSync(stale, 'stale'); // simulates a removed artifact left behind
+    const r = run(['build', 'github-readme', '--json', '--workspace', ws]);
+    expect(r.code).toBe(0);
+    expect(existsSync(stale)).toBe(false); // rebuilt clean
+    const manifest2 = readFileSync(join(ws, 'profiles', 'github-readme', 'assets', 'manifest.json'), 'utf8');
+    expect(manifest2).toBe(manifest1); // §15.1: same input → same bytes (manifest incl.)
+    expect(manifest2).not.toContain('old-one');
+  });
+
+  it('writes no assets/ dir when nothing is bundled (url locators only)', () => {
+    const ws = tempDir();
+    execFileSync('cp', ['-R', `${MINIMAL}/.`, ws]);
+    const r = run(['build', 'github-readme', '--json', '--workspace', ws]);
+    expect(r.code).toBe(0);
+    expect(existsSync(join(ws, 'profiles', 'github-readme', 'assets'))).toBe(false);
+  });
+});
+
+describe('pasco check — media pipeline rules (M8, §18.6/§18.8)', () => {
+  function workspaceWithLocator(path: string, checksum?: string): string {
+    const ws = tempDir();
+    execFileSync('cp', ['-R', `${MINIMAL}/.`, ws]);
+    const extra = checksum !== undefined ? `  checksum: sha256:${checksum}\n` : '';
+    writeFileSync(
+      join(ws, 'content', 'artifacts.yaml'),
+      `- id: reel-local
+  kind: showreel
+  title: Reel 2025
+  locator:
+    path: ${path}
+${extra}  visibility: public
+`,
+    );
+    return ws;
+  }
+
+  it('exit 1 when an in-workspace media file is missing (SSOT violation = error, D12 class)', () => {
+    const ws = workspaceWithLocator('media/photos/gone.mp4');
+    const r = run(['check', '--json', '--workspace', ws]);
+    expect(r.code).toBe(1);
+    const data = JSON.parse(r.stdout) as { data: { media: { code: string; severity: string }[] } };
+    expect(data.data.media).toEqual([
+      expect.objectContaining({ code: 'check/media-missing-workspace', severity: 'error' }),
+    ]);
+  });
+
+  it('exit 0 with a warn when an external locator has no evidence root on this machine (CI-degradable)', () => {
+    const ws = workspaceWithLocator('datasets/one.csv');
+    const r = run(['check', '--json', '--workspace', ws]);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as { data: { media: { code: string; severity: string }[] } };
+    expect(data.data.media).toEqual([
+      expect.objectContaining({ code: 'check/media-external-missing', severity: 'warn' }),
+    ]);
+  });
+
+  it('exit 1 on a declared-checksum mismatch (immutable artifact promise broken, §18.6)', () => {
+    const ws = workspaceWithLocator('media/photos/reel.mp4', 'f'.repeat(64));
+    mkdirSync(join(ws, 'media', 'photos'), { recursive: true });
+    writeFileSync(join(ws, 'media', 'photos', 'reel.mp4'), 'actual');
+    const r = run(['check', '--json', '--workspace', ws]);
+    expect(r.code).toBe(1);
+    const data = JSON.parse(r.stdout) as { data: { media: { code: string }[] } };
+    expect(data.data.media.map((f) => f.code)).toContain('check/media-checksum-mismatch');
+  });
+});

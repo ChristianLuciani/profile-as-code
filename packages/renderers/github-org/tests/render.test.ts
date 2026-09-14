@@ -182,3 +182,41 @@ describe('github-org renderer (brand flavor, §17)', () => {
     }
   });
 });
+
+/** §18.9 brand payoff: credentials render on Organization surfaces too (public only). */
+describe('github-org JSON-LD hasCredential (D17, §18.9)', () => {
+  function brandWorkspaceWithCredentials(credentialsYaml: string): string {
+    const dir = brandWorkspace();
+    writeFileSync(join(dir, 'content', 'credentials.yaml'), credentialsYaml);
+    return dir;
+  }
+
+  it('emits hasCredential → EducationalOccupationalCredential for public credentials', () => {
+    const profile = load(brandWorkspaceWithCredentials(`- id: iso-27001
+  kind: certificate
+  title: ISO 27001 Lead Implementer
+  issuer: PECB
+  verifyUrl: https://credly.com/iso-27001
+  issued: '2025-03-01'
+  visibility: public
+`));
+    const { text } = render(compile(profile, 'github-org', 'en'), { lang: 'en' });
+    const jsonBlock = text.split('```json')[1]!.split('```')[0]!;
+    const jsonLd = JSON.parse(jsonBlock) as { hasCredential?: unknown[] };
+    expect(jsonLd.hasCredential).toEqual([
+      { '@type': 'EducationalOccupationalCredential', name: 'ISO 27001 Lead Implementer', url: 'https://credly.com/iso-27001', awardedBy: { '@type': 'Organization', name: 'PECB' }, validFrom: '2025-03-01' },
+    ]);
+  });
+
+  it('never emits non-public credentials (§18.5 — renderers emit only public)', () => {
+    const profile = load(brandWorkspaceWithCredentials(`- id: internal-cert
+  kind: certificate
+  title: Internal Certification
+  issuer: Internal
+  visibility: private
+`));
+    const { text } = render(compile(profile, 'github-org', 'en'), { lang: 'en' });
+    expect(text).not.toContain('hasCredential');
+    expect(text).not.toContain('Internal Certification');
+  });
+});
