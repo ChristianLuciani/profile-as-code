@@ -10,11 +10,11 @@ The profile-as-code CLI (M1). Consumes `@profile-as-code/core` (`load`/`driftChe
 |---|---|---|
 | `pasco init [dir]` | Scaffold a profile-data workspace (`content/identity.yaml`, `README.md`, `.pascorc`) — `pasco validate`-clean | ✅ |
 | `pasco validate [--json]` | Schema **fail** (exit 1) + drift/geo **warn** (exit 0) — D12 | ✅ |
-| `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (github-readme, M2) also write `profiles/<platform>/README.md` | ✅ |
+| `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (github-readme, M2) also write `profiles/<platform>/README.md` + bundled media in `profiles/<platform>/assets/` with `assets/manifest.json` (M8/§18.6 — public path-locator artifacts, sha256 at compile; see `docs/media-pipeline.md`) | ✅ |
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--write-checklist]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never + ledger write path (D18, §19) | ✅ |
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13) | 🚧 stub |
-| `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) | 🚧 stub |
+| `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) | 🚧 remaining catalog stub (M3/M4) |
 | `pasco skills:install <agent>` | Skills-studio projection command (AGOS) | 🚧 stub |
 
 Stubs are explicit: they print a clear "not implemented" message plus the session

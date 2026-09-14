@@ -216,3 +216,84 @@ describe('renderer github-readme — evidence registry (v1.4/D17/§18)', () => {
     }
   });
 });
+
+describe('renderer github-readme — media pipeline (M8, §18.6)', () => {
+  function mediaSlice(files: Record<string, string>) {
+    const dir = mkdtempSync(join(tmpdir(), 'pasco-media-render-'));
+    mkdirSync(join(dir, 'content'), { recursive: true });
+    for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, 'content', name), body, 'utf8');
+    try {
+      return { slice: compile(load(dir), 'github-readme', 'en'), cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+    } catch (err) {
+      rmSync(dir, { recursive: true, force: true });
+      throw err;
+    }
+  }
+
+  const MEDIA = {
+    'identity.yaml': 'name: Elena Vasquez\nlinks:\n  - label: GitHub\n    url: https://github.com/elena\n',
+    'artifacts.yaml': `- id: reel-local
+  kind: showreel
+  title: Reel 2025
+  locator:
+    path: media/photos/reel-2025.mp4
+  visibility: public
+- id: gallery-remote
+  kind: gallery
+  title: Remote Gallery
+  locator:
+    url: https://vimeo.com/gallery
+`,
+  };
+
+  /** The build's bundle, as the renderer receives it via opts.assets. */
+  const BUNDLE = [
+    { artifactId: 'reel-local', target: 'assets/reel-local/reel-2025.mp4', source: '/ws/media/photos/reel-2025.mp4', sha256: 'a'.repeat(64), bytes: 10, origin: 'workspace' as const },
+  ];
+
+  it('emits the deploy-relative link for a bundled path-locator artifact and declares the assets it referenced', () => {
+    const { slice, cleanup } = mediaSlice(MEDIA);
+    try {
+      const out = render(slice, { assets: BUNDLE });
+      expect(out.text).toContain('- **Reel 2025** (showreel) — [assets/reel-local/reel-2025.mp4](assets/reel-local/reel-2025.mp4)');
+      expect(out.assets).toEqual(['assets/reel-local/reel-2025.mp4']);
+      expect(out.text).not.toContain('media/photos'); // never a workspace-internal path
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('without a bundle entry the path locator stays link-free — byte-identical to M7 output (§18.3)', () => {
+    const { slice, cleanup } = mediaSlice(MEDIA);
+    try {
+      const out = render(slice);
+      expect(out.text).toContain('- **Reel 2025** (showreel)');
+      expect(out.text).not.toContain('assets/reel-local');
+      expect(out.assets).toBeUndefined();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('url-locator artifacts are never declared as assets (they link verbatim, URL SSOT)', () => {
+    const { slice, cleanup } = mediaSlice(MEDIA);
+    try {
+      const out = render(slice, { assets: BUNDLE });
+      expect(out.assets).not.toContain('assets/gallery-remote');
+      expect(out.text).toContain('https://vimeo.com/gallery');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('is deterministic with assets: same input → same bytes', () => {
+    const { slice, cleanup } = mediaSlice(MEDIA);
+    try {
+      const a = render(slice, { assets: BUNDLE });
+      const b = render(slice, { assets: BUNDLE });
+      expect(a).toEqual(b);
+    } finally {
+      cleanup();
+    }
+  });
+});

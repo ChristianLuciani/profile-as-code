@@ -29,7 +29,9 @@ export type {
 } from './ledger.js';
 export { PLATFORMS, LANGS } from './types.js';
 export { checkRegistryIntegrity, registryCheck, isPublicEntry, credentialLdEntries } from './registry.js';
+export { artifactAssetTarget, collectMedia, mediaManifest, DEFAULT_MAX_BYTES } from './media.js';
 export type { RegistryIssue, RegistryFinding } from './registry.js';
+export type { MediaAsset, MediaBundle, CollectMediaOptions, ManifestEntry } from './media.js';
 export type {
   Profile,
   LoadedProfile,

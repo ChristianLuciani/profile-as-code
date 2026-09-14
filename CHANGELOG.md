@@ -53,6 +53,39 @@ minor versions may contain breaking contract changes.
     `## Artifacts` (solo `public`; locators `path` NUNCA emiten URL pública — D14) y
     `hasCredential` en su JSON-LD. Template-side (`media/` scaffold, evidence-packs,
     symlink doc) vive en profile-data-template#8; M8 (pipeline de media) es el siguiente.
+- **Media pipeline — byte-stable asset transport (M8, D17/D19 — issue #48)** — los
+  pointers se convierten en bytes deployables sin que el motor sea dueño de los binarios
+  (D14). Q9 resuelto como **D19** (§13): un dir `assets/` por salida de plataforma, NO un
+  store content-addressed compartido (las superficies de deploy son repos separados; cada
+  salida es self-contained y reviewable).
+  - **Core** — `collectMedia(profile, workspace)`: bundler único — solo artifacts
+    `path`-locator **public** (§18.5), sha256 + bytes en orden determinista (sorted por id),
+    verificación del `checksum` declarado (mismatch = error, asset NO bundleado); cadena de
+    resolución: `media/…` = workspace-relative (SSOT; missing/unsafe = error), resto =
+    external bajo `PASCO_EVIDENCE_ROOT` (env > gitignored `.pasco/local.toml`, per-machine,
+    nunca commiteado; missing = warn, CI-degradable §18.3); guard de contención
+    (`media-path-unsafe`); symlink fuera del workspace sin checksum = warn (§18.7);
+    oversize > 50 MB = warn (§18.6). Targets `assets/<id>/<basename>` (ids únicos
+    core-checked → collision-free) — `artifactAssetTarget` es la derivación única que
+    renderer y build comparten. `mediaManifest` = registro compile-time determinista.
+  - **Renderer interface (§15.2)** — el slot `assets?: string[]` queda definido: el
+    renderer DECLARA los targets deploy-relativos que su texto referencia (via
+    `opts.assets`); sin bundle → path locators quedan sin link (output byte-idéntico al
+    pre-M8). `github-readme` emite ` — [assets/<id>/<basename>](…)` para los bundleados y
+    nunca un path interno del workspace.
+  - **Build** — copia exactamente los targets referenciados a
+    `profiles/<platform>/assets/` y escribe `assets/manifest.json` (version, platform,
+    lang, sha256/bytes/origin por asset); rebuild limpio — el output dir queda como
+    función pura del workspace (§15.1, sin drift stale). `pasco check` ejecuta las reglas
+    de media (error: `media-missing-workspace`/`media-path-unsafe`/`media-checksum-mismatch`;
+    warn: `media-external-missing`/`media-symlink-external`/`media-oversize`/
+    `media-unbundled-no-id`).
+  - **Docs** — `docs/media-pipeline.md` (contrato engine-side: pipeline, resolución,
+    manifest, git-lfs, symlink tradeoffs, playbook de deploy con verificación).
+  - **Fix §18.9 (gap M7)** — el JSON-LD de `github-org` ahora emite `hasCredential`
+    (solo public), como la SPEC ya prescribía para Organization. Portfolio-site
+    consumption queda **con M5** (el web renderer aún no existe; el contrato §15.2/§18.6
+    es su seam de consumo).
 - **Per-entry deploy-status ledger (v1.3 schema, D18 — issue #37)** — el deploy loop pasa de
   granularidad-plataforma y prosa mantenida a mano (`CHECKLIST.md`) a **estado por entrada como
   dato** que solo `pasco` muta. Responde la pregunta del operador por bloque: ¿mío o del

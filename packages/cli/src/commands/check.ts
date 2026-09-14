@@ -13,12 +13,12 @@
  * github-org skill's `url-live` check (network, not drift).
  */
 
-import { driftCheck, load, LoadError, registryCheck, SchemaValidationError } from '@profile-as-code/core';
+import { collectMedia, driftCheck, load, LoadError, registryCheck, SchemaValidationError } from '@profile-as-code/core';
 import { parsePlatform } from '../contract.js';
 import { EXIT } from '../exit.js';
 import { isJsonMode, line, report, section } from '../output.js';
 
-export const CHECK_OWNER = 'M6: handle-matrix rules (brand, offline) executed; M7 (D17/§18.8): registry checks (credential-expiry, no-private-in-public-output) executed; remaining catalog ships with M3/M4 (SPEC §7)';
+export const CHECK_OWNER = 'M6: handle-matrix rules (brand, offline) executed; M7 (D17/§18.8): registry checks (credential-expiry, no-private-in-public-output) executed; M8 (§18.6): media-transport rules executed; remaining catalog ships with M3/M4 (SPEC §7)';
 
 /** Handle drift codes the offline handle-matrix execution reports. */
 const HANDLE_CODES = new Set(['drift/duplicate-handle', 'drift/handle-claimed-not-linked', 'drift/handle-host-mismatch']);
@@ -70,10 +70,14 @@ export function runCheck(args: CheckArgs): number {
   // report; ERROR findings (the §18.5 leak gate `no-private-in-public-output`)
   // fail the check — renderers emit only public, so a leak must block, not warn.
   const registry = registryCheck(profile);
-  const registryErrors = registry.filter((f) => f.severity === 'error');
+  // M8 (§18.6 media transport): same severity contract — a broken in-workspace
+  // SSOT (missing/unsafe file, declared-checksum mismatch) is an error; per-
+  // machine external state (no evidence root, symlink escape, oversize) warns.
+  const media = collectMedia(profile, args.workspace).findings;
+  const failErrors = [...registry, ...media].filter((f) => f.severity === 'error');
 
   if (isJsonMode()) {
-    return report('check', registryErrors.length === 0, registryErrors.length === 0 ? EXIT.OK : EXIT.FAIL, {
+    return report('check', failErrors.length === 0, failErrors.length === 0 ? EXIT.OK : EXIT.FAIL, {
       data: {
         workspace: args.workspace,
         platform: platform ?? 'all',
@@ -81,11 +85,12 @@ export function runCheck(args: CheckArgs): number {
         // Per-rule, machine-readable: handle rules exist for brand only (D15/§17),
         // registry rules run for every flavor (D17/§18.8). A single boolean would
         // overload two different facts.
-        implemented: { handleMatrix: profile.flavor === 'brand', registry: true },
+        implemented: { handleMatrix: profile.flavor === 'brand', registry: true, media: true },
         checks,
         handleMatrix,
         handleIssues,
         registry,
+        media,
         ownedBy: CHECK_OWNER,
       },
     });
@@ -97,8 +102,16 @@ export function runCheck(args: CheckArgs): number {
   }
   if (registry.length === 0) {
     line('  credential-expiry / no-private-in-public-output: OK');
-  } else if (registryErrors.length > 0) {
-    line(`  ${registryErrors.length} leak error(s) — FAIL (§18.5: public output renders only public entries)`);
+  } else if (registry.filter((f) => f.severity === 'error').length > 0) {
+    line(`  ${registry.filter((f) => f.severity === 'error').length} leak error(s) — FAIL (§18.5: public output renders only public entries)`);
+  }
+
+  section(`media pipeline (M8/§18.6)${platform !== undefined ? ` for ${platform}` : ''}: ${media.length} finding(s)`);
+  for (const finding of media) {
+    line(`  ${finding.severity}: [${finding.code}] ${finding.message} (${finding.path})`);
+  }
+  if (media.length === 0) {
+    line('  media transport: OK (no findings)');
   }
 
   if (profile.flavor === 'brand') {
@@ -131,5 +144,5 @@ export function runCheck(args: CheckArgs): number {
   line('  not executed — rule execution ships with the skills checks.yaml union (M3) and pasco check (M4)');
   line(`  owner: ${CHECK_OWNER}`);
 
-  return registryErrors.length === 0 ? EXIT.OK : EXIT.FAIL;
+  return failErrors.length === 0 ? EXIT.OK : EXIT.FAIL;
 }

@@ -290,7 +290,7 @@ Two different "templates" (previous confusion):
 5. **M5**: web renderer (cv-cluciani consumes generated profiles), template release, CONTRIBUTING.
 6. **M6 (brand flavor)**: schema v1.1 brand additions (§17) + `pasco init --flavor brand` + renderer `github-org` + handle-matrix checks + `skills/github-org/` + dogfood `profile-data-topia` (private).
 7. **M7 (evidence core)**: schema v1.4 — `credentials[]`/`artifacts[]` + cross-refs (§18) · `pasco check`: `credential-expiry`, registry live-links, `no-private-in-public-output` · JSON-LD `hasCredential` · compact registry section in `github-readme` · template: `media/` scaffold + `docs/evidence-packs.md` + power-user symlink/stow doc (issue #48).
-8. **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable, checksummed bundling — resolves Q9) · deploy playbooks publish media to the public surface · portfolio-site consumption (with M5) · git-lfs guidance.
+8. **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable, checksummed bundling — Q9 resolved as D19: one `assets/` dir per platform output) · deploy playbooks publish media to the public surface · git-lfs guidance · portfolio-site consumption lands **with M5** (the web renderer does not exist yet — engine-side contract ships first).
 
 ## 13. Resolved decisions (former open questions)
 
@@ -303,6 +303,11 @@ Two different "templates" (previous confusion):
   (sovereign-agentic-hub) matures, revisit as default path.
 - **Q4 → D14 (RESOLVED):** **separate repo** `profile-data`; integration by **configured path**
   (`.pascorc → workspace`), no symlink in the normal flow; symlink mount only as engine-CI option.
+- **Q9 → D19 (RESOLVED, M8):** the deploy bundle is **one `assets/` dir per platform output**
+  (`profiles/<platform>/assets/`), not a shared content-addressed store. Deploy surfaces are
+  separate repos (D9/D14) — a shared store has no home; each renderer output is self-contained
+  (README + its assets travel and verify together); targets are human-reviewable in deploy diffs
+  (`assets/<id>/<basename>`); `assets/manifest.json` records the compile-time sha256 per asset.
 
 ## 14. Open questions (remaining)
 
@@ -312,9 +317,8 @@ Two different "templates" (previous confusion):
 - Q7 (**idea, not a decision**): `profile-me` — a command/skill/experience layer that APPLIES the
   engine to the user's `profile-data` to produce results (today: `pasco build`/`pasco refine`);
   productized as a single user-facing flow. Name reserved in the profile-* family.
-- Q9 (M8): deploy-bundle format for media assets — one `assets/` dir per platform output
-  vs. a content-addressed store shared by renderers; decide before the first media-carrying
-  renderer (§18.6).
+
+(Q9 — deploy-bundle format — RESOLVED as D19, §13: one `assets/` dir per platform output.)
 
 ## 15. M2 — `github-readme` renderer (detail)
 
@@ -347,6 +351,15 @@ interface Renderer {
 `render()` is a **pure function**: no network, no AI, no randomness. It consumes the
 `PlatformProfile` slice produced by `compile()` (SPEC §7) — facts pass through untouched, texts
 are the platform+lang slice.
+
+**The `assets?: string[]` slot (M8/D19).** The renderer declares the deploy-relative asset
+targets its text references (`assets/<id>/<basename>` — `artifactAssetTarget`, the single
+derivation). The build owns the I/O: it collects the media bundle (`collectMedia` — public
+`path` locators only, sha256 + bytes recorded at compile), copies exactly the referenced
+targets into `profiles/<platform>/assets/`, and writes `assets/manifest.json`. The renderer
+receives the bundle via `opts.assets` and links ONLY bundled targets — absent → path locators
+stay link-free (byte-identical to the pre-M8 output). Renderers never touch the filesystem
+and never emit a workspace-internal path (D14).
 
 ### 15.3 Output spec (`README.md`)
 
@@ -555,14 +568,16 @@ Cross-refs (additive, all optional): `evidenceItem` gains `credentialId`/`artifa
 `locator` is `{ url }` or `{ path }`. Engine actions are **fixed per locator type** — this
 is what protects byte-stability (§15.1) and the URL SSOT (§15.4/§18.4):
 
-| Locator | Emit URL in render | Copy to renderer `assets/` | Verify |
+| Locator | Emit in render | Copy to renderer `assets/` | Verify |
 |---|---|---|---|
-| `url` (remote) | yes — if in the URL SSOT | n/a | live-link check (`pasco check`) |
-| `path` in-workspace | **no** while the workspace is private (raw URLs of a private repo are not public — D14) | yes — checksum recorded at compile, byte-stable | checksum |
-| `path` external (`PASCO_EVIDENCE_ROOT`) | no | local-only — not CI-safe without a checksummed mirror | existence + checksum (local) |
+| `url` (remote) | yes — URL verbatim if in the URL SSOT | n/a | live-link check (`pasco check`, M3/M4) |
+| `path` in-workspace | never an absolute/raw URL; a **bundled** path locator links its deploy-relative target `assets/<id>/<basename>` (resolves on the public deploy surface, M8/D19); unbundled → no link (§15.2) | yes — sha256 recorded at compile, byte-stable | `media-missing-workspace` (error), declared-checksum verify |
+| `path` external (`PASCO_EVIDENCE_ROOT`) | never an absolute URL | local-only — bundles when the file is on the machine; CI-degradable without a checksummed mirror (§18.3 note below) | existence + checksum (local, warn-class) |
 
 Media in a public render travels through the renderer `assets/` output to the deploy
-surface (§18.6) — never a private raw URL.
+surface (§18.6) — never a private raw URL. A deploy-relative `assets/…` link is NOT a
+private-repo URL: it resolves only after the deploy playbook commits the platform output
+to the public surface.
 
 ### 18.4 URL SSOT (extends the drift rule, §15.4)
 
@@ -587,9 +602,25 @@ credentials carry PII (full legal name, IDs) — not every proof is for the open
   `assets/` output (checksummed at compile — this defines the `assets?: string[]` slot
   of the renderer interface, §15.2) → deploy playbook copies to the public surface.
   Same pattern as `profiles/`: generated outputs, committed to the deploy repo.
-- **External media without moving it**: `PASCO_EVIDENCE_ROOT` (env var) or a **gitignored**
-  `.pasco/local.toml` override — per-machine state, never committed (the D14 lesson
-  applied to config). External paths are local-check/bundle only (§18.3).
+- **Bundle contract (D19, Q9 resolved)**: one `assets/` dir per platform output. Targets
+  are `assets/<id>/<basename>` (per-artifact dirs — ids are core-checked unique, so
+  targets are collision-free and reviewable). `collectMedia(profile, workspace)` is the
+  single bundler: public `path`-locator artifacts only, sha256 + bytes computed and
+  verified against a declared `checksum` (mismatch = error), deterministic order (sorted
+  by id). The build rebuilds `assets/` clean each run — the output dir stays a pure
+  function of the workspace (§15.1). `assets/manifest.json` records what was bundled
+  (version, platform, lang, per-asset id/target/sha256/bytes/origin) — the compile-time
+  checksum record, byte-stable.
+- **Locator resolution**: a `media/…` path is workspace-relative (the SSOT; missing or
+  unsafe file = error — `pasco check` fails); any other path resolves under
+  `PASCO_EVIDENCE_ROOT` (env) or the **gitignored** `.pasco/local.toml` override —
+  per-machine state, never committed (the D14 lesson applied to config). Resolved paths
+  must stay inside their base (containment guard — error). External missing root/file =
+  warn (local-only, CI-degradable). Engine-side detail: `docs/media-pipeline.md`.
+- **Deploy playbook (media)**: `pasco build github-readme` writes `README.md` + `assets/`
+  under `profiles/github-readme/`; the deploy repo commit includes BOTH — post-deploy
+  verification confirms the assets resolve on the public surface (same playbook as
+  profiles/, one extra step: `git lfs` files are pointer-checked, see git-lfs guidance).
 
 ### 18.7 Symlink / stow — power-user convenience, not the mechanism
 
@@ -604,8 +635,16 @@ a locator resolves through a symlink outside the workspace without a checksum.
 `pasco check` additions — offline, deterministic given the machine date (credential-expiry is a time-keyed warn — reproducible per-day, not across days), skill-declared (`checks[]` rule
 strings; no schema change):
 - `credential-expiry` — `expires` in the past → warn.
-- `live-link` — registry URLs join the existing live-link checks (§3).
+- `live-link` — registry URLs join the existing live-link checks (§3, M3/M4).
 - `no-private-in-public-output` — §18.5.
+- **Media transport (M8/§18.6, executed by `collectMedia`)**: `media-missing-workspace`
+  (error — in-workspace file absent) · `media-path-unsafe` (error — resolved path escapes
+  workspace/evidence root) · `media-checksum-mismatch` (error — declared sha256 ≠ bytes) ·
+  `media-external-missing` (warn — no evidence root or file on this machine) ·
+  `media-symlink-external` (warn — workspace symlink escaping the workspace without a
+  declared checksum, §18.7) · `media-oversize` (warn — > 50 MB, §18.6) ·
+  `media-unbundled-no-id` (warn — path-locator artifact without id cannot get a stable
+  target).
 
 ### 18.9 GEO & multi-area
 
@@ -637,8 +676,10 @@ rendering guidance lives in `skills/<platform>/` (D5). **The engine learns no do
   template `media/` scaffold + `docs/evidence-packs.md` + symlink/stow doc · dogfood:
   a workspace renders one credential + one artifact with zero drift warnings.
 - **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable,
-  checksummed bundling — resolves Q9) · deploy playbooks publish media · portfolio-site
-  consumption (with the M5 web renderer) · git-lfs guidance.
+  checksummed bundling — Q9 resolved as D19, §13: one `assets/` dir per platform output,
+  `assets/<id>/<basename>` targets + `assets/manifest.json`) · deploy playbooks publish
+  media · git-lfs guidance · portfolio-site consumption **with M5** (deferred — the web
+  renderer does not exist yet; the §15.2/§18.6 contract above is its consumption seam).
 ## 19. D18 — per-entry deploy-status ledger (detail)
 
 Raised by issue #37 while writing the user guide (`docs/USER-GUIDE.md`): the deploy loop
