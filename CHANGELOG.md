@@ -9,6 +9,15 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Planned (roadmap)
+
+- Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
+- CLI `pasco`: build · validate · diff · check · refine · skills:install (M1/M3)
+- Per-platform skills v1 from SOTA research (M3)
+- `profile-data` template repo + web renderer (M5)
+
+## [0.1.0] - 2026-09-15
+
 ### Added
 
 - **`identity.email` — el email de contacto como hecho de primera clase (v1.5, issue #71)** —
@@ -35,10 +44,13 @@ minor versions may contain breaking contract changes.
     fila identity); tests: 195 (+9 vs base).
 - **Release pipeline para `@profile-as-code/cli` (issues #42/#43)** — `.github/workflows/release.yml`:
   tag `v*` (o `workflow_dispatch`, con input `dry_run` para smoke del pipeline sin publicar) → guard
-  tag↔versión → build → test → assert del tarball → `npm publish --provenance --access public`
+  tag↔versión → build → test → assert del tarball → `npm publish --access public`
   (`id-token: write` para provenance OIDC, secret `NPM_TOKEN`). El publish real lo dispara el
-  operador (#44). El tarball es self-contained: `@profile-as-code/core` + renderers se buclean en un
-  `dist/index.js` único (tsup; 129.83 KB, build 2026-09-10) porque no están en npm; `yaml`/`zod` quedan como dependencias
+  operador (#44). **Provenance condicional (decisión a, #44):** npm la rechaza desde repos fuente
+  privados, así que `--provenance` se agrega solo cuando el repo ya es público — v0.1.0 sale sin
+  ella (pre-flip) y los tags siguientes la llevan automáticamente, sin edición de seguimiento.
+  El tarball es self-contained: `@profile-as-code/core` + renderers se buclean en un
+  `dist/index.js` único (tsup; 147.32 KB, build 2026-09-15) porque no están en npm; `yaml`/`zod` quedan como dependencias
   reales. Assert (`packages/cli/scripts/verify-pack.mjs`, corrido en `ci.yml` y pre-publish):
   el tarball expone el bin `pasco` (existe, ejecutable, shebang, sin `workspace:` en las ranges que
   resuelve el consumidor) + smoke de instalación aislada del bin linkeado (`pasco <versión>`).
@@ -225,10 +237,3 @@ minor versions may contain breaking contract changes.
     (`- ${url}`), not CommonMark destinations — verified; the same destination class does
     exist in its badges/newsletter/podcast/press/logo emissions → escalated as #75, and
     the adjacent link-*text* class (a `]` in a URL breaks the label) as #76.
-
-### Planned (roadmap)
-
-- Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
-- CLI `pac`: build · validate · diff · check · refine · skills:install (M1/M3)
-- Per-platform skills v1 from SOTA research (M3)
-- `profile-data` template repo + web renderer (M5)
