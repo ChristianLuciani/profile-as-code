@@ -17,11 +17,12 @@ Review inputs are therefore the issues themselves plus the SPEC:
   ADR-lite) · `docs/SPEC.md` §15.2 · repo rules (AGENTS.md rule 7, D3, D8).
 - Build: commits `8248855` (fix) + `5178042` (review corrections), branch
   `pi/profile-as-code/renderer-md-safety`.
-- Base: `main` @ `a56a3a6`. Diff at the reconcile tip: **20 files, +713/−68**
-  (`git diff --shortstat a56a3a6 <tip>`). Corrected twice: first from a plain
-  `git diff --stat` that silently omits an untracked new package (17/+553), then
-  again after round 3 moved the tip. The fresh-context pass caught the second
-  staleness — recorded rather than quietly overwritten.
+- Base: `main` @ `a56a3a6`. Size: `git diff --shortstat a56a3a6 <tip>` —
+  **deliberately not pinned** here. Same reasoning as F4 below: a number written
+  into the commit that changes it rots on the next push. This sentence was written
+  wrong three times (a plain `git diff --stat` silently omits an untracked new
+  package; then two successive round-3 commits moved the tip), which is the
+  evidence for not pinning it.
 
 **Contract conflict declared (skill vs repo):** step 8 of this skill says "never
 push, never open the PR yourself (CONTRIBUTING hard rule)". This repo's
