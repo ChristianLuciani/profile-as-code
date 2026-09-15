@@ -79,20 +79,70 @@ published and tsup inlines `@profile-as-code/*` (`verify:pack` PASS).
   script builds its deps first), so the new build edge does not depend on local
   state.
 
+## Correction round 2 — a defect the in-session pass MISSED (found by CI)
+
+The in-session review passed locally and CI failed on `12158ed`:
+
+```
+packages/renderers/github-readme build: src/index.ts(18,32): error TS2306:
+  File '.../packages/markdown/dist/index.d.ts' is not a module.
+```
+
+**Root cause (real, and mine).** I had both renderers' `build` scripts invoke
+`pnpm --filter @profile-as-code/markdown build`. `pnpm -r build` runs sibling
+packages **in parallel**, so two `tsc` processes wrote the same
+`packages/markdown/dist/index.d.ts` concurrently and one reader caught it
+half-written. The pre-existing scripts had the same latent race on `core/dist`
+(both renderers built it in parallel) — it had simply never lost the timing
+lottery.
+
+This is precisely the seam Pass 3 exists to find (each adapter assuming it owned
+a shared build step) and it was **missed in-session**: my verification story was
+local and sequential, which cannot exhibit a parallel race. Recorded as such — the
+doubt pipeline is not always-green; CI was the pass that doubted successfully.
+
+**Fix (structural, not a retry).** Ordering is a workspace concern, not something
+each adapter re-establishes:
+
+- each package's `build` now builds **only itself** (`tsc -p tsconfig.json`); no
+  package invokes another package's build;
+- the CLI keeps an explicit sequential chain (`core → markdown → readme → org →
+  tsup`) because it is the packaging entry point and `verify:pack` needs a
+  complete build;
+- root `test` becomes `pnpm -r build && pnpm -r test` — one ordered build pass
+  supplies every dist, so `test` no longer depends on a sibling's build script
+  (`packages/core`'s `test` is `vitest run` with no build, which is what the
+  renderer chains had been silently supplying).
+
+**Verified from a clean tree** (`rm -rf` every `dist`), i.e. the exact CI path:
+
+```
+pnpm -r build  → markdown · core · readme · org · cli (ESM 147.58 KB)  all Done, no duplicates
+pnpm test      → 234 passed (10+1+1+1+1 files)   [root = build + test]
+pnpm typecheck → 5/5 Done
+verify:pack    → PASS (bin pasco, smoke "pasco 0.1.0")
+```
+
+The tarball size is unchanged at 147.58 KB, so the CHANGELOG claim still holds.
+
 ## Verdict
 
-**PASS — after correction round 1 (1 round).**
+**PASS — after correction rounds 2 (in-session: 2).**
 
 - Round 1 (in-session): 1 MAJOR-natured **claim drift** corrected —
   `docs/STANDARDS.md` stated suite size as current state and the change moved it
   (155→234 tests, 12→14 files; renderers 12→50). Fixed with the regenerable value
   and date (`5178042`).
+- Round 2 (CI-caught): 1 MAJOR **build-ordering race** corrected — see the section
+  above; the in-session pass missed it.
 - Remaining: 1 accepted MAJOR risk (#78), 2 NITs, 1 self-correction of a false
   claim in the PR comment.
-- Full gates green at `5178042`: 234 tests, typecheck 5/5, build, `verify:pack` PASS.
-- **Doubt-theater guard:** satisfied — the in-session pass produced one actionable
-  finding (STANDARDS drift) and one refutation of my own earlier claim; not an
-  always-green pass.
+- Full gates green from a clean tree after round 2: 234 tests, typecheck 5/5,
+  build, `verify:pack` PASS.
+- **Doubt-theater guard:** satisfied, and validated the hard way — the in-session
+  pass produced actionable findings AND still missed a real defect that CI found.
+  Local sequential verification cannot refute a parallel-build race; the fix moves
+  ordering into the workspace contract so no adapter can reintroduce it.
 - Post-testing feedback re-enters as: **correction blocks (small findings)**; large
   findings would warrant a fresh `/sota-workflow` round.
 
