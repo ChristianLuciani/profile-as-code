@@ -101,7 +101,8 @@ Liderá con #3 filtrado por #1: **stewardship** (proyectos vivos con proof), no 
 
 - `pasco validate` exit 0 (schema + drift 0 + geo).
 - Facts byte-idénticos: cruzá cada hecho del README contra el YAML.
-- Links ⊆ `identity.links`.
+- Links ⊆ `identity.links` (más el hecho de contacto: fila `- [Email](mailto:…)` derivada
+  de `identity.email`, v1.5/#71 — primero en `## Links`, output-only, nunca en `sameAs`).
 - Length: el README se lee en 30s (SOTA-2026 §1) — si hay más de ~40 líneas, recortá.
 - CTA: exactamente una acción primaria.
 

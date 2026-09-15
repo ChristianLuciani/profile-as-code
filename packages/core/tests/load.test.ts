@@ -216,8 +216,8 @@ describe('identity.email (v1.5, issue #71 — the contact email is a fact, not a
   });
 
   it('rejects a malformed identity.email (RFC-5322-adjacent pattern)', () => {
-    for (const bad of ['not-an-email', 'missing-at.example', 'a b@example.com', 'a@b']) {
-      const dir = makeWorkspace({ 'identity.yaml': `name: X\nemail: "${bad}"\n` });
+    for (const bad of ['not-an-email', 'missing-at.example', 'a b@example.com', 'a@b', 'a@b.c.', 'a@b..c', 'a"b@example.com']) {
+      const dir = makeWorkspace({ 'identity.yaml': `name: X\nemail: '${bad}'\n` });
       try {
         expect(() => load(dir)).toThrow(SchemaValidationError);
         try {

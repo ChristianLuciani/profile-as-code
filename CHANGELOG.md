@@ -182,6 +182,10 @@ minor versions may contain breaking contract changes.
 
 ### Changed
 
+- **GEO readiness denominator ahora cuenta `identity.email` (v1.5, issue #71)** — cambio
+  de comportamiento para consumidores que comparaban `completeness`: un perfil sin email
+  pasa de 6/6 a **6/7** (y con email llega a 7/7). Diseño intencional: el email es un
+  hecho de primera clase del identity y entra al readiness como los demás campos.
 - **BREAKING — CLI bin rename: `pac` → `pasco` (issue #38)** — the npm name `pac` is occupied since 2015
   and owns the `pac` bin (global-install collision risk); `paco` is occupied too. Verified
   free candidates on registry.npmjs.org, 2026-09-07. Operator decision: the binary is now

@@ -396,7 +396,9 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
 
 - The renderer NEVER outputs a URL outside the **URL SSOT**: `identity.links` plus the proof
   layer's pointer fields — `credentials[].verifyUrl`, `artifacts[].locator.url`,
-  `publications[].doi`, `press[].url` (the drift rule; extended by D17/§18.4).
+  `publications[].doi`, `press[].url` (the drift rule; extended by D17/§18.4) — plus the
+  contact email's **output-only** `mailto:` href (v1.5/#71: a derived fact href emitted
+  from `identity.email`, §15.2 — not a URL SSOT source; `sameAs` never carries it).
 - The JSON-LD `sameAs` set = `identity.links` verbatim; `@id` = `identity.links[website]`.
   The contact email (v1.5/#71) is **not** in `sameAs` — it maps to the `email` property
   (a `mailto:` URI is not a reference page); its only rendered form is the Links row.

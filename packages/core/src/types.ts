@@ -180,6 +180,8 @@ export interface StructuredDataReadiness {
   fields: {
     name: boolean;
     sameAs: string[];
+    /** v1.5 (issue #71): the contact email (fact, schema.org `email`), when present. */
+    email?: string;
     image?: string;
     address?: string;
     jobTitle?: string;
