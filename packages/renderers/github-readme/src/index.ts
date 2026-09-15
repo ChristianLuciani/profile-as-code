@@ -35,18 +35,53 @@ export interface RenderOptions {
 /** Deterministic credential row: **Title** (kind) — issuer, years · [verify](url). */
 function credentialLine(c: Credential): string {
   const years = c.issued !== undefined ? `, ${c.issued.slice(0, 4)}${c.expires !== undefined ? `–${c.expires.slice(0, 4)}` : ''}` : '';
-  const verify = c.verifyUrl !== undefined ? ` · [verify](${c.verifyUrl})` : '';
+  const verify = c.verifyUrl !== undefined ? ` · [verify](${mdHref(c.verifyUrl)})` : '';
   return `- **${c.title}** (${c.kind}) — ${c.issuer}${years}${verify}`;
 }
 
-/** CommonMark link destinations break on spaces and unbalanced parens — the
- *  emitted href is percent-encoded. Used by every markdown destination this
- *  renderer emits: asset targets (M8/§18.6) and the contact email (v1.5/#71).
- *  The manifest and the renderer's declared target keep the RAW
- *  filesystem-relative path (they address the file, the href addresses the URL
- *  on the deploy surface). */
+/** CommonMark link destinations break on ASCII spaces, control characters and
+ *  unbalanced parens; a lone `%` is a malformed percent-escape (issue #73).
+ *  `mdHref` encodes exactly the unsafe ASCII — space/controls/DEL (`%XX`,
+ *  UTF-8), the URL-invalid printable set, `(`, `)` and an invalid `%` — and
+ *  keeps everything else verbatim, including VALID percent-escapes and
+ *  non-ASCII (IRIs). TAB/LF/CR never arrive (the schema boundary's WHATWG
+ *  preprocessing strips them), so encoding them here is defensive only.
+ *  Net effect vs. the previous `encodeURI`-based helper:
+ *  output is byte-identical for every URL without a valid `%` escape and
+ *  without non-ASCII; an already-encoded URL is no longer double-encoded
+ *  (the resource the href addresses is preserved) and an IRI stays raw.
+ *  Percent-escapes resolve identically after CommonMark's destination
+ *  decoding, so the encoded href addresses the exact SSOT URL.
+ *
+ *  Used by EVERY markdown destination this renderer emits from a SSOT URL:
+ *  badges, project links, evidence sources, DOI hrefs, credential verifyUrls,
+ *  artifact url locators (issue #73), asset targets (M8/§18.6) and the
+ *  contact email (v1.5/#71). Structured surfaces stay verbatim (JSON-LD
+ *  sameAs/email, §18.4) and facts stay raw in labels (a DOI's text keeps its
+ *  bytes — only the href is encoded). The manifest and the renderer's
+ *  declared target keep the RAW filesystem-relative path (they address the
+ *  file, the href addresses the URL on the deploy surface). */
 function mdHref(href: string): string {
-  return encodeURI(href).replace(/\(/g, '%28').replace(/\)/g, '%29');
+  return (
+    href
+      // A `%` that does not start a valid escape is a literal percent → %25
+      // (a malformed escape changes how the URL resolves downstream). A VALID
+      // escape stays verbatim: an already-encoded URL must never be
+      // double-encoded — `encodeURI` turned `%20` into `%2520`, addressing a
+      // different resource.
+      .replace(/%(?![0-9A-Fa-f]{2})/g, '%25')
+      // Exactly what `encodeURI` percent-encodes in ASCII minus `%` — ASCII
+      // controls, space, DEL, C1 controls and the URL-invalid printable set.
+      // All are invalid in a URL; space and controls also end a CommonMark
+      // destination. Non-ASCII (≥ U+00A0) is deliberately left verbatim: an
+      // IRI is a valid CommonMark destination and byte-stability beats
+      // normalization.
+      .replace(/[\u0000-\u0020\u007F-\u009F"<>[\]\\^`{|}]/g, (c) => encodeURIComponent(c))
+      // Both parens are encoded: a `)` ends a bare destination unless balanced,
+      // and uniform output is deterministic (immune to balance games).
+      .replace(/\(/g, '%28')
+      .replace(/\)/g, '%29')
+  );
 }
 
 /** Deterministic artifact row — capability matrix (§18.3): `url` locators link
@@ -60,7 +95,7 @@ function artifactLine(a: Artifact, lang: Lang, assetsById: ReadonlyMap<string, M
   const license = a.license !== undefined ? ` · ${a.license}` : '';
   let link = '';
   if (a.locator.url !== undefined) {
-    link = ` — [${hostname(a.locator.url)}](${a.locator.url})`;
+    link = ` — [${hostname(a.locator.url)}](${mdHref(a.locator.url)})`;
   } else if (a.id !== undefined) {
     const asset = assetsById.get(a.id);
     if (asset !== undefined) link = ` — [${asset.target}](${mdHref(asset.target)})`;
@@ -149,7 +184,7 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     const b = BADGE[l.platform];
     if (b === undefined) continue;
     seenBadge.add(l.platform);
-    badges.push(`[![${b.label}](https://img.shields.io/badge/${b.label}-${hostname(l.url)}-${b.color}?style=flat&logo=${b.logo}&logoColor=white)](${l.url})`);
+    badges.push(`[![${b.label}](https://img.shields.io/badge/${b.label}-${hostname(l.url)}-${b.color}?style=flat&logo=${b.logo}&logoColor=white)](${mdHref(l.url)})`);
   }
   if (badges.length > 0) out.push('', badges.join(' '));
 
@@ -165,10 +200,10 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     for (const project of projects.slice(0, 6)) {
       const desc = pickText(project.description, lang);
       out.push('', `- **${project.name}** · \`${project.status}\`${desc !== undefined ? ` — ${desc}` : ''}`);
-      for (const link of project.links ?? []) out.push(`  - [${hostnamePath(link)}](${link})`);
+      for (const link of project.links ?? []) out.push(`  - [${hostnamePath(link)}](${mdHref(link)})`);
       for (const ev of project.evidence ?? []) {
         const claim = pickText(ev.claim, lang);
-        if (claim !== undefined) out.push(`  - Evidence: ${claim} ([source](${ev.source}))`);
+        if (claim !== undefined) out.push(`  - Evidence: ${claim} ([source](${mdHref(ev.source)}))`);
       }
     }
   }
@@ -177,7 +212,7 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   if (p.publications.length > 0) {
     out.push('', '## Publications');
     for (const pub of p.publications) {
-      const doi = pub.doi !== undefined ? ` [DOI: ${pub.doi}](https://doi.org/${pub.doi})` : '';
+      const doi = pub.doi !== undefined ? ` [DOI: ${pub.doi}](${mdHref(`https://doi.org/${pub.doi}`)})` : '';
       out.push('', `- **${pub.title}** — ${pub.venue}, ${pub.year}.${doi}`);
     }
   }
@@ -220,7 +255,7 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   // page-URLs-only, so `sameAs` (below) never carries a mailto: URI.
   out.push('', '## Links');
   if (p.identity.email !== undefined) out.push('', `- [Email](${mdHref('mailto:' + p.identity.email)})`);
-  for (const l of p.identity.links ?? []) out.push('', `- [${l.label}](${l.url})`);
+  for (const l of p.identity.links ?? []) out.push('', `- [${l.label}](${mdHref(l.url)})`);
 
   const publicCredentials = credentialLdEntries(p.credentials ?? []); // filters internally — no double pass
   const jsonLd: Record<string, unknown> = {

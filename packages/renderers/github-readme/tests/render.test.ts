@@ -360,3 +360,185 @@ describe('renderer github-readme — media pipeline (M8, §18.6)', () => {
     }
   });
 });
+
+describe('renderer github-readme — CommonMark-safe destinations (issue #73)', () => {
+  /** Build a slice whose SSOT URLs contain parens/space — accepted by the
+   *  contract (`$defs/url`: `^https?://` + `format: uri`, both tolerate them)
+   *  but break raw CommonMark destinations (the link ends at the first `)`,
+   *  a space ends it too). Every destination this renderer emits must pass
+   *  through `mdHref()`; the JSON-LD/label surfaces stay verbatim. */
+  function unsafeSlice(files: Record<string, string>) {
+    const dir = mkdtempSync(join(tmpdir(), 'pasco-render-mdhref-'));
+    mkdirSync(join(dir, 'content'), { recursive: true });
+    for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, 'content', name), body, 'utf8');
+    try {
+      return { slice: compile(load(dir), 'github-readme', 'en'), cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+    } catch (err) {
+      rmSync(dir, { recursive: true, force: true });
+      throw err;
+    }
+  }
+
+  const PARENS = {
+    'identity.yaml':
+      'name: Elena Vasquez\nlinks:\n  - platform: website\n    label: Site\n    url: https://example.com/my profile (2024)\n  - label: GitHub\n    url: https://github.com/elena\n  - label: Plain\n    url: https://example.com/a)b\n',
+    'projects.yaml':
+      '- name: report\n  status: active\n  links:\n    - https://example.com/report (final).html\n  evidence:\n    - claim:\n        en: Verified claim.\n      source: https://scholar.example.com/cite (1)\n',
+    'publications.yaml':
+      '- title: Parens DOI\n  venue: Journal\n  year: 2024\n  doi: 10.5555/report(v1)\n',
+    'credentials.yaml':
+      '- id: cert-1\n  kind: certificate\n  title: Cert One\n  issuer: Issuer\n  verifyUrl: https://aws.example.com/verify?id=42 (copy)\n  visibility: public\n',
+    'artifacts.yaml':
+      '- id: reel-1\n  kind: showreel\n  title: Reel 2025\n  locator:\n    url: https://vimeo.com/reel (1)\n  visibility: public\n',
+  };
+
+  it('badges: the identity.links destination is percent-encoded (space + parens)', () => {
+    const { slice, cleanup } = unsafeSlice(PARENS);
+    try {
+      const badge = render(slice).text.split('\n').find((l) => l.startsWith('[![Website]'));
+      expect(badge).toBeDefined();
+      expect(badge).toContain('](https://example.com/my%20profile%20%282024%29)');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('project links: destination percent-encoded; the hostnamePath label keeps the URL-parser form', () => {
+    const { slice, cleanup } = unsafeSlice(PARENS);
+    try {
+      expect(render(slice).text).toContain(
+        '  - [example.com/report%20(final).html](https://example.com/report%20%28final%29.html)',
+      );
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('project evidence source: destination percent-encoded', () => {
+    const { slice, cleanup } = unsafeSlice(PARENS);
+    try {
+      expect(render(slice).text).toContain(
+        'Evidence: Verified claim. ([source](https://scholar.example.com/cite%20%281%29))',
+      );
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('publications DOI: href destination percent-encoded; the DOI fact in the label stays raw', () => {
+    const { slice, cleanup } = unsafeSlice(PARENS);
+    try {
+      expect(render(slice).text).toContain('[DOI: 10.5555/report(v1)](https://doi.org/10.5555/report%28v1%29)');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('credentials verifyUrl: destination percent-encoded', () => {
+    const { slice, cleanup } = unsafeSlice(PARENS);
+    try {
+      expect(render(slice).text).toContain(' · [verify](https://aws.example.com/verify?id=42%20%28copy%29)');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('artifact url locator: destination percent-encoded (the hostname label is unchanged)', () => {
+    const { slice, cleanup } = unsafeSlice(PARENS);
+    try {
+      expect(render(slice).text).toContain(' — [vimeo.com](https://vimeo.com/reel%20%281%29)');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('Links section rows: destinations percent-encoded (email/asset rule generalized)', () => {
+    const { slice, cleanup } = unsafeSlice(PARENS);
+    try {
+      expect(render(slice).text).toContain('- [Site](https://example.com/my%20profile%20%282024%29)');
+      expect(render(slice).text).toContain('- [Plain](https://example.com/a%29b)'); // the issue's repro: UNBALANCED )
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('structured data stays verbatim: JSON-LD sameAs keeps the raw SSOT URL', () => {
+    const { slice, cleanup } = unsafeSlice(PARENS);
+    try {
+      const json = render(slice).text.split('```json')[1]!.split('```')[0]!;
+      expect(json).toContain('"https://example.com/my profile (2024)"');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('byte-parity: valid % escapes, non-ASCII and the URL-safe printable set stay verbatim (never double-encoded)', () => {
+    const { slice, cleanup } = unsafeSlice({
+      'identity.yaml': 'name: Elena Vasquez\nlinks:\n  - label: GitHub\n    url: https://github.com/elena/a_b~c%20d\n  - label: IRI\n    url: https://example.com/cami%C3%B3n-caf%C3%A9\n  - label: Raw IRI\n    url: https://example.com/camión\n',
+    });
+    try {
+      expect(render(slice).text).toContain('- [GitHub](https://github.com/elena/a_b~c%20d)');
+      expect(render(slice).text).toContain('- [IRI](https://example.com/cami%C3%B3n-caf%C3%A9)');
+      expect(render(slice).text).toContain('- [Raw IRI](https://example.com/camión)');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('a lone `%` (malformed escape) becomes %25; a valid escape is never double-encoded', () => {
+    const { slice, cleanup } = unsafeSlice({
+      'identity.yaml':
+        'name: Elena Vasquez\nlinks:\n  - label: Literal\n    url: https://example.com/100%discount\n  - label: Trailing\n    url: https://example.com/50%\n  - label: Encoded\n    url: https://example.com/a%20b\n',
+    });
+    try {
+      const text = render(slice).text;
+      expect(text).toContain('- [Literal](https://example.com/100%25discount)');
+      expect(text).toContain('- [Trailing](https://example.com/50%25)');
+      expect(text).toContain('- [Encoded](https://example.com/a%20b)');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('ASCII controls and the URL-invalid printable set are percent-encoded (encodeURI parity)', () => {
+    const { slice, cleanup } = unsafeSlice({
+      'identity.yaml':
+        'name: Elena Vasquez\nlinks:\n  - label: SOH\n    url: "https://example.com/a\\x01b"\n  - label: DEL\n    url: "https://example.com/a\\x7fb"\n  - label: Unsafe\n    url: \'https://example.com/a"b<c>d[e]f\\g^h{i|j}k`l\'\n',
+    });
+    try {
+      const text = render(slice).text;
+      expect(text).toContain('- [SOH](https://example.com/a%01b)');
+      expect(text).toContain('- [DEL](https://example.com/a%7Fb)');
+      expect(text).toContain('- [Unsafe](https://example.com/a%22b%3Cc%3Ed%5Be%5Df%5Cg%5Eh%7Bi%7Cj%7Dk%60l)');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('TAB/LF/CR never reach the renderer: the schema boundary strips them (WHATWG URL preprocessing)', () => {
+    const { slice, cleanup } = unsafeSlice({
+      'identity.yaml': 'name: Elena Vasquez\nlinks:\n  - label: Tab\n    url: "https://example.com/a\\tb"\n',
+    });
+    try {
+      expect(render(slice).text).toContain('- [Tab](https://example.com/ab)'); // stripped upstream, never a raw destination
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('property: no emitted destination carries a raw space, control char or paren (CommonMark-safe)', () => {
+    const { slice, cleanup } = unsafeSlice({
+      'identity.yaml':
+        'name: Elena Vasquez\nlinks:\n  - platform: website\n    label: Site\n    url: https://example.com/my profile (2024)\n  - label: SOH\n    url: "https://example.com/a\\x01b"\n  - label: Unsafe\n    url: \'https://example.com/a"b[c]d\\e^f{g|h}i`j\'\n  - label: Literal\n    url: https://example.com/100%discount\n',
+    });
+    try {
+      const text = render(slice).text;
+      const opened = (text.match(/\]\(/g) ?? []).length;
+      const closed = (text.match(/\]\([^()\u0000-\u0020\u007F-\u009F]*\)/g) ?? []).length;
+      expect(opened).toBeGreaterThan(0);
+      expect(closed).toBe(opened); // a raw space/paren/control in any destination breaks the pairing
+    } finally {
+      cleanup();
+    }
+  });
+});
