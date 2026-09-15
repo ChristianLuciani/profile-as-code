@@ -40,11 +40,13 @@ function credentialLine(c: Credential): string {
 }
 
 /** CommonMark link destinations break on spaces and unbalanced parens — the
- *  emitted href is percent-encoded; the manifest and the renderer's declared
- *  target keep the RAW filesystem-relative path (they address the file, the
- *  href addresses the URL on the deploy surface). */
-function assetHref(target: string): string {
-  return encodeURI(target).replace(/\(/g, '%28').replace(/\)/g, '%29');
+ *  emitted href is percent-encoded. Used by every markdown destination this
+ *  renderer emits: asset targets (M8/§18.6) and the contact email (v1.5/#71).
+ *  The manifest and the renderer's declared target keep the RAW
+ *  filesystem-relative path (they address the file, the href addresses the URL
+ *  on the deploy surface). */
+function mdHref(href: string): string {
+  return encodeURI(href).replace(/\(/g, '%28').replace(/\)/g, '%29');
 }
 
 /** Deterministic artifact row — capability matrix (§18.3): `url` locators link
@@ -61,7 +63,7 @@ function artifactLine(a: Artifact, lang: Lang, assetsById: ReadonlyMap<string, M
     link = ` — [${hostname(a.locator.url)}](${a.locator.url})`;
   } else if (a.id !== undefined) {
     const asset = assetsById.get(a.id);
-    if (asset !== undefined) link = ` — [${asset.target}](${assetHref(asset.target)})`;
+    if (asset !== undefined) link = ` — [${asset.target}](${mdHref(asset.target)})`;
   }
   return `- **${a.title}** (${a.kind})${link}${license}${desc !== undefined ? ` — ${desc}` : ''}`;
 }
@@ -213,7 +215,11 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   }
 
   // 7. Links (sameAs) + JSON-LD Person (with hasCredential, §18.9).
+  // Contact email (v1.5, issue #71): a FACT emitted first (contact leads,
+  // channels follow) as a mailto: href — output-only: identity.links[] stays
+  // page-URLs-only, so `sameAs` (below) never carries a mailto: URI.
   out.push('', '## Links');
+  if (p.identity.email !== undefined) out.push('', `- [Email](${mdHref('mailto:' + p.identity.email)})`);
   for (const l of p.identity.links ?? []) out.push('', `- [${l.label}](${l.url})`);
 
   const publicCredentials = credentialLdEntries(p.credentials ?? []); // filters internally — no double pass
@@ -222,6 +228,7 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     '@type': 'Person',
     name: p.identity.name,
   };
+  if (p.identity.email !== undefined) jsonLd.email = p.identity.email;
   if (p.identity.photo !== undefined) jsonLd.image = p.identity.photo;
   if (p.identity.location !== undefined) jsonLd.address = p.identity.location;
   jsonLd.sameAs = (p.identity.links ?? []).map((l) => l.url);

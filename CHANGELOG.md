@@ -11,6 +11,28 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **`identity.email` — el email de contacto como hecho de primera clase (v1.5, issue #71)** —
+  el boundary de schemes http(s)-only (#53/PR #64) no dejaba hogar para un email de contacto:
+  los workspaces lo modelaban como fila `mailto:` en `identity.links[]`, que el patrón
+  `^https?://` rechaza — `profile-data-template` y el workspace real del operador fallaban
+  `pasco validate` día uno (el output ya deployado llevaba el mailto: pre-#53, o sea que el
+  dato era legítimo). Decisión ratificada por el operador (opción B): campo dedicado.
+  - **Schema v1.5 (aditivo)** — `identity.email` (string, patrón RFC-5322-adyacente
+    `^[^@\s]+@[^@\s]+\.[^@\s]+$`); `mailto:` sigue RECHAZADO en `links[]` (D12) — el boundary
+    de #53 queda intacto en los 13 sitios de URL. Fixture positiva (`valid-full.json`) +
+    negativa (`invalid-bad-email.json`); `gen:zod` regenerado (D3).
+  - **GEO** — `geoCheck` emite `email` (schema.org `email` sobre `Person` **y** `Organization`,
+    §17.1); `sameAs` queda solo con URLs de página (un `mailto:` no es una página de
+    referencia — el wart semántico preexistente desaparece). `identity.email` entra al
+    denominador del readiness (`completeness`): un perfil sin email baja de 6/6 a 6/7.
+  - **Renderers** — `github-readme`: fila `- [Email](mailto:…)` PRIMERO en `## Links` (un
+    hecho de contacto encabeza, los canales siguen) + `email` en su JSON-LD;
+    `github-org`: fila `- mailto:…` + `email` en el JSON-LD (paridad §17.1). Output-only:
+    `links[]` no cambia, `sameAs` nunca lleva mailto. Sin email → byte-idéntico al output
+    pre-v1.5 (regresión cubierta por tests).
+  - **SPEC** — §6 (párrafo del campo + sketch), §15.2 (regla de la fila Links), §15.4
+    (mismoAs solo páginas), §17.1 (paridad brand); `schema/README.md` (regla de schemes +
+    fila identity); tests: 195 (+9 vs base).
 - **Release pipeline para `@profile-as-code/cli` (issues #42/#43)** — `.github/workflows/release.yml`:
   tag `v*` (o `workflow_dispatch`, con input `dry_run` para smoke del pipeline sin publicar) → guard
   tag↔versión → build → test → assert del tarball → `npm publish --provenance --access public`
@@ -160,6 +182,10 @@ minor versions may contain breaking contract changes.
 
 ### Changed
 
+- **GEO readiness denominator ahora cuenta `identity.email` (v1.5, issue #71)** — cambio
+  de comportamiento para consumidores que comparaban `completeness`: un perfil sin email
+  pasa de 6/6 a **6/7** (y con email llega a 7/7). Diseño intencional: el email es un
+  hecho de primera clase del identity y entra al readiness como los demás campos.
 - **BREAKING — CLI bin rename: `pac` → `pasco` (issue #38)** — the npm name `pac` is occupied since 2015
   and owns the `pac` bin (global-install collision risk); `paco` is occupied too. Verified
   free candidates on registry.npmjs.org, 2026-09-07. Operator decision: the binary is now

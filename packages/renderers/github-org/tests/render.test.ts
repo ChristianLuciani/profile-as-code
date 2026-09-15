@@ -8,7 +8,7 @@
  */
 
 import { compile, load } from '@profile-as-code/core';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -180,6 +180,31 @@ describe('github-org renderer (brand flavor, §17)', () => {
           url.startsWith('https://example.com/topia-launch'),
       ).toBe(true);
     }
+  });
+});
+
+/** v1.5 (issue #71): the contact email is a fact — emitted in Links + JSON-LD, never in sameAs. */
+describe('github-org contact email (v1.5, issue #71)', () => {
+  function brandWorkspaceWithEmail(): string {
+    const dir = brandWorkspace();
+    const original = readFileSync(join(dir, 'content', 'identity.yaml'), 'utf8');
+    writeFileSync(join(dir, 'content', 'identity.yaml'), `${original}\nemail: hello@topia.press\n`);
+    return dir;
+  }
+
+  it('emits the email as a mailto: row in Links and as the jsonLd email property', () => {
+    const { text } = render(compile(load(brandWorkspaceWithEmail()), 'github-org', 'en'), { lang: 'en' });
+    expect(text).toContain('## Links');
+    expect(text).toContain('- mailto:hello@topia.press');
+    const json = JSON.parse(text.split('```json')[1]!.split('```')[0]!) as Record<string, unknown>;
+    expect(json['email']).toBe('hello@topia.press');
+    expect(JSON.stringify(json.sameAs)).not.toContain('mailto:');
+  });
+
+  it('omits the email row and jsonLd email when the workspace has none (pre-v1.5 byte-parity)', () => {
+    const { text } = render(compile(load(brandWorkspace()), 'github-org', 'en'), { lang: 'en' });
+    expect(text).not.toContain('mailto:');
+    expect(text).not.toContain('"email"');
   });
 });
 

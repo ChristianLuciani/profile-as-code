@@ -37,7 +37,9 @@ describe('geoCheck(profile)', () => {
     const { readiness } = report.sections.structuredData;
 
     expect(readiness.ready).toBe(true);
-    expect(readiness.completeness).toBe(1); // name + sameAs + image + address + jobTitle + worksFor
+    // name + sameAs + image + address + jobTitle + worksFor = 6 of 7 (v1.5 counts
+    // identity.email in the completeness denominator — issue #71; the fixture has none).
+    expect(readiness.completeness).toBeCloseTo(6 / 7, 5);
     expect(readiness.fields.name).toBe(true);
     expect(readiness.fields.sameAs).toHaveLength(5);
     expect(readiness.fields.jobTitle).toBe('Senior AI Engineer');
@@ -47,6 +49,18 @@ describe('geoCheck(profile)', () => {
     expect(readiness.jsonLd?.['@type']).toBe('Person');
     expect(readiness.jsonLd?.sameAs).toContain('https://github.com/elenavasquez');
     expect(readiness.jsonLd?.jobTitle).toBe('Senior AI Engineer');
+  });
+
+  it('emits schema.org email on Person JSON-LD (v1.5, issue #71) and counts it toward completeness', () => {
+    const profile = load(fixture('minimal'));
+    profile.identity.email = 'elena@example.com';
+    const { readiness } = geoCheck(profile).sections.structuredData;
+
+    expect(readiness.completeness).toBe(1); // … + email = 7/7
+    expect(readiness.fields.email).toBe('elena@example.com');
+    expect(readiness.jsonLd?.['email']).toBe('elena@example.com');
+    // sameAs stays page-URLs-only: the mailto: href is output-only (renderer), never sameAs.
+    expect(readiness.jsonLd?.sameAs).not.toContain('mailto:elena@example.com');
   });
 
   it('reports semantic-association anchors with per-anchor reinforcement', () => {

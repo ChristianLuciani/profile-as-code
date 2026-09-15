@@ -85,6 +85,7 @@ se cita, se ignora.
 ## GEO
 
 `schema.org/Organization` JSON-LD con `sameAs` = identity.links + claimed
-handles (§17.1). Un LLM que triangule la marca debe encontrar el mismo nombre,
+handles (§17.1; el email de contacto — `identity.email`, v1.5/#71 — sale como
+propiedad `email`, nunca dentro de `sameAs`). Un LLM que triangule la marca debe encontrar el mismo nombre,
 misión y set de handles en GitHub, X, Bluesky y el newsletter — esa consistencia
 ES la citabilidad.
