@@ -13,6 +13,7 @@
  */
 
 import { credentialLdEntries, type Lang, type PlatformProfile } from '@profile-as-code/core';
+import { mdHref, mdText } from '@profile-as-code/markdown';
 
 export const deploySpec = 'git' as const;
 
@@ -70,7 +71,7 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   if (tagline !== undefined) out.push('', `> ${tagline}`);
   const mission = pickText(p.identity.mission, lang);
   if (mission !== undefined) out.push('', `**${mission}**`);
-  if (p.identity.logo !== undefined) out.push('', `![logo](${p.identity.logo})`);
+  if (p.identity.logo !== undefined) out.push('', `![logo](${mdHref(p.identity.logo)})`);
 
   // 2. Social handles — ONE badge per claimed handle platform, in matrix order.
   //    The matrix (socialHandles) IS the canonical surface set for a brand (§17.1);
@@ -84,7 +85,11 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
       seen.add(h.platform);
       const b = BADGE[h.platform];
       if (b === undefined) continue;
-      badges.push(`[![${b.label}](https://img.shields.io/badge/${b.label}-${hostnamePath(h.url)}-${b.color}?style=flat&logo=${b.logo}&logoColor=white)](${h.url})`);
+      // Both destinations are CommonMark: the inner shields.io image src (the
+      // brand URL's path is interpolated into it) and the outer handle href
+      // (issue #75 — same class as #73).
+      const badgeUrl = `https://img.shields.io/badge/${b.label}-${hostnamePath(h.url)}-${b.color}?style=flat&logo=${b.logo}&logoColor=white`;
+      badges.push(`[![${b.label}](${mdHref(badgeUrl)})](${mdHref(h.url)})`);
     }
     if (badges.length > 0) out.push('', badges.join(' '));
   }
@@ -94,7 +99,7 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     out.push('', '## Newsletter');
     const name = pickText(p.newsletter.name, lang);
     const desc = pickText(p.newsletter.description, lang);
-    out.push('', `- **${name ?? hostnamePath(p.newsletter.url)}** ([${hostnamePath(p.newsletter.url)}](${p.newsletter.url}))${p.newsletter.cadence !== undefined ? ` · ${p.newsletter.cadence}` : ''}`);
+    out.push('', `- **${name ?? hostnamePath(p.newsletter.url)}** ([${mdText(hostnamePath(p.newsletter.url))}](${mdHref(p.newsletter.url)}))${p.newsletter.cadence !== undefined ? ` · ${p.newsletter.cadence}` : ''}`);
     if (desc !== undefined) out.push(`  - ${desc}`);
   }
 
@@ -105,8 +110,8 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     const desc = pickText(p.podcast.description, lang);
     const status = p.podcast.status !== undefined ? ` · \`${p.podcast.status}\`` : '';
     out.push('', `- **${title}**${status}`);
-    if (p.podcast.url !== undefined) out.push(`  - [${hostnamePath(p.podcast.url)}](${p.podcast.url})`);
-    if (p.podcast.rss !== undefined) out.push(`  - RSS: [${hostnamePath(p.podcast.rss)}](${p.podcast.rss})`);
+    if (p.podcast.url !== undefined) out.push(`  - [${mdText(hostnamePath(p.podcast.url))}](${mdHref(p.podcast.url)})`);
+    if (p.podcast.rss !== undefined) out.push(`  - RSS: [${mdText(hostnamePath(p.podcast.rss))}](${mdHref(p.podcast.rss)})`);
     if (desc !== undefined) out.push(`  - ${desc}`);
   }
 
@@ -116,7 +121,7 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     for (const item of p.press) {
       const outlet = typeof item.outlet === 'string' ? item.outlet : pickText(item.outlet, lang) ?? '?';
       const title = pickText(item.title, lang) ?? '?';
-      out.push('', `- **${title}** — ${outlet}, ${item.date}. ([link](${item.url}))`);
+      out.push('', `- **${title}** — ${outlet}, ${item.date}. ([link](${mdHref(item.url)}))`);
     }
   }
 
