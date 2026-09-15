@@ -18,7 +18,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "pnpm build && vitest run",
     "test:watch": "vitest",
     "gen:zod": "node scripts/gen-zod.ts"
   },

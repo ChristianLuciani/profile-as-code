@@ -17,9 +17,11 @@ Review inputs are therefore the issues themselves plus the SPEC:
   ADR-lite) · `docs/SPEC.md` §15.2 · repo rules (AGENTS.md rule 7, D3, D8).
 - Build: commits `8248855` (fix) + `5178042` (review corrections), branch
   `pi/profile-as-code/renderer-md-safety`.
-- Base: `main` @ `a56a3a6`. Diff: **17 files, +553/−66**, one new package
-(`git diff --shortstat a56a3a6 <tip>` — corrected after first quoting plain
-`git diff --stat`, which silently omits the new package while it is untracked).
+- Base: `main` @ `a56a3a6`. Diff at the reconcile tip: **20 files, +713/−68**
+  (`git diff --shortstat a56a3a6 <tip>`). Corrected twice: first from a plain
+  `git diff --stat` that silently omits an untracked new package (17/+553), then
+  again after round 3 moved the tip. The fresh-context pass caught the second
+  staleness — recorded rather than quietly overwritten.
 
 **Contract conflict declared (skill vs repo):** step 8 of this skill says "never
 push, never open the PR yourself (CONTRIBUTING hard rule)". This repo's
@@ -75,9 +77,12 @@ published and tsup inlines `@profile-as-code/*` (`verify:pack` PASS).
 - Docs coherence verified end to end: `SPEC.md` §15.2 states the rule,
   `AGENTS.md` map lists the package, `CONTRIBUTING.md` points contributors at it
   instead of re-implementing, `CHANGELOG.md` records both issues.
-- Clean-build path verified by CI on a fresh checkout (each package's `test`
-  script builds its deps first), so the new build edge does not depend on local
-  state.
+- Clean-build path verified by CI on a fresh checkout. NOTE, corrected in the
+  reconcile: this bullet originally claimed "each package's `test` script builds
+  its deps first" — after round 2 that was false (each package builds only
+  itself; the ordering comes from the root script and `pnpm -r` topological
+  execution). The fresh pass caught the stale sentence, and F1 below is the same
+  correction applied to the code.
 
 ## Correction round 2 — a defect the in-session pass MISSED (found by CI)
 
@@ -127,7 +132,7 @@ The tarball size is unchanged at 147.58 KB, so the CHANGELOG claim still holds.
 
 ## Verdict
 
-**PASS — after correction rounds 2 (in-session: 2).**
+**PASS — after correction rounds 3 (in-session: 2 + fresh reconcile: 1).**
 
 - Round 1 (in-session): 1 MAJOR-natured **claim drift** corrected —
   `docs/STANDARDS.md` stated suite size as current state and the change moved it
@@ -155,4 +160,41 @@ independently). Result to be reconciled below.
 
 ## Fresh-context reconcile
 
-_Pending — awaiting the `premerge-review` report pasted by the operator._
+Fresh verdict: **PASS-CON-RIESGOS** (informativo). The fresh session ran a clean
+clone of the head, its own greps, `markdown-it@14` as an independent CommonMark
+oracle, and re-ran build/test/typecheck/verify:pack. It did NOT receive this
+file's findings. Classified per precedence (contract misread / valid+actionable /
+valid trade-off / noise), each re-verified here before disposition:
+
+| Finding | Class | Re-verified? | Action |
+|---|---|---|---|
+| **F1** (MAJOR) — the round-2 refactor broke the standalone `pnpm -r test` path: renderers no longer build their deps and `core.test` had no build, so nothing supplied `core/dist` | **Valid + actionable** | **Yes**, reproduced: `rm -rf dists && pnpm -r test` → `TS2307: Cannot find module '@profile-as-code/core'` in both renderers | **Fixed (round 3).** Root cause is an inconsistency, not the refactor: `core` was the only one of 5 packages whose `test` did not build itself, and the deleted chains had been silently supplying it. Normalized `packages/core` `test` → `pnpm build && vitest run`. Re-verified from a clean tree: **`pnpm -r test` standalone passes all 5 suites (234 tests)** |
+| **F2** (NIT) — SPEC §15.2 declares the link-text escape set as `[`/`]`, omitting `\` | **Valid + actionable** | Yes — the omission is not cosmetic: a SPEC-faithful reimplementation escaping only brackets breaks byte-parity on a label containing a backslash | **Fixed:** §15.2 now names `\` first and says why (it is the escape character and must survive the round-trip) |
+| **F3** (NIT) — this artifact was stale at the tip: wrong diff stat, and a Pass-3 sentence falsified by round 2 | **Valid + actionable** | Yes — both strings verbatim in the committed file | **Fixed:** stat corrected and the falsified sentence annotated (above), not silently rewritten |
+| **F4** (NIT) — mixed provenance: `STANDARDS.md` cited a run id older than its own regenerated counts | **Valid + actionable** | Yes | **Fixed by removing the rot, not by re-pinning:** a run id goes stale on every push — that is *how* the row got mixed. The row now cites the reviewed PR head + date with the regenerable command, so the counts and their provenance share one date |
+
+- **Noise:** 0 · **Contract misreads:** 0 · **Accepted trade-offs:** 0.
+- **Residual not fixed, declared:** `pnpm -F <renderer> test` on a *completely
+  clean* tree still needs its deps built (`pnpm -r build` first, or the root
+  `pnpm test`). Making it self-sufficient is exactly what caused the parallel-write
+  race, so it is intentionally not restored; every documented entry point
+  (`README`, `CONTRIBUTING`, `AGENTS.md`, `docs/ci-cd.md`) is root-level and works.
+- **What survived refutation:** escaping coverage re-grepped independently (all
+  dynamic labels/destinations in both renderers pass through `mdText`/`mdHref`;
+  the readme badge src uses host-only `hostname()` → safe by the same WHATWG
+  argument as #75's ADR-lite); all quantitative claims re-verified from a clean
+  clone (234 tests / 14 files, exact per-package breakdown, 147.58 KB, typecheck,
+  `verify:pack`); `mdText` semantics corroborated against a real CommonMark parser;
+  `labels[].label` optional confirmed in the schema, so #78 is genuinely
+  pre-existing; no TODO/FIXME in `packages/*/src`.
+- **Loop bound:** 1 fresh round; 1 MAJOR + 3 NITs, all actionable and fixed → gate met.
+- **Doubt-theater guard:** the fresh pass found a MAJOR that the in-session pass
+  missed twice (Pass 3 should have caught the build-wiring seam), and it also
+  caught staleness in this artifact. Not an always-green doubt pipeline.
+
+## Final verdict
+
+**PASS — rounds: 3 (2 in-session corrections + 1 fresh-context reconcile, all
+findings actionable and fixed).** Ready for operator merge. Post-testing feedback
+re-enters as correction blocks (small findings) or a fresh `/sota-workflow` round
+(large); recorded path: correction blocks.

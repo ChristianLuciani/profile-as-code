@@ -20,7 +20,7 @@ before it is presented publicly — the first real end-to-end test is a hard req
 |---|---|---|---|
 | — | Visibility | 🔒 **private** | per policy |
 | 1 | First real test (dogfood: real data rendered + deployed) | ⚠️ | renderers `github-readme` + `github-org` built and tested (`packages/renderers/`, 50 tests, CI green); real workspace: `profile-data` (private repo). Deploy evidence is **not externally auditable** (private workspace) — entry gate: re-run dogfood on current HEAD and record a deploy artifact before flip (issue #45) |
-| 2 | CI green + meaningful | ✅ | `ci` check SUCCESS on PR head (Actions run 34862402503, 2026-09-14) + suites verified: **234 tests**, 14 files (`pnpm test`, 2026-09-15) |
+| 2 | CI green + meaningful | ✅ | `ci` check SUCCESS on the #79 PR head (2026-09-15) + suites verified: **234 tests**, 14 files (`pnpm test` → `build` + `pnpm -r test`, 2026-09-15) |
 | 3 | Tagged release + changelog | ❌ **blocker** | no tag yet; `release.yml` ready but does not create a GitHub Release/artifacts (#58); publish is operator-gated (#44) |
 | 4 | Docs honest + quickstart verified | ⚠️ | 4 README/CONTRIBUTING/CHANGELOG drifts tracked in #55; USER-GUIDE exists (2026-09-09) but third-party quickstart verification pending (#54) |
 | 5 | No placeholders in critical paths | ✅ | no TODO/FIXME in `packages/*/src` (grep 2026-09-11); renderers + CLI built (8 commands: build, check, diff, init, refine, skills-install, status, validate); limitations tracked as issues |
