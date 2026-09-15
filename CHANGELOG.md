@@ -198,6 +198,34 @@ minor versions may contain breaking contract changes.
 - Spec consolidated (D1–D14 resolved): Substack as platform, profile-data as separate repo,
   model-agnostic `pac refine`.
 
+### Fixed
+
+- **Renderer: every markdown link destination from a SSOT URL is CommonMark-safe
+  (issue #73)** — URLs with `(`/`)`/space are contract-legitimate (`$defs/url`:
+  `^https?://` + `format: uri` both tolerate them) but a raw CommonMark destination ends
+  at the first `)` or space → broken link + stray text. The canonical helper `mdHref`
+  (introduced by #72 for asset targets + the email row) now covers ALL destinations the
+  `github-readme` renderer emits from a SSOT URL: badges, project links, project evidence
+  sources, DOI hrefs, credential `verifyUrl`, artifact `locator.url` and the `Links` rows.
+  - **`mdHref` = `encodeURI`'s ASCII set minus `%`, plus the parens** — verified
+    exhaustively (all 128 ASCII chars): the output is byte-identical to the previous
+    helper except where the old output was wrong or over-normalized — a VALID `%` escape
+    is no longer double-encoded (`%20` → `%2520` addressed a different resource) and a
+    non-ASCII URL stays verbatim (an IRI is a valid CommonMark destination). A lone `%`
+    (malformed escape) becomes `%25`; the C0/C1 controls that survive the schema boundary
+    are percent-encoded (TAB/LF/CR never arrive — the boundary's WHATWG preprocessing
+    strips them; encoding them is defensive).
+  - **Blast radius** — for the 7 newly-covered destinations the output changes only when
+    one of those fields carries a URL with `(`/`)`/space, and no known workspace does:
+    the deployed workspace is byte-identical (verified: `profile-data` main-build vs
+    fix-build diff = empty) → no re-peg note. JSON-LD `sameAs`/`email` stay verbatim
+    (§18.4); facts stay raw in labels (a DOI's text keeps its bytes — only the href is
+    encoded).
+  - **github-org NOT touched** (operator-scoped): its `## Links` rows are plain text
+    (`- ${url}`), not CommonMark destinations — verified; the same destination class does
+    exist in its badges/newsletter/podcast/press/logo emissions → escalated as #75, and
+    the adjacent link-*text* class (a `]` in a URL breaks the label) as #76.
+
 ### Planned (roadmap)
 
 - Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
