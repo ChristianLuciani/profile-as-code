@@ -4,6 +4,12 @@ name: release
 # Provenance: id-token: write (OIDC) + repository field in packages/cli/package.json
 # (issue #43). The FIRST tag push (v0.1.0) is the operator's publish action —
 # pushing the tag IS publishing (issue #44); workflow_dispatch is for retries.
+#
+# issue #44 decision (a): npm refuses provenance from private SOURCE repos
+# ([WEB] GitHub Changelog 2023-07-25), and v0.1.0 publishes BEFORE the visibility
+# flip. Provenance is therefore conditional on the repo being public at run time:
+# v0.1.0 goes out without it, every later tag (post-flip) gets it with no
+# follow-up edit. See the Publish step.
 
 on:
   push:
@@ -87,8 +93,20 @@ jobs:
       - name: Verify tarball exposes bin pasco
         run: pnpm --filter @profile-as-code/cli verify:pack
 
+      # Provenance requires a public source repo ([WEB] GitHub Changelog
+      # 2023-07-25); v0.1.0 is tagged while the repo is still private (issue #44
+      # decision a), so it publishes without --provenance. Once flipped, the
+      # same step adds the flag automatically.
       - name: Publish
-        run: npm publish --provenance --access public ${{ (inputs.dry_run && '--dry-run') || '' }}
+        run: |
+          ARGS="--access public"
+          if [ "${{ github.event.repository.private }}" = "false" ]; then
+            ARGS="$ARGS --provenance"
+          else
+            echo "Repository is private — publishing without provenance (issue #44 decision a)."
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then ARGS="$ARGS --dry-run"; fi
+          npm publish $ARGS
         working-directory: packages/cli
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
