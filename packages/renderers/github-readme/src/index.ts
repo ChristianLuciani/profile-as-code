@@ -213,7 +213,11 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   }
 
   // 7. Links (sameAs) + JSON-LD Person (with hasCredential, §18.9).
+  // Contact email (v1.5, issue #71): a FACT emitted first (contact leads,
+  // channels follow) as a mailto: href — output-only: identity.links[] stays
+  // page-URLs-only, so `sameAs` (below) never carries a mailto: URI.
   out.push('', '## Links');
+  if (p.identity.email !== undefined) out.push('', `- [Email](mailto:${p.identity.email})`);
   for (const l of p.identity.links ?? []) out.push('', `- [${l.label}](${l.url})`);
 
   const publicCredentials = credentialLdEntries(p.credentials ?? []); // filters internally — no double pass
@@ -222,6 +226,7 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     '@type': 'Person',
     name: p.identity.name,
   };
+  if (p.identity.email !== undefined) jsonLd.email = p.identity.email;
   if (p.identity.photo !== undefined) jsonLd.image = p.identity.photo;
   if (p.identity.location !== undefined) jsonLd.address = p.identity.location;
   jsonLd.sameAs = (p.identity.links ?? []).map((l) => l.url);

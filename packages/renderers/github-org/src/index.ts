@@ -128,12 +128,17 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   }
 
   // 7. Links (sameAs) + JSON-LD Organization.
+  // Contact email (v1.5, issue #71): a fact, output-only — links[] stays
+  // page-URLs-only (sameAs never carries a mailto: URI). Emitted first.
   const sameAs = [
     ...(p.identity.links ?? []).map((l) => l.url),
     ...claimed.map((h) => h.url as string),
   ].filter((url, index, all) => all.indexOf(url) === index);
-  if (sameAs.length > 0) {
-    out.push('', '## Links', ...sameAs.map((url) => `- ${url}`));
+  if (sameAs.length > 0 || p.identity.email !== undefined) {
+    const rows: string[] = [];
+    if (p.identity.email !== undefined) rows.push(`- mailto:${p.identity.email}`);
+    rows.push(...sameAs.map((url) => `- ${url}`));
+    out.push('', '## Links', ...rows);
   }
 
   const jsonLd: Record<string, unknown> = {
@@ -141,6 +146,7 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     '@type': 'Organization',
     name: p.identity.name,
   };
+  if (p.identity.email !== undefined) jsonLd.email = p.identity.email;
   if (p.identity.logo !== undefined) jsonLd.logo = p.identity.logo;
   if (p.identity.established !== undefined) jsonLd.foundingDate = p.identity.established;
   if (tagline !== undefined) jsonLd.slogan = tagline;

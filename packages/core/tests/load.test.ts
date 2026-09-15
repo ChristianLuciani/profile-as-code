@@ -201,3 +201,51 @@ describe('URL scheme boundary (issue #53: http(s) only at $defs/url)', () => {
     }
   });
 });
+
+describe('identity.email (v1.5, issue #71 — the contact email is a fact, not a link)', () => {
+  it('accepts identity.email at the identity root and preserves the value', () => {
+    const dir = makeWorkspace({
+      'identity.yaml': 'name: X\nemail: cluciani@gmail.com\nlinks:\n  - url: https://example.com\n',
+    });
+    try {
+      const profile = load(dir);
+      expect(profile.identity.email).toBe('cluciani@gmail.com');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects a malformed identity.email (RFC-5322-adjacent pattern)', () => {
+    for (const bad of ['not-an-email', 'missing-at.example', 'a b@example.com', 'a@b']) {
+      const dir = makeWorkspace({ 'identity.yaml': `name: X\nemail: "${bad}"\n` });
+      try {
+        expect(() => load(dir)).toThrow(SchemaValidationError);
+        try {
+          load(dir);
+        } catch (error) {
+          const e = error as SchemaValidationError;
+          expect(e.issues.some((issue) => issue.path === 'identity.email')).toBe(true);
+        }
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it('STILL rejects mailto: in identity.links — the #53 http(s) boundary holds (option B)', () => {
+    const dir = makeWorkspace({
+      'identity.yaml': 'name: X\nemail: x@example.com\nlinks:\n  - platform: email\n    label: Email\n    url: "mailto:x@example.com"\n',
+    });
+    try {
+      expect(() => load(dir)).toThrow(SchemaValidationError);
+      try {
+        load(dir);
+      } catch (error) {
+        const e = error as SchemaValidationError;
+        expect(e.issues.some((issue) => issue.path === 'identity.links.0.url')).toBe(true);
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

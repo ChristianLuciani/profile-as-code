@@ -105,15 +105,16 @@ function structuredData(profile: Profile): StructuredDataReadiness {
     const fields = {
       name: Boolean(identity.name),
       sameAs,
+      ...(identity.email !== undefined ? { email: true } : {}),
       ...(identity.logo ? { logo: identity.logo } : {}),
       ...(identity.established ? { foundingDate: identity.established } : {}),
       ...(slogan ? { slogan } : {}),
       ...(description ? { description } : {}),
       ...(identity.location ? { address: identity.location } : {}),
     };
-    const considered = ['name', 'sameAs', 'logo', 'foundingDate', 'slogan', 'description', 'address'];
+    const considered = ['name', 'sameAs', 'email', 'logo', 'foundingDate', 'slogan', 'description', 'address'];
     const populated =
-      1 + (sameAs.length > 0 ? 1 : 0) + (identity.logo ? 1 : 0) + (identity.established ? 1 : 0) + (slogan ? 1 : 0) + (description ? 1 : 0) + (identity.location ? 1 : 0);
+      1 + (sameAs.length > 0 ? 1 : 0) + (identity.email !== undefined ? 1 : 0) + (identity.logo ? 1 : 0) + (identity.established ? 1 : 0) + (slogan ? 1 : 0) + (description ? 1 : 0) + (identity.location ? 1 : 0);
     const ready = Boolean(identity.name) && sameAs.length > 0 && Boolean(identity.logo || description || identity.established);
     const jsonLd =
       identity.name && sameAs.length > 0
@@ -122,6 +123,7 @@ function structuredData(profile: Profile): StructuredDataReadiness {
             '@type': 'Organization' as const,
             name: identity.name,
             sameAs,
+            ...(identity.email !== undefined ? { email: identity.email } : {}),
             ...(credentialsLd ? { hasCredential: credentialsLd } : {}),
             ...(identity.logo ? { logo: identity.logo } : {}),
             ...(identity.established ? { foundingDate: identity.established } : {}),
@@ -137,13 +139,14 @@ function structuredData(profile: Profile): StructuredDataReadiness {
   const fields = {
     name: Boolean(identity.name),
     sameAs,
+    ...(identity.email !== undefined ? { email: true } : {}),
     ...(identity.photo ? { image: identity.photo } : {}),
     ...(identity.location ? { address: identity.location } : {}),
     ...(role.jobTitle ? { jobTitle: role.jobTitle } : {}),
     ...(role.worksFor ? { worksFor: role.worksFor } : {}),
   };
-  const considered = ['name', 'sameAs', 'image', 'address', 'jobTitle', 'worksFor'];
-  const populated = 1 + (sameAs.length > 0 ? 1 : 0) + (identity.photo ? 1 : 0) + (identity.location ? 1 : 0) + (role.jobTitle ? 1 : 0) + (role.worksFor ? 1 : 0);
+  const considered = ['name', 'sameAs', 'email', 'image', 'address', 'jobTitle', 'worksFor'];
+  const populated = 1 + (sameAs.length > 0 ? 1 : 0) + (identity.email !== undefined ? 1 : 0) + (identity.photo ? 1 : 0) + (identity.location ? 1 : 0) + (role.jobTitle ? 1 : 0) + (role.worksFor ? 1 : 0);
   const ready = Boolean(identity.name) && sameAs.length > 0 && (Boolean(identity.photo) || Boolean(identity.location) || Boolean(role.jobTitle));
   const jsonLd = identity.name && sameAs.length > 0
     ? {
@@ -151,6 +154,7 @@ function structuredData(profile: Profile): StructuredDataReadiness {
         '@type': 'Person' as const,
         name: identity.name,
         sameAs,
+        ...(identity.email !== undefined ? { email: identity.email } : {}),
         ...(credentialsLd ? { hasCredential: credentialsLd } : {}),
         ...(identity.photo ? { image: identity.photo } : {}),
         ...(identity.location ? { address: identity.location } : {}),

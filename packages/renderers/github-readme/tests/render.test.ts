@@ -130,6 +130,57 @@ describe('renderer github-readme (SPEC §15)', () => {
   });
 });
 
+describe('renderer github-readme — contact email (v1.5, issue #71)', () => {
+  /** Build a slice from inline workspace files (same pattern as the registry tests). */
+  function emailSlice(files: Record<string, string>) {
+    const dir = mkdtempSync(join(tmpdir(), 'pasco-render-email-'));
+    mkdirSync(join(dir, 'content'), { recursive: true });
+    for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, 'content', name), body, 'utf8');
+    try {
+      const profile = load(dir);
+      return { slice: compile(profile, 'github-readme', 'en'), cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+    } catch (err) {
+      rmSync(dir, { recursive: true, force: true });
+      throw err;
+    }
+  }
+
+  it('emits the email as the FIRST Links row (a fact leads, channels follow) + jsonLd email; sameAs stays page-URLs-only', () => {
+    const { slice, cleanup } = emailSlice({
+      'identity.yaml':
+        'name: Elena Vasquez\nemail: elena@example.com\nlinks:\n  - platform: github\n    label: GitHub\n    url: https://github.com/elena\n',
+    });
+    try {
+      const out = render(slice);
+      const linksIdx = out.text.indexOf('## Links');
+      const linksSection = out.text.slice(linksIdx, out.text.indexOf('<!--'));
+      const rows = linksSection.split('\n').filter((row) => row.startsWith('- ['));
+      expect(rows[0]).toBe('- [Email](mailto:elena@example.com)');
+      expect(rows[1]).toBe('- [GitHub](https://github.com/elena)');
+
+      const json = JSON.parse(out.text.split('```json')[1]!.split('```')[0]!) as Record<string, unknown>;
+      expect(json['email']).toBe('elena@example.com');
+      expect(JSON.stringify(json.sameAs)).not.toContain('mailto:');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('a workspace without email renders byte-identical to the pre-v1.5 output (no email row, no jsonLd email)', () => {
+    const { slice, cleanup } = emailSlice({
+      'identity.yaml': 'name: Elena Vasquez\nlinks:\n  - platform: github\n    label: GitHub\n    url: https://github.com/elena\n',
+    });
+    try {
+      const out = render(slice);
+      expect(out.text).not.toContain('mailto:');
+      expect(out.text).not.toContain('"email"');
+      expect(out.text).toContain('- [GitHub](https://github.com/elena)');
+    } finally {
+      cleanup();
+    }
+  });
+});
+
 describe('renderer github-readme — evidence registry (v1.4/D17/§18)', () => {
   /** Build a slice with a registry from inline workspace files. */
   function registrySlice(files: Record<string, string>, lang: 'en' | 'es' = 'en') {

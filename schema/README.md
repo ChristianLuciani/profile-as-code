@@ -29,6 +29,11 @@ Every URL field validates through the single `$defs/url` node, which carries
 - **Negative fixture:** `scripts/schema-check/fixtures/invalid-bad-url-scheme.json`
   (a `javascript:` link must be rejected); load-side behavior is asserted in
   `packages/core/tests/load.test.ts` (URL scheme boundary describe).
+- **The contact email is NOT a URL field (v1.5, issue #71).** `mailto:` stays rejected in
+  `identity.links[]` (D12) — the email lives in `identity.email` as a fact (pattern
+  `^[^@\s]+@[^@\s]+\.[^@\s]+$`, negative fixture `invalid-bad-email.json`). Renderers emit
+  it as a mailto: href in the Links section (output-only) and as the JSON-LD `email`
+  property; `sameAs` stays page-URLs-only (SPEC §6/§15.4).
 
 ## How content files map to the profile
 
@@ -37,7 +42,7 @@ validates the result against this schema. File → root property mapping:
 
 | File (content/) | Root property(s) | Notes |
 |---|---|---|
-| `identity.yaml` | `identity` | Required at profile level (the GEO anchor) |
+| `identity.yaml` | `identity` | Required at profile level (the GEO anchor). v1.5 (issue #71): `email` — the contact email as a fact (NOT in `links[]`; renderers emit a mailto: href + JSON-LD `email`) |
 | `flavor.yaml` | `flavor` | v1.1 (D15): `person` \| `brand`. **The file value IS the root value** — a bare scalar (`brand`), not a key:value map |
 | `socialHandles.yaml` | `socialHandles[]` | v1.1 (brand): handle matrix (platform → handle + `status: claimed\|pending`) |
 | `newsletter.yaml` | `newsletter` | v1.1 (brand): Substack/Ghost |
