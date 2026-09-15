@@ -105,7 +105,7 @@ function structuredData(profile: Profile): StructuredDataReadiness {
     const fields = {
       name: Boolean(identity.name),
       sameAs,
-      ...(identity.email !== undefined ? { email: true } : {}),
+      ...(identity.email !== undefined ? { email: identity.email } : {}),
       ...(identity.logo ? { logo: identity.logo } : {}),
       ...(identity.established ? { foundingDate: identity.established } : {}),
       ...(slogan ? { slogan } : {}),
@@ -139,7 +139,7 @@ function structuredData(profile: Profile): StructuredDataReadiness {
   const fields = {
     name: Boolean(identity.name),
     sameAs,
-    ...(identity.email !== undefined ? { email: true } : {}),
+    ...(identity.email !== undefined ? { email: identity.email } : {}),
     ...(identity.photo ? { image: identity.photo } : {}),
     ...(identity.location ? { address: identity.location } : {}),
     ...(role.jobTitle ? { jobTitle: role.jobTitle } : {}),

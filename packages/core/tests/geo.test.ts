@@ -57,7 +57,7 @@ describe('geoCheck(profile)', () => {
     const { readiness } = geoCheck(profile).sections.structuredData;
 
     expect(readiness.completeness).toBe(1); // … + email = 7/7
-    expect(readiness.fields.email).toBe(true);
+    expect(readiness.fields.email).toBe('elena@example.com');
     expect(readiness.jsonLd?.['email']).toBe('elena@example.com');
     // sameAs stays page-URLs-only: the mailto: href is output-only (renderer), never sameAs.
     expect(readiness.jsonLd?.sameAs).not.toContain('mailto:elena@example.com');
