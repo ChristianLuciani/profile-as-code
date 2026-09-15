@@ -83,6 +83,14 @@ export function mdHref(href: string): string {
  * (`\`, `[`, `]`). A space, a paren or an accent in a label is perfectly valid
  * CommonMark text and stays raw, so the output is byte-identical for every label
  * without those three characters.
+ *
+ * Backticks are deliberately NOT escaped. A label is inline content, so a code
+ * span the user writes inside it is their markdown intent and must survive.
+ * One consequence: if a label contains a code span AND a
+ * bracket, the span already protects the bracket (the link still parses) but the
+ * visible text shows the backslash, because CommonMark does not process escapes
+ * inside a code span. Escaping the backtick would fix that cosmetic case by
+ * destroying the intended code span — a worse trade. Known and accepted.
  */
 export function mdText(text: string): string {
   // Backslash first (it is also the escape character), then both brackets.
