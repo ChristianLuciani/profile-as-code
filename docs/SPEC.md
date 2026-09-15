@@ -371,7 +371,8 @@ targets into `profiles/<platform>/assets/`, and writes `assets/manifest.json`. T
 receives the bundle via `opts.assets` and links ONLY bundled targets — absent → path locators
 stay link-free (byte-identical to the pre-M8 output). Renderers never touch the filesystem
 and never emit a workspace-internal path (D14). Markdown hrefs are percent-encoded
-(spaces/parens break CommonMark destinations); the manifest and the declared target keep
+(spaces/parens break CommonMark destinations) and link text backslash-escapes `[`/`]`
+(a raw bracket closes the label early); the manifest and the declared target keep
 the raw filesystem-relative path.
 
 ### 15.3 Output spec (`README.md`)

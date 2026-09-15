@@ -21,6 +21,7 @@ per-user private repo (`profile-data`), scaffolded from the template
 | `schema/profile.schema.json` | Contract source (D3) | additive + reviewed; never hand-write Zod |
 | `packages/core/` | Engine: load · drift · geo · compile | vitest; fixtures in `packages/core/tests/fixtures/` |
 | `packages/cli/` | `pasco` CLI | consumes core; never re-implements it |
+| `packages/markdown/` | CommonMark escaping (`mdHref` destinations · `mdText` labels) | shared by every markdown renderer — never re-implement in an adapter |
 | `packages/renderers/` | One adapter per platform | the contribution seam |
 | `skills/<platform>/` | Living knowledge per platform (D5) | follows `skills/README.md` |
 | `docs/research/` | Prior-art + SOTA, sourced + dated | |

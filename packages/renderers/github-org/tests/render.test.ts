@@ -245,3 +245,117 @@ describe('github-org JSON-LD hasCredential (D17, §18.9)', () => {
     expect(text).not.toContain('Internal Certification');
   });
 });
+
+describe('github-org CommonMark-safe destinations (issue #75)', () => {
+  /** Brand fixture whose SSOT URLs carry parens/space — contract-legitimate
+   *  (`$defs/url`: `^https?://` + `format: uri`, and `new URL()` keeps `(`/`)`
+   *  in a pathname) but fatal for a raw CommonMark destination: the link ends at
+   *  the first `)` or space. Every destination this renderer emits must pass
+   *  `mdHref()` (issue #73's helper, shared via @profile-as-code/markdown). */
+  function unsafeBrand(): string {
+    const dir = mkdtempSync(join(tmpdir(), 'pasco-org-unsafe-'));
+    tempDirs.push(dir);
+    const content = join(dir, 'content');
+    mkdirSync(content, { recursive: true });
+    writeFileSync(join(content, 'flavor.yaml'), 'brand\n');
+    writeFileSync(
+      join(content, 'identity.yaml'),
+      `name: Topia Press
+logo: https://topia.press/logo (1).png
+links:
+  - platform: website
+    label: Website
+    url: https://topia.press
+`,
+    );
+    writeFileSync(
+      join(content, 'socialHandles.yaml'),
+      `- platform: x
+  handle: topiapress
+  status: claimed
+  url: https://x.com/topia (press)
+`,
+    );
+    writeFileSync(
+      join(content, 'newsletter.yaml'),
+      `platform: substack
+url: https://topiapress.substack.com/archive (2026)
+name:
+  en: Topia Press
+`,
+    );
+    writeFileSync(
+      join(content, 'podcast.yaml'),
+      `title:
+  en: Topia Radio
+url: https://open.spotify.com/show (1)
+rss: https://topia.press/feed (rss)
+`,
+    );
+    writeFileSync(
+      join(content, 'press.yaml'),
+      `- outlet: Example Gazette
+  title:
+    en: Topia Press launches
+  url: https://example.com/topia-launch (2026)
+  date: 2026-08-18
+`,
+    );
+    return dir;
+  }
+
+  function rendered(): string {
+    return render(compile(load(unsafeBrand()), 'github-org', 'en')).text;
+  }
+
+  it('badges: BOTH destinations are encoded — the shields.io image src and the handle href', () => {
+    // the brand URL's path is interpolated INTO the shields.io URL, so a raw
+    // paren breaks the image destination too (the issue called only the href out)
+    expect(rendered()).toContain(
+      '[![X](https://img.shields.io/badge/X-x.com/topia%20%28press%29-000000?style=flat&logo=X&logoColor=white)](https://x.com/topia%20%28press%29)',
+    );
+  });
+
+  it('newsletter: the SSOT url destination is encoded (the label keeps its parser form)', () => {
+    expect(rendered()).toContain(
+      '- **Topia Press** ([topiapress.substack.com/archive%20(2026)](https://topiapress.substack.com/archive%20%282026%29))',
+    );
+  });
+
+  it('podcast: url and rss destinations are encoded', () => {
+    const text = rendered();
+    expect(text).toContain('  - [open.spotify.com/show%20(1)](https://open.spotify.com/show%20%281%29)');
+    expect(text).toContain('  - RSS: [topia.press/feed%20(rss)](https://topia.press/feed%20%28rss%29)');
+  });
+
+  it('press: the mention destination is encoded (the label is constant)', () => {
+    expect(rendered()).toContain('([link](https://example.com/topia-launch%20%282026%29))');
+  });
+
+  it('logo: the image destination is encoded', () => {
+    expect(rendered()).toContain('![logo](https://topia.press/logo%20%281%29.png)');
+  });
+
+  it('the `## Links` rows stay plain text (they are not CommonMark destinations)', () => {
+    // verified in #73/#75: `- ${url}` rows carry no destination to break
+    expect(rendered()).toContain('- https://topia.press\n- https://x.com/topia (press)');
+  });
+
+  it('property: no emitted destination carries a raw space, control char or paren', () => {
+    const text = rendered();
+    const opened = (text.match(/\]\(/g) ?? []).length;
+    const closed = (text.match(/\]\([^()\u0000-\u0020\u007F-\u009F]*\)/g) ?? []).length;
+    expect(opened).toBeGreaterThan(0);
+    expect(closed).toBe(opened); // a raw space/paren/control in any destination breaks the pairing
+  });
+
+  it('byte-parity: the safe brand fixture emits zero percent-encoding (the helper only fires on the unsafe set)', () => {
+    // The module-level byte-for-byte test above proves the full output is
+    // unchanged for a workspace with no `(`/`)`/space; this states the property
+    // directly — mdHref is a no-op outside the unsafe set.
+    const text = render(compile(load(brandWorkspace()), 'github-org', 'en')).text;
+    expect(text).not.toContain('%20');
+    expect(text).not.toContain('%28');
+    expect(text).not.toContain('%29');
+  });
+});

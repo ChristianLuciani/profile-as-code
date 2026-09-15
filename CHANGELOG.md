@@ -50,7 +50,7 @@ minor versions may contain breaking contract changes.
   privados, así que `--provenance` se agrega solo cuando el repo ya es público — v0.1.0 sale sin
   ella (pre-flip) y los tags siguientes la llevan automáticamente, sin edición de seguimiento.
   El tarball es self-contained: `@profile-as-code/core` + renderers se buclean en un
-  `dist/index.js` único (tsup; 147.32 KB, build 2026-09-15) porque no están en npm; `yaml`/`zod` quedan como dependencias
+  `dist/index.js` único (tsup; 147.58 KB, build 2026-09-15) porque no están en npm; `yaml`/`zod` quedan como dependencias
   reales. Assert (`packages/cli/scripts/verify-pack.mjs`, corrido en `ci.yml` y pre-publish):
   el tarball expone el bin `pasco` (existe, ejecutable, shebang, sin `workspace:` en las ranges que
   resuelve el consumidor) + smoke de instalación aislada del bin linkeado (`pasco <versión>`).
@@ -191,6 +191,12 @@ minor versions may contain breaking contract changes.
 - **Community scaffolding** — CONTRIBUTING, CODE_OF_CONDUCT, GOVERNANCE, SECURITY, PR/issue
   templates, GitHub Discussions.
 - **Prior-art research** — `docs/research/01-prior-art.md`, SOTA research prompts + runner.
+- **`@profile-as-code/markdown` — la regla CommonMark compartida (issues #75/#76)** — el escaping
+  de markdown vivía solo en `github-readme` (`mdHref`, issue #73) y faltaba en `github-org`: el
+  renderer siguiente (M2/M4) habría copiado la regla por tercera vez, y una regla que viaja por
+  copia es exactamente cómo el mismo bug llega al próximo adapter. El paquete separa las dos
+  superficies — `mdHref()` (destinos) y `mdText()` (texto de link: backslash-escape de `\`/`[`/`]`).
+  Sin dependencias; `core` sigue agnóstico de plataforma (AGENTS.md §7); 12 tests propios.
 
 ### Changed
 
@@ -237,3 +243,18 @@ minor versions may contain breaking contract changes.
     (`- ${url}`), not CommonMark destinations — verified; the same destination class does
     exist in its badges/newsletter/podcast/press/logo emissions → escalated as #75, and
     the adjacent link-*text* class (a `]` in a URL breaks the label) as #76.
+
+- **`github-org`: todos los destinos CommonMark son seguros (issue #75)** — badges (el `src` de
+  shields.io **y** el href del handle: el path de la marca se interpola dentro del primer
+  destino), newsletter, podcast (url + rss), press y `identity.logo` pasan por `mdHref()`. Un
+  `(`/`)`/espacio legítimo del SSOT (`$defs/url`) terminaba el destino en el primer `)` y el
+  resto quedaba como texto suelto. `## Links` sigue siendo texto plano (no hay destino que romper).
+
+- **Los renderers escapan el TEXTO de los links (issue #76)** — un `]` en el path de una URL, en
+  un DOI o en un `identity.links[].label` cerraba el label antes de tiempo: el link no existía y
+  el resto quedaba como texto + autolink (repro contra un parser CommonMark real, en el issue).
+  `mdText()` backslash-escapa `\`/`[`/`]`; CommonMark desescapa al renderizar, así que el label
+  visible conserva sus bytes (el hecho se mantiene crudo, §18.4). Cubre `github-readme` (links de
+  proyectos, DOI, artifact url, asset target, `Links`) y `github-org` (newsletter, podcast).
+  Byte-parity: sólo cambia con `\`/`[`/`]` en un label — ningún workspace conocido los tiene
+  (los tests byte-for-byte existentes pasan sin modificación).

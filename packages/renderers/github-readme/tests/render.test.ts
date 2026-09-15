@@ -542,3 +542,109 @@ describe('renderer github-readme — CommonMark-safe destinations (issue #73)', 
     }
   });
 });
+
+describe('renderer github-readme — CommonMark-safe link TEXT (issue #76)', () => {
+  /** Fixture whose SSOT values put `[`/`]` where a link LABEL is built from them:
+   *  a URL path, a DOI and a free-text `identity.links[].label`. A raw `]` closes
+   *  the label early, so the link does not exist and the rest becomes text plus an
+   *  autolink (verified against a real CommonMark parser in the issue). The URL
+   *  (`new URL()` path set keeps `[`/`]`) and the DOI regex (`^10\.\d{4,9}/\S+$`)
+   *  both admit them — reachable, not theoretical. */
+  const BRACKETS = {
+    'identity.yaml': 'name: Elena Vasquez\nlinks:\n  - label: Report [draft]\n    url: https://example.com/x\n',
+    'projects.yaml': '- name: report\n  status: active\n  links:\n    - https://example.com/a]b\n',
+    'publications.yaml': '- title: Bracketed DOI\n  venue: Journal\n  year: 2024\n  doi: 10.5555/a]b\n',
+    'artifacts.yaml':
+      '- id: reel-1\n  kind: showreel\n  title: Reel\n  locator:\n    path: media/reel.mp4\n  visibility: public\n',
+  };
+
+  function bracketSlice(files: Record<string, string>) {
+    const dir = mkdtempSync(join(tmpdir(), 'pasco-render-mdtext-'));
+    mkdirSync(join(dir, 'content'), { recursive: true });
+    for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, 'content', name), body, 'utf8');
+    try {
+      return { slice: compile(load(dir), 'github-readme', 'en'), cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+    } catch (err) {
+      rmSync(dir, { recursive: true, force: true });
+      throw err;
+    }
+  }
+
+  const BUNDLE = [
+    {
+      artifactId: 'reel-1',
+      target: 'assets/reel-1/reel [1].mp4',
+      source: '/ws/media/reel.mp4',
+      sha256: 'a'.repeat(64),
+      bytes: 10,
+      origin: 'workspace' as const,
+    },
+  ];
+
+  it('project link label: a `]` taken from the URL is escaped (the link is not closed early)', () => {
+    const { slice, cleanup } = bracketSlice(BRACKETS);
+    try {
+      // the label is the URL-parser form; the href is percent-encoded as before (#73)
+      expect(render(slice).text).toContain('  - [example.com/a\\]b](https://example.com/a%5Db)');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('DOI label: a `]` in the DOI fact is escaped; the fact keeps its bytes when rendered', () => {
+    const { slice, cleanup } = bracketSlice(BRACKETS);
+    try {
+      expect(render(slice).text).toContain('[DOI: 10.5555/a\\]b](https://doi.org/10.5555/a%5Db)');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('SSOT label: a `]`/`[` in identity.links[].label is escaped', () => {
+    const { slice, cleanup } = bracketSlice(BRACKETS);
+    try {
+      expect(render(slice).text).toContain('- [Report \\[draft\\]](https://example.com/x)');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('asset target label: a `]` in the declared target is escaped, the declared target stays raw', () => {
+    const { slice, cleanup } = bracketSlice(BRACKETS);
+    try {
+      const out = render(slice, { assets: BUNDLE });
+      expect(out.text).toContain(' — [assets/reel-1/reel \\[1\\].mp4](assets/reel-1/reel%20%5B1%5D.mp4)');
+      // filesystem-facing surface keeps the raw path (it addresses the file on the deploy repo)
+      expect(out.assets).toContain('assets/reel-1/reel [1].mp4');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('byte-parity: a label without `\\`, `[` or `]` is untouched (100% of the deployed output today)', () => {
+    const { slice, cleanup } = bracketSlice({
+      'identity.yaml': 'name: Elena Vasquez\nlinks:\n  - label: Site (main)\n    url: https://example.com/my profile (2024)\n',
+    });
+    try {
+      expect(render(slice).text).toContain('- [Site (main)](https://example.com/my%20profile%20%282024%29)');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('property: in the markdown body every `[` opens a link and every unescaped `]` closes one', () => {
+    const { slice, cleanup } = bracketSlice(BRACKETS);
+    try {
+      const text = render(slice, { assets: BUNDLE }).text;
+      // Fenced blocks are structured surfaces (JSON-LD, verbatim per §18.4): the
+      // bracket rule is about the markdown body only.
+      const markdown = text.replace(/```[\s\S]*?```/g, '');
+      // Drop CommonMark escapes: those are the FIX, not a violation.
+      const bare = markdown.replace(/\\./g, '');
+      expect(bare.match(/\]\(/g) ?? []).toHaveLength((bare.match(/\[/g) ?? []).length);
+      expect(bare.match(/\](?!\()/g) ?? []).toEqual([]);
+    } finally {
+      cleanup();
+    }
+  });
+});

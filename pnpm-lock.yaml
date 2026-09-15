@@ -64,11 +64,26 @@ importers:
         specifier: ^5.0.0
         version: 5.0.0(@types/node@26.5.1)(vite@7.3.6(@types/node@26.5.1)(yaml@2.9.0))
 
+  packages/markdown:
+    devDependencies:
+      '@types/node':
+        specifier: ^26.5.1
+        version: 26.5.1
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.0
+        version: 5.0.0(@types/node@26.5.1)(vite@7.3.6(@types/node@26.5.1)(yaml@2.9.0))
+
   packages/renderers/github-org:
     dependencies:
       '@profile-as-code/core':
         specifier: workspace:*
         version: link:../../core
+      '@profile-as-code/markdown':
+        specifier: workspace:*
+        version: link:../../markdown
     devDependencies:
       '@types/node':
         specifier: ^26.5.1
@@ -85,6 +100,9 @@ importers:
       '@profile-as-code/core':
         specifier: workspace:*
         version: link:../../core
+      '@profile-as-code/markdown':
+        specifier: workspace:*
+        version: link:../../markdown
     devDependencies:
       '@types/node':
         specifier: ^26.5.1
