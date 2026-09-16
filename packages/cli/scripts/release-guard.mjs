@@ -93,6 +93,18 @@ function tagCommit(tag) {
   return { ok: true, sha: rev.out };
 }
 
+/** A shallow clone cannot decide ancestry: older objects are absent, so
+ *  `merge-base --is-ancestor` answers "no" for a commit that IS on the branch.
+ *  The distinction matters — a check that could not run must never read as a
+ *  check that said no (issue #81). */
+function repositoryIsShallow() {
+  const res = run('git', ['rev-parse', '--is-shallow-repository'], { allowFailure: true });
+  return res.ok && res.out === 'true';
+}
+
+const SHALLOW = `this checkout is SHALLOW, so ancestry cannot be decided — older objects are missing, and a commit that IS on the branch is reported as absent.
+The guard needs full history: actions/checkout must use \`fetch-depth: 0\`. Refusing rather than guessing.`;
+
 function isAncestor(sha, tip) {
   // exit 0 also covers "sha IS the tip" — ancestry is inclusive.
   return run('git', ['merge-base', '--is-ancestor', sha, tip], { allowFailure: true }).ok;
@@ -150,9 +162,11 @@ function main() {
     const base = defaultBranchTip(branch);
     if (!base.ok) fail(`cannot verify the tagged commit.\n${base.reason}`);
     if (resolved.sha !== base.tip) {
-      const behind = isAncestor(resolved.sha, base.tip)
-        ? ' It is BEHIND the tip — a stale branch was tagged.'
-        : ' It is not on the branch at all.';
+      const behind = repositoryIsShallow()
+        ? ''
+        : isAncestor(resolved.sha, base.tip)
+          ? ' It is BEHIND the tip — a stale branch was tagged.'
+          : ' It is not on the branch at all.';
       fail(
         `${tag} points at ${short(resolved.sha)}, but ${branch} is at ${short(base.tip)}.${behind}\n\nPublishing would ship the older tree and consume the version number.\nFix: \`git pull --ff-only\`, delete the tag (\`git tag -d ${tag}\`), tag the tip again.\nIf publishing an older commit is deliberate, retag it and use the workflow_dispatch path, which validates ancestry instead of identity.`,
       );
@@ -171,7 +185,8 @@ function main() {
     if (!resolved.ok) fail(`cannot verify what ${tag} points at.\n${resolved.reason}`);
 
     // ANCESTRY: a retry republishes a tag pushed when the branch was at that
-    // commit, so identity would block every legitimate retry.
+    // commit, so identity would block every legitimate retry. It needs history.
+    if (repositoryIsShallow()) fail(SHALLOW);
     const base = defaultBranchTip(branch);
     if (!base.ok) fail(`cannot verify the tagged commit.\n${base.reason}`);
     if (!isAncestor(resolved.sha, base.tip)) {

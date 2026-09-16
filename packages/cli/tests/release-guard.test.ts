@@ -54,7 +54,7 @@ function guard(env: Record<string, string>, cwd: string): { code: number; out: s
   }
 }
 
-const dirs = { origin: '', work: '', stale: '', tip: '', off: '' };
+const dirs = { origin: '', work: '', stale: '', tip: '', off: '', shallow: '' };
 
 /** A fresh $GITHUB_OUTPUT file, which is how the workflow consumes the verified
  *  commit — the contract that keeps the build from drifting off the tag. */
@@ -107,6 +107,12 @@ beforeAll(() => {
   // origin = bare clone of seed; work = a clone whose origin is that bare repo.
   execFileSync('git', ['clone', '--quiet', '--bare', seed, dirs.origin], { stdio: 'ignore' });
   execFileSync('git', ['clone', '--quiet', dirs.origin, dirs.work], { stdio: 'ignore' });
+
+  // A genuinely shallow clone. `file://` is required: a local path clone silently
+  // ignores --depth and hands back the full history (which is how a first, invalid
+  // version of this very check passed while testing nothing).
+  dirs.shallow = join(base, 'shallow');
+  execFileSync('git', ['clone', '--quiet', '--depth', '1', `file://${dirs.origin}`, dirs.shallow], { stdio: 'ignore' });
 });
 
 afterAll(() => {
@@ -191,6 +197,25 @@ describe('release guard — workflow_dispatch (ancestry: a retry is legitimate)'
     const { code, out } = guard(DISPATCH, dirs.work);
     expect(code).toBe(1);
     expect(out).toContain('must have landed on');
+  });
+});
+
+describe('release guard — shallow clone (the check must not lie about why it refused)', () => {
+  it('REFUSES the ancestry check with the real reason, not "it never landed on the branch"', () => {
+    tagAt(dirs.stale);
+    const { code, out } = guard(DISPATCH, dirs.shallow);
+    expect(code).toBe(1);
+    expect(out).toContain('SHALLOW');
+    expect(out).toContain('fetch-depth: 0');
+    // the misleading verdict this replaces
+    expect(out).not.toContain('must have landed on');
+  });
+
+  it('still publishes a tag at the tip — identity needs no history, so a shallow clone must not block it', () => {
+    tagAt(dirs.tip);
+    const { code, out } = guard(TAG_PUSH, dirs.shallow);
+    expect(code).toBe(0);
+    expect(out).toContain('= the current main tip');
   });
 });
 
