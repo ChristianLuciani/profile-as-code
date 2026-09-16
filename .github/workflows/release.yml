@@ -33,42 +33,43 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 — the guard compares the tagged commit against the default
+      # branch tip, and ancestry is not computable from a shallow clone.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
-      # Publish invariant: only tagged, version-matched releases may publish
-      # (fresh-review F1: the old guard was skipped on workflow_dispatch, the
-      # documented retry path — leaving that publish path unguarded).
-      # - Tag push: the pushed tag must match the package version.
-      # - Manual dispatch (real publish): the package version must already be
-      #   tagged on origin — no publish outside the tag=publish invariant.
-      # - Dry runs skip the guard (nothing is published); see the info step.
-      - name: Guard — published version must be a tagged release
-        if: github.event_name == 'push' || inputs.dry_run != true
-        run: |
-          PKG=$(node -p "require('./packages/cli/package.json').version")
-          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
-            TAG="${GITHUB_REF_NAME#v}"
-            if [ "$TAG" != "$PKG" ]; then
-              echo "Tag v$TAG does not match package version $PKG — refusing to publish." >&2
-              exit 1
-            fi
-          else
-            git ls-remote --exit-code --tags origin "refs/tags/v$PKG" >/dev/null 2>&1 || {
-              echo "No tag v$PKG on origin — refusing to publish a version outside the tag=publish invariant." >&2
-              exit 1
-            }
-          fi
+      # Publish invariant: only a tagged, version-matched release whose COMMIT is
+      # on the default branch may publish (issues #42/#43, hardened in #81).
+      #
+      # It lives in a script rather than inline so the invariant can be exercised
+      # against a real repository (see that file's --help) instead of only being
+      # imagined: the previous inline check compared the tag NAME to package.json
+      # and accepted a tag pushed from a stale local main, which would publish
+      # whatever that commit contained (observed 2026-09-15).
+      #
+      # Always runs: the script owns the dry-run behavior too, so a green dry run
+      # reports which invariants were NOT enforced instead of looking equivalent.
+      - name: Guard — only a tagged release on the default branch may publish
+        id: guard
+        run: node packages/cli/scripts/release-guard.mjs
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          DRY_RUN: ${{ inputs.dry_run }}
 
-      - name: Dry-run info — version and tag state (guard not exercised)
-        if: github.event_name == 'workflow_dispatch' && inputs.dry_run == true
-        run: |
-          PKG=$(node -p "require('./packages/cli/package.json').version")
-          echo "Dry run: would publish @profile-as-code/cli@$PKG"
-          if git ls-remote --tags origin "refs/tags/v$PKG" | grep -q .; then
-            echo "Tag v$PKG exists on origin."
-          else
-            echo "NOTE: tag v$PKG does not exist on origin yet (pre-tag smoke)."
-          fi
+      # Verifying a commit is not the same as publishing it. The guard validates
+      # the TAGGED commit; without this step the retry path (workflow_dispatch
+      # from a branch) would build whatever that branch's tree is while the guard
+      # reported "commit verified" — a green run whose claim did not cover the
+      # artifact (the #81 failure class, on the other entry point).
+      #
+      # Skipped on a dry run: nothing is published, and the guard deliberately
+      # emits no commit there, so an empty ref cannot silently fall back.
+      - if: inputs.dry_run != true
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.guard.outputs.commit }}
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v6 # reads packageManager from package.json
 

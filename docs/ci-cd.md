@@ -44,6 +44,34 @@ No paid features: public repo → unlimited Actions minutes.
 - **github-actions** ecosystem (weekly): updates to our own workflow actions
 - Both open PRs with the `dependencies` / `ci` labels; they must pass the `ci` check.
 
+## Release — `.github/workflows/release.yml`
+
+The publish path is guarded by `packages/cli/scripts/release-guard.mjs`, which runs
+before the build and asserts three things (issue #81):
+
+1. the tag name matches `packages/cli/package.json`;
+2. that version is tagged on origin (so `workflow_dispatch` cannot publish an
+   untagged version — the tag|publish invariant has no exception);
+3. the **tagged commit** is the right one. On a **tag push** it must BE the
+   current default-branch tip; on **`workflow_dispatch`** (the retry path) it must
+   be an ancestor, because a retry legitimately republishes a tag pushed when the
+   branch was at that commit.
+
+The guard then emits that commit, and the workflow **checks it out before building**
+(`${{ steps.guard.outputs.commit }}`). Verifying a commit is not the same as
+publishing it: without that second checkout, a retry dispatched from a branch would
+build the branch's tree while the guard reported "commit verified".
+
+Why (3) exists: the guard used to compare the tag *name* only, so a tag pushed
+from a stale local `main` passed and published whatever that commit contained. A
+checkout with `fetch-depth: 0` is required — ancestry is not computable from a
+shallow clone. The guard is exercised by `packages/cli/tests/release-guard.test.ts`
+and can be run by hand: `pnpm --filter @profile-as-code/cli guard:release --help`.
+
+`--provenance` is conditional on the repository being public (npm cannot attest a
+private source repo); once publishing moves to OIDC trusted publishing, the flag
+disappears entirely (see #80).
+
 ## Other
 
 - **PR template** (`.github/pull_request_template.md`): reminds branch convention,
