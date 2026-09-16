@@ -10,7 +10,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -74,17 +74,23 @@ beforeAll(() => {
   dirs.work = join(base, 'work');
 
   // A repository whose `main` has an older commit (`stale`) and a tip (`tip`).
+  // Commits go through git() so they carry an explicit identity: CI runners have
+  // no global user.name/email, and a raw `git commit` fails there with status 128
+  // while passing on a developer machine that has one configured.
   git(base, ['init', '--quiet', '-b', 'main', seed]);
-  execFileSync('bash', ['-c', `cd ${seed} && echo one > f && git add -A && git commit --quiet -m one`], {
-    stdio: 'ignore',
-  });
+  const commit = (message: string, contents: string): void => {
+    appendFileSync(join(seed, 'f'), contents);
+    git(seed, ['add', '-A']);
+    git(seed, ['commit', '--quiet', '-m', message]);
+  };
+  commit('one', 'one\n');
   dirs.stale = git(seed, ['rev-parse', 'HEAD']);
-  execFileSync('bash', ['-c', `cd ${seed} && echo two >> f && git add -A && git commit --quiet -m two`], { stdio: 'ignore' });
+  commit('two', 'two\n');
   dirs.tip = git(seed, ['rev-parse', 'HEAD']);
 
   // An off-branch commit that never landed on `main`.
   git(seed, ['checkout', '--quiet', '-b', 'scratch']);
-  execFileSync('bash', ['-c', `cd ${seed} && echo three >> f && git add -A && git commit --quiet -m three`], { stdio: 'ignore' });
+  commit('three', 'three\n');
   dirs.off = git(seed, ['rev-parse', 'HEAD']);
   git(seed, ['checkout', '--quiet', 'main']);
 
