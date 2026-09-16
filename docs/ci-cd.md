@@ -57,6 +57,11 @@ before the build and asserts three things (issue #81):
    be an ancestor, because a retry legitimately republishes a tag pushed when the
    branch was at that commit.
 
+The guard then emits that commit, and the workflow **checks it out before building**
+(`${{ steps.guard.outputs.commit }}`). Verifying a commit is not the same as
+publishing it: without that second checkout, a retry dispatched from a branch would
+build the branch's tree while the guard reported "commit verified".
+
 Why (3) exists: the guard used to compare the tag *name* only, so a tag pushed
 from a stale local `main` passed and published whatever that commit contained. A
 checkout with `fetch-depth: 0` is required — ancestry is not computable from a

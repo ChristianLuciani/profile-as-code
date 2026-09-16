@@ -37,7 +37,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -61,6 +61,12 @@ function fail(message) {
 
 function info(message) {
   console.log(`• ${message}`);
+}
+
+/** Expose a verified value to the workflow ($GITHUB_OUTPUT is unset locally). */
+function output(name, value) {
+  const file = process.env.GITHUB_OUTPUT;
+  if (file !== undefined) appendFileSync(file, `${name}=${value}\n`);
 }
 
 const short = (sha) => sha.slice(0, 8);
@@ -152,6 +158,8 @@ function main() {
       );
     }
     info(`${tag} → ${short(resolved.sha)} = the current ${branch} tip`);
+    output('tag', tag);
+    output('commit', resolved.sha);
   } else {
     const exists = run('git', ['ls-remote', '--exit-code', '--tags', 'origin', `refs/tags/${tag}`], { allowFailure: true });
     if (!exists.ok) {
@@ -170,9 +178,12 @@ function main() {
       fail(`${tag} points at ${short(resolved.sha)}, which is not on ${branch} (tip ${short(base.tip)}).\n\nA tagged release must have landed on ${branch}. Retag once it is merged.`);
     }
     info(`${tag} → ${short(resolved.sha)}, on ${branch} (tip ${short(base.tip)})`);
+    output('tag', tag);
+    output('commit', resolved.sha);
   }
 
   info('invariant satisfied: tagged version, tagged on origin, commit verified');
+  info("the workflow must build the commit emitted as `commit` — verifying a commit is not the same as publishing it");
 }
 
 main();

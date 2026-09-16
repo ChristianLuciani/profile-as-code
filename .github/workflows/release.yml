@@ -51,10 +51,25 @@ jobs:
       # Always runs: the script owns the dry-run behavior too, so a green dry run
       # reports which invariants were NOT enforced instead of looking equivalent.
       - name: Guard — only a tagged release on the default branch may publish
+        id: guard
         run: node packages/cli/scripts/release-guard.mjs
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           DRY_RUN: ${{ inputs.dry_run }}
+
+      # Verifying a commit is not the same as publishing it. The guard validates
+      # the TAGGED commit; without this step the retry path (workflow_dispatch
+      # from a branch) would build whatever that branch's tree is while the guard
+      # reported "commit verified" — a green run whose claim did not cover the
+      # artifact (the #81 failure class, on the other entry point).
+      #
+      # Skipped on a dry run: nothing is published, and the guard deliberately
+      # emits no commit there, so an empty ref cannot silently fall back.
+      - if: inputs.dry_run != true
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.guard.outputs.commit }}
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v6 # reads packageManager from package.json
 

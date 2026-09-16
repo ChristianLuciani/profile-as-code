@@ -10,7 +10,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -55,6 +55,16 @@ function guard(env: Record<string, string>, cwd: string): { code: number; out: s
 }
 
 const dirs = { origin: '', work: '', stale: '', tip: '', off: '' };
+
+/** A fresh $GITHUB_OUTPUT file, which is how the workflow consumes the verified
+ *  commit — the contract that keeps the build from drifting off the tag. */
+function outputFile(): string {
+  const dir = mkdtempSync(join(tmpdir(), 'pasco-guard-out-'));
+  tempDirs.push(dir);
+  const file = join(dir, 'github-output.txt');
+  writeFileSync(file, '');
+  return file;
+}
 
 /** Point origin's v0.1.0 at a commit (how a real tag lands on origin), or remove
  *  it from BOTH origin and the clone so a case never inherits the previous one. */
@@ -131,6 +141,16 @@ describe('release guard — tag push (identity: the tag must BE the tip)', () =>
     expect(out).toContain('not on the branch at all');
   });
 
+  it('emits the verified commit and tag for the workflow to build', () => {
+    tagAt(dirs.tip);
+    const out = outputFile();
+    const { code } = guard({ ...TAG_PUSH, GITHUB_OUTPUT: out }, dirs.work);
+    expect(code).toBe(0);
+    const written = readFileSync(out, 'utf8');
+    expect(written).toContain(`commit=${dirs.tip}`);
+    expect(written).toContain('tag=v0.1.0');
+  });
+
   it('REFUSES a tag whose name disagrees with the manifest', () => {
     tagAt(dirs.tip);
     const { code, out } = guard({ ...TAG_PUSH, GITHUB_REF_NAME: 'v9.9.9' }, dirs.work);
@@ -145,6 +165,18 @@ describe('release guard — workflow_dispatch (ancestry: a retry is legitimate)'
     const { code, out } = guard(DISPATCH, dirs.work);
     expect(code).toBe(0);
     expect(out).toContain('manual dispatch');
+  });
+
+  it('emits the TAGGED commit on a retry, not the branch tip — verifying a commit is not publishing it', () => {
+    // The hole this closes: the guard approved while the checkout sat at the tip,
+    // so the retry path would have built a tree no tag identifies.
+    tagAt(dirs.stale);
+    const out = outputFile();
+    const { code } = guard({ ...DISPATCH, GITHUB_OUTPUT: out }, dirs.work);
+    expect(code).toBe(0);
+    const written = readFileSync(out, 'utf8');
+    expect(written).toContain(`commit=${dirs.stale}`);
+    expect(written).not.toContain(`commit=${dirs.tip}`);
   });
 
   it('REFUSES when the version is not tagged on origin', () => {
