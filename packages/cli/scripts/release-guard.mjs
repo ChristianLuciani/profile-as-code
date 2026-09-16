@@ -45,12 +45,17 @@ import { fileURLToPath } from 'node:url';
  *  guard reads the version of the checkout it ships with. */
 const MANIFEST = join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
 
+/** The same manifest as a repo-relative path, for `git show <commit>:<path>`:
+ *  the publish is built from a COMMIT, and the version that matters is the one
+ *  inside that commit — not the one in whatever tree the runner is standing in. */
+const PACKAGE_PATH = 'packages/cli/package.json';
+
 function run(cmd, args, { allowFailure = false } = {}) {
   try {
     return { ok: true, out: execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim() };
   } catch (err) {
     if (!allowFailure) throw err;
-    return { ok: false, out: '', stderr: String(err.stderr ?? err.message).trim() };
+    return { ok: false, out: '', status: err.status ?? null, stderr: String(err.stderr ?? err.message).trim() };
   }
 }
 
@@ -105,9 +110,39 @@ function repositoryIsShallow() {
 const SHALLOW = `this checkout is SHALLOW, so ancestry cannot be decided — older objects are missing, and a commit that IS on the branch is reported as absent.
 The guard needs full history: actions/checkout must use \`fetch-depth: 0\`. Refusing rather than guessing.`;
 
-function isAncestor(sha, tip) {
-  // exit 0 also covers "sha IS the tip" — ancestry is inclusive.
-  return run('git', ['merge-base', '--is-ancestor', sha, tip], { allowFailure: true }).ok;
+/** Tri-state on purpose: exit 0 is a verdict, exit 1 is the opposite verdict, and
+ *  anything else means the question could not be asked. Collapsing the last case
+ *  into "not an ancestor" is the conflation issue #81 names. */
+function ancestry(sha, tip) {
+  const res = run('git', ['merge-base', '--is-ancestor', sha, tip], { allowFailure: true });
+  if (res.ok) return { verdict: true }; // exit 0 also covers "sha IS the tip"
+  if (res.status === 1) return { verdict: false };
+  return { undecidable: res.stderr || `git merge-base exited ${res.status}` };
+}
+
+/** The version declared INSIDE a commit. Reading the working tree is not the same
+ *  thing: on a manual dispatch the checkout is the branch (which is how the tag was
+ *  chosen) while the artifact comes from the tagged commit. */
+function manifestVersionAt(sha) {
+  const show = run('git', ['show', `${sha}:${PACKAGE_PATH}`], { allowFailure: true });
+  if (!show.ok) return { ok: false, reason: `could not read ${PACKAGE_PATH} at ${short(sha)}: ${show.stderr}` };
+  try {
+    return { ok: true, version: JSON.parse(show.out).version ?? null };
+  } catch {
+    return { ok: false, reason: `${PACKAGE_PATH} at ${short(sha)} is not valid JSON` };
+  }
+}
+
+/** The tag NAME and the artifact must agree: the workflow builds the tagged
+ *  commit, so the version npm receives comes from that commit's manifest — never
+ *  from the tree the runner happens to be standing in. */
+function assertTaggedTreeDeclares(tag, sha, expected) {
+  const actual = manifestVersionAt(sha);
+  if (!actual.ok) fail(`cannot read the version inside ${tag}.\n${actual.reason}`);
+  if (actual.version !== expected) {
+    fail(`${tag} points at ${short(sha)}, whose ${PACKAGE_PATH} declares ${actual.version} — not ${expected}.\n\nThe tag was validated for ${expected}, but the artifact built from ${short(sha)} would publish ${actual.version}: the name and the payload would disagree, and the published version number is consumed.`);
+  }
+  info(`${tag} tree declares ${actual.version} — matches the tag`);
 }
 
 function help() {
@@ -144,7 +179,10 @@ function main() {
     // loud which invariants are NOT enforced, so a green dry run is never
     // mistaken for a validated release.
     info(`dry run: would publish ${pkg.name}@${version}`);
-    info('dry run: the tag=publish and commit-identity invariants are NOT enforced');
+    // The pre-tag smoke signal the removed "Dry-run info" step used to give.
+    const exists = run('git', ['ls-remote', '--exit-code', '--tags', 'origin', `refs/tags/${tag}`], { allowFailure: true });
+    info(exists.ok ? `dry run: ${tag} exists on origin` : `dry run: ${tag} does NOT exist on origin yet (pre-tag smoke)`);
+    info('dry run: the tag=publish, commit-identity and tagged-manifest invariants are NOT enforced');
     return;
   }
 
@@ -157,16 +195,19 @@ function main() {
 
     const resolved = tagCommit(tag);
     if (!resolved.ok) fail(`cannot verify what ${tag} points at.\n${resolved.reason}`);
+    assertTaggedTreeDeclares(tag, resolved.sha, version);
 
     // IDENTITY: on a tag push the tag must BE the default-branch tip.
     const base = defaultBranchTip(branch);
     if (!base.ok) fail(`cannot verify the tagged commit.\n${base.reason}`);
     if (resolved.sha !== base.tip) {
-      const behind = repositoryIsShallow()
-        ? ''
-        : isAncestor(resolved.sha, base.tip)
-          ? ' It is BEHIND the tip — a stale branch was tagged.'
-          : ' It is not on the branch at all.';
+      const anc = repositoryIsShallow() ? { undecidable: 'shallow clone' } : ancestry(resolved.sha, base.tip);
+      const behind =
+        anc.undecidable !== undefined
+          ? ''
+          : anc.verdict
+            ? ' It is BEHIND the tip — a stale branch was tagged.'
+            : ' It is not on the branch at all.';
       fail(
         `${tag} points at ${short(resolved.sha)}, but ${branch} is at ${short(base.tip)}.${behind}\n\nPublishing would ship the older tree and consume the version number.\nFix: \`git pull --ff-only\`, delete the tag (\`git tag -d ${tag}\`), tag the tip again.\nIf publishing an older commit is deliberate, retag it and use the workflow_dispatch path, which validates ancestry instead of identity.`,
       );
@@ -183,16 +224,27 @@ function main() {
 
     const resolved = tagCommit(tag);
     if (!resolved.ok) fail(`cannot verify what ${tag} points at.\n${resolved.reason}`);
+    assertTaggedTreeDeclares(tag, resolved.sha, version);
 
-    // ANCESTRY: a retry republishes a tag pushed when the branch was at that
-    // commit, so identity would block every legitimate retry. It needs history.
-    if (repositoryIsShallow()) fail(SHALLOW);
     const base = defaultBranchTip(branch);
     if (!base.ok) fail(`cannot verify the tagged commit.\n${base.reason}`);
-    if (!isAncestor(resolved.sha, base.tip)) {
-      fail(`${tag} points at ${short(resolved.sha)}, which is not on ${branch} (tip ${short(base.tip)}).\n\nA tagged release must have landed on ${branch}. Retag once it is merged.`);
+    if (resolved.sha === base.tip) {
+      // Already the tip: ancestry is trivially true and needs no history, so a
+      // shallow clone must not refuse a retry that can be decided.
+      info(`${tag} → ${short(resolved.sha)} = the current ${branch} tip`);
+    } else {
+      // ANCESTRY: a retry republishes a tag pushed when the branch was at that
+      // commit, so identity would block every legitimate retry. It needs history.
+      if (repositoryIsShallow()) fail(SHALLOW);
+      const anc = ancestry(resolved.sha, base.tip);
+      if (anc.undecidable !== undefined) {
+        fail(`${tag} points at ${short(resolved.sha)}, and ancestry could not be determined.\n${anc.undecidable}`);
+      }
+      if (!anc.verdict) {
+        fail(`${tag} points at ${short(resolved.sha)}, which is not on ${branch} (tip ${short(base.tip)}).\n\nA tagged release must have landed on ${branch}. Retag once it is merged.`);
+      }
+      info(`${tag} → ${short(resolved.sha)}, on ${branch} (tip ${short(base.tip)})`);
     }
-    info(`${tag} → ${short(resolved.sha)}, on ${branch} (tip ${short(base.tip)})`);
     output('tag', tag);
     output('commit', resolved.sha);
   }

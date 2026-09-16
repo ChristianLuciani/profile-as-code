@@ -101,4 +101,41 @@ independently). Result to be reconciled below.
 
 ## Fresh-context reconcile
 
-_Pending — awaiting the `premerge-review` report pasted by the operator._
+Fresh verdict: **PASS-CON-RIESGOS** (informativo). The fresh session ran read-only, did
+not mutate the checkout (no test/build), refuted against the diff + `release.yml` +
+`ci.yml` + issue #81, and explicitly treated this file and the PR body as **unverified
+author narrative, not evidence**. Classified per precedence, each re-verified here
+before disposition:
+
+| Finding | Class | Re-verified? | Action |
+|---|---|---|---|
+| **F1 (MAJOR)** — on `workflow_dispatch` the guard read the version from the *dispatch checkout's* manifest, while the published artifact comes from the *tagged commit*: a tag whose tree declares another version would be published anyway | **Valid + actionable** | **Yes — reproduced.** Built a tag `v0.1.0` at a commit on `main` whose `packages/cli/package.json` declares `9.9.9`, main's tip declaring `0.1.0`: the guard exited **0** with "invariant satisfied". My `b3de011` fix (pin the build to the verified commit) had sharpened it: it now builds exactly that tree | **Fixed.** The guard reads the manifest **inside** the tagged commit (`git show <sha>:packages/cli/package.json`) and requires it to equal the version whose tag was validated — in both modes, which also closes the dirty-worktree variant on a tag push. Re-run: mismatch → exit 1 with the exact versions; consistent control → exit 0. Test added (**this is the third iteration of the same invariant**: name → commit → the published tree's own manifest) |
+| **F2 (NIT)** — the PR body's evidence block was stale (243 tests / 9 cases) against its own committed numbers (247 / 13) | **Valid + actionable** | Yes, by arithmetic against the diff | **Fixed:** PR body updated to the current figures |
+| **F3 (NIT)** — the shallow gate fired on the dispatch path even when the tagged commit **is** the branch tip, where ancestry is trivially true and needs no history | **Valid + actionable** | Yes — same class as F2 of the in-session pass (refusing what can be decided) | **Fixed:** the at-tip case is decided before the gate; test added in a genuinely shallow clone |
+| **F4 (NIT)** — `ancestry` conflated exit **1** (verdict: no) with any other failure (the check could not run) | **Valid + actionable** | Yes — the in-session shallow fix closed this class only for shallow clones | **Fixed:** tri-state (`0`/`1`/other) with a distinct message and the exit status plumbed through `run()` |
+| **F5 (NIT)** — dropping the "Dry-run info" step lost its tag-existence smoke signal while the workflow comment claims the script owns that report | **Valid + actionable** | Yes — the dry-run branch printed only "NOT enforced" | **Fixed:** the dry run performs the `ls-remote` and reports whether the tag exists; test added |
+| **F6 (NIT)** — this file was committed with a "Pending" placeholder that goes stale the moment the report lands | **Valid + actionable** | Yes | **Fixed** — this section |
+
+- **Noise:** 0 · **Contract misreads:** 0 · **Accepted trade-offs:** 0.
+- **The fresh pass found the one hole the in-session pass did not reach**: it reasoned from
+  the *source of the version* rather than from the guard's outputs, and that is what broke
+  the third iteration. Two of my three MAJORs in this PR were found by adversarial
+  experiment; this one was found by reasoning about provenance — a different method
+  catching a different class, which is the argument for the fresh pass existing at all.
+- **Not covered by a deterministic test, declared:** F4's third state (a git failure that is
+  neither 0 nor 1) is implemented but not exercised — a partial/`--filter` clone repro was
+  judged not worth the fixture weight. The `undecidable` message is therefore reasoned, not
+  demonstrated.
+- **Loop bound:** 1 fresh round; 1 MAJOR + 5 NITs, all actionable and fixed → gate met.
+- **Doubt-theater guard:** the fresh pass produced a MAJOR the in-session review missed, and
+  four NITs that were all real. Not an always-green pipeline.
+
+## Final verdict
+
+**PASS — rounds: 4** (3 in-session corrections + 1 fresh-context reconcile, all findings
+actionable and fixed).
+
+- Gates at the reconcile tip: **250 tests**, typecheck 5/5, build, `verify:pack` PASS.
+- Remaining: 0 open findings; 1 declared coverage gap (F4's third state).
+- Post-testing feedback re-enters as correction blocks (small findings) or a fresh
+  `/sota-workflow` round (large); recorded path: **correction blocks**.

@@ -10,7 +10,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -54,7 +54,7 @@ function guard(env: Record<string, string>, cwd: string): { code: number; out: s
   }
 }
 
-const dirs = { origin: '', work: '', stale: '', tip: '', off: '', shallow: '' };
+const dirs = { origin: '', work: '', stale: '', mismatch: '', tip: '', off: '', shallow: '' };
 
 /** A fresh $GITHUB_OUTPUT file, which is how the workflow consumes the verified
  *  commit — the contract that keeps the build from drifting off the tag. */
@@ -88,14 +88,24 @@ beforeAll(() => {
   // no global user.name/email, and a raw `git commit` fails there with status 128
   // while passing on a developer machine that has one configured.
   git(base, ['init', '--quiet', '-b', 'main', seed]);
-  const commit = (message: string, contents: string): void => {
+  // Every commit carries a manifest: the guard reads the version from INSIDE the
+  // commit it publishes, not from the working tree.
+  const commit = (message: string, contents: string, version = '0.1.0'): void => {
     appendFileSync(join(seed, 'f'), contents);
+    mkdirSync(join(seed, 'packages', 'cli'), { recursive: true });
+    writeFileSync(
+      join(seed, 'packages', 'cli', 'package.json'),
+      JSON.stringify({ name: '@profile-as-code/cli', version }),
+    );
     git(seed, ['add', '-A']);
     git(seed, ['commit', '--quiet', '-m', message]);
   };
   commit('one', 'one\n');
   dirs.stale = git(seed, ['rev-parse', 'HEAD']);
-  commit('two', 'two\n');
+  // On `main`, but its manifest declares a version the tag name does not.
+  commit('mismatch', 'two\n', '9.9.9');
+  dirs.mismatch = git(seed, ['rev-parse', 'HEAD']);
+  commit('tip', 'three\n');
   dirs.tip = git(seed, ['rev-parse', 'HEAD']);
 
   // An off-branch commit that never landed on `main`.
@@ -185,6 +195,16 @@ describe('release guard — workflow_dispatch (ancestry: a retry is legitimate)'
     expect(written).not.toContain(`commit=${dirs.tip}`);
   });
 
+  it('REFUSES a tag whose TREE declares another version — the artifact, not the checkout, decides', () => {
+    // The checkout says 0.1.0 (that is how the tag was chosen) but the tagged
+    // commit's manifest says 9.9.9, and the build is pinned to that commit.
+    tagAt(dirs.mismatch);
+    const { code, out } = guard(DISPATCH, dirs.work);
+    expect(code).toBe(1);
+    expect(out).toContain('declares 9.9.9');
+    expect(out).toContain('would publish 9.9.9');
+  });
+
   it('REFUSES when the version is not tagged on origin', () => {
     tagAt(null);
     const { code, out } = guard(DISPATCH, dirs.work);
@@ -211,6 +231,13 @@ describe('release guard — shallow clone (the check must not lie about why it r
     expect(out).not.toContain('must have landed on');
   });
 
+  it('still allows a retry whose tag IS the tip — ancestry is trivially true, so shallow must not refuse it', () => {
+    tagAt(dirs.tip);
+    const { code, out } = guard(DISPATCH, dirs.shallow);
+    expect(code).toBe(0);
+    expect(out).toContain('= the current main tip');
+  });
+
   it('still publishes a tag at the tip — identity needs no history, so a shallow clone must not block it', () => {
     tagAt(dirs.tip);
     const { code, out } = guard(TAG_PUSH, dirs.shallow);
@@ -220,6 +247,18 @@ describe('release guard — shallow clone (the check must not lie about why it r
 });
 
 describe('release guard — dry run and failure modes', () => {
+  it('a dry run still reports whether the tag exists — the pre-tag smoke signal', () => {
+    tagAt(dirs.tip);
+    const withTag = guard({ ...DISPATCH, DRY_RUN: 'true' }, dirs.work);
+    expect(withTag.code).toBe(0);
+    expect(withTag.out).toContain('exists on origin');
+
+    tagAt(null);
+    const without = guard({ ...DISPATCH, DRY_RUN: 'true' }, dirs.work);
+    expect(without.code).toBe(0);
+    expect(without.out).toContain('does NOT exist on origin');
+  });
+
   it('passes a dry run but says which invariants were NOT enforced', () => {
     tagAt(null);
     const { code, out } = guard({ ...DISPATCH, DRY_RUN: 'true' }, dirs.work);
