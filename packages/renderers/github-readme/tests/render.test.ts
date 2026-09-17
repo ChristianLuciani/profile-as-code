@@ -648,3 +648,61 @@ describe('renderer github-readme — CommonMark-safe link TEXT (issue #76)', () 
     }
   });
 });
+
+describe('renderer github-readme — optional fields never interpolate "undefined" (issue #78)', () => {
+  /** Build a slice from inline workspace files (same pattern as the registry tests). */
+  function optionalSlice(files: Record<string, string>) {
+    const dir = mkdtempSync(join(tmpdir(), 'pasco-render-optional-'));
+    mkdirSync(join(dir, 'content'), { recursive: true });
+    for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, 'content', name), body, 'utf8');
+    try {
+      return { slice: compile(load(dir), 'github-readme', 'en'), cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+    } catch (err) {
+      rmSync(dir, { recursive: true, force: true });
+      throw err;
+    }
+  }
+
+  /** Every optional field the renderer interpolates: a label-less identity link
+   *  (schema-required is `url` only — and `label: ''` is schema-valid too), a
+   *  skill without `level` and a project without `status` — all reachable by a
+   *  valid workspace. */
+  const FILES = {
+    'identity.yaml':
+      'name: Elena Vasquez\nlinks:\n  - platform: github\n    label: GitHub\n    url: https://github.com/elena\n  - url: https://linkedin.com/in/elena\n  - label: ""\n    url: https://example.com/empty-label\n',
+    'skills.yaml': '- name: Model routing\n  keywords: [llm, routing]\n',
+    'projects.yaml': '- name: hub\n  links:\n    - https://github.com/elena/hub\n',
+  };
+
+  it('identity link without label falls back to hostnamePath — never "[undefined]"; labeled links unchanged', () => {
+    const { slice, cleanup } = optionalSlice(FILES);
+    try {
+      const out = render(slice);
+      expect(out.text).toContain('- [GitHub](https://github.com/elena)');
+      expect(out.text).toContain('- [linkedin.com/in/elena](https://linkedin.com/in/elena)');
+      expect(out.text).toContain('- [example.com/empty-label](https://example.com/empty-label)');
+      expect(out.text).not.toContain('undefined');
+      expect(out.text).not.toContain('- [](');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('skill without level omits the parenthetical — never "(undefined)"', () => {
+    const { slice, cleanup } = optionalSlice(FILES);
+    try {
+      expect(render(slice).text).toContain('- **Model routing**: llm, routing');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('project without status omits the status segment — never "`undefined`"', () => {
+    const { slice, cleanup } = optionalSlice(FILES);
+    try {
+      expect(render(slice).text.split('\n')).toContain('- **hub**');
+    } finally {
+      cleanup();
+    }
+  });
+});

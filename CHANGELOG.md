@@ -9,6 +9,17 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`github-readme`: campos opcionales nunca interpolan `"undefined"` (issue #78)** — `identity.links[].label` es
+  opcional en el schema (solo `url` es requerido, y el string vacío es válido — sin minLength) y el renderer la
+  interpolaba cruda: un workspace válido sin `label` (o con `label: ""`) publicaba `- [undefined](…)` o `- [](…)` en
+  un README público. Fallback opción (b) del issue: `hostnamePath(l.url)` — exactamente el label que ya usan los
+  links de `projects[]`, sin cambio de contrato. El sweep del patrón (misma clase, mismo archivo) encontró dos
+  instancias más y las arregla en el mismo PR: `skill.level` (omisión del paréntesis) y `project.status` (omisión del
+  segmento ` · \`status\``). Byte-parity: inputs con los tres campos poblados emiten byte-idéntico (test EXPECTED sin
+  cambios); `github-org` verificado limpio (todas sus interpolaciones opcionales están guardadas).
+
 ### Planned (roadmap)
 
 - Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
