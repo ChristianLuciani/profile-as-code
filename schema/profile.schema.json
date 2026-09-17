@@ -134,7 +134,8 @@
       "type": "object",
       "required": ["en"],
       "propertyNames": { "$ref": "#/$defs/lang" },
-      "description": "Text in one or more languages. EN is ALWAYS required — a schema rule enforced by `pasco validate` (§11). Key restriction via propertyNames (enum en/es/fr).",
+      "additionalProperties": { "type": "string" },
+      "description": "Text in one or more languages. EN is ALWAYS required — a schema rule enforced by `pasco validate` (§11). Key restriction via propertyNames (enum en/es/fr). Value typing via additionalProperties (issue #86, F3): every consumer assumes Record<string, string>, so non-string values (0, [], {}) are invalid at the boundary — the generated Zod already enforced this (gen-zod materializes the langMap shape); the JSON Schema now matches it (no engine change). Empty strings stay schema-valid BY DESIGN — they count as ABSENT at the text accessor (issue #84, option (a) ratified).",
       "minProperties": 1
     },
 

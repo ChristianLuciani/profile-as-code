@@ -185,7 +185,10 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   if (skills.length > 0) {
     out.push('', '## Skills');
     for (const s of skills) {
-      const keywords = (s.keywords ?? []).join(', ');
+      // Issue #86 (F2 sweep, plain-string empty = absent): keyword items carry no
+      // minLength — an empty item joined raw produced a `, , ` seam. Exact
+      // empty-string rule (no trim), byte-parity for populated keyword lists.
+      const keywords = (s.keywords ?? []).filter((k) => k !== '').join(', ');
       // `level` is schema-optional (required is `name` only): absent → the
       // parenthetical is omitted, never interpolated as "undefined"
       // (issue #78 sweep — same class as the label fallback).

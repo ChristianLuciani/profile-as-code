@@ -718,4 +718,22 @@ describe('renderer github-readme — optional fields never interpolate "undefine
       cleanup();
     }
   });
+
+  it('empty-string keyword items are absent, not present-empty: no ", , " seam (issue #86, F2 sweep)', () => {
+    // keywords[] items are plain strings without minLength — an empty item joined
+    // raw produced `: a, , b`. Empty = absent at the interpolation site, same
+    // accessor rule as langMaps (issue #84) and cadence (issue #86).
+    const { slice, cleanup } = optionalSlice({
+      'identity.yaml': 'name: Elena Vasquez\n',
+      'skills.yaml': '- name: Model routing\n  keywords: [llm, "", routing]\n- name: Bare\n  keywords: [""]\n',
+    });
+    try {
+      const out = render(slice);
+      expect(out.text.split('\n')).toContain('- **Model routing**: llm, routing');
+      expect(out.text.split('\n')).toContain('- **Bare**'); // all-empty keywords → no colon
+      expect(out.text).not.toContain(', , ');
+    } finally {
+      cleanup();
+    }
+  });
 });

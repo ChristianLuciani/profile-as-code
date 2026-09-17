@@ -102,7 +102,12 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     out.push('', '## Newsletter');
     const name = pickText(p.newsletter.name, lang);
     const desc = pickText(p.newsletter.description, lang);
-    out.push('', `- **${name ?? hostnamePath(p.newsletter.url)}** ([${mdText(hostnamePath(p.newsletter.url))}](${mdHref(p.newsletter.url)}))${p.newsletter.cadence !== undefined ? ` · ${p.newsletter.cadence}` : ''}`);
+    // Issue #86 (F2, plain-string empty = absent): cadence has no minLength in the
+    // schema and "" interpolated raw produced a trailing ` · ` separator. Exact
+    // empty-string rule (no trim — whitespace-only stays data), byte-parity for
+    // populated cadences.
+    const cadence = p.newsletter.cadence ? ` · ${p.newsletter.cadence}` : '';
+    out.push('', `- **${name ?? hostnamePath(p.newsletter.url)}** ([${mdText(hostnamePath(p.newsletter.url))}](${mdHref(p.newsletter.url)}))${cadence}`);
     if (desc !== undefined) out.push(`  - ${desc}`);
   }
 

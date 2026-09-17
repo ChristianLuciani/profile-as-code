@@ -252,4 +252,31 @@ describe('brand flavor: GEO (Organization, §17.1)', () => {
       clean(dir);
     }
   });
+
+  it('empty mission = absent in the entity-fields check, agreeing with structuredData (issue #86, F1)', () => {
+    const dir = makeWorkspace({
+      'flavor.yaml': 'brand\n',
+      'identity.yaml': `name: Topia Press
+logo: https://topia.press/logo.png
+established: 2026-08-18
+mission:
+  en: ""
+links:
+  - platform: website
+    label: Website
+    url: https://topia.press
+`,
+    });
+    try {
+      const report = geoCheck(load(dir));
+      const check = report.checks.find((c) => c.code === 'geo/structured-person');
+      // structuredData (en-read, falsy) treats the empty mission as ABSENT —
+      // the readiness entity-fields check must agree (one accessor rule, #84/#86).
+      expect(report.sections.structuredData.readiness.fields.description).toBeUndefined();
+      expect(check?.detail).toContain('description(mission): no');
+      expect(check?.score).toBeCloseTo(2 / 3, 5); // logo + foundingDate, not the empty mission
+    } finally {
+      clean(dir);
+    }
+  });
 });
