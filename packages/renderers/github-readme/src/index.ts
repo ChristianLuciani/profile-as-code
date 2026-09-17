@@ -155,7 +155,11 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     out.push('', '## Projects');
     for (const project of projects.slice(0, 6)) {
       const desc = pickText(project.description, lang);
-      out.push('', `- **${project.name}** · \`${project.status}\`${desc !== undefined ? ` — ${desc}` : ''}`);
+      // `status` is schema-optional (required is `name` only): absent → the
+      // ` · \`status\`` segment is omitted, never interpolated as "undefined"
+      // (issue #78 sweep — same class as the label fallback).
+      const status = project.status !== undefined ? ` · \`${project.status}\`` : '';
+      out.push('', `- **${project.name}**${status}${desc !== undefined ? ` — ${desc}` : ''}`);
       for (const link of project.links ?? []) out.push(`  - [${mdText(hostnamePath(link))}](${mdHref(link)})`);
       for (const ev of project.evidence ?? []) {
         const claim = pickText(ev.claim, lang);
@@ -179,7 +183,10 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     out.push('', '## Skills');
     for (const s of skills) {
       const keywords = (s.keywords ?? []).join(', ');
-      out.push('', `- **${s.name}** (${s.level})${keywords !== '' ? `: ${keywords}` : ''}`);
+      // `level` is schema-optional (required is `name` only): absent → the
+      // parenthetical is omitted, never interpolated as "undefined"
+      // (issue #78 sweep — same class as the label fallback).
+      out.push('', `- **${s.name}**${s.level !== undefined ? ` (${s.level})` : ''}${keywords !== '' ? `: ${keywords}` : ''}`);
     }
   }
 
@@ -211,12 +218,15 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   // page-URLs-only, so `sameAs` (below) never carries a mailto: URI.
   out.push('', '## Links');
   if (p.identity.email !== undefined) out.push('', `- [Email](${mdHref('mailto:' + p.identity.email)})`);
-  // `label` is optional in the schema (`identity.links[]`): the pre-existing
-  // emission interpolated it raw, so a label-less link rendered "[undefined]".
-  // `String()` preserves that emission byte-for-byte — changing it is a separate
-  // finding (#78), not part of the escaping rule (issue-lifecycle: no silent
-  // lateral fix). Loose labels become bracket-safe like every other label.
-  for (const l of p.identity.links ?? []) out.push('', `- [${mdText(String(l.label))}](${mdHref(l.url)})`);
+  // `label` is optional in the schema (`identity.links[]` — only `url` is
+  // required, and the string may be EMPTY — no minLength): the pre-#78 emission
+  // interpolated it raw, so a label-less link rendered "[undefined]" and an
+  // empty-string label rendered "- [](...)", both in a public README. Fallback =
+  // `hostnamePath(l.url)` (issue option (b)) — exactly the label project links
+  // already use, so the two link families stay visually consistent; loose
+  // labels stay bracket-safe like every other label. `||` (not `??`) so the
+  // empty string also counts as label-less.
+  for (const l of p.identity.links ?? []) out.push('', `- [${mdText(l.label || hostnamePath(l.url))}](${mdHref(l.url)})`);
 
   const publicCredentials = credentialLdEntries(p.credentials ?? []); // filters internally — no double pass
   const jsonLd: Record<string, unknown> = {
