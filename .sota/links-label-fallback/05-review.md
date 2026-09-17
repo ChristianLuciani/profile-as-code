@@ -74,8 +74,10 @@ Keep-a-Changelog style; `status` const does not shadow anything in scope.
 ## Verification story
 
 - Suite 253/253 (markdown 12 · core 123 · github-readme 37 · github-org 16 ·
-  cli 65) + `pnpm typecheck` clean, on commit `7fd3333`.
-- CI: pass on the amended head (run 35234117239).
+  cli 65) + `pnpm typecheck` clean, on commit `62fa764` (the final fix head;
+  the branch tip is the review-artifact commit `a057ab3`).
+- CI: pass on the branch head (run 35235961854, job re-run after the
+  signature rewrite).
 - Byte-parity: `EXPECTED` byte-for-byte test untouched and green.
 
 ## Verdict
@@ -85,6 +87,48 @@ same round; no BLOCKERs). Handoff to the human is PR #83 as-is.
 
 ## Fresh-context reconcile
 
-(to be appended when the `premerge-review` report from a fresh session
-returns — the authoring session reconciles; findings classified as
-contract-misread / valid+actionable / valid-trade-off / noise.)
+Fresh `premerge-review` executed 2026-09-17 by an ephemeral, clean pi session
+(`--no-session`, spawned by the authoring session from the main checkout —
+zero findings passed to it; only the PR link + contract). Verdict returned:
+**PASS-CON-RIESGOS** (informativo). Findings classified (precedence:
+contract-misread → valid+actionable → valid-trade-off → noise):
+
+- **F1 (MAJOR) → valid trade-off, accepted + tracked.** The reviewer refuted
+  the sweep's completeness claim under the broader definition R1 itself
+  established (schema-valid value → degenerate public row): empty strings are
+  schema-valid in every langMap (no `minLength`), and the emission guards use
+  `!== undefined` — so `description: {en: ""}` emits a trailing-dash row,
+  `claim: {en: ""}` a double-space row; same in `artifactLine` and in
+  `github-org` (empty bold/bullets). Re-verified by the authoring session
+  against the generated Zod + `compile.ts` `langText` semantics: **reachable,
+  real**. Classification rationale: it is the *empty-string text subclass* —
+  cosmetic degeneracy, never "undefined", never a broken link — outside issue
+  #78's class (the reviewer's own framing), and fixing it requires a semantic
+  decision (is `""` absent?) over `pickText`/`langText` in both renderers:
+  contract-level, issue-first. **Acepto este riesgo porque** the reported
+  class (#78) is complete and verified, the residual impact is cosmetic, and
+  the fix belongs to its own decision. → follow-up issue **#84**
+  (implementation-ready: repro, 3 fix options, byte-parity constraint).
+  The Pass-1 completeness claim is hereby **scoped**: "exactly 2 more
+  instances" is true of the *undefined/structural* class (independently
+  re-verified by the fresh session); the empty-string text subclass was out
+  of that enumeration and is tracked by #84.
+- **F2 (NIT, whitespace-only label) → noise/accepted:** pre-existing, not a
+  regression (reviewer confirmed); already recorded as an accepted edge in
+  Pass 2.
+- **F3 (NIT, stale artifact) → valid + actionable, fixed:** this reconcile
+  section replaces the placeholder; the stale CI run reference corrected
+  above.
+- **F4 (NIT, coverage asymmetry) → folded into #84:** the
+  `description: {en: ""}` / `claim: {en: ""}` fixture rows belong to that
+  fix, not to this PR's contract.
+
+What the fresh review could NOT refute (recorded as survived): the
+"undefined" sweep completeness (all interpolations enumerated against the
+generated Zod, both renderers, line by line); `hostnamePath` can never emit
+an empty label (`url` min 7 + `.url()` ⇒ hostname ≥ 1, `"/"` stripped);
+`||`/`??` semantics correct given Zod types; byte-parity; contract fidelity
+(schema untouched, option (b) as the issue authorizes). Reviewer limits
+declared: no local suite re-run (CI green as test evidence), SPEC §15.2 read
+via the author's claim (mitigated: issue #78 authorizes option (b)
+explicitly).
