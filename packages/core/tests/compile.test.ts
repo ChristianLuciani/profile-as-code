@@ -131,7 +131,8 @@ describe('compile — empty-string langMap values count as absent (issue #84, op
 
   const FILES = {
     'identity.yaml': 'name: Elena Vasquez\n',
-    'positioning.yaml': 'statement:\n  en: ""\naudiences:\n  reader:\n    en: ""\n  academia:\n    en: learning engineers\n',
+    'positioning.yaml':
+      'statement:\n  en: ""\naudiences:\n  reader:\n    en: ""\n  academia:\n    en: learning engineers\ngeo:\n  citationsGoal:\n    en: ""\n',
   };
 
   it('statement: {en: ""} compiles to undefined — the field counts as absent, not present-empty', () => {
@@ -139,6 +140,16 @@ describe('compile — empty-string langMap values count as absent (issue #84, op
     try {
       const compiled = compile(profile, 'github-readme', 'en');
       expect(compiled.statement).toBeUndefined();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('citationsGoal: {en: ""} inherits the same absence (engine-wide accessor rule)', () => {
+    const { profile, cleanup } = compileFrom(FILES);
+    try {
+      const compiled = compile(profile, 'github-readme', 'en');
+      expect(compiled.citationsGoal).toBeUndefined();
     } finally {
       cleanup();
     }
