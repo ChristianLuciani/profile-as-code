@@ -671,7 +671,8 @@ describe('renderer github-readme — optional fields never interpolate "undefine
     'identity.yaml':
       'name: Elena Vasquez\nlinks:\n  - platform: github\n    label: GitHub\n    url: https://github.com/elena\n  - url: https://linkedin.com/in/elena\n  - label: ""\n    url: https://example.com/empty-label\n',
     'skills.yaml': '- name: Model routing\n  keywords: [llm, routing]\n',
-    'projects.yaml': '- name: hub\n  links:\n    - https://github.com/elena/hub\n',
+    'projects.yaml':
+      '- name: hub\n  description:\n    en: ""\n  evidence:\n    - claim:\n        en: ""\n      source: https://example.com/src\n  links:\n    - https://github.com/elena/hub\n',
   };
 
   it('identity link without label falls back to hostnamePath — never "[undefined]"; labeled links unchanged', () => {
@@ -701,6 +702,18 @@ describe('renderer github-readme — optional fields never interpolate "undefine
     const { slice, cleanup } = optionalSlice(FILES);
     try {
       expect(render(slice).text.split('\n')).toContain('- **hub**');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('empty-string description/claim are absent, not present-empty: no trailing dash, no ghost Evidence row (issue #84)', () => {
+    const { slice, cleanup } = optionalSlice(FILES);
+    try {
+      const out = render(slice);
+      expect(out.text.split('\n')).toContain('- **hub**');
+      expect(out.text).not.toContain('Evidence:');
+      expect(out.text).not.toMatch(/ — $/m);
     } finally {
       cleanup();
     }

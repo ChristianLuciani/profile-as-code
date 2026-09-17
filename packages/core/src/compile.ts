@@ -32,9 +32,13 @@ export function compile(profile: Profile, platform: Platform, lang: Lang = 'en')
   const fallbacks: string[] = [];
 
   const langText = (langMap: Record<string, string> | undefined, path: string): string | undefined => {
-    const direct = langMap?.[lang];
+    // Issue #84 (option (a) ratified): an empty-string value counts as ABSENT —
+    // nobody can display "" and a populated workspace is byte-identical; only
+    // previously-degenerate output changes. `|| undefined` (not just `??`) so
+    // emptiness falls through at BOTH lookup levels (lang-specific and en).
+    const direct = langMap?.[lang] || undefined;
     if (direct !== undefined) return direct;
-    const en = langMap?.en;
+    const en = langMap?.en || undefined;
     if (en !== undefined) {
       fallbacks.push(path);
       return en;
