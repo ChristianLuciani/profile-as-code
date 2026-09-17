@@ -96,6 +96,17 @@ function pickText(map: Record<string, string> | undefined, lang: Lang): string |
   return map[lang] || map.en || undefined;
 }
 
+/**
+ * Issue #84/#86 (empty = absent at the accessor): plain-string lists drop exact
+ * empty items — the same rule langMaps get in `pickText`, applied to arrays.
+ * One helper for both keyword sites: rendering (``"a, , b"`) and weight matching
+ * (`{ "" } ∩ { "" }` used to match two keyword-less entries). No trim — the rule
+ * is the exact empty string, whitespace-only stays data.
+ */
+function nonEmpty(list: readonly string[] | undefined): string[] {
+  return (list ?? []).filter((value) => value !== '');
+}
+
 function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
@@ -112,11 +123,11 @@ function skillWeight(s: Skill): number {
  * then name asc.
  */
 function projectWeight(p: Project, skills: readonly Skill[]): number {
-  const pk = new Set((p.keywords ?? []).map((k) => k.toLowerCase().trim()));
+  const pk = new Set(nonEmpty(p.keywords).map((k) => k.toLowerCase().trim()));
   if (pk.size === 0) return 0;
   let best = 0;
   for (const s of skills) {
-    const sk = new Set([...(s.keywords ?? []), ...(s.geoKeywords ?? [])].map((k) => k.toLowerCase().trim()));
+    const sk = new Set([...nonEmpty(s.keywords), ...nonEmpty(s.geoKeywords)].map((k) => k.toLowerCase().trim()));
     if ([...pk].some((k) => sk.has(k))) best = Math.max(best, skillWeight(s));
   }
   return best;
@@ -185,10 +196,7 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   if (skills.length > 0) {
     out.push('', '## Skills');
     for (const s of skills) {
-      // Issue #86 (F2 sweep, plain-string empty = absent): keyword items carry no
-      // minLength — an empty item joined raw produced a `, , ` seam. Exact
-      // empty-string rule (no trim), byte-parity for populated keyword lists.
-      const keywords = (s.keywords ?? []).filter((k) => k !== '').join(', ');
+      const keywords = nonEmpty(s.keywords).join(', ');
       // `level` is schema-optional (required is `name` only): absent → the
       // parenthetical is omitted, never interpolated as "undefined"
       // (issue #78 sweep — same class as the label fallback).

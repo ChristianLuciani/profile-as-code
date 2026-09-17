@@ -108,6 +108,9 @@ function structuredData(profile: Profile): StructuredDataReadiness {
     // `{en: ""}` mission/tagline ABSENT for schema.org — the readiness
     // entity-fields check (geo/structured-person) must agree, so it reads
     // these same sd.fields below (one accessor rule, no internal divergence).
+    // En-canonical by design: `{en: "", es: "…"}` is absent here (the JSON-LD
+    // emits the canonical en text) while compile/pickText still render it for
+    // lang=es — the structured-data section is not the lang-aware surface.
     const slogan = identity.tagline?.en;
     const description = identity.mission?.en;
     const fields = {

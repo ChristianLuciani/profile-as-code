@@ -279,4 +279,33 @@ links:
       clean(dir);
     }
   });
+
+  it('the entity-fields check is en-canonical: {en: "", es: "…"} is absent for structured data (issue #86 review pin)', () => {
+    // The structured-data section is en-canonical (schema.org JSON-LD emits the
+    // canonical en text) — a lang-specific mission still renders on the es surface
+    // (compile + pickText are lang-aware), but it does not make the entity field
+    // present for structured data. Documented boundary, unchanged from structuredData.
+    const dir = makeWorkspace({
+      'flavor.yaml': 'brand\n',
+      'identity.yaml': `name: Topia Press
+logo: https://topia.press/logo.png
+established: 2026-08-18
+mission:
+  en: ""
+  es: "misión real"
+links:
+  - platform: website
+    label: Website
+    url: https://topia.press
+`,
+    });
+    try {
+      const report = geoCheck(load(dir));
+      const check = report.checks.find((c) => c.code === 'geo/structured-person');
+      expect(report.sections.structuredData.readiness.fields.description).toBeUndefined();
+      expect(check?.detail).toContain('description(mission): no');
+    } finally {
+      clean(dir);
+    }
+  });
 });

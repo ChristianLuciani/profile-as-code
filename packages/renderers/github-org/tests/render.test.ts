@@ -403,4 +403,17 @@ cadence: ""
       '- **topiapress.substack.com** ([topiapress.substack.com](https://topiapress.substack.com))',
     );
   });
+
+  it('whitespace-only cadence is DATA, not absence: the separator and the space still render (exact-empty-string boundary)', () => {
+    // The complementary boundary of the same rule (no trim — only the exact "" is
+    // absent). Pins that a future `.trim()` cannot creep into the accessor.
+    const dir = brandWorkspace();
+    writeFileSync(join(dir, 'content', 'newsletter.yaml'), `platform: substack
+url: https://topiapress.substack.com
+cadence: " "
+`);
+    const text = render(compile(load(dir), 'github-org', 'en')).text;
+    const row = text.split('\n').find((line) => line.startsWith('- **topiapress.substack.com**'));
+    expect(row).toBe('- **topiapress.substack.com** ([topiapress.substack.com](https://topiapress.substack.com)) ·  ');
+  });
 });

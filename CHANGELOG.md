@@ -32,8 +32,14 @@ minor versions may contain breaking contract changes.
      Sweep verificado seguro/inalcanzado: `podcast.status` (enum), `press.outlet`/`experience.org`/
      `publications.title/venue`/`artifact.license` (`minLength: 1`), `publication.doi/orcidId` (pattern),
      `identity.handle/timezone` (no renderizados raw hoy), `links[].label` (fallback hostnamePath de #78),
-     `links[].platform` (miss de BADGE), arrays inertes (`project.keywords`, `skill.geoKeywords`, `brandVoice`,
-     `artifact.tags` — pesos/selección/skill-facing), `semanticAssociations` (trim+filter previo).
+     `links[].platform` (miss de BADGE), arrays inertes para *render* (`project.keywords`,
+     `skill.geoKeywords`, `brandVoice`, `artifact.tags` — pesos/selección/skill-facing), `semanticAssociations`
+     (trim+filter previo). **Revisión (post-review de #87):** `project.keywords` NO era inerte para el
+     *matching* de pesos — los Sets de `projectWeight` matcheaban items `""` entre sí y creditaban el peso de
+     la skill a un proyecto sin keywords (orden/featured del README alterados; verificado). Los dos sitios de
+     keywords ahora comparten un helper `nonEmpty` (render + matching): item vacío = ausente en ambos, la regla
+     del accesor se expresa una vez por archivo. Bordes pinneados: `{en: "", es: "…"}` es ausente para
+     structured-data (en-canónico) y whitespace-only sigue siendo dato (sin trim).
   3. **typing de langMap (F3, NIT — issue-first por D3)** — `$defs/langMap` no tipaba sus valores:
      `{en: 0}`, `{en: []}`, `{en: {}}` eran válidos en JSON Schema mientras todo consumidor asume
      `Record<string, string>` (contraste: `langMapList` sí los tipa). Fix solo en el contrato:
