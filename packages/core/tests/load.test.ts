@@ -140,6 +140,18 @@ describe('load(workspace)', () => {
     }
   });
 
+  it('rejects a non-string langMap value at the Zod boundary ({en: 0} — gen-zod catchall; issue #86 F3 pins it)', () => {
+    // The generated Zod materializes langMap as {en: string} + catchall(string),
+    // so non-string values were already engine-invalid BEFORE the JSON Schema
+    // gained additionalProperties (issue #86, F3) — this pins the engine side.
+    const dir = makeWorkspace({ 'identity.yaml': 'name: X\n', 'positioning.yaml': 'statement:\n  en: 0\n' });
+    try {
+      expect(() => load(dir)).toThrow(SchemaValidationError);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('fails when bios use an unknown platform', () => {
     const dir = makeWorkspace({ 'identity.yaml': 'name: X\n', 'bios.yaml': '- platform: myspace\n  lang: en\n  length: short\n  text: hi\n' });
     try {

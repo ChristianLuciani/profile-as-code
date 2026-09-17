@@ -718,4 +718,56 @@ describe('renderer github-readme — optional fields never interpolate "undefine
       cleanup();
     }
   });
+
+  it('empty-string keyword items are absent, not present-empty: no ", , " seam (issue #86, F2 sweep)', () => {
+    // keywords[] items are plain strings without minLength — an empty item joined
+    // raw produced `: a, , b`. Empty = absent at the interpolation site, same
+    // accessor rule as langMaps (issue #84) and cadence (issue #86).
+    const { slice, cleanup } = optionalSlice({
+      'identity.yaml': 'name: Elena Vasquez\n',
+      'skills.yaml': '- name: Model routing\n  keywords: [llm, "", routing]\n- name: Bare\n  keywords: [""]\n',
+    });
+    try {
+      const out = render(slice);
+      expect(out.text.split('\n')).toContain('- **Model routing**: llm, routing');
+      expect(out.text.split('\n')).toContain('- **Bare**'); // all-empty keywords → no colon
+      expect(out.text).not.toContain(', , ');
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+describe('renderer github-readme — empty keyword items never create a weight match (issue #86, review finding)', () => {
+  /** Build a slice from inline workspace files (same pattern as the #78 describe). */
+  function sliceFrom(files: Record<string, string>) {
+    const dir = mkdtempSync(join(tmpdir(), 'pasco-render-keywords-'));
+    mkdirSync(join(dir, 'content'), { recursive: true });
+    for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, 'content', name), body, 'utf8');
+    try {
+      return { slice: compile(load(dir), 'github-readme', 'en'), cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+    } catch (err) {
+      rmSync(dir, { recursive: true, force: true });
+      throw err;
+    }
+  }
+
+  it('a project whose keywords are only "" does not match a skill whose keywords are only "" (featured ordering)', () => {
+    // projectWeight matches keywords via Set membership: { "" } ∩ { "" } matched,
+    // crediting the skill's platform weight (0.9) to a semantically keyword-less
+    // project — it rendered FIRST. Empty = absent at the matching site too, so both
+    // projects score 0 and the tie-break (name asc) decides: alpha before zeta.
+    const { slice, cleanup } = sliceFrom({
+      'identity.yaml': 'name: Elena Vasquez\n',
+      'skills.yaml': '- name: Model routing\n  keywords: [""]\n  platformWeights:\n    github-readme: 0.9\n',
+      'projects.yaml': '- name: zeta-empty-keyword\n  keywords: [""]\n- name: alpha-no-keywords\n',
+    });
+    try {
+      const section = render(slice).text.split('## Projects')[1]?.split('\n## ')[0] ?? '';
+      const order = [...section.matchAll(/- \*\*([^*]+)\*\*/g)].map((m) => m[1]);
+      expect(order).toEqual(['alpha-no-keywords', 'zeta-empty-keyword']);
+    } finally {
+      cleanup();
+    }
+  });
 });

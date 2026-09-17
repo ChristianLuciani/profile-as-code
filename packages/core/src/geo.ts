@@ -61,7 +61,11 @@ function clamp01(value: number): number {
 }
 
 function langValues(langMap: Record<string, string> | undefined): string[] {
-  return langMap ? Object.values(langMap) : [];
+  // Issue #86 (empty=absent, #84 rule): an empty-string value can never match an
+  // anchor ("".includes of a non-empty anchor is false) — filtered so the
+  // reinforcement haystack carries no degenerate values for future predicates.
+  // No trim (the rule is the exact empty string; whitespace-only stays data).
+  return langMap ? Object.values(langMap).filter((v) => v !== '') : [];
 }
 
 /**
@@ -100,6 +104,13 @@ function structuredData(profile: Profile): StructuredDataReadiness {
   ].filter((url, index, all) => all.indexOf(url) === index);
 
   if (isBrand) {
+    // Issue #84/#86 (empty=absent): the en-read + falsy check makes an empty
+    // `{en: ""}` mission/tagline ABSENT for schema.org — the readiness
+    // entity-fields check (geo/structured-person) must agree, so it reads
+    // these same sd.fields below (one accessor rule, no internal divergence).
+    // En-canonical by design: `{en: "", es: "…"}` is absent here (the JSON-LD
+    // emits the canonical en text) while compile/pickText still render it for
+    // lang=es — the structured-data section is not the lang-aware surface.
     const slogan = identity.tagline?.en;
     const description = identity.mission?.en;
     const fields = {
@@ -272,14 +283,20 @@ export function geoCheck(profile: Profile): GeoReport {
       code: 'geo/structured-person',
       label: 'Entity fields beyond the minimum (photo/location/jobTitle — logo/description/foundingDate for brand)',
       weight: 0.1,
+      // Read from sd.fields — structuredData is the single source of truth for
+      // entity-field presence (issue #86, F1): Boolean(entity) on the raw object
+      // credited `mission: {en: ""}` as present while structuredData (falsy en-read)
+      // called it absent. Parity holds for every schema-valid populated value:
+      // logo/established/photo are url/date-typed (non-empty), location is a plain
+      // string where "" is falsy in both readings.
       score:
         profile.flavor === 'brand'
-          ? (Number(Boolean(identity.logo)) + Number(Boolean(identity.mission)) + Number(Boolean(identity.established))) / 3
-          : (Number(Boolean(identity.photo)) + Number(Boolean(identity.location)) + Number(Boolean(sd.fields.jobTitle))) / 3,
+          ? (Number(Boolean(sd.fields.logo)) + Number(Boolean(sd.fields.description)) + Number(Boolean(sd.fields.foundingDate))) / 3
+          : (Number(Boolean(sd.fields.image)) + Number(Boolean(sd.fields.address)) + Number(Boolean(sd.fields.jobTitle))) / 3,
       detail:
         profile.flavor === 'brand'
-          ? `logo: ${identity.logo ? 'yes' : 'no'} · description(mission): ${identity.mission ? 'yes' : 'no'} · foundingDate: ${identity.established ? 'yes' : 'no'}`
-          : `photo: ${identity.photo ? 'yes' : 'no'} · location: ${identity.location ? 'yes' : 'no'} · jobTitle: ${sd.fields.jobTitle ? 'yes' : 'no'}`,
+          ? `logo: ${sd.fields.logo ? 'yes' : 'no'} · description(mission): ${sd.fields.description ? 'yes' : 'no'} · foundingDate: ${sd.fields.foundingDate ? 'yes' : 'no'}`
+          : `photo: ${sd.fields.image ? 'yes' : 'no'} · location: ${sd.fields.address ? 'yes' : 'no'} · jobTitle: ${sd.fields.jobTitle ? 'yes' : 'no'}`,
     },
     {
       code: 'geo/semantic-anchors',

@@ -114,4 +114,24 @@ describe('geoCheck(profile)', () => {
     expect(report.checks.find((c) => c.code === 'geo/evidence-claims')?.score).toBe(1);
     expect(report.checks.find((c) => c.code === 'geo/platform-bio-coverage')?.score).toBe(1);
   });
+
+  it('empty location counts as absent in the entity-fields check (empty=absent sweep, issue #86)', () => {
+    const profile = load(fixture('minimal'));
+    profile.identity.location = '';
+    const report = geoCheck(profile);
+    const check = report.checks.find((c) => c.code === 'geo/structured-person');
+
+    expect(report.sections.structuredData.readiness.fields.address).toBeUndefined();
+    expect(check?.detail).toContain('location: no');
+  });
+
+  it('empty-string langMap role counts as absent in the entity-fields check (textOf parity, issue #86)', () => {
+    const profile = load(fixture('minimal'));
+    (profile.experience[0] as { role: unknown }).role = { en: '' };
+    const report = geoCheck(profile);
+    const check = report.checks.find((c) => c.code === 'geo/structured-person');
+
+    expect(report.sections.structuredData.readiness.fields.jobTitle).toBeUndefined();
+    expect(check?.detail).toContain('jobTitle: no');
+  });
 });

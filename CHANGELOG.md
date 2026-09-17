@@ -11,6 +11,47 @@ minor versions may contain breaking contract changes.
 
 ### Fixed
 
+- **hardening de semántica de vacío: geo alineada con empty=absent + strings planos vacíos interpolados + typing de
+  langMap (issue #86)** — tres follow-ups de la review fresh de #85, una familia (semántica vacío/typing alrededor de
+  la regla del accesor de texto #84):
+
+  1. **geo (F1, MAJOR)** — `geoCheck` lee el perfil crudo y divergía internamente: `structuredData` (lectura falsy de
+     `.en`) trataba `mission: {en: ""}` como ausente, pero el check `geo/structured-person` creditaba
+     `description(mission): yes` con `Boolean({en: ""})` sobre el objeto. El check ahora lee de `sd.fields`
+     (structuredData como fuente única de presencia de campos de entidad) — parity byte-idéntica para todo valor
+     schema-válido poblado (logo/established/photo son url/date no-vacíos, `location: ""` es falsy en ambas lecturas);
+     solo el caso degenerado `""` deja de creditar readiness. `langValues` filtra `""` del haystack de refuerzo
+     (inerte hoy — `"".includes(ancla)` nunca matchea — invariante explícito para predicates futuros, sin trim).
+     Pins de regresión: `location: ""` y `role: {en: ""}` cuentan como ausentes (person) y `mission: {en: ""}` deja de
+     creditar `description(mission)` (brand, score 2/3 con logo+established).
+  2. **strings planos vacíos (F2, NIT)** — sweep de strings planos sin `minLength` que se interpolan:
+     `newsletter.cadence: ""` (schema-válido) producía fila pública con ` · ` colgante en github-org → "" = ausente en
+     el sitio de interpolación (check truthy, regla del string vacío exacto, sin trim). El sweep encontró un segundo
+     sitio vivo del mismo síntoma: items vacíos de `skill.keywords[]` (sin `minLength`) joineados crudos producían
+     seams `, , ` en github-readme → filtrados (item vacío = ausente; lista toda-vacía → sin colon, como #84).
+     Sweep verificado seguro/inalcanzado: `podcast.status` (enum), `press.outlet`/`experience.org`/
+     `publications.title/venue`/`artifact.license` (`minLength: 1`), `publication.doi/orcidId` (pattern),
+     `identity.handle/timezone` (no renderizados raw hoy), `links[].label` (fallback hostnamePath de #78),
+     `links[].platform` (miss de BADGE), arrays inertes para *render* (`project.keywords`,
+     `skill.geoKeywords`, `brandVoice`, `artifact.tags` — pesos/selección/skill-facing), `semanticAssociations`
+     (trim+filter previo). **Revisión (post-review de #87):** `project.keywords` NO era inerte para el
+     *matching* de pesos — los Sets de `projectWeight` matcheaban items `""` entre sí y creditaban el peso de
+     la skill a un proyecto sin keywords (orden/featured del README alterados; verificado). Los dos sitios de
+     keywords ahora comparten un helper `nonEmpty` (render + matching): item vacío = ausente en ambos, la regla
+     del accesor se expresa una vez por archivo. Bordes pinneados: `{en: "", es: "…"}` es ausente para
+     structured-data (en-canónico) y whitespace-only sigue siendo dato (sin trim).
+  3. **typing de langMap (F3, NIT — issue-first por D3)** — `$defs/langMap` no tipaba sus valores:
+     `{en: 0}`, `{en: []}`, `{en: {}}` eran válidos en JSON Schema mientras todo consumidor asume
+     `Record<string, string>` (contraste: `langMapList` sí los tipa). Fix solo en el contrato:
+     `additionalProperties: {type: string}` + nota en description. `pnpm gen:zod` regenerado — el generador ya
+     materializaba el shape langMap (catchall string), así que el Zod generado queda byte-idéntico: sin cambio de
+     engine, la frontera Zod ya rechazaba y ahora está pineada en `load.test`. Fixture
+     `invalid-langmap-nonstring.json` en el self-test de contrato (schema-check). Los strings vacíos siguen
+     schema-válidos por diseño (regla #84: vacío = ausente en el accesor).
+
+  Byte-parity: inputs poblados byte-idénticos (tests EXPECTED sin cambios). TDD: 4 rojos (brand/geo 1, github-org 1,
+  github-readme 1, schema-check fixture 1) + 2 pins verdes (frontera Zod, parity person) → verde; suite 265/265;
+  schema-check OK; typecheck limpio.
 - **strings vacíos en langMaps = ausentes (issue #84, opción (a) ratificada)** — los valores `en: ""` eran
   schema-válidos (sin `minLength`) y los accesores los trataban como texto presente (`!== undefined`): filas
   degeneradas en outputs públicos (`- **hub** — ` con dash colgante, `Evidence:  ([source])` con doble espacio,

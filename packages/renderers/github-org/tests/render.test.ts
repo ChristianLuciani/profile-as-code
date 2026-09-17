@@ -389,4 +389,31 @@ cadence: monthly
       '- **topiapress.substack.com** ([topiapress.substack.com](https://topiapress.substack.com)) · monthly',
     ); // hostnamePath fallback engages
   });
+
+  it('empty-string cadence is absent, not present-empty: no trailing separator (issue #86, F2)', () => {
+    const dir = brandWorkspace();
+    writeFileSync(join(dir, 'content', 'newsletter.yaml'), `platform: substack
+url: https://topiapress.substack.com
+cadence: ""
+`);
+    const text = render(compile(load(dir), 'github-org', 'en')).text;
+    // The row ends at the link — the ` · ` separator never renders for "" (byte-parity:
+    // a populated cadence still renders, see the issue-#84 test above).
+    expect(text.split('\n')).toContain(
+      '- **topiapress.substack.com** ([topiapress.substack.com](https://topiapress.substack.com))',
+    );
+  });
+
+  it('whitespace-only cadence is DATA, not absence: the separator and the space still render (exact-empty-string boundary)', () => {
+    // The complementary boundary of the same rule (no trim — only the exact "" is
+    // absent). Pins that a future `.trim()` cannot creep into the accessor.
+    const dir = brandWorkspace();
+    writeFileSync(join(dir, 'content', 'newsletter.yaml'), `platform: substack
+url: https://topiapress.substack.com
+cadence: " "
+`);
+    const text = render(compile(load(dir), 'github-org', 'en')).text;
+    const row = text.split('\n').find((line) => line.startsWith('- **topiapress.substack.com**'));
+    expect(row).toBe('- **topiapress.substack.com** ([topiapress.substack.com](https://topiapress.substack.com)) ·  ');
+  });
 });
