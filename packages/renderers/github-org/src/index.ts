@@ -54,7 +54,10 @@ function hostnamePath(url: string): string {
 
 function pickText(map: Record<string, string> | undefined, lang: Lang): string | undefined {
   if (map === undefined) return undefined;
-  return map[lang] ?? map.en;
+  // Issue #84 (option (a) ratified): empty-string values count as ABSENT at
+  // both lookup levels — a lang-specific "" falls back to en, an empty en is
+  // no text. Byte-parity: populated workspaces unchanged.
+  return map[lang] || map.en || undefined;
 }
 
 function plural(n: number, word: string): string {

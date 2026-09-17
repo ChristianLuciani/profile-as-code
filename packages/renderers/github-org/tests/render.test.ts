@@ -358,4 +358,35 @@ rss: https://topia.press/feed (rss)
     expect(text).not.toContain('%28');
     expect(text).not.toContain('%29');
   });
+
+  it('empty-string langMap values are absent, not present-empty: no ghost tagline/mission, newsletter name falls back to hostnamePath (issue #84)', () => {
+    const dir = brandWorkspace();
+    writeFileSync(
+      join(dir, 'content', 'identity.yaml'),
+      `name: Topia Press
+logo: https://topia.press/logo.png
+established: 2026-08-18
+mission:
+  en: ""
+tagline:
+  en: ""
+links:
+  - platform: website
+    label: Website
+    url: https://topia.press
+`,
+    );
+    writeFileSync(join(dir, 'content', 'newsletter.yaml'), `platform: substack
+url: https://topiapress.substack.com
+name:
+  en: ""
+cadence: monthly
+`);
+    const text = render(compile(load(dir), 'github-org', 'en')).text;
+    expect(text).not.toMatch(/^> /m); // ghost tagline blockquote gone
+    expect(text.split('\n')).not.toContain('** **'); // ghost mission gone
+    expect(text).toContain(
+      '- **topiapress.substack.com** ([topiapress.substack.com](https://topiapress.substack.com)) · monthly',
+    ); // hostnamePath fallback engages
+  });
 });

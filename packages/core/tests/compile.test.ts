@@ -1,5 +1,7 @@
 import { fileURLToPath } from 'node:url';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { compile, load, PLATFORMS } from '../src/index.js';
 import type { Platform } from '../src/index.js';
@@ -110,5 +112,60 @@ describe('compile(profile, platform, lang)', () => {
     expect(compiled.bios).toEqual([]);
     expect(compiled.headlines).toEqual([]);
     expect(compiled.identity.name).toBe('Elena Vasquez');
+  });
+});
+
+describe('compile — empty-string langMap values count as absent (issue #84, option (a) ratified)', () => {
+  /** Build a profile from inline workspace files (same pattern as the renderer tests). */
+  function compileFrom(files: Record<string, string>) {
+    const dir = mkdtempSync(join(tmpdir(), 'pasco-compile-empty-'));
+    mkdirSync(join(dir, 'content'), { recursive: true });
+    for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, 'content', name), body, 'utf8');
+    try {
+      return { profile: load(dir), cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+    } catch (err) {
+      rmSync(dir, { recursive: true, force: true });
+      throw err;
+    }
+  }
+
+  const FILES = {
+    'identity.yaml': 'name: Elena Vasquez\n',
+    'positioning.yaml': 'statement:\n  en: ""\naudiences:\n  reader:\n    en: ""\n  academia:\n    en: learning engineers\n',
+  };
+
+  it('statement: {en: ""} compiles to undefined — the field counts as absent, not present-empty', () => {
+    const { profile, cleanup } = compileFrom(FILES);
+    try {
+      const compiled = compile(profile, 'github-readme', 'en');
+      expect(compiled.statement).toBeUndefined();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('an empty-string audience is dropped, and no phantom fallback is recorded', () => {
+    const { profile, cleanup } = compileFrom(FILES);
+    try {
+      const compiled = compile(profile, 'github-readme', 'en');
+      expect(compiled.audiences['reader']).toBeUndefined();
+      expect(compiled.fallbacks).not.toContain('positioning.audiences.reader');
+    } finally {
+      cleanup();
+    }
+  });
+
+  it('a lang-specific empty string falls back to en (emptiness is absence at BOTH lookup levels)', () => {
+    const { profile, cleanup } = compileFrom({
+      'identity.yaml': 'name: Elena Vasquez\n',
+      'positioning.yaml': 'statement:\n  es: ""\n  en: real statement\n',
+    });
+    try {
+      const compiled = compile(profile, 'github-readme', 'es');
+      expect(compiled.statement).toBe('real statement');
+      expect(compiled.fallbacks).toContain('positioning.statement');
+    } finally {
+      cleanup();
+    }
   });
 });

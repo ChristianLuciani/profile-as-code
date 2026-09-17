@@ -11,6 +11,16 @@ minor versions may contain breaking contract changes.
 
 ### Fixed
 
+- **strings vacíos en langMaps = ausentes (issue #84, opción (a) ratificada)** — los valores `en: ""` eran
+  schema-válidos (sin `minLength`) y los accesores los trataban como texto presente (`!== undefined`): filas
+  degeneradas en outputs públicos (`- **hub** — ` con dash colgante, `Evidence:  ([source])` con doble espacio,
+  `- ** **` vacío en github-org). Regla semántica única en el acces de texto: `langText` (core, `compile.ts`) y los
+  `pickText` de ambos renderers devuelven `undefined` para `""` — la vacuidad cuenta como ausente en AMBOS niveles del
+  lookup (un `es: ""` cae al `en`; un `en: ""` no emite nada). Sin ghost-fallbacks en el registro de `fallbacks`
+  (solo se anota cuando efectivamente se devolvió texto). Sin trim (el límite de la regla es el string vacío exacto —
+  `" "` queda como dato, candidato para un check futuro). Byte-parity: workspaces poblados byte-idénticos (tests
+  byte-for-byte sin cambios); solo outputs previamente degenerados mejoran. TDD: 5 tests rojos (core 3, readme 1,
+  org 1) → verde; suite 258/258.
 - **`github-readme`: campos opcionales nunca interpolan `"undefined"` (issue #78)** — `identity.links[].label` es
   opcional en el schema (solo `url` es requerido, y el string vacío es válido — sin minLength) y el renderer la
   interpolaba cruda: un workspace válido sin `label` (o con `label: ""`) publicaba `- [undefined](…)` o `- [](…)` en
