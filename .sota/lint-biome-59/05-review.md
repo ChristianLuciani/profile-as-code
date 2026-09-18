@@ -5,8 +5,15 @@ Reviewer: in-session adversarial pass (skill `sota-review`), round 1 → correct
 **Model-routing gap declared:** session model = `deepseek-flash` — below the skill's
 "strongest available" requirement, **and it is the session that authored the code**.
 Same declared gap as `release-guard` and `renderer-md-safety`. Mitigation: step 9 hands
-the terminal doubt pass to `premerge-review` in a fresh, clean session; its findings
-reconcile in this file (see below).
+the terminal doubt pass to `premerge-review` in a fresh session; its findings reconcile in
+this file.
+
+**Independence mechanism (stated precisely — corrected after fresh pass 2, F4):** the fresh session
+is **not handed these findings** in its prompt. This file, however, is **committed in the PR tree by
+the repo's own convention** (8 prior slugs are tracked and not gitignored), so a reviewer with repo
+access *can* read it — pass 2 did, and disclosed it. Independence therefore rests on the reviewer
+reading the diff first and this file last (or not at all), and disclosing either way. It is **not**,
+as an earlier revision of this file claimed, that the findings are unavailable to them.
 
 **Preconditions — partially unmet, declared:** this change did **not** run through
 `/sota-workflow`; there is no `.sota/<slug>/03-spec.md` nor `04-build.md`. Also, the
@@ -92,7 +99,7 @@ dead suppression. No dead code, no leftover artifacts from the authoring session
 - **NIT** — STANDARDS row cites the local write date (2026-09-17); the CI-green evidence ran
   2026-09-18 UTC. Cosmetic.
 
-## Verdict — PASS (1 correction round)
+## Verdict — PASS (2 in-session correction rounds; both fresh passes reconciled below)
 
 Round 1 FAILed on F1 (MAJOR: documented enforcement did not exist) → corrected in `d38f8a4`
 → re-reviewed: lint clean, typecheck, **268/268**, schema self-test, D3 byte-identical, and the
@@ -110,11 +117,9 @@ F1 repro flipped from exit 0 to exit 1 on the src case while the test case staye
 
 ## Fresh-context reconcile
 
-Round 2. The fresh session received only the PR and the issue (never these findings) and returned
-**PASS-CON-RIESGOS** (informative). Each finding was re-verified here against the diff before
-classification — no rubber-stamping either way.
+### Pass 1 reconcile — head `6756395` (1 MAJOR + 1 NIT, both fixed)
 
-### 1. Valid + actionable — F1 (MAJOR): the gate was absent from three contributor surfaces
+#### 1. Valid + actionable — F1 (MAJOR): the gate was absent from three contributor surfaces
 
 **Confirmed by re-reading the files** (not accepted on the reviewer's word): `README.md`
 "Arranque (dev)" listed install/test/build/typecheck/gen:zod and no lint;
@@ -131,7 +136,7 @@ now matches `ci.yml` step-for-step. While rewriting that sentence, two **pre-exi
 the same sentence were also corrected (D3 freshness step, tarball bin check) — declared, not
 smuggled, because a description that omits two real steps is the same defect class as F1.
 
-### 2. Valid + actionable — F2 (NIT): `lint:fix` applied unsafe fixes silently
+#### 2. Valid + actionable — F2 (NIT): `lint:fix` applied unsafe fixes silently
 
 **Confirmed**: `biome check --write .` (safe) does not produce the `useTemplate` / `useLiteralKeys`
 transforms; only `--unsafe` does. A script named `lint:fix` doing that repo-wide is a footgun.
@@ -139,7 +144,7 @@ transforms; only `--unsafe` does. A script named `lint:fix` doing that repo-wide
 diff); CONTRIBUTING and CHANGELOG updated. Verified by repro: `lint:fix` leaves a `useTemplate`
 candidate in place and exits 0; the unsafe script then applies it.
 
-### 3. Pre-existing drift the reviewer flagged as a note, not a finding → corrected, declared
+#### 3. Pre-existing drift the reviewer flagged as a note, not a finding → corrected, declared
 
 `docs/ci-cd.md` said "6 fixtures" where **13** exist (verified by `ls`; present on `main` too, so not
 introduced here). `#55` — the closed doc-honesty sweep that would normally be the home for this —
@@ -147,7 +152,7 @@ has no open successor, so a one-word factual error in the very list this round r
 corrected in passing and declared in the PR body. Escalation of a non-finding to a declared fix is
 recorded here so the decision is visible, not silent.
 
-### 4. Noise / contract context — none substantive
+#### 4. Noise / contract context — none substantive
 
 The reviewer explicitly did **not** pass judgment on the tool choice (Biome vs eslint) or on
 `--error-on-warnings`, correctly treating both as maintainer decisions already declared. Their
@@ -156,7 +161,7 @@ NITs already recorded. Their self-declared method note — that they read the PR
 narrative as *claims to refute*, and only opened this file after forming F1/F2 — is the intended
 doubt discipline working.
 
-### Corroborations (the reviewer's own "could not refute" list)
+#### Corroborations (the reviewer's own "could not refute" list)
 
 Independently reproduced, not merely accepted: JSON is parsed-equal (not text-normalized);
 **76 tracked lintable = 76 checked**; the gate really goes red (format, rule, and — newly tested
@@ -172,47 +177,58 @@ Their strongest corroboration is one this file could not self-produce: reconstru
 files as the only non-formatter edits. That is the independent check that no semantic edit hid
 inside the baseline — now on record as evidence, not assumption.
 
-### Loop bound
+#### Loop bound
 
 Two in-session rounds (round 1 MAJOR, round 2 MAJOR+NIT) plus one fresh pass; zero unresolved
 BLOCKERs; the fresh report's residual items are one NIT fixed and one pre-existing note fixed. Per
 step 11 the gate is met — no third cycle warranted.
 
-**Doubt-theater check (step 12):** the pipeline produced actionable findings in both directions —
-F1 round 1 (documented enforcement that did not exist) and F1 round 2 (contributor surfaces the
-authoring pass claimed were coherent). Not an always-green pipeline.
+### Pass 2 reconcile — head `160e193` (4 NITs, all fixed — final)
 
-## Final gate — fresh pass 1 reconciled; pass 2 requested on the corrected head
+Pass 2 reviewed head `160e193` and returned **PASS-CON-RIESGOS with 4 NITs and no BLOCKER/MAJOR**.
+Per step 11 ("if consecutive reports return only NITs, stop: the gate is met") this closes the
+phase — no third cycle. Each finding was re-verified here before classification; all four are
+**valid + actionable (NIT)** and were fixed in a final doc-only commit:
 
-**Fresh pass 1** (fresh session, read-only, PR-only context) reviewed head `6756395` and returned
-PASS-CON-RIESGOS with 1 MAJOR + 1 NIT — both classified **valid + actionable** and fixed above.
+| # | Finding | Re-verified | Fix |
+|---|---|---|---|
+| F1 | `README.md` diagram advertises `CI: validate · tests · links · drift` — no `links` step (STANDARDS row 5 lists that gate as still-open) and no `drift` step in `ci.yml` (drift is a *core* capability, not a gate) | Confirmed against the real step list | Diagram → `validate · lint · tests · build`. Planned gates belong in the README Roadmap table, not a CI claim |
+| F2 | `CONTRIBUTING.md` + PR template enumerated a partial `ci` (missing D3 freshness and pack check); the template's `/` also implied *either* test or build | Confirmed | Both now list the real steps and point at `docs/ci-cd.md` as canonical; `/` → `,` |
+| F3 | `CONTRIBUTING.md` asserted `lint:fix` "never changes semantics" — an absolute not pinned by construction, since the `organizeImports` assist runs under it and a future side-effect import could make a "safe" reorder semantic | Confirmed: the wording was the defect; the split itself was already verified | Wording now describes the fix *set* ("Biome's safe fixes only") instead of guaranteeing semantics |
+| F4 | This file claimed fresh sessions never see the findings, while the file is tracked in the PR tree | **Confirmed — the claim was false.** Pass 2 read it and disclosed | Independence mechanism restated above; the file was also corrected to name the real mechanism (not handed the findings ≠ unable to read them) |
 
-**The corrected head has NOT been fresh-reviewed.** That delta is: three doc surfaces, one
-`package.json` script split, the fixture count, and this file. No gate semantics changed except
-`lint:fix` becoming safe-by-default — which *is* the finding the fresh pass requested, so a second
-pass would largely re-review its own recommendation. Asked anyway, because the gate should validate
-the artifact that actually merges, and the delta is cheap to read.
+### Pass-2 limitations, recorded (not dismissed)
 
-**Operator action — one final fresh pass on the corrected head:**
+Pass 2 was **not contamination-free**: the reviewer disclosed reading this file, so its
+independence is partial. Its strongest checks are those formed before reading (biome.json validated
+against the official 2.5.14 schema; fixture count; CI step order; tree grep for stale script
+references) — all corroborated here. It could not execute Biome (read-only, no install), so the
+exit-code matrix and the 76/76 coverage claim remain author-verified. That asymmetry is inherent to
+a read-only pass and is why the code-level evidence lives in Pass 1/2 of this file with repro steps.
 
-```text
-Pre-merge fresh-context review requested (pass 2, final).
-Open a new, clean session and paste:
-  "Run premerge-review on https://github.com/ChristianLuciani/profile-as-code/pull/88 at its current head.
-   Review READ-ONLY — no worktree/branch/commit, text output only.
-   The delta since pass 1 covers only docs (README, PR template, docs/ci-cd.md), a package.json
-   script split (lint:fix safe / lint:fix:unsafe opt-in) and .sota review notes; the gate semantics
-   themselves are unchanged except that split."
-Then bring the report back here; I will reconcile it in this file and apply any valid fix.
-```
+### Loop bound reached — declared tail
 
-**Loop bound (step 11):** pass 2 is the last cycle this phase will run. If it returns a substantive
-BLOCKER, it escalates to the operator rather than starting a third round — two unresolved fresh
-rounds are information about the artifact, not a reason to keep looping. If it returns only NITs,
-the gate is met and the PR is merge-ready for the maintainer.
+The four NIT fixes above were applied **after** pass 2's verdict, so they are **doc-only and not
+fresh-reviewed**; no gate semantics changed (`biome.json` and `ci.yml` are untouched by this tail).
+Per the loop bound this is accepted and declared rather than re-entered: a third pass would review
+its own recommendations. If the maintainer wants them independently checked, they are four
+documentation lines, readable in `git diff -w` in under a minute.
 
-**Re-entry path for post-merge/testing feedback** (recorded per step 8): small findings → correction
-blocks applied on this branch (or a follow-up PR if already merged); large ones → a fresh
-`/sota-workflow` round for the next lint/quality increment — type-aware linting, a Python linter, or
-`--error-on-warnings` — all deliberately out of scope for #59 and left as open decisions for the
-maintainer.
+**Doubt-theater check (step 12):** across both in-session rounds, pass 1 and pass 2, every cycle
+produced findings that changed the artifact (F1-MAJOR twice, F2-NIT, and the 6→13 fixture count),
+and pass 2 falsified a claim in this very file. Not an always-green pipeline.
+
+## Final gate — closed (pass 2 met the gate)
+
+Both fresh passes are reconciled: pass 1 (head `6756395`) returned 1 MAJOR + 1 NIT — both valid and
+fixed; pass 2 (head `160e193`) returned **only NITs** — all four valid and fixed in a declared
+doc-only tail. Per step 11 consecutive-NIT rule, **the phase is closed and no third pass runs**.
+
+**There is no further operator action for review.** The remaining action is the maintainer's merge,
+which stays human-only (`repo-governance` §3). If the four post-pass-2 doc lines want an independent
+eye, `git diff -w` shows them in under a minute — they are not gate semantics.
+
+**Re-entry path for post-merge/testing feedback:** small findings → correction blocks applied on this
+branch (or a follow-up PR if already merged); large ones → a fresh `/sota-workflow` round for the
+next lint/quality increment — type-aware linting, a Python linter, or `--error-on-warnings` — all
+deliberately out of scope for #59 and left as open decisions for the maintainer.

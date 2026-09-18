@@ -17,7 +17,8 @@ every decision lives in [`docs/SPEC.md`](docs/SPEC.md) (decisions D1–D18). Rea
 ## Ground rules
 
 1. **Never push to `main`.** Every change goes through a PR with the `ci` check green
-   (schema contract self-test + `pnpm lint` + `pnpm test` + `pnpm build`); only the maintainer merges.
+   (schema self-test + `pnpm lint` + D3 freshness + `pnpm test` + `pnpm build` + pack check —
+   the full step list lives in `docs/ci-cd.md`); only the maintainer merges.
    While the repo is private on GitHub Free, branch protection is not available — `main` is
    protected by access + process (see [`docs/STANDARDS.md`](docs/STANDARDS.md)); it is
    re-applied the moment the repo goes public (see [`docs/ci-cd.md`](docs/ci-cd.md)).
@@ -44,7 +45,7 @@ pnpm test          # all workspace tests
 pnpm build         # type-checked build
 pnpm typecheck     # tsc --noEmit
 pnpm lint          # style gate (Biome: lint + format + import order)
-pnpm lint:fix      # auto-fix (safe fixes only — never changes semantics)
+pnpm lint:fix      # auto-fix with Biome's *safe* fixes only (unsafe fixes are a separate script)
 pnpm lint:fix:unsafe  # opt-in: also apply Biome's *unsafe* fixes (review the diff)
 pnpm format        # reformat only
 

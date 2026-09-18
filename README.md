@@ -28,7 +28,7 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
         │  │         │  │  drift-check │  │  x/researchgate/│  │
         │  │         │  │  geo-check   │  │  substack       │  │
         │  └─────────┘  └──────────────┘  └─────────────────┘  │
-        │        CI: validate · tests · links · drift           │
+        │        CI: validate · lint · tests · build          │
         └───────────────┬──────────────────────────┬───────────┘
                         │ datos del usuario         │ outputs listos
         ┌───────────────▼──────────┐   ┌───────────▼──────────────┐
