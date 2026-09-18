@@ -41,6 +41,25 @@ One job, **`ci`**, required on every PR and push to `main`:
 
 No paid features: public repo → unlimited Actions minutes.
 
+### Why Biome (and when we would revisit)
+
+Chosen for #59: one tool (lint + format + import order), one config, one command — against the
+`eslint + prettier + plugins` chain, which needs several devDependencies, a plugin/parser config and
+separate ignore files. Fewer dependencies also means fewer Dependabot streams and less supply-chain
+surface, which matters for the public-readiness checklist (`docs/STANDARDS.md`, security baseline).
+
+**Honest trade-off.** Biome is deliberately *less* configurable than ESLint (fixed rule set vs the
+ESLint plugin API) — the win is **less config required**, not more knobs. And it is **not
+type-aware**: `pnpm typecheck` (tsc strict) covers types, but not type-aware lint rules such as
+`no-floating-promises` or `no-misused-promises`.
+
+**Revisit triggers** — either one reopens this choice (recorded so it is decided on evidence, not
+re-argued from taste):
+
+1. an async correctness bug slips through that `tsc` cannot catch → add a narrow `typescript-eslint`
+   layer for the type-aware rules only, or swap wholesale;
+2. a custom rule is needed that Biome cannot express.
+
 ## Dependabot — `.github/dependabot.yml`
 
 - **npm** ecosystem (weekly): dependency PRs for the pnpm workspace (root + `packages/*`)
