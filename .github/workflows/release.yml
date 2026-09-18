@@ -1,6 +1,7 @@
 name: release
 
-# Publishes @profile-as-code/cli to npm on a version tag (issue #42).
+# Publishes @profile-as-code/cli to npm on a version tag (issue #42) and creates the
+# matching GitHub Release from CHANGELOG.md (issue #58).
 # Provenance: id-token: write (OIDC) + repository field in packages/cli/package.json
 # (issue #43). The FIRST tag push (v0.1.0) is the operator's publish action —
 # pushing the tag IS publishing (issue #44); workflow_dispatch is for retries.
@@ -25,6 +26,9 @@ permissions:
   contents: read
   id-token: write # npm provenance (OIDC)
 
+# The `release` job narrows/overrides these with `contents: write` (gh release
+# create) — scoped to that one job so the publish job keeps read-only contents.
+
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -32,6 +36,11 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Exposed so the release job can build its page from the SAME verified commit
+    # (issue #58) — a release page must describe the artifact that shipped.
+    outputs:
+      tag: ${{ steps.guard.outputs.tag }}
+      commit: ${{ steps.guard.outputs.commit }}
     steps:
       # fetch-depth: 0 — the guard compares the tagged commit against the default
       # branch tip, and ancestry is not computable from a shallow clone.
@@ -111,3 +120,44 @@ jobs:
         working-directory: packages/cli
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # GitHub Release (issue #58). "Published to npm" and "a release page exists" are
+  # two different facts: before this job the tag page was empty and STANDARDS.md
+  # item 3 could not be signed off. Runs AFTER publish on purpose — a release page
+  # announcing a version that never reached npm would be worse than a late page.
+  release:
+    needs: publish
+    # A dry run publishes nothing, so the guard emits no tag/commit and there is
+    # nothing to announce.
+    if: inputs.dry_run != true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # gh release create — scoped to this job, not the publish job
+    steps:
+      # Same commit the publish job built: the notes must describe the artifact.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.publish.outputs.commit }}
+          fetch-depth: 0
+
+      # The CHANGELOG heading is `## [0.1.0]` while the tag is `v0.1.0`.
+      - name: Extract release notes from CHANGELOG.md
+        env:
+          TAG: ${{ needs.publish.outputs.tag }}
+        run: node packages/cli/scripts/release-notes.mjs --version "${TAG#v}" --output "$RUNNER_TEMP/notes.md"
+
+      # Idempotent: a workflow_dispatch retry may run after the page already
+      # exists (#81's retry path) — updating is a separate, deliberate act.
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.publish.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — leaving it untouched (idempotent retry)."
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes-file "$RUNNER_TEMP/notes.md" \
+              --verify-tag
+          fi

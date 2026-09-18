@@ -94,12 +94,27 @@ and can be run by hand: `pnpm --filter @profile-as-code/cli guard:release --help
 private source repo); once publishing moves to OIDC trusted publishing, the flag
 disappears entirely (see #80).
 
+After a successful publish, the `release` job creates the matching **GitHub
+Release** (issue #58): it checks out the same verified commit, extracts that
+version's section from `CHANGELOG.md` with
+`packages/cli/scripts/release-notes.mjs` (exercised by
+`packages/cli/tests/release-notes.test.ts`), and runs `gh release create
+"v<version>" --notes-file … --verify-tag`. The job is deliberately **separate and
+ordered after** `publish` (a release page for a version that never reached npm
+would be worse than a late one) and **idempotent** (a `workflow_dispatch` retry
+leaves an existing page untouched). `contents: write` is granted to that job only,
+not to the publish job. Attaching the packed tarball is intentionally out of scope:
+the issue marks it optional and `verify:pack` already asserts the tarball's bin
+before any publish.
+
 ## Other
 
 - **PR template** (`.github/pull_request_template.md`): reminds branch convention,
   CI green, tests, docs, claims-evidence rule.
 - **`SECURITY.md`**: private reporting via GitHub Security Advisories (free on public repos).
-- **Actions permissions**: read-only (`permissions: contents: read` in the workflow).
+- **Actions permissions**: read-only (`permissions: contents: read`) for `ci` and the
+  `publish` job; the release job elevates to `contents: write` only to create the
+  GitHub Release (issue #58).
 
 ## How to change
 

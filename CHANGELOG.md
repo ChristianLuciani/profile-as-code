@@ -11,6 +11,17 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **release: `release.yml` crea el GitHub Release desde `CHANGELOG.md` (issue #58)** — el
+  publish a npm no anunciaba la release: el tag quedaba sin página ni notes, y el item 3 del
+  gate (`docs/STANDARDS.md`) no se podía firmar. Job `release` separado y **después** de
+  `publish` (una página para una versión que no llegó a npm sería peor que una tardía):
+  checkout del mismo commit verificado, la sección de la versión se extrae con
+  `packages/cli/scripts/release-notes.mjs` (match exacto — `0.1` no satisface `0.1.0` — y el
+  cuerpo termina en el próximo heading `## `, así `[Unreleased]` no se filtra) y
+  `gh release create … --verify-tag`. Idempotente (un retry `workflow_dispatch` no toca una
+  página existente); `contents: write` acotado a ese job. Tests: 11
+  (`packages/cli/tests/release-notes.test.ts`); runbook en `docs/ci-cd.md`.
+
 - **style gate: Biome (lint + format + import order) in CI and `pnpm lint` (issue #59)** — one tool,
   one config (`biome.json`), one command; CI runs it before tests (fail fast). Gate semantics:
   `pnpm lint` fails on Biome **errors**; `recommended` warn-level rules are reported without failing
