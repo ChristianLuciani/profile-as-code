@@ -13,15 +13,28 @@
  * github-org skill's `url-live` check (network, not drift).
  */
 
-import { collectMedia, driftCheck, load, LoadError, registryCheck, SchemaValidationError } from '@profile-as-code/core';
-import { parsePlatform } from '../contract.js';
-import { EXIT } from '../exit.js';
-import { isJsonMode, line, report, section } from '../output.js';
+import type { LoadedProfile } from "@profile-as-code/core";
+import {
+  collectMedia,
+  driftCheck,
+  LoadError,
+  load,
+  registryCheck,
+  SchemaValidationError,
+} from "@profile-as-code/core";
+import { parsePlatform } from "../contract.js";
+import { EXIT } from "../exit.js";
+import { isJsonMode, line, report, section } from "../output.js";
 
-export const CHECK_OWNER = 'M6: handle-matrix rules (brand, offline) executed; M7 (D17/§18.8): registry checks (credential-expiry, no-private-in-public-output) executed; M8 (§18.6): media-transport rules executed; remaining catalog ships with M3/M4 (SPEC §7)';
+export const CHECK_OWNER =
+  "M6: handle-matrix rules (brand, offline) executed; M7 (D17/§18.8): registry checks (credential-expiry, no-private-in-public-output) executed; M8 (§18.6): media-transport rules executed; remaining catalog ships with M3/M4 (SPEC §7)";
 
 /** Handle drift codes the offline handle-matrix execution reports. */
-const HANDLE_CODES = new Set(['drift/duplicate-handle', 'drift/handle-claimed-not-linked', 'drift/handle-host-mismatch']);
+const HANDLE_CODES = new Set([
+  "drift/duplicate-handle",
+  "drift/handle-claimed-not-linked",
+  "drift/handle-host-mismatch",
+]);
 
 export interface CheckArgs {
   workspace: string;
@@ -31,33 +44,33 @@ export interface CheckArgs {
 export function runCheck(args: CheckArgs): number {
   const platform = args.platformArg !== undefined ? parsePlatform(args.platformArg) : undefined;
 
-  let profile;
+  let profile: LoadedProfile;
   try {
     profile = load(args.workspace);
   } catch (err) {
     if (err instanceof SchemaValidationError) {
-      return report('check', false, EXIT.FAIL, {
+      return report("check", false, EXIT.FAIL, {
         error: {
-          kind: 'schema',
+          kind: "schema",
           message: `schema validation failed (D12 fail-on-schema) — ${err.issues.length} violation(s)`,
           violations: [...err.issues],
         },
       });
     }
     if (err instanceof LoadError) {
-      return report('check', false, EXIT.FAIL, { error: { kind: 'load', message: err.message } });
+      return report("check", false, EXIT.FAIL, { error: { kind: "load", message: err.message } });
     }
     throw err;
   }
 
   const checks = profile.checks.filter(
-    (c) => platform === undefined || c.platform === 'all' || c.platform === platform,
+    (c) => platform === undefined || c.platform === "all" || c.platform === platform,
   );
 
   // Brand handle matrix (D15/§17): deterministic, offline execution of
   // handle-claimed + handle-consistent (drift codes) + a per-row report.
   const handleIssues =
-    profile.flavor === 'brand' ? driftCheck(profile).filter((i) => HANDLE_CODES.has(i.code)) : [];
+    profile.flavor === "brand" ? driftCheck(profile).filter((i) => HANDLE_CODES.has(i.code)) : [];
   const handleMatrix = profile.socialHandles.map((h) => ({
     platform: h.platform,
     handle: h.handle,
@@ -74,18 +87,18 @@ export function runCheck(args: CheckArgs): number {
   // SSOT (missing/unsafe file, declared-checksum mismatch) is an error; per-
   // machine external state (no evidence root, symlink escape, oversize) warns.
   const media = collectMedia(profile, args.workspace).findings;
-  const failErrors = [...registry, ...media].filter((f) => f.severity === 'error');
+  const failErrors = [...registry, ...media].filter((f) => f.severity === "error");
 
   if (isJsonMode()) {
-    return report('check', failErrors.length === 0, failErrors.length === 0 ? EXIT.OK : EXIT.FAIL, {
+    return report("check", failErrors.length === 0, failErrors.length === 0 ? EXIT.OK : EXIT.FAIL, {
       data: {
         workspace: args.workspace,
-        platform: platform ?? 'all',
+        platform: platform ?? "all",
         flavor: profile.flavor,
         // Per-rule, machine-readable: handle rules exist for brand only (D15/§17),
         // registry rules run for every flavor (D17/§18.8). A single boolean would
         // overload two different facts.
-        implemented: { handleMatrix: profile.flavor === 'brand', registry: true, media: true },
+        implemented: { handleMatrix: profile.flavor === "brand", registry: true, media: true },
         checks,
         handleMatrix,
         handleIssues,
@@ -96,52 +109,68 @@ export function runCheck(args: CheckArgs): number {
     });
   }
 
-  section(`evidence registry (D17/§18.8)${platform !== undefined ? ` for ${platform}` : ''}: ${registry.length} finding(s)`);
+  section(
+    `evidence registry (D17/§18.8)${platform !== undefined ? ` for ${platform}` : ""}: ${registry.length} finding(s)`,
+  );
   for (const finding of registry) {
     line(`  ${finding.severity}: [${finding.code}] ${finding.message} (${finding.path})`);
   }
   if (registry.length === 0) {
-    line('  credential-expiry / no-private-in-public-output: OK');
-  } else if (registry.filter((f) => f.severity === 'error').length > 0) {
-    line(`  ${registry.filter((f) => f.severity === 'error').length} leak error(s) — FAIL (§18.5: public output renders only public entries)`);
+    line("  credential-expiry / no-private-in-public-output: OK");
+  } else if (registry.filter((f) => f.severity === "error").length > 0) {
+    line(
+      `  ${registry.filter((f) => f.severity === "error").length} leak error(s) — FAIL (§18.5: public output renders only public entries)`,
+    );
   }
 
-  section(`media pipeline (M8/§18.6)${platform !== undefined ? ` for ${platform}` : ''}: ${media.length} finding(s)`);
+  section(
+    `media pipeline (M8/§18.6)${platform !== undefined ? ` for ${platform}` : ""}: ${media.length} finding(s)`,
+  );
   for (const finding of media) {
     line(`  ${finding.severity}: [${finding.code}] ${finding.message} (${finding.path})`);
   }
   if (media.length === 0) {
-    line('  media transport: OK (no findings)');
+    line("  media transport: OK (no findings)");
   }
 
-  if (profile.flavor === 'brand') {
-    section('handle matrix (brand, §17)');
+  if (profile.flavor === "brand") {
+    section("handle matrix (brand, §17)");
     if (profile.socialHandles.length === 0) {
-      line('  (no socialHandles rows)');
+      line("  (no socialHandles rows)");
     } else {
       for (const h of profile.socialHandles) {
-        const url = h.url !== undefined ? ` → ${h.url}` : '';
-        const note = h.note !== undefined ? ` (${h.note})` : '';
+        const url = h.url !== undefined ? ` → ${h.url}` : "";
+        const note = h.note !== undefined ? ` (${h.note})` : "";
         line(`  [${h.status}] ${h.platform} @${h.handle}${url}${note}`);
       }
     }
     if (handleIssues.length === 0) {
-      line('  handle-claimed / handle-consistent: OK (no offline violations)');
+      line("  handle-claimed / handle-consistent: OK (no offline violations)");
     } else {
       for (const issue of handleIssues) {
         line(`  warn: [${issue.code}] ${issue.message} (${issue.path})`);
       }
-      line(`  ${handleIssues.length} handle warning(s) — fix before deploy (live check: github-org skill url-live)`);
+      line(
+        `  ${handleIssues.length} handle warning(s) — fix before deploy (live check: github-org skill url-live)`,
+      );
     }
   }
 
-  line('pasco check: rule engine for the remaining catalog ships M3/M4 (registry + handle rules already executed above)');
-  section(`user checks (content/checks.yaml, schema-validated catalog)${platform !== undefined ? ` for ${platform}` : ''}: ${checks.length}`);
+  line(
+    "pasco check: rule engine for the remaining catalog ships M3/M4 (registry + handle rules already executed above)",
+  );
+  section(
+    `user checks (content/checks.yaml, schema-validated catalog)${platform !== undefined ? ` for ${platform}` : ""}: ${checks.length}`,
+  );
   for (const c of checks) {
-    const note = c.note !== undefined ? ` note="${c.note}"` : '';
-    line(`  [${c.id ?? '?'}] platform=${c.platform} rule=${c.rule} value=${JSON.stringify(c.value)}${note}`);
+    const note = c.note !== undefined ? ` note="${c.note}"` : "";
+    line(
+      `  [${c.id ?? "?"}] platform=${c.platform} rule=${c.rule} value=${JSON.stringify(c.value)}${note}`,
+    );
   }
-  line('  not executed — rule execution ships with the skills checks.yaml union (M3) and pasco check (M4)');
+  line(
+    "  not executed — rule execution ships with the skills checks.yaml union (M3) and pasco check (M4)",
+  );
   line(`  owner: ${CHECK_OWNER}`);
 
   return failErrors.length === 0 ? EXIT.OK : EXIT.FAIL;

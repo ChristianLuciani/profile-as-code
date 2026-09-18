@@ -10,10 +10,10 @@
  * schema enum) — never duplicated here.
  */
 
-import type { Lang, Platform, PlatformProfile, Profile } from './types.js';
-import { PLATFORMS } from './types.js';
+import type { Lang, Platform, PlatformProfile, Profile } from "./types.js";
+import { PLATFORMS } from "./types.js";
 
-const LANG_IDS: readonly string[] = ['en', 'es', 'fr'] as const;
+const LANG_IDS: readonly string[] = ["en", "es", "fr"] as const;
 
 /**
  * Compile a PlatformProfile for one platform and language.
@@ -21,17 +21,24 @@ const LANG_IDS: readonly string[] = ['en', 'es', 'fr'] as const;
  * @throws TypeError — `platform`/`lang` not in the contract enum (a renderer bug,
  *   not a user-data problem).
  */
-export function compile(profile: Profile, platform: Platform, lang: Lang = 'en'): PlatformProfile {
+export function compile(profile: Profile, platform: Platform, lang: Lang = "en"): PlatformProfile {
   if (!(PLATFORMS as readonly string[]).includes(platform)) {
-    throw new TypeError(`compile: unknown platform "${String(platform)}" (allowed: ${PLATFORMS.join(', ')})`);
+    throw new TypeError(
+      `compile: unknown platform "${String(platform)}" (allowed: ${PLATFORMS.join(", ")})`,
+    );
   }
   if (!(LANG_IDS as readonly string[]).includes(lang)) {
-    throw new TypeError(`compile: unknown language "${String(lang)}" (allowed: ${LANG_IDS.join(', ')})`);
+    throw new TypeError(
+      `compile: unknown language "${String(lang)}" (allowed: ${LANG_IDS.join(", ")})`,
+    );
   }
 
   const fallbacks: string[] = [];
 
-  const langText = (langMap: Record<string, string> | undefined, path: string): string | undefined => {
+  const langText = (
+    langMap: Record<string, string> | undefined,
+    path: string,
+  ): string | undefined => {
     // Issue #84 (option (a) ratified): an empty-string value counts as ABSENT —
     // nobody can display "" and a populated workspace is byte-identical; only
     // previously-degenerate output changes. `|| undefined` (not just `??`) so
@@ -61,12 +68,14 @@ export function compile(profile: Profile, platform: Platform, lang: Lang = 'en')
     if (text !== undefined) brandAudiences[name] = text;
   }
 
-  const platformChecks = (profile.checks ?? []).filter((c) => c.platform === 'all' || c.platform === platform);
+  const platformChecks = (profile.checks ?? []).filter(
+    (c) => c.platform === "all" || c.platform === platform,
+  );
 
   return {
     platform,
     lang,
-    flavor: profile.flavor ?? 'person',
+    flavor: profile.flavor ?? "person",
     // facts — untouched
     identity: profile.identity,
     experience: profile.experience ?? [],
@@ -81,9 +90,9 @@ export function compile(profile: Profile, platform: Platform, lang: Lang = 'en')
     // language-aware text
     bios: (profile.bios ?? []).filter((b) => b.platform === platform && b.lang === lang),
     headlines: (profile.headlines ?? []).filter((h) => h.platform === platform && h.lang === lang),
-    statement: langText(positioning?.statement, 'positioning.statement'),
+    statement: langText(positioning?.statement, "positioning.statement"),
     audiences,
-    citationsGoal: langText(positioning?.geo?.citationsGoal, 'positioning.geo.citationsGoal'),
+    citationsGoal: langText(positioning?.geo?.citationsGoal, "positioning.geo.citationsGoal"),
     keywords: {
       seo: profile.keywords?.seo?.[platform] ?? [],
       geo: profile.keywords?.geo ?? {},

@@ -2,9 +2,7 @@
   "identity": {
     "name": "Christian Luciani",
     "location": "Cuenca, Ecuador",
-    "links": [
-      { "platform": "github", "url": "https://github.com/ChristianLuciani" }
-    ],
+    "links": [{ "platform": "github", "url": "https://github.com/ChristianLuciani" }],
     "email": "cluciani@gmail.com"
   },
   "positioning": {
@@ -20,11 +18,14 @@
     }
   },
   "bios": [
-    { "platform": "github-readme", "lang": "en", "length": "short", "text": "Physicist, educator, OSS." }
+    {
+      "platform": "github-readme",
+      "lang": "en",
+      "length": "short",
+      "text": "Physicist, educator, OSS."
+    }
   ],
-  "headlines": [
-    { "platform": "linkedin", "lang": "es", "text": "Físico · IA soberana" }
-  ],
+  "headlines": [{ "platform": "linkedin", "lang": "es", "text": "Físico · IA soberana" }],
   "skills": [
     {
       "name": "Python",
@@ -49,7 +50,11 @@
       "status": "active",
       "description": { "en": "Your professional identity as code." },
       "evidence": [
-        { "claim": { "en": "Serves 500+ profiles" }, "source": "https://example.com", "verified": "2026-08-01" }
+        {
+          "claim": { "en": "Serves 500+ profiles" },
+          "source": "https://example.com",
+          "verified": "2026-08-01"
+        }
       ]
     }
   ],

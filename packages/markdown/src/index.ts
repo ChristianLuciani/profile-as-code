@@ -55,18 +55,19 @@ export function mdHref(href: string): string {
       // escape stays verbatim: an already-encoded URL must never be
       // double-encoded — `encodeURI` turned `%20` into `%2520`, addressing a
       // different resource.
-      .replace(/%(?![0-9A-Fa-f]{2})/g, '%25')
+      .replace(/%(?![0-9A-Fa-f]{2})/g, "%25")
       // Exactly what `encodeURI` percent-encodes in ASCII minus `%` — ASCII
       // controls, space, DEL, C1 controls and the URL-invalid printable set.
       // All are invalid in a URL; space and controls also end a CommonMark
       // destination. Non-ASCII (≥ U+00A0) is deliberately left verbatim: an
       // IRI is a valid CommonMark destination and byte-stability beats
       // normalization.
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional — matching control/DEL/C1 chars to percent-encode them is this module's contract
       .replace(/[\u0000-\u0020\u007F-\u009F"<>[\]\\^`{|}]/g, (c) => encodeURIComponent(c))
       // Both parens are encoded: a `)` ends a bare destination unless balanced,
       // and uniform output is deterministic (immune to balance games).
-      .replace(/\(/g, '%28')
-      .replace(/\)/g, '%29')
+      .replace(/\(/g, "%28")
+      .replace(/\)/g, "%29")
   );
 }
 
@@ -94,5 +95,5 @@ export function mdHref(href: string): string {
  */
 export function mdText(text: string): string {
   // Backslash first (it is also the escape character), then both brackets.
-  return text.replace(/[\\[\]]/g, '\\$&');
+  return text.replace(/[\\[\]]/g, "\\$&");
 }

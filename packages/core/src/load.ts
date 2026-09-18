@@ -12,19 +12,19 @@
  * fail, via their root key.
  */
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { parseDocument } from 'yaml';
-import { checkLedgerIntegrity } from './ledger.js';
-import { checkRegistryIntegrity } from './registry.js';
-import { profileSchema } from './generated/schema.zod.js';
-import type { LoadedProfile, Profile } from './types.js';
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { parseDocument } from "yaml";
+import { profileSchema } from "./generated/schema.zod.js";
+import { checkLedgerIntegrity } from "./ledger.js";
+import { checkRegistryIntegrity } from "./registry.js";
+import type { LoadedProfile, Profile } from "./types.js";
 
 /** Workspace-level failure: missing/unreadable content dir, bad YAML, config error. */
 export class LoadError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);
-    this.name = 'LoadError';
+    this.name = "LoadError";
   }
 }
 
@@ -35,9 +35,9 @@ export class SchemaValidationError extends LoadError {
   constructor(issues: readonly { path: string; message: string }[]) {
     super(
       `profile.schema.json validation failed (D12 fail-on-schema) — ${issues.length} violation(s):\n` +
-        issues.map((i) => `  ${i.path || '<root>'}: ${i.message}`).join('\n'),
+        issues.map((i) => `  ${i.path || "<root>"}: ${i.message}`).join("\n"),
     );
-    this.name = 'SchemaValidationError';
+    this.name = "SchemaValidationError";
     this.issues = issues;
   }
 }
@@ -47,7 +47,7 @@ export function validateProfile(value: unknown): Profile {
   const result = profileSchema.safeParse(value);
   if (!result.success) {
     const issues = result.error.issues.map((issue) => ({
-      path: issue.path.length ? issue.path.join('.') : '<root>',
+      path: issue.path.length ? issue.path.join(".") : "<root>",
       message: issue.message,
     }));
     throw new SchemaValidationError(issues);
@@ -64,7 +64,7 @@ export function validateProfile(value: unknown): Profile {
 export function normalizeProfile(profile: Profile): LoadedProfile {
   return {
     ...profile,
-    flavor: profile.flavor ?? 'person',
+    flavor: profile.flavor ?? "person",
     bios: profile.bios ?? [],
     headlines: profile.headlines ?? [],
     skills: profile.skills ?? [],
@@ -87,22 +87,26 @@ export function normalizeProfile(profile: Profile): LoadedProfile {
  *  `identity.yaml` contributes `{ identity: <object> }`, … (schema/README.md
  *  mapping table). An empty file contributes nothing. */
 function readContentFiles(workspace: string): Record<string, unknown> {
-  const contentDir = join(workspace, 'content');
+  const contentDir = join(workspace, "content");
   if (!existsSync(contentDir)) {
-    throw new LoadError(`workspace has no content/ directory: ${contentDir} (expected content/*.yaml per schema/README.md)`);
+    throw new LoadError(
+      `workspace has no content/ directory: ${contentDir} (expected content/*.yaml per schema/README.md)`,
+    );
   }
 
   const files = readdirSync(contentDir)
-    .filter((file) => /\.ya?ml$/i.test(file) && !file.startsWith('.'))
+    .filter((file) => /\.ya?ml$/i.test(file) && !file.startsWith("."))
     .sort();
 
   const merged: Record<string, unknown> = {};
   for (const file of files) {
-    const rootKey = file.replace(/\.ya?ml$/i, '');
+    const rootKey = file.replace(/\.ya?ml$/i, "");
     const fullPath = join(contentDir, file);
-    const doc = parseDocument(readFileSync(fullPath, 'utf8'));
+    const doc = parseDocument(readFileSync(fullPath, "utf8"));
     if (doc.errors.length > 0) {
-      throw new LoadError(`content/${file}: invalid YAML — ${doc.errors[0]?.message ?? 'parse error'}`);
+      throw new LoadError(
+        `content/${file}: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
+      );
     }
     const node = doc.toJS({ maxAliasCount: 100 });
     if (node === null || node === undefined) continue; // empty file → no contribution
@@ -140,4 +144,3 @@ export function load(workspace: string): LoadedProfile {
   }
   return normalizeProfile(profile);
 }
-

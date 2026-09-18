@@ -38,6 +38,12 @@ jobs:
         if: hashFiles('package.json') != ''
         run: pnpm install --frozen-lockfile
 
+      # Issue #59: style gate — Biome (single tool: lint + format + import order).
+      # Runs before tests to fail fast; config in biome.json, `pnpm lint` locally.
+      - name: Lint (Biome)
+        if: hashFiles('package.json') != ''
+        run: pnpm lint
+
       # D3 freshness: the committed Zod (packages/core/src/generated/schema.zod.ts)
       # must be exactly what the current schema generates — a schema edit without
       # `pnpm gen:zod` must fail here, not drift silently.

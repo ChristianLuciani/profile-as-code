@@ -22,9 +22,8 @@
  * for that check): a sparse profile is not penalized for what it does not claim.
  */
 
-import { driftCheck } from './drift.js';
-import { credentialLdEntries } from './registry.js';
-import { PLATFORMS, textOf } from './types.js';
+import { driftCheck } from "./drift.js";
+import { credentialLdEntries } from "./registry.js";
 import type {
   EducationalOccupationalCredentialLd,
   GeoCheck,
@@ -34,26 +33,27 @@ import type {
   Profile,
   SemanticAssociationCoverage,
   StructuredDataReadiness,
-} from './types.js';
+} from "./types.js";
+import { PLATFORMS, textOf } from "./types.js";
 
 /** Drift codes that represent fact contradictions (feeding factConsistency). */
 const CONFLICT_CODES = new Set([
-  'drift/date-range-inverted',
-  'drift/duplicate-experience',
-  'drift/duplicate-headline',
-  'drift/duplicate-bio',
-  'drift/duplicate-project',
-  'drift/publication-conflict',
-  'drift/publication-duplicate',
-  'drift/orcid-conflict',
-  'drift/orcid-mismatch',
-  'drift/skill-conflict',
+  "drift/date-range-inverted",
+  "drift/duplicate-experience",
+  "drift/duplicate-headline",
+  "drift/duplicate-bio",
+  "drift/duplicate-project",
+  "drift/publication-conflict",
+  "drift/publication-duplicate",
+  "drift/orcid-conflict",
+  "drift/orcid-mismatch",
+  "drift/skill-conflict",
   // brand handle matrix (v1.1/§17) — handle inconsistencies are fact
   // contradictions for a brand (an LLM triangulating surfaces must find the
   // same handle/URL set).
-  'drift/duplicate-handle',
-  'drift/handle-claimed-not-linked',
-  'drift/handle-host-mismatch',
+  "drift/duplicate-handle",
+  "drift/handle-claimed-not-linked",
+  "drift/handle-host-mismatch",
 ]);
 
 function clamp01(value: number): number {
@@ -65,7 +65,7 @@ function langValues(langMap: Record<string, string> | undefined): string[] {
   // anchor ("".includes of a non-empty anchor is false) — filtered so the
   // reinforcement haystack carries no degenerate values for future predicates.
   // No trim (the rule is the exact empty string; whitespace-only stays data).
-  return langMap ? Object.values(langMap).filter((v) => v !== '') : [];
+  return langMap ? Object.values(langMap).filter((v) => v !== "") : [];
 }
 
 /**
@@ -82,8 +82,9 @@ function hasCredentialLd(profile: Profile): EducationalOccupationalCredentialLd[
 /** The most recent role — the one a schema.org Person would call jobTitle/worksFor. */
 function currentRole(profile: Profile): { jobTitle?: string; worksFor?: string } {
   const items = [...(profile.experience ?? [])];
-  const byStart = (a: (typeof items)[number], b: (typeof items)[number]) => b.start.localeCompare(a.start);
-  const current = items.filter((item) => item.end === 'present').sort(byStart)[0];
+  const byStart = (a: (typeof items)[number], b: (typeof items)[number]) =>
+    b.start.localeCompare(a.start);
+  const current = items.filter((item) => item.end === "present").sort(byStart)[0];
   const latest = items.sort(byStart)[0];
   const pick = current ?? latest;
   return pick ? { jobTitle: textOf(pick.role), worksFor: pick.org } : {};
@@ -91,7 +92,7 @@ function currentRole(profile: Profile): { jobTitle?: string; worksFor?: string }
 
 function structuredData(profile: Profile): StructuredDataReadiness {
   const identity = profile.identity;
-  const isBrand = profile.flavor === 'brand';
+  const isBrand = profile.flavor === "brand";
   const credentialsLd = hasCredentialLd(profile);
 
   // sameAs: canonical identity.links + every claimed handle's URL (deduped). For a
@@ -99,7 +100,7 @@ function structuredData(profile: Profile): StructuredDataReadiness {
   const sameAs = [
     ...(identity.links ?? []).map((link) => link.url),
     ...(profile.socialHandles ?? [])
-      .filter((h) => h.status === 'claimed' && h.url !== undefined)
+      .filter((h) => h.status === "claimed" && h.url !== undefined)
       .map((h) => h.url as string),
   ].filter((url, index, all) => all.indexOf(url) === index);
 
@@ -123,15 +124,34 @@ function structuredData(profile: Profile): StructuredDataReadiness {
       ...(description ? { description } : {}),
       ...(identity.location ? { address: identity.location } : {}),
     };
-    const considered = ['name', 'sameAs', 'email', 'logo', 'foundingDate', 'slogan', 'description', 'address'];
+    const considered = [
+      "name",
+      "sameAs",
+      "email",
+      "logo",
+      "foundingDate",
+      "slogan",
+      "description",
+      "address",
+    ];
     const populated =
-      1 + (sameAs.length > 0 ? 1 : 0) + (identity.email !== undefined ? 1 : 0) + (identity.logo ? 1 : 0) + (identity.established ? 1 : 0) + (slogan ? 1 : 0) + (description ? 1 : 0) + (identity.location ? 1 : 0);
-    const ready = Boolean(identity.name) && sameAs.length > 0 && Boolean(identity.logo || description || identity.established);
+      1 +
+      (sameAs.length > 0 ? 1 : 0) +
+      (identity.email !== undefined ? 1 : 0) +
+      (identity.logo ? 1 : 0) +
+      (identity.established ? 1 : 0) +
+      (slogan ? 1 : 0) +
+      (description ? 1 : 0) +
+      (identity.location ? 1 : 0);
+    const ready =
+      Boolean(identity.name) &&
+      sameAs.length > 0 &&
+      Boolean(identity.logo || description || identity.established);
     const jsonLd =
       identity.name && sameAs.length > 0
         ? {
-            '@context': 'https://schema.org' as const,
-            '@type': 'Organization' as const,
+            "@context": "https://schema.org" as const,
+            "@type": "Organization" as const,
             name: identity.name,
             sameAs,
             ...(identity.email !== undefined ? { email: identity.email } : {}),
@@ -143,7 +163,13 @@ function structuredData(profile: Profile): StructuredDataReadiness {
             ...(identity.location ? { address: identity.location } : {}),
           }
         : undefined;
-    return { entityType: 'Organization', ready, completeness: populated / considered.length, fields, ...(jsonLd ? { jsonLd } : {}) };
+    return {
+      entityType: "Organization",
+      ready,
+      completeness: populated / considered.length,
+      fields,
+      ...(jsonLd ? { jsonLd } : {}),
+    };
   }
 
   const role = currentRole(profile);
@@ -156,24 +182,41 @@ function structuredData(profile: Profile): StructuredDataReadiness {
     ...(role.jobTitle ? { jobTitle: role.jobTitle } : {}),
     ...(role.worksFor ? { worksFor: role.worksFor } : {}),
   };
-  const considered = ['name', 'sameAs', 'email', 'image', 'address', 'jobTitle', 'worksFor'];
-  const populated = 1 + (sameAs.length > 0 ? 1 : 0) + (identity.email !== undefined ? 1 : 0) + (identity.photo ? 1 : 0) + (identity.location ? 1 : 0) + (role.jobTitle ? 1 : 0) + (role.worksFor ? 1 : 0);
-  const ready = Boolean(identity.name) && sameAs.length > 0 && (Boolean(identity.photo) || Boolean(identity.location) || Boolean(role.jobTitle));
-  const jsonLd = identity.name && sameAs.length > 0
-    ? {
-        '@context': 'https://schema.org' as const,
-        '@type': 'Person' as const,
-        name: identity.name,
-        sameAs,
-        ...(identity.email !== undefined ? { email: identity.email } : {}),
-        ...(credentialsLd ? { hasCredential: credentialsLd } : {}),
-        ...(identity.photo ? { image: identity.photo } : {}),
-        ...(identity.location ? { address: identity.location } : {}),
-        ...(role.jobTitle ? { jobTitle: role.jobTitle } : {}),
-        ...(role.worksFor ? { worksFor: role.worksFor } : {}),
-      }
-    : undefined;
-  return { entityType: 'Person', ready, completeness: populated / considered.length, fields, ...(jsonLd ? { jsonLd } : {}) };
+  const considered = ["name", "sameAs", "email", "image", "address", "jobTitle", "worksFor"];
+  const populated =
+    1 +
+    (sameAs.length > 0 ? 1 : 0) +
+    (identity.email !== undefined ? 1 : 0) +
+    (identity.photo ? 1 : 0) +
+    (identity.location ? 1 : 0) +
+    (role.jobTitle ? 1 : 0) +
+    (role.worksFor ? 1 : 0);
+  const ready =
+    Boolean(identity.name) &&
+    sameAs.length > 0 &&
+    (Boolean(identity.photo) || Boolean(identity.location) || Boolean(role.jobTitle));
+  const jsonLd =
+    identity.name && sameAs.length > 0
+      ? {
+          "@context": "https://schema.org" as const,
+          "@type": "Person" as const,
+          name: identity.name,
+          sameAs,
+          ...(identity.email !== undefined ? { email: identity.email } : {}),
+          ...(credentialsLd ? { hasCredential: credentialsLd } : {}),
+          ...(identity.photo ? { image: identity.photo } : {}),
+          ...(identity.location ? { address: identity.location } : {}),
+          ...(role.jobTitle ? { jobTitle: role.jobTitle } : {}),
+          ...(role.worksFor ? { worksFor: role.worksFor } : {}),
+        }
+      : undefined;
+  return {
+    entityType: "Person",
+    ready,
+    completeness: populated / considered.length,
+    fields,
+    ...(jsonLd ? { jsonLd } : {}),
+  };
 }
 
 /** Which platforms the user targets (has any curated surface for). */
@@ -191,7 +234,9 @@ function targetedPlatforms(profile: Profile): Set<Platform> {
 }
 
 function semanticAnchors(profile: Profile): SemanticAssociationCoverage {
-  const rawAnchors = (profile.positioning?.geo?.semanticAssociations ?? []).map((a) => a.trim()).filter(Boolean);
+  const rawAnchors = (profile.positioning?.geo?.semanticAssociations ?? [])
+    .map((a) => a.trim())
+    .filter(Boolean);
   const anchors = rawAnchors.map((a) => a.toLowerCase());
   if (anchors.length === 0) return { anchors: [], reinforced: [], missing: [], coverage: 0 };
 
@@ -217,7 +262,12 @@ function semanticAnchors(profile: Profile): SemanticAssociationCoverage {
     if (normalized.some((text) => text.includes(anchor))) reinforced.push(rawAnchors[i] ?? anchor);
     else missing.push(rawAnchors[i] ?? anchor);
   }
-  return { anchors: rawAnchors, reinforced, missing, coverage: anchors.length === 0 ? 0 : reinforced.length / anchors.length };
+  return {
+    anchors: rawAnchors,
+    reinforced,
+    missing,
+    coverage: anchors.length === 0 ? 0 : reinforced.length / anchors.length,
+  };
 }
 
 export function geoCheck(profile: Profile): GeoReport {
@@ -225,8 +275,12 @@ export function geoCheck(profile: Profile): GeoReport {
   const conflicts = driftCheck(profile).filter((issue) => CONFLICT_CODES.has(issue.code));
 
   const targets = targetedPlatforms(profile);
-  const targetsWithBio = [...targets].filter((platform) => (profile.bios ?? []).some((b) => b.platform === platform)).length;
-  const targetsWithHeadline = [...targets].filter((platform) => (profile.headlines ?? []).some((h) => h.platform === platform)).length;
+  const targetsWithBio = [...targets].filter((platform) =>
+    (profile.bios ?? []).some((b) => b.platform === platform),
+  ).length;
+  const targetsWithHeadline = [...targets].filter((platform) =>
+    (profile.headlines ?? []).some((h) => h.platform === platform),
+  ).length;
   const targetCount = targets.size;
 
   const sd = structuredData(profile);
@@ -243,45 +297,46 @@ export function geoCheck(profile: Profile): GeoReport {
 
   const checks: GeoCheck[] = [
     {
-      code: 'geo/conflicts',
-      label: 'No fact contradictions across surfaces',
+      code: "geo/conflicts",
+      label: "No fact contradictions across surfaces",
       weight: 0.25,
       score: clamp01(1 - conflicts.length * 0.25),
       detail:
         conflicts.length === 0
-          ? 'no fact contradictions detected'
-          : `${conflicts.length} contradiction(s): ${[...new Set(conflicts.map((c) => c.code))].join(', ')}`,
+          ? "no fact contradictions detected"
+          : `${conflicts.length} contradiction(s): ${[...new Set(conflicts.map((c) => c.code))].join(", ")}`,
     },
     {
-      code: 'geo/platform-bio-coverage',
-      label: 'Every targeted platform has a bio',
+      code: "geo/platform-bio-coverage",
+      label: "Every targeted platform has a bio",
       weight: 0.12,
       score: targetCount === 0 ? 1 : targetsWithBio / targetCount,
       detail:
         targetCount === 0
-          ? 'no platforms targeted yet'
-          : `${targetsWithBio}/${targetCount} platforms with a bio (${[...targets].filter((p) => !(profile.bios ?? []).some((b) => b.platform === p)).join(', ') || 'all'} missing)`,
+          ? "no platforms targeted yet"
+          : `${targetsWithBio}/${targetCount} platforms with a bio (${[...targets].filter((p) => !(profile.bios ?? []).some((b) => b.platform === p)).join(", ") || "all"} missing)`,
     },
     {
-      code: 'geo/platform-headline-coverage',
-      label: 'Every targeted platform has a headline',
+      code: "geo/platform-headline-coverage",
+      label: "Every targeted platform has a headline",
       weight: 0.08,
       score: targetCount === 0 ? 1 : targetsWithHeadline / targetCount,
       detail:
         targetCount === 0
-          ? 'no platforms targeted yet'
+          ? "no platforms targeted yet"
           : `${targetsWithHeadline}/${targetCount} platforms with a headline`,
     },
     {
-      code: 'geo/sameas-links',
-      label: 'Canonical identity links (schema.org sameAs)',
+      code: "geo/sameas-links",
+      label: "Canonical identity links (schema.org sameAs)",
       weight: 0.15,
       score: clamp01((identity.links?.length ?? 0) / 5),
       detail: `${identity.links?.length ?? 0} canonical link(s) in identity.links (≥3 recommended for GEO citability)`,
     },
     {
-      code: 'geo/structured-person',
-      label: 'Entity fields beyond the minimum (photo/location/jobTitle — logo/description/foundingDate for brand)',
+      code: "geo/structured-person",
+      label:
+        "Entity fields beyond the minimum (photo/location/jobTitle — logo/description/foundingDate for brand)",
       weight: 0.1,
       // Read from sd.fields — structuredData is the single source of truth for
       // entity-field presence (issue #86, F1): Boolean(entity) on the raw object
@@ -290,81 +345,95 @@ export function geoCheck(profile: Profile): GeoReport {
       // logo/established/photo are url/date-typed (non-empty), location is a plain
       // string where "" is falsy in both readings.
       score:
-        profile.flavor === 'brand'
-          ? (Number(Boolean(sd.fields.logo)) + Number(Boolean(sd.fields.description)) + Number(Boolean(sd.fields.foundingDate))) / 3
-          : (Number(Boolean(sd.fields.image)) + Number(Boolean(sd.fields.address)) + Number(Boolean(sd.fields.jobTitle))) / 3,
+        profile.flavor === "brand"
+          ? (Number(Boolean(sd.fields.logo)) +
+              Number(Boolean(sd.fields.description)) +
+              Number(Boolean(sd.fields.foundingDate))) /
+            3
+          : (Number(Boolean(sd.fields.image)) +
+              Number(Boolean(sd.fields.address)) +
+              Number(Boolean(sd.fields.jobTitle))) /
+            3,
       detail:
-        profile.flavor === 'brand'
-          ? `logo: ${sd.fields.logo ? 'yes' : 'no'} · description(mission): ${sd.fields.description ? 'yes' : 'no'} · foundingDate: ${sd.fields.foundingDate ? 'yes' : 'no'}`
-          : `photo: ${sd.fields.image ? 'yes' : 'no'} · location: ${sd.fields.address ? 'yes' : 'no'} · jobTitle: ${sd.fields.jobTitle ? 'yes' : 'no'}`,
+        profile.flavor === "brand"
+          ? `logo: ${sd.fields.logo ? "yes" : "no"} · description(mission): ${sd.fields.description ? "yes" : "no"} · foundingDate: ${sd.fields.foundingDate ? "yes" : "no"}`
+          : `photo: ${sd.fields.image ? "yes" : "no"} · location: ${sd.fields.address ? "yes" : "no"} · jobTitle: ${sd.fields.jobTitle ? "yes" : "no"}`,
     },
     {
-      code: 'geo/semantic-anchors',
-      label: 'Semantic association anchors reinforced across surfaces',
+      code: "geo/semantic-anchors",
+      label: "Semantic association anchors reinforced across surfaces",
       weight: 0.15,
       score: anchors.anchors.length === 0 ? 0 : anchors.reinforced.length / anchors.anchors.length,
       detail:
         anchors.anchors.length === 0
-          ? 'no positioning.geo.semanticAssociations defined (3–5 anchors)'
-          : `${anchors.reinforced.length}/${anchors.anchors.length} anchors reinforced; missing: ${anchors.missing.join(', ') || 'none'}`,
+          ? "no positioning.geo.semanticAssociations defined (3–5 anchors)"
+          : `${anchors.reinforced.length}/${anchors.anchors.length} anchors reinforced; missing: ${anchors.missing.join(", ") || "none"}`,
     },
     {
-      code: 'geo/citable-publications',
-      label: 'Publications resolvable via DOI/ORCID',
+      code: "geo/citable-publications",
+      label: "Publications resolvable via DOI/ORCID",
       weight: 0.05,
       score: publications.length === 0 ? 1 : citablePublications / publications.length,
       detail:
         publications.length === 0
-          ? 'no publications'
+          ? "no publications"
           : `${citablePublications}/${publications.length} publications carry a DOI or ORCID`,
     },
     {
-      code: 'geo/evidence-claims',
-      label: 'Projects carry verifiable evidence[]',
+      code: "geo/evidence-claims",
+      label: "Projects carry verifiable evidence[]",
       weight: 0.1,
       score: projects.length === 0 ? 1 : projectsWithEvidence / projects.length,
       detail:
         projects.length === 0
-          ? 'no projects'
+          ? "no projects"
           : `${projectsWithEvidence}/${projects.length} projects with evidence; ${evidenceWithVerified}/${totalEvidence} evidence claims have a verified date`,
     },
   ];
 
   const totalWeight = checks.reduce((sum, check) => sum + check.weight, 0);
-  const score = Math.round((checks.reduce((sum, check) => sum + check.score * check.weight, 0) / totalWeight) * 100);
+  const score = Math.round(
+    (checks.reduce((sum, check) => sum + check.score * check.weight, 0) / totalWeight) * 100,
+  );
 
   const section = (label: string, detail: string, subset: GeoCheck[]): GeoSection => {
     const weight = subset.reduce((sum, check) => sum + check.weight, 0);
-    const sectionScore = Math.round((subset.reduce((sum, check) => sum + check.score * check.weight, 0) / weight) * 100);
+    const sectionScore = Math.round(
+      (subset.reduce((sum, check) => sum + check.score * check.weight, 0) / weight) * 100,
+    );
     return { label, detail, checks: subset, score: sectionScore };
   };
 
-  const sections: GeoReport['sections'] = {
+  const sections: GeoReport["sections"] = {
     factConsistency: section(
-      'Fact consistency',
-      'An LLM triangulating platforms must find the same dates/roles/papers.',
-      checks.filter((c) => c.code.startsWith('geo/conflicts') || c.code.startsWith('geo/platform-')),
+      "Fact consistency",
+      "An LLM triangulating platforms must find the same dates/roles/papers.",
+      checks.filter(
+        (c) => c.code.startsWith("geo/conflicts") || c.code.startsWith("geo/platform-"),
+      ),
     ),
     structuredData: {
       ...section(
-        'Structured-data readiness',
-        `schema.org ${sd.entityType} JSON-LD ${sd.ready ? 'ready for the web renderer' : 'not ready (need name + ≥1 sameAs link)'}.`,
-        checks.filter((c) => c.code.startsWith('geo/sameas') || c.code.startsWith('geo/structured')),
+        "Structured-data readiness",
+        `schema.org ${sd.entityType} JSON-LD ${sd.ready ? "ready for the web renderer" : "not ready (need name + ≥1 sameAs link)"}.`,
+        checks.filter(
+          (c) => c.code.startsWith("geo/sameas") || c.code.startsWith("geo/structured"),
+        ),
       ),
       readiness: sd,
     },
     semanticAssociations: {
       ...section(
-        'Semantic associations',
-        'The 3–5 anchors an LLM should associate with the person, reinforced across surfaces.',
-        checks.filter((c) => c.code === 'geo/semantic-anchors'),
+        "Semantic associations",
+        "The 3–5 anchors an LLM should associate with the person, reinforced across surfaces.",
+        checks.filter((c) => c.code === "geo/semantic-anchors"),
       ),
       anchors,
     },
     citability: section(
-      'Citability',
-      'Verifiable claims: resolvable DOIs/ORCIDs and evidence[] with sources.',
-      checks.filter((c) => c.code.startsWith('geo/citable') || c.code.startsWith('geo/evidence')),
+      "Citability",
+      "Verifiable claims: resolvable DOIs/ORCIDs and evidence[] with sources.",
+      checks.filter((c) => c.code.startsWith("geo/citable") || c.code.startsWith("geo/evidence")),
     ),
   };
 

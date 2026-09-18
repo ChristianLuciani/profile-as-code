@@ -28,7 +28,7 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
         │  │         │  │  drift-check │  │  x/researchgate/│  │
         │  │         │  │  geo-check   │  │  substack       │  │
         │  └─────────┘  └──────────────┘  └─────────────────┘  │
-        │        CI: validate · tests · links · drift           │
+        │        CI: validate · lint · tests · build          │
         └───────────────┬──────────────────────────┬───────────┘
                         │ datos del usuario         │ outputs listos
         ┌───────────────▼──────────┐   ┌───────────▼──────────────┐
@@ -75,6 +75,7 @@ pnpm install
 pnpm test            # workspace tests (vitest)
 pnpm build           # build + type-check
 pnpm typecheck       # tsc --noEmit
+pnpm lint            # style gate (Biome: lint + format + import order)
 pnpm gen:zod         # regenera Zod desde schema/profile.schema.json (D3)
 ```
 

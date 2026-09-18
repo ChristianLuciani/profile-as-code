@@ -1,76 +1,79 @@
-import { fileURLToPath } from 'node:url';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
-import { compile, load, PLATFORMS } from '../src/index.js';
-import type { Platform } from '../src/index.js';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import type { Platform } from "../src/index.js";
+import { compile, load, PLATFORMS } from "../src/index.js";
 
 const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
-const minimal = () => load(fixture('minimal'));
+const minimal = () => load(fixture("minimal"));
 
-describe('compile(profile, platform, lang)', () => {
-  it('accepts every platform in the schema enum (incl. patreon)', () => {
+describe("compile(profile, platform, lang)", () => {
+  it("accepts every platform in the schema enum (incl. patreon)", () => {
     const platforms: readonly Platform[] = [
-      'github-readme',
-      'linkedin',
-      'upwork',
-      'x',
-      'researchgate',
-      'substack',
-      'patreon',
+      "github-readme",
+      "linkedin",
+      "upwork",
+      "x",
+      "researchgate",
+      "substack",
+      "patreon",
     ];
     for (const p of platforms) {
-      expect(() => compile(minimal(), p, 'en')).not.toThrow();
+      expect(() => compile(minimal(), p, "en")).not.toThrow();
     }
   });
 
-  it('PLATFORMS mirrors the schema enum (single source of truth guard)', () => {
+  it("PLATFORMS mirrors the schema enum (single source of truth guard)", () => {
     // Regression guard for the duplication fix: packages/core/src/types.ts PLATFORMS
     // must never drift from schema/profile.schema.json $defs.platform.enum.
     const schema = JSON.parse(
-      readFileSync(fileURLToPath(new URL('../../../schema/profile.schema.json', import.meta.url)), 'utf8'),
+      readFileSync(
+        fileURLToPath(new URL("../../../schema/profile.schema.json", import.meta.url)),
+        "utf8",
+      ),
     ) as { $defs: { platform: { enum: string[] } } };
     expect([...PLATFORMS].sort()).toEqual([...schema.$defs.platform.enum].sort());
   });
 
-  it('slices bios and headlines by platform+lang', () => {
-    const compiled = compile(minimal(), 'linkedin', 'en');
+  it("slices bios and headlines by platform+lang", () => {
+    const compiled = compile(minimal(), "linkedin", "en");
 
     expect(compiled.bios).toHaveLength(1);
-    expect(compiled.bios[0]?.text).toContain('Senior AI engineer');
+    expect(compiled.bios[0]?.text).toContain("Senior AI engineer");
     expect(compiled.headlines).toHaveLength(1);
-    expect(compiled.headlines[0]?.text).toContain('Senior AI Engineer');
+    expect(compiled.headlines[0]?.text).toContain("Senior AI Engineer");
   });
 
-  it('returns the language-aware text for es, falling back to en where es is absent', () => {
-    const compiled = compile(minimal(), 'linkedin', 'es');
+  it("returns the language-aware text for es, falling back to en where es is absent", () => {
+    const compiled = compile(minimal(), "linkedin", "es");
 
-    expect(compiled.bios[0]?.lang).toBe('es');
-    expect(compiled.statement).toContain('Ingeniera de IA'); // es exists
-    expect(compiled.audiences.recruiter).toContain('Ingeniera senior'); // es exists
+    expect(compiled.bios[0]?.lang).toBe("es");
+    expect(compiled.statement).toContain("Ingeniera de IA"); // es exists
+    expect(compiled.audiences.recruiter).toContain("Ingeniera senior"); // es exists
     // academia has no es → falls back to en and is recorded
-    expect(compiled.audiences.academia).toContain('generative-engine optimization');
-    expect(compiled.fallbacks).toContain('positioning.audiences.academia');
+    expect(compiled.audiences.academia).toContain("generative-engine optimization");
+    expect(compiled.fallbacks).toContain("positioning.audiences.academia");
   });
 
-  it('falls back entirely to en for an untranslated lang and records every path', () => {
-    const compiled = compile(minimal(), 'linkedin', 'fr');
+  it("falls back entirely to en for an untranslated lang and records every path", () => {
+    const compiled = compile(minimal(), "linkedin", "fr");
 
-    expect(compiled.statement).toContain('AI engineer building');
+    expect(compiled.statement).toContain("AI engineer building");
     expect(compiled.fallbacks).toEqual(
       expect.arrayContaining([
-        'positioning.statement',
-        'positioning.audiences.recruiter',
-        'positioning.audiences.academia',
-        'positioning.geo.citationsGoal',
+        "positioning.statement",
+        "positioning.audiences.recruiter",
+        "positioning.audiences.academia",
+        "positioning.geo.citationsGoal",
       ]),
     );
   });
 
-  it('passes facts through untouched (same values as the source profile)', () => {
+  it("passes facts through untouched (same values as the source profile)", () => {
     const profile = minimal();
-    const compiled = compile(profile, 'github-readme', 'en');
+    const compiled = compile(profile, "github-readme", "en");
 
     expect(compiled.identity).toEqual(profile.identity);
     expect(compiled.experience).toEqual(profile.experience);
@@ -80,47 +83,48 @@ describe('compile(profile, platform, lang)', () => {
   });
 
   it('filters user checks to the platform (plus platform "all")', () => {
-    const compiled = compile(minimal(), 'github-readme', 'en');
-    expect(compiled.checks.map((c) => c.id)).toEqual(['gh-bio-max', 'geo-anchors']);
+    const compiled = compile(minimal(), "github-readme", "en");
+    expect(compiled.checks.map((c) => c.id)).toEqual(["gh-bio-max", "geo-anchors"]);
 
-    const x = compile(minimal(), 'x', 'en');
-    expect(x.checks.map((c) => c.id)).toEqual(['x-bio-short', 'geo-anchors']);
+    const x = compile(minimal(), "x", "en");
+    expect(x.checks.map((c) => c.id)).toEqual(["x-bio-short", "geo-anchors"]);
   });
 
-  it('carries the active variant for the platform', () => {
-    const compiled = compile(minimal(), 'linkedin', 'en');
-    expect(compiled.active?.variantId).toBe('li-en-2025-01');
-    expect(compile(minimal(), 'x', 'en').active).toBeUndefined();
+  it("carries the active variant for the platform", () => {
+    const compiled = compile(minimal(), "linkedin", "en");
+    expect(compiled.active?.variantId).toBe("li-en-2025-01");
+    expect(compile(minimal(), "x", "en").active).toBeUndefined();
   });
 
-  it('exposes per-platform SEO keywords and GEO keywords', () => {
-    const compiled = compile(minimal(), 'github-readme', 'en');
-    expect(compiled.keywords.seo).toEqual(['sovereign AI', 'ML platform engineer']);
-    expect(compiled.keywords.geo?.associations).toContain('sovereign AI');
+  it("exposes per-platform SEO keywords and GEO keywords", () => {
+    const compiled = compile(minimal(), "github-readme", "en");
+    expect(compiled.keywords.seo).toEqual(["sovereign AI", "ML platform engineer"]);
+    expect(compiled.keywords.geo?.associations).toContain("sovereign AI");
 
-    const substack = compile(minimal(), 'substack', 'en');
+    const substack = compile(minimal(), "substack", "en");
     expect(substack.keywords.seo).toEqual([]); // no seo set for substack
   });
 
-  it('throws a TypeError for platforms/languages outside the contract enum', () => {
-    expect(() => compile(minimal(), 'myspace' as Platform, 'en')).toThrow(TypeError);
-    expect(() => compile(minimal(), 'linkedin', 'de' as never)).toThrow(TypeError);
+  it("throws a TypeError for platforms/languages outside the contract enum", () => {
+    expect(() => compile(minimal(), "myspace" as Platform, "en")).toThrow(TypeError);
+    expect(() => compile(minimal(), "linkedin", "de" as never)).toThrow(TypeError);
   });
 
-  it('returns empty slices for a platform with no curated content (valid, not an error)', () => {
-    const compiled = compile(minimal(), 'researchgate', 'en');
+  it("returns empty slices for a platform with no curated content (valid, not an error)", () => {
+    const compiled = compile(minimal(), "researchgate", "en");
     expect(compiled.bios).toEqual([]);
     expect(compiled.headlines).toEqual([]);
-    expect(compiled.identity.name).toBe('Elena Vasquez');
+    expect(compiled.identity.name).toBe("Elena Vasquez");
   });
 });
 
-describe('compile — empty-string langMap values count as absent (issue #84, option (a) ratified)', () => {
+describe("compile — empty-string langMap values count as absent (issue #84, option (a) ratified)", () => {
   /** Build a profile from inline workspace files (same pattern as the renderer tests). */
   function compileFrom(files: Record<string, string>) {
-    const dir = mkdtempSync(join(tmpdir(), 'pasco-compile-empty-'));
-    mkdirSync(join(dir, 'content'), { recursive: true });
-    for (const [name, body] of Object.entries(files)) writeFileSync(join(dir, 'content', name), body, 'utf8');
+    const dir = mkdtempSync(join(tmpdir(), "pasco-compile-empty-"));
+    mkdirSync(join(dir, "content"), { recursive: true });
+    for (const [name, body] of Object.entries(files))
+      writeFileSync(join(dir, "content", name), body, "utf8");
     try {
       return { profile: load(dir), cleanup: () => rmSync(dir, { recursive: true, force: true }) };
     } catch (err) {
@@ -130,15 +134,15 @@ describe('compile — empty-string langMap values count as absent (issue #84, op
   }
 
   const FILES = {
-    'identity.yaml': 'name: Elena Vasquez\n',
-    'positioning.yaml':
+    "identity.yaml": "name: Elena Vasquez\n",
+    "positioning.yaml":
       'statement:\n  en: ""\naudiences:\n  reader:\n    en: ""\n  academia:\n    en: learning engineers\ngeo:\n  citationsGoal:\n    en: ""\n',
   };
 
   it('statement: {en: ""} compiles to undefined — the field counts as absent, not present-empty', () => {
     const { profile, cleanup } = compileFrom(FILES);
     try {
-      const compiled = compile(profile, 'github-readme', 'en');
+      const compiled = compile(profile, "github-readme", "en");
       expect(compiled.statement).toBeUndefined();
     } finally {
       cleanup();
@@ -148,33 +152,33 @@ describe('compile — empty-string langMap values count as absent (issue #84, op
   it('citationsGoal: {en: ""} inherits the same absence (engine-wide accessor rule)', () => {
     const { profile, cleanup } = compileFrom(FILES);
     try {
-      const compiled = compile(profile, 'github-readme', 'en');
+      const compiled = compile(profile, "github-readme", "en");
       expect(compiled.citationsGoal).toBeUndefined();
     } finally {
       cleanup();
     }
   });
 
-  it('an empty-string audience is dropped, and no phantom fallback is recorded', () => {
+  it("an empty-string audience is dropped, and no phantom fallback is recorded", () => {
     const { profile, cleanup } = compileFrom(FILES);
     try {
-      const compiled = compile(profile, 'github-readme', 'en');
-      expect(compiled.audiences['reader']).toBeUndefined();
-      expect(compiled.fallbacks).not.toContain('positioning.audiences.reader');
+      const compiled = compile(profile, "github-readme", "en");
+      expect(compiled.audiences.reader).toBeUndefined();
+      expect(compiled.fallbacks).not.toContain("positioning.audiences.reader");
     } finally {
       cleanup();
     }
   });
 
-  it('a lang-specific empty string falls back to en (emptiness is absence at BOTH lookup levels)', () => {
+  it("a lang-specific empty string falls back to en (emptiness is absence at BOTH lookup levels)", () => {
     const { profile, cleanup } = compileFrom({
-      'identity.yaml': 'name: Elena Vasquez\n',
-      'positioning.yaml': 'statement:\n  es: ""\n  en: real statement\n',
+      "identity.yaml": "name: Elena Vasquez\n",
+      "positioning.yaml": 'statement:\n  es: ""\n  en: real statement\n',
     });
     try {
-      const compiled = compile(profile, 'github-readme', 'es');
-      expect(compiled.statement).toBe('real statement');
-      expect(compiled.fallbacks).toContain('positioning.statement');
+      const compiled = compile(profile, "github-readme", "es");
+      expect(compiled.statement).toBe("real statement");
+      expect(compiled.fallbacks).toContain("positioning.statement");
     } finally {
       cleanup();
     }

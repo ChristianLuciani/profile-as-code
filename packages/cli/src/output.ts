@@ -27,7 +27,7 @@ export function report(
   command: string,
   ok: boolean,
   exitCode: number,
-  payload: { data?: unknown; error?: JsonEnvelope['error'] },
+  payload: { data?: unknown; error?: JsonEnvelope["error"] },
 ): number {
   if (jsonMode) {
     const envelope: JsonEnvelope = {
@@ -37,13 +37,13 @@ export function report(
       ...(payload.data !== undefined ? { data: payload.data } : {}),
       ...(payload.error !== undefined ? { error: payload.error } : {}),
     };
-    process.stdout.write(JSON.stringify(envelope, null, 2) + '\n');
+    process.stdout.write(`${JSON.stringify(envelope, null, 2)}\n`);
     return exitCode;
   }
   if (payload.error !== undefined && !ok) {
     process.stderr.write(`${command}: ${payload.error.message}\n`);
     for (const v of payload.error.violations ?? []) {
-      process.stderr.write(`  ${v.path || '<root>'}: ${v.message}\n`);
+      process.stderr.write(`  ${v.path || "<root>"}: ${v.message}\n`);
     }
   }
   return exitCode;
@@ -57,7 +57,7 @@ export function section(title: string): void {
 
 export function line(text: string): void {
   if (jsonMode) return;
-  process.stdout.write(text + '\n');
+  process.stdout.write(`${text}\n`);
 }
 
 export function warn(text: string): void {

@@ -9,7 +9,7 @@
 ## Definition of Done
 
 - [ ] Never committed to `main` — changes live on a descriptive feature branch
-- [ ] CI (`ci`) is green (schema contract self-test + `pnpm test` / `pnpm build`)
+- [ ] CI (`ci`) is green (schema self-test, `pnpm lint`, D3 freshness, `pnpm test`, `pnpm build`, pack check — full list in `docs/ci-cd.md`)
 - [ ] Tests added/updated for changed behavior (or explicit reason why not)
 - [ ] Docs updated if behavior, contract or schema changed (`docs/`, `schema/`)
 - [ ] Any quantitative claim carries a dated source (claims-evidence rule)

@@ -17,19 +17,19 @@
  * the CLI writes via this module's hash, never by hand-edited YAML.
  */
 
-import { createHash } from 'node:crypto';
-import type { LoadedProfile, Profile } from './types.js';
-import { PLATFORMS, textOf } from './types.js';
+import { createHash } from "node:crypto";
+import type { LoadedProfile, Profile } from "./types.js";
+import { PLATFORMS, textOf } from "./types.js";
 
 /** Ledger metadata is provenance/identity, not content — stripped before hashing. */
-const LEDGER_META = new Set(['id', 'origin']);
+const LEDGER_META = new Set(["id", "origin"]);
 
 /** Canonical serialization: recursively sorted keys → stable across insertion order,
  *  YAML formatting and locale. This is what `contentHash` is computed over. */
 export function canonicalJson(value: unknown): string {
   const sort = (v: unknown): unknown => {
     if (Array.isArray(v)) return v.map(sort);
-    if (v !== null && typeof v === 'object') {
+    if (v !== null && typeof v === "object") {
       const out: Record<string, unknown> = {};
       for (const key of Object.keys(v as Record<string, unknown>).sort()) {
         out[key] = sort((v as Record<string, unknown>)[key]);
@@ -44,26 +44,27 @@ export function canonicalJson(value: unknown): string {
 /** SHA-256 (hex) of the canonical serialization of a unit, sans ledger metadata. */
 export function hashUnit(unit: unknown): string {
   const stripped: Record<string, unknown> = {};
-  if (unit !== null && typeof unit === 'object' && !Array.isArray(unit)) {
+  if (unit !== null && typeof unit === "object" && !Array.isArray(unit)) {
     for (const [key, value] of Object.entries(unit as Record<string, unknown>)) {
       if (!LEDGER_META.has(key)) stripped[key] = value;
     }
   }
-  return createHash('sha256').update(canonicalJson(stripped)).digest('hex');
+  return createHash("sha256").update(canonicalJson(stripped)).digest("hex");
 }
 
 /** The §19.2 ledger key space. Row blocks are prefixed `block:id`; scalar root
  *  blocks are addressed by their bare name. Enforced here AND in the schema's
  *  `propertyNames` (JSON Schema consumers) — Zod drops propertyNames, so load()
  *  re-checks with this exact pattern (single behavior, documented twice). */
-export const LEDGER_KEY_PATTERN = /^(identity|positioning|keywords)$|^(bios|headlines|skills|socialHandles|experience|projects|publications|education|press):.+$/;
+export const LEDGER_KEY_PATTERN =
+  /^(identity|positioning|keywords)$|^(bios|headlines|skills|socialHandles|experience|projects|publications|education|press):.+$/;
 
 /** The row blocks that carry optional stable `id`s (v1.3, additive). */
-const ROW_BLOCKS = ['experience', 'projects', 'publications', 'education', 'press'] as const;
+const ROW_BLOCKS = ["experience", "projects", "publications", "education", "press"] as const;
 
-export type UnitKind = 'root' | 'bio' | 'headline' | 'skill' | 'handle' | 'row';
-export type Origin = 'user' | 'template';
-export type SyncState = 'in-sync' | 'stale';
+export type UnitKind = "root" | "bio" | "headline" | "skill" | "handle" | "row";
+export type Origin = "user" | "template";
+export type SyncState = "in-sync" | "stale";
 
 export interface TrackableUnit {
   key: string;
@@ -80,7 +81,7 @@ export interface UnitStatus extends TrackableUnit {
   /** Deployed surfaces with their per-surface sync state. */
   surfaces: Record<string, SyncState>;
   /** Rollup: any stale → stale; any surface → in-sync; else never. */
-  state: 'never' | 'in-sync' | 'stale';
+  state: "never" | "in-sync" | "stale";
 }
 
 export interface LedgerReport {
@@ -95,38 +96,63 @@ interface RowConfig {
 }
 
 const ROW_CONFIG: Record<(typeof ROW_BLOCKS)[number], RowConfig> = {
-  experience: { block: 'experience', label: (r) => `${textOf(r.role as string | undefined)} @ ${String(r.org ?? '')}` },
-  projects: { block: 'projects', label: (r) => String(r.name ?? '') },
-  publications: { block: 'publications', label: (r) => String(r.title ?? '') },
-  education: { block: 'education', label: (r) => `${textOf(r.degree as string | undefined)} @ ${String(r.institution ?? '')}` },
-  press: { block: 'press', label: (r) => textOf(r.title as string | undefined) },
+  experience: {
+    block: "experience",
+    label: (r) => `${textOf(r.role as string | undefined)} @ ${String(r.org ?? "")}`,
+  },
+  projects: { block: "projects", label: (r) => String(r.name ?? "") },
+  publications: { block: "publications", label: (r) => String(r.title ?? "") },
+  education: {
+    block: "education",
+    label: (r) => `${textOf(r.degree as string | undefined)} @ ${String(r.institution ?? "")}`,
+  },
+  press: { block: "press", label: (r) => textOf(r.title as string | undefined) },
 };
 
 /** Enumerate every §19.2 trackable unit of a profile, in a deterministic order.
  *  Rows without an `id` are NOT units — the caller lists them as untracked. */
 export function trackableUnits(profile: LoadedProfile): TrackableUnit[] {
   const units: TrackableUnit[] = [];
-  const push = (key: string, kind: UnitKind, block: string, label: string, unit: unknown, origin: Origin = 'user') => {
+  const push = (
+    key: string,
+    kind: UnitKind,
+    block: string,
+    label: string,
+    unit: unknown,
+    origin: Origin = "user",
+  ) => {
     units.push({ key, kind, block, label, origin, hash: hashUnit(unit) });
   };
 
   // Root scalar blocks — the block itself is the unit (only when present).
-  for (const block of ['identity', 'positioning', 'keywords'] as const) {
+  for (const block of ["identity", "positioning", "keywords"] as const) {
     const value = (profile as unknown as Record<string, unknown>)[block];
-    if (value !== undefined) push(block, 'root', block, block, value);
+    if (value !== undefined) push(block, "root", block, block, value);
   }
   // Composite-key blocks.
   for (const bio of profile.bios) {
-    push(`bios:${bio.platform}:${bio.lang}:${bio.length}`, 'bio', 'bios', `${bio.platform} ${bio.lang}/${bio.length}`, bio);
+    push(
+      `bios:${bio.platform}:${bio.lang}:${bio.length}`,
+      "bio",
+      "bios",
+      `${bio.platform} ${bio.lang}/${bio.length}`,
+      bio,
+    );
   }
   for (const h of profile.headlines) {
-    push(`headlines:${h.platform}:${h.lang}`, 'headline', 'headlines', `${h.platform} ${h.lang}`, h);
+    push(
+      `headlines:${h.platform}:${h.lang}`,
+      "headline",
+      "headlines",
+      `${h.platform} ${h.lang}`,
+      h,
+    );
   }
   for (const s of profile.skills) {
-    push(`skills:${s.name}`, 'skill', 'skills', s.name, s);
+    push(`skills:${s.name}`, "skill", "skills", s.name, s);
   }
   for (const h of profile.socialHandles) {
-    push(`socialHandles:${h.platform}`, 'handle', 'socialHandles', `${h.platform} @${h.handle}`, h);
+    push(`socialHandles:${h.platform}`, "handle", "socialHandles", `${h.platform} @${h.handle}`, h);
   }
   // Row blocks — only rows carrying a stable id.
   for (const { block } of Object.values(ROW_CONFIG)) {
@@ -134,9 +160,9 @@ export function trackableUnits(profile: LoadedProfile): TrackableUnit[] {
     if (!Array.isArray(rows)) continue;
     for (const raw of rows) {
       const row = raw as Record<string, unknown>;
-      if (typeof row.id !== 'string' || row.id === '') continue;
-      const origin: Origin = row.origin === 'template' ? 'template' : 'user';
-      push(`${block}:${row.id}`, 'row', block, ROW_CONFIG[block].label(row), row, origin);
+      if (typeof row.id !== "string" || row.id === "") continue;
+      const origin: Origin = row.origin === "template" ? "template" : "user";
+      push(`${block}:${row.id}`, "row", block, ROW_CONFIG[block].label(row), row, origin);
     }
   }
   return units;
@@ -150,7 +176,7 @@ export function untrackedRows(profile: LoadedProfile): { block: string; label: s
     if (!Array.isArray(rows)) continue;
     for (const raw of rows) {
       const row = raw as Record<string, unknown>;
-      if (typeof row.id !== 'string' || row.id === '') {
+      if (typeof row.id !== "string" || row.id === "") {
         out.push({ block, label: ROW_CONFIG[block].label(row) });
       }
     }
@@ -165,7 +191,7 @@ export function deployStatus(profile: LoadedProfile): LedgerReport {
   const ledger = profile.deployments ?? {};
   const byKey = new Set(units.map((u) => u.key));
 
-  const removed: LedgerReport['removed'] = [];
+  const removed: LedgerReport["removed"] = [];
   for (const [key, surfaces] of Object.entries(ledger)) {
     if (!byKey.has(key)) {
       removed.push({ key, surfaces: Object.keys(surfaces).sort() });
@@ -180,13 +206,13 @@ export function deployStatus(profile: LoadedProfile): LedgerReport {
     for (const [surface, record] of Object.entries(records)) {
       deployed += 1;
       const inSync = record.contentHash === unit.hash;
-      surfaces[surface] = inSync ? 'in-sync' : 'stale';
+      surfaces[surface] = inSync ? "in-sync" : "stale";
       if (!inSync) stale = true;
     }
     return {
       ...unit,
       surfaces,
-      state: stale ? 'stale' : deployed > 0 ? 'in-sync' : 'never',
+      state: stale ? "stale" : deployed > 0 ? "in-sync" : "never",
     };
   });
 
@@ -209,7 +235,7 @@ export function checkLedgerIntegrity(profile: Profile): LedgerIssue[] {
     const seen = new Map<string, number>();
     rows.forEach((raw, index) => {
       const id = (raw as Record<string, unknown>).id;
-      if (typeof id !== 'string' || id === '') return;
+      if (typeof id !== "string" || id === "") return;
       const count = seen.get(id) ?? 0;
       if (count > 0) {
         issues.push({
@@ -250,7 +276,11 @@ export function checkLedgerIntegrity(profile: Profile): LedgerIssue[] {
   // 4. Ambiguous composite keys — fail ONLY when the ledger addresses them
   //    (a legacy workspace may legitimately carry duplicate natural keys;
   //    ambiguity is only a defect when something tries to address it).
-  const compositeCount = (prefix: string, key: (row: Record<string, unknown>) => string, rows: unknown) => {
+  const compositeCount = (
+    prefix: string,
+    key: (row: Record<string, unknown>) => string,
+    rows: unknown,
+  ) => {
     if (!Array.isArray(rows)) return;
     const counts = new Map<string, number>();
     for (const raw of rows) {
@@ -266,10 +296,10 @@ export function checkLedgerIntegrity(profile: Profile): LedgerIssue[] {
       }
     }
   };
-  compositeCount('bios', (r) => `${r.platform}:${r.lang}:${r.length}`, root.bios);
-  compositeCount('headlines', (r) => `${r.platform}:${r.lang}`, root.headlines);
-  compositeCount('skills', (r) => String(r.name), root.skills);
-  compositeCount('socialHandles', (r) => String(r.platform), root.socialHandles);
+  compositeCount("bios", (r) => `${r.platform}:${r.lang}:${r.length}`, root.bios);
+  compositeCount("headlines", (r) => `${r.platform}:${r.lang}`, root.headlines);
+  compositeCount("skills", (r) => String(r.name), root.skills);
+  compositeCount("socialHandles", (r) => String(r.platform), root.socialHandles);
 
   return issues;
 }

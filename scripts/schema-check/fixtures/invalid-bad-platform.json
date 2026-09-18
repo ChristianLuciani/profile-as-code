@@ -1,4 +1,6 @@
 {
   "identity": { "name": "Ada Example" },
-  "bios": [{ "platform": "myspace", "lang": "en", "length": "short", "text": "not a supported platform" }]
+  "bios": [
+    { "platform": "myspace", "lang": "en", "length": "short", "text": "not a supported platform" }
+  ]
 }

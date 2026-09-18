@@ -11,12 +11,12 @@
  *     seeded from the operator's brand-handles matrix pattern.
  */
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
-import type { Flavor } from '@profile-as-code/core';
-import { EXIT } from '../exit.js';
-import { line, report, section } from '../output.js';
-import { WORKSPACE_NAME } from '../workspace.js';
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import type { Flavor } from "@profile-as-code/core";
+import { EXIT } from "../exit.js";
+import { line, report, section } from "../output.js";
+import { WORKSPACE_NAME } from "../workspace.js";
 
 const FLAVOR_BRAND_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — content/ flavor (D15/§17)
 # The file value IS the root value: a bare scalar (file name = root property).
@@ -168,38 +168,38 @@ export interface InitArgs {
 }
 
 const BRAND_FILES: Record<string, string> = {
-  'identity.yaml': BRAND_IDENTITY_TEMPLATE,
-  'socialHandles.yaml': BRAND_SOCIAL_HANDLES_TEMPLATE,
-  'newsletter.yaml': BRAND_NEWSLETTER_TEMPLATE,
-  'podcast.yaml': BRAND_PODCAST_TEMPLATE,
-  'press.yaml': BRAND_PRESS_TEMPLATE,
-  'audiences.yaml': BRAND_AUDIENCES_TEMPLATE,
-  'flavor.yaml': FLAVOR_BRAND_TEMPLATE,
+  "identity.yaml": BRAND_IDENTITY_TEMPLATE,
+  "socialHandles.yaml": BRAND_SOCIAL_HANDLES_TEMPLATE,
+  "newsletter.yaml": BRAND_NEWSLETTER_TEMPLATE,
+  "podcast.yaml": BRAND_PODCAST_TEMPLATE,
+  "press.yaml": BRAND_PRESS_TEMPLATE,
+  "audiences.yaml": BRAND_AUDIENCES_TEMPLATE,
+  "flavor.yaml": FLAVOR_BRAND_TEMPLATE,
 };
 
 /** `pasco init [dir] [--flavor person|brand]` — scaffold into <dir> (default: cwd). Refuses to overwrite. */
 export function runInit(args: InitArgs): number {
-  const dir = resolve(args.cwd, args.dir ?? '.');
-  const contentDir = join(dir, 'content');
-  const brand = args.flavor === 'brand';
+  const dir = resolve(args.cwd, args.dir ?? ".");
+  const contentDir = join(dir, "content");
+  const brand = args.flavor === "brand";
 
   if (existsSync(contentDir)) {
-    return report('init', false, EXIT.FAIL, {
-      error: { kind: 'exists', message: `refusing to scaffold: ${contentDir} already exists` },
+    return report("init", false, EXIT.FAIL, {
+      error: { kind: "exists", message: `refusing to scaffold: ${contentDir} already exists` },
     });
   }
 
-  const files = brand ? BRAND_FILES : { 'identity.yaml': IDENTITY_TEMPLATE };
+  const files = brand ? BRAND_FILES : { "identity.yaml": IDENTITY_TEMPLATE };
 
   const targets: { path: string; content: string }[] = [
     ...Object.entries(files).map(([name, content]) => ({ path: join(contentDir, name), content })),
-    { path: join(dir, 'README.md'), content: brand ? BRAND_README_TEMPLATE : README_TEMPLATE },
-    { path: join(dir, '.pascorc'), content: PASCORC_TEMPLATE },
+    { path: join(dir, "README.md"), content: brand ? BRAND_README_TEMPLATE : README_TEMPLATE },
+    { path: join(dir, ".pascorc"), content: PASCORC_TEMPLATE },
   ];
   for (const t of targets) {
     if (existsSync(t.path)) {
-      return report('init', false, EXIT.FAIL, {
-        error: { kind: 'exists', message: `refusing to overwrite existing file: ${t.path}` },
+      return report("init", false, EXIT.FAIL, {
+        error: { kind: "exists", message: `refusing to overwrite existing file: ${t.path}` },
       });
     }
   }
@@ -207,11 +207,19 @@ export function runInit(args: InitArgs): number {
   mkdirSync(contentDir, { recursive: true });
   for (const t of targets) writeFileSync(t.path, t.content);
 
-  section(`scaffolded ${WORKSPACE_NAME} workspace (flavor: ${brand ? 'brand' : 'person'})`);
+  section(`scaffolded ${WORKSPACE_NAME} workspace (flavor: ${brand ? "brand" : "person"})`);
   for (const t of targets) line(`  created ${t.path}`);
-  line(brand ? '  next: pasco validate && pasco check && pasco build github-org --lang en' : '  next: pasco validate && pasco build github-readme --lang en');
+  line(
+    brand
+      ? "  next: pasco validate && pasco check && pasco build github-org --lang en"
+      : "  next: pasco validate && pasco build github-readme --lang en",
+  );
 
-  return report('init', true, EXIT.OK, {
-    data: { workspace: dir, flavor: brand ? 'brand' : 'person', created: targets.map((t) => t.path) },
+  return report("init", true, EXIT.OK, {
+    data: {
+      workspace: dir,
+      flavor: brand ? "brand" : "person",
+      created: targets.map((t) => t.path),
+    },
   });
 }

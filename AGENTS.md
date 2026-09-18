@@ -47,7 +47,7 @@ per-user private repo (`profile-data`), scaffolded from the template
 ## Commands
 
 ```bash
-pnpm install && pnpm test && pnpm build && pnpm typecheck
+pnpm install && pnpm test && pnpm build && pnpm typecheck && pnpm lint
 pnpm gen:zod                      # after schema changes
 python3 -m venv /tmp/schema-venv && /tmp/schema-venv/bin/pip install jsonschema
 /tmp/schema-venv/bin/python scripts/schema-check/check.py

@@ -9,6 +9,22 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Added
+
+- **style gate: Biome (lint + format + import order) in CI and `pnpm lint` (issue #59)** — one tool,
+  one config (`biome.json`), one command; CI runs it before tests (fail fast). Gate semantics:
+  `pnpm lint` fails on Biome **errors**; `recommended` warn-level rules are reported without failing
+  (Biome's default). One deliberate strictness bump: `noNonNullAssertion` is an **error** outside
+  tests and off under `**/tests/**` (where `arr[0]!` is idiomatic) — both sides verified by
+  flipping the rule red/green. The four intentional control-character regexes in the markdown
+  escaping contract carry `biome-ignore` comments with reasons. Scope: Biome does not do type-aware
+  linting — `pnpm typecheck` stays the type gate. Fix scripts are risk-split: `pnpm lint:fix` applies
+  **safe** fixes only; Biome's *unsafe* fixes (semantics-adjacent, e.g. `useTemplate`,
+  `useLiteralKeys`) are opt-in via `pnpm lint:fix:unsafe` and the resulting diff is reviewable.
+  One-time formatter baseline applied
+  (whitespace-only for `schema/` + fixtures; byte-stable behavior verified: 268 tests green, D3
+  `gen:zod` diff exit 0, schema contract self-test OK).
+
 ### Fixed
 
 - **hardening de semántica de vacío: geo alineada con empty=absent + strings planos vacíos interpolados + typing de

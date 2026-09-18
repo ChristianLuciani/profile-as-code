@@ -14,11 +14,19 @@
  * JSON-LD Person (with hasCredential, §18.9) · generated footer with fact-count.
  */
 
-import { credentialLdEntries, isPublicEntry } from '@profile-as-code/core';
-import { mdHref, mdText } from '@profile-as-code/markdown';
-import type { Artifact, Credential, Lang, MediaAsset, PlatformProfile, Project, Skill } from '@profile-as-code/core';
+import type {
+  Artifact,
+  Credential,
+  Lang,
+  MediaAsset,
+  PlatformProfile,
+  Project,
+  Skill,
+} from "@profile-as-code/core";
+import { credentialLdEntries, isPublicEntry } from "@profile-as-code/core";
+import { mdHref, mdText } from "@profile-as-code/markdown";
 
-export const deploySpec = 'git' as const;
+export const deploySpec = "git" as const;
 
 export interface RenderResult {
   text: string;
@@ -35,8 +43,11 @@ export interface RenderOptions {
 
 /** Deterministic credential row: **Title** (kind) — issuer, years · [verify](url). */
 function credentialLine(c: Credential): string {
-  const years = c.issued !== undefined ? `, ${c.issued.slice(0, 4)}${c.expires !== undefined ? `–${c.expires.slice(0, 4)}` : ''}` : '';
-  const verify = c.verifyUrl !== undefined ? ` · [verify](${mdHref(c.verifyUrl)})` : '';
+  const years =
+    c.issued !== undefined
+      ? `, ${c.issued.slice(0, 4)}${c.expires !== undefined ? `–${c.expires.slice(0, 4)}` : ""}`
+      : "";
+  const verify = c.verifyUrl !== undefined ? ` · [verify](${mdHref(c.verifyUrl)})` : "";
   return `- **${c.title}** (${c.kind}) — ${c.issuer}${years}${verify}`;
 }
 
@@ -46,34 +57,38 @@ function credentialLine(c: Credential): string {
  *  surface, never a private raw URL, D14); an unbundled `path` locator emits no
  *  link (byte-identical to the M7 output — the build only passes assets whose
  *  bytes it actually copied, checksummed at compile). */
-function artifactLine(a: Artifact, lang: Lang, assetsById: ReadonlyMap<string, MediaAsset>): string {
+function artifactLine(
+  a: Artifact,
+  lang: Lang,
+  assetsById: ReadonlyMap<string, MediaAsset>,
+): string {
   const desc = pickText(a.description, lang);
-  const license = a.license !== undefined ? ` · ${a.license}` : '';
-  let link = '';
+  const license = a.license !== undefined ? ` · ${a.license}` : "";
+  let link = "";
   if (a.locator.url !== undefined) {
     link = ` — [${mdText(hostname(a.locator.url))}](${mdHref(a.locator.url)})`;
   } else if (a.id !== undefined) {
     const asset = assetsById.get(a.id);
     if (asset !== undefined) link = ` — [${mdText(asset.target)}](${mdHref(asset.target)})`;
   }
-  return `- **${a.title}** (${a.kind})${link}${license}${desc !== undefined ? ` — ${desc}` : ''}`;
+  return `- **${a.title}** (${a.kind})${link}${license}${desc !== undefined ? ` — ${desc}` : ""}`;
 }
 
 /** Deterministic badge map: platform → shield.io style + display name. */
 const BADGE: Record<string, { color: string; logo: string; label: string }> = {
-  github: { color: '181717', logo: 'github', label: 'GitHub' },
-  linkedin: { color: '0A66C2', logo: 'linkedin', label: 'LinkedIn' },
-  x: { color: '000000', logo: 'X', label: 'X' },
-  orcid: { color: 'A6CE39', logo: 'orcid', label: 'ORCID' },
-  substack: { color: 'FF6719', logo: 'substack', label: 'Substack' },
-  researchgate: { color: '00CCBB', logo: 'researchgate', label: 'ResearchGate' },
-  scholar: { color: '4285F4', logo: 'googlescholar', label: 'Scholar' },
-  website: { color: '111111', logo: 'github', label: 'Website' },
+  github: { color: "181717", logo: "github", label: "GitHub" },
+  linkedin: { color: "0A66C2", logo: "linkedin", label: "LinkedIn" },
+  x: { color: "000000", logo: "X", label: "X" },
+  orcid: { color: "A6CE39", logo: "orcid", label: "ORCID" },
+  substack: { color: "FF6719", logo: "substack", label: "Substack" },
+  researchgate: { color: "00CCBB", logo: "researchgate", label: "ResearchGate" },
+  scholar: { color: "4285F4", logo: "googlescholar", label: "Scholar" },
+  website: { color: "111111", logo: "github", label: "Website" },
 };
 
 function hostname(url: string): string {
   try {
-    return new URL(url).hostname.replace(/^www\./, '');
+    return new URL(url).hostname.replace(/^www\./, "");
   } catch {
     return url;
   }
@@ -82,7 +97,7 @@ function hostname(url: string): string {
 function hostnamePath(url: string): string {
   try {
     const u = new URL(url);
-    return (u.hostname.replace(/^www\./, '') + u.pathname).replace(/\/$/, '');
+    return (u.hostname.replace(/^www\./, "") + u.pathname).replace(/\/$/, "");
   } catch {
     return url;
   }
@@ -104,16 +119,16 @@ function pickText(map: Record<string, string> | undefined, lang: Lang): string |
  * is the exact empty string, whitespace-only stays data.
  */
 function nonEmpty(list: readonly string[] | undefined): string[] {
-  return (list ?? []).filter((value) => value !== '');
+  return (list ?? []).filter((value) => value !== "");
 }
 
 function plural(n: number, word: string): string {
-  return `${n} ${word}${n === 1 ? '' : 's'}`;
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
 /** github-readme weight of a skill (missing → 0). */
 function skillWeight(s: Skill): number {
-  return s.platformWeights?.['github-readme'] ?? 0;
+  return s.platformWeights?.["github-readme"] ?? 0;
 }
 
 /**
@@ -127,7 +142,9 @@ function projectWeight(p: Project, skills: readonly Skill[]): number {
   if (pk.size === 0) return 0;
   let best = 0;
   for (const s of skills) {
-    const sk = new Set([...nonEmpty(s.keywords), ...nonEmpty(s.geoKeywords)].map((k) => k.toLowerCase().trim()));
+    const sk = new Set(
+      [...nonEmpty(s.keywords), ...nonEmpty(s.geoKeywords)].map((k) => k.toLowerCase().trim()),
+    );
     if ([...pk].some((k) => sk.has(k))) best = Math.max(best, skillWeight(s));
   }
   return best;
@@ -141,7 +158,7 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   // 1. Header — name, headline (exact lang; compile already filtered), badges.
   out.push(`# ${p.identity.name}`);
   const headline = p.headlines.find((h) => h.lang === lang);
-  if (headline !== undefined) out.push('', `### ${headline.text}`);
+  if (headline !== undefined) out.push("", `### ${headline.text}`);
 
   // Badges: ONE per platform, in identity.links order — the canonical profile
   // links first (project/repo links share the github platform but are not
@@ -154,53 +171,66 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     const b = BADGE[l.platform];
     if (b === undefined) continue;
     seenBadge.add(l.platform);
-    badges.push(`[![${b.label}](https://img.shields.io/badge/${b.label}-${hostname(l.url)}-${b.color}?style=flat&logo=${b.logo}&logoColor=white)](${mdHref(l.url)})`);
+    badges.push(
+      `[![${b.label}](https://img.shields.io/badge/${b.label}-${hostname(l.url)}-${b.color}?style=flat&logo=${b.logo}&logoColor=white)](${mdHref(l.url)})`,
+    );
   }
-  if (badges.length > 0) out.push('', badges.join(' '));
+  if (badges.length > 0) out.push("", badges.join(" "));
 
   // 2. Statement.
-  if (p.statement !== undefined) out.push('', `**${p.statement}**`);
+  if (p.statement !== undefined) out.push("", `**${p.statement}**`);
 
   // 3. Featured projects — top 6 by weight (§15.3), all if fewer.
   const projects = [...p.projects].sort(
-    (a, b) => projectWeight(b, p.skills) - projectWeight(a, p.skills) || a.name.localeCompare(b.name),
+    (a, b) =>
+      projectWeight(b, p.skills) - projectWeight(a, p.skills) || a.name.localeCompare(b.name),
   );
   if (projects.length > 0) {
-    out.push('', '## Projects');
+    out.push("", "## Projects");
     for (const project of projects.slice(0, 6)) {
       const desc = pickText(project.description, lang);
       // `status` is schema-optional (required is `name` only): absent → the
       // ` · \`status\`` segment is omitted, never interpolated as "undefined"
       // (issue #78 sweep — same class as the label fallback).
-      const status = project.status !== undefined ? ` · \`${project.status}\`` : '';
-      out.push('', `- **${project.name}**${status}${desc !== undefined ? ` — ${desc}` : ''}`);
-      for (const link of project.links ?? []) out.push(`  - [${mdText(hostnamePath(link))}](${mdHref(link)})`);
+      const status = project.status !== undefined ? ` · \`${project.status}\`` : "";
+      out.push("", `- **${project.name}**${status}${desc !== undefined ? ` — ${desc}` : ""}`);
+      for (const link of project.links ?? [])
+        out.push(`  - [${mdText(hostnamePath(link))}](${mdHref(link)})`);
       for (const ev of project.evidence ?? []) {
         const claim = pickText(ev.claim, lang);
-        if (claim !== undefined) out.push(`  - Evidence: ${claim} ([source](${mdHref(ev.source)}))`);
+        if (claim !== undefined)
+          out.push(`  - Evidence: ${claim} ([source](${mdHref(ev.source)}))`);
       }
     }
   }
 
   // 4. Publications — DOI/ORCID-resolvable (the GEO anchor).
   if (p.publications.length > 0) {
-    out.push('', '## Publications');
+    out.push("", "## Publications");
     for (const pub of p.publications) {
-      const doi = pub.doi !== undefined ? ` [DOI: ${mdText(pub.doi)}](${mdHref(`https://doi.org/${pub.doi}`)})` : '';
-      out.push('', `- **${pub.title}** — ${pub.venue}, ${pub.year}.${doi}`);
+      const doi =
+        pub.doi !== undefined
+          ? ` [DOI: ${mdText(pub.doi)}](${mdHref(`https://doi.org/${pub.doi}`)})`
+          : "";
+      out.push("", `- **${pub.title}** — ${pub.venue}, ${pub.year}.${doi}`);
     }
   }
 
   // 5. Skills — weight order for this platform.
-  const skills = [...p.skills].sort((a, b) => skillWeight(b) - skillWeight(a) || a.name.localeCompare(b.name));
+  const skills = [...p.skills].sort(
+    (a, b) => skillWeight(b) - skillWeight(a) || a.name.localeCompare(b.name),
+  );
   if (skills.length > 0) {
-    out.push('', '## Skills');
+    out.push("", "## Skills");
     for (const s of skills) {
-      const keywords = nonEmpty(s.keywords).join(', ');
+      const keywords = nonEmpty(s.keywords).join(", ");
       // `level` is schema-optional (required is `name` only): absent → the
       // parenthetical is omitted, never interpolated as "undefined"
       // (issue #78 sweep — same class as the label fallback).
-      out.push('', `- **${s.name}**${s.level !== undefined ? ` (${s.level})` : ''}${keywords !== '' ? `: ${keywords}` : ''}`);
+      out.push(
+        "",
+        `- **${s.name}**${s.level !== undefined ? ` (${s.level})` : ""}${keywords !== "" ? `: ${keywords}` : ""}`,
+      );
     }
   }
 
@@ -208,8 +238,8 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   const credentials = (p.credentials ?? []).filter(isPublicEntry);
   const artifacts = (p.artifacts ?? []).filter(isPublicEntry);
   if (credentials.length > 0) {
-    out.push('', '## Credentials');
-    for (const c of credentials) out.push('', credentialLine(c));
+    out.push("", "## Credentials");
+    for (const c of credentials) out.push("", credentialLine(c));
   }
   if (artifacts.length > 0) {
     // M8 (§18.6): bundled path-locator artifacts link their deploy-relative
@@ -217,10 +247,13 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     // the contract the build bundles and checksums into the platform output.
     const assetsById = new Map((opts.assets ?? []).map((a) => [a.artifactId, a]));
     const referenced: string[] = [];
-    out.push('', '## Artifacts');
+    out.push("", "## Artifacts");
     for (const a of artifacts) {
-      const target = a.locator.path !== undefined && a.id !== undefined ? assetsById.get(a.id)?.target : undefined;
-      out.push('', artifactLine(a, lang, assetsById));
+      const target =
+        a.locator.path !== undefined && a.id !== undefined
+          ? assetsById.get(a.id)?.target
+          : undefined;
+      out.push("", artifactLine(a, lang, assetsById));
       if (target !== undefined) referenced.push(target);
     }
     if (referenced.length > 0) referencedAssets = referenced;
@@ -230,8 +263,9 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   // Contact email (v1.5, issue #71): a FACT emitted first (contact leads,
   // channels follow) as a mailto: href — output-only: identity.links[] stays
   // page-URLs-only, so `sameAs` (below) never carries a mailto: URI.
-  out.push('', '## Links');
-  if (p.identity.email !== undefined) out.push('', `- [Email](${mdHref('mailto:' + p.identity.email)})`);
+  out.push("", "## Links");
+  if (p.identity.email !== undefined)
+    out.push("", `- [Email](${mdHref(`mailto:${p.identity.email}`)})`);
   // `label` is optional in the schema (`identity.links[]` — only `url` is
   // required, and the string may be EMPTY — no minLength): the pre-#78 emission
   // interpolated it raw, so a label-less link rendered "[undefined]" and an
@@ -240,12 +274,13 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   // already use, so the two link families stay visually consistent; loose
   // labels stay bracket-safe like every other label. `||` (not `??`) so the
   // empty string also counts as label-less.
-  for (const l of p.identity.links ?? []) out.push('', `- [${mdText(l.label || hostnamePath(l.url))}](${mdHref(l.url)})`);
+  for (const l of p.identity.links ?? [])
+    out.push("", `- [${mdText(l.label || hostnamePath(l.url))}](${mdHref(l.url)})`);
 
   const publicCredentials = credentialLdEntries(p.credentials ?? []); // filters internally — no double pass
   const jsonLd: Record<string, unknown> = {
-    '@context': 'https://schema.org',
-    '@type': 'Person',
+    "@context": "https://schema.org",
+    "@type": "Person",
     name: p.identity.name,
   };
   if (p.identity.email !== undefined) jsonLd.email = p.identity.email;
@@ -253,13 +288,22 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   if (p.identity.location !== undefined) jsonLd.address = p.identity.location;
   jsonLd.sameAs = (p.identity.links ?? []).map((l) => l.url);
   if (publicCredentials.length > 0) jsonLd.hasCredential = publicCredentials;
-  out.push('', '<!-- JSON-LD (schema.org Person) -->', '```json', JSON.stringify(jsonLd, null, 2), '```');
+  out.push(
+    "",
+    "<!-- JSON-LD (schema.org Person) -->",
+    "```json",
+    JSON.stringify(jsonLd, null, 2),
+    "```",
+  );
 
   // 8. Footer — deterministic marker + fact count (for diff/CI assertions, §15.3).
   out.push(
-    '',
-    `<!-- generated by profile-as-code pasco build github-readme · ${plural(projects.length, 'project')} · ${plural(p.publications.length, 'publication')} -->`,
+    "",
+    `<!-- generated by profile-as-code pasco build github-readme · ${plural(projects.length, "project")} · ${plural(p.publications.length, "publication")} -->`,
   );
 
-  return { text: out.join('\n') + '\n', ...(referencedAssets !== undefined ? { assets: referencedAssets } : {}) };
+  return {
+    text: `${out.join("\n")}\n`,
+    ...(referencedAssets !== undefined ? { assets: referencedAssets } : {}),
+  };
 }

@@ -27,14 +27,17 @@ One job, **`ci`**, required on every PR and push to `main`:
 
 1. **Schema contract self-test** (`scripts/schema-check/check.py`) — always runs:
    - `schema/profile.schema.json` must be a valid JSON Schema (2020-12, D3)
-   - 6 fixtures in `scripts/schema-check/fixtures/` behave as named:
+   - 13 fixtures in `scripts/schema-check/fixtures/` behave as named:
      `valid-*` accepted, `invalid-*` rejected (missing `en`, unknown property,
      bad DOI, unsupported platform)
    - This guards the contract even before the TypeScript workspace exists.
 2. **TypeScript workspace** — steps activate automatically once `package.json` lands
-   (M1 core): `pnpm install --frozen-lockfile` → `pnpm test` → `pnpm build`
-   (recursive over `packages/*`). pnpm version comes from the `packageManager`
-   field in the root `package.json`.
+   (M1 core), in this order: `pnpm install --frozen-lockfile` →
+   **`pnpm lint`** (Biome: lint + format + import order, issue #59) →
+   **D3 freshness** (`pnpm gen:zod` then `git diff --exit-code` on the committed Zod, so a
+   schema edit without regeneration fails here) → `pnpm test` → `pnpm build`
+   (all recursive over `packages/*`) → tarball bin smoke check (issue #43).
+   pnpm version comes from the `packageManager` field in the root `package.json`.
 
 No paid features: public repo → unlimited Actions minutes.
 

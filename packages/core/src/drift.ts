@@ -39,8 +39,8 @@
  * the github-org skill's checks.yaml runs `url-live`; drift is deterministic/offline).
  */
 
-import { PLATFORMS, textOf } from './types.js';
-import type { Bio, Issue, Platform, Profile } from './types.js';
+import type { Bio, Issue, Platform, Profile } from "./types.js";
+import { PLATFORMS, textOf } from "./types.js";
 
 /** Hosts that represent a person's/brand's platform presence. A URL on one of these that
  *  is not in identity.links is an uncanonicalized duplicate (the drift source the
@@ -53,112 +53,112 @@ import type { Bio, Issue, Platform, Profile } from './types.js';
  *  never guesses hosts it can't verify. */
 const PLATFORM_HOSTS: readonly string[] = [
   // v1 person
-  'github.com',
-  'linkedin.com',
-  'upwork.com',
-  'x.com',
-  'twitter.com',
-  'researchgate.net',
-  'substack.com',
+  "github.com",
+  "linkedin.com",
+  "upwork.com",
+  "x.com",
+  "twitter.com",
+  "researchgate.net",
+  "substack.com",
   // v1.1 brand (§17)
-  'bsky.app',
-  'bluesky.social',
-  'instagram.com',
-  'tiktok.com',
-  'youtube.com',
-  'open.spotify.com',
-  'spotify.com',
-  'reddit.com',
-  'mastodon.social',
-  'soundcloud.com',
+  "bsky.app",
+  "bluesky.social",
+  "instagram.com",
+  "tiktok.com",
+  "youtube.com",
+  "open.spotify.com",
+  "spotify.com",
+  "reddit.com",
+  "mastodon.social",
+  "soundcloud.com",
   // v1.2 Postiz parity + operator extras (D16)
-  'facebook.com',
-  'pinterest.com',
-  'dribbble.com',
-  'medium.com',
-  'dev.to',
-  'hashnode.dev',
-  'wordpress.com',
-  't.me',
-  'telegram.org',
-  'twitch.tv',
-  'kick.com',
-  'vk.com',
-  'warpcast.com',
-  'farcaster.xyz',
-  'lemmy.ml',
-  'lemmy.world',
-  'discord.com',
-  'discord.gg',
-  'slack.com',
-  'skool.com',
-  'whop.com',
-  'business.google.com',
-  'threads.net',
-  'threads.com',
-  'njump.me',
-  'primal.net',
-  'iris.to',
-  'moltbook.com',
-  'patreon.com',
-  'ghost.io',
-  'mewe.com',
-  'tumblr.com',
+  "facebook.com",
+  "pinterest.com",
+  "dribbble.com",
+  "medium.com",
+  "dev.to",
+  "hashnode.dev",
+  "wordpress.com",
+  "t.me",
+  "telegram.org",
+  "twitch.tv",
+  "kick.com",
+  "vk.com",
+  "warpcast.com",
+  "farcaster.xyz",
+  "lemmy.ml",
+  "lemmy.world",
+  "discord.com",
+  "discord.gg",
+  "slack.com",
+  "skool.com",
+  "whop.com",
+  "business.google.com",
+  "threads.net",
+  "threads.com",
+  "njump.me",
+  "primal.net",
+  "iris.to",
+  "moltbook.com",
+  "patreon.com",
+  "ghost.io",
+  "mewe.com",
+  "tumblr.com",
 ];
 
 /** Profile URLs that live on SUBDOMAINS of a host (e.g. `user.substack.com`,
  *  `site.wordpress.com`, `team.slack.com`, `blog.tumblr.com`). Maps platform → the
  *  host whose subdomains are platform surfaces. */
 const PLATFORM_SUBDOMAIN_HOSTS: Record<string, readonly string[]> = {
-  substack: ['substack.com'],
-  ghost: ['ghost.io'],
-  hashnode: ['hashnode.dev'],
-  medium: ['medium.com'],
-  wordpress: ['wordpress.com'],
-  slack: ['slack.com'],
-  tumblr: ['tumblr.com'],
+  substack: ["substack.com"],
+  ghost: ["ghost.io"],
+  hashnode: ["hashnode.dev"],
+  medium: ["medium.com"],
+  wordpress: ["wordpress.com"],
+  slack: ["slack.com"],
+  tumblr: ["tumblr.com"],
 };
 
 /** Expected URL hosts per brand handle platform — the offline handle-consistency
  *  proxy (`drift/handle-host-mismatch`). Live reachability is the skill's job
  *  (`url-live` in checks.yaml), not drift's. */
 const HANDLE_HOSTS: Record<string, readonly string[]> = {
-  github: ['github.com'],
-  'github-org': ['github.com'],
-  x: ['x.com', 'twitter.com'],
-  bluesky: ['bsky.app', 'bluesky.social'],
-  substack: ['substack.com'],
-  patreon: ['patreon.com'],
-  instagram: ['instagram.com'],
-  'instagram-standalone': ['instagram.com'],
-  tiktok: ['tiktok.com'],
-  youtube: ['youtube.com'],
-  spotify: ['open.spotify.com', 'spotify.com'],
-  reddit: ['reddit.com'],
-  mastodon: ['mastodon.social'],
-  soundcloud: ['soundcloud.com'],
-  facebook: ['facebook.com'],
-  'linkedin-page': ['linkedin.com'],
-  warpcast: ['warpcast.com', 'farcaster.xyz'],
-  discord: ['discord.com', 'discord.gg'],
-  slack: ['slack.com'],
-  skool: ['skool.com'],
-  whop: ['whop.com'],
-  pinterest: ['pinterest.com'],
-  dribbble: ['dribbble.com'],
-  medium: ['medium.com'],
-  devto: ['dev.to'],
-  hashnode: ['hashnode.dev'],
-  wordpress: ['wordpress.com'],
-  twitch: ['twitch.tv'],
-  threads: ['threads.net', 'threads.com'],
-  telegram: ['t.me', 'telegram.org'],
-  nostr: ['njump.me', 'primal.net', 'iris.to'],
-  vk: ['vk.com'],
-  kick: ['kick.com'],
-  moltbook: ['moltbook.com'],
-  mewe: ['mewe.com'],
-  tumblr: ['tumblr.com'],
+  github: ["github.com"],
+  "github-org": ["github.com"],
+  x: ["x.com", "twitter.com"],
+  bluesky: ["bsky.app", "bluesky.social"],
+  substack: ["substack.com"],
+  patreon: ["patreon.com"],
+  instagram: ["instagram.com"],
+  "instagram-standalone": ["instagram.com"],
+  tiktok: ["tiktok.com"],
+  youtube: ["youtube.com"],
+  spotify: ["open.spotify.com", "spotify.com"],
+  reddit: ["reddit.com"],
+  mastodon: ["mastodon.social"],
+  soundcloud: ["soundcloud.com"],
+  facebook: ["facebook.com"],
+  "linkedin-page": ["linkedin.com"],
+  warpcast: ["warpcast.com", "farcaster.xyz"],
+  discord: ["discord.com", "discord.gg"],
+  slack: ["slack.com"],
+  skool: ["skool.com"],
+  whop: ["whop.com"],
+  pinterest: ["pinterest.com"],
+  dribbble: ["dribbble.com"],
+  medium: ["medium.com"],
+  devto: ["dev.to"],
+  hashnode: ["hashnode.dev"],
+  wordpress: ["wordpress.com"],
+  twitch: ["twitch.tv"],
+  threads: ["threads.net", "threads.com"],
+  telegram: ["t.me", "telegram.org"],
+  nostr: ["njump.me", "primal.net", "iris.to"],
+  vk: ["vk.com"],
+  kick: ["kick.com"],
+  moltbook: ["moltbook.com"],
+  mewe: ["mewe.com"],
+  tumblr: ["tumblr.com"],
   // Any-host platforms (no HANDLE_HOSTS entry → any URL allowed):
   //   - lemmy: federated (hundreds of instances) — a curated list would actively
   //     reject legitimate handles (mastodon.social-only is a v1.1 leftover, see #30 follow-up)
@@ -183,7 +183,7 @@ function hostMatchesPlatform(platform: string, host: string): boolean {
 
 function hostOf(url: string): string | undefined {
   try {
-    return new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+    return new URL(url).hostname.toLowerCase().replace(/^www\./, "");
   } catch {
     return undefined;
   }
@@ -191,7 +191,7 @@ function hostOf(url: string): string | undefined {
 
 /** Normalize a URL for membership comparison (trailing slashes are not content). */
 function normalizeUrl(url: string): string {
-  return url.trim().replace(/\/+$/, '');
+  return url.trim().replace(/\/+$/, "");
 }
 
 function isPlatformSurface(url: string): boolean {
@@ -204,7 +204,7 @@ function isPlatformSurface(url: string): boolean {
 }
 
 function warn(code: string, message: string, path: string, surfaces?: Platform[]): Issue {
-  return { code, severity: 'warn', message, path, ...(surfaces ? { surfaces } : {}) };
+  return { code, severity: "warn", message, path, ...(surfaces ? { surfaces } : {}) };
 }
 
 const ORCID_PATH = /^\/(\d{4}-\d{4}-\d{4}-\d{3}[\dX])\/?$/;
@@ -212,7 +212,7 @@ const ORCID_PATH = /^\/(\d{4}-\d{4}-\d{4}-\d{3}[\dX])\/?$/;
 function identityOrcid(profile: Profile): string | undefined {
   for (const link of profile.identity.links ?? []) {
     const host = hostOf(link.url);
-    if (host !== 'orcid.org') continue;
+    if (host !== "orcid.org") continue;
     const match = ORCID_PATH.exec(new URL(link.url).pathname);
     if (match?.[1]) return match[1];
   }
@@ -244,8 +244,8 @@ export function driftCheck(profile: Profile): Issue[] {
     if (indices.length > 1) {
       push(
         warn(
-          'drift/duplicate-identity-link',
-          `identity.links lists "${url}" ${indices.length} times (indices ${indices.join(', ')})`,
+          "drift/duplicate-identity-link",
+          `identity.links lists "${url}" ${indices.length} times (indices ${indices.join(", ")})`,
           `identity.links[${indices[0]}]`,
         ),
       );
@@ -258,7 +258,7 @@ export function driftCheck(profile: Profile): Issue[] {
       if (isPlatformSurface(url) && !identityUrls.has(normalizeUrl(url))) {
         push(
           warn(
-            'drift/url-not-in-identity',
+            "drift/url-not-in-identity",
             `URL "${url}" lives on a platform host but is not in identity.links — add it there (contract rule: URLs only from identity.links)`,
             `projects[${projectIndex}].links[${linkIndex}]`,
           ),
@@ -277,15 +277,15 @@ export function driftCheck(profile: Profile): Issue[] {
       if (indices.length > 1) {
         push(
           warn(
-            'drift/duplicate-handle',
-            `socialHandles lists ${indices.length} rows for platform "${platform}" (indices ${indices.join(', ')}) — one row per platform, the handle matrix is the SSOT`,
+            "drift/duplicate-handle",
+            `socialHandles lists ${indices.length} rows for platform "${platform}" (indices ${indices.join(", ")}) — one row per platform, the handle matrix is the SSOT`,
             `socialHandles[${indices[0]}]`,
           ),
         );
       }
     }
     for (const [index, handle] of handles.entries()) {
-      if (handle.status !== 'claimed') continue;
+      if (handle.status !== "claimed") continue;
       // A claimed surface must resolve: either the matrix row carries the URL, or
       // identity.links has a URL whose host matches the platform and whose path
       // contains the handle (offline proxy — live reachability is the skill's job).
@@ -294,13 +294,13 @@ export function driftCheck(profile: Profile): Issue[] {
         const host = hostOf(link.url);
         if (host === undefined || !hostMatchesPlatform(handle.platform, host)) return false;
         const path = new URL(link.url).pathname.toLowerCase();
-        const handleLower = handle.handle.toLowerCase().replace(/^@/, '');
+        const handleLower = handle.handle.toLowerCase().replace(/^@/, "");
         return handleLower.length > 0 && path.includes(handleLower);
       });
       if (!hasOwnUrl && !resolvedElsewhere) {
         push(
           warn(
-            'drift/handle-claimed-not-linked',
+            "drift/handle-claimed-not-linked",
             `claimed handle @${handle.handle} (${handle.platform}) has no url and no matching identity.links entry — a claimed surface must resolve (handle-claimed rule)`,
             `socialHandles[${index}]`,
           ),
@@ -311,8 +311,8 @@ export function driftCheck(profile: Profile): Issue[] {
         if (host !== undefined && !hostMatchesPlatform(handle.platform, host)) {
           push(
             warn(
-              'drift/handle-host-mismatch',
-              `handle @${handle.handle} (${handle.platform}) points at ${host}, expected ${HANDLE_HOSTS[handle.platform]?.join(' or ') ?? 'any'} — handle-consistent violation (offline proxy)`,
+              "drift/handle-host-mismatch",
+              `handle @${handle.handle} (${handle.platform}) points at ${host}, expected ${HANDLE_HOSTS[handle.platform]?.join(" or ") ?? "any"} — handle-consistent violation (offline proxy)`,
               `socialHandles[${index}].url`,
             ),
           );
@@ -324,25 +324,28 @@ export function driftCheck(profile: Profile): Issue[] {
   // --- experience: start > end, duplicate roles --------------------------------
   const experience = profile.experience ?? [];
   for (const [index, item] of experience.entries()) {
-    if (item.end && item.end !== 'present' && item.start > item.end) {
+    if (item.end && item.end !== "present" && item.start > item.end) {
       push(
         warn(
-          'drift/date-range-inverted',
+          "drift/date-range-inverted",
           `start (${item.start}) is after end (${item.end}) for "${textOf(item.role)}" at ${item.org}`,
           `experience[${index}]`,
         ),
       );
     }
   }
-  const expGroups = groupBy(experience, (item) => `${textOf(item.role).toLowerCase()} @ ${item.org.toLowerCase()}`);
+  const expGroups = groupBy(
+    experience,
+    (item) => `${textOf(item.role).toLowerCase()} @ ${item.org.toLowerCase()}`,
+  );
   for (const [key, indices] of expGroups) {
     if (indices.length < 2) continue;
-    const dates = indices.map((i) => `${experience[i]?.start}–${experience[i]?.end ?? '?'}`);
+    const dates = indices.map((i) => `${experience[i]?.start}–${experience[i]?.end ?? "?"}`);
     if (new Set(dates).size > 1) {
       push(
         warn(
-          'drift/duplicate-experience',
-          `the role "${key}" appears ${indices.length} times with different dates (${dates.join('; ')}) — same fact written differently across surfaces`,
+          "drift/duplicate-experience",
+          `the role "${key}" appears ${indices.length} times with different dates (${dates.join("; ")}) — same fact written differently across surfaces`,
           `experience[${indices[0]}]`,
         ),
       );
@@ -356,8 +359,8 @@ export function driftCheck(profile: Profile): Issue[] {
     if (indices.length > 1) {
       push(
         warn(
-          'drift/duplicate-bio',
-          `more than one bio for ${key} (indices ${indices.join(', ')}) — which one is live?`,
+          "drift/duplicate-bio",
+          `more than one bio for ${key} (indices ${indices.join(", ")}) — which one is live?`,
           `bios[${indices[0]}]`,
         ),
       );
@@ -369,8 +372,8 @@ export function driftCheck(profile: Profile): Issue[] {
     if (indices.length > 1) {
       push(
         warn(
-          'drift/duplicate-headline',
-          `more than one headline for ${key} (indices ${indices.join(', ')})`,
+          "drift/duplicate-headline",
+          `more than one headline for ${key} (indices ${indices.join(", ")})`,
           `headlines[${indices[0]}]`,
         ),
       );
@@ -384,8 +387,8 @@ export function driftCheck(profile: Profile): Issue[] {
     if (indices.length > 1) {
       push(
         warn(
-          'drift/duplicate-project',
-          `project "${name}" appears ${indices.length} times (indices ${indices.join(', ')})`,
+          "drift/duplicate-project",
+          `project "${name}" appears ${indices.length} times (indices ${indices.join(", ")})`,
           `projects[${indices[0]}]`,
         ),
       );
@@ -404,15 +407,15 @@ export function driftCheck(profile: Profile): Issue[] {
     if (new Set(fingerprints).size > 1) {
       push(
         warn(
-          'drift/publication-conflict',
-          `publication "${title}" appears ${indices.length} times with different year/venue (${fingerprints.join('; ')})`,
+          "drift/publication-conflict",
+          `publication "${title}" appears ${indices.length} times with different year/venue (${fingerprints.join("; ")})`,
           `publications[${indices[0]}]`,
         ),
       );
     } else {
       push(
         warn(
-          'drift/publication-duplicate',
+          "drift/publication-duplicate",
           `publication "${title}" (${fingerprints[0]}) is listed ${indices.length} times`,
           `publications[${indices[0]}]`,
         ),
@@ -424,9 +427,9 @@ export function driftCheck(profile: Profile): Issue[] {
   if (orcids.size > 1) {
     push(
       warn(
-        'drift/orcid-conflict',
-        `publications use different ORCIDs (${[...orcids].join(', ')}) — an LLM triangulating surfaces finds two people`,
-        'publications',
+        "drift/orcid-conflict",
+        `publications use different ORCIDs (${[...orcids].join(", ")}) — an LLM triangulating surfaces finds two people`,
+        "publications",
         [...PLATFORMS],
       ),
     );
@@ -437,7 +440,7 @@ export function driftCheck(profile: Profile): Issue[] {
       if (pub.orcidId && pub.orcidId !== identityOrcidId) {
         push(
           warn(
-            'drift/orcid-mismatch',
+            "drift/orcid-mismatch",
             `publication[${index}] ORCID ${pub.orcidId} differs from the identity ORCID ${identityOrcidId} (identity.links)`,
             `publications[${index}]`,
           ),
@@ -455,8 +458,8 @@ export function driftCheck(profile: Profile): Issue[] {
     if (levels.size > 1) {
       push(
         warn(
-          'drift/skill-conflict',
-          `skill "${name}" appears with different levels (${[...levels].join(', ')})`,
+          "drift/skill-conflict",
+          `skill "${name}" appears with different levels (${[...levels].join(", ")})`,
           `skills[${indices[0]}]`,
         ),
       );
@@ -469,8 +472,8 @@ export function driftCheck(profile: Profile): Issue[] {
     if (!(PLATFORMS as readonly string[]).includes(platformKey)) {
       push(
         warn(
-          'drift/active-platform-unknown',
-          `active["${platformKey}"] is not one of the platform ids (${PLATFORMS.join(', ')})`,
+          "drift/active-platform-unknown",
+          `active["${platformKey}"] is not one of the platform ids (${PLATFORMS.join(", ")})`,
           `active["${platformKey}"]`,
         ),
       );
@@ -483,7 +486,7 @@ export function driftCheck(profile: Profile): Issue[] {
     if (!hasBase) {
       push(
         warn(
-          'drift/active-variant-missing',
+          "drift/active-variant-missing",
           `active["${platform}"] (variant "${entry.variantId}", ${entry.lang}) has no curated bio/headline for ${platform}/${entry.lang}`,
           `active["${platform}"]`,
           [platform],
