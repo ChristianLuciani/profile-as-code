@@ -19,7 +19,9 @@ minor versions may contain breaking contract changes.
   `packages/cli/scripts/release-notes.mjs` (match exacto — `0.1` no satisface `0.1.0` — y el
   cuerpo termina en el próximo heading `## `, así `[Unreleased]` no se filtra) y
   `gh release create … --verify-tag`. Idempotente (un retry `workflow_dispatch` no toca una
-  página existente); `contents: write` acotado a ese job. Tests: 11
+  página existente); `contents: write` acotado a ese job. La sección se valida **antes** del
+  publish (un `npm publish` no se deshace: descubrir las notes faltantes después dejaba la
+  versión consumida con el tag vacío, el síntoma que #58 elimina). Tests: 12
   (`packages/cli/tests/release-notes.test.ts`); runbook en `docs/ci-cd.md`.
 
 - **style gate: Biome (lint + format + import order) in CI and `pnpm lint` (issue #59)** — one tool,

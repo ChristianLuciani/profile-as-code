@@ -99,13 +99,15 @@ Release** (issue #58): it checks out the same verified commit, extracts that
 version's section from `CHANGELOG.md` with
 `packages/cli/scripts/release-notes.mjs` (exercised by
 `packages/cli/tests/release-notes.test.ts`), and runs `gh release create
-"v<version>" --notes-file … --verify-tag`. The job is deliberately **separate and
-ordered after** `publish` (a release page for a version that never reached npm
-would be worse than a late one) and **idempotent** (a `workflow_dispatch` retry
-leaves an existing page untouched). `contents: write` is granted to that job only,
-not to the publish job. Attaching the packed tarball is intentionally out of scope:
-the issue marks it optional and `verify:pack` already asserts the tarball's bin
-before any publish.
+"v<version>" --notes-file … --verify-tag`. Because `npm publish` is irreversible,
+the `publish` job runs the same extractor **before** the publish step, so a
+missing/empty section blocks the publish instead of leaving a consumed version
+with an empty tag page. The job is deliberately **separate and ordered after**
+`publish` (a release page for a version that never reached npm would be worse than
+a late one) and **idempotent** (a `workflow_dispatch` retry leaves an existing page
+untouched). `contents: write` is granted to that job only, not to the publish job.
+Attaching the packed tarball is intentionally out of scope: the issue marks it
+optional and `verify:pack` already asserts the tarball's bin before any publish.
 
 ## Other
 

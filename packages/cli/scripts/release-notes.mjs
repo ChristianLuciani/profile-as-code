@@ -22,8 +22,8 @@
  * with empty notes). Exit 2 = usage error.
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
+import { readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const USAGE = `usage: node scripts/release-notes.mjs --version <version> [options]
 
@@ -108,8 +108,20 @@ function main() {
   }
 }
 
-// Importable for tests (the suite calls extractReleaseNotes directly); running as
-// a script does the CLI work.
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+// Importable for tests (the suite calls extractReleaseNotes directly); invoked as
+// a script — directly or through a symlink — it must run main(). A guard that
+// silently no-ops on a symlinked path would turn "no such version" into exit 0,
+// i.e. a green release with no notes (the #81 failure class). realpath on both
+// sides makes the decision about the file, not the spelling of its path.
+function isMainModule() {
+  if (process.argv[1] === undefined) return false;
+  try {
+    return realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
   main();
 }

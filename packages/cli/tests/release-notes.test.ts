@@ -10,7 +10,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -60,10 +60,9 @@ afterAll(() => {
 });
 
 /** Run the script the way the workflow does; return exit code + combined output. */
-function run(args: string[], cwd?: string): { code: number; out: string } {
+function run(args: string[], script = SCRIPT): { code: number; out: string } {
   try {
-    const out = execFileSync(process.execPath, [SCRIPT, ...args], {
-      cwd,
+    const out = execFileSync(process.execPath, [script, ...args], {
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -153,5 +152,23 @@ describe("release-notes CLI", () => {
     const res = run(["--help"]);
     expect(res.code).toBe(0);
     expect(res.out).toContain("--version");
+  });
+
+  it("still runs main() when invoked through a symlink", () => {
+    // A main-guard that compared the path spelling would silently no-op here:
+    // a missing section would exit 0 and the release would ship with no notes —
+    // the #81 failure class, "a check that did not run" reading as "check passed".
+    const dir = tempDir();
+    const changelog = join(dir, "CHANGELOG.md");
+    const link = join(dir, "release-notes-link.mjs");
+    writeFileSync(changelog, CHANGELOG);
+    symlinkSync(SCRIPT, link);
+
+    const ok = run(["--version", "0.1.0", "--changelog", changelog], link);
+    expect(ok.code).toBe(0);
+    expect(ok.out).toContain("the first release");
+
+    const missing = run(["--version", "9.9.9", "--changelog", changelog], link);
+    expect(missing.code).toBe(1);
   });
 });

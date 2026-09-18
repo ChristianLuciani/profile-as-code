@@ -103,6 +103,17 @@ jobs:
       - name: Verify tarball exposes bin pasco
         run: pnpm --filter @profile-as-code/cli verify:pack
 
+      # The `release` job (below) builds the GitHub Release from this version's
+      # CHANGELOG.md section. Validate it BEFORE the irreversible publish: npm
+      # cannot be un-published, so discovering a missing section afterwards would
+      # leave the version consumed with an empty tag page — the exact symptom #58
+      # removes (review finding on #58).
+      - if: inputs.dry_run != true
+        name: Verify release notes exist for this version
+        env:
+          TAG: ${{ steps.guard.outputs.tag }}
+        run: node packages/cli/scripts/release-notes.mjs --version "${TAG#v}"
+
       # Provenance requires a public source repo ([WEB] GitHub Changelog
       # 2023-07-25); v0.1.0 is tagged while the repo is still private (issue #44
       # decision a), so it publishes without --provenance. Once flipped, the
