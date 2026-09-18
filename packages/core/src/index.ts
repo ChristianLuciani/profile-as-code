@@ -5,64 +5,75 @@
  * from it (packages/core/scripts/gen-zod.ts) and committed.
  */
 
-export { load, validateProfile, normalizeProfile, LoadError, SchemaValidationError } from './load.js';
-export { driftCheck } from './drift.js';
-export { geoCheck } from './geo.js';
-export { compile } from './compile.js';
+export { compile } from "./compile.js";
+export { driftCheck } from "./drift.js";
+export { geoCheck } from "./geo.js";
+export type {
+  LedgerIssue,
+  LedgerReport,
+  Origin,
+  SyncState,
+  TrackableUnit,
+  UnitKind,
+  UnitStatus,
+} from "./ledger.js";
 export {
   canonicalJson,
+  checkLedgerIntegrity,
+  deployStatus,
   hashUnit,
   LEDGER_KEY_PATTERN,
   trackableUnits,
   untrackedRows,
-  deployStatus,
-  checkLedgerIntegrity,
-} from './ledger.js';
+} from "./ledger.js";
+export {
+  LoadError,
+  load,
+  normalizeProfile,
+  SchemaValidationError,
+  validateProfile,
+} from "./load.js";
+export type { CollectMediaOptions, ManifestEntry, MediaAsset, MediaBundle } from "./media.js";
+export { artifactAssetTarget, collectMedia, DEFAULT_MAX_BYTES, mediaManifest } from "./media.js";
+export type { RegistryFinding, RegistryIssue } from "./registry.js";
+export {
+  checkRegistryIntegrity,
+  credentialLdEntries,
+  isPublicEntry,
+  registryCheck,
+} from "./registry.js";
 export type {
-  TrackableUnit,
-  UnitStatus,
-  UnitKind,
-  SyncState,
-  Origin,
-  LedgerReport,
-  LedgerIssue,
-} from './ledger.js';
-export { PLATFORMS, LANGS } from './types.js';
-export { checkRegistryIntegrity, registryCheck, isPublicEntry, credentialLdEntries } from './registry.js';
-export { artifactAssetTarget, collectMedia, mediaManifest, DEFAULT_MAX_BYTES } from './media.js';
-export type { RegistryIssue, RegistryFinding } from './registry.js';
-export type { MediaAsset, MediaBundle, CollectMediaOptions, ManifestEntry } from './media.js';
-export type {
-  Profile,
-  LoadedProfile,
-  Flavor,
-  Identity,
-  Bio,
-  Headline,
-  Skill,
-  ExperienceItem,
-  Project,
-  Publication,
-  SocialHandle,
-  Newsletter,
-  Podcast,
-  PressItem,
-  BrandVoice,
   ActiveEntry,
+  Artifact,
+  Bio,
+  BioLength,
+  BrandVoice,
+  Credential,
   DeploymentRecord,
   Deployments,
-  Credential,
-  Artifact,
   EducationalOccupationalCredentialLd,
-  Lang,
-  Platform,
-  BioLength,
-  LangMap,
-  Issue,
+  ExperienceItem,
+  Flavor,
   GeoCheck,
-  GeoSection,
   GeoReport,
-  StructuredDataReadiness,
-  SemanticAssociationCoverage,
+  GeoSection,
+  Headline,
+  Identity,
+  Issue,
+  Lang,
+  LangMap,
+  LoadedProfile,
+  Newsletter,
+  Platform,
   PlatformProfile,
-} from './types.js';
+  Podcast,
+  PressItem,
+  Profile,
+  Project,
+  Publication,
+  SemanticAssociationCoverage,
+  Skill,
+  SocialHandle,
+  StructuredDataReadiness,
+} from "./types.js";
+export { LANGS, PLATFORMS } from "./types.js";

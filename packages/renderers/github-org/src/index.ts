@@ -12,10 +12,10 @@
  * links + claimed handle urls, §17.1) · generated footer with fact-count.
  */
 
-import { credentialLdEntries, type Lang, type PlatformProfile } from '@profile-as-code/core';
-import { mdHref, mdText } from '@profile-as-code/markdown';
+import { credentialLdEntries, type Lang, type PlatformProfile } from "@profile-as-code/core";
+import { mdHref, mdText } from "@profile-as-code/markdown";
 
-export const deploySpec = 'git' as const;
+export const deploySpec = "git" as const;
 
 export interface RenderResult {
   text: string;
@@ -28,25 +28,25 @@ export interface RenderOptions {
 
 /** Deterministic badge map for brand handle platforms → shield.io style + name. */
 const BADGE: Record<string, { color: string; logo: string; label: string }> = {
-  github: { color: '181717', logo: 'github', label: 'GitHub' },
-  'github-org': { color: '181717', logo: 'github', label: 'GitHub' },
-  x: { color: '000000', logo: 'X', label: 'X' },
-  bluesky: { color: '0285FF', logo: 'bluesky', label: 'Bluesky' },
-  substack: { color: 'FF6719', logo: 'substack', label: 'Substack' },
-  instagram: { color: 'E4405F', logo: 'instagram', label: 'Instagram' },
-  tiktok: { color: '000000', logo: 'tiktok', label: 'TikTok' },
-  youtube: { color: 'FF0000', logo: 'youtube', label: 'YouTube' },
-  spotify: { color: '1DB954', logo: 'spotify', label: 'Spotify' },
-  reddit: { color: 'FF4500', logo: 'reddit', label: 'Reddit' },
-  mastodon: { color: '6364FF', logo: 'mastodon', label: 'Mastodon' },
-  soundcloud: { color: 'FF3300', logo: 'soundcloud', label: 'SoundCloud' },
-  website: { color: '111111', logo: 'internetarchive', label: 'Website' },
+  github: { color: "181717", logo: "github", label: "GitHub" },
+  "github-org": { color: "181717", logo: "github", label: "GitHub" },
+  x: { color: "000000", logo: "X", label: "X" },
+  bluesky: { color: "0285FF", logo: "bluesky", label: "Bluesky" },
+  substack: { color: "FF6719", logo: "substack", label: "Substack" },
+  instagram: { color: "E4405F", logo: "instagram", label: "Instagram" },
+  tiktok: { color: "000000", logo: "tiktok", label: "TikTok" },
+  youtube: { color: "FF0000", logo: "youtube", label: "YouTube" },
+  spotify: { color: "1DB954", logo: "spotify", label: "Spotify" },
+  reddit: { color: "FF4500", logo: "reddit", label: "Reddit" },
+  mastodon: { color: "6364FF", logo: "mastodon", label: "Mastodon" },
+  soundcloud: { color: "FF3300", logo: "soundcloud", label: "SoundCloud" },
+  website: { color: "111111", logo: "internetarchive", label: "Website" },
 };
 
 function hostnamePath(url: string): string {
   try {
     const u = new URL(url);
-    return (u.hostname.replace(/^www\./, '') + u.pathname).replace(/\/$/, '');
+    return (u.hostname.replace(/^www\./, "") + u.pathname).replace(/\/$/, "");
   } catch {
     return url;
   }
@@ -61,7 +61,7 @@ function pickText(map: Record<string, string> | undefined, lang: Lang): string |
 }
 
 function plural(n: number, word: string): string {
-  return `${n} ${word}${n === 1 ? '' : 's'}`;
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
 export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResult {
@@ -71,15 +71,15 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   // 1. Header — org name (H1), tagline, mission.
   out.push(`# ${p.identity.name}`);
   const tagline = pickText(p.identity.tagline, lang);
-  if (tagline !== undefined) out.push('', `> ${tagline}`);
+  if (tagline !== undefined) out.push("", `> ${tagline}`);
   const mission = pickText(p.identity.mission, lang);
-  if (mission !== undefined) out.push('', `**${mission}**`);
-  if (p.identity.logo !== undefined) out.push('', `![logo](${mdHref(p.identity.logo)})`);
+  if (mission !== undefined) out.push("", `**${mission}**`);
+  if (p.identity.logo !== undefined) out.push("", `![logo](${mdHref(p.identity.logo)})`);
 
   // 2. Social handles — ONE badge per claimed handle platform, in matrix order.
   //    The matrix (socialHandles) IS the canonical surface set for a brand (§17.1);
   //    pending handles are not deployed surfaces yet.
-  const claimed = p.socialHandles.filter((h) => h.status === 'claimed' && h.url !== undefined);
+  const claimed = p.socialHandles.filter((h) => h.status === "claimed" && h.url !== undefined);
   if (claimed.length > 0) {
     const badges: string[] = [];
     const seen = new Set<string>();
@@ -94,50 +94,56 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
       const badgeUrl = `https://img.shields.io/badge/${b.label}-${hostnamePath(h.url)}-${b.color}?style=flat&logo=${b.logo}&logoColor=white`;
       badges.push(`[![${b.label}](${mdHref(badgeUrl)})](${mdHref(h.url)})`);
     }
-    if (badges.length > 0) out.push('', badges.join(' '));
+    if (badges.length > 0) out.push("", badges.join(" "));
   }
 
   // 3. Newsletter (Substack/Ghost) — the brand's own surface.
   if (p.newsletter !== undefined) {
-    out.push('', '## Newsletter');
+    out.push("", "## Newsletter");
     const name = pickText(p.newsletter.name, lang);
     const desc = pickText(p.newsletter.description, lang);
     // Issue #86 (F2, plain-string empty = absent): cadence has no minLength in the
     // schema and "" interpolated raw produced a trailing ` · ` separator. Exact
     // empty-string rule (no trim — whitespace-only stays data), byte-parity for
     // populated cadences.
-    const cadence = p.newsletter.cadence ? ` · ${p.newsletter.cadence}` : '';
-    out.push('', `- **${name ?? hostnamePath(p.newsletter.url)}** ([${mdText(hostnamePath(p.newsletter.url))}](${mdHref(p.newsletter.url)}))${cadence}`);
+    const cadence = p.newsletter.cadence ? ` · ${p.newsletter.cadence}` : "";
+    out.push(
+      "",
+      `- **${name ?? hostnamePath(p.newsletter.url)}** ([${mdText(hostnamePath(p.newsletter.url))}](${mdHref(p.newsletter.url)}))${cadence}`,
+    );
     if (desc !== undefined) out.push(`  - ${desc}`);
   }
 
   // 4. Podcast (Spotify/RSS).
   if (p.podcast !== undefined) {
-    out.push('', '## Podcast');
-    const title = pickText(p.podcast.title, lang) ?? '(untitled)';
+    out.push("", "## Podcast");
+    const title = pickText(p.podcast.title, lang) ?? "(untitled)";
     const desc = pickText(p.podcast.description, lang);
-    const status = p.podcast.status !== undefined ? ` · \`${p.podcast.status}\`` : '';
-    out.push('', `- **${title}**${status}`);
-    if (p.podcast.url !== undefined) out.push(`  - [${mdText(hostnamePath(p.podcast.url))}](${mdHref(p.podcast.url)})`);
-    if (p.podcast.rss !== undefined) out.push(`  - RSS: [${mdText(hostnamePath(p.podcast.rss))}](${mdHref(p.podcast.rss)})`);
+    const status = p.podcast.status !== undefined ? ` · \`${p.podcast.status}\`` : "";
+    out.push("", `- **${title}**${status}`);
+    if (p.podcast.url !== undefined)
+      out.push(`  - [${mdText(hostnamePath(p.podcast.url))}](${mdHref(p.podcast.url)})`);
+    if (p.podcast.rss !== undefined)
+      out.push(`  - RSS: [${mdText(hostnamePath(p.podcast.rss))}](${mdHref(p.podcast.rss)})`);
     if (desc !== undefined) out.push(`  - ${desc}`);
   }
 
   // 5. Press — media mentions (dated, resolvable = verifiable claims, §8).
   if (p.press.length > 0) {
-    out.push('', '## Press');
+    out.push("", "## Press");
     for (const item of p.press) {
-      const outlet = typeof item.outlet === 'string' ? item.outlet : pickText(item.outlet, lang) ?? '?';
-      const title = pickText(item.title, lang) ?? '?';
-      out.push('', `- **${title}** — ${outlet}, ${item.date}. ([link](${mdHref(item.url)}))`);
+      const outlet =
+        typeof item.outlet === "string" ? item.outlet : (pickText(item.outlet, lang) ?? "?");
+      const title = pickText(item.title, lang) ?? "?";
+      out.push("", `- **${title}** — ${outlet}, ${item.date}. ([link](${mdHref(item.url)}))`);
     }
   }
 
   // 6. Audiences — reader profile (brand), not recruiter.
   const audienceEntries = Object.entries(p.brandAudiences);
   if (audienceEntries.length > 0) {
-    out.push('', '## For readers');
-    for (const [name, angle] of audienceEntries) out.push('', `- **${name}**: ${angle}`);
+    out.push("", "## For readers");
+    for (const [name, angle] of audienceEntries) out.push("", `- **${name}**: ${angle}`);
   }
 
   // 7. Links (sameAs) + JSON-LD Organization.
@@ -151,12 +157,12 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     const rows: string[] = [];
     if (p.identity.email !== undefined) rows.push(`- mailto:${p.identity.email}`);
     rows.push(...sameAs.map((url) => `- ${url}`));
-    out.push('', '## Links', ...rows);
+    out.push("", "## Links", ...rows);
   }
 
   const jsonLd: Record<string, unknown> = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
+    "@context": "https://schema.org",
+    "@type": "Organization",
     name: p.identity.name,
   };
   if (p.identity.email !== undefined) jsonLd.email = p.identity.email;
@@ -170,14 +176,20 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   // filters internally (§18.5 — public only); absent → the key is not emitted.
   const publicCredentials = credentialLdEntries(p.credentials ?? []);
   if (publicCredentials.length > 0) jsonLd.hasCredential = publicCredentials;
-  out.push('', '<!-- JSON-LD (schema.org Organization) -->', '```json', JSON.stringify(jsonLd, null, 2), '```');
-
-  // 8. Footer — deterministic marker + fact count (for diff/CI assertions, §15.3).
-  const pendingCount = p.socialHandles.filter((h) => h.status === 'pending').length;
   out.push(
-    '',
-    `<!-- generated by profile-as-code pasco build github-org · ${plural(claimed.length, 'claimed surface')} · ${pendingCount} pending · ${plural(p.press.length, 'press mention')} -->`,
+    "",
+    "<!-- JSON-LD (schema.org Organization) -->",
+    "```json",
+    JSON.stringify(jsonLd, null, 2),
+    "```",
   );
 
-  return { text: out.join('\n') + '\n' };
+  // 8. Footer — deterministic marker + fact count (for diff/CI assertions, §15.3).
+  const pendingCount = p.socialHandles.filter((h) => h.status === "pending").length;
+  out.push(
+    "",
+    `<!-- generated by profile-as-code pasco build github-org · ${plural(claimed.length, "claimed surface")} · ${pendingCount} pending · ${plural(p.press.length, "press mention")} -->`,
+  );
+
+  return { text: `${out.join("\n")}\n` };
 }

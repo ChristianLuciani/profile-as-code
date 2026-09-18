@@ -8,20 +8,20 @@
  * SOTA research + skills v1 session (SPEC §12 M3).
  */
 
-import { compile, load, LoadError, SchemaValidationError } from '@profile-as-code/core';
-import type { Lang, Platform } from '@profile-as-code/core';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { parseDocument, stringify } from 'yaml';
-import { parseLang, parsePlatform, parseVariants, UsageError } from '../contract.js';
-import { EXIT } from '../exit.js';
-import { isJsonMode, line, report } from '../output.js';
-import type { Pascorc } from '../workspace.js';
-import { defaultsLang } from '../workspace.js';
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import type { Lang, Platform } from "@profile-as-code/core";
+import { compile, LoadError, load, SchemaValidationError } from "@profile-as-code/core";
+import { parseDocument, stringify } from "yaml";
+import { parseLang, parsePlatform, parseVariants, UsageError } from "../contract.js";
+import { EXIT } from "../exit.js";
+import { isJsonMode, line, report } from "../output.js";
+import type { Pascorc } from "../workspace.js";
+import { defaultsLang } from "../workspace.js";
 
 export const REFINE_OWNER =
-  'M3 SOTA research per platform → skills v1 + the full refine flow (SPEC §12/§16 M3); model-agnostic (D10/D11/D13)';
+  "M3 SOTA research per platform → skills v1 + the full refine flow (SPEC §12/§16 M3); model-agnostic (D10/D11/D13)";
 
 /**
  * Locate the platform skill (SPEC §16.1) relative to the CLI install
@@ -31,7 +31,7 @@ export const REFINE_OWNER =
 function platformSkillPath(platform: string): string | undefined {
   const here = dirname(fileURLToPath(import.meta.url)); // packages/cli/dist/commands
   const candidates = [
-    join(here, '..', '..', '..', '..', 'skills', platform, 'SKILL.md'), // repo dev
+    join(here, "..", "..", "..", "..", "skills", platform, "SKILL.md"), // repo dev
   ];
   return candidates.find((p) => existsSync(p));
 }
@@ -50,33 +50,40 @@ function loadProfile(workspace: string): ReturnType<typeof load> | number {
     return load(workspace);
   } catch (err) {
     if (err instanceof SchemaValidationError) {
-      return report('refine', false, EXIT.FAIL, {
+      return report("refine", false, EXIT.FAIL, {
         error: {
-          kind: 'schema',
+          kind: "schema",
           message: `schema validation failed (D12 fail-on-schema) — ${err.issues.length} violation(s)`,
           violations: [...err.issues],
         },
       });
     }
     if (err instanceof LoadError) {
-      return report('refine', false, EXIT.FAIL, { error: { kind: 'load', message: err.message } });
+      return report("refine", false, EXIT.FAIL, { error: { kind: "load", message: err.message } });
     }
     throw err;
   }
 }
 
-function recordVariant(workspace: string, platform: Platform, lang: Lang, variantId: string): { chosenAt: string } {
-  const activePath = join(workspace, 'content', 'active.yaml');
+function recordVariant(
+  workspace: string,
+  platform: Platform,
+  lang: Lang,
+  variantId: string,
+): { chosenAt: string } {
+  const activePath = join(workspace, "content", "active.yaml");
   let active: Record<string, unknown> = {};
   if (existsSync(activePath)) {
-    const doc = parseDocument(readFileSync(activePath, 'utf8'));
+    const doc = parseDocument(readFileSync(activePath, "utf8"));
     if (doc.errors.length > 0) {
-      throw new Error(`content/active.yaml: invalid YAML — ${doc.errors[0]?.message ?? 'parse error'}`);
+      throw new Error(
+        `content/active.yaml: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
+      );
     }
     const node = doc.toJS({ maxAliasCount: 100 });
     if (node !== null && node !== undefined) {
-      if (typeof node !== 'object' || Array.isArray(node)) {
-        throw new Error('content/active.yaml must contain a mapping (platform → variant entry)');
+      if (typeof node !== "object" || Array.isArray(node)) {
+        throw new Error("content/active.yaml must contain a mapping (platform → variant entry)");
       }
       active = node as Record<string, unknown>;
     }
@@ -89,14 +96,16 @@ function recordVariant(workspace: string, platform: Platform, lang: Lang, varian
 
 export function runRefine(args: RefineArgs): number {
   if (args.platformArg === undefined) {
-    throw new UsageError('usage: pasco refine <platform> [--lang <l>] [--variants N] [--choose <variantId>]');
+    throw new UsageError(
+      "usage: pasco refine <platform> [--lang <l>] [--variants N] [--choose <variantId>]",
+    );
   }
   const platform = parsePlatform(args.platformArg);
   const lang = parseLang(defaultsLang(args.pascorc, args.langArg));
   const variants = parseVariants(args.variantsArg, args.pascorc.defaults?.variants ?? 3);
 
   const loaded = loadProfile(args.workspace);
-  if (typeof loaded === 'number') return loaded;
+  if (typeof loaded === "number") return loaded;
   const profile = loaded;
 
   if (args.choose !== undefined) {
@@ -104,24 +113,37 @@ export function runRefine(args: RefineArgs): number {
     try {
       chosenAt = recordVariant(args.workspace, platform, lang, args.choose).chosenAt;
     } catch (err) {
-      return report('refine', false, EXIT.FAIL, { error: { kind: 'load', message: (err as Error).message } });
-    }
-    if (isJsonMode()) {
-      return report('refine', true, EXIT.OK, {
-        data: { mode: 'recorded', platform, lang, variantId: args.choose, chosenAt, workspace: args.workspace },
+      return report("refine", false, EXIT.FAIL, {
+        error: { kind: "load", message: (err as Error).message },
       });
     }
-    line(`recorded active[${platform}] = { lang: ${lang}, variantId: ${args.choose}, chosenAt: ${chosenAt} } (content/active.yaml)`);
+    if (isJsonMode()) {
+      return report("refine", true, EXIT.OK, {
+        data: {
+          mode: "recorded",
+          platform,
+          lang,
+          variantId: args.choose,
+          chosenAt,
+          workspace: args.workspace,
+        },
+      });
+    }
+    line(
+      `recorded active[${platform}] = { lang: ${lang}, variantId: ${args.choose}, chosenAt: ${chosenAt} } (content/active.yaml)`,
+    );
     return EXIT.OK;
   }
 
   const slice = compile(profile, platform, lang);
   const identity = slice.identity;
-  const links = (identity.links ?? []).map((l) => `${l.platform ?? '?'}:${l.url}`).join(', ');
-  const experience = slice.experience.map((e) => `${e.role} @ ${e.org} (${e.start}–${e.end ?? 'present'})`).join(' | ');
-  const projects = slice.projects.map((p) => p.name).join(', ');
-  const publications = slice.publications.map((p) => p.title).join(' | ');
-  const anchors = slice.keywords.geo.associations?.join(', ') ?? '';
+  const links = (identity.links ?? []).map((l) => `${l.platform ?? "?"}:${l.url}`).join(", ");
+  const experience = slice.experience
+    .map((e) => `${e.role} @ ${e.org} (${e.start}–${e.end ?? "present"})`)
+    .join(" | ");
+  const projects = slice.projects.map((p) => p.name).join(", ");
+  const publications = slice.publications.map((p) => p.title).join(" | ");
+  const anchors = slice.keywords.geo.associations?.join(", ") ?? "";
   const skillPath = platformSkillPath(platform);
 
   const template = [
@@ -130,24 +152,24 @@ export function runRefine(args: RefineArgs): number {
     ``,
     `Platform: ${platform}`,
     `Language: ${lang}`,
-    `Skill (communicative strategy — READ IT FIRST): ${skillPath ?? '(not installed — fall back to the deterministic renderer output)'}`,
-    `Research (dated sources): ${skillPath === undefined ? '—' : skillPath.replace(/SKILL\.md$/, 'research/SOTA-2026.md')}`,
-    `Variant id convention: ${platform.replace(/[^a-z]/g, '')}-${lang}-<n> (e.g. gh-en-1, gh-en-2, gh-en-3).`,
+    `Skill (communicative strategy — READ IT FIRST): ${skillPath ?? "(not installed — fall back to the deterministic renderer output)"}`,
+    `Research (dated sources): ${skillPath === undefined ? "—" : skillPath.replace(/SKILL\.md$/, "research/SOTA-2026.md")}`,
+    `Variant id convention: ${platform.replace(/[^a-z]/g, "")}-${lang}-<n> (e.g. gh-en-1, gh-en-2, gh-en-3).`,
     ``,
     `Facts (language-independent — MUST stay byte-identical across variants and platforms):`,
     `  name: ${identity.name}`,
-    `  location: ${identity.location ?? '—'}`,
-    `  links: ${links || '—'}`,
-    `  experience: ${experience || '—'}`,
-    `  projects: ${projects || '—'}`,
-    `  publications: ${publications || '—'}`,
+    `  location: ${identity.location ?? "—"}`,
+    `  links: ${links || "—"}`,
+    `  experience: ${experience || "—"}`,
+    `  projects: ${projects || "—"}`,
+    `  publications: ${publications || "—"}`,
     ``,
     `Existing ${platform} texts (base to vary):`,
-    `  bios: ${slice.bios.map((b) => `[${b.length}] ${b.text}`).join(' | ') || '—'}`,
-    `  headlines: ${slice.headlines.map((h) => h.text).join(' | ') || '—'}`,
-    `  active variant: ${slice.active?.variantId ?? '—'}`,
+    `  bios: ${slice.bios.map((b) => `[${b.length}] ${b.text}`).join(" | ") || "—"}`,
+    `  headlines: ${slice.headlines.map((h) => h.text).join(" | ") || "—"}`,
+    `  active variant: ${slice.active?.variantId ?? "—"}`,
     ``,
-    `GEO anchors to reinforce (semantic associations): ${anchors || '—'}`,
+    `GEO anchors to reinforce (semantic associations): ${anchors || "—"}`,
     ``,
     `Constraints:`,
     `  - Facts never change (D4) — only storytelling/angles vary.`,
@@ -158,11 +180,11 @@ export function runRefine(args: RefineArgs): number {
     `Workflow: read the skill → produce the ${variants} variant(s) → the user picks one → record it:`,
     `  pasco refine ${platform} --lang ${lang} --choose <variantId>`,
     ``,
-  ].join('\n');
+  ].join("\n");
 
   if (isJsonMode()) {
-    return report('refine', true, EXIT.OK, {
-      data: { mode: 'template', platform, lang, variants, template, ownedBy: REFINE_OWNER },
+    return report("refine", true, EXIT.OK, {
+      data: { mode: "template", platform, lang, variants, template, ownedBy: REFINE_OWNER },
     });
   }
   process.stdout.write(template);

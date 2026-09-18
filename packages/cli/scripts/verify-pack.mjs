@@ -20,7 +20,7 @@
  * Exit 0 = all checks pass, 1 = concrete reason. Run after `pnpm build`.
  */
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -29,12 +29,12 @@ import {
   realpathSync,
   rmSync,
   statSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join, normalize } from 'node:path';
-import { fileURLToPath } from 'node:url';
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, normalize } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const pkgDir = join(dirname(fileURLToPath(import.meta.url)), '..');
+const pkgDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 function fail(msg) {
   throw new Error(`verify-pack FAIL: ${msg}`);
@@ -43,36 +43,32 @@ function fail(msg) {
 function run(cmd, args, opts = {}) {
   return execFileSync(cmd, args, {
     cwd: pkgDir,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'inherit'],
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "inherit"],
     ...opts,
   });
 }
 
-const tmp = mkdtempSync(join(tmpdir(), 'pasco-pack-'));
+const tmp = mkdtempSync(join(tmpdir(), "pasco-pack-"));
 
 try {
-  if (!existsSync(join(pkgDir, 'dist'))) {
-    fail('dist/ missing — run `pnpm build` before verify:pack');
+  if (!existsSync(join(pkgDir, "dist"))) {
+    fail("dist/ missing — run `pnpm build` before verify:pack");
   }
 
   // 1. Pack a real tarball (not --dry-run: we need the on-disk file modes).
-  const packed = run('npm', ['pack', '--pack-destination', tmp])
-    .trim()
-    .split('\n')
-    .pop()
-    .trim();
-  if (!packed.endsWith('.tgz')) {
+  const packed = run("npm", ["pack", "--pack-destination", tmp]).trim().split("\n").pop().trim();
+  if (!packed.endsWith(".tgz")) {
     fail(`npm pack did not produce a tarball: ${packed}`);
   }
 
   // 2. Extract.
-  const extractDir = join(tmp, 'extracted');
+  const extractDir = join(tmp, "extracted");
   mkdirSync(extractDir);
-  run('tar', ['-xzf', join(tmp, packed), '-C', extractDir], { cwd: tmp });
+  run("tar", ["-xzf", join(tmp, packed), "-C", extractDir], { cwd: tmp });
 
-  const inner = join(extractDir, 'package');
-  const manifest = JSON.parse(readFileSync(join(inner, 'package.json'), 'utf8'));
+  const inner = join(extractDir, "package");
+  const manifest = JSON.parse(readFileSync(join(inner, "package.json"), "utf8"));
 
   // 3. bin target exists inside the tarball.
   const binPath = manifest.bin?.pasco;
@@ -88,15 +84,15 @@ try {
   }
 
   // 5. Node shebang on the first line.
-  const firstLine = readFileSync(binFile, 'utf8').split('\n')[0];
-  if (!firstLine.startsWith('#!')) {
+  const firstLine = readFileSync(binFile, "utf8").split("\n")[0];
+  if (!firstLine.startsWith("#!")) {
     fail(`bin target "${binPath}" does not start with a shebang: "${firstLine}"`);
   }
 
   // 6. No workspace: protocol in the ranges consumers actually resolve.
-  for (const field of ['dependencies', 'peerDependencies', 'optionalDependencies']) {
+  for (const field of ["dependencies", "peerDependencies", "optionalDependencies"]) {
     for (const [name, range] of Object.entries(manifest[field] ?? {})) {
-      if (String(range).includes('workspace:')) {
+      if (String(range).includes("workspace:")) {
         fail(`packed ${field} entry "${name}" uses unresolvable "workspace:" protocol`);
       }
     }
@@ -105,18 +101,16 @@ try {
   // 7. Full-fidelity smoke: install the tarball into an isolated prefix
   //    (resolves real dependencies from the registry) and run the bin npm
   //    linked at node_modules/.bin/pasco — mirrors `npm i -g ... && pasco --version`.
-  const installDir = join(tmp, 'installed');
+  const installDir = join(tmp, "installed");
   mkdirSync(installDir);
-  run(
-    'npm',
-    ['install', '--prefix', installDir, '--no-audit', '--no-fund', join(tmp, packed)],
-    { cwd: installDir },
-  );
-  const binLink = join(installDir, 'node_modules', '.bin', 'pasco');
+  run("npm", ["install", "--prefix", installDir, "--no-audit", "--no-fund", join(tmp, packed)], {
+    cwd: installDir,
+  });
+  const binLink = join(installDir, "node_modules", ".bin", "pasco");
   if (!existsSync(binLink)) {
     fail('npm install of the tarball did not create the "pasco" bin link');
   }
-  const out = run(realpathSync(binLink), ['--version'], { cwd: installDir });
+  const out = run(realpathSync(binLink), ["--version"], { cwd: installDir });
   const expected = `pasco ${manifest.version}`;
   if (out.trim() !== expected) {
     fail(`installed bin printed "${out.trim()}", expected "${expected}"`);

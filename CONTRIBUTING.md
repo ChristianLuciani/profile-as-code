@@ -17,7 +17,7 @@ every decision lives in [`docs/SPEC.md`](docs/SPEC.md) (decisions D1–D18). Rea
 ## Ground rules
 
 1. **Never push to `main`.** Every change goes through a PR with the `ci` check green
-   (schema contract self-test + `pnpm test` + `pnpm build`); only the maintainer merges.
+   (schema contract self-test + `pnpm lint` + `pnpm test` + `pnpm build`); only the maintainer merges.
    While the repo is private on GitHub Free, branch protection is not available — `main` is
    protected by access + process (see [`docs/STANDARDS.md`](docs/STANDARDS.md)); it is
    re-applied the moment the repo goes public (see [`docs/ci-cd.md`](docs/ci-cd.md)).
@@ -43,6 +43,9 @@ pnpm install
 pnpm test          # all workspace tests
 pnpm build         # type-checked build
 pnpm typecheck     # tsc --noEmit
+pnpm lint          # style gate (Biome: lint + format + import order)
+pnpm lint:fix      # auto-fix lint + formatting
+pnpm format        # reformat only
 
 # contract self-test (also runs in CI)
 python3 -m venv /tmp/schema-venv

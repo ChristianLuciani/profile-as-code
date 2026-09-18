@@ -74,7 +74,10 @@
         "required": ["code", "level"],
         "properties": {
           "code": { "$ref": "#/$defs/lang" },
-          "level": { "type": "string", "enum": ["native", "fluent", "advanced", "intermediate", "basic"] }
+          "level": {
+            "type": "string",
+            "enum": ["native", "fluent", "advanced", "intermediate", "basic"]
+          }
         }
       },
       "description": "v1.1 (additive): spoken languages. v1 workspaces document them as comments in skills.yaml."
@@ -163,7 +166,51 @@
 
     "platform": {
       "type": "string",
-      "enum": ["github-readme", "linkedin", "upwork", "x", "researchgate", "substack", "patreon", "github-org", "bluesky", "instagram", "tiktok", "youtube", "spotify", "reddit", "mastodon", "soundcloud", "facebook", "linkedin-page", "instagram-standalone", "warpcast", "lemmy", "discord", "slack", "skool", "whop", "pinterest", "dribbble", "medium", "devto", "hashnode", "wordpress", "gmb", "listmonk", "twitch", "threads", "telegram", "nostr", "vk", "kick", "moltbook", "ghost", "mewe", "tumblr"],
+      "enum": [
+        "github-readme",
+        "linkedin",
+        "upwork",
+        "x",
+        "researchgate",
+        "substack",
+        "patreon",
+        "github-org",
+        "bluesky",
+        "instagram",
+        "tiktok",
+        "youtube",
+        "spotify",
+        "reddit",
+        "mastodon",
+        "soundcloud",
+        "facebook",
+        "linkedin-page",
+        "instagram-standalone",
+        "warpcast",
+        "lemmy",
+        "discord",
+        "slack",
+        "skool",
+        "whop",
+        "pinterest",
+        "dribbble",
+        "medium",
+        "devto",
+        "hashnode",
+        "wordpress",
+        "gmb",
+        "listmonk",
+        "twitch",
+        "threads",
+        "telegram",
+        "nostr",
+        "vk",
+        "kick",
+        "moltbook",
+        "ghost",
+        "mewe",
+        "tumblr"
+      ],
       "description": "Platform set (ONE source, dedup). v1: person surfaces. v1.1 (additive, brand §17): brand surfaces + the socialHandles matrix key space. v1.2 (additive, D16): Postiz parity + operator extras — 43 platforms; new slugs Postiz-aligned verbatim (linkedin-page, instagram-standalone, devto, gmb, warpcast, moltbook, mewe, tumblr); ghost is an operator extra Postiz lacks (docs.postiz.com llms.txt: 34 providers, fetched 2026-09-02)."
     },
 
@@ -173,15 +220,44 @@
       "required": ["name"],
       "properties": {
         "name": { "type": "string", "minLength": 1 },
-        "email": { "type": "string", "pattern": "^[^@\\s\"']+@[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$", "description": "v1.5 (additive, issue #71): contact email of the person/brand (schema.org `email` on Person/Organization). A fact like name/location — NOT a link: renderers emit it as a mailto: href in the Links section and as the JSON-LD `email` property; `sameAs` stays page-URLs-only. Lives OUTSIDE identity.links[] by design — the ^https?:// rule of $defs/url (issue #53) stays strict on every URL field, so a mailto: row in links[] fails validation (D12). RFC-5322-adjacent (issue #71 review): local part lax (no whitespace/quotes), domain hostname-shaped (labels [A-Za-z0-9-], no empty/trailing/consecutive dots — unicode domains must use punycode)." },
-        "handle": { "type": "string", "description": "v1.1: primary handle (e.g. X @cluciani_ve)." },
-        "timezone": { "type": "string", "description": "v1.1: IANA timezone (e.g. America/Guayaquil)." },
-        "orgName": { "type": "string", "minLength": 1, "description": "v1.1 (additive, brand): legal/registered org name when it differs from the display name (name = display, e.g. 'Topia Press')." },
-        "logo": { "$ref": "#/$defs/url", "description": "v1.1 (additive, brand): logo URL (schema.org Organization logo)." },
-        "brandVoice": { "$ref": "#/$defs/brandVoice", "description": "v1.1 (additive, brand): tone matrix seed — tone + values + avoid. Per-platform voice lives in the platform skill." },
-        "mission": { "$ref": "#/$defs/langMap", "description": "v1.1 (additive, brand): the brand's mission (schema.org Organization description)." },
-        "tagline": { "$ref": "#/$defs/langMap", "description": "v1.1 (additive, brand): the one-line tagline (schema.org Organization slogan)." },
-        "established": { "$ref": "#/$defs/date", "description": "v1.1 (additive, brand): founding date (schema.org Organization foundingDate)." },
+        "email": {
+          "type": "string",
+          "pattern": "^[^@\\s\"']+@[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$",
+          "description": "v1.5 (additive, issue #71): contact email of the person/brand (schema.org `email` on Person/Organization). A fact like name/location — NOT a link: renderers emit it as a mailto: href in the Links section and as the JSON-LD `email` property; `sameAs` stays page-URLs-only. Lives OUTSIDE identity.links[] by design — the ^https?:// rule of $defs/url (issue #53) stays strict on every URL field, so a mailto: row in links[] fails validation (D12). RFC-5322-adjacent (issue #71 review): local part lax (no whitespace/quotes), domain hostname-shaped (labels [A-Za-z0-9-], no empty/trailing/consecutive dots — unicode domains must use punycode)."
+        },
+        "handle": {
+          "type": "string",
+          "description": "v1.1: primary handle (e.g. X @cluciani_ve)."
+        },
+        "timezone": {
+          "type": "string",
+          "description": "v1.1: IANA timezone (e.g. America/Guayaquil)."
+        },
+        "orgName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "v1.1 (additive, brand): legal/registered org name when it differs from the display name (name = display, e.g. 'Topia Press')."
+        },
+        "logo": {
+          "$ref": "#/$defs/url",
+          "description": "v1.1 (additive, brand): logo URL (schema.org Organization logo)."
+        },
+        "brandVoice": {
+          "$ref": "#/$defs/brandVoice",
+          "description": "v1.1 (additive, brand): tone matrix seed — tone + values + avoid. Per-platform voice lives in the platform skill."
+        },
+        "mission": {
+          "$ref": "#/$defs/langMap",
+          "description": "v1.1 (additive, brand): the brand's mission (schema.org Organization description)."
+        },
+        "tagline": {
+          "$ref": "#/$defs/langMap",
+          "description": "v1.1 (additive, brand): the one-line tagline (schema.org Organization slogan)."
+        },
+        "established": {
+          "$ref": "#/$defs/date",
+          "description": "v1.1 (additive, brand): founding date (schema.org Organization foundingDate)."
+        },
         "location": { "type": "string" },
         "photo": { "$ref": "#/$defs/url" },
         "links": {
@@ -333,7 +409,10 @@
         "id": { "$ref": "#/$defs/entryId" },
         "origin": { "$ref": "#/$defs/origin" },
         "name": { "type": "string", "minLength": 1 },
-        "status": { "type": "string", "enum": ["active", "maintained", "archived", "experimental", "planning"] },
+        "status": {
+          "type": "string",
+          "enum": ["active", "maintained", "archived", "experimental", "planning"]
+        },
         "description": { "$ref": "#/$defs/langMap" },
         "links": { "type": "array", "items": { "$ref": "#/$defs/url" } },
         "keywords": { "type": "array", "items": { "type": "string" } },
@@ -350,8 +429,14 @@
         "claim": { "$ref": "#/$defs/langMap" },
         "source": { "$ref": "#/$defs/url" },
         "verified": { "$ref": "#/$defs/date" },
-        "credentialId": { "$ref": "#/$defs/entryId", "description": "v1.4 (D17/§18.2): references `credentials[].id` — this claim is attested by that credential. Target resolved by core (load fails on a dangling ref)." },
-        "artifactId": { "$ref": "#/$defs/entryId", "description": "v1.4 (D17/§18.2): references `artifacts[].id` — this claim is proven by that artifact. Target resolved by core (load fails on a dangling ref)." }
+        "credentialId": {
+          "$ref": "#/$defs/entryId",
+          "description": "v1.4 (D17/§18.2): references `credentials[].id` — this claim is attested by that credential. Target resolved by core (load fails on a dangling ref)."
+        },
+        "artifactId": {
+          "$ref": "#/$defs/entryId",
+          "description": "v1.4 (D17/§18.2): references `artifacts[].id` — this claim is proven by that artifact. Target resolved by core (load fails on a dangling ref)."
+        }
       }
     },
 
@@ -365,11 +450,21 @@
         "title": { "type": "string", "minLength": 1 },
         "venue": { "type": "string", "minLength": 1 },
         "year": { "type": "integer", "minimum": 1900, "maximum": 2100 },
-        "authors": { "type": "string", "description": "v1.1: author string (e.g. 'Luciani, C.' or 'Zambrano et al.')." },
+        "authors": {
+          "type": "string",
+          "description": "v1.1: author string (e.g. 'Luciani, C.' or 'Zambrano et al.')."
+        },
         "doi": { "type": "string", "pattern": "^10\\.\\d{4,9}/\\S+$" },
         "orcidId": { "type": "string", "pattern": "^\\d{4}-\\d{4}-\\d{4}-\\d{3}[\\dX]$" },
-        "url": { "$ref": "#/$defs/url", "description": "v1.1: resolvable URL for outputs without DOI (preprint, conference abstract)." },
-        "artifactRefs": { "type": "array", "items": { "$ref": "#/$defs/entryId" }, "description": "v1.4 (D17/§18.1): references `artifacts[].id` — the dataset/code behind this paper. publications keep their domain (no duplication); targets resolved by core (load fails on a dangling ref)." }
+        "url": {
+          "$ref": "#/$defs/url",
+          "description": "v1.1: resolvable URL for outputs without DOI (preprint, conference abstract)."
+        },
+        "artifactRefs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/entryId" },
+          "description": "v1.4 (D17/§18.1): references `artifacts[].id` — the dataset/code behind this paper. publications keep their domain (no duplication); targets resolved by core (load fails on a dangling ref)."
+        }
       },
       "description": "DOI/ORCID must be resolvable — GEO citability anchor (LLMs resolve them)."
     },
@@ -400,7 +495,56 @@
       "required": ["platform", "rule", "value"],
       "properties": {
         "id": { "type": "string" },
-        "platform": { "type": "string", "enum": ["all", "github-readme", "linkedin", "upwork", "x", "researchgate", "substack", "patreon", "github-org", "bluesky", "instagram", "tiktok", "youtube", "spotify", "reddit", "mastodon", "soundcloud", "facebook", "linkedin-page", "instagram-standalone", "warpcast", "lemmy", "discord", "slack", "skool", "whop", "pinterest", "dribbble", "medium", "devto", "hashnode", "wordpress", "gmb", "listmonk", "twitch", "threads", "telegram", "nostr", "vk", "kick", "moltbook", "ghost", "mewe", "tumblr"], "description": "Dedup contract: MUST equal ['all', ...$defs/platform.enum] — scripts/schema-check asserts it (D16)."},
+        "platform": {
+          "type": "string",
+          "enum": [
+            "all",
+            "github-readme",
+            "linkedin",
+            "upwork",
+            "x",
+            "researchgate",
+            "substack",
+            "patreon",
+            "github-org",
+            "bluesky",
+            "instagram",
+            "tiktok",
+            "youtube",
+            "spotify",
+            "reddit",
+            "mastodon",
+            "soundcloud",
+            "facebook",
+            "linkedin-page",
+            "instagram-standalone",
+            "warpcast",
+            "lemmy",
+            "discord",
+            "slack",
+            "skool",
+            "whop",
+            "pinterest",
+            "dribbble",
+            "medium",
+            "devto",
+            "hashnode",
+            "wordpress",
+            "gmb",
+            "listmonk",
+            "twitch",
+            "threads",
+            "telegram",
+            "nostr",
+            "vk",
+            "kick",
+            "moltbook",
+            "ghost",
+            "mewe",
+            "tumblr"
+          ],
+          "description": "Dedup contract: MUST equal ['all', ...$defs/platform.enum] — scripts/schema-check asserts it (D16)."
+        },
         "rule": {
           "type": "string",
           "enum": [
@@ -492,7 +636,10 @@
         "platform": { "$ref": "#/$defs/platform" },
         "handle": { "type": "string", "minLength": 1 },
         "status": { "type": "string", "enum": ["claimed", "pending"] },
-        "url": { "$ref": "#/$defs/url", "description": "v1.1 (additive, brand): direct profile URL. A claimed handle should carry one, or match an identity.links entry (drift rule handle-claimed-not-linked)." },
+        "url": {
+          "$ref": "#/$defs/url",
+          "description": "v1.1 (additive, brand): direct profile URL. A claimed handle should carry one, or match an identity.links entry (drift rule handle-claimed-not-linked)."
+        },
         "note": { "type": "string" }
       },
       "description": "v1.1 (additive, brand): one row of the brand handle matrix (platform → handle + claim status). Seed source: the operator's brand-handles availability sweep (§17)."
@@ -546,11 +693,17 @@
       "properties": {
         "id": { "$ref": "#/$defs/entryId" },
         "origin": { "$ref": "#/$defs/origin" },
-        "outlet": { "anyOf": [{ "type": "string", "minLength": 1 }, { "$ref": "#/$defs/langMap" }] },
+        "outlet": {
+          "anyOf": [{ "type": "string", "minLength": 1 }, { "$ref": "#/$defs/langMap" }]
+        },
         "title": { "$ref": "#/$defs/langMap" },
         "url": { "$ref": "#/$defs/url" },
         "date": { "$ref": "#/$defs/date" },
-        "artifactRefs": { "type": "array", "items": { "$ref": "#/$defs/entryId" }, "description": "v1.4 (D17/§18.1): references `artifacts[].id` — the work behind this mention. press keeps its domain (no duplication); targets resolved by core (load fails on a dangling ref)." }
+        "artifactRefs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/entryId" },
+          "description": "v1.4 (D17/§18.1): references `artifacts[].id` — the work behind this mention. press keeps its domain (no duplication); targets resolved by core (load fails on a dangling ref)."
+        }
       },
       "description": "v1.1 (additive, brand): a media mention — outlet, headline, resolvable URL, date (verifiable claims, §8)."
     },
@@ -566,14 +719,39 @@
       "additionalProperties": false,
       "required": ["id", "kind", "title", "issuer"],
       "properties": {
-        "id": { "$ref": "#/$defs/entryId", "description": "Registry id — referenced by evidence items (`credentialId`) and renderers. Unique per block (core re-checks post-Zod: load fails on duplicates; JSON Schema cannot express uniqueness)." },
-        "kind": { "type": "string", "enum": ["certificate", "title", "award", "patent"], "description": "D17/§18.2: third-party attestation kind." },
-        "title": { "type": "string", "minLength": 1, "description": "Credential name (proper noun → invariant string, §11)." },
-        "issuer": { "type": "string", "minLength": 1, "description": "Third-party attester (proper noun → invariant string, §11)." },
-        "credentialId": { "type": "string", "minLength": 1, "description": "Issuer-side identifier (e.g. certificate serial). Certificates carry PII — visibility governs exposure (§18.5)." },
-        "verifyUrl": { "$ref": "#/$defs/url", "description": "THE verification pointer (§18.4: SSOT member — feeds badges and structured data verbatim)." },
+        "id": {
+          "$ref": "#/$defs/entryId",
+          "description": "Registry id — referenced by evidence items (`credentialId`) and renderers. Unique per block (core re-checks post-Zod: load fails on duplicates; JSON Schema cannot express uniqueness)."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["certificate", "title", "award", "patent"],
+          "description": "D17/§18.2: third-party attestation kind."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Credential name (proper noun → invariant string, §11)."
+        },
+        "issuer": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Third-party attester (proper noun → invariant string, §11)."
+        },
+        "credentialId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Issuer-side identifier (e.g. certificate serial). Certificates carry PII — visibility governs exposure (§18.5)."
+        },
+        "verifyUrl": {
+          "$ref": "#/$defs/url",
+          "description": "THE verification pointer (§18.4: SSOT member — feeds badges and structured data verbatim)."
+        },
         "issued": { "$ref": "#/$defs/date" },
-        "expires": { "$ref": "#/$defs/date", "description": "Optional → `credential-expiry` check warns when in the past (§18.8)." },
+        "expires": {
+          "$ref": "#/$defs/date",
+          "description": "Optional → `credential-expiry` check warns when in the past (§18.8)."
+        },
         "visibility": { "$ref": "#/$defs/visibility" }
       },
       "description": "v1.4 (D17, §18.2): a third-party attestation. JSON-LD payoff (§18.9): `Person.hasCredential` → `EducationalOccupationalCredential` (public only)."
@@ -584,23 +762,53 @@
       "additionalProperties": false,
       "required": ["id", "kind", "title", "locator"],
       "properties": {
-        "id": { "$ref": "#/$defs/entryId", "description": "Registry id — referenced by evidence items (`artifactId`) and publications/press (`artifactRefs`). Unique per block (core re-checks post-Zod)." },
-        "kind": { "type": "string", "enum": ["portfolio", "gallery", "showreel", "dataset", "document", "code"], "description": "D17/§18.2: work/media kind." },
-        "title": { "type": "string", "minLength": 1, "description": "Work title (proper noun → invariant string, §11)." },
+        "id": {
+          "$ref": "#/$defs/entryId",
+          "description": "Registry id — referenced by evidence items (`artifactId`) and publications/press (`artifactRefs`). Unique per block (core re-checks post-Zod)."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["portfolio", "gallery", "showreel", "dataset", "document", "code"],
+          "description": "D17/§18.2: work/media kind."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Work title (proper noun → invariant string, §11)."
+        },
         "description": { "$ref": "#/$defs/langMap" },
         "locator": {
           "type": "object",
           "additionalProperties": false,
           "oneOf": [{ "required": ["url"] }, { "required": ["path"] }],
           "properties": {
-            "url": { "$ref": "#/$defs/url", "description": "Remote pointer — emitted in renders (URL SSOT, §18.4) and live-link checked." },
-            "path": { "type": "string", "minLength": 1, "description": "In-workspace `media/…` or external under PASCO_EVIDENCE_ROOT — capability matrix (§18.3): NEVER emitted as a public URL while the workspace is private (D14); reaches public surfaces only via renderer assets/ output (M8)." }
+            "url": {
+              "$ref": "#/$defs/url",
+              "description": "Remote pointer — emitted in renders (URL SSOT, §18.4) and live-link checked."
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "description": "In-workspace `media/…` or external under PASCO_EVIDENCE_ROOT — capability matrix (§18.3): NEVER emitted as a public URL while the workspace is private (D14); reaches public surfaces only via renderer assets/ output (M8)."
+            }
           },
           "description": "Exactly one of `url` | `path` (§18.3 capability matrix). The oneOf expresses the XOR for JSON Schema consumers; the generated Zod cannot express required-without-property, so core re-checks the XOR post-Zod (D12 fail class, ledger precedent)."
         },
-        "checksum": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$", "description": "Immutable artifacts only (§18.6): recorded at compile for byte-stable bundling (M8)." },
-        "license": { "type": "string", "minLength": 1, "description": "Usage rights for the work (e.g. CC-BY-4.0)." },
-        "tags": { "type": "array", "items": { "type": "string" }, "description": "Multi-area selection (§18.9): renderers select by platform + lang + tags; one workspace, many areas." },
+        "checksum": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "description": "Immutable artifacts only (§18.6): recorded at compile for byte-stable bundling (M8)."
+        },
+        "license": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Usage rights for the work (e.g. CC-BY-4.0)."
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Multi-area selection (§18.9): renderers select by platform + lang + tags; one workspace, many areas."
+        },
         "visibility": { "$ref": "#/$defs/visibility" }
       },
       "description": "v1.4 (D17, §18.2): a work or media item. JSON-LD payoff (§18.9): surfaces as CreativeWork/ImageGallery/VideoObject/Dataset per platform (renderer-curated, D5)."

@@ -10,8 +10,8 @@
  *   3. The current directory.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
 /**
  * The workspace product name (SPEC §9 terminology) — the SSOT repo a user
@@ -19,10 +19,10 @@ import { dirname, join, resolve } from 'node:path';
  * string that names the workspace (init templates, help text) — never
  * hardcoded per file.
  */
-export const WORKSPACE_NAME = 'profile-data';
+export const WORKSPACE_NAME = "profile-data";
 
 export interface PascorcDefaults {
-  lang?: 'en' | 'es' | 'fr';
+  lang?: "en" | "es" | "fr";
   variants?: number;
 }
 
@@ -36,17 +36,17 @@ export interface Pascorc {
 export class ConfigError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'ConfigError';
+    this.name = "ConfigError";
   }
 }
 
 export function readPascorc(dir: string): { pascorc: Pascorc; pascorcPath: string } | null {
-  const pascorcPath = join(dir, '.pascorc');
+  const pascorcPath = join(dir, ".pascorc");
   if (!existsSync(pascorcPath)) {
     // Migration guard (issue #38, sota-review round 2): a legacy `.pacrc` would be
     // silently ignored — its `workspace` path and defaults would vanish. Make the
     // stale state self-announcing instead of silent (poka-yoke).
-    const legacy = join(dir, '.pacrc');
+    const legacy = join(dir, ".pacrc");
     if (existsSync(legacy)) {
       throw new ConfigError(
         `legacy .pacrc found at ${legacy} — rename it to .pascorc (the bin was renamed pac → pasco; issue #38)`,
@@ -56,7 +56,7 @@ export function readPascorc(dir: string): { pascorc: Pascorc; pascorcPath: strin
   }
   let raw: string;
   try {
-    raw = readFileSync(pascorcPath, 'utf8');
+    raw = readFileSync(pascorcPath, "utf8");
   } catch (err) {
     throw new ConfigError(`cannot read ${pascorcPath}: ${(err as Error).message}`);
   }
@@ -66,7 +66,7 @@ export function readPascorc(dir: string): { pascorc: Pascorc; pascorcPath: strin
   } catch {
     throw new ConfigError(`${pascorcPath}: invalid JSON in .pascorc`);
   }
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new ConfigError(`${pascorcPath}: .pascorc must be a JSON object`);
   }
   return { pascorc: parsed as Pascorc, pascorcPath };
@@ -98,7 +98,7 @@ export function readWorkspacePascorc(workspace: string): Pascorc {
   return found?.pascorc ?? {};
 }
 
-export function defaultsLang(pascorc: Pascorc, requested?: string): 'en' | 'es' | 'fr' {
-  if (requested !== undefined) return requested as 'en' | 'es' | 'fr';
-  return pascorc.defaults?.lang ?? 'en';
+export function defaultsLang(pascorc: Pascorc, requested?: string): "en" | "es" | "fr" {
+  if (requested !== undefined) return requested as "en" | "es" | "fr";
+  return pascorc.defaults?.lang ?? "en";
 }

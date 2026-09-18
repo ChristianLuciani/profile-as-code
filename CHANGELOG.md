@@ -9,6 +9,15 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Added
+
+- **style gate: Biome (lint + format + import order) in CI and `pnpm lint` (issue #59)** — one tool,
+  one config (`biome.json`), one command. `recommended` ruleset; non-null assertions allowed in
+  `**/tests/**` only; the four intentional control-character regexes in the markdown escaping
+  contract carry `biome-ignore` comments with reasons. CI runs `pnpm lint` before tests (fail fast).
+  One-time formatter baseline applied (whitespace-only for `schema/` + fixtures; byte-stable
+  behavior verified: 268 tests green, D3 `gen:zod` diff exit 0, schema contract self-test OK).
+
 ### Fixed
 
 - **hardening de semántica de vacío: geo alineada con empty=absent + strings planos vacíos interpolados + typing de

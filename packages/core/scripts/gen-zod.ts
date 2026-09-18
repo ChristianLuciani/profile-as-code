@@ -25,16 +25,16 @@
  * The script fails loudly (non-zero exit) if any safety assertion fails, so a schema
  * change that breaks generation is caught in CI, not silently.
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { jsonSchemaToZod } from 'json-schema-to-zod';
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { jsonSchemaToZod } from "json-schema-to-zod";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(HERE, '../../..');
-const SCHEMA_PATH = resolve(REPO_ROOT, 'schema/profile.schema.json');
-const OUT_DIR = resolve(HERE, '../src/generated');
-const OUT_PATH = resolve(OUT_DIR, 'schema.zod.ts');
+const REPO_ROOT = resolve(HERE, "../../..");
+const SCHEMA_PATH = resolve(REPO_ROOT, "schema/profile.schema.json");
+const OUT_DIR = resolve(HERE, "../src/generated");
+const OUT_PATH = resolve(OUT_DIR, "schema.zod.ts");
 
 type JsonNode = Record<string, unknown>;
 
@@ -55,14 +55,17 @@ function inlineDefs(
   if (Array.isArray(node)) {
     return node.map((item) => inlineDefs(item, defs, seen));
   }
-  if (node !== null && typeof node === 'object') {
+  if (node !== null && typeof node === "object") {
     const obj = node as JsonNode;
-    if (typeof obj.$ref === 'string') {
+    if (typeof obj.$ref === "string") {
       const match = /^#\/\$defs\/(.+)$/.exec(obj.$ref);
-      if (!match) throw new Error(`gen-zod: unsupported \$ref "${obj.$ref}" (only #/\$defs/<name> is allowed)`);
+      if (!match)
+        throw new Error(`gen-zod: unsupported $ref "${obj.$ref}" (only #/$defs/<name> is allowed)`);
       const name = match[1] as string;
-      if (!(name in defs)) throw new Error(`gen-zod: unknown \$def "${name}" referenced by ${obj.$ref}`);
-      if (seen.has(name)) throw new Error(`gen-zod: circular \$def "${name}" — inlining is not safe`);
+      if (!(name in defs))
+        throw new Error(`gen-zod: unknown $def "${name}" referenced by ${obj.$ref}`);
+      if (seen.has(name))
+        throw new Error(`gen-zod: circular $def "${name}" — inlining is not safe`);
       seen.add(name);
       const resolved = inlineDefs(clone(defs[name]), defs, seen);
       seen.delete(name);
@@ -74,7 +77,17 @@ function inlineDefs(
     // below), so the oneOf is dropped for the Zod shape and the XOR is re-checked
     // by core post-Zod (same fail-class precedent as the ledger's dropped
     // propertyNames: D12). The JSON Schema itself keeps the oneOf.
-    if ('oneOf' in obj && Array.isArray(obj.oneOf) && (obj.oneOf as JsonNode[]).every((alt) => typeof alt === 'object' && alt !== null && Object.keys(alt).length > 0 && Object.keys(alt).every((k) => k === 'required'))) {
+    if (
+      "oneOf" in obj &&
+      Array.isArray(obj.oneOf) &&
+      (obj.oneOf as JsonNode[]).every(
+        (alt) =>
+          typeof alt === "object" &&
+          alt !== null &&
+          Object.keys(alt).length > 0 &&
+          Object.keys(alt).every((k) => k === "required"),
+      )
+    ) {
       const { oneOf, ...rest } = obj;
       void oneOf;
       droppedRequiredOnlyOneOf += 1; // never silent — surfaced in the summary line. NOTE: counted per VISIT — the same def body is walked once directly in $defs and once per ref-site inlining, so the count can exceed the number of distinct oneOfs.
@@ -82,7 +95,7 @@ function inlineDefs(
     }
     // `oneOf` with no sibling keywords → `anyOf` (identical semantics for disjoint
     // primitive types; json-schema-to-zod emits a clean z.union for anyOf).
-    if ('oneOf' in obj && !('anyOf' in obj) && Object.keys(obj).length === 1) {
+    if ("oneOf" in obj && !("anyOf" in obj) && Object.keys(obj).length === 1) {
       return inlineDefs({ anyOf: obj.oneOf }, defs, seen);
     }
     const out: Record<string, unknown> = {};
@@ -102,53 +115,59 @@ function inlineDefs(
  */
 function toLangMapShape(): JsonNode {
   return {
-    type: 'object',
-    properties: { en: { type: 'string' } },
-    required: ['en'],
-    additionalProperties: { type: 'string' },
+    type: "object",
+    properties: { en: { type: "string" } },
+    required: ["en"],
+    additionalProperties: { type: "string" },
   };
 }
 
 /** Same idea for langMapList (v1.1): values are string arrays instead of strings. */
 function toLangMapListShape(): JsonNode {
   return {
-    type: 'object',
-    properties: { en: { type: 'array', items: { type: 'string' } } },
-    required: ['en'],
-    additionalProperties: { type: 'array', items: { type: 'string' } },
+    type: "object",
+    properties: { en: { type: "array", items: { type: "string" } } },
+    required: ["en"],
+    additionalProperties: { type: "array", items: { type: "string" } },
   };
 }
 
 // ---------------------------------------------------------------------------
 
-const raw = JSON.parse(readFileSync(SCHEMA_PATH, 'utf8')) as JsonNode & {
+const raw = JSON.parse(readFileSync(SCHEMA_PATH, "utf8")) as JsonNode & {
   $defs?: Record<string, unknown>;
 };
 
 const defs = raw.$defs ?? {};
-if (!defs.langMap) throw new Error('gen-zod: $defs.langMap missing from schema');
+if (!defs.langMap) throw new Error("gen-zod: $defs.langMap missing from schema");
 defs.langMap = toLangMapShape();
-if (!defs.langMapList) throw new Error('gen-zod: $defs.langMapList missing from schema (v1.1)');
+if (!defs.langMapList) throw new Error("gen-zod: $defs.langMapList missing from schema (v1.1)");
 defs.langMapList = toLangMapListShape();
 
 let droppedRequiredOnlyOneOf = 0;
 const inlined = inlineDefs(raw, defs) as JsonNode;
-const generated = jsonSchemaToZod(inlined, { module: 'esm', name: 'profileSchema', zodVersion: 4 });
+const generated = jsonSchemaToZod(inlined, { module: "esm", name: "profileSchema", zodVersion: 4 });
 
 // Safety nets — a schema change that silently breaks generation must fail CI.
-if (generated.includes('z.any()')) {
-  throw new Error('gen-zod: generated output contains z.any() — a $ref or keyword was not resolved');
+if (generated.includes("z.any()")) {
+  throw new Error(
+    "gen-zod: generated output contains z.any() — a $ref or keyword was not resolved",
+  );
 }
 
 const LANG_MAP_EXPR = 'z.object({ "en": z.string() }).catchall(z.string())';
 const langMapCount = generated.split(LANG_MAP_EXPR).length - 1;
 if (langMapCount === 0) {
-  throw new Error(`gen-zod: no langMap expression found — expected at least one "${LANG_MAP_EXPR}"`);
+  throw new Error(
+    `gen-zod: no langMap expression found — expected at least one "${LANG_MAP_EXPR}"`,
+  );
 }
 const LANG_MAP_LIST_EXPR = 'z.object({ "en": z.array(z.string()) }).catchall(z.array(z.string()))';
 const langMapListCount = generated.split(LANG_MAP_LIST_EXPR).length - 1;
 if (langMapListCount === 0) {
-  throw new Error(`gen-zod: no langMapList expression found — expected at least one "${LANG_MAP_LIST_EXPR}" (v1.1)`);
+  throw new Error(
+    `gen-zod: no langMapList expression found — expected at least one "${LANG_MAP_LIST_EXPR}" (v1.1)`,
+  );
 }
 const withKeyGuard = generated
   .split(LANG_MAP_EXPR)
@@ -189,10 +208,10 @@ const BANNER = `/**
 `;
 
 mkdirSync(OUT_DIR, { recursive: true });
-writeFileSync(OUT_PATH, `${BANNER}${withKeyGuard}${FOOTER}`, 'utf8');
+writeFileSync(OUT_PATH, `${BANNER}${withKeyGuard}${FOOTER}`, "utf8");
 console.log(
   `gen-zod: wrote ${OUT_PATH} (${langMapCount} langMap key-guards applied)` +
     (droppedRequiredOnlyOneOf > 0
       ? ` — ${droppedRequiredOnlyOneOf} required-only oneOf occurrence(s) dropped from Zod (the XOR must be re-checked in core post-Zod — D12 fail class; the JSON Schema keeps it)`
-      : ''),
+      : ""),
 );

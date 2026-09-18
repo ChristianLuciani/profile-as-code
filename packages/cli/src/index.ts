@@ -8,30 +8,34 @@
  * command that reports data.
  */
 
-import { readFileSync } from 'node:fs';
-import { parseArgs } from 'node:util';
-import { runBuild } from './commands/build.js';
-import { runCheck } from './commands/check.js';
-import { runDiff } from './commands/diff.js';
-import { runInit } from './commands/init.js';
-import { runRefine } from './commands/refine.js';
-import { runSkillsInstall } from './commands/skills-install.js';
-import { runStatus } from './commands/status.js';
-import { runValidate } from './commands/validate.js';
-import { parseFlavor, UsageError } from './contract.js';
-import { WORKSPACE_NAME } from './workspace.js';
-import { EXIT } from './exit.js';
-import { setJsonMode } from './output.js';
-import { ConfigError, readWorkspacePascorc, resolveWorkspace } from './workspace.js';
+import { readFileSync } from "node:fs";
+import { parseArgs } from "node:util";
+import { runBuild } from "./commands/build.js";
+import { runCheck } from "./commands/check.js";
+import { runDiff } from "./commands/diff.js";
+import { runInit } from "./commands/init.js";
+import { runRefine } from "./commands/refine.js";
+import { runSkillsInstall } from "./commands/skills-install.js";
+import { runStatus } from "./commands/status.js";
+import { runValidate } from "./commands/validate.js";
+import { parseFlavor, UsageError } from "./contract.js";
+import { EXIT } from "./exit.js";
+import { setJsonMode } from "./output.js";
+import {
+  ConfigError,
+  readWorkspacePascorc,
+  resolveWorkspace,
+  WORKSPACE_NAME,
+} from "./workspace.js";
 
 const VERSION = (() => {
   try {
-    const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as {
+    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
       version: string;
     };
     return pkg.version;
   } catch {
-    return '0.0.0';
+    return "0.0.0";
   }
 })();
 
@@ -69,10 +73,13 @@ interface FlagOptions {
   flavor?: string;
   mark?: string;
   at?: string;
-  'write-checklist'?: boolean;
+  "write-checklist"?: boolean;
 }
 
-function parseCommandFlags(args: string[], extra: Record<string, { type: 'string' | 'boolean' }> = {}): {
+function parseCommandFlags(
+  args: string[],
+  extra: Record<string, { type: "string" | "boolean" }> = {},
+): {
   flags: FlagOptions;
   positionals: string[];
 } {
@@ -82,9 +89,9 @@ function parseCommandFlags(args: string[], extra: Record<string, { type: 'string
     const parsed = parseArgs({
       args,
       options: {
-        workspace: { type: 'string' },
-        json: { type: 'boolean' },
-        help: { type: 'boolean', short: 'h' },
+        workspace: { type: "string" },
+        json: { type: "boolean" },
+        help: { type: "boolean", short: "h" },
         ...extra,
       },
       allowPositionals: true,
@@ -123,7 +130,7 @@ content/active.yaml. No LLM call, no hub.`,
   check: `pasco check [platform] [--json] [--workspace <path>]
 STUB: lists the user checks declared in content/checks.yaml (schema-validated
 catalog). Rule execution ships with M3 (skills checks.yaml union) + M4.`,
-  'skills:install': `pasco skills:install <agent>
+  "skills:install": `pasco skills:install <agent>
 STUB: prints the skills-studio projection command for <agent> (pi|claude|aionui|opencode).
 Projection is the skills-studio job (AGOS), not implemented in M1.`,
   status: `pasco status [platform] [--mark <ledgerKey> <surface>] [--at <iso8601>] [--write-checklist] [--json] [--workspace <path>]
@@ -140,7 +147,7 @@ surfaces published · sync state (in-sync / stale / never) — plus untracked ro
 function runMain(): number {
   const argv = process.argv.slice(2);
   if (argv.length === 0) {
-    process.stderr.write(GLOBAL_HELP + '\n');
+    process.stderr.write(`${GLOBAL_HELP}\n`);
     return EXIT.USAGE;
   }
 
@@ -148,23 +155,24 @@ function runMain(): number {
   const rest = argv.slice(1);
 
   switch (command) {
-    case '--help':
-    case '-h':
-    case 'help':
-      process.stdout.write(GLOBAL_HELP + '\n');
+    case "--help":
+    case "-h":
+    case "help":
+      process.stdout.write(`${GLOBAL_HELP}\n`);
       return EXIT.OK;
-    case '--version':
-    case '-v':
-    case 'version':
+    case "--version":
+    case "-v":
+    case "version":
       process.stdout.write(`pasco ${VERSION}\n`);
       return EXIT.OK;
-    case 'init': {
-      const { flags, positionals } = parseCommandFlags(rest, { flavor: { type: 'string' } });
+    case "init": {
+      const { flags, positionals } = parseCommandFlags(rest, { flavor: { type: "string" } });
       if (flags.help === true) {
-        process.stdout.write(COMMAND_HELP.init + '\n');
+        process.stdout.write(`${COMMAND_HELP.init}\n`);
         return EXIT.OK;
       }
-      if (positionals.length > 1) throw new UsageError('usage: pasco init [dir] [--flavor person|brand]');
+      if (positionals.length > 1)
+        throw new UsageError("usage: pasco init [dir] [--flavor person|brand]");
       setJsonMode(flags.json === true);
       return runInit({
         cwd: process.cwd(),
@@ -172,24 +180,26 @@ function runMain(): number {
         ...(flags.flavor !== undefined ? { flavor: parseFlavor(flags.flavor) } : {}),
       });
     }
-    case 'validate': {
+    case "validate": {
       const { flags, positionals } = parseCommandFlags(rest);
       if (flags.help === true) {
-        process.stdout.write(COMMAND_HELP.validate + '\n');
+        process.stdout.write(`${COMMAND_HELP.validate}\n`);
         return EXIT.OK;
       }
-      if (positionals.length > 0) throw new UsageError('usage: pasco validate [--json] [--workspace <path>]');
+      if (positionals.length > 0)
+        throw new UsageError("usage: pasco validate [--json] [--workspace <path>]");
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       return runValidate({ workspace });
     }
-    case 'build': {
-      const { flags, positionals } = parseCommandFlags(rest, { lang: { type: 'string' } });
+    case "build": {
+      const { flags, positionals } = parseCommandFlags(rest, { lang: { type: "string" } });
       if (flags.help === true) {
-        process.stdout.write(COMMAND_HELP.build + '\n');
+        process.stdout.write(`${COMMAND_HELP.build}\n`);
         return EXIT.OK;
       }
-      if (positionals.length > 1) throw new UsageError('usage: pasco build [platform] [--lang <l>] [--json]');
+      if (positionals.length > 1)
+        throw new UsageError("usage: pasco build [platform] [--lang <l>] [--json]");
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       const pascorc = readWorkspacePascorc(workspace);
@@ -200,29 +210,33 @@ function runMain(): number {
         pascorc,
       });
     }
-    case 'diff': {
+    case "diff": {
       const { flags, positionals } = parseCommandFlags(rest);
       if (flags.help === true) {
-        process.stdout.write(COMMAND_HELP.diff + '\n');
+        process.stdout.write(`${COMMAND_HELP.diff}\n`);
         return EXIT.OK;
       }
-      if (positionals.length > 0) throw new UsageError('usage: pasco diff [--json] [--workspace <path>]');
+      if (positionals.length > 0)
+        throw new UsageError("usage: pasco diff [--json] [--workspace <path>]");
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       const pascorc = readWorkspacePascorc(workspace);
       return runDiff({ workspace, pascorc });
     }
-    case 'refine': {
+    case "refine": {
       const { flags, positionals } = parseCommandFlags(rest, {
-        lang: { type: 'string' },
-        variants: { type: 'string' },
-        choose: { type: 'string' },
+        lang: { type: "string" },
+        variants: { type: "string" },
+        choose: { type: "string" },
       });
       if (flags.help === true) {
-        process.stdout.write(COMMAND_HELP.refine + '\n');
+        process.stdout.write(`${COMMAND_HELP.refine}\n`);
         return EXIT.OK;
       }
-      if (positionals.length > 1) throw new UsageError('usage: pasco refine <platform> [--lang <l>] [--variants N] [--choose <id>]');
+      if (positionals.length > 1)
+        throw new UsageError(
+          "usage: pasco refine <platform> [--lang <l>] [--variants N] [--choose <id>]",
+        );
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       const pascorc = readWorkspacePascorc(workspace);
@@ -235,32 +249,33 @@ function runMain(): number {
         pascorc,
       });
     }
-    case 'check': {
+    case "check": {
       const { flags, positionals } = parseCommandFlags(rest);
       if (flags.help === true) {
-        process.stdout.write(COMMAND_HELP.check + '\n');
+        process.stdout.write(`${COMMAND_HELP.check}\n`);
         return EXIT.OK;
       }
-      if (positionals.length > 1) throw new UsageError('usage: pasco check [platform] [--json] [--workspace <path>]');
+      if (positionals.length > 1)
+        throw new UsageError("usage: pasco check [platform] [--json] [--workspace <path>]");
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       return runCheck({ workspace, platformArg: positionals[0] });
     }
-    case 'status': {
+    case "status": {
       const { flags, positionals } = parseCommandFlags(rest, {
-        mark: { type: 'string' },
-        at: { type: 'string' },
-        'write-checklist': { type: 'boolean' },
+        mark: { type: "string" },
+        at: { type: "string" },
+        "write-checklist": { type: "boolean" },
       });
       if (flags.help === true) {
-        process.stdout.write(COMMAND_HELP.status + '\n');
+        process.stdout.write(`${COMMAND_HELP.status}\n`);
         return EXIT.OK;
       }
       if (flags.mark !== undefined && positionals.length !== 1) {
-        throw new UsageError('usage: pasco status --mark <ledgerKey> <surface> [--at <iso8601>]');
+        throw new UsageError("usage: pasco status --mark <ledgerKey> <surface> [--at <iso8601>]");
       }
       if (flags.mark === undefined && positionals.length > 1) {
-        throw new UsageError('usage: pasco status [platform] [--write-checklist] [--json]');
+        throw new UsageError("usage: pasco status [platform] [--write-checklist] [--json]");
       }
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
@@ -269,21 +284,23 @@ function runMain(): number {
         platformArg: positionals[0],
         markKey: flags.mark,
         markAt: flags.at,
-        writeChecklist: flags['write-checklist'],
+        writeChecklist: flags["write-checklist"],
       });
     }
-    case 'skills:install': {
+    case "skills:install": {
       const { flags, positionals } = parseCommandFlags(rest);
       if (flags.help === true) {
-        process.stdout.write(COMMAND_HELP['skills:install'] + '\n');
+        process.stdout.write(`${COMMAND_HELP["skills:install"]}\n`);
         return EXIT.OK;
       }
-      if (positionals.length > 1) throw new UsageError('usage: pasco skills:install <agent>');
+      if (positionals.length > 1) throw new UsageError("usage: pasco skills:install <agent>");
       setJsonMode(flags.json === true);
       return runSkillsInstall({ agent: positionals[0] });
     }
     default:
-      throw new UsageError(`unknown command "${command}" — run "pasco --help" for the command list`);
+      throw new UsageError(
+        `unknown command "${command}" — run "pasco --help" for the command list`,
+      );
   }
 }
 

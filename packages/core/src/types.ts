@@ -11,63 +11,76 @@
  * guaranteed to be defined (empty arrays when absent in the workspace).
  */
 
-import type { profileSchema } from './generated/schema.zod.js';
+import type { profileSchema } from "./generated/schema.zod.js";
 
 /** The profile as defined by the contract (schema/profile.schema.json). */
-export type Profile = import('zod').z.infer<typeof profileSchema>;
+export type Profile = import("zod").z.infer<typeof profileSchema>;
 
 /** Workspace flavor (D15, §17): person (default) or brand. */
-export type Flavor = NonNullable<Profile['flavor']>;
+export type Flavor = NonNullable<Profile["flavor"]>;
 
 /** Normalized profile: array properties are always defined (empty when absent). */
 export type LoadedProfile = Omit<
   Profile,
-  'bios' | 'headlines' | 'skills' | 'experience' | 'projects' | 'publications' | 'checks' | 'socialHandles' | 'press' | 'education' | 'languages' | 'deployments' | 'credentials' | 'artifacts'
+  | "bios"
+  | "headlines"
+  | "skills"
+  | "experience"
+  | "projects"
+  | "publications"
+  | "checks"
+  | "socialHandles"
+  | "press"
+  | "education"
+  | "languages"
+  | "deployments"
+  | "credentials"
+  | "artifacts"
 > & {
   flavor: Flavor;
-  bios: NonNullable<Profile['bios']>;
-  headlines: NonNullable<Profile['headlines']>;
-  skills: NonNullable<Profile['skills']>;
-  experience: NonNullable<Profile['experience']>;
-  projects: NonNullable<Profile['projects']>;
-  publications: NonNullable<Profile['publications']>;
-  checks: NonNullable<Profile['checks']>;
-  socialHandles: NonNullable<Profile['socialHandles']>;
-  press: NonNullable<Profile['press']>;
-  education: NonNullable<Profile['education']>;
-  languages: NonNullable<Profile['languages']>;
-  deployments: NonNullable<Profile['deployments']>;
-  credentials: NonNullable<Profile['credentials']>;
-  artifacts: NonNullable<Profile['artifacts']>;
+  bios: NonNullable<Profile["bios"]>;
+  headlines: NonNullable<Profile["headlines"]>;
+  skills: NonNullable<Profile["skills"]>;
+  experience: NonNullable<Profile["experience"]>;
+  projects: NonNullable<Profile["projects"]>;
+  publications: NonNullable<Profile["publications"]>;
+  checks: NonNullable<Profile["checks"]>;
+  socialHandles: NonNullable<Profile["socialHandles"]>;
+  press: NonNullable<Profile["press"]>;
+  education: NonNullable<Profile["education"]>;
+  languages: NonNullable<Profile["languages"]>;
+  deployments: NonNullable<Profile["deployments"]>;
+  credentials: NonNullable<Profile["credentials"]>;
+  artifacts: NonNullable<Profile["artifacts"]>;
 };
 
-export type Identity = NonNullable<Profile['identity']>;
-export type Bio = NonNullable<Profile['bios']>[number];
-export type Headline = NonNullable<Profile['headlines']>[number];
-export type Skill = NonNullable<Profile['skills']>[number];
-export type ExperienceItem = NonNullable<Profile['experience']>[number];
-export type Project = NonNullable<Profile['projects']>[number];
-export type Publication = NonNullable<Profile['publications']>[number];
-export type SocialHandle = NonNullable<Profile['socialHandles']>[number];
-export type Newsletter = NonNullable<Profile['newsletter']>;
-export type Podcast = NonNullable<Profile['podcast']>;
-export type PressItem = NonNullable<Profile['press']>[number];
-export type BrandVoice = NonNullable<Identity['brandVoice']>;
-export type ActiveEntry = NonNullable<Profile['active']>[string];
+export type Identity = NonNullable<Profile["identity"]>;
+export type Bio = NonNullable<Profile["bios"]>[number];
+export type Headline = NonNullable<Profile["headlines"]>[number];
+export type Skill = NonNullable<Profile["skills"]>[number];
+export type ExperienceItem = NonNullable<Profile["experience"]>[number];
+export type Project = NonNullable<Profile["projects"]>[number];
+export type Publication = NonNullable<Profile["publications"]>[number];
+export type SocialHandle = NonNullable<Profile["socialHandles"]>[number];
+export type Newsletter = NonNullable<Profile["newsletter"]>;
+export type Podcast = NonNullable<Profile["podcast"]>;
+export type PressItem = NonNullable<Profile["press"]>[number];
+export type BrandVoice = NonNullable<Identity["brandVoice"]>;
+export type ActiveEntry = NonNullable<Profile["active"]>[string];
 
 /** v1.3 (D18, §19.1): one confirmed deploy of a trackable unit on one surface. */
-export type DeploymentRecord = NonNullable<NonNullable<Profile['deployments']>[string]>[string];
+export type DeploymentRecord = NonNullable<NonNullable<Profile["deployments"]>[string]>[string];
 /** v1.3 (D18, §19): the ledger — ledgerKey → surface → record. */
-export type Deployments = NonNullable<Profile['deployments']>;
+export type Deployments = NonNullable<Profile["deployments"]>;
 
 /** v1.4 (D17, §18.2): one third-party attestation (certificate/title/award/patent). */
-export type Credential = NonNullable<Profile['credentials']>[number];
+export type Credential = NonNullable<Profile["credentials"]>[number];
 /** v1.4 (D17, §18.2): one work/media item (portfolio/gallery/showreel/dataset/document/code). */
-export type Artifact = NonNullable<Profile['artifacts']>[number];
+export type Artifact = NonNullable<Profile["artifacts"]>[number];
 
-export type Lang = Bio['lang'];
-export type Platform = Bio['platform'];
-export type BioLength = Bio['length'];
+export type Lang = Bio["lang"];
+export type Platform = Bio["platform"];
+export type BioLength = Bio["length"];
 export type LangMap = Record<Lang, string>;
 
 /** The langMap shape as generated by gen-zod: `en` required + string catchall. */
@@ -79,8 +92,8 @@ export type GeneratedLangMap = { en: string } & Record<string, string>;
  * Proper nouns (org, institution, venue) are never langMap — pass them directly (SPEC §11).
  */
 export function textOf(v: string | GeneratedLangMap | undefined): string {
-  if (v == null) return '';
-  return typeof v === 'string' ? v : (v.en ?? '');
+  if (v == null) return "";
+  return typeof v === "string" ? v : (v.en ?? "");
 }
 
 /** The platform set — mirrors the schema enum (never hand-maintained here).
@@ -88,61 +101,61 @@ export function textOf(v: string | GeneratedLangMap | undefined): string {
  *  extras (D16) — enforced by the vitest contract test (tests/contract.test.ts). */
 export const PLATFORMS: readonly Platform[] = [
   // v1 person surfaces
-  'github-readme',
-  'linkedin',
-  'upwork',
-  'x',
-  'researchgate',
-  'substack',
-  'patreon',
+  "github-readme",
+  "linkedin",
+  "upwork",
+  "x",
+  "researchgate",
+  "substack",
+  "patreon",
   // v1.1 brand surfaces (D15/§17)
-  'github-org',
-  'bluesky',
-  'instagram',
-  'tiktok',
-  'youtube',
-  'spotify',
-  'reddit',
-  'mastodon',
-  'soundcloud',
+  "github-org",
+  "bluesky",
+  "instagram",
+  "tiktok",
+  "youtube",
+  "spotify",
+  "reddit",
+  "mastodon",
+  "soundcloud",
   // v1.2 Postiz parity + operator extras (D16)
-  'facebook',
-  'linkedin-page',
-  'instagram-standalone',
-  'warpcast',
-  'lemmy',
-  'discord',
-  'slack',
-  'skool',
-  'whop',
-  'pinterest',
-  'dribbble',
-  'medium',
-  'devto',
-  'hashnode',
-  'wordpress',
-  'gmb',
-  'listmonk',
-  'twitch',
-  'threads',
-  'telegram',
-  'nostr',
-  'vk',
-  'kick',
-  'moltbook',
-  'ghost',
-  'mewe',
-  'tumblr',
+  "facebook",
+  "linkedin-page",
+  "instagram-standalone",
+  "warpcast",
+  "lemmy",
+  "discord",
+  "slack",
+  "skool",
+  "whop",
+  "pinterest",
+  "dribbble",
+  "medium",
+  "devto",
+  "hashnode",
+  "wordpress",
+  "gmb",
+  "listmonk",
+  "twitch",
+  "threads",
+  "telegram",
+  "nostr",
+  "vk",
+  "kick",
+  "moltbook",
+  "ghost",
+  "mewe",
+  "tumblr",
 ] as const;
 
-export const LANGS: readonly Lang[] = ['en', 'es', 'fr'] as const;
+export const LANGS: readonly Lang[] = ["en", "es", "fr"] as const;
 
 /** Every drift finding is a warning (D12): facts warn, schema fails. */
 export interface Issue {
   /** Stable machine-readable code, e.g. `drift/date-range-inverted`. */
   code: string;
   /** Always `warn` in v1 (D12). Reserved so a future `error` severity can be added without breaking consumers. */
-  severity: 'warn';
+  severity: "warn";
   /** Human-readable explanation in EN (docs convention, D8). */
   message: string;
   /** Dot-path into the profile where the problem lives, e.g. `experience[1]`. */
@@ -172,7 +185,7 @@ export interface GeoSection {
 
 export interface StructuredDataReadiness {
   /** schema.org entity emitted: `Person` (default) or `Organization` (brand flavor, D15/§17). */
-  entityType: 'Person' | 'Organization';
+  entityType: "Person" | "Organization";
   /** True when a schema.org JSON-LD can be emitted by the web renderer. */
   ready: boolean;
   /** Share of the considered fields that are populated (0..1). */
@@ -194,8 +207,8 @@ export interface StructuredDataReadiness {
   };
   /** Ready-to-embed JSON-LD (web renderer consumes it). */
   jsonLd?: {
-    '@context': 'https://schema.org';
-    '@type': 'Person' | 'Organization';
+    "@context": "https://schema.org";
+    "@type": "Person" | "Organization";
     name: string;
     sameAs: string[];
     image?: string;
@@ -214,10 +227,10 @@ export interface StructuredDataReadiness {
 
 /** schema.org EducationalOccupationalCredential emitted from a public credential (§18.9). */
 export interface EducationalOccupationalCredentialLd {
-  '@type': 'EducationalOccupationalCredential';
+  "@type": "EducationalOccupationalCredential";
   name?: string;
   url?: string;
-  awardedBy?: { '@type': 'Organization'; name: string };
+  awardedBy?: { "@type": "Organization"; name: string };
   /** From `issued` (§18.2). */
   validFrom?: string;
   /** From `expires` (§18.2). */
@@ -277,7 +290,7 @@ export interface PlatformProfile {
   press: PressItem[];
   brandAudiences: Record<string, string>;
   /** User checks targeting this platform (platform `all` included). */
-  checks: NonNullable<Profile['checks']>;
+  checks: NonNullable<Profile["checks"]>;
   /** Evidence registry (v1.4/D17, §18) — facts, pass through untouched; renderers
    *  emit only `visibility: public` entries (§18.5). */
   credentials: Credential[];
