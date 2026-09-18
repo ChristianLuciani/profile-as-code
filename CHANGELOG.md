@@ -23,7 +23,8 @@ minor versions may contain breaking contract changes.
   `useLiteralKeys`) are opt-in via `pnpm lint:fix:unsafe` and the resulting diff is reviewable.
   One-time formatter baseline applied
   (whitespace-only for `schema/` + fixtures; byte-stable behavior verified: 268 tests green, D3
-  `gen:zod` diff exit 0, schema contract self-test OK).
+  `gen:zod` diff exit 0, schema contract self-test OK). Rationale and revisit triggers:
+  `docs/ci-cd.md` §Why Biome.
 
 ### Fixed
 
