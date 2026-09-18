@@ -13,7 +13,8 @@
     "test": "pnpm -r build && pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "lint": "biome check .",
-    "lint:fix": "biome check --write --unsafe .",
+    "lint:fix": "biome check --write .",
+    "lint:fix:unsafe": "biome check --write --unsafe .",
     "format": "biome format --write .",
     "gen:zod": "pnpm -F @profile-as-code/core gen:zod"
   },

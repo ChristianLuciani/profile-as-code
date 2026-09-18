@@ -18,7 +18,10 @@ minor versions may contain breaking contract changes.
   tests and off under `**/tests/**` (where `arr[0]!` is idiomatic) — both sides verified by
   flipping the rule red/green. The four intentional control-character regexes in the markdown
   escaping contract carry `biome-ignore` comments with reasons. Scope: Biome does not do type-aware
-  linting — `pnpm typecheck` stays the type gate. One-time formatter baseline applied
+  linting — `pnpm typecheck` stays the type gate. Fix scripts are risk-split: `pnpm lint:fix` applies
+  **safe** fixes only; Biome's *unsafe* fixes (semantics-adjacent, e.g. `useTemplate`,
+  `useLiteralKeys`) are opt-in via `pnpm lint:fix:unsafe` and the resulting diff is reviewable.
+  One-time formatter baseline applied
   (whitespace-only for `schema/` + fixtures; byte-stable behavior verified: 268 tests green, D3
   `gen:zod` diff exit 0, schema contract self-test OK).
 

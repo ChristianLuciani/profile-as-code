@@ -44,7 +44,8 @@ pnpm test          # all workspace tests
 pnpm build         # type-checked build
 pnpm typecheck     # tsc --noEmit
 pnpm lint          # style gate (Biome: lint + format + import order)
-pnpm lint:fix      # auto-fix lint + formatting
+pnpm lint:fix      # auto-fix (safe fixes only — never changes semantics)
+pnpm lint:fix:unsafe  # opt-in: also apply Biome's *unsafe* fixes (review the diff)
 pnpm format        # reformat only
 
 # contract self-test (also runs in CI)
