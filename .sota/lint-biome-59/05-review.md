@@ -110,22 +110,109 @@ F1 repro flipped from exit 0 to exit 1 on the src case while the test case staye
 
 ## Fresh-context reconcile
 
-_Pending — step 9 hands this to `premerge-review` in a new, clean session. The fresh session
-receives only the PR and the issue (never these findings). Findings will be classified here as
-contract misread / valid+actionable / valid trade-off / noise, with actions and accepted risks._
+Round 2. The fresh session received only the PR and the issue (never these findings) and returned
+**PASS-CON-RIESGOS** (informative). Each finding was re-verified here against the diff before
+classification — no rubber-stamping either way.
 
-## Step 9 — hand to a fresh session (operator action)
+### 1. Valid + actionable — F1 (MAJOR): the gate was absent from three contributor surfaces
+
+**Confirmed by re-reading the files** (not accepted on the reviewer's word): `README.md`
+"Arranque (dev)" listed install/test/build/typecheck/gen:zod and no lint;
+`.github/pull_request_template.md` DoD said "schema contract self-test + `pnpm test` / `pnpm build`";
+`docs/ci-cd.md` §CI described `install → test → build` with no Lint step.
+
+**My Pass 3 claim ("Doc surfaces agree with each other and with CI order") was false for them.**
+Recorded as a self-inflicted review error: I audited the surfaces I had edited and never checked the
+surfaces that describe the same pipeline. The seam was real and my own pass missed it — the fresh
+pass earned its place.
+
+**Fixed** (round-2 commit): lint added to README, PR template and `docs/ci-cd.md`; the §CI pipeline
+now matches `ci.yml` step-for-step. While rewriting that sentence, two **pre-existing** omissions in
+the same sentence were also corrected (D3 freshness step, tarball bin check) — declared, not
+smuggled, because a description that omits two real steps is the same defect class as F1.
+
+### 2. Valid + actionable — F2 (NIT): `lint:fix` applied unsafe fixes silently
+
+**Confirmed**: `biome check --write .` (safe) does not produce the `useTemplate` / `useLiteralKeys`
+transforms; only `--unsafe` does. A script named `lint:fix` doing that repo-wide is a footgun.
+**Fixed**: `lint:fix` = `--write` (safe), `lint:fix:unsafe` = `--write --unsafe` (opt-in, review the
+diff); CONTRIBUTING and CHANGELOG updated. Verified by repro: `lint:fix` leaves a `useTemplate`
+candidate in place and exits 0; the unsafe script then applies it.
+
+### 3. Pre-existing drift the reviewer flagged as a note, not a finding → corrected, declared
+
+`docs/ci-cd.md` said "6 fixtures" where **13** exist (verified by `ls`; present on `main` too, so not
+introduced here). `#55` — the closed doc-honesty sweep that would normally be the home for this —
+has no open successor, so a one-word factual error in the very list this round rewrites was
+corrected in passing and declared in the PR body. Escalation of a non-finding to a declared fix is
+recorded here so the decision is visible, not silent.
+
+### 4. Noise / contract context — none substantive
+
+The reviewer explicitly did **not** pass judgment on the tool choice (Biome vs eslint) or on
+`--error-on-warnings`, correctly treating both as maintainer decisions already declared. Their
+stated limits (no Python review, `pnpm-lock.yaml` not read line-by-line) are consistent with the
+NITs already recorded. Their self-declared method note — that they read the PR body and treated my
+narrative as *claims to refute*, and only opened this file after forming F1/F2 — is the intended
+doubt discipline working.
+
+### Corroborations (the reviewer's own "could not refute" list)
+
+Independently reproduced, not merely accepted: JSON is parsed-equal (not text-normalized);
+**76 tracked lintable = 76 checked**; the gate really goes red (format, rule, and — newly tested
+here — **import-order**: inverted imports → exit 1 with 2 `organizeImports` diagnostics, which
+closes a hole in our Pass 2, since Pass 2 only proved the sorter could not reorder side-effect
+imports, never that it gated); `preset: "recommended"` is a valid 2.5.14 key; all 4 `biome-ignore`
+suppressions are live; no imports lost base→head; functional end-to-end green (268 tests,
+typecheck, `gen:zod` byte-identical, schema self-test OK).
+
+Their strongest corroboration is one this file could not self-produce: reconstructing
+`base + biome check --write --unsafe` and diffing byte-for-byte against this head, leaving
+**exactly** the 3 `LoadedProfile` annotations, the 4 `biome-ignore` comments and the config/doc
+files as the only non-formatter edits. That is the independent check that no semantic edit hid
+inside the baseline — now on record as evidence, not assumption.
+
+### Loop bound
+
+Two in-session rounds (round 1 MAJOR, round 2 MAJOR+NIT) plus one fresh pass; zero unresolved
+BLOCKERs; the fresh report's residual items are one NIT fixed and one pre-existing note fixed. Per
+step 11 the gate is met — no third cycle warranted.
+
+**Doubt-theater check (step 12):** the pipeline produced actionable findings in both directions —
+F1 round 1 (documented enforcement that did not exist) and F1 round 2 (contributor surfaces the
+authoring pass claimed were coherent). Not an always-green pipeline.
+
+## Final gate — fresh pass 1 reconciled; pass 2 requested on the corrected head
+
+**Fresh pass 1** (fresh session, read-only, PR-only context) reviewed head `6756395` and returned
+PASS-CON-RIESGOS with 1 MAJOR + 1 NIT — both classified **valid + actionable** and fixed above.
+
+**The corrected head has NOT been fresh-reviewed.** That delta is: three doc surfaces, one
+`package.json` script split, the fixture count, and this file. No gate semantics changed except
+`lint:fix` becoming safe-by-default — which *is* the finding the fresh pass requested, so a second
+pass would largely re-review its own recommendation. Asked anyway, because the gate should validate
+the artifact that actually merges, and the delta is cheap to read.
+
+**Operator action — one final fresh pass on the corrected head:**
 
 ```text
-Pre-merge fresh-context review requested.
+Pre-merge fresh-context review requested (pass 2, final).
 Open a new, clean session and paste:
-  "Run premerge-review on https://github.com/ChristianLuciani/profile-as-code/pull/88. The PR is not yet merged.
-   Review READ-ONLY — no worktree/branch/commit, text output only."
-Then bring the formatted report back here; I (the authoring session) will reconcile its findings
-and apply the fixes to the branch.
+  "Run premerge-review on https://github.com/ChristianLuciani/profile-as-code/pull/88 at its current head.
+   Review READ-ONLY — no worktree/branch/commit, text output only.
+   The delta since pass 1 covers only docs (README, PR template, docs/ci-cd.md), a package.json
+   script split (lint:fix safe / lint:fix:unsafe opt-in) and .sota review notes; the gate semantics
+   themselves are unchanged except that split."
+Then bring the report back here; I will reconcile it in this file and apply any valid fix.
 ```
 
-**Re-entry path for post-testing feedback** (recorded per step 8): small findings →
-correction task blocks appended here and applied on this branch; large ones → a fresh
-`/sota-workflow` round for the next lint/quality increment (e.g. type-aware linting or a Python
-linter, both deliberately out of scope for #59).
+**Loop bound (step 11):** pass 2 is the last cycle this phase will run. If it returns a substantive
+BLOCKER, it escalates to the operator rather than starting a third round — two unresolved fresh
+rounds are information about the artifact, not a reason to keep looping. If it returns only NITs,
+the gate is met and the PR is merge-ready for the maintainer.
+
+**Re-entry path for post-merge/testing feedback** (recorded per step 8): small findings → correction
+blocks applied on this branch (or a follow-up PR if already merged); large ones → a fresh
+`/sota-workflow` round for the next lint/quality increment — type-aware linting, a Python linter, or
+`--error-on-warnings` — all deliberately out of scope for #59 and left as open decisions for the
+maintainer.
