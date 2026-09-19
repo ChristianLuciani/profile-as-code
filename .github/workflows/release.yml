@@ -1,6 +1,7 @@
 name: release
 
-# Publishes @profile-as-code/cli to npm on a version tag (issue #42).
+# Publishes @profile-as-code/cli to npm on a version tag (issue #42) and creates the
+# matching GitHub Release from CHANGELOG.md (issue #58).
 # Provenance: id-token: write (OIDC) + repository field in packages/cli/package.json
 # (issue #43). The FIRST tag push (v0.1.0) is the operator's publish action —
 # pushing the tag IS publishing (issue #44); workflow_dispatch is for retries.
@@ -25,6 +26,9 @@ permissions:
   contents: read
   id-token: write # npm provenance (OIDC)
 
+# The `release` job narrows/overrides these with `contents: write` (gh release
+# create) — scoped to that one job so the publish job keeps read-only contents.
+
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -32,6 +36,11 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Exposed so the release job can build its page from the SAME verified commit
+    # (issue #58) — a release page must describe the artifact that shipped.
+    outputs:
+      tag: ${{ steps.guard.outputs.tag }}
+      commit: ${{ steps.guard.outputs.commit }}
     steps:
       # fetch-depth: 0 — the guard compares the tagged commit against the default
       # branch tip, and ancestry is not computable from a shallow clone.
@@ -94,6 +103,17 @@ jobs:
       - name: Verify tarball exposes bin pasco
         run: pnpm --filter @profile-as-code/cli verify:pack
 
+      # The `release` job (below) builds the GitHub Release from this version's
+      # CHANGELOG.md section. Validate it BEFORE the irreversible publish: npm
+      # cannot be un-published, so discovering a missing section afterwards would
+      # leave the version consumed with an empty tag page — the exact symptom #58
+      # removes (review finding on #58).
+      - if: steps.guard.outputs.tag != ''
+        name: Verify release notes exist for this version
+        env:
+          TAG: ${{ steps.guard.outputs.tag }}
+        run: node packages/cli/scripts/release-notes.mjs --version "${TAG#v}"
+
       # Provenance requires a public source repo ([WEB] GitHub Changelog
       # 2023-07-25); v0.1.0 is tagged while the repo is still private (issue #44
       # decision a), so it publishes without --provenance. Once flipped, the
@@ -111,3 +131,46 @@ jobs:
         working-directory: packages/cli
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # GitHub Release (issue #58). "Published to npm" and "a release page exists" are
+  # two different facts: before this job the tag page was empty and STANDARDS.md
+  # item 3 could not be signed off. Runs AFTER publish on purpose — a release page
+  # announcing a version that never reached npm would be worse than a late page.
+  release:
+    needs: publish
+    # Gate on the guard's output, not on `inputs`: on a dry run the guard emits
+    # no tag, so there is nothing to announce. Avoids depending on the `inputs`
+    # context in a `push` run (an assumption the fresh-context review flagged as
+    # never exercised — there is no `v*` tag yet).
+    if: needs.publish.outputs.tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # gh release create — scoped to this job, not the publish job
+    steps:
+      # Same commit the publish job built: the notes must describe the artifact.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.publish.outputs.commit }}
+          fetch-depth: 0
+
+      # The CHANGELOG heading is `## [0.1.0]` while the tag is `v0.1.0`.
+      - name: Extract release notes from CHANGELOG.md
+        env:
+          TAG: ${{ needs.publish.outputs.tag }}
+        run: node packages/cli/scripts/release-notes.mjs --version "${TAG#v}" --output "$RUNNER_TEMP/notes.md"
+
+      # Idempotent: a workflow_dispatch retry may run after the page already
+      # exists (#81's retry path) — updating is a separate, deliberate act.
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.publish.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — leaving it untouched (idempotent retry)."
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes-file "$RUNNER_TEMP/notes.md" \
+              --verify-tag
+          fi

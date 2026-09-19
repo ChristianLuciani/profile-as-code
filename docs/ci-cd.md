@@ -94,12 +94,48 @@ and can be run by hand: `pnpm --filter @profile-as-code/cli guard:release --help
 private source repo); once publishing moves to OIDC trusted publishing, the flag
 disappears entirely (see #80).
 
+After a successful publish, the `release` job creates the matching **GitHub
+Release** (issue #58): it checks out the same verified commit, extracts that
+version's section from `CHANGELOG.md` with
+`packages/cli/scripts/release-notes.mjs` (exercised by
+`packages/cli/tests/release-notes.test.ts`), and runs `gh release create
+"v<version>" --notes-file … --verify-tag`. Because `npm publish` is irreversible,
+the `publish` job runs the same extractor **before** the publish step, so a
+missing/empty section blocks the publish instead of leaving a consumed version
+with an empty tag page. The job is deliberately **separate and ordered after**
+`publish` (a release page for a version that never reached npm would be worse than
+a late one) and **idempotent** (a `workflow_dispatch` retry leaves an existing page
+untouched). `contents: write` is granted to that job only, not to the publish job.
+Attaching the packed tarball is intentionally out of scope: the issue marks it
+optional and `verify:pack` already asserts the tarball's bin before any publish.
+
+### Preparing a release (do this before tagging)
+
+The Release page's notes are the `## [<version>]` section of `CHANGELOG.md`. The
+pre-publish step validates that the section **exists and is non-empty** — it cannot
+know whether it is *complete*, so this preparation is a human step:
+
+1. Bump `packages/cli/package.json` `version` (the tag must equal it — enforced by
+   the release guard).
+2. Move the release-worthy `[Unreleased]` entries under a new
+   `## [<version>] - <date>` heading; keep forward-looking `### Planned` items under
+   `[Unreleased]`.
+3. Commit that preparation to `main`, then `git tag v<version> && git push --tags`.
+
+Tagging with a stale `[Unreleased]` still produces a page — just one that omits what
+shipped. A mechanical "fail if `[Unreleased]` is non-empty" gate was considered and
+**rejected**: the repo keeps a `### Planned (roadmap)` block under `[Unreleased]` by
+design, so such a gate would fail correctly prepared releases. The residual risk is
+recorded in `.sota/release-github-58/05-review.md`.
+
 ## Other
 
 - **PR template** (`.github/pull_request_template.md`): reminds branch convention,
   CI green, tests, docs, claims-evidence rule.
 - **`SECURITY.md`**: private reporting via GitHub Security Advisories (free on public repos).
-- **Actions permissions**: read-only (`permissions: contents: read` in the workflow).
+- **Actions permissions**: read-only (`permissions: contents: read`) for `ci` and the
+  `publish` job; the release job elevates to `contents: write` only to create the
+  GitHub Release (issue #58).
 
 ## How to change
 
