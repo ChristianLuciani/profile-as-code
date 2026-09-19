@@ -27,7 +27,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write # npm provenance (OIDC)
+  id-token: write # trusted publishing (OIDC)
 
 # The `release` job narrows/overrides these with `contents: write` (gh release
 # create) — scoped to that one job so the publish job keeps read-only contents.
@@ -91,12 +91,12 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
-      # Trusted publishing needs npm CLI >= 11.5.1 (and Node >= 22.14): Node 22 ships
-      # npm 10.x, and npm 10 never attempts the OIDC exchange — it falls back to
-      # NODE_AUTH_TOKEN and, with no token, fails with a misleading E404/E403 that does
-      # not name the real cause ([WEB] docs.npmjs.com/trusted-publishers). Bump npm and
-      # print the exact version so the next person debugging a failed publish can rule
-      # this out at a glance (issue #80).
+      # Trusted publishing needs npm CLI >= 11.5.1 and Node >= 22.14
+      # ([WEB] docs.npmjs.com/trusted-publishers). Node 22 ships npm 10.x, which has no
+      # trusted-publishing support at all — the exchange is never attempted, so the publish
+      # fails on auth without naming the real cause (observed in #80, 2026-09-15). Bump npm
+      # and print the exact version so the next person debugging a failed publish can rule
+      # this out at a glance.
       - name: 'Prerequisite — npm CLI >= 11.5.1 (trusted publishing)'
         run: |
           npm install -g npm@^11.5.1
@@ -129,15 +129,16 @@ jobs:
         run: node packages/cli/scripts/release-notes.mjs --version "${TAG#v}"
 
       # Auth is OIDC-first: the npm CLI prefers the OIDC environment over
-      # NODE_AUTH_TOKEN ([WEB] docs.npmjs.com/trusted-publishers). The token stays as the
-      # fallback for the first publish (v0.1.0), which runs before a trusted publisher
-      # can exist — delete the NPM_TOKEN secret once the trusted publisher is configured
-      # and a publish through it is verified (issue #80; runbook in docs/ci-cd.md).
+      # NODE_AUTH_TOKEN, and the OIDC path is written to NEVER throw — a failed exchange
+      # returns undefined and leaves the configured token in place (lib/utils/oidc.js, npm
+      # 11.6.1). That is what makes NPM_TOKEN a true fallback for the first publish (v0.1.0),
+      # which runs before a trusted publisher can exist. Delete the secret only after the
+      # trusted publisher is configured and a publish through it is verified (issue #80;
+      # runbook in docs/ci-cd.md).
       #
-      # No --provenance: under OIDC npm generates the attestation itself, and skips it
-      # only when the SOURCE repo is private (documented limitation, not a failure). The
-      # old conditional existed solely because v0.1.0 published with a token before the
-      # visibility flip (issue #44 decision a).
+      # No --provenance: npm decides. It attests only when the OIDC exchange succeeded, the
+      # source repo is public and the package is public — so while the token fallback is in
+      # use there is no attestation even on a public repo. See docs/ci-cd.md.
       - name: Publish
         run: |
           ARGS="--access public"

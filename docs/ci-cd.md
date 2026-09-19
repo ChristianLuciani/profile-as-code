@@ -100,17 +100,26 @@ docs.npmjs.com/trusted-publishers, checked 2026-09-19).
 The mechanics below are each a real way this fails silently — they are written down so the
 next person debugging a publish does not have to rediscover them:
 
-- **npm CLI >= 11.5.1 and Node >= 22.14.** Node 22 ships npm 10.x, and npm 10 *never
-  attempts* the OIDC exchange: it falls back to `NODE_AUTH_TOKEN` and, with no usable token,
-  fails with a misleading `E404`/`E403` that does not name the cause. The workflow bumps npm
-  and prints `npm --version` so this is the first thing a failed publish rules out.
-- **OIDC takes precedence; it is not exclusive.** npm uses the OIDC environment *before*
-  falling back to a token. That is why `NPM_TOKEN` can stay in place as the fallback for the
-  very first publish without blocking the migration — no sequencing of edits is required.
-- **No `--provenance` flag.** Under OIDC npm generates the provenance attestation itself, and
-  skips it when the **source repo is private** (documented limitation, not a failure). The flag
-  was removed in #80; the previous conditional existed only because v0.1.0 published with a
-  token before the visibility flip (issue #44 decision a).
+- **npm CLI >= 11.5.1 and Node >= 22.14** ([WEB] docs.npmjs.com/trusted-publishers). Node 22
+  ships npm 10.x, which has no trusted-publishing support at all (the OIDC exchange lives in
+  `lib/utils/oidc.js`, absent before 11.5.1 — present in the npm 11.6.1 source). npm 10 therefore
+  never attempts the exchange, and the publish fails on auth with an error that does not name the
+  real cause (observed in #80, 2026-09-15: `E404`/`E403`). The workflow bumps npm and prints
+  `npm --version` so this is the first thing a failed publish rules out.
+- **OIDC takes precedence, and its failure is silent by design.** npm prefers the OIDC environment
+  over a token, and `lib/utils/oidc.js` (npm 11.6.1) is written to *never throw*: a failed exchange
+  (no trusted publisher, wrong workflow filename, …) returns `undefined` and leaves the token the
+  config already had. That is what makes `NPM_TOKEN` a **true fallback** rather than a conflict — no
+  sequencing of edits is required: configure the trusted publisher, and OIDC starts winning on its
+  own.
+- **No `--provenance` flag — npm decides.** npm attests only when all three hold: the OIDC
+  exchange **succeeded**, the **source repo is public**, and the **package is public**
+  ([WEB] docs.npmjs.com/trusted-publishers, "Automatic provenance generation"; the code reads
+  `repository_visibility` from the OIDC token and re-queries the package's visibility via
+  `libaccess.getVisibility`). **Consequence to keep in mind:** while publishing still uses the token
+  fallback — step 1 below, before the trusted publisher exists — **no attestation is generated even
+  if the repo is public**. That window closes at step 3; it is accepted here because the alternative
+  (keep the conditional flag) re-encodes npm's own decision by hand, which is what #80 removes.
 - **`repository.url` must match the GitHub repo.** npm validates
   `packages/cli/package.json` → `repository.url` against the repository the workflow runs in
   and fails the publish on a mismatch. The field is the canonical
