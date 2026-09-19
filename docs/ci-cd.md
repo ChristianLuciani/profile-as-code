@@ -90,9 +90,65 @@ checkout with `fetch-depth: 0` is required — ancestry is not computable from a
 shallow clone. The guard is exercised by `packages/cli/tests/release-guard.test.ts`
 and can be run by hand: `pnpm --filter @profile-as-code/cli guard:release --help`.
 
-`--provenance` is conditional on the repository being public (npm cannot attest a
-private source repo); once publishing moves to OIDC trusted publishing, the flag
-disappears entirely (see #80).
+### npm publish auth — trusted publishing (OIDC, issue #80)
+
+The publish step authenticates with **trusted publishing (OIDC)**: `id-token: write` is
+granted to the `publish` job, and the npm CLI exchanges that short-lived OIDC token for a
+publish token, so no long-lived write credential is required ([WEB]
+docs.npmjs.com/trusted-publishers, checked 2026-09-19).
+
+The mechanics below are each a real way this fails silently — they are written down so the
+next person debugging a publish does not have to rediscover them:
+
+- **npm CLI >= 11.5.1 and Node >= 22.14** ([WEB] docs.npmjs.com/trusted-publishers). Node 22
+  ships npm 10.x, which has no trusted-publishing support at all (the OIDC exchange lives in
+  `lib/utils/oidc.js`, absent before 11.5.1 — present in the npm 11.6.1 source). npm 10 therefore
+  never attempts the exchange, and the publish fails on auth with an error that does not name the
+  real cause (observed in #80, 2026-09-15: `E404`/`E403`). The workflow bumps npm and prints
+  `npm --version` so this is the first thing a failed publish rules out.
+- **OIDC takes precedence, and its failure is silent by design.** npm prefers the OIDC environment
+  over a token, and `lib/utils/oidc.js` (npm 11.6.1) is written to *never throw*: a failed exchange
+  (no trusted publisher, wrong workflow filename, …) returns `undefined` and leaves the token the
+  config already had. That is what makes `NPM_TOKEN` a **true fallback** rather than a conflict — no
+  sequencing of edits is required: configure the trusted publisher, and OIDC starts winning on its
+  own.
+- **No `--provenance` flag — npm decides.** npm attests only when all three hold: the OIDC
+  exchange **succeeded**, the **source repo is public**, and the **package is public**
+  ([WEB] docs.npmjs.com/trusted-publishers, "Automatic provenance generation"; the code reads
+  `repository_visibility` from the OIDC token and re-queries the package's visibility via
+  `libaccess.getVisibility`). **Consequence to keep in mind:** while publishing still uses the token
+  fallback — step 1 below, before the trusted publisher exists — **no attestation is generated even
+  if the repo is public**. That window closes at step 3; it is accepted here because the alternative
+  (keep the conditional flag) re-encodes npm's own decision by hand, which is what #80 removes.
+- **`repository.url` must match the GitHub repo.** npm validates
+  `packages/cli/package.json` → `repository.url` against the repository the workflow runs in
+  and fails the publish on a mismatch. The field is the canonical
+  `git+https://github.com/ChristianLuciani/profile-as-code.git` (plus `directory: packages/cli`),
+  which is correct for a monorepo package — re-check it if the repo is ever renamed or forked.
+
+#### One-time setup (human — npmjs.com)
+
+Trusted publishing is configured **per package**, so it requires the package to already exist:
+v0.1.0 (the first publish) still goes out with the `NPM_TOKEN` fallback. From the next version
+on, OIDC is used automatically. To complete the migration:
+
+1. Publish v0.1.0 with the existing token (operator action, issue #44).
+2. On npmjs.com → the package's settings → **Trusted Publisher** → GitHub Actions, set:
+   - **Organization or user:** `ChristianLuciani`
+   - **Repository:** `profile-as-code`
+   - **Workflow filename:** `release.yml` (the filename with its extension, not a path)
+   - **Environment name:** leave empty (this workflow uses no GitHub environment)
+   - **Allowed actions:** allow `npm publish` (staged publishing is always allowed)
+3. Cut the next version and confirm the publish log shows the OIDC exchange (a
+   `repository.url` mismatch would surface here).
+4. **Then** delete the `NPM_TOKEN` repository secret *and* the `NODE_AUTH_TOKEN` env from the
+   publish step — the long-lived credential is exactly what #80 removes.
+
+npm does **not** validate the trusted-publisher fields when you save them: a typo surfaces only
+as `ENEEDAUTH` at publish time, and every field is case-sensitive.
+
+Scheduled deprecation this removes: the granular access token with 2FA bypass used for publish
+loses direct publishing ~January 2027 ([WEB] github.blog changelog 2026-07-08).
 
 After a successful publish, the `release` job creates the matching **GitHub
 Release** (issue #58): it checks out the same verified commit, extracts that

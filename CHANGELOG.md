@@ -43,6 +43,19 @@ minor versions may contain breaking contract changes.
   `gen:zod` diff exit 0, schema contract self-test OK). Rationale and revisit triggers:
   `docs/ci-cd.md` §Why Biome.
 
+### Changed
+
+- **release auth: publish migrado a trusted publishing (OIDC), sin `--provenance` (issue #80)** —
+  el camino actual usaba un granular access token con bypass 2FA, que npm retira del publish directo
+  ~enero 2027 ([WEB] github.blog changelog 2026-07-08). `release.yml` ahora prepara el runner para
+  OIDC (`npm >= 11.5.1` — con Node 22 llega npm 10.x, que ni intenta el intercambio OIDC y falla con
+  un `E404`/`E403` engañoso — e imprime `npm --version` para descartar la causa de un vistazo) y
+  elimina el flag condicional `--provenance`: bajo OIDC npm genera la atestación sola y la omite
+  cuando el repo fuente es privado. `NPM_TOKEN` queda **solo** como fallback del primer publish
+  (v0.1.0, que corre antes de que el paquete exista y se pueda configurar el trusted publisher); npm
+  prefiere OIDC sobre el token, así que la migración no exige borrar nada en el mismo paso. Pasos
+  humanos y pre-flight (workflow filename, `repository.url`) en `docs/ci-cd.md`.
+
 ### Fixed
 
 - **hardening de semántica de vacío: geo alineada con empty=absent + strings planos vacíos interpolados + typing de
