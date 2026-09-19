@@ -93,6 +93,27 @@ skills + deploy playbooks**.
 | D16 | **Platform set = Postiz parity + operator extras** (union, 43): ONE shared enum for person + brand flavors; new slugs Postiz verbatim (`linkedin-page`, `instagram-standalone`, `devto`, `gmb`, `warpcast`, `moltbook`, `mewe`, `tumblr`); single-source discipline enforced by contract self-tests (schema-check asserts `check.platform == ['all', ...platform]`; vitest asserts core `PLATFORMS` == schema enum) | The operator's surfaces must cover every network a cross-posting tool can reach (Postiz's 34 — [OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02; the API intro page's own "32" header undercounts its tables); `ghost` is an operator extra Postiz lacks. Schema parity ≠ skill coverage — per-platform skills are separate follow-ups (issue #30). |
 | D17 | **Evidence registry is pointer-first** (§18): two typed root blocks — `credentials[]` (third-party attestations) and `artifacts[]` (works/media) — with a **locator-capability matrix**; in-workspace `media/` reaches public surfaces only via renderer `assets/` output; external paths resolve via per-machine `PASCO_EVIDENCE_ROOT` (env/gitignored override, never committed); symlink/stow = documented power-user convenience only | A claim is not an artifact, and neither duplicates `publications[]`/`press[]` (naming discipline §9.1/§18.1); a private workspace is not a public media host (D14) — the capability matrix protects byte-stability (§15.1) and the URL SSOT (§15.4/§18.4). Direction ratified by the operator (issue #48) |
 | D18 | **Per-entry deploy ledger as data** (schema-additive v1.3): `deployments` map (`content/deployments.yaml`) + optional stable entry `id`s + `origin: template` provenance flag + `pasco status`; deploy state is `pasco`-owned data and `CHECKLIST.md` becomes a generated view (issue #37, §19) | The per-entry question — *mine vs template? published where? in-sync or stale?* — is unanswerable from platform-granularity state (`active`, D11, answers *which variant is live* only); staleness = `contentHash` compare, exact and release-tag-independent (`pasco diff` stays the CHANGELOG hint); only `pasco` mutates the ledger — same write rule as `refine --choose` (D14) |
+| D20 | **`pasco serve` is a minimal reference adapter over `Core`** (§7), exposed as a **local HTTP contract**. It is minimal **by construction**: no access control, no multi-tenancy, no billing, no persistent storage, no hosting orchestration. Dependency rule: `server` depends on `core`, and only the CLI's `serve` subcommand depends on `server` | Keeps the published surface **small, auditable and dependency-light** — the engine's job is the contract, not the deployment. The **contract is the integration point**, so any consumer (a UI, an editor, a script, a service) may implement its own adapter against it instead of adopting ours. Alternatives: a **feature-rich bundled server** (rejected — bloats the published package and couples the engine to deployment concerns it does not own); **no server at all** (rejected — leaves the engine drivable only from the CLI, so every consumer re-invents the boundary, and there is no reference implementation to test the contract against) |
+
+### D20 — the `serve` scope rule (binding)
+
+`serve` exists so the engine is **drivable from outside the CLI**. That is its whole job.
+Anything a **deployment** needs — authentication, authorization, multi-tenancy, quotas,
+persistence, billing, scheduling, orchestration — is **out of scope for this repository**
+and belongs to whichever consumer or deployment needs it.
+
+The rule is enforceable, not aspirational:
+
+- `packages/server` may depend on `core` **only**; a new runtime dependency there is a
+  reviewable decision, not a routine commit.
+- Nothing in `core` may depend on `server` (the arrow is one-directional, which is also
+  what keeps the adapter movable).
+- The contract is versioned and covered by a shared conformance corpus, so the reference
+  adapter and any independent implementation are tested against the same cases.
+
+If a deployment needs a richer server, it ships **its own** — importing `core`, targeting
+the same contract. This repository will not grow one.
+
 
 ## 6. Data model (schema v1)
 
@@ -202,6 +223,7 @@ interface SkillChecks {  // from skills/<platform>/checks.yaml
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--write-checklist]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste (ledger write path) |
 | `pasco skills:install <agent>` | project repo skills → agent skill studio (zhiweio pattern) |
+| `pasco serve` | run the **minimal reference adapter** (D20) — exposes `Core` over a **local HTTP contract** so any consumer (UI, editor, script, service) drives the engine without re-implementing it. Minimal **by construction**; a deployment that needs more ships its own server against the same contract |
 
 ## 8. GEO as a cross-cutting layer
 
