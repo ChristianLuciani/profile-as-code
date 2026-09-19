@@ -109,6 +109,25 @@ untouched). `contents: write` is granted to that job only, not to the publish jo
 Attaching the packed tarball is intentionally out of scope: the issue marks it
 optional and `verify:pack` already asserts the tarball's bin before any publish.
 
+### Preparing a release (do this before tagging)
+
+The Release page's notes are the `## [<version>]` section of `CHANGELOG.md`. The
+pre-publish step validates that the section **exists and is non-empty** — it cannot
+know whether it is *complete*, so this preparation is a human step:
+
+1. Bump `packages/cli/package.json` `version` (the tag must equal it — enforced by
+   the release guard).
+2. Move the release-worthy `[Unreleased]` entries under a new
+   `## [<version>] - <date>` heading; keep forward-looking `### Planned` items under
+   `[Unreleased]`.
+3. Commit that preparation to `main`, then `git tag v<version> && git push --tags`.
+
+Tagging with a stale `[Unreleased]` still produces a page — just one that omits what
+shipped. A mechanical "fail if `[Unreleased]` is non-empty" gate was considered and
+**rejected**: the repo keeps a `### Planned (roadmap)` block under `[Unreleased]` by
+design, so such a gate would fail correctly prepared releases. The residual risk is
+recorded in `.sota/release-github-58/05-review.md`.
+
 ## Other
 
 - **PR template** (`.github/pull_request_template.md`): reminds branch convention,

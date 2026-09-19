@@ -108,7 +108,7 @@ jobs:
       # cannot be un-published, so discovering a missing section afterwards would
       # leave the version consumed with an empty tag page — the exact symptom #58
       # removes (review finding on #58).
-      - if: inputs.dry_run != true
+      - if: steps.guard.outputs.tag != ''
         name: Verify release notes exist for this version
         env:
           TAG: ${{ steps.guard.outputs.tag }}
@@ -138,9 +138,11 @@ jobs:
   # announcing a version that never reached npm would be worse than a late page.
   release:
     needs: publish
-    # A dry run publishes nothing, so the guard emits no tag/commit and there is
-    # nothing to announce.
-    if: inputs.dry_run != true
+    # Gate on the guard's output, not on `inputs`: on a dry run the guard emits
+    # no tag, so there is nothing to announce. Avoids depending on the `inputs`
+    # context in a `push` run (an assumption the fresh-context review flagged as
+    # never exercised — there is no `v*` tag yet).
+    if: needs.publish.outputs.tag != ''
     runs-on: ubuntu-latest
     permissions:
       contents: write # gh release create — scoped to this job, not the publish job

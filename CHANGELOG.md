@@ -21,7 +21,11 @@ minor versions may contain breaking contract changes.
   `gh release create … --verify-tag`. Idempotente (un retry `workflow_dispatch` no toca una
   página existente); `contents: write` acotado a ese job. La sección se valida **antes** del
   publish (un `npm publish` no se deshace: descubrir las notes faltantes después dejaba la
-  versión consumida con el tag vacío, el síntoma que #58 elimina). Tests: 12
+  versión consumida con el tag vacío, el síntoma que #58 elimina). El extractor endurecido en la
+  review fresh: ignora `## ` dentro de fences de código (antes truncaba las notes en silencio),
+  no absorbe definiciones de link al final del archivo, acepta `--key=value`, y el main-guard
+  compara realpaths y falla ruidoso en vez de no-opear (clase #81). La preparación del release
+  (`[Unreleased]` → `## [<version>]`) queda documentada en `docs/ci-cd.md`. Tests: 15
   (`packages/cli/tests/release-notes.test.ts`); runbook en `docs/ci-cd.md`.
 
 - **style gate: Biome (lint + format + import order) in CI and `pnpm lint` (issue #59)** — one tool,

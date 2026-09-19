@@ -108,6 +108,51 @@ describe("extractReleaseNotes", () => {
     const empty = "# Changelog\n\n## [1.0.0]\n\n## [0.9.0]\n\n- previous\n";
     expect(extractReleaseNotes(empty, "1.0.0")).toBeNull();
   });
+
+  it("keeps a `## ` line that sits inside a fenced code block", () => {
+    // The fresh-context review found the terminator truncated here silently:
+    // a `## ...` inside a fence is content, not the next section.
+    const fenced = [
+      "# Changelog",
+      "",
+      "## [1.0.0]",
+      "",
+      "- before",
+      "",
+      "```md",
+      "## this is inside a code fence",
+      "```",
+      "",
+      "- real note two",
+      "",
+      "## [0.9.0]",
+      "",
+      "- previous",
+      "",
+    ].join("\n");
+    const notes = extractReleaseNotes(fenced, "1.0.0");
+    expect(notes).toContain("## this is inside a code fence");
+    expect(notes).toContain("- real note two");
+    expect(notes).not.toContain("- previous");
+  });
+
+  it("does not absorb trailing link reference definitions", () => {
+    const withRefs = [
+      "# Changelog",
+      "",
+      "## [1.0.0]",
+      "",
+      "- the release",
+      "",
+      "[1.0.0]: https://example.com/compare/v0.9.0...v1.0.0",
+      "[Unreleased]: https://example.com/compare/v1.0.0...HEAD",
+      "",
+    ].join("\n");
+    const notes = extractReleaseNotes(withRefs, "1.0.0");
+    expect(notes).toContain("- the release");
+    expect(notes).not.toContain("[1.0.0]:");
+    expect(notes).not.toContain("[Unreleased]:");
+  });
 });
 
 describe("release-notes CLI", () => {
@@ -152,6 +197,16 @@ describe("release-notes CLI", () => {
     const res = run(["--help"]);
     expect(res.code).toBe(0);
     expect(res.out).toContain("--version");
+  });
+
+  it("accepts the --key=value form", () => {
+    const dir = tempDir();
+    const changelog = join(dir, "CHANGELOG.md");
+    writeFileSync(changelog, CHANGELOG);
+
+    const res = run(["--version=0.1.0", `--changelog=${changelog}`]);
+    expect(res.code).toBe(0);
+    expect(res.out).toContain("the first release");
   });
 
   it("still runs main() when invoked through a symlink", () => {

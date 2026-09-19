@@ -46,14 +46,22 @@ function fail(message) {
 
 function parseArgs(argv) {
   const args = { changelog: "CHANGELOG.md", output: null, version: null };
+  const valueFlags = new Set(["--version", "--changelog", "--output"]);
   for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i];
+    let arg = argv[i];
     if (arg === "--help" || arg === "-h") {
       console.log(USAGE);
       process.exit(0);
     }
-    if (arg === "--version" || arg === "--changelog" || arg === "--output") {
-      const value = argv[++i];
+    // Accept both `--version 1.0.0` and `--version=1.0.0`.
+    let inlineValue;
+    const eq = arg.indexOf("=");
+    if (arg.startsWith("--") && eq !== -1) {
+      inlineValue = arg.slice(eq + 1);
+      arg = arg.slice(0, eq);
+    }
+    if (valueFlags.has(arg)) {
+      const value = inlineValue ?? argv[++i];
       if (value === undefined) usage(`${arg} requires a value`);
       if (arg === "--version") args.version = value;
       else if (arg === "--changelog") args.changelog = value;
@@ -78,11 +86,27 @@ export function extractReleaseNotes(changelog, version) {
   if (start === -1) return null;
 
   const body = [];
+  // Track fenced code blocks: a `## ` line inside a fence is CONTENT, not the
+  // next section. Without this the page truncates silently at the first such
+  // line — a release page with partial notes is the failure this file prevents.
+  let fence = null;
   for (let i = start + 1; i < lines.length; i++) {
-    // A level-2 heading always ends the section (the next version, [Unreleased],
-    // or a top-level section).
-    if (/^## /.test(lines[i])) break;
-    body.push(lines[i]);
+    const line = lines[i];
+    const fenceMatch = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0];
+      if (fence === null) fence = marker;
+      else if (marker === fence) fence = null;
+      body.push(line);
+      continue;
+    }
+    if (fence === null) {
+      // A level-2 heading ends the section (the next version, [Unreleased], or a
+      // top-level section); a link reference definition is not section content
+      // (Keep a Changelog keeps them at the file's tail).
+      if (/^## /.test(line) || /^\[[^\]]+\]:(\s|$)/.test(line)) break;
+    }
+    body.push(line);
   }
 
   const notes = body.join("\n").trim();
@@ -109,17 +133,14 @@ function main() {
 }
 
 // Importable for tests (the suite calls extractReleaseNotes directly); invoked as
-// a script — directly or through a symlink — it must run main(). A guard that
-// silently no-ops on a symlinked path would turn "no such version" into exit 0,
-// i.e. a green release with no notes (the #81 failure class). realpath on both
-// sides makes the decision about the file, not the spelling of its path.
+// a script — directly or through a symlink — it must run main(). Comparing
+// realpaths decides about the file, not the spelling of its path. A resolution
+// failure is deliberately LEFT to throw instead of being caught: a silent
+// `return false` would turn "could not decide" into "did nothing, exit 0" — the
+// #81 class where a check that never ran reads as a check that passed.
 function isMainModule() {
-  if (process.argv[1] === undefined) return false;
-  try {
-    return realpathSync(process.argv[1]) === fileURLToPath(import.meta.url);
-  } catch {
-    return false;
-  }
+  const entry = process.argv[1];
+  return entry !== undefined && realpathSync(entry) === fileURLToPath(import.meta.url);
 }
 
 if (isMainModule()) {
