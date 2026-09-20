@@ -112,8 +112,10 @@ of check this rule needs.
   reviewable decision, not a routine commit.
 - Nothing in `core` may depend on `server` (the arrow is one-directional, which is also
   what keeps the adapter movable).
-- The contract is versioned and covered by a shared conformance corpus, so the reference
-  adapter and any independent implementation are tested against the same cases.
+- The contract is versioned, and a shared conformance corpus **is owed** so that the
+  reference adapter and any independent implementation are tested against the same
+  cases. It does not exist yet: there are no golden files and no snapshots in this
+  repository today, so this is a commitment, not a present property.
 
 If a deployment needs a richer server, it ships **its own** — importing `core`, targeting
 the same contract. This repository will not grow one.
