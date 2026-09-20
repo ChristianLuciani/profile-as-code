@@ -102,9 +102,9 @@ Anything a **deployment** needs — authentication, authorization, multi-tenancy
 persistence, billing, scheduling, orchestration — is **out of scope for this repository**
 and belongs to whichever consumer or deployment needs it.
 
-The rule is **binding**. Enforcement is **owed**: there is no `packages/server` yet,
+Enforcement is **owed and tracked** (issue #98): there is no `packages/server` yet,
 and CI carries no dependency check — so today the rule rests on review. The gate
-should follow the existing **`D3` drift-check precedent**: CI already fails when the
+follows the existing **`D3` drift-check precedent** — CI already fails when the
 generated Zod validator falls out of sync with the contract, which is the same shape
 of check this rule needs.
 
