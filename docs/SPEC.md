@@ -102,14 +102,20 @@ Anything a **deployment** needs — authentication, authorization, multi-tenancy
 persistence, billing, scheduling, orchestration — is **out of scope for this repository**
 and belongs to whichever consumer or deployment needs it.
 
-The rule is enforceable, not aspirational:
+Enforcement is **owed and tracked** (issue #98): there is no `packages/server` yet,
+and CI carries no dependency check — so today the rule rests on review. The gate
+follows the existing **`D3` drift-check precedent** — CI already fails when the
+generated Zod validator falls out of sync with the contract, which is the same shape
+of check this rule needs.
 
 - `packages/server` may depend on `core` **only**; a new runtime dependency there is a
   reviewable decision, not a routine commit.
 - Nothing in `core` may depend on `server` (the arrow is one-directional, which is also
   what keeps the adapter movable).
-- The contract is versioned and covered by a shared conformance corpus, so the reference
-  adapter and any independent implementation are tested against the same cases.
+- The contract is versioned, and a shared conformance corpus **is owed** so that the
+  reference adapter and any independent implementation are tested against the same
+  cases. It does not exist yet: there are no golden files and no snapshots in this
+  repository today, so this is a commitment, not a present property.
 
 If a deployment needs a richer server, it ships **its own** — importing `core`, targeting
 the same contract. This repository will not grow one.
