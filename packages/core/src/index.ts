@@ -42,6 +42,14 @@ export {
   isPublicEntry,
   registryCheck,
 } from "./registry.js";
+export {
+  DEFAULT_LINK_ROLE,
+  entityId,
+  linkRole,
+  linksWithRole,
+  sameAsUrls,
+  structuredData,
+} from "./structured-data.js";
 export type {
   ActiveEntry,
   Artifact,
@@ -62,6 +70,7 @@ export type {
   Issue,
   Lang,
   LangMap,
+  LinkRole,
   LoadedProfile,
   Newsletter,
   Platform,

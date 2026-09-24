@@ -42,7 +42,7 @@ validates the result against this schema. File → root property mapping:
 
 | File (content/) | Root property(s) | Notes |
 |---|---|---|
-| `identity.yaml` | `identity` | Required at profile level (the GEO anchor). v1.5 (issue #71): `email` — the contact email as a fact (NOT in `links[]`; renderers emit a mailto: href + JSON-LD `email`) |
+| `identity.yaml` | `identity` | Required at profile level (the GEO anchor). v1.5 (issue #71): `email` — the contact email as a fact (NOT in `links[]`; renderers emit a mailto: href + JSON-LD `email`). v1.6 (#103): `links[].role` — `identity` | `realization` | `aggregator` (see §15.4) |
 | `flavor.yaml` | `flavor` | v1.1 (D15): `person` \| `brand`. **The file value IS the root value** — a bare scalar (`brand`), not a key:value map |
 | `socialHandles.yaml` | `socialHandles[]` | v1.1 (brand): handle matrix (platform → handle + `status: claimed\|pending`) |
 | `newsletter.yaml` | `newsletter` | v1.1 (brand): Substack/Ghost |
@@ -80,8 +80,9 @@ false`) — that IS the "fail on schema" side of D12.
    `drift/handle-claimed-not-linked`, `drift/handle-host-mismatch`) — offline and
    deterministic; live reachability ships in `skills/github-org/checks.yaml` (`url-live`).
 3. **GEO** — `geoCheck`: fact consistency score, semantic-association coverage, structured-data
-   readiness. Brand workspaces emit `schema.org/Organization` (sameAs = identity.links +
-   claimed handle urls, §17.1); person workspaces keep `schema.org/Person`. → report, not a gate.
+   readiness. Brand workspaces emit `schema.org/Organization`; person workspaces keep `schema.org/Person`.
+   v1.6/§15.4: `sameAs` = the `role: realization` links + claimed handle urls (before v1.6 it was
+   every `identity.links` entry), `@id` from the `role: identity` link. → report, not a gate.
 4. **Ledger integrity (v1.3, D17 §18.2 — post-Zod, same FAIL class as schema)** — checks the
    generated Zod cannot express: duplicate `id` per row block; ambiguous composite key
    (`bios:*`, `headlines:*`, `skills:*`, `socialHandles:*`) **when the ledger addresses it**;

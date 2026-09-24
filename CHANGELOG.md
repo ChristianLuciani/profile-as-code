@@ -11,6 +11,39 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **schema v1.6: `identity.links[].role` — entity identity gets a single home (SPEC §15.4, issue #103)** —
+  the engine's JSON-LD had **no owner**: `geo.ts` and both renderers each assembled the entity
+  block in parallel, which is how SPEC §15.4's `@id` requirement was never implemented — it fell
+  through the seam between three copies. (The repo already solved this for `hasCredential`, §18.9
+  `credentialLdEntries`, *"Single source for every emitter"*; this applies it to the entity.)
+  New field `links[].role` — `identity` | `realization` (default) | `aggregator`, a **translation
+  layer** onto `schema.org:url` / `sameAs` / `mainEntityOfPage` (never presented as standard
+  vocabulary). Absent role = `realization`, so no workspace needs editing for the field itself.
+  New module **`core/src/structured-data.ts`** owns `@id`, `sameAs` and the entity fields;
+  `geo.ts` and both renderers consume it. New check **`geo/entity-id`**; `geo/sameas-links` now
+  counts only `role: realization` links (it previously credited a citability signal the JSON-LD
+  never emits). Weights rebalanced: `entity-id` 0.05 + `structured-person` 0.05 = the 0.10 budget
+  the field-check alone held (weights sum to 1 by contract; a test enforces it).
+
+  **⚠️ Rendered output changes for existing workspaces.** Workspaces keep validating unchanged,
+  but the rendered output does change — three deltas: (a) `github-readme` gains
+  `jobTitle`/`worksFor`, which it never emitted although `geo.ts` computed them; (b) `sameAs`
+  narrows to `role: realization` **and** now includes claimed `socialHandles[].url` — for a
+  `github-org` workspace that is byte-identical (it already did both), but a **person** workspace
+  with claimed handles gains them (the old `github-readme` did not); (c) `geoCheck` adds
+  `geo/entity-id`, so a workspace declaring no `role: identity` loses up to 5 points.
+  Re-render and review the diff.
+
+  **Design decisions (operator, 2026-09-24):** an absent `@id` **never suppresses** the JSON-LD
+  block — suppressing it would strip structured data from every workspace declaring no `role`,
+  i.e. the feature would remove signal that already worked; `geoCheck` reports the gap instead
+  (`geo/entity-id`), naming the actual situation (a declared-but-ineligible aggregator is reported
+  as such, never as "nothing declared"). Several `role: identity` links → the **first wins**
+  (declaration order): an earlier draft ranked "own domain > social network" via hostname patterns
+  and was **deleted** — it meant a second, hand-maintained platform list beside `PLATFORMS` (D16)
+  and a product judgement inside a regex. Classification + sources: `identeco-cifereca`.
+  Tests: +11 (`packages/renderers/github-readme/tests/role.test.ts`, `packages/core/tests/geo.test.ts`).
+
 - **release: `release.yml` crea el GitHub Release desde `CHANGELOG.md` (issue #58)** — el
   publish a npm no anunciaba la release: el tag quedaba sin página ni notes, y el item 3 del
   gate (`docs/STANDARDS.md`) no se podía firmar. Job `release` separado y **después** de

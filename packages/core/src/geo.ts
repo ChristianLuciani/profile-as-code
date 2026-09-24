@@ -6,10 +6,10 @@
  *                           the same dates/roles/papers. Proxied deterministically:
  *                           fact-contradiction count (from the drift catalog) +
  *                           platform coverage (bio + headline per targeted platform).
- *   2. structuredData     — schema.org `Person`/`sameAs` readiness for the web
- *                           renderer (M5): name + canonical links + optional
- *                           image/location/jobTitle/worksFor. `jsonLd` is emitted
- *                           ready to embed.
+ *   2. structuredData     — schema.org `Person`/`Organization` readiness (M5):
+ *                           name + canonical `@id` + `sameAs` + optional entity
+ *                           fields. Assembly lives in `structured-data.ts` (the one
+ *                           home); this module only SCORES what it returns.
  *   3. semanticAssociations — the 3–5 anchors of positioning.geo.semanticAssociations
  *                           and whether each is reinforced across surfaces (statement,
  *                           citationsGoal, skills geoKeywords/keywords, keywords.geo,
@@ -23,18 +23,16 @@
  */
 
 import { driftCheck } from "./drift.js";
-import { credentialLdEntries } from "./registry.js";
+import { linksWithRole, structuredData } from "./structured-data.js";
 import type {
-  EducationalOccupationalCredentialLd,
   GeoCheck,
   GeoReport,
   GeoSection,
   Platform,
   Profile,
   SemanticAssociationCoverage,
-  StructuredDataReadiness,
 } from "./types.js";
-import { PLATFORMS, textOf } from "./types.js";
+import { PLATFORMS } from "./types.js";
 
 /** Drift codes that represent fact contradictions (feeding factConsistency). */
 const CONFLICT_CODES = new Set([
@@ -66,157 +64,6 @@ function langValues(langMap: Record<string, string> | undefined): string[] {
   // reinforcement haystack carries no degenerate values for future predicates.
   // No trim (the rule is the exact empty string; whitespace-only stays data).
   return langMap ? Object.values(langMap).filter((v) => v !== "") : [];
-}
-
-/**
- * GEO payoff (D17/§18.9): public credentials → schema.org EducationalOccupationalCredential
- * entries. `hasCredential` applies to Person AND Organization (§17.1 — ISO certs, awards);
- * visibility first-class (§18.5): structured data emits only public. Term status: schema.org
- * "new" area, adoption-feedback stage ([WEB] V30.0, fetched 2026-09-08).
- */
-function hasCredentialLd(profile: Profile): EducationalOccupationalCredentialLd[] | undefined {
-  const entries = credentialLdEntries(profile.credentials ?? []);
-  return entries.length > 0 ? entries : undefined;
-}
-
-/** The most recent role — the one a schema.org Person would call jobTitle/worksFor. */
-function currentRole(profile: Profile): { jobTitle?: string; worksFor?: string } {
-  const items = [...(profile.experience ?? [])];
-  const byStart = (a: (typeof items)[number], b: (typeof items)[number]) =>
-    b.start.localeCompare(a.start);
-  const current = items.filter((item) => item.end === "present").sort(byStart)[0];
-  const latest = items.sort(byStart)[0];
-  const pick = current ?? latest;
-  return pick ? { jobTitle: textOf(pick.role), worksFor: pick.org } : {};
-}
-
-function structuredData(profile: Profile): StructuredDataReadiness {
-  const identity = profile.identity;
-  const isBrand = profile.flavor === "brand";
-  const credentialsLd = hasCredentialLd(profile);
-
-  // sameAs: canonical identity.links + every claimed handle's URL (deduped). For a
-  // brand the socialHandles matrix IS the canonical surface set (§17.1).
-  const sameAs = [
-    ...(identity.links ?? []).map((link) => link.url),
-    ...(profile.socialHandles ?? [])
-      .filter((h) => h.status === "claimed" && h.url !== undefined)
-      .map((h) => h.url as string),
-  ].filter((url, index, all) => all.indexOf(url) === index);
-
-  if (isBrand) {
-    // Issue #84/#86 (empty=absent): the en-read + falsy check makes an empty
-    // `{en: ""}` mission/tagline ABSENT for schema.org — the readiness
-    // entity-fields check (geo/structured-person) must agree, so it reads
-    // these same sd.fields below (one accessor rule, no internal divergence).
-    // En-canonical by design: `{en: "", es: "…"}` is absent here (the JSON-LD
-    // emits the canonical en text) while compile/pickText still render it for
-    // lang=es — the structured-data section is not the lang-aware surface.
-    const slogan = identity.tagline?.en;
-    const description = identity.mission?.en;
-    const fields = {
-      name: Boolean(identity.name),
-      sameAs,
-      ...(identity.email !== undefined ? { email: identity.email } : {}),
-      ...(identity.logo ? { logo: identity.logo } : {}),
-      ...(identity.established ? { foundingDate: identity.established } : {}),
-      ...(slogan ? { slogan } : {}),
-      ...(description ? { description } : {}),
-      ...(identity.location ? { address: identity.location } : {}),
-    };
-    const considered = [
-      "name",
-      "sameAs",
-      "email",
-      "logo",
-      "foundingDate",
-      "slogan",
-      "description",
-      "address",
-    ];
-    const populated =
-      1 +
-      (sameAs.length > 0 ? 1 : 0) +
-      (identity.email !== undefined ? 1 : 0) +
-      (identity.logo ? 1 : 0) +
-      (identity.established ? 1 : 0) +
-      (slogan ? 1 : 0) +
-      (description ? 1 : 0) +
-      (identity.location ? 1 : 0);
-    const ready =
-      Boolean(identity.name) &&
-      sameAs.length > 0 &&
-      Boolean(identity.logo || description || identity.established);
-    const jsonLd =
-      identity.name && sameAs.length > 0
-        ? {
-            "@context": "https://schema.org" as const,
-            "@type": "Organization" as const,
-            name: identity.name,
-            sameAs,
-            ...(identity.email !== undefined ? { email: identity.email } : {}),
-            ...(credentialsLd ? { hasCredential: credentialsLd } : {}),
-            ...(identity.logo ? { logo: identity.logo } : {}),
-            ...(identity.established ? { foundingDate: identity.established } : {}),
-            ...(slogan ? { slogan } : {}),
-            ...(description ? { description } : {}),
-            ...(identity.location ? { address: identity.location } : {}),
-          }
-        : undefined;
-    return {
-      entityType: "Organization",
-      ready,
-      completeness: populated / considered.length,
-      fields,
-      ...(jsonLd ? { jsonLd } : {}),
-    };
-  }
-
-  const role = currentRole(profile);
-  const fields = {
-    name: Boolean(identity.name),
-    sameAs,
-    ...(identity.email !== undefined ? { email: identity.email } : {}),
-    ...(identity.photo ? { image: identity.photo } : {}),
-    ...(identity.location ? { address: identity.location } : {}),
-    ...(role.jobTitle ? { jobTitle: role.jobTitle } : {}),
-    ...(role.worksFor ? { worksFor: role.worksFor } : {}),
-  };
-  const considered = ["name", "sameAs", "email", "image", "address", "jobTitle", "worksFor"];
-  const populated =
-    1 +
-    (sameAs.length > 0 ? 1 : 0) +
-    (identity.email !== undefined ? 1 : 0) +
-    (identity.photo ? 1 : 0) +
-    (identity.location ? 1 : 0) +
-    (role.jobTitle ? 1 : 0) +
-    (role.worksFor ? 1 : 0);
-  const ready =
-    Boolean(identity.name) &&
-    sameAs.length > 0 &&
-    (Boolean(identity.photo) || Boolean(identity.location) || Boolean(role.jobTitle));
-  const jsonLd =
-    identity.name && sameAs.length > 0
-      ? {
-          "@context": "https://schema.org" as const,
-          "@type": "Person" as const,
-          name: identity.name,
-          sameAs,
-          ...(identity.email !== undefined ? { email: identity.email } : {}),
-          ...(credentialsLd ? { hasCredential: credentialsLd } : {}),
-          ...(identity.photo ? { image: identity.photo } : {}),
-          ...(identity.location ? { address: identity.location } : {}),
-          ...(role.jobTitle ? { jobTitle: role.jobTitle } : {}),
-          ...(role.worksFor ? { worksFor: role.worksFor } : {}),
-        }
-      : undefined;
-  return {
-    entityType: "Person",
-    ready,
-    completeness: populated / considered.length,
-    fields,
-    ...(jsonLd ? { jsonLd } : {}),
-  };
 }
 
 /** Which platforms the user targets (has any curated surface for). */
@@ -268,6 +115,42 @@ function semanticAnchors(profile: Profile): SemanticAssociationCoverage {
     missing,
     coverage: anchors.length === 0 ? 0 : reinforced.length / anchors.length,
   };
+}
+
+/**
+ * Why there is no `@id`, in the operator's terms (#103): report the gap and its next
+ * action, never invent an anchor. Three cases, and each needs a DIFFERENT message —
+ * telling a user who marked an aggregator that they "declared nothing" would be false.
+ *
+ *   1. nothing declared            → no `role: identity` link at all
+ *   2. declared an aggregator only → non-eligible: an aggregator aggregates references
+ *                                    to the entity, it does not describe it (schema.org:url
+ *                                    is reserved for "the page is in some sense 'his'")
+ *   3. declared a realization only → the mirror of case 2: same non-eligibility, different
+ *                                    reason (a realization indicates the entity indirectly)
+ */
+function identityAuthorityDetail(profile: Profile): string {
+  const identity = profile.identity;
+  const declared = linksWithRole(identity, "identity");
+  if (declared.length > 0) {
+    // Unreachable by construction (`entityId` returns the first declared link's url, and
+    // `url` is required). The break is loud in CODE, never in the user's report: `detail`
+    // stays a plain gap message, and an invariant failure surfaces via the thrown guard
+    // below rather than by telling a user to "report this" (v1.6 review, twice flagged).
+    return "no @id resolved for this profile's declared role: identity link";
+  }
+
+  const aggregators = linksWithRole(identity, "aggregator");
+  if (aggregators.length > 0) {
+    return `no role: identity link — ${aggregators.length} aggregator link(s) declared (${aggregators.join(", ")}) are NOT eligible for @id: an aggregator lists references to the entity, it does not describe it. Mark your own page (or profile) role: identity instead.`;
+  }
+
+  const realizations = linksWithRole(identity, "realization");
+  if (realizations.length > 0) {
+    return `no role: identity link — all ${realizations.length} link(s) are role: realization (they indicate the entity, not are it). Mark the one that represents you role: identity to make the entity citable.`;
+  }
+
+  return "no links declared — add the page that represents this entity with role: identity to make it citable";
 }
 
 export function geoCheck(profile: Profile): GeoReport {
@@ -327,17 +210,53 @@ export function geoCheck(profile: Profile): GeoReport {
           : `${targetsWithHeadline}/${targetCount} platforms with a headline`,
     },
     {
+      code: "geo/entity-id",
+      label: "Canonical entity identifier (schema.org @id)",
+      // Shares the entity-identity budget with `geo/structured-person` below: both score
+      // the SAME thing (the entity's own structured data), so the pair totals the 0.10
+      // that field-check alone used to carry. Weights sum to 1 by contract — the test
+      // asserts it, and a new check must pay for itself out of an existing budget.
+      weight: 0.05,
+      // SPEC §15.4 / #103: the `@id` comes from the `role: identity` link and is never
+      // invented. Absent = the profile declares no canonical realization, never silently
+      // satisfied by a heuristic.
+      //
+      // HONEST ACCOUNTING (v1.6 review): this check is NOT score-neutral. Every workspace
+      // that does not yet declare `role: identity` loses up to 5 points (weight 0.05) —
+      // the largest single v1.6 delta. It is a *reported gap*, not a regression: the `@id`
+      // was never emitted before, so nothing that worked stopped working. But it does mean
+      // upgrading moves the GEO score, and a user comparing before/after deserves to know.
+      score: sd.fields.id !== undefined ? 1 : 0,
+      detail:
+        sd.fields.id !== undefined
+          ? `@id = ${sd.fields.id} (from the role: identity link)`
+          : identityAuthorityDetail(profile),
+    },
+    {
       code: "geo/sameas-links",
       label: "Canonical identity links (schema.org sameAs)",
       weight: 0.15,
-      score: clamp01((identity.links?.length ?? 0) / 5),
-      detail: `${identity.links?.length ?? 0} canonical link(s) in identity.links (≥3 recommended for GEO citability)`,
+      // Counts `role: realization` links — the ones that actually become `sameAs`.
+      // Counting identity/aggregator links here would credit a profile whose sameAs
+      // set is empty, i.e. score a signal it does not emit.
+      //
+      // The rationale applies in BOTH directions (v1.6 review, F9): it counts only
+      // `links[]`, while the emitted `sameAs` also carries claimed `socialHandles[].url`.
+      // A profile can therefore reach 5/5 here with fewer than 5 emitted URLs (or score
+      // under 5 with more) — this check measures the SSOT-declared realization set, not
+      // the JSON-LD array. Kept as-is deliberately: handles are a brand-flavor construct
+      // (§17.1) and counting them would make a person and a brand score differently for
+      // the same citability. Documented rather than silently asymmetric.
+      score: clamp01(linksWithRole(identity, "realization").length / 5),
+      detail: `${linksWithRole(identity, "realization").length} link(s) with role: realization in identity.links (≥3 recommended for GEO citability)`,
     },
     {
       code: "geo/structured-person",
       label:
         "Entity fields beyond the minimum (photo/location/jobTitle — logo/description/foundingDate for brand)",
-      weight: 0.1,
+      // Paired with `geo/entity-id` above: the two together carry the entity-identity
+      // budget that this check alone held before v1.6 (#103).
+      weight: 0.05,
       // Read from sd.fields — structuredData is the single source of truth for
       // entity-field presence (issue #86, F1): Boolean(entity) on the raw object
       // credited `mission: {en: ""}` as present while structuredData (falsy en-read)
@@ -415,9 +334,15 @@ export function geoCheck(profile: Profile): GeoReport {
     structuredData: {
       ...section(
         "Structured-data readiness",
-        `schema.org ${sd.entityType} JSON-LD ${sd.ready ? "ready for the web renderer" : "not ready (need name + ≥1 sameAs link)"}.`,
+        // Mirrors `ready = Boolean(name)` exactly (structured-data.ts). The old string still
+        // claimed "need name + ≥1 sameAs link" — the predicate it no longer uses, i.e. the
+        // same contradiction as the `ready` bug, one line away from its own fix.
+        `schema.org ${sd.entityType} JSON-LD ${sd.ready ? "ready for the web renderer" : "not ready (need a name)"}.`,
         checks.filter(
-          (c) => c.code.startsWith("geo/sameas") || c.code.startsWith("geo/structured"),
+          (c) =>
+            c.code.startsWith("geo/sameas") ||
+            c.code.startsWith("geo/structured") ||
+            c.code === "geo/entity-id",
         ),
       ),
       readiness: sd,
