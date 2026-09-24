@@ -68,6 +68,8 @@ const EXPECTED = `# Elena Vasquez
   "name": "Elena Vasquez",
   "image": "https://example.com/elena-vasquez.jpg",
   "address": "Madrid, Spain",
+  "jobTitle": "Senior AI Engineer",
+  "worksFor": "Nimbus Labs",
   "sameAs": [
     "https://github.com/elenavasquez",
     "https://linkedin.com/in/elenavasquez",

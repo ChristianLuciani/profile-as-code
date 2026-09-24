@@ -23,7 +23,7 @@ import type {
   Project,
   Skill,
 } from "@profile-as-code/core";
-import { credentialLdEntries, isPublicEntry } from "@profile-as-code/core";
+import { isPublicEntry } from "@profile-as-code/core";
 import { mdHref, mdText } from "@profile-as-code/markdown";
 
 export const deploySpec = "git" as const;
@@ -152,6 +152,14 @@ function projectWeight(p: Project, skills: readonly Skill[]): number {
 
 export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResult {
   const lang = opts.lang ?? p.lang;
+  // The structured data was assembled by `compile()` at its OWN lang, so an override here
+  // would desync it from the header (v1.6 review, F2). No in-repo caller overrides, but a
+  // silent mismatch is worse than a loud one: say it once, where the override happens.
+  if (opts.lang !== undefined && opts.lang !== p.lang && p.structuredData?.jsonLd !== undefined) {
+    console.warn(
+      `render: opts.lang="${opts.lang}" overrides the compiled lang "${p.lang}" — the JSON-LD was built at "${p.lang}" and will not follow. Re-compile with the target lang for structured data to match.`,
+    );
+  }
   let referencedAssets: string[] | undefined;
   const out: string[] = [];
 
@@ -277,24 +285,24 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   for (const l of p.identity.links ?? [])
     out.push("", `- [${mdText(l.label || hostnamePath(l.url))}](${mdHref(l.url)})`);
 
-  const publicCredentials = credentialLdEntries(p.credentials ?? []); // filters internally — no double pass
-  const jsonLd: Record<string, unknown> = {
-    "@context": "https://schema.org",
-    "@type": "Person",
-    name: p.identity.name,
-  };
-  if (p.identity.email !== undefined) jsonLd.email = p.identity.email;
-  if (p.identity.photo !== undefined) jsonLd.image = p.identity.photo;
-  if (p.identity.location !== undefined) jsonLd.address = p.identity.location;
-  jsonLd.sameAs = (p.identity.links ?? []).map((l) => l.url);
-  if (publicCredentials.length > 0) jsonLd.hasCredential = publicCredentials;
-  out.push(
-    "",
-    "<!-- JSON-LD (schema.org Person) -->",
-    "```json",
-    JSON.stringify(jsonLd, null, 2),
-    "```",
-  );
+  // The entity's structured data comes from core (v1.6/#103) — this renderer NEVER
+  // re-derives `@id`/`sameAs` (SPEC §15.4; the §18.9 credentialLdEntries precedent).
+  // `jsonLd` is already filtered by role: `sameAs` carries only `role: realization`
+  // links, and `@id` is present only when a link declares `role: identity`.
+  // (Pre-#103 this block rebuilt the object here, which is how the SPEC's `@id`
+  // requirement fell through the seam between geo.ts and the two renderers.)
+  // `structuredData` is REQUIRED on PlatformProfile, but a hand-built slice (the documented
+  // seam) may omit it: guard the whole chain, not just `jsonLd`, so a partial slice renders
+  // without structured data instead of throwing.
+  if (p.structuredData?.jsonLd !== undefined) {
+    out.push(
+      "",
+      "<!-- JSON-LD (schema.org Person) -->",
+      "```json",
+      JSON.stringify(p.structuredData.jsonLd, null, 2),
+      "```",
+    );
+  }
 
   // 8. Footer — deterministic marker + fact count (for diff/CI assertions, §15.3).
   out.push(

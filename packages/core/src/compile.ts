@@ -10,6 +10,7 @@
  * schema enum) — never duplicated here.
  */
 
+import { structuredData } from "./structured-data.js";
 import type { Lang, Platform, PlatformProfile, Profile } from "./types.js";
 import { PLATFORMS } from "./types.js";
 
@@ -102,6 +103,9 @@ export function compile(profile: Profile, platform: Platform, lang: Lang = "en")
     credentials: profile.credentials ?? [],
     artifacts: profile.artifacts ?? [],
     ...(profile.active?.[platform] ? { active: profile.active[platform] } : {}),
+    // v1.6 (#103): entity structured-data identity — assembled ONCE here, so no
+    // renderer re-derives `@id`/`sameAs` (SPEC §15.4, the §18.9 precedent).
+    structuredData: structuredData(profile, lang),
     fallbacks,
   };
 }

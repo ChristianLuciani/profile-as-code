@@ -8,11 +8,13 @@
  *
  * Output sections: header (org name + tagline + mission) · social handles
  * (claimed matrix, one badge per platform) · newsletter · podcast · press ·
- * audiences (reader profile) · links + JSON-LD Organization (sameAs = identity
- * links + claimed handle urls, §17.1) · generated footer with fact-count.
+ * audiences (reader profile) · every link (visible list) · JSON-LD Organization
+ * assembled by core (`structured-data.ts`: `@id` from the `role: identity` link,
+ * `sameAs` from the `role: realization` links + claimed handles — v1.6/#103) ·
+ * generated footer with fact-count.
  */
 
-import { credentialLdEntries, type Lang, type PlatformProfile } from "@profile-as-code/core";
+import type { Lang, PlatformProfile } from "@profile-as-code/core";
 import { mdHref, mdText } from "@profile-as-code/markdown";
 
 export const deploySpec = "git" as const;
@@ -66,6 +68,14 @@ function plural(n: number, word: string): string {
 
 export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResult {
   const lang = opts.lang ?? p.lang;
+  // The structured data was assembled by `compile()` at its OWN lang, so an override here
+  // would desync it from the header (v1.6 review, F2). No in-repo caller overrides, but a
+  // silent mismatch is worse than a loud one: say it once, where the override happens.
+  if (opts.lang !== undefined && opts.lang !== p.lang && p.structuredData?.jsonLd !== undefined) {
+    console.warn(
+      `render: opts.lang="${opts.lang}" overrides the compiled lang "${p.lang}" — the JSON-LD was built at "${p.lang}" and will not follow. Re-compile with the target lang for structured data to match.`,
+    );
+  }
   const out: string[] = [];
 
   // 1. Header — org name (H1), tagline, mission.
@@ -146,43 +156,40 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     for (const [name, angle] of audienceEntries) out.push("", `- **${name}**: ${angle}`);
   }
 
-  // 7. Links (sameAs) + JSON-LD Organization.
+  // 7. Links (every channel, for humans) + JSON-LD Organization (from core).
   // Contact email (v1.5, issue #71): a fact, output-only — links[] stays
-  // page-URLs-only (sameAs never carries a mailto: URI). Emitted first.
-  const sameAs = [
+  // page-URLs-only (a mailto: URI is never here). Emitted first.
+  // NB: this is the VISIBLE list (all links); `sameAs` in the structured data is a
+  // narrower set — only role: realization — resolved by core (v1.6/#103).
+  const visibleLinks = [
     ...(p.identity.links ?? []).map((l) => l.url),
     ...claimed.map((h) => h.url as string),
   ].filter((url, index, all) => all.indexOf(url) === index);
-  if (sameAs.length > 0 || p.identity.email !== undefined) {
+  if (visibleLinks.length > 0 || p.identity.email !== undefined) {
     const rows: string[] = [];
     if (p.identity.email !== undefined) rows.push(`- mailto:${p.identity.email}`);
-    rows.push(...sameAs.map((url) => `- ${url}`));
+    rows.push(...visibleLinks.map((url) => `- ${url}`));
     out.push("", "## Links", ...rows);
   }
 
-  const jsonLd: Record<string, unknown> = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    name: p.identity.name,
-  };
-  if (p.identity.email !== undefined) jsonLd.email = p.identity.email;
-  if (p.identity.logo !== undefined) jsonLd.logo = p.identity.logo;
-  if (p.identity.established !== undefined) jsonLd.foundingDate = p.identity.established;
-  if (tagline !== undefined) jsonLd.slogan = tagline;
-  if (mission !== undefined) jsonLd.description = mission;
-  jsonLd.sameAs = sameAs;
-  // §18.9 (D17): the brand flavor gets the same GEO payoff — Organization surfaces
-  // carry hasCredential too (ISO certifications, awards). credentialLdEntries
-  // filters internally (§18.5 — public only); absent → the key is not emitted.
-  const publicCredentials = credentialLdEntries(p.credentials ?? []);
-  if (publicCredentials.length > 0) jsonLd.hasCredential = publicCredentials;
-  out.push(
-    "",
-    "<!-- JSON-LD (schema.org Organization) -->",
-    "```json",
-    JSON.stringify(jsonLd, null, 2),
-    "```",
-  );
+  // The entity's structured data comes from core (v1.6/#103) — this renderer NEVER
+  // re-derives `@id`/`sameAs` (SPEC §15.4; the §18.9 credentialLdEntries precedent).
+  // Note the two sets are now DIFFERENT and both are correct: the visible Links
+  // section above lists every channel (a human wants them all), while `sameAs`
+  // carries only `role: realization` links — including an aggregator there would
+  // blur the hierarchy schema.org defines.
+  // `structuredData` is REQUIRED on PlatformProfile, but a hand-built slice (the documented
+  // seam) may omit it: guard the whole chain, not just `jsonLd`, so a partial slice renders
+  // without structured data instead of throwing.
+  if (p.structuredData?.jsonLd !== undefined) {
+    out.push(
+      "",
+      "<!-- JSON-LD (schema.org Organization) -->",
+      "```json",
+      JSON.stringify(p.structuredData.jsonLd, null, 2),
+      "```",
+    );
+  }
 
   // 8. Footer — deterministic marker + fact count (for diff/CI assertions, §15.3).
   const pendingCount = p.socialHandles.filter((h) => h.status === "pending").length;

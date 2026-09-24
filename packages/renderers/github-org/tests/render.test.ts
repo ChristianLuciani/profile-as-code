@@ -445,3 +445,72 @@ cadence: " "
     );
   });
 });
+
+describe("github-org — link roles (v1.6, #103)", () => {
+  // Plain filename → body (no encoding): flavor.yaml carries the bare scalar `brand`.
+  const sliceFrom = (files: Record<string, string>) => {
+    const dir = mkdtempSync(join(tmpdir(), "pasco-org-role-"));
+    const content = join(dir, "content");
+    mkdirSync(content, { recursive: true });
+    for (const [name, body] of Object.entries(files)) writeFileSync(join(content, name), body);
+    return {
+      slice: compile(load(dir), "github-org", "en"),
+      cleanup: () => rmSync(dir, { recursive: true }),
+    };
+  };
+
+  const jsonLdOf = (text: string): Record<string, unknown> => {
+    const json = text
+      .split("<!-- JSON-LD (schema.org Organization) -->")[1]
+      ?.split("```json")[1]
+      ?.split("```")[0];
+    if (json === undefined) throw new Error("no JSON-LD block");
+    return JSON.parse(json) as Record<string, unknown>;
+  };
+
+  it("emits @id from the role: identity link", () => {
+    const { slice, cleanup } = sliceFrom({
+      "flavor.yaml": "brand\n",
+      "identity.yaml":
+        "name: Topia Press\nlogo: https://topia.press/logo.png\nlinks:\n  - role: identity\n    url: https://topia.press\n  - url: https://x.com/topiapress\n",
+    });
+    try {
+      const ld = jsonLdOf(render(slice).text);
+      expect(ld["@id"]).toBe("https://topia.press");
+      expect(ld.sameAs).toEqual(["https://x.com/topiapress"]);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("omits @id but still emits the block when no link declares role: identity (Option A)", () => {
+    const { slice, cleanup } = sliceFrom({
+      "flavor.yaml": "brand\n",
+      "identity.yaml":
+        "name: Topia Press\nlogo: https://topia.press/logo.png\nlinks:\n  - url: https://x.com/topiapress\n",
+    });
+    try {
+      const ld = jsonLdOf(render(slice).text);
+      expect(ld["@id"]).toBeUndefined();
+      expect(ld["@type"]).toBe("Organization");
+      expect(ld.name).toBe("Topia Press");
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("a slice without structuredData renders instead of throwing (the documented seam)", () => {
+    const { slice, cleanup } = sliceFrom({
+      "flavor.yaml": "brand\n",
+      "identity.yaml": "name: Topia Press\nlinks:\n  - url: https://topia.press\n",
+    });
+    try {
+      const { structuredData: _omit, ...handBuilt } = slice;
+      const text = render(handBuilt as unknown as typeof slice).text;
+      expect(text).toContain("Topia Press");
+      expect(text).not.toContain("JSON-LD");
+    } finally {
+      cleanup();
+    }
+  });
+});

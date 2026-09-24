@@ -31,7 +31,7 @@
   platform: github-org
   rule: geo-consistent
   value: true
-  note: "JSON-LD schema.org/Organization con sameAs = links + claimed handles (GEO, §17.1)."
+  note: "JSON-LD schema.org/Organization: @id = el link con role: identity (ausente si no hay ninguno), sameAs = links con role: realization + claimed handles (GEO, v1.6/#103, §15.4)."
 
 - id: org-cta-one
   platform: github-org

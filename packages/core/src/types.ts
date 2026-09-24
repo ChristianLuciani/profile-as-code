@@ -54,6 +54,18 @@ export type LoadedProfile = Omit<
   artifacts: NonNullable<Profile["artifacts"]>;
 };
 
+/**
+ * v1.6 (#103): the link ROLE — a TRANSLATION LAYER of this engine onto schema.org,
+ * never standard vocabulary. The standard does NOT treat these as interchangeable:
+ *   identity    → schema.org:url              (strong: the page IS the entity)
+ *   realization → schema.org:sameAs           (weak:   indirectly indicates it)
+ *   aggregator  → schema.org:mainEntityOfPage (medium: aggregates references)
+ * Absent = `realization` (additive: pre-v1.6 workspaces keep validating; output changes
+ * are declared in SPEC §15.4).
+ * Classified + sourced in `identeco-cifereca/glossary/naming.md`.
+ */
+export type LinkRole = "identity" | "realization" | "aggregator";
+
 export type Identity = NonNullable<Profile["identity"]>;
 export type Bio = NonNullable<Profile["bios"]>[number];
 export type Headline = NonNullable<Profile["headlines"]>[number];
@@ -193,6 +205,8 @@ export interface StructuredDataReadiness {
   fields: {
     name: boolean;
     sameAs: string[];
+    /** v1.6 (#103): the canonical entity `@id` (the `role: identity` link), when declared. */
+    id?: string;
     /** v1.5 (issue #71): the contact email (fact, schema.org `email`), when present. */
     email?: string;
     image?: string;
@@ -209,6 +223,11 @@ export interface StructuredDataReadiness {
   jsonLd?: {
     "@context": "https://schema.org";
     "@type": "Person" | "Organization";
+    /** v1.6 (#103): the canonical entity identifier (SPEC §15.4), from the
+     *  `role: identity` link. OPTIONAL by design (Option A): a workspace that declares no
+     *  `role` still emits its JSON-LD, just without an anchor — suppressing the block
+     *  would strip structured data from every pre-v1.6 workspace. */
+    "@id"?: string;
     name: string;
     sameAs: string[];
     image?: string;
@@ -296,6 +315,15 @@ export interface PlatformProfile {
   credentials: Credential[];
   artifacts: Artifact[];
   active?: ActiveEntry;
+  /** v1.6 (#103): the entity's structured-data identity — `@id`, `sameAs` and the
+   *  entity fields, assembled ONCE in core (`structured-data.ts`). Renderers emit
+   *  `jsonLd` verbatim and never re-derive it (the §18.9 credentialLdEntries precedent).
+   *
+   *  OPTIONAL on purpose (v1.6 review, F5): `compile()` always populates it, but the
+   *  `PlatformProfile` seam is documented to accept hand-built slices, and a renderer
+   *  must degrade (no structured data) rather than throw. Renderers therefore guard the
+   *  whole chain — a required field guarded with `?.` would be a contract that lies. */
+  structuredData?: StructuredDataReadiness;
   /** Dot-paths of langMaps that fell back to `en` because `lang` was absent. */
   fallbacks: string[];
 }

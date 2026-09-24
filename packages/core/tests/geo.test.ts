@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { geoCheck, load } from "../src/index.js";
@@ -11,7 +14,8 @@ describe("geoCheck(profile)", () => {
 
     expect(report.score).toBeGreaterThan(0);
     expect(report.score).toBeLessThanOrEqual(100);
-    expect(report.checks).toHaveLength(8);
+    // 9 since v1.6 (#103): geo/entity-id (the canonical @id, from the role: identity link).
+    expect(report.checks).toHaveLength(9);
 
     // weights add up to 1
     const totalWeight = report.checks.reduce((sum, c) => sum + c.weight, 0);
@@ -133,5 +137,96 @@ describe("geoCheck(profile)", () => {
 
     expect(report.sections.structuredData.readiness.fields.jobTitle).toBeUndefined();
     expect(check?.detail).toContain("jobTitle: no");
+  });
+});
+
+describe("geoCheck — link roles (v1.6, #103)", () => {
+  const withLinks = (links: string) => {
+    const dir = mkdtempSync(join(tmpdir(), "pasco-geo-role-"));
+    const content = join(dir, "content");
+    mkdirSync(content, { recursive: true });
+    writeFileSync(
+      join(content, "identity.yaml"),
+      `name: Elena Vasquez\nlocation: Madrid, Spain\nphoto: https://example.com/e.jpg\nlinks:\n${links}`,
+    );
+    return { profile: load(dir), cleanup: () => rmSync(dir, { recursive: true }) };
+  };
+
+  const check = (report: ReturnType<typeof geoCheck>, code: string) =>
+    report.checks.find((c) => c.code === code);
+
+  it("reports geo/entity-id as a gap when no link declares role: identity (never invented)", () => {
+    const { profile, cleanup } = withLinks("  - url: https://github.com/elenavasquez\n");
+    try {
+      const c = check(geoCheck(profile), "geo/entity-id");
+      expect(c?.score).toBe(0);
+      // The diagnostic names the actual situation (one realization declared), not a
+      // generic "nothing declared" — the user DID declare a link.
+      expect(c?.detail).toContain("role: realization");
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("scores geo/entity-id 1 and names the @id when a link declares role: identity", () => {
+    const { profile, cleanup } = withLinks(
+      "  - role: identity\n    url: https://elenavasquez.com\n  - url: https://github.com/elenavasquez\n",
+    );
+    try {
+      const c = check(geoCheck(profile), "geo/entity-id");
+      expect(c?.score).toBe(1);
+      expect(c?.detail).toContain("https://elenavasquez.com");
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("counts ONLY role: realization links toward geo/sameas-links (no credit for a signal it does not emit)", () => {
+    // Three links but only one will become `sameAs`; counting all three would score a
+    // citability signal the JSON-LD never carries.
+    const { profile, cleanup } = withLinks(
+      [
+        "  - role: identity\n    url: https://elenavasquez.com",
+        "  - url: https://github.com/elenavasquez",
+        "  - role: aggregator\n    url: https://linktr.ee/elenavasquez",
+        "",
+      ].join("\n"),
+    );
+    try {
+      const c = check(geoCheck(profile), "geo/sameas-links");
+      expect(c?.score).toBeCloseTo(1 / 5, 5); // 1 realization / 5 recommended
+      expect(c?.detail).toContain("role: realization");
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("keeps the documented weights summing to 1 with the new check", () => {
+    const report = geoCheck(load(fixture("minimal")));
+    expect(report.checks.reduce((sum, c) => sum + c.weight, 0)).toBeCloseTo(1, 5);
+  });
+});
+
+describe("geoCheck — sameAs never carries the @id (v1.6 review)", () => {
+  it("a claimed handle pointing at the identity link does not reappear in sameAs", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pasco-ididem-"));
+    const content = join(dir, "content");
+    mkdirSync(content, { recursive: true });
+    writeFileSync(
+      join(content, "identity.yaml"),
+      "name: Elena Vasquez\nlinks:\n  - role: identity\n    url: https://x.com/elenavasquez\n  - url: https://github.com/elenavasquez\n",
+    );
+    writeFileSync(
+      join(content, "socialHandles.yaml"),
+      "- platform: x\n  handle: elenavasquez\n  status: claimed\n  url: https://x.com/elenavasquez\n",
+    );
+    try {
+      const report = geoCheck(load(dir));
+      const sameAs = report.sections.structuredData.readiness.fields.sameAs;
+      expect(sameAs).toEqual(["https://github.com/elenavasquez"]);
+      expect(sameAs).not.toContain("https://x.com/elenavasquez");
+    } finally {
+      rmSync(dir, { recursive: true });
+    }
   });
 });

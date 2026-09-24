@@ -30,3 +30,6 @@ docs/research/_drafts/
 
 # Session worktrees (AGOS W3: {repo}/.worktrees/{branch}/)
 .worktrees/
+
+# vitest JSON reporter output (generated; contains absolute paths)
+.vitest/
