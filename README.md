@@ -73,8 +73,8 @@ renderer `github-org`. Primer workspace brand: Topia — planeado como repo priv
 ```bash
 pnpm install
 pnpm test            # workspace tests (vitest)
-pnpm build           # build + type-check
-pnpm typecheck       # tsc --noEmit
+pnpm build           # build (CLI: tsup transpile-only — type gate is pnpm typecheck, #108)
+pnpm typecheck       # tsc --noEmit, whole workspace (CI-enforced since #108)
 pnpm lint            # style gate (Biome: lint + format + import order)
 pnpm gen:zod         # regenera Zod desde schema/profile.schema.json (D3)
 ```
