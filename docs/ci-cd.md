@@ -35,7 +35,11 @@ One job, **`ci`**, required on every PR and push to `main`:
    (M1 core), in this order: `pnpm install --frozen-lockfile` →
    **`pnpm lint`** (Biome: lint + format + import order, issue #59) →
    **D3 freshness** (`pnpm gen:zod` then `git diff --exit-code` on the committed Zod, so a
-   schema edit without regeneration fails here) → `pnpm test` → `pnpm build`
+   schema edit without regeneration fails here) →
+   **Typecheck** (`pnpm build && pnpm typecheck`, issue #108 — the CLI builds with
+   tsup, which transpiles without type-checking, so the gate runs an explicit
+   build first: workspace type resolution needs the built `dist/`) →
+   `pnpm test` → `pnpm build`
    (all recursive over `packages/*`) → tarball bin smoke check (issue #43).
    pnpm version comes from the `packageManager` field in the root `package.json`.
 
@@ -50,7 +54,8 @@ surface, which matters for the public-readiness checklist (`docs/STANDARDS.md`, 
 
 **Honest trade-off.** Biome is deliberately *less* configurable than ESLint (fixed rule set vs the
 ESLint plugin API) — the win is **less config required**, not more knobs. And it is **not
-type-aware**: `pnpm typecheck` (tsc strict) covers types, but not type-aware lint rules such as
+type-aware**: `pnpm typecheck` (tsc strict) covers types — enforced in CI as a
+gate since #108 — but not type-aware lint rules such as
 `no-floating-promises` or `no-misused-promises`.
 
 **Revisit triggers** — either one reopens this choice (recorded so it is decided on evidence, not

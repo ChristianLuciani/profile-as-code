@@ -47,7 +47,7 @@ community" (source: prompt-studio `registry/specs/community-first.md`).
 | 2 | LICENSE as file (not only metadata) | ✅ | MIT, 2026-08-07 |
 | 3 | CONTRIBUTING: direction + hygiene + **escalation/latency** | ⚠️ | direction + hygiene present; **no escalation/latency section** (community-first §7) — gap, add before accepting external contributors |
 | 4 | CODE_OF_CONDUCT.md | ✅ | Contributor Covenant, 2026-08-08 |
-| 5 | CI green (tests, lint, docs/links gates) | ⚠️ | tests green (268, vitest); lint/format gate configured (Biome 2.5.14: `pnpm lint` + `ci.yml` step, `biome.json`) — #59 (2026-09-17); docs/links gate still open |
+| 5 | CI green (tests, lint, typecheck, docs/links gates) | ⚠️ | tests green (268, vitest); lint/format gate configured (Biome 2.5.14: `pnpm lint` + `ci.yml` step, `biome.json`) — #59 (2026-09-17); typecheck gate added to CI (`pnpm build && pnpm typecheck` step) — #108/#109 (2026-09-25); docs/links gate still open |
 | 6 | docs/STANDARDS.md (this file) | ✅ | this PR |
 | 7 | Priorities visible (ROADMAP or pinned issue) | ⚠️ | README Roadmap table (M1–M5) serves; **no pinned issue** — pin #44 at flip |
 | 8 | AGENTS.md (repo >1/3 agent context window) | ✅ | present, with map + context-discipline rule |
