@@ -53,6 +53,17 @@ jobs:
           pnpm gen:zod
           git diff --exit-code packages/core/src/generated/schema.zod.ts
 
+      # Issue #108: type gate. Biome is not type-aware (docs/ci-cd.md) and the
+      # CLI — the published package — builds with tsup (`dts: false`), which
+      # transpiles without checking types, so `pnpm build` alone never
+      # type-checks it. `pnpm typecheck` recurses over the whole workspace, but
+      # it resolves workspace types from their built `dist/` (core exports ->
+      # dist/index.d.ts), which does not exist on a fresh checkout — hence the
+      # explicit build right before it. Runs before Test to fail fast.
+      - name: Typecheck (tsc strict, whole workspace)
+        if: hashFiles('package.json') != ''
+        run: pnpm build && pnpm typecheck
+
       - name: Test
         if: hashFiles('package.json') != ''
         run: pnpm test
