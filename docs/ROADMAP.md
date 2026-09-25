@@ -1,0 +1,113 @@
+# Roadmap — de acá a lo planificado
+
+> **Generado** 2026-09-24 desde el estado verificado del repo (no del declarado).
+> Canónico del plan: `docs/SPEC.md` §12. Este documento agrega **qué está realmente hecho**
+> y **en qué orden conviene seguir**, con la evidencia de cada afirmación.
+> Regenerar/corregir cuando la evidencia cambie.
+
+## Estado real (verificado, no declarado)
+
+| Milestone | SPEC dice | Estado real | Evidencia |
+|---|---|---|---|
+| **M1** spec + schema + core + CLI skeleton | ✅ | **✅ cerrado** | `schema/`, `packages/core` (10 archivos de test), CLI con 8 comandos |
+| **M2** renderer github-readme + CI + dogfood | ✅ | **✅ cerrado** | `packages/renderers/github-readme`; el README real de `ChristianLuciani/ChristianLuciani` (10.3 KB) lleva el marker generado |
+| **M3** SOTA research + skills v1 + `pasco refine` | pendiente | **⚠️ parcial** — skills existen, `refine` es stub | `skills/github-readme/`, `skills/github-org/`; `packages/cli/src/commands/refine.ts` = stub explícito |
+| **M4** renderers linkedin/upwork/x/researchgate/substack + `pasco check` + ledger | pendiente | **⚠️ parcial** — ledger ✅ (D18), `check` parcial, renderers ✗ | `deployments` en schema (v1.3); `check.ts` corre catálogo pero con reglas pendientes; solo 2 renderers |
+| **M5** web renderer + template release + CONTRIBUTING | pendiente | **✗ no empezado** | Sin `packages/renderers/web`; CONTRIBUTING existe pero M5 pedía "completo" |
+| **M6** brand flavor | ✅ | **✅ cerrado** | `flavor: brand`, `github-org` renderer, `skills/github-org/`, `templates/profile-data-brand` |
+| **M7** evidence core | ✅ | **✅ cerrado** | schema v1.4 (`credentials[]`/`artifacts[]`), `registryCheck`, `hasCredential` en JSON-LD |
+| **M8** media pipeline | ✅ | **✅ contrato sí, deploy no** | `assets/` + `manifest.json` + `collectMedia` en core; los playbooks de deploy son M4 |
+
+**Lectura:** el engine está considerablemente más avanzado de lo que el README sugiere
+(marca ✅ M6/M7 contra lo que el roadmap raíz presenta como ⏳). Lo que falta **no es motor
+— es superficie**: más renderers (M4), el web (M5), y `refine` real (M3).
+
+---
+
+## Orden recomendado
+
+El criterio de orden es **desbloquear valor con la menor cantidad de piezas nuevas**. Publicar
+`pasco` es lo que convierte trabajo terminado en algo usable por otros; todo lo demás suma a un
+motor que hoy nadie de afuera puede ejecutar.
+
+### Ahora — desbloquear la distribución
+
+**1 · Publicar `pasco`** → **#105** (implementation-ready)
+Tres bloques de docs + una decisión del operador (visibilidad ↔ provenance). **No requiere
+código**: `verify:pack` pasa. Es el mayor retorno por hora de todo el backlog, porque el
+trabajo ya está hecho y solo le falta la puerta de entrada.
+
+**2 · `pasco refine` real** → M3
+Es **el diferenciador del producto** (§1 goal 3: *"intent-driven texts como N variantes que el
+usuario elige"*). Hoy es un stub, y sin él `pasco` es válido pero no es lo que el proyecto
+promete. Además es la pieza que las platform skills (ya escritas) existen para alimentar.
+
+### Después — superficie por plataforma
+
+**3 · Los renderers de M4** (linkedin → upwork → x → researchgate → substack)
+Un adapter por vez, cada uno con su skill ya escrita. Acá la arquitectura ya está probada dos
+veces (`github-readme`, `github-org`), así que es trabajo de adaptación, no de diseño.
+**Criterio de orden:** el orden del SPEC (LinkedIn primero) es el correcto — es la plataforma
+donde el drift duele más.
+
+**4 · `pasco check` completo** → M3/M4
+Cierra el catálogo de reglas. Depende de los renderers: `checks.yaml` por skill declara límites
+por plataforma, y sin el renderer no hay qué medir.
+
+### Después — el sitio
+
+**5 · Web renderer (M5)**
+Es el que **consume** la identidad de entidad que se acaba de construir (#103): `@id`, `sameAs`,
+`mainEntityOfPage`. También es donde `role: aggregator` cobra sentido — hoy el mapeo a
+`mainEntityOfPage` es **declarativo**, y M5 es su consumidor (documentado en SPEC §15.4).
+Depende de: nada. Puede hacerse en paralelo con 3/4 si hay dos sesiones.
+
+**6 · Deploy playbooks + media a superficie pública** → M8/M4
+Cierra el pipeline de media: hoy el engine bundlea assets, pero publicarlos es M4.
+
+### Después — comunidad
+
+**7 · `profile-data-template` release + CONTRIBUTING completo** → M5
+**8 · #95 licence + CLA** — time-sensitive, antes de la primera contribución externa
+**9 · #101 on-ramp sin GitHub** — declarar el requisito y diseñar la vía no técnica
+**10 · #100 refresh de la status table** — housekeeping
+
+### Transversal — no milestone
+
+**11 · #98 dependency gate de `packages/server`** — scope rule del D20, cuando ese paquete exista
+
+---
+
+## Lo que este roadmap NO incluye (deliberadamente)
+
+Del análisis de identidad de esta sesión (corpus en `identeco-cifereca`):
+
+| Ítem | Por qué no está acá |
+|---|---|
+| **Portabilidad / migración de identidad** ("empieza en Facebook, termina en ResearchGate") | **Problema abierto del campo.** W3C DID ofrece primitivas pero los métodos no las soportan consistentemente (S-06). Documentado, no construido. |
+| **Canales de contacto** (WhatsApp Business, punto de venta, board) | Sin taxonomía consensuada. `identity.email` ya fue un parche en esa grieta (#71). |
+| **La clase `aggregator` como estándar** | El campo la reconoce, ningún estándar la nombró. Seguimiento en `identeco-cifereca#2`. |
+
+Se agregan al roadmap **cuando el campo consensúe** — no antes. Construirlos hoy sería
+retrofittear un modelo que el propio campo todavía está discutiendo.
+
+---
+
+## Dependencias entre ítems
+
+```
+#105 publicar ──────────────┐
+                            ├──► permite que 3/4/5 tengan usuarios reales
+M3 refine ──────────────────┤
+                            │
+M4 renderers ───► M4 check ─┘
+                     │
+M5 web ──────────────┴──► M8 deploy playbooks
+     └──► consume #103 (@id/sameAs/roles)
+
+M5 template release ──► #101 (on-ramp) ──► #95 (CLA, antes de contribución externa)
+```
+
+**Camino crítico:** `M3 refine` → `M4 renderers` → `M4 check`.
+**Paralelizable:** `M5 web` con `M4 renderers` (tocan paquetes distintos, y `structured-data.ts`
+ya expone el contrato que M5 necesita).
