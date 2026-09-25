@@ -9,6 +9,15 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Planned (roadmap)
+
+- Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
+- CLI `pasco`: build · validate · diff · check · refine · skills:install (M1/M3)
+- Per-platform skills v1 from SOTA research (M3)
+- `profile-data` template repo + web renderer (M5)
+
+## [0.2.0] - 2026-09-24
+
 ### Added
 
 - **schema v1.6: `identity.links[].role` — entity identity gets a single home (SPEC §15.4, issue #103)** —
@@ -85,7 +94,7 @@ minor versions may contain breaking contract changes.
   un `E404`/`E403` engañoso — e imprime `npm --version` para descartar la causa de un vistazo) y
   elimina el flag condicional `--provenance`: bajo OIDC npm genera la atestación sola y la omite
   cuando el repo fuente es privado. `NPM_TOKEN` queda **solo** como fallback del primer publish
-  (v0.1.0, que corre antes de que el paquete exista y se pueda configurar el trusted publisher); npm
+  (el que corre antes de que el paquete exista y se pueda configurar el trusted publisher); npm
   prefiere OIDC sobre el token, así que la migración no exige borrar nada en el mismo paso. Pasos
   humanos y pre-flight (workflow filename, `repository.url`) en `docs/ci-cd.md`.
 
@@ -150,13 +159,6 @@ minor versions may contain breaking contract changes.
   instancias más y las arregla en el mismo PR: `skill.level` (omisión del paréntesis) y `project.status` (omisión del
   segmento ` · \`status\``). Byte-parity: inputs con los tres campos poblados emiten byte-idéntico (test EXPECTED sin
   cambios); `github-org` verificado limpio (todas sus interpolaciones opcionales están guardadas).
-
-### Planned (roadmap)
-
-- Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
-- CLI `pasco`: build · validate · diff · check · refine · skills:install (M1/M3)
-- Per-platform skills v1 from SOTA research (M3)
-- `profile-data` template repo + web renderer (M5)
 
 ## [0.1.0] - 2026-09-15
 

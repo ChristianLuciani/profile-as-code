@@ -25,6 +25,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const GUARD = join(dirname(fileURLToPath(import.meta.url)), "..", "scripts", "release-guard.mjs");
 
+/** The version THIS checkout declares. The guard compares the tag against the
+ *  manifest it ships with, so the suite has to follow the release instead of
+ *  pinning a version — a pinned literal makes every release-prep bump fail 13
+ *  cases that assert the guard works, which is the opposite of a signal. */
+const MANIFEST = join(dirname(fileURLToPath(import.meta.url)), "..", "package.json");
+const VERSION = JSON.parse(readFileSync(MANIFEST, "utf8")).version as string;
+const TAG = `v${VERSION}`;
+
 const tempDirs: string[] = [];
 
 function git(cwd: string, args: string[]): string {
@@ -73,14 +81,16 @@ function outputFile(): string {
   return file;
 }
 
-/** Point origin's v0.1.0 at a commit (how a real tag lands on origin), or remove
- *  it from BOTH origin and the clone so a case never inherits the previous one. */
+/** Point origin's release tag at a commit (how a real tag lands on origin), or
+ *  remove it from BOTH origin and the clone so a case never inherits the previous
+ *  one. The tag name is this checkout's version (`TAG`), because that is what the
+ *  guard reads from the manifest it ships with. */
 function tagAt(target: string | null): void {
-  gitAllowFailure(dirs.work, ["tag", "-d", "v0.1.0"]);
-  gitAllowFailure(dirs.work, ["push", "--delete", "origin", "refs/tags/v0.1.0"]);
+  gitAllowFailure(dirs.work, ["tag", "-d", TAG]);
+  gitAllowFailure(dirs.work, ["push", "--delete", "origin", `refs/tags/${TAG}`]);
   if (target === null) return;
-  git(dirs.work, ["tag", "v0.1.0", target]);
-  git(dirs.work, ["push", "--force", "origin", "v0.1.0"]);
+  git(dirs.work, ["tag", TAG, target]);
+  git(dirs.work, ["push", "--force", "origin", TAG]);
 }
 
 beforeAll(() => {
@@ -97,7 +107,7 @@ beforeAll(() => {
   git(base, ["init", "--quiet", "-b", "main", seed]);
   // Every commit carries a manifest: the guard reads the version from INSIDE the
   // commit it publishes, not from the working tree.
-  const commit = (message: string, contents: string, version = "0.1.0"): void => {
+  const commit = (message: string, contents: string, version = VERSION): void => {
     appendFileSync(join(seed, "f"), contents);
     mkdirSync(join(seed, "packages", "cli"), { recursive: true });
     writeFileSync(
@@ -138,7 +148,7 @@ afterAll(() => {
   for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
 });
 
-const TAG_PUSH = { GITHUB_REF_TYPE: "tag", GITHUB_REF_NAME: "v0.1.0", DEFAULT_BRANCH: "main" };
+const TAG_PUSH = { GITHUB_REF_TYPE: "tag", GITHUB_REF_NAME: TAG, DEFAULT_BRANCH: "main" };
 const DISPATCH = { GITHUB_REF_TYPE: "branch", GITHUB_REF_NAME: "main", DEFAULT_BRANCH: "main" };
 
 describe("release guard — tag push (identity: the tag must BE the tip)", () => {
@@ -173,7 +183,7 @@ describe("release guard — tag push (identity: the tag must BE the tip)", () =>
     expect(code).toBe(0);
     const written = readFileSync(out, "utf8");
     expect(written).toContain(`commit=${dirs.tip}`);
-    expect(written).toContain("tag=v0.1.0");
+    expect(written).toContain(`tag=${TAG}`);
   });
 
   it("REFUSES a tag whose name disagrees with the manifest", () => {
@@ -205,8 +215,9 @@ describe("release guard — workflow_dispatch (ancestry: a retry is legitimate)"
   });
 
   it("REFUSES a tag whose TREE declares another version — the artifact, not the checkout, decides", () => {
-    // The checkout says 0.1.0 (that is how the tag was chosen) but the tagged
-    // commit's manifest says 9.9.9, and the build is pinned to that commit.
+    // The checkout declares the current version (that is how the tag was chosen)
+    // but the tagged commit's manifest says 9.9.9, and the build is pinned to
+    // that commit.
     tagAt(dirs.mismatch);
     const { code, out } = guard(DISPATCH, dirs.work);
     expect(code).toBe(1);

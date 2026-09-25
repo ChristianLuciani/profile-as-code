@@ -29,8 +29,8 @@ before it is presented publicly — the first real end-to-end test is a hard req
 | 7 | Governance in place | ✅ | LICENSE (MIT), CODE_OF_CONDUCT, CONTRIBUTING, GOVERNANCE — D-refs swept to **D1–D18** across all prose surfaces (CONTRIBUTING, GOVERNANCE, AGENTS.md ×2, PR template, build doc, USER-GUIDE, README ×2); the CHANGELOG's dated release note stays as history |
 | 8 | Maintainer sign-off | ❌ | operator-only decision; requires items 1 and 3 done (4 and 6 are resolved) |
 
-**To go public:** resolve item 3 (tag v0.1.0 + npm publish — #44 is closed, but as of
-2026-09-21 there is no git tag on `origin` and `@profile-as-code/cli` is unpublished), re-verify
+**To go public:** resolve item 3 (tag v0.2.0 + npm publish — the version prep landed 2026-09-24; as of
+that date there is still no git tag on `origin` and `@profile-as-code/cli` is unpublished), re-verify
 dogfood on HEAD (item 1), flip visibility with the maintainer's sign-off, **then immediately
 re-apply branch protection** (`docs/ci-cd.md` has the exact calls — protection exists only once
 the repo is public on GitHub Free; items 6/10 may carry tracked issues only if they don't
