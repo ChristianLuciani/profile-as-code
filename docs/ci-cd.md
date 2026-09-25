@@ -129,10 +129,11 @@ next person debugging a publish does not have to rediscover them:
 #### One-time setup (human — npmjs.com)
 
 Trusted publishing is configured **per package**, so it requires the package to already exist:
-v0.1.0 (the first publish) still goes out with the `NPM_TOKEN` fallback. From the next version
+v0.2.0 (the first publish) still goes out with the `NPM_TOKEN` fallback. From the next version
 on, OIDC is used automatically. To complete the migration:
 
-1. Publish v0.1.0 with the existing token (operator action, issue #44).
+1. Publish v0.2.0 with the existing token (operator action: push the tag — issue #44, which
+   reserved the `pasco` bin name, is closed).
 2. On npmjs.com → the package's settings → **Trusted Publisher** → GitHub Actions, set:
    - **Organization or user:** `ChristianLuciani`
    - **Repository:** `profile-as-code`

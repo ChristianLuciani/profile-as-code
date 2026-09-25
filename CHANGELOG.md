@@ -9,6 +9,15 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Planned (roadmap)
+
+- Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
+- CLI `pasco`: build · validate · diff · check · refine · skills:install (M1/M3)
+- Per-platform skills v1 from SOTA research (M3)
+- `profile-data` template repo + web renderer (M5)
+
+## [0.2.0] - 2026-09-24
+
 ### Added
 
 - **schema v1.6: `identity.links[].role` — entity identity gets a single home (SPEC §15.4, issue #103)** —
@@ -150,13 +159,6 @@ minor versions may contain breaking contract changes.
   instancias más y las arregla en el mismo PR: `skill.level` (omisión del paréntesis) y `project.status` (omisión del
   segmento ` · \`status\``). Byte-parity: inputs con los tres campos poblados emiten byte-idéntico (test EXPECTED sin
   cambios); `github-org` verificado limpio (todas sus interpolaciones opcionales están guardadas).
-
-### Planned (roadmap)
-
-- Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
-- CLI `pasco`: build · validate · diff · check · refine · skills:install (M1/M3)
-- Per-platform skills v1 from SOTA research (M3)
-- `profile-data` template repo + web renderer (M5)
 
 ## [0.1.0] - 2026-09-15
 

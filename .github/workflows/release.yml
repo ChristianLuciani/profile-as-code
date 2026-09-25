@@ -1,7 +1,7 @@
 name: release
 
 # Publishes @profile-as-code/cli to npm on a version tag (issue #42) and creates the
-# matching GitHub Release from CHANGELOG.md (issue #58). The FIRST tag push (v0.1.0)
+# matching GitHub Release from CHANGELOG.md (issue #58). The FIRST tag push (v0.2.0)
 # is the operator's publish action — pushing the tag IS publishing (issue #44);
 # workflow_dispatch is for retries.
 #
@@ -131,7 +131,7 @@ jobs:
       # Auth is OIDC-first: the npm CLI prefers the OIDC environment over
       # NODE_AUTH_TOKEN, and the OIDC path is written to NEVER throw — a failed exchange
       # returns undefined and leaves the configured token in place (lib/utils/oidc.js, npm
-      # 11.6.1). That is what makes NPM_TOKEN a true fallback for the first publish (v0.1.0),
+      # 11.6.1). That is what makes NPM_TOKEN a true fallback for the first publish (v0.2.0),
       # which runs before a trusted publisher can exist. Delete the secret only after the
       # trusted publisher is configured and a publish through it is verified (issue #80;
       # runbook in docs/ci-cd.md).
@@ -169,7 +169,7 @@ jobs:
           ref: ${{ needs.publish.outputs.commit }}
           fetch-depth: 0
 
-      # The CHANGELOG heading is `## [0.1.0]` while the tag is `v0.1.0`.
+      # The CHANGELOG heading is `## [0.2.0]` while the tag is `v0.2.0`.
       - name: Extract release notes from CHANGELOG.md
         env:
           TAG: ${{ needs.publish.outputs.tag }}
