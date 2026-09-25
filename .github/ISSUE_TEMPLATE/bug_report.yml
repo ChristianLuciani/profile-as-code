@@ -11,7 +11,7 @@ body:
     attributes:
       label: Version / commit
       description: Tag, commit SHA or branch you're on.
-      placeholder: "v0.1.0 / 3ceaeb8"
+      placeholder: "v<version> / <commit-sha>"
     validations:
       required: true
   - type: textarea

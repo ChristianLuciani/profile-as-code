@@ -132,8 +132,9 @@ Trusted publishing is configured **per package**, so it requires the package to 
 v0.2.0 (the first publish) still goes out with the `NPM_TOKEN` fallback. From the next version
 on, OIDC is used automatically. To complete the migration:
 
-1. Publish v0.2.0 with the existing token (operator action: push the tag — issue #44, which
-   reserved the `pasco` bin name, is closed).
+1. Publish v0.2.0 with the existing token (operator action: push the tag — the publish is what
+   claims the `pasco` bin name; issue #44 is closed, its reservation task void by construction: a
+   name cannot be reserved without publishing it, [WEB: docs.npmjs.com, 2026-09-07]).
 2. On npmjs.com → the package's settings → **Trusted Publisher** → GitHub Actions, set:
    - **Organization or user:** `ChristianLuciani`
    - **Repository:** `profile-as-code`

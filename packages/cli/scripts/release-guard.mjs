@@ -170,14 +170,14 @@ function help() {
 Reads the workflow context from the environment, as GitHub Actions provides it:
 
   GITHUB_REF_TYPE   "tag" on a tag push, "branch" on workflow_dispatch
-  GITHUB_REF_NAME   the tag (v0.1.0) or the branch name
+  GITHUB_REF_NAME   the tag (v1.2.3) or the branch name
   DEFAULT_BRANCH    the repository default branch
   DRY_RUN           "true" to skip the guard (nothing is published)
 
 Exercise it against a tag that must NOT be publishable (run inside a clone whose
 origin has the tag):
 
-  GITHUB_REF_TYPE=tag GITHUB_REF_NAME=v0.1.0 DEFAULT_BRANCH=main \\
+  GITHUB_REF_TYPE=tag GITHUB_REF_NAME=v1.2.3 DEFAULT_BRANCH=main \\
     node scripts/release-guard.mjs`);
 }
 

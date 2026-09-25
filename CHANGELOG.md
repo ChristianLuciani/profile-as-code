@@ -94,7 +94,7 @@ minor versions may contain breaking contract changes.
   un `E404`/`E403` engañoso — e imprime `npm --version` para descartar la causa de un vistazo) y
   elimina el flag condicional `--provenance`: bajo OIDC npm genera la atestación sola y la omite
   cuando el repo fuente es privado. `NPM_TOKEN` queda **solo** como fallback del primer publish
-  (v0.1.0, que corre antes de que el paquete exista y se pueda configurar el trusted publisher); npm
+  (el que corre antes de que el paquete exista y se pueda configurar el trusted publisher); npm
   prefiere OIDC sobre el token, así que la migración no exige borrar nada en el mismo paso. Pasos
   humanos y pre-flight (workflow filename, `repository.url`) en `docs/ci-cd.md`.
 
