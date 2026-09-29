@@ -1,9 +1,9 @@
 # Repository standards & public-readiness policy
 
 > Refreshed **2026-09-28** from a single re-measured evidence run (#100): repo-gate items 1, 2, 3,
-> 5 and community items 5, 6, 9; items 4 and 10 stand per their 2026-09-21 refresh (#54); the
-> remaining rows stand per their cited dates. Every status cites its evidence — a claim without
-> source + date does not belong here (evidence rule).
+> 5 and community items 5, 6, 7, 9; items 4 and 10 stand per their 2026-09-21 refresh (#54); rows
+> without a date stand as written until their next refresh. Every status cites its evidence — a
+> claim without source + date does not belong here (evidence rule).
 
 ## Private by default
 
@@ -22,7 +22,7 @@ before it is presented publicly — the first real end-to-end test is a hard req
 |---|---|---|---|
 | — | Visibility | 🔒 **private** | per policy |
 | 1 | First real test (dogfood: real data rendered + deployed) | ⚠️ | renderers `github-readme` + `github-org` built and tested (`packages/renderers/`, 75 tests, CI green — 2026-09-28); real workspace: `profile-data` (private repo). Deploy evidence is **not externally auditable** (private workspace) — entry gate: re-run dogfood on current HEAD and record a deploy artifact before flip (#112, 2026-09-28 — #45 closed without recording it) |
-| 2 | CI green + meaningful | ✅ | CI green on `main` (2026-09-28) + suites verified: **304 tests**, 17 files (`pnpm test` → `build` + `pnpm -r test`, 2026-09-28: markdown 12 · core 137 · github-org 22 · github-readme 53 · cli 80) |
+| 2 | CI green + meaningful | ✅ | CI green on `main` (last run on main: 2026-09-25, `success`) + suites verified by re-run: **304 tests**, 17 files (`pnpm test` → `build` + `pnpm -r test`, 2026-09-28: markdown 12 · core 137 · github-org 22 · github-readme 53 · cli 80) |
 | 3 | Tagged release + changelog | ❌ **blocker** | no tag yet (`git ls-remote --tags origin` → empty, 2026-09-28); `@profile-as-code/cli` unpublished (npm E404, 2026-09-28); `release.yml` publishes to npm **and** creates the matching GitHub Release from `CHANGELOG.md` with `packages/cli/scripts/release-notes.mjs` (#58, 2026-09-18) — the remaining blocker is the operator-gated tag/publish (#113, 2026-09-28 — #44 closed without it) |
 | 4 | Docs honest + quickstart verified | ✅ | 4 README/CONTRIBUTING/CHANGELOG drifts in #55 (closed). USER-GUIDE §1–§6 and §8–§9 executed from a fresh clone on 2026-09-21 by a non-author agent session (#54); §7 verified up to the deploy artifact (`profiles/github-readme/README.md`) + ledger (`status --mark`/`--write-checklist`) — the platform paste and the profile-repo PR + human merge were **not** executed (human boundary, by design). 7 doc bugs found and fixed in the same PR, corrected snippets re-validated against the schema; full log in the #54 comment. Caveat: both gate points need maintainer credentials — §2 clones the still-private engine, and §3 Option A clones the private template; a third party without access fails at the first step (item 10) |
 | 5 | No placeholders in critical paths | ✅ | no TODO/FIXME in `packages/*/src` (grep 2026-09-28); renderers + CLI built (8 commands: build, check, diff, init, refine, `skills:install`, status, validate); limitations tracked as issues |
@@ -50,7 +50,7 @@ community" (source: prompt-studio `registry/specs/community-first.md`).
 | 4 | CODE_OF_CONDUCT.md | ✅ | Contributor Covenant, 2026-08-08 |
 | 5 | CI green (tests, lint, typecheck, docs/links gates) | ⚠️ | tests green (**304**, vitest — same `pnpm test` run as repo-gate item 2, 2026-09-28); lint/format gate configured (Biome 2.5.14: `pnpm lint` + `ci.yml` step, `biome.json`) — #59 (2026-09-17); typecheck gate added to CI (`pnpm build && pnpm typecheck` step) — #108/#109 (2026-09-25); docs/links gate still open |
 | 6 | docs/STANDARDS.md (this file) | ✅ | this file — last refresh 2026-09-28 (#100) |
-| 7 | Priorities visible (ROADMAP or pinned issue) | ⚠️ | README Roadmap table (M1–M5) serves; **no pinned issue** — pin #44 at flip |
+| 7 | Priorities visible (ROADMAP or pinned issue) | ⚠️ | README Roadmap table (M1–M5) serves; **no pinned issue** — pin #113 at flip |
 | 8 | AGENTS.md (repo >1/3 agent context window) | ✅ | present, with map + context-discipline rule |
 | 9 | Issue triage with intention (≤48h close-or-label) | ✅ | all open issues labeled at triage (9/9; 2 with a priority label, 2026-09-28 — snapshot, re-census before every flip decision); `good first issue` + `help wanted` labels exist |
 | 10 | Family mapped + cross-links + "try it" path e2e | ⚠️ | family: `profile-as-code` (hub) + `profile-data-template` (satellite, private) + `profile-data` (operator data, private — dogfood only, never linked publicly); template also lives in-repo (`templates/profile-data*`). Cross-links verified + USER-GUIDE "try it" path executed end-to-end up to the deploy boundary (#54, 2026-09-21; scoping in item 4). Remaining: with the satellite private, a newcomer without access cannot create a workspace (community-first §9) — publish the satellite with the hub, or repurpose the quickstart links |
