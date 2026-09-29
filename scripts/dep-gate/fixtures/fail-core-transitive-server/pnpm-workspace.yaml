@@ -1,0 +1,3 @@
+# Fixture workspace for the D20 gate self-test (scripts/dep-gate/).
+packages:
+  - packages/*

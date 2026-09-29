@@ -1,0 +1,1 @@
+{ "status": "fail", "note": "server declares an optional dependency other than core (rule A)" }

@@ -1,0 +1,1 @@
+{ "status": "fail", "note": "server-like pkg outside packages/server = gate cannot apply the rule" }

@@ -1,0 +1,9 @@
+{
+  "name": "@fixture/server",
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "@fixture/core": "workspace:*",
+    "@fixture/markdown": "workspace:*"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@fixture/core",
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "yaml": "1.0.0"
+  },
+  "devDependencies": {
+    "@fixture/server": "workspace:*"
+  }
+}
