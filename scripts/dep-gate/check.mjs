@@ -6,16 +6,25 @@
  * for D3 (generated-Zod freshness): assert a structural property of the
  * workspace, fail on drift.
  *
- *   Rule A — `packages/server` may declare only the `core` package among its
- *     RUNTIME dependencies (`dependencies`, `peerDependencies`,
- *     `optionalDependencies`); `devDependencies` are not runtime.
- *   Rule B — nothing in `core`'s dependency graph may reach `server`, through
- *     any dependency class (all classes, transitively): the arrow is
- *     one-directional.
+ *   Rule A — the package at `packages/server` (the DIRECTORY is the subject,
+ *     whatever its manifest name) may declare only the `core` package among
+ *     its RUNTIME dependencies (`dependencies`, `peerDependencies`,
+ *     `optionalDependencies`, `bundledDependencies`); `devDependencies` are
+ *     not runtime.
+ *   Rule B — nothing in `core`'s dependency graph may reach the server
+ *     package, through any dependency class (all classes, transitively): the
+ *     arrow is one-directional.
  *
- * The gate is armed but vacuous until `packages/server` lands: with no server
- * package it passes and says so. Until the package exists the rule also rests
- * on review (SPEC §5, D20).
+ * The rule arms on the directory: if `packages/server/package.json` exists
+ * but is not a workspace member of the current globs, or a `/server`-named
+ * package lives elsewhere, the gate refuses (E-GATE) — a moved or renamed
+ * server can never silently skip the rule. Renaming the server package AND
+ * relocating it at once is outside the gate's vocabulary by design; that is
+ * a reviewable, SPEC-gated decision (D20), not a routine commit.
+ *
+ * `npm:` alias ranges are refused outright: a key equal to `core` with an
+ * aliased range would deliver a different package while passing name
+ * comparison — an evasion channel the gate cannot verify.
  *
  * Zero dependencies, `node >=22` — like `scripts/schema-check`, it runs on a
  * fresh checkout before any install. Workspace packages are discovered from
@@ -28,7 +37,12 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const RUNTIME_CLASSES = ["dependencies", "peerDependencies", "optionalDependencies"];
+const RUNTIME_CLASSES = [
+  "dependencies",
+  "peerDependencies",
+  "optionalDependencies",
+  "bundledDependencies",
+];
 const ALL_CLASSES = [...RUNTIME_CLASSES, "devDependencies"];
 
 /** Configuration/shape error: the gate cannot verify what it was asked to verify. */
@@ -55,7 +69,7 @@ export function parseWorkspaceGlobs(source) {
     const trimmed = rawLine.trim();
     if (trimmed.length === 0 || trimmed.startsWith("#")) continue;
     const line = rawLine.replace(/\s+#.*$/, "").trim();
-    if (rawLine.includes('"')) {
+    if (line.includes('"')) {
       throw new GateError(`unsupported pnpm-workspace.yaml quoting: ${line}`);
     }
     if (/^- /.test(line)) {
@@ -112,7 +126,14 @@ async function expandGlob(root, segments) {
         continue;
       }
       for (const entry of entries) {
-        if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+        if (entry.name.startsWith(".")) continue;
+        // stat() follows symlinked directories — pnpm expands workspace globs
+        // through them too, so a skipped symlink here would be a discovery
+        // skew (a silent-pass channel).
+        const isDir = await stat(path.join(dir, entry.name))
+          .then((stats) => stats.isDirectory())
+          .catch(() => false);
+        if (!isDir) continue;
         if (segment === "*" || entry.name === segment) {
           next.push(path.join(dir, entry.name));
         }
@@ -127,6 +148,13 @@ async function expandGlob(root, segments) {
   return hit;
 }
 
+/** Dependency names declared under `depClass` (objects map name→range; arrays list names). */
+function depNames(manifest, depClass) {
+  const value = manifest[depClass];
+  if (value === undefined || value === null) return [];
+  return Array.isArray(value) ? value : Object.keys(value);
+}
+
 async function collectWorkspace(root) {
   const workspaceFile = path.join(root, "pnpm-workspace.yaml");
   if (!(await exists(workspaceFile))) {
@@ -137,7 +165,12 @@ async function collectWorkspace(root) {
   const dirs = [...new Set(entries.flat())].sort();
   const packages = new Map();
   for (const dir of dirs) {
-    const manifest = JSON.parse(await readFile(path.join(dir, "package.json"), "utf8"));
+    let manifest;
+    try {
+      manifest = JSON.parse(await readFile(path.join(dir, "package.json"), "utf8"));
+    } catch (error) {
+      throw new GateError(`unreadable package.json at ${dir}: ${error.message}`);
+    }
     const name = manifest.name;
     if (typeof name !== "string" || name.length === 0) {
       throw new GateError(`package at ${dir} has no name`);
@@ -148,6 +181,26 @@ async function collectWorkspace(root) {
     const relDir = path.relative(path.resolve(root), dir).split(path.sep).join("/");
     packages.set(name, { name, dir, relDir, manifest });
   }
+  // npm: aliases rewrite what a dependency key actually resolves to, so a key
+  // equal to `core` with an aliased range would deliver a different package
+  // while passing name comparison — the gate refuses the whole class.
+  for (const pkg of packages.values()) {
+    for (const depClass of ALL_CLASSES) {
+      const value = pkg.manifest[depClass];
+      // arrays (bundledDependencies) list bare names — alias ranges can only
+      // hide in the mapped classes.
+      if (value === undefined || value === null || Array.isArray(value)) continue;
+      for (const [depName, range] of Object.entries(value)) {
+        if (typeof range === "string" && range.startsWith("npm:")) {
+          throw new GateError(
+            `alias range '${depName}: ${range}' in '${pkg.relDir}' under ${depClass} — ` +
+              "npm: aliases can masquerade as workspace dependencies; a SPEC-gated " +
+              "decision is required before this shape enters the workspace",
+          );
+        }
+      }
+    }
+  }
   return packages;
 }
 
@@ -155,9 +208,10 @@ const pkgBaseName = (name) => name.split("/").pop();
 
 /**
  * Identify `core` (exactly one workspace package named .../core) and the
- * server package (must live at `packages/server` — either absent, or present
- * there; a `.../server` name elsewhere is an explicit gate error so the rule
- * can never be silently skipped by a moved package).
+ * server package — the rule's subject is the DIRECTORY `packages/server`,
+ * whatever its manifest name (SPEC §5 D20, issue #98 acceptance). A
+ * `/server`-named package living elsewhere is an explicit gate error so the
+ * rule can never be silently skipped by a moved package.
  */
 export function identify(packages) {
   const coreLike = [...packages.values()].filter(
@@ -180,7 +234,9 @@ export function identify(packages) {
       );
     }
   }
-  return { core: coreLike[0], server: serverLike[0] ?? null };
+  const server =
+    [...packages.values()].find((candidate) => candidate.relDir === "packages/server") ?? null;
+  return { core: coreLike[0], server };
 }
 
 /** Rule A: every runtime dependency declared by `packages/server` must be core. */
@@ -196,7 +252,10 @@ export function ruleA(core, server) {
   }
   const violations = [];
   for (const depClass of RUNTIME_CLASSES) {
-    for (const [name, range] of Object.entries(server.manifest[depClass] ?? {})) {
+    const value = server.manifest[depClass] ?? {};
+    for (const [name, range] of Object.entries(
+      Array.isArray(value) ? Object.fromEntries(value.map((n) => [n, "(bundled)"])) : value,
+    )) {
       if (name !== core.name) {
         violations.push(
           `Rule A: 'packages/server' declares '${name}: ${range}' under ${depClass} — ` +
@@ -218,7 +277,7 @@ export function ruleB(workspace, core, server) {
     const current = queue.shift();
     const edges = new Set();
     for (const depClass of ALL_CLASSES) {
-      for (const depName of Object.keys(current.manifest[depClass] ?? {})) {
+      for (const depName of depNames(current.manifest, depClass)) {
         edges.add(depName);
       }
     }
@@ -253,6 +312,12 @@ export async function check(root) {
     const packages = await collectWorkspace(root);
     context.push(`workspace packages: ${[...packages.keys()].join(", ")}`);
     const { core, server } = identify(packages);
+    if (server === null && (await exists(path.join(root, "packages", "server", "package.json")))) {
+      throw new GateError(
+        "'packages/server/package.json' exists on disk but is not a member of the " +
+          "current workspace globs — the D20 gate refuses a server location it cannot verify",
+      );
+    }
     const a = ruleA(core, server);
     const b = ruleB(packages, core, server);
     const violations = [...a.violations, ...b.violations];

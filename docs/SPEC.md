@@ -106,8 +106,8 @@ Enforcement lives in CI (`scripts/dep-gate/check.mjs`, issue #98), following the
 existing **`D3` drift-check precedent** — assert a structural property of the
 workspace and fail on drift. The gate runs on every CI invocation: it fails if
 `packages/server` (once it exists) declares any runtime dependency other than
-`core` — `dependencies`, `peerDependencies`, `optionalDependencies` (dev
-dependencies are not runtime) — and it fails if anything in `core`'s dependency
+`core` — `dependencies`, `peerDependencies`, `optionalDependencies`,
+`bundledDependencies` (dev dependencies are not runtime) — and it fails if anything in `core`'s dependency
 graph, transitively across all dependency classes, reaches `server`. Until
 `packages/server` exists, both checks are vacuous (the gate passes and says so)
 and the rule rests on review; the checks arm themselves the moment the package

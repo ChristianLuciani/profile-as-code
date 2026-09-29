@@ -1,0 +1,3 @@
+# Fixture: globs deliberately exclude packages/* — drift between pnpm and the gate must fail loud.
+packages:
+  - packages/renderers/*

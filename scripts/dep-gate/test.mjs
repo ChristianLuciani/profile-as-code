@@ -29,6 +29,7 @@ if (caseDirs.length === 0) {
 }
 
 const failures = [];
+let passed = 0;
 for (const name of caseDirs) {
   const root = path.join(fixturesDir, name);
   const expected = JSON.parse(await readFile(path.join(root, "_expect.json"), "utf8"));
@@ -39,15 +40,21 @@ for (const name of caseDirs) {
     failures.push(`FAIL ${name}: check() threw unexpectedly:\n  ${error.message}`);
     continue;
   }
-  if (result.status !== expected.status) {
-    const messages = result.messages.map((message) => `    ${message}`).join("\n");
+  const okStatus = result.status === expected.status;
+  // `rule` pins WHY a fixture fails — a violation fired by the wrong rule must
+  // fail this suite too, not just produce some fail.
+  const okRule =
+    !expected.rule || result.messages.some((message) => message.includes(expected.rule));
+  const messages = result.messages.map((message) => `    ${message}`).join("\n");
+  if (!okStatus) {
     failures.push(`FAIL ${name}: expected ${expected.status}, got ${result.status}\n${messages}`);
-    continue;
+  } else if (!okRule) {
+    failures.push(`FAIL ${name}: expected a '${expected.rule}' finding, got:\n${messages}`);
+  } else {
+    passed += 1;
+    console.log(`PASS ${name}${expected.note ? ` — ${expected.note}` : ""}`);
   }
-  console.log(`PASS ${name}${expected.note ? ` — ${expected.note}` : ""}`);
 }
-
-console.log(`\n${caseDirs.length - failures.length}/${caseDirs.length} fixtures passed`);
 
 // The CI gate observes the CLI's EXIT CODE, not check()'s status string — and
 // the live check is vacuous today, so a broken exit mapping would only surface
@@ -82,6 +89,7 @@ if (cliOk) {
   );
 }
 
+console.log(`\n${passed}/${caseDirs.length} fixtures passed`);
 if (failures.length > 0) {
   console.error(`\nE-TEST: ${failures.length} self-test failures:\n`);
   for (const failure of failures) console.error(failure);

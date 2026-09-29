@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "note": "packages/server exists on disk; its manifest name does not end in /server \u2014 the rule arms on the directory (review R1)",
+  "rule": "Rule A"
+}

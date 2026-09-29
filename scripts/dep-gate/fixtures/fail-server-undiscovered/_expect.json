@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "note": "packages/server/package.json on disk but outside the workspace globs \u2014 E-GATE, never a vacuous pass (review R1/glob-drift)",
+  "rule": "E-GATE"
+}

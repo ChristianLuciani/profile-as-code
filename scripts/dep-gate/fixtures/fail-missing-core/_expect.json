@@ -1,1 +1,5 @@
-{ "status": "fail", "note": "no core package: the D20 rule is unverifiable (fail loud)" }
+{
+  "status": "fail",
+  "note": "no core package: the D20 rule is unverifiable (fail loud)",
+  "rule": "E-GATE"
+}
