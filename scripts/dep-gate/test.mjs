@@ -1,10 +1,13 @@
 #!/usr/bin/env node
+import { spawnSync } from "node:child_process";
 /**
  * Self-test for the D20 dependency gate (issue #98).
  *
  * Runs `check()` against every workspace-like fixture under `fixtures/` and
  * asserts the gate verdict matches the fixture's `_expect.json` (`"pass"` or
- * `"fail"`). Zero dependencies, `node scripts/dep-gate/test.mjs`.
+ * `"fail"`), then asserts the CLI's exit-code contract by spawning
+ * `check.mjs` on one pass and one fail fixture. Zero dependencies,
+ * `node scripts/dep-gate/test.mjs`.
  */
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -45,6 +48,40 @@ for (const name of caseDirs) {
 }
 
 console.log(`\n${caseDirs.length - failures.length}/${caseDirs.length} fixtures passed`);
+
+// The CI gate observes the CLI's EXIT CODE, not check()'s status string — and
+// the live check is vacuous today, so a broken exit mapping would only surface
+// once packages/server already exists. Assert the mapping here, via spawn:
+const cliPass = spawnSync(
+  process.execPath,
+  [path.join(here, "check.mjs"), path.join(fixturesDir, "pass-vacuous-absent-server")],
+  { encoding: "utf8" },
+);
+const cliFail = spawnSync(
+  process.execPath,
+  [path.join(here, "check.mjs"), path.join(fixturesDir, "fail-server-third-party-dep")],
+  { encoding: "utf8" },
+);
+
+let cliOk = true;
+if (cliPass.status !== 0) {
+  failures.push(
+    `FAIL cli exit: pass fixture exited ${cliPass.status}\n  ${cliPass.stdout}${cliPass.stderr}`,
+  );
+  cliOk = false;
+}
+if (cliFail.status !== 1 || !cliFail.stdout.includes("Rule A:")) {
+  failures.push(
+    `FAIL cli exit: fail fixture exited ${cliFail.status} (expected 1 with a Rule A finding)\n  ${cliFail.stdout}${cliFail.stderr}`,
+  );
+  cliOk = false;
+}
+if (cliOk) {
+  console.log(
+    "PASS cli exit codes — pass fixture exits 0, fail fixture exits 1 with a Rule A finding",
+  );
+}
+
 if (failures.length > 0) {
   console.error(`\nE-TEST: ${failures.length} self-test failures:\n`);
   for (const failure of failures) console.error(failure);

@@ -52,11 +52,12 @@ export function parseWorkspaceGlobs(source) {
   const globs = [];
   let inPackages = false;
   for (const rawLine of source.split(/\r?\n/)) {
-    if (rawLine.includes('"')) {
-      throw new GateError(`unsupported pnpm-workspace.yaml quoting: ${rawLine.trim()}`);
-    }
+    const trimmed = rawLine.trim();
+    if (trimmed.length === 0 || trimmed.startsWith("#")) continue;
     const line = rawLine.replace(/\s+#.*$/, "").trim();
-    if (line.length === 0 || line.startsWith("#")) continue;
+    if (rawLine.includes('"')) {
+      throw new GateError(`unsupported pnpm-workspace.yaml quoting: ${line}`);
+    }
     if (/^- /.test(line)) {
       if (!inPackages) continue;
       globs.push(validateGlob(line.slice(2).trim()));
@@ -144,7 +145,8 @@ async function collectWorkspace(root) {
     if (packages.has(name)) {
       throw new GateError(`duplicate workspace package name: ${name}`);
     }
-    packages.set(name, { name, dir, manifest });
+    const relDir = path.relative(path.resolve(root), dir).split(path.sep).join("/");
+    packages.set(name, { name, dir, relDir, manifest });
   }
   return packages;
 }
@@ -171,10 +173,9 @@ export function identify(packages) {
     (candidate) => pkgBaseName(candidate.name) === "server",
   );
   for (const candidate of serverLike) {
-    const relDir = path.resolve(candidate.dir).split(path.sep).join("/");
-    if (!relDir.endsWith("/packages/server")) {
+    if (candidate.relDir !== "packages/server") {
       throw new GateError(
-        `package '${candidate.name}' ends in /server but lives outside 'packages/server' — ` +
+        `package '${candidate.name}' ends in /server but lives at '${candidate.relDir}' — ` +
           "the D20 gate applies to 'packages/server' and refuses an unknown server location",
       );
     }
