@@ -79,6 +79,15 @@ export function parseWorkspaceGlobs(source) {
     }
     const keyMatch = line.match(/^([A-Za-z0-9_-]+):(.*)$/);
     if (keyMatch) {
+      if (inPackages && /^[ \t]/.test(rawLine)) {
+        // pnpm's `packages` field is a flat list of globs; a nested key under
+        // it is a shape the gate cannot verify — refusing beats misreading
+        // (a silently switched section would drop workspace members from
+        // discovery, a false-pass channel for Rule B).
+        throw new GateError(
+          `unsupported pnpm-workspace.yaml nested key inside 'packages': ${rawLine.trim()}`,
+        );
+      }
       if (inPackages && keyMatch[2].trim().length > 0) {
         throw new GateError(`unsupported pnpm-workspace.yaml value under a top-level key: ${line}`);
       }
