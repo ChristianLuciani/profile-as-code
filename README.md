@@ -10,6 +10,18 @@ conocimiento SOTA de cada red.
 ![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
 [![Discussions](https://img.shields.io/badge/discussions-comunidad-blue.svg)](https://github.com/ChristianLuciani/profile-as-code/discussions)
 
+## Para quién es (y qué necesitás)
+
+**Hoy es una herramienta para gente técnica**: lo mínimo es una terminal y **Node.js ≥ 22**.
+Una **cuenta de GitHub con acceso a los repos** (motor y template — privados hoy) hace falta
+para el camino completo: crear tu workspace desde el template, instalar el motor y publicar en
+GitHub. Sin cuenta —o sin acceso al template— el camino es parcial: podés generar los textos
+localmente y pegarlos a mano en cada plataforma. El camino guiado y sin terminal es el hito M5
+y **todavía no existe** ([#101](https://github.com/ChristianLuciani/profile-as-code/issues/101)).
+
+Instalación, verificación y qué cambia según lo que tengas: [**User Guide**](docs/USER-GUIDE.md) (EN).
+Acá abajo, el qué y el por qué.
+
 ## Problema
 
 El mismo perfil vive en 8+ plataformas, cada una con reglas, límites y audiencias distintas. Se editan a mano,

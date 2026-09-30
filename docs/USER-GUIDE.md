@@ -6,7 +6,20 @@ updated, and stay in sync as the engine evolves.
 
 > Audience: a **user** of the engine (not an engine contributor). Contributor
 > docs live in [CONTRIBUTING.md](../CONTRIBUTING.md); the product contract is
-> [SPEC.md](SPEC.md). This guide reflects the M1–M2 state of the CLI (`pasco`).
+> [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli`
+> version **0.2.0** (prep landed 2026-09-24; not yet tagged or published — #113).
+> The
+> [CLI's command/status table](../packages/cli/README.md) is authoritative on
+> which commands are still partial; SPEC §12 holds the milestone roadmap.
+
+> **Before you start — what you actually need.** This is a **developer-tool
+> path** today. Only two things are non-negotiable: a terminal and **Node.js
+> ≥ 22**. Everything else depends on the path you take:
+>
+> | If you have… | Your path today |
+> |---|---|
+> | a **GitHub account** with access to both repos (engine + template — private today) | the whole guide — template workspace (§3 Option A), GitHub deploy targets (§7), and the source install (§2 Option B) |
+> | **no GitHub account**, or an account without access to the template repo | partial — `pasco init` scaffolds a **local** workspace (§3 Option B) and you paste the generated texts into the platforms you do have, by hand (§7). The guided, no-terminal path is **not shipped**; it is planned for M5 (SPEC §12), tracked in [#101](https://github.com/ChristianLuciani/profile-as-code/issues/101) |
 
 ---
 
@@ -39,24 +52,51 @@ Core principles (SPEC D1–D18, abbreviated):
 
 ## 1. Prerequisites
 
-| Tool | Version | Check |
-|---|---|---|
-| Node.js | >= 22 | `node -v` |
-| pnpm | >= 9 | `pnpm -v` |
-| git | any recent | `git --version` |
-| GitHub CLI (`gh`) | any recent, authenticated | `gh auth status` — §3 Option A only |
+Scope the tools to the path you are taking — only the first row is needed by
+**every** path:
 
-`pasco` is a Node CLI built from TypeScript — no database, no server, no accounts.
-§3 Option A uses `gh` to create the workspace from the template and `git` to
-clone it — with SSH or HTTPS credentials configured for your account. Option B
-(`pasco init`) needs neither `gh` nor a GitHub account.
+| Tool | Version | Check | Needed for |
+|---|---|---|---|
+| Node.js | >= 22 | `node -v` | **every path** |
+| git | any recent | `git --version` | §2 Option B (source install) · §3 Option A (clone your workspace) · `pasco diff` · §7 git/API deploys |
+| pnpm | >= 9 | `pnpm -v` | §2 Option B (source install) only |
+| GitHub CLI (`gh`) | any recent, authenticated | `gh auth status` | §3 Option A only — creating the workspace from the template |
+
+`pasco` is a Node CLI built from TypeScript — no database, no server, no
+accounts. §3 Option A uses `gh` to create the workspace from the template and
+`git` to clone it, with SSH or HTTPS credentials configured for your account.
+§3 Option B (`pasco init`) needs neither `gh` nor a GitHub account.
 
 ---
 
-## 2. Install the engine and the `pasco` CLI
+## 2. Install the `pasco` CLI
 
-Today `pasco` installs from source (an npm global package is planned for a later
-milestone — see the engine roadmap).
+Two paths. **Option A is the intended path for users**; **Option B is the one
+that works today** — the npm package is version-ready but not yet published.
+
+### Option A — npm (the user path; pending the first publish)
+
+```sh
+npm i -g @profile-as-code/cli    # the package
+pasco --version                  # the bin — expect 0.2.0
+```
+
+One global install: no clone, no build, no data written anywhere.
+`@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
+
+> **Status** [WEB: npm registry, checked 2026-09-30]: `@profile-as-code/cli` is
+> **not published yet** — `npm view @profile-as-code/cli` → `404`. The first
+> publish is an operator action
+> ([#113](https://github.com/ChristianLuciani/profile-as-code/issues/113)), so
+> Option A fails with `E404` until it lands — use Option B meanwhile.
+>
+> Why the names: the bin was renamed `pac` → `pasco` (issue #38) because an
+> unrelated npm package named `pac` (`pac@1.0.0`, 2015) already ships a `pac`
+> binary; `pasco` itself is unclaimed, so there is no global-install bin
+> conflict. Reserving the npm name (publishing a placeholder) is an operator
+> decision — publishing stays human-only.
+
+### Option B — from source (works today)
 
 ```sh
 # 1. Clone the engine (the product repo — private until the public flip;
@@ -75,35 +115,26 @@ pnpm --filter @profile-as-code/cli build
 Make `pasco` callable from anywhere (pick one):
 
 ```sh
-# Option A — symlink into a PATH dir (recommended)
+# symlink into a PATH dir (recommended)
 mkdir -p ~/.local/bin
 ln -s "$(realpath packages/cli/dist/index.js)" ~/.local/bin/pasco
 # make sure ~/.local/bin is in your PATH (add to ~/.zshrc if needed)
 
-# Option B — alias
+# alias
 alias pasco='node /absolute/path/to/profile-as-code/packages/cli/dist/index.js'
 ```
 
-Verify:
+### Verify
 
 ```sh
-pasco --help
+pasco --version   # what you installed — 0.2.0 today
+pasco --help      # command list + exit-code contract
 ```
 
-You should see the command list (`init`, `validate`, `build`, `diff`, `refine`,
-`check`, `status`, `skills:install`) and the exit-code contract: `0` ok · `1`
-schema or workspace failure · `2` usage error.
-
-> **npm package status** [WEB: npm registry, checked 2026-09-07]: the unscoped
-> name `profile-as-code` is still unclaimed and `@profile-as-code/cli` is not
-> published — installing from source is the only path today. When publishing
-> lands, `npm i -g @profile-as-code/cli` will provide `pasco`. Note: the bin was
-> renamed `pac` → `pasco` (issue #38) precisely because an unrelated npm package
-> named `pac` (`pac@1.0.0`, 2015) already ships a `pac` binary — `pasco` itself
-> is unclaimed on npm (verified 2026-09-07), so there is no global-install bin
-> conflict. The scoped `@profile-as-code/cli` keeps the CLI itself isolated.
-> Reserving the npm name (publishing a placeholder) is an operator decision —
-> publishing stays human-only.
+`--help` prints `init`, `validate`, `build`, `diff`, `refine`, `check`, `status`
+and `skills:install`, plus the exit-code contract: `0` ok · `1` schema or
+workspace failure · `2` usage error. Which of those commands are still partial
+is stated in the [CLI's command table](../packages/cli/README.md).
 
 > Updating the engine later? See [§8.2](#82-update-the-engine).
 
@@ -467,7 +498,13 @@ facts so you know which platforms need attention. `pasco status` is the
 
 ### 8.2 Update the engine
 
+Match the line to how you installed it in [§2](#2-install-the-pasco-cli):
+
 ```sh
+# Option A — npm (once published)
+npm i -g @profile-as-code/cli@latest
+
+# Option B — from source
 cd /path/to/profile-as-code
 git pull
 pnpm install
@@ -477,7 +514,7 @@ pnpm --filter @profile-as-code/cli build   # rebuild core + cli
 Then re-run against your workspace:
 
 ```sh
-pasco validate && pasco build
+pasco --version && pasco validate && pasco build
 ```
 
 - Schema releases are **additive** (semver minor) — an existing workspace keeps
@@ -507,7 +544,7 @@ One workspace per identity, same engine (D14/D15):
 
 | Symptom | Cause & fix |
 |---|---|
-| `pasco: command not found` | Symlink/alias missing — redo §2 Option A/B, check `$PATH`. |
+| `pasco: command not found` | Not on `$PATH`. Source install: redo the symlink/alias step in §2 Option B. npm install: the global bin dir must be on `$PATH` (`npm prefix -g`, then its `bin/`). |
 | Exit `2` on a command | Usage error: unknown command/platform/lang. Run `pasco <cmd> --help`. |
 | Exit `1` on `validate` | Schema violation — read the message (file + value). Most common: a langMap where a plain string is required (proper nouns!), a missing `en`, or a bad date format. |
 | Exit `1` on `diff` | Not a git repo (or no git history) — `pasco diff` needs your workspace to be a git repository. |
@@ -542,10 +579,10 @@ pasco init [dir] [--flavor person|brand]   # scaffold a workspace (never overwri
 pasco validate [--json]                    # schema FAIL + drift/geo WARN (D12)
 pasco build [platform] [--lang] [--json]   # base texts; renderers write profiles/
 pasco diff [--json]                        # changes since last release-* tag
-pasco refine <platform> [--lang] [--variants N]   # emit agent task (stub → M3)
+pasco refine <platform> [--lang] [--variants N]   # emit the agent task template (full flow M3)
 pasco refine <platform> --choose <id>      # record chosen variant in content/active.yaml
-pasco check [platform]                     # declarative checks catalog (stub → M4)
-pasco skills:install <agent>               # project platform skills to your agent (stub)
+pasco check [platform]                     # offline rules + checks catalog (rest of catalog M4)
+pasco skills:install <agent>               # print the skills-studio projection command
 pasco --workspace <path> <cmd>             # target a workspace explicitly
 pasco --json <cmd>                         # machine-readable output
 ```
