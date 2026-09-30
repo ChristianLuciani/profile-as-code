@@ -8,9 +8,8 @@ updated, and stay in sync as the engine evolves.
 > docs live in [CONTRIBUTING.md](../CONTRIBUTING.md); the product contract is
 > [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli`
 > version **0.2.0** (prep landed 2026-09-24; not yet tagged or published — #113).
-> The
-> [CLI's command/status table](../packages/cli/README.md) is authoritative on
-> which commands are still partial; SPEC §12 holds the milestone roadmap.
+> The [CLI's command/status table](../packages/cli/README.md) is authoritative
+> on which commands are still partial; SPEC §12 holds the milestone roadmap.
 
 > **Before you start — what you actually need.** This is a **developer-tool
 > path** today. Only two things are non-negotiable: a terminal and **Node.js
@@ -18,8 +17,9 @@ updated, and stay in sync as the engine evolves.
 >
 > | If you have… | Your path today |
 > |---|---|
-> | a **GitHub account** with access to both repos (engine + template — private today) | the whole guide — template workspace (§3 Option A), GitHub deploy targets (§7), and the source install (§2 Option B) |
-> | **no GitHub account**, or an account without access to the template repo | partial — `pasco init` scaffolds a **local** workspace (§3 Option B) and you paste the generated texts into the platforms you do have, by hand (§7). The guided, no-terminal path is **not shipped**; it is planned for M5 (SPEC §12), tracked in [#101](https://github.com/ChristianLuciani/profile-as-code/issues/101) |
+> | a **GitHub account with access to the engine repo** (private today) **and** to the template repo | the whole guide — install (§2 Option B is the only working install until #113 publishes), template workspace (§3 Option A), GitHub deploy targets (§7) |
+> | a GitHub account with access to the engine repo but **not** the template repo | partial — `pasco init` scaffolds a **local** workspace (§3 Option B) and you paste the generated texts into the platforms you do have, by hand (§7). The template path is unavailable while the satellite stays private (STANDARDS item 10) |
+> | **no GitHub account, or no access to the engine repo** | **no path today** — there is no way to obtain `pasco`: the npm package is not published yet ([#113](https://github.com/ChristianLuciani/profile-as-code/issues/113)) and the source install (§2 Option B) clones a **private** repo. Planned: the npm path (Option A) once #113 lands — still developer-shaped — and the guided, no-terminal path at M5 (SPEC §12), tracked in [#101](https://github.com/ChristianLuciani/profile-as-code/issues/101) |
 
 ---
 
@@ -67,6 +67,11 @@ accounts. §3 Option A uses `gh` to create the workspace from the template and
 `git` to clone it, with SSH or HTTPS credentials configured for your account.
 §3 Option B (`pasco init`) needs neither `gh` nor a GitHub account.
 
+Repo access is a prerequisite of its own **today**: §2 Option B clones a
+**private** engine repo and §3 Option A clones a **private** template — a third
+party without access fails at the first step (STANDARDS item 10; see the table
+under "Before you start").
+
 ---
 
 ## 2. Install the `pasco` CLI
@@ -81,7 +86,7 @@ npm i -g @profile-as-code/cli    # the package
 pasco --version                  # the bin — expect 0.2.0
 ```
 
-One global install: no clone, no build, no data written anywhere.
+One global install: no clone, no build, nothing written outside the npm prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
 > **Status** [WEB: npm registry, checked 2026-09-30]: `@profile-as-code/cli` is
@@ -90,11 +95,12 @@ One global install: no clone, no build, no data written anywhere.
 > ([#113](https://github.com/ChristianLuciani/profile-as-code/issues/113)), so
 > Option A fails with `E404` until it lands — use Option B meanwhile.
 >
-> Why the names: the bin was renamed `pac` → `pasco` (issue #38) because an
-> unrelated npm package named `pac` (`pac@1.0.0`, 2015) already ships a `pac`
-> binary; `pasco` itself is unclaimed, so there is no global-install bin
-> conflict. Reserving the npm name (publishing a placeholder) is an operator
-> decision — publishing stays human-only.
+> Why the names (same 2026-09-30 check): the bin was renamed `pac` → `pasco`
+> (issue #38) because an unrelated npm package named `pac` already ships a `pac`
+> binary (`pac@1.0.0`, published 2015-04-26, still latest), while `pasco` itself
+> is unclaimed (`404`) — so there is no global-install bin conflict. Reserving
+> the npm name (publishing a placeholder) is an operator decision — publishing
+> stays human-only.
 
 ### Option B — from source (works today)
 

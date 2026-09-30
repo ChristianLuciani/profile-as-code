@@ -12,12 +12,13 @@ conocimiento SOTA de cada red.
 
 ## Para quién es (y qué necesitás)
 
-**Hoy es una herramienta para gente técnica**: lo mínimo es una terminal y **Node.js ≥ 22**.
-Una **cuenta de GitHub con acceso a los repos** (motor y template — privados hoy) hace falta
-para el camino completo: crear tu workspace desde el template, instalar el motor y publicar en
-GitHub. Sin cuenta —o sin acceso al template— el camino es parcial: podés generar los textos
-localmente y pegarlos a mano en cada plataforma. El camino guiado y sin terminal es el hito M5
-y **todavía no existe** ([#101](https://github.com/ChristianLuciani/profile-as-code/issues/101)).
+**Hoy es una herramienta para gente técnica**: lo mínimo es una terminal y **Node.js ≥ 22** — y
+hoy hace falta además **una cuenta de GitHub con acceso al repo del motor** (privado). Sin eso
+**no hay forma de obtener `pasco`**: el paquete de npm todavía no está publicado y la
+instalación desde fuente clona un repo privado. Con acceso al motor pero no al template (también
+privado), el camino es parcial: `pasco init` local y pegado a mano en cada plataforma. El camino
+guiado y sin terminal es el hito M5 y **todavía no existe**
+([#101](https://github.com/ChristianLuciani/profile-as-code/issues/101)).
 
 Instalación, verificación y qué cambia según lo que tengas: [**User Guide**](docs/USER-GUIDE.md) (EN).
 Acá abajo, el qué y el por qué.

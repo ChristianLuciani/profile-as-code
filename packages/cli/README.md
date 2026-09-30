@@ -12,8 +12,8 @@ pasco --version                 # the bin — expect 0.2.0
 ```
 
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it installs.
-Global install only: no post-install script, no server, no account, no data
-written anywhere.
+The install adds one global bin and nothing else: no post-install script, no
+server, no account.
 
 > **Not published yet** [WEB: npm registry, checked 2026-09-30]:
 > `npm view @profile-as-code/cli` → `404`. The package is version-ready but the
@@ -31,20 +31,21 @@ written anywhere.
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--write-checklist]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never + ledger write path (D18, §19) | ✅ |
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13) | 🚧 template + `--choose` (full flow M3) |
-| `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) | 🚧 offline rules today (rest of catalog M4) |
+| `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) | 🚧 offline rules today (catalog M3/M4) |
 | `pasco skills:install <agent>` | Skills-studio projection command (AGOS) | 🚧 prints the projection command |
 
-The partial commands are explicit, and each names the session that owns the rest
-(SPEC §12 M3/M4):
+The partial commands are explicit, and each one says what still owns the rest:
 
 - **`refine`** — without `--choose` it emits the **agent task template** the
   executing agent works from (the CLI never calls an LLM and never wires the hub);
   `--choose` records the pick in `content/active.yaml`. The full variant flow is
   M3 (`src/commands/refine.ts`).
-- **`check`** — executes the offline rules it owns today (brand handle matrix,
-  registry rules, media transport) and reports the declarative catalog; the rest
-  of the catalog is M4 (`src/commands/check.ts`). It prints its `owner` line, not
-  a "not implemented" message.
+- **`check`** — executes the offline rules that exist today: the brand handle
+  matrix (brand flavor only, D15/§17), the evidence-registry checks (M7/§18.8)
+  and the media-transport rules (M8/§18.6). The per-platform rows declared in
+  `content/checks.yaml` are listed and reported as *not executed* — rule
+  execution for those ships with the skills `checks.yaml` union (M3) and the full
+  `pasco check` (M4). It prints its `owner` line (`src/commands/check.ts`).
 - **`skills:install`** — prints the skills-studio projection command; projecting
   is the studio's job (AGOS), not the CLI's (`src/commands/skills-install.ts`).
 
