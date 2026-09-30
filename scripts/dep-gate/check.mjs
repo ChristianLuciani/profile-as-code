@@ -22,9 +22,12 @@
  * relocating it at once is outside the gate's vocabulary by design; that is
  * a reviewable, SPEC-gated decision (D20), not a routine commit.
  *
- * `npm:` alias ranges are refused outright: a key equal to `core` with an
- * aliased range would deliver a different package while passing name
- * comparison — an evasion channel the gate cannot verify.
+ * Range masquerade is refused at the seams (verified evasion channel): a
+ * dependency key that names a workspace package must use the `workspace:`
+ * protocol, and a `file:`/`link:`/`portal:` range resolving inside any
+ * workspace package's directory is refused — both would deliver the real
+ * server (or core) content through a foreign key while every name
+ * comparison passes. Third-party `npm:` aliases stay legal on foreign keys.
  *
  * Zero dependencies, `node >=22` — like `scripts/schema-check`, it runs on a
  * fresh checkout before any install. Workspace packages are discovered from
@@ -32,6 +35,7 @@
  * shape or workspace structure the gate cannot verify is an explicit failure
  * (E-GATE), never a silent pass.
  */
+import { realpathSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -69,12 +73,16 @@ export function parseWorkspaceGlobs(source) {
     const trimmed = rawLine.trim();
     if (trimmed.length === 0 || trimmed.startsWith("#")) continue;
     const line = rawLine.replace(/\s+#.*$/, "").trim();
-    if (line.includes('"')) {
-      throw new GateError(`unsupported pnpm-workspace.yaml quoting: ${line}`);
-    }
     if (/^- /.test(line)) {
       if (!inPackages) continue;
-      globs.push(validateGlob(line.slice(2).trim()));
+      const globValue = line.slice(2).trim();
+      if (globValue.includes('"')) {
+        // Quoting is refused only where the gate parses (glob values) —
+        // quotes elsewhere in the file belong to structures the gate does
+        // not read.
+        throw new GateError(`unsupported workspace glob quoting: ${globValue}`);
+      }
+      globs.push(validateGlob(globValue));
       continue;
     }
     const keyMatch = line.match(/^([A-Za-z0-9_-]+):(.*)$/);
@@ -190,21 +198,44 @@ async function collectWorkspace(root) {
     const relDir = path.relative(path.resolve(root), dir).split(path.sep).join("/");
     packages.set(name, { name, dir, relDir, manifest });
   }
-  // npm: aliases rewrite what a dependency key actually resolves to, so a key
-  // equal to `core` with an aliased range would deliver a different package
-  // while passing name comparison — the gate refuses the whole class.
+  // Range resolution guard. Name-keyed rules (A and B) only see dependency
+  // KEYS; a range that resolves to a workspace package through a foreign key
+  // (file:/link:/portal: into the workspace) or that replaces a workspace
+  // package through the registry (a non-workspace: range on a workspace-named
+  // key) delivers real workspace content while every name comparison passes —
+  // a verified evasion channel, refused at the seam.
+  const workspaceNames = new Set(packages.keys());
+  const workspaceAbsDirs = [...packages.values()].map((pkg) => path.resolve(pkg.dir));
   for (const pkg of packages.values()) {
     for (const depClass of ALL_CLASSES) {
       const value = pkg.manifest[depClass];
-      // arrays (bundledDependencies) list bare names — alias ranges can only
-      // hide in the mapped classes.
+      // arrays (bundledDependencies) list bare names — ranges can only hide
+      // in the mapped classes.
       if (value === undefined || value === null || Array.isArray(value)) continue;
       for (const [depName, range] of Object.entries(value)) {
-        if (typeof range === "string" && range.startsWith("npm:")) {
+        if (typeof range !== "string") continue;
+        if (workspaceNames.has(depName)) {
+          if (!range.startsWith("workspace:")) {
+            throw new GateError(
+              `dependency on workspace package '${depName}' in '${pkg.relDir}' under ` +
+                `${depClass} declares range '${range}' — a workspace-named dependency must use ` +
+                "the workspace: protocol; a registry or local range would deliver a different " +
+                "package masquerading as the workspace one",
+            );
+          }
+          continue;
+        }
+        const protocol = range.match(/^(file|link|portal):/);
+        if (!protocol) continue;
+        const target = path.resolve(pkg.dir, range.slice(protocol[0].length));
+        const smuggledInto = workspaceAbsDirs.find(
+          (workspaceDir) => target === workspaceDir || target.startsWith(workspaceDir + path.sep),
+        );
+        if (smuggledInto) {
           throw new GateError(
-            `alias range '${depName}: ${range}' in '${pkg.relDir}' under ${depClass} — ` +
-              "npm: aliases can masquerade as workspace dependencies; a SPEC-gated " +
-              "decision is required before this shape enters the workspace",
+            `'${depName}: ${range}' in '${pkg.relDir}' under ${depClass} resolves inside a ` +
+              "workspace package's directory — a local-path range aliasing workspace content " +
+              "under a foreign key is an evasion channel (SPEC-gated decision required)",
           );
         }
       }
@@ -354,6 +385,25 @@ async function main() {
   process.exit(result.status === "pass" ? 0 : 1);
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+/**
+ * Direct-execution guard. `import.meta.url` is the REALPATH of this module;
+ * `process.argv[1]` is whatever path invoked it — on a machine where the
+ * invocation path crosses a symlink (/tmp is one on macOS), comparing the
+ * two as-is never matches and the CLI silently no-ops (no output, exit 0 —
+ * a fail-open). Realpath the invocation path before comparing.
+ */
+function isMain() {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  let resolved = entry;
+  try {
+    resolved = realpathSync(entry);
+  } catch {
+    // unresolvable path — compare as-is rather than fail closed on a probe
+  }
+  return import.meta.url === pathToFileURL(resolved).href;
+}
+
+if (isMain()) {
   await main();
 }

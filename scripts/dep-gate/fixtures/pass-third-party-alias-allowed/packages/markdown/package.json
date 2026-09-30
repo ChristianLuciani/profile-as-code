@@ -1,0 +1,8 @@
+{
+  "name": "@fixture/markdown",
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "some-name": "npm:@other/pkg@1.0.0"
+  }
+}

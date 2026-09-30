@@ -9,7 +9,9 @@ import { spawnSync } from "node:child_process";
  * `check.mjs` on one pass and one fail fixture. Zero dependencies,
  * `node scripts/dep-gate/test.mjs`.
  */
+import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -86,6 +88,28 @@ if (cliFail.status !== 1 || !cliFail.stdout.includes("Rule A:")) {
 if (cliOk) {
   console.log(
     "PASS cli exit codes — pass fixture exits 0, fail fixture exits 1 with a Rule A finding",
+  );
+}
+
+// Invoking the CLI through a SYMLINKED path must still run: import.meta.url
+// carries the real path while argv[1] carries the symlinked one, so an
+// as-is comparison silently no-ops (no output, exit 0 — fail-open; the
+// premerge-review F2 repro). /tmp is a symlink on macOS, mirroring it here:
+const tmp = mkdtempSync(path.join(os.tmpdir(), "d20-gate-"));
+const linkedDir = path.join(tmp, "via-symlink");
+symlinkSync(here, linkedDir, "dir");
+const cliSymlink = spawnSync(
+  process.execPath,
+  [path.join(linkedDir, "check.mjs"), path.join(fixturesDir, "pass-vacuous-absent-server")],
+  { encoding: "utf8" },
+);
+rmSync(tmp, { recursive: true, force: true });
+if (cliSymlink.status === 0 && cliSymlink.stdout.includes("D20 gate: PASS")) {
+  console.log("PASS symlink invocation — the CLI runs through a symlinked path (no silent no-op)");
+} else {
+  failures.push(
+    `FAIL cli symlink: invoking through ${linkedDir} must run the CLI (silent no-op or error)\n  ` +
+      `status=${cliSymlink.status} ${cliSymlink.stdout}${cliSymlink.stderr}`,
   );
 }
 
