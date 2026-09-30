@@ -1,0 +1,9 @@
+{
+  "name": "@fixture/svc",
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "@fixture/core": "workspace:*",
+    "zod": "1.0.0"
+  }
+}

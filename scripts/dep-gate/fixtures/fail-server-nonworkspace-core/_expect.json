@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "note": "workspace-named key with a registry range \u2014 pnpm would deliver the npm copy, not the workspace core (review F6)",
+  "rule": "E-GATE"
+}

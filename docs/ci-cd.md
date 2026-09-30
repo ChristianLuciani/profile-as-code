@@ -32,7 +32,12 @@ One job, **`ci`**, required on every PR and push to `main`:
      bad DOI, unsupported platform)
    - This guards the contract even before the TypeScript workspace exists.
 2. **TypeScript workspace** — steps activate automatically once `package.json` lands
-   (M1 core), in this order: `pnpm install --frozen-lockfile` →
+   (M1 core), in this order: **dependency gate** (`scripts/dep-gate`, issue #98 —
+   node-only, before install to fail fast: `packages/server` must depend on
+   `core` only among its runtime dependencies and nothing in `core`'s dependency
+   graph may reach `server`, SPEC §5 D20; the gate passes vacuously until
+   `packages/server` exists, and a fixture self-test runs first) →
+   `pnpm install --frozen-lockfile` →
    **`pnpm lint`** (Biome: lint + format + import order, issue #59) →
    **D3 freshness** (`pnpm gen:zod` then `git diff --exit-code` on the committed Zod, so a
    schema edit without regeneration fails here) →

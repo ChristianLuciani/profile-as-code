@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "note": "npm: alias on the core key masquerades as the allowed dep \u2014 the gate refuses the whole class",
+  "rule": "E-GATE"
+}

@@ -1,0 +1,5 @@
+# Invalid for pnpm (packages is a flat list); the gate must refuse it, not drop later globs.
+packages:
+  - packages/*
+  scripts:
+    - packages/scripts/*

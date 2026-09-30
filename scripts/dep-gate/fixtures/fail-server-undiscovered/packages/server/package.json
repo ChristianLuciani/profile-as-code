@@ -1,0 +1,8 @@
+{
+  "name": "@fixture/server",
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "@third-party/http": "1.0.0"
+  }
+}

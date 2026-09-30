@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "note": "nested key inside 'packages' \u2014 a shape the gate cannot verify must fail loud, not silently drop discovery (sota-review MAJOR)",
+  "rule": "E-GATE"
+}
