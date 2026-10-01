@@ -74,6 +74,9 @@ re-argued from taste):
 
 - **npm** ecosystem (weekly): dependency PRs for the pnpm workspace (root + `packages/*`)
 - **github-actions** ecosystem (weekly): updates to our own workflow actions
+- **Fixture exclusion**: `exclude-paths: scripts/dep-gate/fixtures/**` — those manifests are
+  *intentionally invalid* (they exist so the D20 gate rejects them), and parsing one aborts the
+  updater with `dependency_file_not_parseable`, leaving a red run on `main` (skills-studio #191).
 - Both open PRs with the `dependencies` / `ci` labels; they must pass the `ci` check.
 
 ## Release — `.github/workflows/release.yml`

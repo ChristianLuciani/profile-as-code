@@ -19,6 +19,18 @@ updates:
     # Revisit when Dependabot pnpm support matures (option c).
     ignore:
       - dependency-name: "esbuild"
+    # `scripts/dep-gate/fixtures/**` (43 package.json + 20 pnpm-workspace.yaml) is
+    # test data: INTENTIONALLY invalid manifests that exist so scripts/dep-gate
+    # rejects them. Dependabot scans them as real manifests, aborts the whole
+    # update job with `dependency_file_not_parseable` on
+    # `fixtures/fail-workspace-nested-key/pnpm-workspace.yaml`, and leaves main
+    # with a permanent `failure` run — which also poisons issue-select's gate 5
+    # (skills-studio #191). `exclude-paths` is the documented option for exactly
+    # this case ("test assets"), on the version-update path the updater runs
+    # [WEB: docs.github.com dependabot-options-reference, checked 2026-10-01;
+    # failing run 36792749688, 2026-09-30].
+    exclude-paths:
+      - "scripts/dep-gate/fixtures/**"
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
