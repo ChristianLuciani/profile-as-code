@@ -1,8 +1,25 @@
 # `@profile-as-code/cli` — `pasco`
 
-The profile-as-code CLI (M1). Consumes `@profile-as-code/core` (`load`/`driftCheck`/
-`geoCheck`/`compile`) — it never re-implements them. The contract source is
-`schema/profile.schema.json` (D3); Zod is generated in core.
+The `pasco` CLI — `@profile-as-code/cli` **0.2.0**. Consumes `@profile-as-code/core`
+(`load`/`driftCheck`/`geoCheck`/`compile`) — it never re-implements them. The
+contract source is `schema/profile.schema.json` (D3); Zod is generated in core.
+
+## Install
+
+```sh
+npm i -g @profile-as-code/cli   # the package
+pasco --version                 # the bin — expect 0.2.0
+```
+
+`@profile-as-code/cli` is the **package**; `pasco` is the **bin** it installs.
+The install adds one global bin and nothing else: no post-install script, no
+server, no account.
+
+> **Not published yet** [WEB: npm registry, checked 2026-09-30]:
+> `npm view @profile-as-code/cli` → `404`. The package is version-ready but the
+> first publish is an operator action
+> ([#113](https://github.com/ChristianLuciani/profile-as-code/issues/113)).
+> Until it lands, install from source — [User Guide §2](../../docs/USER-GUIDE.md#2-install-the-pasco-cli).
 
 ## Commands
 
@@ -13,13 +30,24 @@ The profile-as-code CLI (M1). Consumes `@profile-as-code/core` (`load`/`driftChe
 | `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (github-readme, M2) also write `profiles/<platform>/README.md` + bundled media in `profiles/<platform>/assets/` with `assets/manifest.json` (M8/§18.6 — public path-locator artifacts, sha256 at compile; see `docs/media-pipeline.md`) | ✅ |
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--write-checklist]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never + ledger write path (D18, §19) | ✅ |
-| `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13) | 🚧 stub |
-| `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) | 🚧 remaining catalog stub (M3/M4) |
-| `pasco skills:install <agent>` | Skills-studio projection command (AGOS) | 🚧 stub |
+| `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13) | 🚧 template + `--choose` (full flow M3) |
+| `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) | 🚧 offline rules today (catalog M3/M4) |
+| `pasco skills:install <agent>` | Skills-studio projection command (AGOS) | 🚧 prints the projection command |
 
-Stubs are explicit: they print a clear "not implemented" message plus the session
-that owns them (SPEC §12 M3/M4) — see `src/commands/refine.ts`, `check.ts`,
-`skills-install.ts`.
+The partial commands are explicit, and each one says what still owns the rest:
+
+- **`refine`** — without `--choose` it emits the **agent task template** the
+  executing agent works from (the CLI never calls an LLM and never wires the hub);
+  `--choose` records the pick in `content/active.yaml`. The full variant flow is
+  M3 (`src/commands/refine.ts`).
+- **`check`** — executes the offline rules that exist today: the brand handle
+  matrix (brand flavor only, D15/§17), the evidence-registry checks (M7/§18.8)
+  and the media-transport rules (M8/§18.6). The per-platform rows declared in
+  `content/checks.yaml` are listed and reported as *not executed* — rule
+  execution for those ships with the skills `checks.yaml` union (M3) and the full
+  `pasco check` (M4). It prints its `owner` line (`src/commands/check.ts`).
+- **`skills:install`** — prints the skills-studio projection command; projecting
+  is the studio's job (AGOS), not the CLI's (`src/commands/skills-install.ts`).
 
 ## Usage
 
@@ -33,7 +61,7 @@ pasco status                          # what's published where — per entry
 pasco status linkedin                 # filter one surface
 pasco status --mark identity linkedin # confirm a paste (records the current contentHash)
 pasco status --write-checklist        # regenerate CHECKLIST.md from the ledger
-pasco refine linkedin --variants 3            # emits the agent task template (stub)
+pasco refine linkedin --variants 3            # emits the agent task template (full flow M3)
 pasco refine linkedin --choose li-en-2        # records the chosen variant in content/active.yaml
 pasco check github-readme
 pasco skills:install pi

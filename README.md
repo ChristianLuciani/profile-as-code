@@ -10,6 +10,19 @@ conocimiento SOTA de cada red.
 ![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
 [![Discussions](https://img.shields.io/badge/discussions-comunidad-blue.svg)](https://github.com/ChristianLuciani/profile-as-code/discussions)
 
+## Para quién es (y qué necesitás)
+
+**Hoy es una herramienta para gente técnica**: lo mínimo es una terminal y **Node.js ≥ 22** — y
+hoy hace falta además **una cuenta de GitHub con acceso al repo del motor** (privado). Sin eso
+**no hay forma de obtener `pasco`**: el paquete de npm todavía no está publicado y la
+instalación desde fuente clona un repo privado. Con acceso al motor pero no al template (también
+privado), el camino es parcial: `pasco init` local y pegado a mano en cada plataforma. El camino
+guiado y sin terminal es el hito M5 y **todavía no existe**
+([#101](https://github.com/ChristianLuciani/profile-as-code/issues/101)).
+
+Instalación, verificación y qué cambia según lo que tengas: [**User Guide**](docs/USER-GUIDE.md) (EN).
+Acá abajo, el qué y el por qué.
+
 ## Problema
 
 El mismo perfil vive en 8+ plataformas, cada una con reglas, límites y audiencias distintas. Se editan a mano,
