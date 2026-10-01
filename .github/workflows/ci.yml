@@ -34,6 +34,19 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # Issue #98: dependency gate (D20 scope rule). The D3 drift-check shape
+      # applied to the workspace graph — `packages/server` may depend on core
+      # only among its runtime dependencies, and nothing in core's dependency
+      # graph may reach `server` (one-directional arrow, SPEC §5). Zero deps,
+      # runs before install to fail fast; passes vacuously until
+      # `packages/server` lands, then enforces. The self-test first proves the
+      # gate itself against fixtures covering both arrows.
+      - name: Dependency gate (D20 scope rule)
+        if: hashFiles('package.json') != ''
+        run: |
+          node scripts/dep-gate/test.mjs
+          node scripts/dep-gate/check.mjs
+
       - name: Install dependencies
         if: hashFiles('package.json') != ''
         run: pnpm install --frozen-lockfile

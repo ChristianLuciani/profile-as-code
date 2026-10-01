@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "note": "core depends on the real packages/server via file:../server under a foreign key \u2014 a range-masquerade channel (review F1)",
+  "rule": "E-GATE"
+}

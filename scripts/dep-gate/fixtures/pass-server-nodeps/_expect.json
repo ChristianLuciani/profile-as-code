@@ -1,0 +1,4 @@
+{
+  "status": "pass",
+  "note": "server with ZERO runtime deps passes Rule A vacuously (boundary: the gate flags foreign deps, not absence of core)"
+}

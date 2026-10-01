@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "note": "core's devDependencies reach server (rule B covers all classes)",
+  "rule": "Rule B"
+}

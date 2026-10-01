@@ -1,0 +1,3 @@
+# Narrowed guard pin (premerge-review F4).
+packages:
+  - packages/*

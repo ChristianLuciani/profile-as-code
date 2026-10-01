@@ -26,6 +26,7 @@ per-user private repo (`profile-data`), scaffolded from the template
 | `skills/<platform>/` | Living knowledge per platform (D5) | follows `skills/README.md` |
 | `docs/research/` | Prior-art + SOTA, sourced + dated | |
 | `scripts/schema-check/` | Contract self-test (CI) | |
+| `scripts/dep-gate/` | D20 scope self-test (CI): server→core only, core never reaches server | issue #98 |
 
 ## Rules for agents (in addition to CONTRIBUTING.md)
 

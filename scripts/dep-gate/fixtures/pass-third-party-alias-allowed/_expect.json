@@ -1,0 +1,4 @@
+{
+  "status": "pass",
+  "note": "npm: alias on a FOREIGN key is a legal external dependency \u2014 only workspace masquerades are refused (review F4 narrowing)"
+}

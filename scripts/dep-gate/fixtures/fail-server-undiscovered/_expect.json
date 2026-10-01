@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "note": "packages/server/package.json on disk but outside the workspace globs; a discoverable core exists so the ON-DISK GUARD itself fires \u2014 E-GATE, never a vacuous pass (review F3)",
+  "rule": "E-GATE"
+}

@@ -1,0 +1,1 @@
+{ "status": "pass", "note": "devDependencies are not runtime (rule A runtime-only)" }

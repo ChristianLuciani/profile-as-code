@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "note": "core directly depends on server (rule B, direct arrow)",
+  "rule": "Rule B"
+}
