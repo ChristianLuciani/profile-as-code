@@ -30,7 +30,9 @@ done
 normalize() { tr '[:upper:]' '[:lower:]'; }
 
 fail=0
-# --no-merges: a merge commit authors nobody's work, so it certifies nothing.
+# --no-merges skips merge commits, matching other DCO checkers. Accepted limitation:
+# content a merge commit authors through conflict resolution is not covered — the
+# commits the merge brings in still are, and they are where the work lives.
 while read -r sha; do
   [ -n "$sha" ] || continue
 

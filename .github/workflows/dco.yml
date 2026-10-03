@@ -10,7 +10,7 @@ name: dco
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
@@ -19,19 +19,37 @@ jobs:
   sign-off:
     runs-on: ubuntu-latest
     steps:
+      # A gate must not be supplied BY the thing it judges. `actions/checkout`
+      # defaults to the PR's merge ref, so a contributor could rewrite
+      # scripts/dco-check/check.sh to `exit 0` and pass with unsigned commits
+      # (verified: an unsigned commit passes against a rewritten gate). Check out
+      # the base branch instead — trusted code — and only READ the PR's commits.
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.pull_request.base.sha }}
           fetch-depth: 0 # the gate reads base..head, not just the tip
-
-      # Self-test first: proves the gate against its fixtures (including the
-      # Dependabot exemption) before it is trusted on this PR — dep-gate shape (D20).
-      - name: DCO gate self-test
-        run: bash scripts/dco-check/test.sh
 
       # refs/pull/<n>/head exists for fork PRs too, where the head commit is absent
       # from the base repo's branch refs (no-op for same-repo PRs).
       - name: Fetch the PR head
         run: git fetch --no-tags origin "+refs/pull/${{ github.event.pull_request.number }}/head:refs/remotes/origin/pr-head"
+
+      # Bootstrap: on the PR that first lands this gate, the base branch does not
+      # carry scripts/dco-check/ yet. Take it from the PR — loudly — and only then;
+      # every later PR gets the trusted copy from the base branch.
+      - name: Take the gate from the base branch (bootstrapped on first landing only)
+        run: |
+          if [ -f scripts/dco-check/check.sh ]; then
+            echo "gate: using the trusted copy from the base branch"
+          else
+            echo "::warning::scripts/dco-check/ is not on the base branch — bootstrapping the gate from the PR head. Expected only on the PR that lands it."
+            git checkout refs/remotes/origin/pr-head -- scripts/dco-check
+          fi
+
+      # Self-test first: proves the gate against its fixtures (including the
+      # Dependabot exemption) before it is trusted on this PR — dep-gate shape (D20).
+      - name: DCO gate self-test
+        run: bash scripts/dco-check/test.sh
 
       - name: Every commit carries a DCO sign-off (D21)
         run: |
