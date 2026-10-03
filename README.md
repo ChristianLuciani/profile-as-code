@@ -71,10 +71,10 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 |---|---|
 | Prior-art research | ✅ `docs/research/01-prior-art.md` |
 | Spec (D1–D18 resueltas) | ✅ `docs/SPEC.md` (GEO, i18n, profile-data, Substack, **brand flavor D15/§17**) |
-| Investigación SOTA por plataforma | 🔜 pendiente — asistente **SOTA Research**, ver `docs/research/RUN.md` |
-| Schema JSON v1.1 (contrato) | ✅ `schema/profile.schema.json` (person + brand flavor) |
+| Investigación SOTA por plataforma | 🚧 `skills/github-readme` + `skills/github-org`; resto: asistente **SOTA Research**, ver `docs/research/RUN.md` |
+| Schema JSON v1.6 (contrato) | ✅ `schema/profile.schema.json` (person + brand flavor) |
 | Core engine (load · drift · geo · compile) | ✅ `packages/core` (tests, CI) |
-| CLI `pasco` | ⏳ (`init --flavor brand`, `check` handle-matrix, `build` github-org) |
+| CLI `pasco` | ✅ init·validate·build·diff·status; check ejecuta reglas offline M6/M7/M8 (catálogo M3/M4); refine/skills:install 🚧 — detalle en [`packages/cli/README.md`](packages/cli/README.md) |
 | Renderer GitHub (dogfood) | ✅ `github-readme` + `github-org` (brand) |
 
 **Brand flavor (M6, D15):** el mismo engine modela identidades de marca — `pasco init

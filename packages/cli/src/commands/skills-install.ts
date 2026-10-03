@@ -1,10 +1,10 @@
 /**
  * pasco skills:install <agent>
  *
- * STUB — per-platform skills (D5/D6) are authored in skills-studio and projected
- * to each harness by the studio's `bin/project.sh` (AGOS). The CLI only prints
- * the projection command; the projection itself is the studio's job, not the
- * CLI's (and not implemented in M1).
+ * PARTIAL — per-platform skills (D5/D6) are authored in skills-studio and
+ * projected to each harness by the studio's `bin/project.sh` (AGOS). The CLI
+ * only prints the projection command; the projection itself is the studio's
+ * job, not the CLI's.
  */
 
 import { UsageError } from "../contract.js";
@@ -36,7 +36,9 @@ export function runSkillsInstall(args: SkillsInstallArgs): number {
     });
   }
 
-  line("pasco skills:install: STUB — projection is the skills-studio job (AGOS), not the CLI");
+  line(
+    "pasco skills:install: partial — prints the projection command; projecting is the skills-studio job (AGOS), not the CLI",
+  );
   line(`  run: ${projection}`);
   line(
     "  profile-as-code platform skills (per-platform living knowledge, D5/D6) land with M3 research.",
