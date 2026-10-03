@@ -103,7 +103,7 @@ pnpm gen:zod         # regenera Zod desde schema/profile.schema.json (D3)
 
 ## Roadmap (M1–M5, detalle en SPEC §12)
 
-1. **M1** spec + schema + core ✅ → **CLI `pasco`** ⏳
+1. **M1** spec + schema + core ✅ → **CLI `pasco` ✅** (init·validate·build·diff·status; refine/check/skills:install 🚧 — detalle en [`packages/cli/README.md`](packages/cli/README.md))
 2. **M2** renderer `github-readme` + CI + dogfood
 3. **M3** investigación SOTA → skills v1 + `pasco refine` (hub local)
 4. **M4** renderers linkedin/upwork/x/researchgate/substack + playbooks + `pasco check`
@@ -117,7 +117,7 @@ profile-as-code/
 ├── packages/
 │   ├── core/             # ✅ load · drift · geo · compile (Zod desde schema)
 │   ├── renderers/        # github-readme + github-org — más adapters por plataforma (seam de contribución)
-│   └── cli/              # pasco — init·validate·build·diff·status ✅ (refine/check/skills:install STUB, M3)
+│   └── cli/              # pasco — init·validate·build·diff·status ✅ (refine/check/skills:install 🚧; check ejecuta reglas offline M6/M7/M8, igual que packages/cli/README.md)
 ├── skills/               # skills por plataforma (conocimiento SOTA)
 ├── templates/
 │   ├── profile-data/       # workspace de datos del usuario — template fork/clone (SPEC §9)
