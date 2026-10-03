@@ -37,6 +37,23 @@ immediately re-apply branch protection** (`docs/ci-cd.md` has the exact calls �
 only once the repo is public on GitHub Free; items 6/10 may carry tracked issues only if they
 don't contradict the flip).
 
+**Order ratified 2026-10-03 (#123), with an accepted cost.** The sequence above is deliberate and
+is not to be reordered. The first published version carries **no provenance attestation under any
+order**: npm attests only when the OIDC exchange succeeded, the source repo is public *and* the
+package is public (`docs/ci-cd.md` §npm publish auth — trusted publishing), and the first publish
+necessarily runs on the token fallback, because a trusted publisher requires the package to
+already exist (#80, #113). The cost is accepted deliberately — not overlooked — and it is
+permanent for that version.
+
+Two conditions are part of the sequence, not optional:
+
+- **The licence and the contribution mechanism are decided before the flip** (issue #95 — MIT +
+  DCO). Flipping opens the contribution window, and a licence choice closes at the first accepted
+  external contribution; a published version's licence is frozen at publish.
+- **The gap between publish and flip is kept short.** While the repo stays private, the published
+  package's `repository.url` points at a repository nobody outside can read, with no attestation
+  to vouch for it. That gap is a bounded step of the sequence — not hygiene to be deferred.
+
 ## Community-first checklist (operator contract v1.1.0)
 
 The repo-gate checklist answers "is the product ready"; this one answers "is the repo ready for a
