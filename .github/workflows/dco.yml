@@ -1,0 +1,40 @@
+name: dco
+
+# D21 (issue #95): contributions are accepted under the Developer's Certificate of
+# Origin 1.1 — no CLA. This gate is PR-only by nature (it judges a commit range), so
+# it lives in its own workflow instead of `ci.yml`, which also runs on push to main.
+#
+# Note: while the repo is private on GitHub Free there is no branch protection, so
+# this check is advisory until the visibility flip (docs/STANDARDS.md); it is
+# re-applied the moment the repo goes public (docs/ci-cd.md).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  sign-off:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the gate reads base..head, not just the tip
+
+      # Self-test first: proves the gate against its fixtures (including the
+      # Dependabot exemption) before it is trusted on this PR — dep-gate shape (D20).
+      - name: DCO gate self-test
+        run: bash scripts/dco-check/test.sh
+
+      # refs/pull/<n>/head exists for fork PRs too, where the head commit is absent
+      # from the base repo's branch refs (no-op for same-repo PRs).
+      - name: Fetch the PR head
+        run: git fetch --no-tags origin "+refs/pull/${{ github.event.pull_request.number }}/head:refs/remotes/origin/pr-head"
+
+      - name: Every commit carries a DCO sign-off (D21)
+        run: |
+          bash scripts/dco-check/check.sh \
+            "${{ github.event.pull_request.base.sha }}" \
+            "refs/remotes/origin/pr-head"

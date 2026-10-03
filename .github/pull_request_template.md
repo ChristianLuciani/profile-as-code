@@ -10,6 +10,7 @@
 
 - [ ] Never committed to `main` — changes live on a descriptive feature branch
 - [ ] CI (`ci`) is green (schema self-test, `pnpm lint`, D3 freshness, typecheck gate, `pnpm test`, `pnpm build`, pack check — full list in `docs/ci-cd.md`)
+- [ ] Commits carry a DCO sign-off (`git commit -s`, D21) — bot commits are exempt
 - [ ] Tests added/updated for changed behavior (or explicit reason why not)
 - [ ] Docs updated if behavior, contract or schema changed (`docs/`, `schema/`)
 - [ ] Any quantitative claim carries a dated source (claims-evidence rule)
