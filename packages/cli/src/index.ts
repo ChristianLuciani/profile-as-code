@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 /**
- * pasco — the profile-as-code CLI (M1).
+ * pasco — the profile-as-code CLI. Full command reference: packages/cli/README.md
+ * (refine/check/skills:install are partial and each one says what still owns the
+ * rest).
  *
  * Consumes @profile-as-code/core (load/driftCheck/geoCheck/compile); never
  * re-implements them. Exit codes: 0 ok · 1 schema/workspace failure · 2 usage.
@@ -46,11 +48,16 @@ Commands:
   validate [--json]             Schema (FAIL, exit 1) + drift/geo (WARN, exit 0) — D12
   build [platform] [--lang]     Deterministic base texts per platform+lang
   diff [--json]                 Changes since the last release tag (git-based → CHANGELOG hint)
-  refine <platform> [--lang]    STUB: emit agent task template; --choose <id> records the
-          [--variants N]        chosen variant in content/active.yaml (agent-driven, D11/D13)
-  check [platform]              STUB: list user checks from content (schema-validated catalog)
+  refine <platform> [--lang]    PARTIAL: emit agent task template; --choose <id> records the
+          [--variants N]        chosen variant in content/active.yaml (agent-driven, D11/D13;
+                                full variant flow M3)
+  check [platform]              Executes offline rules: brand handle matrix (M6/§17,
+                                brand flavor), registry checks (M7/§18.8) and
+                                media-transport rules (M8/§18.6); content/checks.yaml
+                                rows are listed as not executed (M3/M4)
   status [platform] [--mark …]   Per-entry deploy report — origin · surfaces · in-sync/stale/never (D18)
-  skills:install <agent>        STUB: print the skills-studio projection command
+  skills:install <agent>        Prints the skills-studio projection command (AGOS);
+                                projecting stays the studio's job, not the CLI's
 
 Common flags (after the command):
   --workspace <path>  Workspace path (resolution: --workspace > .pascorc > cwd, D14)
@@ -124,15 +131,19 @@ all platforms. lang defaults to .pascorc defaults.lang or 'en'.`,
 Git-based: what changed since the last tag matching release-* (.pascorc
 diff.tagPattern) — commits + changed content files → CHANGELOG hint.`,
   refine: `pasco refine <platform> [--lang <l>] [--variants N] [--choose <variantId>] [--json] [--workspace <path>]
-STUB (agent-driven, D11/D13): without --choose, emits the task template the
+PARTIAL (agent-driven, D11/D13): without --choose, emits the task template the
 executing agent works from. With --choose, records the chosen variant in
-content/active.yaml. No LLM call, no hub.`,
+content/active.yaml. No LLM call, no hub. Full variant flow: M3.`,
   check: `pasco check [platform] [--json] [--workspace <path>]
-STUB: lists the user checks declared in content/checks.yaml (schema-validated
-catalog). Rule execution ships with M3 (skills checks.yaml union) + M4.`,
+Executes the offline rules that exist today: the brand handle matrix (brand
+flavor, D15/§17), registry checks (M7/§18.8) and media-transport rules
+(M8/§18.6). Rows declared in content/checks.yaml (schema-validated catalog)
+are listed and reported as not executed — rule execution for those ships with
+the skills checks.yaml union (M3) and the full pasco check (M4). Prints its
+owner line (src/commands/check.ts).`,
   "skills:install": `pasco skills:install <agent>
-STUB: prints the skills-studio projection command for <agent> (pi|claude|aionui|opencode).
-Projection is the skills-studio job (AGOS), not implemented in M1.`,
+Prints the skills-studio projection command for <agent> (pi|claude|aionui|opencode).
+Projection is the skills-studio job (AGOS), not the CLI's.`,
   status: `pasco status [platform] [--mark <ledgerKey> <surface>] [--at <iso8601>] [--write-checklist] [--json] [--workspace <path>]
 Per-entry deploy-status report (D18, §19): ledger key · origin (template/user) ·
 surfaces published · sync state (in-sync / stale / never) — plus untracked rows

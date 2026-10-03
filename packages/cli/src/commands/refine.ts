@@ -1,7 +1,7 @@
 /**
  * pasco refine <platform> [--lang] [--variants N] [--choose <variantId>]
  *
- * STUB — agent-driven refinement (D10/D11/D13): the CLI never calls an LLM and
+ * PARTIAL — agent-driven refinement (D10/D11/D13): the CLI never calls an LLM and
  * never wires the hub. It emits the task template the executing agent works from,
  * and — with --choose — records the user's chosen variant in content/active.yaml.
  * The full variant flow (generate → user picks → commit active) lands with the

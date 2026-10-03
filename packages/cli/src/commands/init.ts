@@ -124,7 +124,7 @@ private by default and never leaves your control (D14: integration by configured
 \`\`\`sh
 pasco validate          # schema (fail) + drift/geo (warn) — D12
 pasco build github-readme --lang en   # deterministic base texts
-pasco refine github-readme --variants 3   # agent-driven variants (stub in M1)
+pasco refine github-readme --variants 3   # agent-driven variants (template + --choose; full flow M3)
 \`\`\`
 
 See packages/cli/README.md for the full command reference.
