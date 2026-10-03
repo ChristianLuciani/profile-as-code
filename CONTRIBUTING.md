@@ -33,6 +33,8 @@ every decision lives in [`docs/SPEC.md`](docs/SPEC.md) (decisions D1–D18). Rea
    `pnpm gen:zod` and commit both.
 6. **Tests accompany behavior.** `packages/core` uses vitest; new behavior needs tests
    (fixtures live in `packages/core/tests/fixtures/`).
+7. **Sign your work (DCO, D21).** Every commit carries a sign-off — commit with
+   `git commit -s`. See [Sign your work](#sign-your-work-dco) below.
 
 ## Local setup
 
@@ -55,13 +57,47 @@ python3 -m venv /tmp/schema-venv
 /tmp/schema-venv/bin/python scripts/schema-check/check.py
 ```
 
+## Sign your work (DCO)
+
+Contributions are accepted under the [Developer's Certificate of Origin](DCO) 1.1 — a
+certification, not a contract: by signing off you state that you wrote the code (or have the
+right to submit it) and that it may be distributed under this project's licence (MIT). It is
+recorded as **D21** in [`docs/SPEC.md`](docs/SPEC.md) §5.
+
+Sign off every commit with `-s`:
+
+```bash
+git commit -s -m "feat(core): handle empty langMap"
+```
+
+which appends a trailer built from your git identity:
+
+```
+Signed-off-by: Your Name <you@example.com>
+```
+
+What the `dco` check enforces:
+
+- **One trailer per commit, and its email must match the commit's author email** — sign off as
+  yourself, never on someone else's behalf.
+- **Forgetting is cheap to fix:** `git commit --amend -s` for the last commit, or
+  `git rebase --signoff main` for the whole branch.
+- **Merge commits are skipped** (they author nobody's work), and **bot commits are exempt** —
+  Dependabot cannot sign off, and blocking it would block every dependency PR.
+- If the commit range cannot be resolved, the gate **fails closed** instead of passing silently.
+
+Use your real name and a valid email: the trailer is the record of who certified the
+contribution. The gate is `scripts/dco-check/` (self-test first, then the range check) — run it
+locally with `bash scripts/dco-check/test.sh`.
+
 ## Pull request workflow
 
 1. Pick an issue (or open one first — discuss before big changes; the contract and core
    interfaces are deliberately designed, see SPEC §7).
-2. Create your branch (descriptive name, e.g. `feat/<topic>`), commit in small logical steps.
+2. Create your branch (descriptive name, e.g. `feat/<topic>`), commit in small logical steps,
+   each one signed off (`git commit -s`).
 3. Push and open a PR. Use the [PR template](.github/pull_request_template.md) (auto-applied).
-4. Ensure the `ci` check is green and your branch is up to date with `main`.
+4. Ensure the `ci` and `dco` checks are green and your branch is up to date with `main`.
 5. Address review comments; all conversations must be resolved before merge.
 6. The maintainer merges (currently 0 mandatory approvals — review is the maintainer's process).
 
