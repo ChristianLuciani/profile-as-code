@@ -343,7 +343,7 @@ describe("pasco refine (partial: template + record)", () => {
   });
 });
 
-describe("pasco check + pasco skills:install (partial: offline rules)", () => {
+describe("pasco check (offline rules) + pasco skills:install (projection pointer)", () => {
   it("lists the user checks from the schema-validated catalog", () => {
     const r = run(["check", "github-readme", "--workspace", MINIMAL]);
     expect(r.code).toBe(0);
