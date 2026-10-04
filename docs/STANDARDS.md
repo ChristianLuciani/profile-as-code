@@ -1,8 +1,9 @@
 # Repository standards & public-readiness policy
 
 > Refreshed **2026-09-28** from a single re-measured evidence run (#100): repo-gate items 1, 2, 3,
-> 5 and community items 5, 6, 7, 9; items 4 and 10 stand per their 2026-09-21 refresh (#54); rows
-> without a date stand as written until their next refresh. Every status cites its evidence — a
+> 5 and community items 5, 6, 7, 9; items 4 and 10 stand per their 2026-09-21 refresh (#54); item 1
+> refreshed again **2026-10-03** (#112 — dogfood re-run on HEAD); rows without a date stand as
+> written until their next refresh. Every status cites its evidence — a
 > claim without source + date does not belong here (evidence rule).
 
 ## Private by default
@@ -21,7 +22,7 @@ before it is presented publicly — the first real end-to-end test is a hard req
 | # | Item | Status | Evidence (date) |
 |---|---|---|---|
 | — | Visibility | 🔒 **private** | per policy |
-| 1 | First real test (dogfood: real data rendered + deployed) | ⚠️ | renderers `github-readme` + `github-org` built and tested (`packages/renderers/`, 75 tests, CI green — 2026-09-28); real workspace: `profile-data` (private repo). Deploy evidence is **not externally auditable** (private workspace) — entry gate: re-run dogfood on current HEAD and record a deploy artifact before flip (#112, 2026-09-28 — #45 closed without recording it) |
+| 1 | First real test (dogfood: real data rendered + deployed) | ⚠️ | renderers `github-readme` + `github-org` built and tested (`packages/renderers/`, 75 tests, CI green — 2026-09-28); real workspace: `profile-data` (private repo). Deploy evidence is **not externally auditable** (private workspace). Dogfood re-run on HEAD **recorded** (#112, 2026-10-03 — closes the gate #45 left open): HEAD `3f92874`, `pasco 0.2.0` — `pnpm install --frozen-lockfile && pnpm build` in the session worktree, then `pasco validate` / `pasco build` against a **copy** of the real `profile-data` workspace (the private repo was never mutated from the engine session — SPEC §9): `validate` green (87/100; fact consistency 92, structured-data 80, semantic associations 100, citability 73), artifact `profiles/github-readme/README.md` re-rendered (163 lines, sha256 `16e83ba90515863b46a15c2d6a1c78b57903da4732d332d426f3d1dc87677392`, `diff -rq` over `profiles/` → only that file differs from the workspace's committed copies); vs the workspace's committed artifact (last build 2026-09-15, sha256 `9d36beabfc806f5c…`) the HEAD render adds JSON-LD `jobTitle` / `worksFor` — additive engine growth since that build, content unchanged (`[MI]` classification of the diff); the live deployed README is still the pre-v1.5 paste (sha256 `c948eaba04670e764a5c…`, from raw.githubusercontent.com 2026-10-03; ledger `deployments.yaml`: 57 units `never`, 0 `stale` — `pasco status` on the copy). The remaining loop is human-gated (#54 boundary): refresh the artifact in `profile-data` (`pasco build` + commit in that repo), paste / profile-repo PR, merge |
 | 2 | CI green + meaningful | ✅ | CI green on `main` (last run on main: 2026-09-25, `success`) + suites verified by re-run: **304 tests**, 17 files (`pnpm test` → `build` + `pnpm -r test`, 2026-09-28: markdown 12 · core 137 · github-org 22 · github-readme 53 · cli 80) |
 | 3 | Tagged release + changelog | ❌ **blocker** | no tag yet (`git ls-remote --tags origin` → empty, 2026-09-28); `@profile-as-code/cli` unpublished (npm E404, 2026-09-28); `release.yml` publishes to npm **and** creates the matching GitHub Release from `CHANGELOG.md` with `packages/cli/scripts/release-notes.mjs` (#58, 2026-09-18) — the remaining blocker is the operator-gated tag/publish (#113, 2026-09-28 — #44 closed without it) |
 | 4 | Docs honest + quickstart verified | ✅ | 4 README/CONTRIBUTING/CHANGELOG drifts in #55 (closed). USER-GUIDE §1–§6 and §8–§9 executed from a fresh clone on 2026-09-21 by a non-author agent session (#54); §7 verified up to the deploy artifact (`profiles/github-readme/README.md`) + ledger (`status --mark`/`--write-checklist`) — the platform paste and the profile-repo PR + human merge were **not** executed (human boundary, by design). 7 doc bugs found and fixed in the same PR, corrected snippets re-validated against the schema; full log in the #54 comment. Caveat: both gate points need maintainer credentials — §2 clones the still-private engine, and §3 Option A clones the private template; a third party without access fails at the first step (item 10) |
@@ -32,7 +33,7 @@ before it is presented publicly — the first real end-to-end test is a hard req
 
 **To go public:** resolve item 3 (tag v0.2.0 + npm publish — the version prep landed 2026-09-24; as of
 2026-09-28 there is still no git tag on `origin` and `@profile-as-code/cli` is unpublished — #113),
-re-verify dogfood on HEAD (item 1, #112), flip visibility with the maintainer's sign-off, **then
+dogfood re-run on HEAD recorded (item 1, #112 — 2026-10-03; artifact refresh in `profile-data` + platform deploy remain the operator's human-gated loop), flip visibility with the maintainer's sign-off, **then
 immediately re-apply branch protection** (`docs/ci-cd.md` has the exact calls — protection exists
 only once the repo is public on GitHub Free; items 6/10 may carry tracked issues only if they
 don't contradict the flip).
