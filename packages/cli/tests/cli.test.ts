@@ -314,7 +314,7 @@ describe("pasco init (scaffold)", () => {
   });
 });
 
-describe("pasco refine (stub: template + record)", () => {
+describe("pasco refine (partial: template + record)", () => {
   it("emits the agent task (no LLM call) pointing at the platform skill", () => {
     const r = run(["refine", "linkedin", "--variants", "2", "--workspace", MINIMAL]);
     expect(r.code).toBe(0);
@@ -343,7 +343,7 @@ describe("pasco refine (stub: template + record)", () => {
   });
 });
 
-describe("pasco check + pasco skills:install (stub)", () => {
+describe("pasco check + pasco skills:install (partial: offline rules)", () => {
   it("lists the user checks from the schema-validated catalog", () => {
     const r = run(["check", "github-readme", "--workspace", MINIMAL]);
     expect(r.code).toBe(0);
