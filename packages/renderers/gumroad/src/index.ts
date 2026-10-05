@@ -1,5 +1,7 @@
 /**
- * Renderer `gumroad` (v1.8, issue #133) — Gumroad: the bio of the Gumroad creator profile. Paste platform
+ * Renderer `gumroad` (v1.8, issue #133) — Gumroad: the creator profile's profile body [?] — profile URLs
+ * (`<user>.gumroad.com`) are verified live, 2026-10-05, but the profile page is an SPA: the bio FIELD is
+ * not verified; the skill follow-up sources it. Paste platform
  * (D9: no management API for the profile body — the deploy is a manual paste and
  * `pasco status --mark` records it, D18 ledger, `source: manual`; the per-platform
  * skill follow-up owns the platform's sourced facts, D16 parity caveat).

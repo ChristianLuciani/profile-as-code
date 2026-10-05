@@ -31,7 +31,7 @@ afterAll(() => {
   for (const dir of tempDirs) clean(dir);
 });
 
-describe("payhip renderer (v1.7, #130)", () => {
+describe("payhip renderer (v1.8, #133)", () => {
   it("picks the LONG bio by length priority (profile body = free-form)", () => {
     const slice = compile(
       load(

@@ -1,5 +1,6 @@
 /**
- * Renderer `liberapay` (v1.8, issue #133) — Liberapay: the profile description on the public Liberapay profile. Paste platform
+ * Renderer `liberapay` (v1.8, issue #133) — Liberapay: the public profile's Description (the `#statement`
+ * section — verified live, 2026-10-05). Paste platform
  * (D9: no management API for the profile body — the deploy is a manual paste and
  * `pasco status --mark` records it, D18 ledger, `source: manual`; the per-platform
  * skill follow-up owns the platform's sourced facts, D16 parity caveat).

@@ -1,5 +1,6 @@
 /**
- * Renderer `payhip` (v1.8, issue #133) — Payhip: the About section of the Payhip storefront. Paste platform
+ * Renderer `payhip` (v1.8, issue #133) — Payhip: the storefront's profile body [?] — the surface field is
+ * not verified (payhip.com blocks bot fetches, HTTP 403, probed 2026-10-05); the skill follow-up sources it. Paste platform
  * (D9: no management API for the profile body — the deploy is a manual paste and
  * `pasco status --mark` records it, D18 ledger, `source: manual`; the per-platform
  * skill follow-up owns the platform's sourced facts, D16 parity caveat).
