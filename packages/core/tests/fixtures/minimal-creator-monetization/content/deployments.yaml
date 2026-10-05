@@ -1,0 +1,23 @@
+# v1.8 (D18, issue #133): one ledger entry per family member — block-scoped
+# `bios:<platform>.<length>@<lang>` keys (pattern-checked post-Zod). Placeholder
+# hashes (aaaa/bbbb… = valid 64-hex) — fixtures assert shape, not real deploys.
+bios:buymeacoffee.long@en:
+  buymeacoffee:
+    deployedAt: "2026-10-05T10:00:00Z"
+    contentHash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    source: manual
+bios:liberapay.long@en:
+  liberapay:
+    deployedAt: "2026-10-05T10:00:00Z"
+    contentHash: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    source: manual
+bios:gumroad.long@en:
+  gumroad:
+    deployedAt: "2026-10-05T10:00:00Z"
+    contentHash: cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+    source: manual
+bios:payhip.long@en:
+  payhip:
+    deployedAt: "2026-10-05T10:00:00Z"
+    contentHash: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+    source: manual

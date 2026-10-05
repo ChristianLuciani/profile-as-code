@@ -1,0 +1,35 @@
+{
+  "dependencies": {
+    "@profile-as-code/core": "workspace:*"
+  },
+  "description": "Renderer liberapay (v1.8, issue #133): deterministic plain-text profile-description paste-source from a PlatformProfile slice. Liberapay is a paste platform (D9) — the artifact IS the text to paste into the public profile description. Pure function of the SSOT — no network, no AI, no randomness.",
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "name": "@profile-as-code/renderers-liberapay",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "pnpm build && vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "version": "0.1.0"
+}

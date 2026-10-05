@@ -1,0 +1,35 @@
+{
+  "dependencies": {
+    "@profile-as-code/core": "workspace:*"
+  },
+  "description": "Renderer buymeacoffee (v1.8, issue #133): deterministic plain-text About paste-source from a PlatformProfile slice. Buy Me a Coffee is a paste platform (D9) — the artifact IS the text to paste into the creator page's About. Pure function of the SSOT — no network, no AI, no randomness.",
+  "devDependencies": {
+    "@types/node": "^26.6.3",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "name": "@profile-as-code/renderers-buymeacoffee",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "pnpm build && vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "version": "0.1.0"
+}
