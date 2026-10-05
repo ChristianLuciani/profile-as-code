@@ -204,6 +204,50 @@ describe("pasco build (compile slices)", () => {
     expect(data.data.platforms.map((p) => p.platform)).toEqual([...PLATFORMS]);
     // only renderer platforms write artifacts; github-org is brand-only (D15) so a person workspace writes only github-readme
     expect(data.data.written.map((w) => w.platform)).toEqual(["github-readme"]);
+    // v1.7 (#130): an EMPTY render must leave no trace — not even the profiles/<platform>/ dir
+    // (a regression here litters every pre-existing workspace with empty dirs per new renderer).
+    expect(existsSync(join(ws, "profiles", "kofi"))).toBe(false);
+  });
+
+  it("writes the kofi paste artifact for a kofi workspace (v1.7, #130)", () => {
+    const ws = tempDir();
+    copyFixture(join(__dirname, "..", "..", "core", "tests", "fixtures", "minimal-kofi"), ws);
+    const r = run(["build", "kofi", "--json", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as {
+      data: { written: { platform: string; path: string }[] };
+    };
+    // D9 paste platform: the artifact IS the paste source (single bios row).
+    expect(data.data.written).toEqual([
+      { platform: "kofi", path: join(ws, "profiles", "kofi", "README.md") },
+    ]);
+    expect(readFileSync(join(ws, "profiles", "kofi", "README.md"), "utf8")).toContain(
+      "support the sovereign-AI work",
+    );
+  });
+
+  it("unbuilds a stale kofi artifact when its bios row is removed (pure profiles/, v1.7 #130)", () => {
+    const ws = tempDir();
+    mkdirSync(join(ws, "content"), { recursive: true });
+    writeFileSync(join(ws, "content", "identity.yaml"), "name: Elena Vasquez\n");
+    writeFileSync(
+      join(ws, "content", "bios.yaml"),
+      "- platform: kofi\n  lang: en\n  length: long\n  text: To be removed.\n",
+    );
+    expect(run(["build", "kofi", "--workspace", ws]).code).toBe(0);
+    expect(existsSync(join(ws, "profiles", "kofi", "README.md"))).toBe(true);
+    // The SSOT drops the row → the paste source it no longer backs must not
+    // survive on disk (status compares ledger↔SSOT hashes only; profiles/ is
+    // a pure function of the workspace, §15.1).
+    writeFileSync(join(ws, "content", "bios.yaml"), "");
+    const r = run(["build", "kofi", "--json", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as {
+      data: { written: unknown[]; skipped: { platform: string }[] };
+    };
+    expect(data.data.written).toEqual([]);
+    expect(data.data.skipped.map((sk) => sk.platform)).toEqual(["kofi"]);
+    expect(existsSync(join(ws, "profiles", "kofi"))).toBe(false);
   });
 
   it("exit 2 on unknown platform", () => {

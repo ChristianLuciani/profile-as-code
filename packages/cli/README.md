@@ -27,7 +27,7 @@ server, no account.
 |---|---|---|
 | `pasco init [dir]` | Scaffold a profile-data workspace (`content/identity.yaml`, `README.md`, `.pascorc`) — `pasco validate`-clean | ✅ |
 | `pasco validate [--json]` | Schema **fail** (exit 1) + drift/geo **warn** (exit 0) — D12 | ✅ |
-| `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (github-readme, M2) also write `profiles/<platform>/README.md` + bundled media in `profiles/<platform>/assets/` with `assets/manifest.json` (M8/§18.6 — public path-locator artifacts, sha256 at compile; see `docs/media-pipeline.md`) | ✅ |
+| `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (github-readme, github-org, kofi) also write `profiles/<platform>/README.md` + bundled media in `profiles/<platform>/assets/` with `assets/manifest.json` (M8/§18.6 — public path-locator artifacts, sha256 at compile; see `docs/media-pipeline.md`). Empty render = no-trace unbuild of that platform's output (pure profiles/, §15.1 — v1.7) | ✅ |
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--write-checklist]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never + ledger write path (D18, §19) | ✅ |
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13) | 🚧 template + `--choose` (full flow M3) |

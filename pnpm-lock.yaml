@@ -33,6 +33,9 @@ importers:
       '@profile-as-code/renderers-github-readme':
         specifier: workspace:*
         version: link:../renderers/github-readme
+      '@profile-as-code/renderers-kofi':
+        specifier: workspace:*
+        version: link:../renderers/kofi
       '@types/node':
         specifier: ^26.6.3
         version: 26.6.3
@@ -107,6 +110,22 @@ importers:
       '@profile-as-code/markdown':
         specifier: workspace:*
         version: link:../../markdown
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.3
+        version: 26.6.3
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.3
+        version: 5.0.3(@types/node@26.6.3)(vite@7.3.6(@types/node@26.6.3)(yaml@2.9.1))
+
+  packages/renderers/kofi:
+    dependencies:
+      '@profile-as-code/core':
+        specifier: workspace:*
+        version: link:../../core
     devDependencies:
       '@types/node':
         specifier: ^26.6.3

@@ -9,6 +9,31 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Added
+
+- **`kofi` platform — schema additive v1.7, D16 operator extra #10 (44 total; issue #130)** —
+  Ko-fi creator page (same family as `patreon`): enum entries in `$defs.platform` and the
+  derived `check.platform`, ledger surface, drift host `ko-fi.com` (+ `HANDLE_HOSTS`), Zod
+  regenerated (D3). Paste platform (D9 — no API deploy; Ko-fi ships payment webhooks only):
+  `pasco build kofi` → paste → `pasco status --mark`.
+- **Renderer `@profile-as-code/renderers-kofi` (v1.7, #130)** — deterministic plain-text
+  About paste-source: exactly ONE bios row (long > medium > short), byte-stable, empty
+  slice → empty artifact. Deploy spec is §7's `manual` (D9 paste platform).
+- **Skill `skills/kofi/` (#130)** — SKILL.md (About: plain text, links only via Ko-fi's
+  Social-links feature, ≤40-char status note) + playbook (paste checklist + rename-drift
+  caveat) + checks.yaml (About soft-cap — Ko-fi documents no bio limit) + research/
+  SOTA-2026.md (all sources fetched 2026-10-05).
+
+### Changed
+
+- **`pasco build` — empty renderer output is now a complete unbuild lifecycle (v1.7, #130)**
+  An empty render is not a deploy artifact, and `profiles/` is a **pure function of the
+  workspace (§15.1)**: the build skips BEFORE creating the directory (no litter on
+  workspaces without the row) and REMOVES a previously written `profiles/<platform>/`
+  output (`README.md` + `assets/`) when its bios row disappears — a stale file would be
+  re-pasted otherwise, and `pasco status` never reads artifact files. The build report
+  records the removals as `skipped: [{platform, reason}]`.
+
 ### Planned (roadmap)
 
 - Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
