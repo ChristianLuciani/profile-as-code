@@ -8,16 +8,19 @@
  * randomness. Facts pass through untouched from the SSOT; texts are the
  * platform+lang slice — compile() filters `bios` by EXACT platform+lang (bio
  * rows do NOT fall back to en), so a missing lang yields an empty artifact.
- * `pasco build` skips empty artifacts — the skill's lang rule is what surfaces
- * the gap to the operator. There is no renderer-side lang override on purpose:
- * the bios are already the compile() slice, so one would be dead code.
+ * `pasco build` UNBUILDS on the empty render (no artifact left on disk, §15.1
+ * pure function) — the skill's lang rule is what surfaces the gap to the
+ * operator. There is no renderer-side lang override on purpose: the bios are
+ * already the compile() slice, so one would be dead code.
  */
 
 import type { PlatformProfile } from "@profile-as-code/core";
 
-/** D9 deploy spec: Ko-fi has no write API — the deploy is a manual paste and
- *  `pasco status --mark` records it (D18 ledger). */
-export const deploySpec = "paste" as const;
+/** SPEC §7 Renderer contract (`deploySpec: 'git' | 'api' | 'manual'`). Ko-fi
+ *  has no write API — the deploy is a MANUAL paste (D9; "paste" stays the
+ *  prose term in the skill/playbook) and `pasco status --mark` records it
+ *  (D18 ledger, `source: manual`). */
+export const deploySpec = "manual" as const;
 
 export interface RenderResult {
   text: string;

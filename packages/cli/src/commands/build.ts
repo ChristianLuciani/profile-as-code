@@ -2,9 +2,10 @@
  * pasco build [platform] [--lang] — deterministic base texts per platform+lang
  * (SPEC §7 `pasco build`) + rendered deploy artifacts (SPEC §15). Pure compile()
  * slices; no AI. Platforms WITH a renderer also write the rendered artifact to
- * profiles/<platform>/README.md (deploy spec: git for GitHub surfaces, paste
- * for kofi — the artifact IS the paste source, D9); platforms without a
- * renderer print their slices (renderers land in M4).
+ * profiles/<platform>/README.md (deploy spec: git for GitHub surfaces, manual
+ * for kofi — paste in prose; the artifact IS the paste source, D9); platforms
+ * without a renderer print their slices (renderers land in M4). Empty renders
+ * unbuild their platform output (v1.7: profiles/ is a pure function, §15.1).
  */
 
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -86,19 +87,29 @@ export function runBuild(args: BuildArgs): number {
   const bundle = collectMedia(profile, args.workspace);
 
   const written: { platform: string; path: string; assets?: number }[] = [];
+  const skipped: { platform: string; reason: string }[] = [];
   for (const s of slices) {
     const renderer = RENDERERS[s.platform];
     if (renderer === undefined) continue;
     if (s.platform === "github-org" && profile.flavor !== "brand") continue;
     const result = renderer(s, bundle.assets);
+    const dir = join(args.workspace, "profiles", s.platform);
     // v1.7 (#130): an empty artifact is not a deploy artifact — a paste
     // platform (kofi) yields "" when no bios row exists for platform+lang
-    // (compile filters exactly). This keeps `pasco build` from littering every
-    // workspace with an empty profiles/<platform>/README.md per new renderer.
-    // MUST run BEFORE the mkdir: an empty render leaves NO directory either —
-    // profiles/ stays untouched for platforms the workspace has no texts for.
-    if (result.text === "") continue;
-    const dir = join(args.workspace, "profiles", s.platform);
+    // (compile filters exactly). The lifecycle is COMPLETE: profiles/ is a
+    // pure function of the workspace (§15.1), so the build (a) skips BEFORE
+    // the mkdir (no litter on workspaces that never had the row) and (b)
+    // UNBUILDS a previously written artifact the SSOT no longer backs
+    // (otherwise the operator's next re-paste reads stale, un-backed bytes —
+    // `pasco status` compares ledger↔SSOT hashes and would never flag it).
+    if (result.text === "") {
+      skipped.push({
+        platform: s.platform,
+        reason: "empty render — no bios row for this platform+lang; platform output removed",
+      });
+      rmSync(dir, { recursive: true, force: true });
+      continue;
+    }
     mkdirSync(dir, { recursive: true });
     const path = join(dir, "README.md");
     writeFileSync(path, result.text);
@@ -150,6 +161,7 @@ export function runBuild(args: BuildArgs): number {
           fallbacks: s.fallbacks,
         })),
         written,
+        skipped,
         media: bundle.findings,
       },
     });
@@ -171,6 +183,10 @@ export function runBuild(args: BuildArgs): number {
     section("deploy artifacts written");
     for (const w of written)
       line(`  ${w.path}${w.assets !== undefined ? ` (+${w.assets} asset(s) in assets/)` : ""}`);
+  }
+  if (skipped.length > 0) {
+    section(`empty renders removed (${skipped.length}) — pure profiles/ (§15.1)`);
+    for (const k of skipped) line(`  [${k.platform}] ${k.reason}`);
   }
   if (bundle.findings.length > 0) {
     section(`media pipeline (M8/§18.6): ${bundle.findings.length} finding(s)`);

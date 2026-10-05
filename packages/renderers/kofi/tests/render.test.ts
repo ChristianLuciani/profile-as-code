@@ -163,8 +163,8 @@ describe("kofi renderer (v1.7, #130)", () => {
     expect(text).not.toMatch(/^(#+\s|!\[|\[.*\]\(|```)/m);
   });
 
-  it("declares the paste deploy spec (D9) and no assets", () => {
-    expect(deploySpec).toBe("paste");
+  it("declares the manual deploy spec (§7 union; D9 paste in prose) and no assets", () => {
+    expect(deploySpec).toBe("manual");
     const slice = compile(
       load(
         workspace(
