@@ -71,7 +71,7 @@ Cierra el pipeline de media: hoy el engine bundlea assets, pero publicarlos es M
 
 **7 · `profile-data-template` release + CONTRIBUTING completo** → M5
 **8 · #95 licence + CLA** — time-sensitive, antes de la primera contribución externa
-**9 · #101 on-ramp sin GitHub** — declarar el requisito y diseñar la vía no técnica
+**9 · #122 vía no técnica del on-ramp** — diseñar la ruta sin cuenta de GitHub (la capa de docs, #101, ya declaró el requisito)
 **10 · #100 refresh de la status table** — housekeeping
 
 ### Transversal — no milestone
@@ -107,7 +107,7 @@ M4 renderers ───► M4 check ─┘
 M5 web ──────────────┴──► M8 deploy playbooks
      └──► consume #103 (@id/sameAs/roles)
 
-M5 template release ──► #101 (on-ramp) ──► #95 (CLA, antes de contribución externa)
+M5 template release ──► #122 (on-ramp sin cuenta) ──► #95 (CLA, antes de contribución externa)
 ```
 
 **Camino crítico:** `M3 refine` → `M4 renderers` → `M4 check`.

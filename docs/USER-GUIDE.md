@@ -19,7 +19,7 @@ updated, and stay in sync as the engine evolves.
 > |---|---|
 > | a **GitHub account with access to the engine repo** (private today) **and** to the template repo | the whole guide — install (§2 Option B is the only working install until #113 publishes), template workspace (§3 Option A), GitHub deploy targets (§7) |
 > | a GitHub account with access to the engine repo but **not** the template repo | partial — `pasco init` scaffolds a **local** workspace (§3 Option B) and you paste the generated texts into the platforms you do have, by hand (§7). The template path is unavailable while the satellite stays private (STANDARDS item 10) |
-> | **no GitHub account, or no access to the engine repo** | **no path today** — there is no way to obtain `pasco`: the npm package is not published yet ([#113](https://github.com/ChristianLuciani/profile-as-code/issues/113)) and the source install (§2 Option B) clones a **private** repo. Planned: the npm path (Option A) once #113 lands — still developer-shaped — and the guided, no-terminal path at M5 (SPEC §12), tracked in [#101](https://github.com/ChristianLuciani/profile-as-code/issues/101) |
+> | **no GitHub account, or no access to the engine repo** | **no path today** — there is no way to obtain `pasco`: the npm package is not published yet ([#113](https://github.com/ChristianLuciani/profile-as-code/issues/113)) and the source install (§2 Option B) clones a **private** repo. Planned: the npm path (Option A) once #113 lands — still developer-shaped — and the guided, no-terminal path at M5 (SPEC §12), tracked as a product decision in [#122](https://github.com/ChristianLuciani/profile-as-code/issues/122) |
 
 ---
 
