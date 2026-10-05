@@ -11,6 +11,17 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **Platform families `freelance` + `job-boards` — SPEC docs-first declaration
+  (issue #138)** — the platform families table in the SPEC (D16 block): `freelance`
+  covers the pre-existing v1 `upwork` retroactively and names its backlog slice
+  (`freelancer`, `workana`, `fiverr` — filed with the gig-storefront boundary note);
+  `job-boards` is a backlog-only slice (`infojobs`, `computrabajo`, `indeed` —
+  recruiter-facing CV surfaces; GEO hook = name-reputation in search results). No
+  enum/schema/core/CLI changes (48 unchanged); each backlog member follows the #133
+  member chain per slug when real operator demand lands, with an official eligibility
+  page before any claim. Boundary notes: `linkedin` stays un-bucketed (hybrid),
+  `github-readme`/`github-org`/`researchgate` stay un-declared (YAGNI), `toptal` is
+  recorded as a reject candidate (invite-only network, `[MI]`).
 - **Creator-monetization platform family — schema additive v1.8, D16 operator extras
   #11–#14 (48 total; issue #133)** — `buymeacoffee`, `liberapay`, `gumroad`, `payhip`: the
   platforms where creators receive money (memberships / tips / recurrent donations /
