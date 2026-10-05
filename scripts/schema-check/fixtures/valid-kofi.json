@@ -1,0 +1,30 @@
+{
+  "identity": {
+    "name": "Ada Example"
+  },
+  "bios": [
+    {
+      "platform": "kofi",
+      "lang": "en",
+      "length": "long",
+      "text": "Ko-fi About paste-source — the artifact IS the text to paste (issue #130)."
+    }
+  ],
+  "checks": [
+    {
+      "id": "k-bio-soft",
+      "platform": "kofi",
+      "rule": "max-chars",
+      "value": 500
+    }
+  ],
+  "deployments": {
+    "bios:kofi.long@en": {
+      "kofi": {
+        "deployedAt": "2026-10-05T10:00:00Z",
+        "contentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "source": "manual"
+      }
+    }
+  }
+}

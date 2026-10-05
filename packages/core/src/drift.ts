@@ -46,7 +46,8 @@ import { PLATFORMS, textOf } from "./types.js";
  *  is not in identity.links is an uncanonicalized duplicate (the drift source the
  *  contract rule "URLs only from identity.links" targets). v1.1 adds the brand
  *  surfaces (github-org, bluesky, instagram, tiktok, youtube, spotify, reddit,
- *  mastodon, soundcloud); v1.2 (D16) adds the Postiz-parity set + ghost. The same
+ *  mastodon, soundcloud); v1.2 (D16) adds the Postiz-parity set + ghost; v1.7
+ *  adds ko-fi.com (issue #130). The same
  *  host often serves content too (a YouTube demo video in projects.links) — drift
  *  is advisory (severity warn, D12), so over-warnings are safe. Open-ended instance
  *  networks (mastodon/lemmy/nostr beyond the curated entries) stay unflagged — drift
@@ -104,6 +105,8 @@ const PLATFORM_HOSTS: readonly string[] = [
   "ghost.io",
   "mewe.com",
   "tumblr.com",
+  // v1.7 operator extras (D16 pattern, issue #130)
+  "ko-fi.com",
 ];
 
 /** Profile URLs that live on SUBDOMAINS of a host (e.g. `user.substack.com`,
@@ -159,6 +162,7 @@ const HANDLE_HOSTS: Record<string, readonly string[]> = {
   moltbook: ["moltbook.com"],
   mewe: ["mewe.com"],
   tumblr: ["tumblr.com"],
+  kofi: ["ko-fi.com"],
   // Any-host platforms (no HANDLE_HOSTS entry → any URL allowed):
   //   - lemmy: federated (hundreds of instances) — a curated list would actively
   //     reject legitimate handles (mastodon.social-only is a v1.1 leftover, see #30 follow-up)

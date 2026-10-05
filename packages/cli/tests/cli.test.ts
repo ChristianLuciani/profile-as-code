@@ -206,6 +206,23 @@ describe("pasco build (compile slices)", () => {
     expect(data.data.written.map((w) => w.platform)).toEqual(["github-readme"]);
   });
 
+  it("writes the kofi paste artifact for a kofi workspace (v1.7, #130)", () => {
+    const ws = tempDir();
+    copyFixture(join(__dirname, "..", "..", "core", "tests", "fixtures", "minimal-kofi"), ws);
+    const r = run(["build", "kofi", "--json", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as {
+      data: { written: { platform: string; path: string }[] };
+    };
+    // D9 paste platform: the artifact IS the paste source (single bios row).
+    expect(data.data.written).toEqual([
+      { platform: "kofi", path: join(ws, "profiles", "kofi", "README.md") },
+    ]);
+    expect(readFileSync(join(ws, "profiles", "kofi", "README.md"), "utf8")).toContain(
+      "support the sovereign-AI work",
+    );
+  });
+
   it("exit 2 on unknown platform", () => {
     const r = run(["build", "bogus", "--workspace", MINIMAL]);
     expect(r.code).toBe(2);

@@ -165,8 +165,10 @@ page-URLs-only (a `mailto:` URI is not a reference page).
 
 **Platform set (D16 — additive, v1.2):** ONE shared enum for both flavors — the union of
 Postiz's 34 supported networks ([OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02) plus
-**9 operator extras**: `ghost`, `spotify`, `soundcloud`, and the six v1 non-Postiz surfaces
-(`github-readme`, `upwork`, `researchgate`, `substack`, `patreon`, `github-org`). 34 + 9 = **43**.
+**10 operator extras**: `ghost`, `spotify`, `soundcloud`, `kofi` (Ko-fi creator page — v1.7,
+issue #130; creator-support family like `patreon`, paste deploy per D9), and the six v1
+non-Postiz surfaces (`github-readme`, `upwork`, `researchgate`, `substack`, `patreon`,
+`github-org`). 34 + 10 = **44**.
 New slugs are Postiz verbatim (`linkedin-page`, `instagram-standalone`, `devto`, `gmb`,
 `warpcast`, `moltbook`, `mewe`, `tumblr`); v1 person surfaces keep their names. The enum is
 also the `socialHandles` key space. Single-source discipline is enforced, not trusted:

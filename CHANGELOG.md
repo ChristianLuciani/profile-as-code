@@ -9,6 +9,22 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Added
+
+- **`kofi` platform — schema additive v1.7, D16 operator extra #10 (44 total; issue #130)** —
+  Ko-fi creator page (same family as `patreon`): enum entries in `$defs.platform` and the
+  derived `check.platform`, ledger surface, drift host `ko-fi.com` (+ `HANDLE_HOSTS`), Zod
+  regenerated (D3). Paste platform (D9 — no API deploy; Ko-fi ships payment webhooks only):
+  `pasco build kofi` → paste → `pasco status --mark`.
+- **Renderer `@profile-as-code/renderers-kofi` (v1.7, #130)** — deterministic plain-text
+  About paste-source: exactly ONE bios row (long > medium > short), byte-stable, empty
+  slice → empty artifact. `pasco build` now **skips empty artifacts** (an empty file is not
+  a deploy artifact; keeps `profiles/` clean for every renderer platform).
+- **Skill `skills/kofi/` (#130)** — SKILL.md (About: plain text, links only via Ko-fi's
+  Social-links feature, ≤40-char status note) + playbook (paste checklist + rename-drift
+  caveat) + checks.yaml (About soft-cap — Ko-fi documents no bio limit) + research/
+  SOTA-2026.md (all sources fetched 2026-10-05).
+
 ### Planned (roadmap)
 
 - Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)

@@ -1,9 +1,10 @@
 /**
  * pasco build [platform] [--lang] — deterministic base texts per platform+lang
  * (SPEC §7 `pasco build`) + rendered deploy artifacts (SPEC §15). Pure compile()
- * slices; no AI. Platforms WITH a renderer (github-readme, M2) also write the
- * rendered artifact to profiles/<platform>/README.md (deploy spec: git, D9);
- * platforms without a renderer print their slices (renderers land in M4).
+ * slices; no AI. Platforms WITH a renderer also write the rendered artifact to
+ * profiles/<platform>/README.md (deploy spec: git for GitHub surfaces, paste
+ * for kofi — the artifact IS the paste source, D9); platforms without a
+ * renderer print their slices (renderers land in M4).
  */
 
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -20,13 +21,15 @@ import {
 } from "@profile-as-code/core";
 import { render as renderGithubOrg } from "@profile-as-code/renderers-github-org";
 import { render as renderGithubReadme } from "@profile-as-code/renderers-github-readme";
+import { render as renderKofi } from "@profile-as-code/renderers-kofi";
 import { parseLang, parsePlatform } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import type { Pascorc } from "../workspace.js";
 import { defaultsLang } from "../workspace.js";
 
-/** Platforms with an implemented renderer (M2: github-readme; M6: github-org; M4 adds the rest).
+/** Platforms with an implemented renderer (M2: github-readme; M6: github-org;
+ *  v1.7 #130: kofi — paste platform, D9 artifact = the paste source).
  *  M8 (§18.6): renderers receive the media bundle and declare the deploy-relative
  *  targets they reference — the build copies exactly those bytes (checksummed). */
 const RENDERERS: Partial<
@@ -37,6 +40,7 @@ const RENDERERS: Partial<
 > = {
   "github-readme": (slice, assets) => renderGithubReadme(slice, { assets }),
   "github-org": (slice) => renderGithubOrg(slice),
+  kofi: (slice) => renderKofi(slice),
 };
 
 export interface BuildArgs {
@@ -89,6 +93,11 @@ export function runBuild(args: BuildArgs): number {
     const dir = join(args.workspace, "profiles", s.platform);
     mkdirSync(dir, { recursive: true });
     const result = renderer(s, bundle.assets);
+    // v1.7 (#130): an empty artifact is not a deploy artifact — a paste
+    // platform (kofi) yields "" when no bios row exists for platform+lang
+    // (compile filters exactly). This keeps `pasco build` from littering every
+    // workspace with an empty profiles/<platform>/README.md per new renderer.
+    if (result.text === "") continue;
     const path = join(dir, "README.md");
     writeFileSync(path, result.text);
 
