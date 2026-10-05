@@ -356,6 +356,7 @@ Two different "templates" (previous confusion):
 6. **M6 (brand flavor)**: schema v1.1 brand additions (§17) + `pasco init --flavor brand` + renderer `github-org` + handle-matrix checks + `skills/github-org/` + dogfood `profile-data-topia` (private).
 7. **M7 (evidence core)**: schema v1.4 — `credentials[]`/`artifacts[]` + cross-refs (§18) · `pasco check`: `credential-expiry`, registry live-links, `no-private-in-public-output` · JSON-LD `hasCredential` · compact registry section in `github-readme` · template: `media/` scaffold + `docs/evidence-packs.md` + power-user symlink/stow doc (issue #48).
 8. **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable, checksummed bundling — Q9 resolved as D19: one `assets/` dir per platform output) · deploy playbooks publish media to the public surface · git-lfs guidance · portfolio-site consumption lands **with M5** (the web renderer does not exist yet — engine-side contract ships first).
+9. **M9 (training-time corpus presence — deferred, Q10)**: outputs are designed not only for inference-time citation (GEO, layer 2) but for entry into future model training corpora (layer 3). Inputs + documented levers: `docs/research/03-training-time-visibility.md` (sourced + dated). Floor regardless of the Q10 resolution: published surfaces keep an AI-crawler-allow posture (`robots.txt`: Common Crawl / vendor AI crawlers) and open licenses (CC-BY-4.0). Decision (Q10): a `huggingface-dataset` renderer/exporter vs contributing to existing open datasets vs both — decided when the M3 platform SOTA research closes.
 
 ## 13. Resolved decisions (former open questions)
 
@@ -382,6 +383,13 @@ Two different "templates" (previous confusion):
 - Q7 (**idea, not a decision**): `profile-me` — a command/skill/experience layer that APPLIES the
   engine to the user's `profile-data` to produce results (today: `pasco build`/`pasco refine`);
   productized as a single user-facing flow. Name reserved in the profile-* family.
+- Q10 (**idea, decision deferred**): training-time corpus presence — publish compiled profiles as an
+  open Hugging Face dataset (renderer/exporter) vs contribute to existing open datasets vs both.
+  Levers + evidence: `docs/research/03-training-time-visibility.md`; decide when the M3 platform
+  SOTA research closes.
+
+(Q10 — training-time corpus presence — OPEN, deferred post-M3; the §12 M9 floor applies regardless
+of the resolution.)
 
 (Q9 — deploy-bundle format — RESOLVED as D19, §13: one `assets/` dir per platform output.)
 
