@@ -110,8 +110,9 @@ export function textOf(v: string | GeneratedLangMap | undefined): string {
 
 /** The platform set — mirrors the schema enum (never hand-maintained here).
  *  v1.1 adds the brand surfaces (D15/§17); v1.2 adds Postiz parity + operator
- *  extras (D16); v1.7 adds kofi (operator extra, issue #130) — enforced by the
- *  vitest contract test (tests/contract.test.ts). */
+ *  extras (D16); v1.7 adds kofi (operator extra, issue #130); v1.8 adds the
+ *  creator-monetization family (buymeacoffee, liberapay, gumroad, payhip —
+ *  issue #133) — enforced by the vitest contract test (tests/contract.test.ts). */
 export const PLATFORMS: readonly Platform[] = [
   // v1 person surfaces
   "github-readme",
@@ -161,6 +162,11 @@ export const PLATFORMS: readonly Platform[] = [
   "tumblr",
   // v1.7 operator extras (D16 pattern, issue #130)
   "kofi",
+  // v1.8 creator monetization family (D16, issue #133)
+  "buymeacoffee",
+  "liberapay",
+  "gumroad",
+  "payhip",
 ] as const;
 
 export const LANGS: readonly Lang[] = ["en", "es", "fr"] as const;
