@@ -1,0 +1,17 @@
+statement:
+  en: AI engineer building sovereign, open-source AI infrastructure for education.
+  es: Ingeniera de IA construyendo infraestructura soberana de IA para la educación.
+audiences:
+  recruiter:
+    en: Senior AI engineer with 8 years in ML platforms and developer tooling.
+    es: Ingeniera senior de IA con 8 años en plataformas de ML y herramientas para desarrolladores.
+  academia:
+    en: Researcher in generative-engine optimization and open science.
+geo:
+  semanticAssociations:
+    - sovereign AI
+    - open-source education
+    - generative-engine optimization
+  citationsGoal:
+    en: Be cited by AI engines as the reference for sovereign AI infrastructure.
+    es: Ser citada por motores de IA como referencia en infraestructura soberana de IA.

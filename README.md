@@ -16,9 +16,12 @@ conocimiento SOTA de cada red.
 hoy hace falta además **una cuenta de GitHub con acceso al repo del motor** (privado). Sin eso
 **no hay forma de obtener `pasco`**: el paquete de npm todavía no está publicado y la
 instalación desde fuente clona un repo privado. Con acceso al motor pero no al template (también
-privado), el camino es parcial: `pasco init` local y pegado a mano en cada plataforma. El camino
-guiado y sin terminal es el hito M5 y **todavía no existe**
-([#101](https://github.com/ChristianLuciani/profile-as-code/issues/101)).
+privado), el camino es parcial: `pasco init` local y pegado a mano en cada plataforma.
+
+**Si no tenés cuenta de GitHub —o no tenés acceso al motor—, este camino todavía no es para vos:**
+el camino guiado y sin terminal es el hito M5 y **todavía no existe** — diseñarlo es una decisión
+de producto, trackeada como
+[#122](https://github.com/ChristianLuciani/profile-as-code/issues/122).
 
 Instalación, verificación y qué cambia según lo que tengas: [**User Guide**](docs/USER-GUIDE.md) (EN).
 Acá abajo, el qué y el por qué.
@@ -71,11 +74,11 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 |---|---|
 | Prior-art research | ✅ `docs/research/01-prior-art.md` |
 | Spec (D1–D18 resueltas) | ✅ `docs/SPEC.md` (GEO, i18n, profile-data, Substack, **brand flavor D15/§17**) |
-| Investigación SOTA por plataforma | 🚧 `skills/github-readme` + `skills/github-org`; resto: asistente **SOTA Research**, ver `docs/research/RUN.md` |
-| Schema JSON v1.6 (contrato) | ✅ `schema/profile.schema.json` (person + brand flavor) |
+| Investigación SOTA por plataforma | 🚧 `skills/github-readme` + `skills/github-org` + `skills/kofi`; resto: asistente **SOTA Research**, ver `docs/research/RUN.md` |
+| Schema JSON v1.7 (contrato) | ✅ `schema/profile.schema.json` (person + brand flavor) |
 | Core engine (load · drift · geo · compile) | ✅ `packages/core` (tests, CI) |
 | CLI `pasco` | ✅ init·validate·build·diff·status; check ejecuta reglas offline M6/M7/M8 (catálogo M3/M4); refine/skills:install 🚧 — detalle en [`packages/cli/README.md`](packages/cli/README.md) |
-| Renderer GitHub (dogfood) | ✅ `github-readme` + `github-org` (brand) |
+| Renderer GitHub (dogfood) | ✅ `github-readme` + `github-org` (brand) + `kofi` (paste, v1.7) |
 
 **Brand flavor (M6, D15):** el mismo engine modela identidades de marca — `pasco init
 --flavor brand`, handle matrix (`socialHandles`), `schema.org/Organization` GEO,
@@ -116,7 +119,7 @@ profile-as-code/
 ├── schema/               # EL contrato (JSON Schema, semver, aditivo)
 ├── packages/
 │   ├── core/             # ✅ load · drift · geo · compile (Zod desde schema)
-│   ├── renderers/        # github-readme + github-org — más adapters por plataforma (seam de contribución)
+│   ├── renderers/        # github-readme + github-org + kofi — más adapters por plataforma (seam de contribución)
 │   └── cli/              # pasco — init·validate·build·diff·status ✅ (refine/check/skills:install 🚧; check ejecuta reglas offline M6/M7/M8, igual que packages/cli/README.md)
 ├── skills/               # skills por plataforma (conocimiento SOTA)
 ├── templates/

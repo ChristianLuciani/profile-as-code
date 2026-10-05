@@ -112,6 +112,59 @@ links:
     }
   });
 
+  it("treats ko-fi.com as a platform surface (v1.7 operator extra, #130)", () => {
+    const dir = makeWorkspace({
+      "identity.yaml": `name: Test
+links:
+  - platform: website
+    label: Site
+    url: https://example.org
+`,
+      "projects.yaml": `- name: Demo
+  links:
+    - https://ko-fi.com/testcreator
+`,
+    });
+    try {
+      const issues = driftCheck(load(dir));
+      expect(
+        issues.some(
+          (i) => i.code === "drift/url-not-in-identity" && i.path === "projects[0].links[0]",
+        ),
+      ).toBe(true);
+    } finally {
+      clean(dir);
+    }
+  });
+
+  it("treats the creator-monetization hosts as platform surfaces (v1.8, #133)", () => {
+    const dir = makeWorkspace({
+      "identity.yaml": `name: Test
+links:
+  - platform: website
+    label: Site
+    url: https://example.org
+`,
+      "projects.yaml": `- name: Demo
+  links:
+    - https://buymeacoffee.com/testcreator
+    - https://liberapay.com/testcreator
+    - https://nat.gumroad.com/
+    - https://payhip.com/teststore
+`,
+    });
+    try {
+      const issues = driftCheck(load(dir));
+      const paths = issues.filter((i) => i.code === "drift/url-not-in-identity").map((i) => i.path);
+      expect(paths).toContain("projects[0].links[0]"); // buymeacoffee.com
+      expect(paths).toContain("projects[0].links[1]"); // liberapay.com
+      expect(paths).toContain("projects[0].links[2]"); // <user>.gumroad.com (subdomain)
+      expect(paths).toContain("projects[0].links[3]"); // payhip.com
+    } finally {
+      clean(dir);
+    }
+  });
+
   it("does not warn for open-ended instance hosts (mastodon beyond curated)", () => {
     const dir = makeWorkspace({
       "identity.yaml": `name: Test
@@ -167,4 +220,92 @@ links:
       clean(dir);
     }
   });
+
+  it("validates kofi end-to-end: bio + check + handle + ledger (v1.7, #130)", () => {
+    const dir = makeWorkspace({
+      "identity.yaml": `name: Test
+handle: kluciani
+links:
+  - platform: website
+    label: Site
+    url: https://example.org
+`,
+      "bios.yaml": `- platform: kofi
+  lang: en
+  length: long
+  text: Ko-fi About body — the paste source for the creator page.
+`,
+      "checks.yaml": `- platform: kofi
+  rule: max-chars
+  value: 500
+`,
+      "socialHandles.yaml": `- platform: kofi
+  handle: kluciani
+  status: claimed
+  url: https://ko-fi.com/kluciani
+`,
+      "deployments.yaml": `bios:kofi.long@en:
+    kofi:
+      deployedAt: "2026-10-05T10:00:00Z"
+      contentHash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+      source: manual
+`,
+    });
+    try {
+      const profile = load(dir);
+      expect(profile.bios?.map((b) => b.platform)).toEqual(["kofi"]);
+      expect(profile.checks?.[0]?.platform).toBe("kofi");
+      expect(Object.keys(profile.deployments ?? {})).toContain("bios:kofi.long@en");
+    } finally {
+      clean(dir);
+    }
+  });
+
+  it.each([
+    ["buymeacoffee", "https://buymeacoffee.com/kluciani"],
+    ["liberapay", "https://liberapay.com/kluciani"],
+    ["gumroad", "https://kluciani.gumroad.com"],
+    ["payhip", "https://payhip.com/kluciani"],
+  ] as const)(
+    "validates %s end-to-end: bio + check + handle + ledger (v1.8, #133)",
+    (slug, handleUrl) => {
+      const dir = makeWorkspace({
+        "identity.yaml": `name: Test
+handle: kluciani
+links:
+  - platform: website
+    label: Site
+    url: https://example.org
+`,
+        "bios.yaml": `- platform: ${slug}
+  lang: en
+  length: long
+  text: Creator monetization body — the paste source for the platform profile.
+`,
+        "checks.yaml": `- platform: ${slug}
+  rule: max-chars
+  value: 500
+`,
+        "socialHandles.yaml": `- platform: ${slug}
+  handle: kluciani
+  status: claimed
+  url: ${handleUrl}
+`,
+        "deployments.yaml": `bios:${slug}.long@en:
+    ${slug}:
+      deployedAt: "2026-10-05T10:00:00Z"
+      contentHash: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+      source: manual
+`,
+      });
+      try {
+        const profile = load(dir);
+        expect(profile.bios?.map((b) => b.platform)).toEqual([slug]);
+        expect(profile.checks?.[0]?.platform).toBe(slug);
+        expect(Object.keys(profile.deployments ?? {})).toContain(`bios:${slug}.long@en`);
+      } finally {
+        clean(dir);
+      }
+    },
+  );
 });

@@ -204,6 +204,97 @@ describe("pasco build (compile slices)", () => {
     expect(data.data.platforms.map((p) => p.platform)).toEqual([...PLATFORMS]);
     // only renderer platforms write artifacts; github-org is brand-only (D15) so a person workspace writes only github-readme
     expect(data.data.written.map((w) => w.platform)).toEqual(["github-readme"]);
+    // v1.7 (#130): an EMPTY render must leave no trace — not even the profiles/<platform>/ dir
+    // (a regression here litters every pre-existing workspace with empty dirs per new renderer).
+    expect(existsSync(join(ws, "profiles", "kofi"))).toBe(false);
+  });
+
+  it("writes the kofi paste artifact for a kofi workspace (v1.7, #130)", () => {
+    const ws = tempDir();
+    copyFixture(join(__dirname, "..", "..", "core", "tests", "fixtures", "minimal-kofi"), ws);
+    const r = run(["build", "kofi", "--json", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as {
+      data: { written: { platform: string; path: string }[] };
+    };
+    // D9 paste platform: the artifact IS the paste source (single bios row).
+    expect(data.data.written).toEqual([
+      { platform: "kofi", path: join(ws, "profiles", "kofi", "README.md") },
+    ]);
+    expect(readFileSync(join(ws, "profiles", "kofi", "README.md"), "utf8")).toContain(
+      "support the sovereign-AI work",
+    );
+  });
+
+  it("unbuilds a stale kofi artifact when its bios row is removed (pure profiles/, v1.7 #130)", () => {
+    const ws = tempDir();
+    mkdirSync(join(ws, "content"), { recursive: true });
+    writeFileSync(join(ws, "content", "identity.yaml"), "name: Elena Vasquez\n");
+    writeFileSync(
+      join(ws, "content", "bios.yaml"),
+      "- platform: kofi\n  lang: en\n  length: long\n  text: To be removed.\n",
+    );
+    expect(run(["build", "kofi", "--workspace", ws]).code).toBe(0);
+    expect(existsSync(join(ws, "profiles", "kofi", "README.md"))).toBe(true);
+    // The SSOT drops the row → the paste source it no longer backs must not
+    // survive on disk (status compares ledger↔SSOT hashes only; profiles/ is
+    // a pure function of the workspace, §15.1).
+    writeFileSync(join(ws, "content", "bios.yaml"), "");
+    const r = run(["build", "kofi", "--json", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as {
+      data: { written: unknown[]; skipped: { platform: string }[] };
+    };
+    expect(data.data.written).toEqual([]);
+    expect(data.data.skipped.map((sk) => sk.platform)).toEqual(["kofi"]);
+    expect(existsSync(join(ws, "profiles", "kofi"))).toBe(false);
+  });
+
+  // v1.8 (#133): the creator-monetization family — same paste chain as kofi.
+  it.each(["buymeacoffee", "liberapay", "gumroad", "payhip"] as const)(
+    "writes the %s paste artifact for the family workspace (v1.8, #133)",
+    (slug) => {
+      const ws = tempDir();
+      copyFixture(
+        join(__dirname, "..", "..", "core", "tests", "fixtures", "minimal-creator-monetization"),
+        ws,
+      );
+      const r = run(["build", slug, "--json", "--workspace", ws]);
+      expect(r.code).toBe(0);
+      const data = JSON.parse(r.stdout) as {
+        data: { written: { platform: string; path: string }[] };
+      };
+      // D9 paste platform: the artifact IS the paste source (single bios row).
+      expect(data.data.written).toEqual([
+        { platform: slug, path: join(ws, "profiles", slug, "README.md") },
+      ]);
+      expect(readFileSync(join(ws, "profiles", slug, "README.md"), "utf8")).toContain(
+        "sovereign-AI",
+      );
+    },
+  );
+
+  it("writes only family-rendered artifacts when the family workspace builds all (v1.8, #133)", () => {
+    const ws = tempDir();
+    copyFixture(
+      join(__dirname, "..", "..", "core", "tests", "fixtures", "minimal-creator-monetization"),
+      ws,
+    );
+    const r = run(["build", "--json", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as {
+      data: { written: { platform: string; path: string }[] };
+    };
+    // github-readme (git) + the 4 family paste platforms; kofi has no bios row
+    // in this fixture → empty render → not written (§15.1 pure profiles/).
+    expect(data.data.written.map((w) => w.platform)).toEqual([
+      "github-readme",
+      "buymeacoffee",
+      "liberapay",
+      "gumroad",
+      "payhip",
+    ]);
+    expect(existsSync(join(ws, "profiles", "kofi"))).toBe(false);
   });
 
   it("exit 2 on unknown platform", () => {
@@ -314,7 +405,7 @@ describe("pasco init (scaffold)", () => {
   });
 });
 
-describe("pasco refine (stub: template + record)", () => {
+describe("pasco refine (partial: template + record)", () => {
   it("emits the agent task (no LLM call) pointing at the platform skill", () => {
     const r = run(["refine", "linkedin", "--variants", "2", "--workspace", MINIMAL]);
     expect(r.code).toBe(0);
@@ -343,7 +434,7 @@ describe("pasco refine (stub: template + record)", () => {
   });
 });
 
-describe("pasco check + pasco skills:install (stub)", () => {
+describe("pasco check (offline rules) + pasco skills:install (projection pointer)", () => {
   it("lists the user checks from the schema-validated catalog", () => {
     const r = run(["check", "github-readme", "--workspace", MINIMAL]);
     expect(r.code).toBe(0);

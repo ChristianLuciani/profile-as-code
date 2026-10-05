@@ -1,9 +1,13 @@
 /**
  * pasco build [platform] [--lang] — deterministic base texts per platform+lang
  * (SPEC §7 `pasco build`) + rendered deploy artifacts (SPEC §15). Pure compile()
- * slices; no AI. Platforms WITH a renderer (github-readme, M2) also write the
- * rendered artifact to profiles/<platform>/README.md (deploy spec: git, D9);
- * platforms without a renderer print their slices (renderers land in M4).
+ * slices; no AI. Platforms WITH a renderer also write the rendered artifact to
+ * profiles/<platform>/README.md (deploy spec: git for GitHub surfaces, manual
+ * for the paste platforms — kofi (v1.7) and the creator-monetization family
+ * (buymeacoffee, liberapay, gumroad, payhip — v1.8, issue #133); the artifact IS
+ * the paste source, D9); platforms without a renderer print their slices
+ * (renderers land in M4). Empty renders unbuild their platform output
+ * (v1.7: profiles/ is a pure function, §15.1).
  */
 
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -18,15 +22,22 @@ import {
   PLATFORMS,
   SchemaValidationError,
 } from "@profile-as-code/core";
+import { render as renderBuymeacoffee } from "@profile-as-code/renderers-buymeacoffee";
 import { render as renderGithubOrg } from "@profile-as-code/renderers-github-org";
 import { render as renderGithubReadme } from "@profile-as-code/renderers-github-readme";
+import { render as renderGumroad } from "@profile-as-code/renderers-gumroad";
+import { render as renderKofi } from "@profile-as-code/renderers-kofi";
+import { render as renderLiberapay } from "@profile-as-code/renderers-liberapay";
+import { render as renderPayhip } from "@profile-as-code/renderers-payhip";
 import { parseLang, parsePlatform } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import type { Pascorc } from "../workspace.js";
 import { defaultsLang } from "../workspace.js";
 
-/** Platforms with an implemented renderer (M2: github-readme; M6: github-org; M4 adds the rest).
+/** Platforms with an implemented renderer (M2: github-readme; M6: github-org;
+ *  v1.7 #130: kofi; v1.8 #133: the creator-monetization family — paste
+ *  platforms, D9 artifact = the paste source).
  *  M8 (§18.6): renderers receive the media bundle and declare the deploy-relative
  *  targets they reference — the build copies exactly those bytes (checksummed). */
 const RENDERERS: Partial<
@@ -37,6 +48,11 @@ const RENDERERS: Partial<
 > = {
   "github-readme": (slice, assets) => renderGithubReadme(slice, { assets }),
   "github-org": (slice) => renderGithubOrg(slice),
+  kofi: (slice) => renderKofi(slice),
+  buymeacoffee: (slice) => renderBuymeacoffee(slice),
+  liberapay: (slice) => renderLiberapay(slice),
+  gumroad: (slice) => renderGumroad(slice),
+  payhip: (slice) => renderPayhip(slice),
 };
 
 export interface BuildArgs {
@@ -82,13 +98,30 @@ export function runBuild(args: BuildArgs): number {
   const bundle = collectMedia(profile, args.workspace);
 
   const written: { platform: string; path: string; assets?: number }[] = [];
+  const skipped: { platform: string; reason: string }[] = [];
   for (const s of slices) {
     const renderer = RENDERERS[s.platform];
     if (renderer === undefined) continue;
     if (s.platform === "github-org" && profile.flavor !== "brand") continue;
-    const dir = join(args.workspace, "profiles", s.platform);
-    mkdirSync(dir, { recursive: true });
     const result = renderer(s, bundle.assets);
+    const dir = join(args.workspace, "profiles", s.platform);
+    // v1.7 (#130): an empty artifact is not a deploy artifact — a paste
+    // platform (kofi) yields "" when no bios row exists for platform+lang
+    // (compile filters exactly). The lifecycle is COMPLETE: profiles/ is a
+    // pure function of the workspace (§15.1), so the build (a) skips BEFORE
+    // the mkdir (no litter on workspaces that never had the row) and (b)
+    // UNBUILDS a previously written artifact the SSOT no longer backs
+    // (otherwise the operator's next re-paste reads stale, un-backed bytes —
+    // `pasco status` compares ledger↔SSOT hashes and would never flag it).
+    if (result.text === "") {
+      skipped.push({
+        platform: s.platform,
+        reason: "empty render — no bios row for this platform+lang; platform output removed",
+      });
+      rmSync(dir, { recursive: true, force: true });
+      continue;
+    }
+    mkdirSync(dir, { recursive: true });
     const path = join(dir, "README.md");
     writeFileSync(path, result.text);
 
@@ -139,6 +172,7 @@ export function runBuild(args: BuildArgs): number {
           fallbacks: s.fallbacks,
         })),
         written,
+        skipped,
         media: bundle.findings,
       },
     });
@@ -160,6 +194,10 @@ export function runBuild(args: BuildArgs): number {
     section("deploy artifacts written");
     for (const w of written)
       line(`  ${w.path}${w.assets !== undefined ? ` (+${w.assets} asset(s) in assets/)` : ""}`);
+  }
+  if (skipped.length > 0) {
+    section(`empty renders removed (${skipped.length}) — pure profiles/ (§15.1)`);
+    for (const k of skipped) line(`  [${k.platform}] ${k.reason}`);
   }
   if (bundle.findings.length > 0) {
     section(`media pipeline (M8/§18.6): ${bundle.findings.length} finding(s)`);

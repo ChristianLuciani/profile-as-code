@@ -46,7 +46,9 @@ import { PLATFORMS, textOf } from "./types.js";
  *  is not in identity.links is an uncanonicalized duplicate (the drift source the
  *  contract rule "URLs only from identity.links" targets). v1.1 adds the brand
  *  surfaces (github-org, bluesky, instagram, tiktok, youtube, spotify, reddit,
- *  mastodon, soundcloud); v1.2 (D16) adds the Postiz-parity set + ghost. The same
+ *  mastodon, soundcloud); v1.2 (D16) adds the Postiz-parity set + ghost; v1.7
+ *  adds ko-fi.com (issue #130); v1.8 adds the creator-monetization family hosts
+ *  (issue #133). The same
  *  host often serves content too (a YouTube demo video in projects.links) — drift
  *  is advisory (severity warn, D12), so over-warnings are safe. Open-ended instance
  *  networks (mastodon/lemmy/nostr beyond the curated entries) stay unflagged — drift
@@ -104,6 +106,17 @@ const PLATFORM_HOSTS: readonly string[] = [
   "ghost.io",
   "mewe.com",
   "tumblr.com",
+  // v1.7 operator extras (D16 pattern, issue #130)
+  "ko-fi.com",
+  // v1.8 creator monetization family (D16, issue #133). Gumroad and Liberapay
+  // surface profiles across subdomains of their apex (Gumroad creator profiles:
+  // `<user>.gumroad.com`, apex path 301-redirects there; Liberapay serves
+  // language subdomains like `en.liberapay.com` — both verified on the live
+  // pages, 2026-10-05) — those go in PLATFORM_SUBDOMAIN_HOSTS below.
+  "buymeacoffee.com",
+  "liberapay.com",
+  "gumroad.com",
+  "payhip.com",
 ];
 
 /** Profile URLs that live on SUBDOMAINS of a host (e.g. `user.substack.com`,
@@ -117,6 +130,13 @@ const PLATFORM_SUBDOMAIN_HOSTS: Record<string, readonly string[]> = {
   wordpress: ["wordpress.com"],
   slack: ["slack.com"],
   tumblr: ["tumblr.com"],
+  // v1.8 creator monetization family (issue #133): Gumroad creator profiles are
+  // subdomains (`<user>.gumroad.com` — verified 200; apex path redirects there);
+  // Liberapay serves language subdomains (`en.liberapay.com` — official FAQ nav,
+  // fetched 2026-10-05). Advisory-only: a `buy.gumroad.com` checkout link in
+  // projects.links may over-warn (D12 — safe direction).
+  gumroad: ["gumroad.com"],
+  liberapay: ["liberapay.com"],
 };
 
 /** Expected URL hosts per brand handle platform — the offline handle-consistency
@@ -159,6 +179,13 @@ const HANDLE_HOSTS: Record<string, readonly string[]> = {
   moltbook: ["moltbook.com"],
   mewe: ["mewe.com"],
   tumblr: ["tumblr.com"],
+  kofi: ["ko-fi.com"],
+  // v1.8 creator monetization family (D16, issue #133). Gumroad/Liberapay also
+  // accept subdomain URLs via PLATFORM_SUBDOMAIN_HOSTS (hostMatchesPlatform).
+  buymeacoffee: ["buymeacoffee.com"],
+  liberapay: ["liberapay.com"],
+  gumroad: ["gumroad.com"],
+  payhip: ["payhip.com"],
   // Any-host platforms (no HANDLE_HOSTS entry → any URL allowed):
   //   - lemmy: federated (hundreds of instances) — a curated list would actively
   //     reject legitimate handles (mastodon.social-only is a v1.1 leftover, see #30 follow-up)
