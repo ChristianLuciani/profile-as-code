@@ -20,7 +20,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "pnpm --filter @profile-as-code/core build && pnpm --filter @profile-as-code/markdown build && pnpm --filter @profile-as-code/renderers-github-readme build && pnpm --filter @profile-as-code/renderers-github-org build && pnpm --filter @profile-as-code/renderers-kofi build && tsup && node -e \"process.platform !== 'win32' && require('node:fs').chmodSync('dist/index.js', 0o755)\"",
+    "build": "pnpm --filter @profile-as-code/core build && pnpm --filter @profile-as-code/markdown build && pnpm --filter @profile-as-code/renderers-github-readme build && pnpm --filter @profile-as-code/renderers-github-org build && pnpm --filter @profile-as-code/renderers-kofi build && pnpm --filter @profile-as-code/renderers-buymeacoffee build && pnpm --filter @profile-as-code/renderers-liberapay build && pnpm --filter @profile-as-code/renderers-gumroad build && pnpm --filter @profile-as-code/renderers-payhip build && tsup && node -e \"process.platform !== 'win32' && require('node:fs').chmodSync('dist/index.js', 0o755)\"",
     "verify:pack": "node scripts/verify-pack.mjs",
     "guard:release": "node scripts/release-guard.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -36,9 +36,13 @@
   },
   "devDependencies": {
     "@profile-as-code/core": "workspace:*",
+    "@profile-as-code/renderers-buymeacoffee": "workspace:*",
     "@profile-as-code/renderers-github-org": "workspace:*",
     "@profile-as-code/renderers-github-readme": "workspace:*",
+    "@profile-as-code/renderers-gumroad": "workspace:*",
     "@profile-as-code/renderers-kofi": "workspace:*",
+    "@profile-as-code/renderers-liberapay": "workspace:*",
+    "@profile-as-code/renderers-payhip": "workspace:*",
     "@types/node": "^26.6.3",
     "tsup": "^8.5.1",
     "typescript": "^7.0.2",

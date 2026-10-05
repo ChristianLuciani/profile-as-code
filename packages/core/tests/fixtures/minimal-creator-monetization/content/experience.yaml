@@ -1,0 +1,12 @@
+- role: Senior AI Engineer
+  org: Nimbus Labs
+  start: 2022-03-01
+  end: present
+  highlights:
+    en: Lead the sovereign inference stack; route 100k+ LLM requests per month.
+- role: ML Engineer
+  org: Dataforge
+  start: 2019-06-01
+  end: 2022-02-01
+  highlights:
+    en: Built real-time model serving pipelines for 3 production products.

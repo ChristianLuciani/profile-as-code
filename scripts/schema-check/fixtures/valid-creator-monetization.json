@@ -1,0 +1,65 @@
+{
+  "identity": { "name": "Ada Example" },
+  "bios": [
+    {
+      "platform": "buymeacoffee",
+      "lang": "en",
+      "length": "long",
+      "text": "Buy Me a Coffee About paste-source — the artifact IS the text to paste (issue #133)."
+    },
+    {
+      "platform": "liberapay",
+      "lang": "en",
+      "length": "long",
+      "text": "Liberapay profile description paste-source — recurrent donations (issue #133)."
+    },
+    {
+      "platform": "gumroad",
+      "lang": "en",
+      "length": "long",
+      "text": "Gumroad creator-profile bio paste-source (issue #133)."
+    },
+    {
+      "platform": "payhip",
+      "lang": "en",
+      "length": "long",
+      "text": "Payhip storefront About paste-source (issue #133)."
+    }
+  ],
+  "checks": [
+    { "id": "family-bio", "platform": "buymeacoffee", "rule": "max-chars", "value": 1500 },
+    { "id": "family-lib", "platform": "liberapay", "rule": "max-chars", "value": 1500 },
+    { "id": "family-gum", "platform": "gumroad", "rule": "max-chars", "value": 1500 },
+    { "id": "family-pay", "platform": "payhip", "rule": "max-chars", "value": 1500 }
+  ],
+  "deployments": {
+    "bios:buymeacoffee.long@en": {
+      "buymeacoffee": {
+        "deployedAt": "2026-10-05T10:00:00Z",
+        "contentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "source": "manual"
+      }
+    },
+    "bios:liberapay.long@en": {
+      "liberapay": {
+        "deployedAt": "2026-10-05T10:00:00Z",
+        "contentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "source": "manual"
+      }
+    },
+    "bios:gumroad.long@en": {
+      "gumroad": {
+        "deployedAt": "2026-10-05T10:00:00Z",
+        "contentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "source": "manual"
+      }
+    },
+    "bios:payhip.long@en": {
+      "payhip": {
+        "deployedAt": "2026-10-05T10:00:00Z",
+        "contentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "source": "manual"
+      }
+    }
+  }
+}

@@ -90,7 +90,7 @@ skills + deploy playbooks**.
 | D13 | Model-agnostic default; sah as future default path | Revisit when sovereign hub matures (Q3→RESOLVED). |
 | D14 | User data in **separate repo** `profile-data`, integrated by configured path, no symlink in normal flow | Symlink mount only as advanced CI option (Q4→RESOLVED). |
 | D15 | **Brand flavor** (`flavor: brand`): the same engine models commercial/brand identities — org schema, `socialHandles` matrix, brand surfaces. Workspace flavor is a **contract field**, not a separate product | The Topia brand needs the same SSOT→validate→refine→check→deploy machinery; one engine, one schema, one CLI — flavor only changes which blocks/checks apply (Q8→RESOLVED). |
-| D16 | **Platform set = Postiz parity + operator extras** (union, 44 — v1.7 adds `kofi` as operator extra #10, issue #130): ONE shared enum for person + brand flavors; new slugs Postiz verbatim (`linkedin-page`, `instagram-standalone`, `devto`, `gmb`, `warpcast`, `moltbook`, `mewe`, `tumblr`); single-source discipline enforced by contract self-tests (schema-check asserts `check.platform == ['all', ...platform]`; vitest asserts core `PLATFORMS` == schema enum) | The operator's surfaces must cover every network a cross-posting tool can reach (Postiz's 34 — [OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02; the API intro page's own "32" header undercounts its tables); `ghost` is an operator extra Postiz lacks; `kofi` (v1.7) is the newest — Ko-fi creator support, manual paste deploy (D9). Schema parity ≠ skill coverage — per-platform skills are separate follow-ups (issue #30). |
+| D16 | **Platform set = Postiz parity + operator extras** (union, 48 — v1.8 adds the `creator-monetization` family: `buymeacoffee`, `liberapay`, `gumroad`, `payhip` as operator extras #11–#14, issue #133; v1.7 added `kofi` as #10, issue #130): ONE shared enum for person + brand flavors; new slugs Postiz verbatim (`linkedin-page`, `instagram-standalone`, `devto`, `gmb`, `warpcast`, `moltbook`, `mewe`, `tumblr`); single-source discipline enforced by contract self-tests (schema-check asserts `check.platform == ['all', ...platform]`; vitest asserts core `PLATFORMS` == schema enum) | The operator's surfaces must cover every network a cross-posting tool can reach (Postiz's 34 — [OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02; the API intro page's own "32" header undercounts its tables); `ghost` is an operator extra Postiz lacks; the family completes the creator monetization platforms slice (canonical industry term — see the issue #133 naming note): memberships, tips, donations, storefronts; the four v1.8 members are paste platforms (D9) and the family is declared docs-first, not as a hard schema field. Schema parity ≠ skill coverage — per-platform skills are separate follow-ups (issue #30). |
 | D17 | **Evidence registry is pointer-first** (§18): two typed root blocks — `credentials[]` (third-party attestations) and `artifacts[]` (works/media) — with a **locator-capability matrix**; in-workspace `media/` reaches public surfaces only via renderer `assets/` output; external paths resolve via per-machine `PASCO_EVIDENCE_ROOT` (env/gitignored override, never committed); symlink/stow = documented power-user convenience only | A claim is not an artifact, and neither duplicates `publications[]`/`press[]` (naming discipline §9.1/§18.1); a private workspace is not a public media host (D14) — the capability matrix protects byte-stability (§15.1) and the URL SSOT (§15.4/§18.4). Direction ratified by the operator (issue #48) |
 | D18 | **Per-entry deploy ledger as data** (schema-additive v1.3): `deployments` map (`content/deployments.yaml`) + optional stable entry `id`s + `origin: template` provenance flag + `pasco status`; deploy state is `pasco`-owned data and `CHECKLIST.md` becomes a generated view (issue #37, §19) | The per-entry question — *mine vs template? published where? in-sync or stale?* — is unanswerable from platform-granularity state (`active`, D11, answers *which variant is live* only); staleness = `contentHash` compare, exact and release-tag-independent (`pasco diff` stays the CHANGELOG hint); only `pasco` mutates the ledger — same write rule as `refine --choose` (D14) |
 | D20 | **`pasco serve` is a minimal reference adapter over `Core`** (§7), exposed as a **local HTTP contract**. It is minimal **by construction**: no access control, no multi-tenancy, no billing, no persistent storage, no hosting orchestration. Dependency rule: `server` depends on `core`, and only the CLI's `serve` subcommand depends on `server` | Keeps the published surface **small, auditable and dependency-light** — the engine's job is the contract, not the deployment. The **contract is the integration point**, so any consumer (a UI, an editor, a script, a service) may implement its own adapter against it instead of adopting ours. Alternatives: a **feature-rich bundled server** (rejected — bloats the published package and couples the engine to deployment concerns it does not own); **no server at all** (rejected — leaves the engine drivable only from the CLI, so every consumer re-invents the boundary, and there is no reference implementation to test the contract against) |
@@ -165,13 +165,27 @@ page-URLs-only (a `mailto:` URI is not a reference page).
 
 **Platform set (D16 — additive, v1.2):** ONE shared enum for both flavors — the union of
 Postiz's 34 supported networks ([OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02) plus
-**10 operator extras**: `ghost`, `spotify`, `soundcloud`, `kofi` (Ko-fi creator page — v1.7,
-issue #130; creator-support family like `patreon`, paste deploy per D9), and the six v1
-non-Postiz surfaces (`github-readme`, `upwork`, `researchgate`, `substack`, `patreon`,
-`github-org`). 34 + 10 = **44**.
+**14 operator extras**: the six v1 non-Postiz surfaces (`github-readme`, `upwork`,
+`researchgate`, `substack`, `patreon`, `github-org`) + `ghost`, `spotify`, `soundcloud`
+(v1.1, brand §17) + `kofi` (v1.7, issue #130) + — v1.8 (issue #133) — the creator
+monetization platforms' new members `buymeacoffee`, `liberapay`, `gumroad`, `payhip`.
+6 + 3 + 1 + 4 = 14 extras; 34 + 14 = **48**.
 New slugs are Postiz verbatim (`linkedin-page`, `instagram-standalone`, `devto`, `gmb`,
 `warpcast`, `moltbook`, `mewe`, `tumblr`); v1 person surfaces keep their names. The enum is
-also the `socialHandles` key space. Single-source discipline is enforced, not trusted:
+also the `socialHandles` key space.
+
+**Family declaration — `creator-monetization` (v1.8, issue #133, docs-first):** the repo-internal
+family label for the **creator monetization platforms** (the canonical industry term; renamed
+from the provisional `creator-support` wording of #130/#133 — the rename is recorded in the
+CHANGELOG). Its slices: **membership/subscription** — `patreon`, `substack`; **tip jar /
+one-off support** — `kofi`, `buymeacoffee`; **recurrent donations** — `liberapay`; **creator
+storefronts** — `whop` (Postiz parity, v1.2), `gumroad`, `payhip`. `twitch`/`youtube` keep
+their native monetization programs inside their own slugs — no new entries. The family is
+declared in this paragraph and in each platform's schema description line only — never as a
+hard schema `family` field (zero consumer breakage; a hard field would be a separate SPEC
+proposal). Paste deploy per D9 for the v1.8 members (no management API for the profile body).
+
+Single-source discipline is enforced, not trusted:
 `check.platform` MUST equal `["all", ...platform]` (schema-check self-test) and core
 `PLATFORMS` MUST mirror the schema enum (vitest contract test). Schema parity ≠ skill
 coverage — per-platform skills are separate follow-ups.

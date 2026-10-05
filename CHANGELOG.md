@@ -11,6 +11,25 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **Creator-monetization platform family — schema additive v1.8, D16 operator extras
+  #11–#14 (48 total; issue #133)** — `buymeacoffee`, `liberapay`, `gumroad`, `payhip`: the
+  platforms where creators receive money (memberships / tips / recurrent donations /
+  storefronts) alongside `patreon` (v1) and `kofi` (v1.7). The family is declared docs-first
+  as **`creator-monetization`** ("Creator monetization platforms" — canonical industry term)
+  in SPEC (D16/§9) and the schema descriptions — no hard schema field (zero consumer
+  breakage). Enum entries in `$defs.platform` and the derived `check.platform`, ledger
+  surfaces, drift hosts (`buymeacoffee.com`, `liberapay.com`, `gumroad.com`, `payhip.com`,
+  with Gumroad/Liberapay subdomain profile URLs), Zod regenerated (D3). Paste platforms
+  (D9 — no management API for the profile body): `pasco build <platform>` → paste →
+  `pasco status --mark`. Per-platform `gofundme` deferred (no EC payout as organizer,
+  operator decision in #133); per-platform skills remain separate follow-ups (D16 parity
+  caveat) and each carries its own sourced research when authored.
+- **Renderers `@profile-as-code/renderers-*` for the family (v1.8, #133)** —
+  `renderers-buymeacoffee`, `renderers-liberapay`, `renderers-gumroad`, `renderers-payhip`:
+  deterministic plain-text paste-sources (exactly ONE bios row, long > medium > short),
+  byte-stable, empty slice → empty artifact (skipped/unbuilt by `pasco build`, §15.1).
+  Core fixture `minimal-creator-monetization` + `schema-check` fixture
+  `valid-creator-monetization.json`.
 - **`kofi` platform — schema additive v1.7, D16 operator extra #10 (44 total; issue #130)** —
   Ko-fi creator page (same family as `patreon`): enum entries in `$defs.platform` and the
   derived `check.platform`, ledger surface, drift host `ko-fi.com` (+ `HANDLE_HOSTS`), Zod
@@ -26,6 +45,11 @@ minor versions may contain breaking contract changes.
 
 ### Changed
 
+- **Family wording normalization — `creator-support` → `creator-monetization` (#133)** —
+  the informal prose from #130 (SPEC D16/§9 and the `kofi` v1.7 description line in
+  `schema/profile.schema.json`, this file included) now carries the canonical term;
+  already-merged history keeps the old wording, and this note records the rename
+  (operator decision, 2026-10-05, issue #133).
 - **`pasco build` — empty renderer output is now a complete unbuild lifecycle (v1.7, #130)**
   An empty render is not a deploy artifact, and `profiles/` is a **pure function of the
   workspace (§15.1)**: the build skips BEFORE creating the directory (no litter on

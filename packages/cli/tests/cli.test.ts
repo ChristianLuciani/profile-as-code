@@ -250,6 +250,53 @@ describe("pasco build (compile slices)", () => {
     expect(existsSync(join(ws, "profiles", "kofi"))).toBe(false);
   });
 
+  // v1.8 (#133): the creator-monetization family — same paste chain as kofi.
+  it.each(["buymeacoffee", "liberapay", "gumroad", "payhip"] as const)(
+    "writes the %s paste artifact for the family workspace (v1.8, #133)",
+    (slug) => {
+      const ws = tempDir();
+      copyFixture(
+        join(__dirname, "..", "..", "core", "tests", "fixtures", "minimal-creator-monetization"),
+        ws,
+      );
+      const r = run(["build", slug, "--json", "--workspace", ws]);
+      expect(r.code).toBe(0);
+      const data = JSON.parse(r.stdout) as {
+        data: { written: { platform: string; path: string }[] };
+      };
+      // D9 paste platform: the artifact IS the paste source (single bios row).
+      expect(data.data.written).toEqual([
+        { platform: slug, path: join(ws, "profiles", slug, "README.md") },
+      ]);
+      expect(readFileSync(join(ws, "profiles", slug, "README.md"), "utf8")).toContain(
+        "sovereign-AI",
+      );
+    },
+  );
+
+  it("writes only family-rendered artifacts when the family workspace builds all (v1.8, #133)", () => {
+    const ws = tempDir();
+    copyFixture(
+      join(__dirname, "..", "..", "core", "tests", "fixtures", "minimal-creator-monetization"),
+      ws,
+    );
+    const r = run(["build", "--json", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as {
+      data: { written: { platform: string; path: string }[] };
+    };
+    // github-readme (git) + the 4 family paste platforms; kofi has no bios row
+    // in this fixture → empty render → not written (§15.1 pure profiles/).
+    expect(data.data.written.map((w) => w.platform)).toEqual([
+      "github-readme",
+      "buymeacoffee",
+      "liberapay",
+      "gumroad",
+      "payhip",
+    ]);
+    expect(existsSync(join(ws, "profiles", "kofi"))).toBe(false);
+  });
+
   it("exit 2 on unknown platform", () => {
     const r = run(["build", "bogus", "--workspace", MINIMAL]);
     expect(r.code).toBe(2);
