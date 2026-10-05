@@ -90,14 +90,16 @@ export function runBuild(args: BuildArgs): number {
     const renderer = RENDERERS[s.platform];
     if (renderer === undefined) continue;
     if (s.platform === "github-org" && profile.flavor !== "brand") continue;
-    const dir = join(args.workspace, "profiles", s.platform);
-    mkdirSync(dir, { recursive: true });
     const result = renderer(s, bundle.assets);
     // v1.7 (#130): an empty artifact is not a deploy artifact — a paste
     // platform (kofi) yields "" when no bios row exists for platform+lang
     // (compile filters exactly). This keeps `pasco build` from littering every
     // workspace with an empty profiles/<platform>/README.md per new renderer.
+    // MUST run BEFORE the mkdir: an empty render leaves NO directory either —
+    // profiles/ stays untouched for platforms the workspace has no texts for.
     if (result.text === "") continue;
+    const dir = join(args.workspace, "profiles", s.platform);
+    mkdirSync(dir, { recursive: true });
     const path = join(dir, "README.md");
     writeFileSync(path, result.text);
 

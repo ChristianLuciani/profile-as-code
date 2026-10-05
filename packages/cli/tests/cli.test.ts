@@ -204,6 +204,9 @@ describe("pasco build (compile slices)", () => {
     expect(data.data.platforms.map((p) => p.platform)).toEqual([...PLATFORMS]);
     // only renderer platforms write artifacts; github-org is brand-only (D15) so a person workspace writes only github-readme
     expect(data.data.written.map((w) => w.platform)).toEqual(["github-readme"]);
+    // v1.7 (#130): an EMPTY render must leave no trace — not even the profiles/<platform>/ dir
+    // (a regression here litters every pre-existing workspace with empty dirs per new renderer).
+    expect(existsSync(join(ws, "profiles", "kofi"))).toBe(false);
   });
 
   it("writes the kofi paste artifact for a kofi workspace (v1.7, #130)", () => {
