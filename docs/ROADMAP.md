@@ -11,16 +11,16 @@
 |---|---|---|---|
 | **M1** spec + schema + core + CLI skeleton | ✅ | **✅ cerrado** | `schema/`, `packages/core` (10 archivos de test), CLI con 8 comandos |
 | **M2** renderer github-readme + CI + dogfood | ✅ | **✅ cerrado** | `packages/renderers/github-readme`; el README real de `ChristianLuciani/ChristianLuciani` (10.3 KB) lleva el marker generado |
-| **M3** SOTA research + skills v1 + `pasco refine` | pendiente | **⚠️ parcial** — skills existen, `refine` es stub | `skills/github-readme/`, `skills/github-org/`; `packages/cli/src/commands/refine.ts` = stub explícito |
-| **M4** renderers linkedin/upwork/x/researchgate/substack + `pasco check` + ledger | pendiente | **⚠️ parcial** — ledger ✅ (D18), `check` parcial, renderers ✗ | `deployments` en schema (v1.3); `check.ts` corre catálogo pero con reglas pendientes; solo 2 renderers |
+| **M3** SOTA research + skills v1 + `pasco refine` | pendiente | **⚠️ parcial** — skills existen, `refine` parcial (template + `--choose`; el flujo completo es M3) | `skills/github-readme/`, `skills/github-org/`; header PARTIAL de `packages/cli/src/commands/refine.ts` + `packages/cli/README.md` |
+| **M4** renderers linkedin/upwork/x/researchgate/substack + `pasco check` + ledger | pendiente | **⚠️ parcial** — ledger ✅ (D18), `check` parcial, renderers ✗ | `deployments` en schema (v1.3); `check.ts` ejecuta reglas offline M6/M7/M8 (`CHECK_OWNER`, `packages/cli/src/commands/check.ts:29`) y lista el resto del catálogo `content/checks.yaml` como no ejecutado (M3/M4); solo 2 renderers |
 | **M5** web renderer + template release + CONTRIBUTING | pendiente | **✗ no empezado** | Sin `packages/renderers/web`; CONTRIBUTING existe pero M5 pedía "completo" |
 | **M6** brand flavor | ✅ | **✅ cerrado** | `flavor: brand`, `github-org` renderer, `skills/github-org/`, `templates/profile-data-brand` |
 | **M7** evidence core | ✅ | **✅ cerrado** | schema v1.4 (`credentials[]`/`artifacts[]`), `registryCheck`, `hasCredential` en JSON-LD |
 | **M8** media pipeline | ✅ | **✅ contrato sí, deploy no** | `assets/` + `manifest.json` + `collectMedia` en core; los playbooks de deploy son M4 |
 
-**Lectura:** el engine está considerablemente más avanzado de lo que el README sugiere
-(marca ✅ M6/M7 contra lo que el roadmap raíz presenta como ⏳). Lo que falta **no es motor
-— es superficie**: más renderers (M4), el web (M5), y `refine` real (M3).
+**Lectura:** el engine y el README raíz están alineados tras el alineamiento M-state (#117, PR #121):
+`pasco` ✅ con `refine`/`check` 🚧, detalle en `packages/cli/README.md`. Lo que falta **no es motor
+— es superficie**: más renderers (M4), el web (M5), y el flujo completo de `refine` (M3).
 
 ---
 
@@ -39,8 +39,10 @@ trabajo ya está hecho y solo le falta la puerta de entrada.
 
 **2 · `pasco refine` real** → M3
 Es **el diferenciador del producto** (§1 goal 3: *"intent-driven texts como N variantes que el
-usuario elige"*). Hoy es un stub, y sin él `pasco` es válido pero no es lo que el proyecto
-promete. Además es la pieza que las platform skills (ya escritas) existen para alimentar.
+usuario elige"*). Hoy es parcial (D10/D11/D13: emitir el template del agent task y registrar la
+variante elegida con `--choose`); falta el flujo completo (generate → user picks → commit active),
+y sin él `pasco` es válido pero no es lo que el proyecto promete. Además es la pieza que las
+platform skills (ya escritas) existen para alimentar.
 
 ### Después — superficie por plataforma
 
