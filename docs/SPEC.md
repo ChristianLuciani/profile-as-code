@@ -198,7 +198,7 @@ research notes ([MI] issue #138, 2026-10-05).
 |---|---|---|---|---|
 | `creator-monetization` | Creator monetization platforms | audience pays for content, memberships or works (declared v1.8, #133) | `patreon`, `kofi`, `buymeacoffee`, `liberapay`, `gumroad`, `payhip`, `substack`, `whop` (Postiz parity) | `hotmart` (#137 — storefronts + memberships; EC payout `[?]`), `gofundme` (deferred — no EC organizer payout, #133) |
 | `freelance` | Freelance marketplaces | client-facing surfaces — the product is the operator's professional time | `upwork` (v1, retroactive) | `freelancer` (freelancer.com, global), `workana` (Brazil-founded, LatAm-wide ES/PT — EC-priority candidate), `fiverr` (boundary: gig **storefronts** of services — filed here with that note) |
-| `job-boards` | Recruiting surfaces | recruiter-facing CV surfaces — the buyer is a recruiter and the native content is the structured CV the SSOT already models (`experience[]` / `education[]` / `skills[]`); GEO hook = name-reputation in search results only | — (no enum entries) | `infojobs` (Spain + LatAm), `computrabajo` (Ecuador-founded, LatAm-wide `[MI] — verify`), `indeed` (aggregator) |
+| `job-boards` | Recruiting surfaces | recruiter-facing CV surfaces — the buyer is a recruiter and the native content is the structured CV the SSOT already models (`experience[]` / `education[]` / `skills[]`); GEO hook = name-reputation in search results only | — (no enum entries) | `infojobs` (Spain + LatAm), `computrabajo` (Ecuador-founded + LatAm-wide — `[MI] — verify` the whole descriptor; in-session corroboration inconclusive, PR #140 review F1), `indeed` (aggregator) |
 
 Boundary notes (issue #138):
 
