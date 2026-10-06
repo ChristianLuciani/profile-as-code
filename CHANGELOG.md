@@ -9,6 +9,15 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Planned (roadmap)
+
+- Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
+- CLI `pasco`: build · validate · diff · check · refine · skills:install (M1/M3)
+- Per-platform skills v1 from SOTA research (M3)
+- `profile-data` template repo + web renderer (M5)
+
+## [0.2.0] - 2026-10-06
+
 ### Added
 
 - **`hotmart` platform — schema additive v1.9, D16 operator extra #15 (49 total;
@@ -85,31 +94,17 @@ minor versions may contain breaking contract changes.
   caveat) + checks.yaml (About soft-cap — Ko-fi documents no bio limit) + research/
   SOTA-2026.md (all sources fetched 2026-10-05).
 
-### Changed
-
-- **Family wording normalization — `creator-support` → `creator-monetization` (#133)** —
-  the informal prose from #130 (SPEC D16/§9 and the `kofi` v1.7 description line in
-  `schema/profile.schema.json`, this file included) now carries the canonical term;
-  already-merged history keeps the old wording, and this note records the rename
-  (operator decision, 2026-10-05, issue #133).
-- **`pasco build` — empty renderer output is now a complete unbuild lifecycle (v1.7, #130)**
-  An empty render is not a deploy artifact, and `profiles/` is a **pure function of the
-  workspace (§15.1)**: the build skips BEFORE creating the directory (no litter on
-  workspaces without the row) and REMOVES a previously written `profiles/<platform>/`
-  output (`README.md` + `assets/`) when its bios row disappears — a stale file would be
-  re-pasted otherwise, and `pasco status` never reads artifact files. The build report
-  records the removals as `skipped: [{platform, reason}]`.
-
-### Planned (roadmap)
-
-- Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
-- CLI `pasco`: build · validate · diff · check · refine · skills:install (M1/M3)
-- Per-platform skills v1 from SOTA research (M3)
-- `profile-data` template repo + web renderer (M5)
-
-## [0.2.0] - 2026-09-24
-
-### Added
+- **M9 floor — private-first, consent-gated AI-crawler posture (SPEC §12/§14, issue #141)** —
+  the training-time corpus floor inverts: `robots.txt` on published surfaces **blocks**
+  AI-training crawlers (CCBot / vendor AI crawlers) and user data ships **without** an open
+  license; entering corpora or open-licensing data requires the profile owner's explicit opt-in
+  (consent field — schema work deferred with Q10). Rationale: the engine is multi-tenant
+  (SPEC §9), so an allow-posture decides privacy + licensing on behalf of profile owners
+  (identity data entering training corpora without consent — GDPR-adjacent exposure when
+  productized); the operator's own profiles may opt in — that consent is theirs to give. Inputs
+  + sourced levers: `docs/research/03-training-time-visibility.md` (PR #135, issue #134;
+  fetched 2026-10-05). No schema/code change — the consent field lands with Q10 (SPEC-first).
+  `docs/ROADMAP.md` M9 row realigned.
 
 - **schema v1.6: `identity.links[].role` — entity identity gets a single home (SPEC §15.4, issue #103)** —
   the engine's JSON-LD had **no owner**: `geo.ts` and both renderers each assembled the entity
@@ -177,6 +172,19 @@ minor versions may contain breaking contract changes.
   `docs/ci-cd.md` §Why Biome.
 
 ### Changed
+
+- **Family wording normalization — `creator-support` → `creator-monetization` (#133)** —
+  the informal prose from #130 (SPEC D16/§9 and the `kofi` v1.7 description line in
+  `schema/profile.schema.json`, this file included) now carries the canonical term;
+  already-merged history keeps the old wording, and this note records the rename
+  (operator decision, 2026-10-05, issue #133).
+- **`pasco build` — empty renderer output is now a complete unbuild lifecycle (v1.7, #130)**
+  An empty render is not a deploy artifact, and `profiles/` is a **pure function of the
+  workspace (§15.1)**: the build skips BEFORE creating the directory (no litter on
+  workspaces without the row) and REMOVES a previously written `profiles/<platform>/`
+  output (`README.md` + `assets/`) when its bios row disappears — a stale file would be
+  re-pasted otherwise, and `pasco status` never reads artifact files. The build report
+  records the removals as `skipped: [{platform, reason}]`.
 
 - **release auth: publish migrado a trusted publishing (OIDC), sin `--provenance` (issue #80)** —
   el camino actual usaba un granular access token con bypass 2FA, que npm retira del publish directo
