@@ -1,6 +1,7 @@
-# v1.8 (D18, issue #133): one ledger entry per family member — block-scoped
-# `bios:<platform>.<length>@<lang>` keys (pattern-checked post-Zod). Placeholder
-# hashes (aaaa/bbbb… = valid 64-hex) — fixtures assert shape, not real deploys.
+# v1.8 (D18, issue #133) + v1.9 (issue #137): one ledger entry per family
+# member — block-scoped `bios:<platform>.<length>@<lang>` keys (pattern-checked
+# post-Zod). Placeholder hashes (aaaa/bbbb… = valid 64-hex) — fixtures assert
+# shape, not real deploys.
 bios:buymeacoffee.long@en:
   buymeacoffee:
     deployedAt: "2026-10-05T10:00:00Z"
@@ -20,4 +21,9 @@ bios:payhip.long@en:
   payhip:
     deployedAt: "2026-10-05T10:00:00Z"
     contentHash: dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+    source: manual
+bios:hotmart.long@en:
+  hotmart:
+    deployedAt: "2026-10-05T10:00:00Z"
+    contentHash: eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
     source: manual

@@ -112,7 +112,8 @@ export function textOf(v: string | GeneratedLangMap | undefined): string {
  *  v1.1 adds the brand surfaces (D15/§17); v1.2 adds Postiz parity + operator
  *  extras (D16); v1.7 adds kofi (operator extra, issue #130); v1.8 adds the
  *  creator-monetization family (buymeacoffee, liberapay, gumroad, payhip —
- *  issue #133) — enforced by the vitest contract test (tests/contract.test.ts). */
+ *  issue #133); v1.9 adds hotmart (issue #137) — enforced by the vitest
+ *  contract test (tests/contract.test.ts). */
 export const PLATFORMS: readonly Platform[] = [
   // v1 person surfaces
   "github-readme",
@@ -167,6 +168,8 @@ export const PLATFORMS: readonly Platform[] = [
   "liberapay",
   "gumroad",
   "payhip",
+  // v1.9 creator monetization family member (D16, issue #137)
+  "hotmart",
 ] as const;
 
 export const LANGS: readonly Lang[] = ["en", "es", "fr"] as const;

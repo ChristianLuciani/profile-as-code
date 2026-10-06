@@ -250,9 +250,9 @@ describe("pasco build (compile slices)", () => {
     expect(existsSync(join(ws, "profiles", "kofi"))).toBe(false);
   });
 
-  // v1.8 (#133): the creator-monetization family — same paste chain as kofi.
-  it.each(["buymeacoffee", "liberapay", "gumroad", "payhip"] as const)(
-    "writes the %s paste artifact for the family workspace (v1.8, #133)",
+  // v1.8 (#133) + v1.9 (#137): the creator-monetization family — same paste chain as kofi.
+  it.each(["buymeacoffee", "liberapay", "gumroad", "payhip", "hotmart"] as const)(
+    "writes the %s paste artifact for the family workspace (v1.8/v1.9, #133/#137)",
     (slug) => {
       const ws = tempDir();
       copyFixture(
@@ -274,7 +274,7 @@ describe("pasco build (compile slices)", () => {
     },
   );
 
-  it("writes only family-rendered artifacts when the family workspace builds all (v1.8, #133)", () => {
+  it("writes only family-rendered artifacts when the family workspace builds all (v1.8/v1.9, #133/#137)", () => {
     const ws = tempDir();
     copyFixture(
       join(__dirname, "..", "..", "core", "tests", "fixtures", "minimal-creator-monetization"),
@@ -285,7 +285,7 @@ describe("pasco build (compile slices)", () => {
     const data = JSON.parse(r.stdout) as {
       data: { written: { platform: string; path: string }[] };
     };
-    // github-readme (git) + the 4 family paste platforms; kofi has no bios row
+    // github-readme (git) + the 5 family paste platforms; kofi has no bios row
     // in this fixture → empty render → not written (§15.1 pure profiles/).
     expect(data.data.written.map((w) => w.platform)).toEqual([
       "github-readme",
@@ -293,6 +293,7 @@ describe("pasco build (compile slices)", () => {
       "liberapay",
       "gumroad",
       "payhip",
+      "hotmart",
     ]);
     expect(existsSync(join(ws, "profiles", "kofi"))).toBe(false);
   });

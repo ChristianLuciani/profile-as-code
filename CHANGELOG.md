@@ -11,6 +11,37 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **`hotmart` platform — schema additive v1.9, D16 operator extra #15 (49 total;
+  issue #137)** — Hotmart: digital-products storefront + memberships (the Payment Policy's
+  recurring billing) + affiliate program, serving the Spanish/Portuguese-speaking markets
+  (offices in Belo Horizonte, Madrid, Bogotá, Ciudad de México — [OFICIAL] footer, fetched
+  2026-10-05), in the `creator-monetization` family. Enum
+  entries in `$defs.platform` and the derived `check.platform`, ledger surface, drift host
+  `hotmart.com` (+ `HANDLE_HOSTS`; the Hotmart Space profile URL shape stays `[?]` — no
+  PLATFORM_SUBDOMAIN_HOSTS entry without a verified shape), Zod regenerated (D3). Paste
+  platform (D9 — no management API documented for the profile body; developers.hotmart.com
+  covers sales/products [?]): `pasco build hotmart` → paste → `pasco status --mark`.
+  Fees/eligibility sourced from the official legal texts, fetched 2026-10-05: no
+  monthly/annual fees ([OFICIAL] pricing); fixed fee BRL 2.49 / USD 1.00 / EUR 1.00 +
+  service fee 9.9% (20% micro-transactions) ([OFICIAL] Payment Policy §5); withdrawal
+  minimum BRL 2.00 + BRL 1.99 fee, 30/15-day deadlines ([OFICIAL] root FAQ #08); worldwide
+  eligibility, sanctions-based exclusions only, bank account in own name in the country of
+  residence after the first sale ([OFICIAL] ToU §A/§H/§2.8). **EC payout rail remains
+  `[?]`** — carried per the #133 precedent (`kofi`/`payhip` PayPal-EC), verification item
+  in the venture instance. The market-leadership framing in issue #137 was NOT carried into
+  this contract text (no independent source; Hotmart's own "world's largest / Latin
+  America's leader" wording lives in the skill research as attributed vendor marketing).
+- **Renderer `@profile-as-code/renderers-hotmart` (v1.9, #137)** — deterministic
+  plain-text profile paste-source: exactly ONE bios row (long > medium > short), byte-stable,
+  empty slice → empty artifact (skipped/unbuilt by `pasco build`, §15.1). Deploy spec is
+  §7's `manual` (D9 paste platform).
+- **Skill `skills/hotmart/` (#137)** — SKILL.md (storefront frame — "esto resuelve X", not
+  tip-jar prose; no-results-promised rule per ToU §1.4) + playbook (paste flow with the
+  first-paste surface-verification step) + checks.yaml (soft-cap curacional — no documented
+  bio limit) + research/SOTA-2026.md (all sources fetched 2026-10-05; the fee table and
+  eligibility from the official legal texts; the Space URL shape and EC payout carried
+  `[?]` with sourcing leads).
+
 - **Platform families `freelance` + `job-boards` — SPEC docs-first declaration
   (issue #138)** — the platform families table in the SPEC (D16 block): `freelance`
   covers the pre-existing v1 `upwork` retroactively and names its backlog slice
