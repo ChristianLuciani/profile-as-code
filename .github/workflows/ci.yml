@@ -90,3 +90,30 @@ jobs:
       - name: Verify tarball exposes bin pasco
         if: hashFiles('package.json') != ''
         run: pnpm --filter @profile-as-code/cli verify:pack
+
+      # Issue #142: validate the published metadata. `verify:pack` proves the
+      # bin; publint proves the manifest (files/exports/bin consistency) and
+      # attw proves type resolution — the same validators `prepublishOnly`
+      # runs inside `npm publish` (release.yml), so a metadata regression
+      # fails here, at PR time, not after the irreversible publish.
+      - name: Validate published metadata (publint, every workspace package)
+        if: hashFiles('package.json') != ''
+        run: pnpm -r exec publint
+
+      # attw runs over the packages that ship a `types` entry — the set is
+      # derived from the manifests, not a hand-maintained list. Two deliberate
+      # scopes (issue #142): the CLI is bin-only by design (tsup `dts: false`,
+      # no `types` field) and needs no special case here; the typed packages
+      # are ESM-only by design, so attw uses `--profile esm-only` — the
+      # default strict profile counts CJS-resolves-to-ESM as a problem, which
+      # is exactly the state the engine intends.
+      - name: Validate published types resolution (attw, typed packages)
+        if: hashFiles('package.json') != ''
+        run: |
+          for dir in packages/* packages/renderers/*; do
+            [ -f "$dir/package.json" ] || continue
+            grep -q '"types"' "$dir/package.json" || continue
+            echo "::group::attw $dir"
+            pnpm exec attw --pack "$dir" --profile esm-only
+            echo "::endgroup::"
+          done

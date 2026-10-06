@@ -19,6 +19,8 @@
     "gen:zod": "pnpm -F @profile-as-code/core gen:zod"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.14"
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@biomejs/biome": "^2.5.14",
+    "publint": "^0.3.25"
   }
 }

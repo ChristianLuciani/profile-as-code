@@ -103,6 +103,32 @@ checkout with `fetch-depth: 0` is required — ancestry is not computable from a
 shallow clone. The guard is exercised by `packages/cli/tests/release-guard.test.ts`
 and can be run by hand: `pnpm --filter @profile-as-code/cli guard:release --help`.
 
+### The publish chain (issue #142)
+
+Each stage validates what the next one makes irreversible:
+
+1. **Guard** — the tag invariants (above);
+2. **Build + test** — the commit the tag points at compiles and passes;
+3. **`verify:pack`** — the packed tarball exposes and smoke-runs the `pasco`
+   bin (issue #43);
+4. **`prepublishOnly`** — `packages/cli` self-validates its published metadata:
+   `publint && attw --pack .` (root devDependencies) runs inside
+   `npm publish`, dry runs included, so the irreversible step checks itself.
+   `build` is deliberately NOT part of it — release.yml already builds before
+   publishing, and a double build buys nothing;
+5. **Publish** — `npm publish`, OIDC-first auth (below).
+
+The same validators run in `ci.yml` on every PR — `publint` over every
+workspace package, `attw --pack --profile esm-only` over the packages that ship
+a `types` entry (the set is derived from the manifests, not a hand-maintained
+list) — so a broken `exports` map or a packaging regression fails at PR time
+instead of at release time. Two deliberate scopes: the CLI is **bin-only by
+design** (tsup `dts: false`, no `types` field — attw reports "this package does
+not contain types" and exits 0; no types entry is added just to please the
+tool), and the typed packages are **ESM-only by design**, hence the `esm-only`
+profile — the default strict profile counts CJS-resolves-to-ESM as a problem,
+which is exactly the state the engine intends.
+
 ### npm publish auth — trusted publishing (OIDC, issue #80)
 
 The publish step authenticates with **trusted publishing (OIDC)**: `id-token: write` is
@@ -198,6 +224,24 @@ shipped. A mechanical "fail if `[Unreleased]` is non-empty" gate was considered 
 **rejected**: the repo keeps a `### Planned (roadmap)` block under `[Unreleased]` by
 design, so such a gate would fail correctly prepared releases. The residual risk is
 recorded in `.sota/release-github-58/05-review.md`.
+
+### Post-publish verification (issue #142)
+
+The publish is irreversible — npm cannot un-publish a version — so the first
+thing after it is checking that what reached the registry is what we think
+shipped (runbook for the first publish, #113, and every later one):
+
+```bash
+npm view @profile-as-code/cli             # version + bin + dist.tarball — must match the tag
+npm pack @profile-as-code/cli             # downloads the published tarball
+publint ./profile-as-code-cli-<version>.tgz
+attw ./profile-as-code-cli-<version>.tgz --profile esm-only
+```
+
+`attw` on the CLI tarball is informational by design (bin-only, no `types`
+entry — see the publish chain above); `publint` is the check that matters
+there. A failure at this point is a **post-mortem, not a rollback**: record it
+in the CHANGELOG and fix forward in the next version.
 
 ## Other
 

@@ -9,6 +9,30 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Added
+
+- **Published-surface validators — publint + `@arethetypeswrong/cli` (issue #142)**:
+  `packages/cli` gains `prepublishOnly: publint && attw --pack .` — npm runs it
+  inside `npm publish` (dry runs included), so the irreversible step self-validates
+  its metadata; `ci.yml` runs the same validators on every PR (`publint` over every
+  workspace package, `attw --pack --profile esm-only` over the packages that ship a
+  `types` entry — the set is derived from the manifests, not a hand-maintained
+  list). The CLI stays bin-only by design (attw: "does not contain types", exit 0);
+  the typed packages are ESM-only by design, hence the profile.
+  `docs/ci-cd.md` documents the publish chain (guard → build → `verify:pack` →
+  `prepublishOnly` → publish) and the post-publish verification runbook
+  (`npm view` + publint/attw against the published tarball).
+
+### Fixed
+
+- **`exports` condition order in the five newest paste renderers
+  (`buymeacoffee`, `liberapay`, `gumroad`, `payhip` — v1.8; `hotmart` — v1.9,
+  issue #142)**: `"types"` now precedes `"import"` in the `.` entry, matching
+  every earlier package in the workspace. publint flags the old order as an
+  error — exports conditions are order-sensitive for TypeScript resolution, so
+  the `types` condition must come first. Caught before the first npm publish:
+  none of these packages is on the registry yet.
+
 ### Planned (roadmap)
 
 - Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
