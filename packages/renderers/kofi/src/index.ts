@@ -14,7 +14,7 @@
  * already the compile() slice, so one would be dead code.
  */
 
-import type { PlatformProfile } from "@profile-as-code/core";
+import { type PlatformProfile, pasteSource } from "@profile-as-code/core";
 
 /** SPEC §7 Renderer contract (`deploySpec: 'git' | 'api' | 'manual'`). Ko-fi
  *  has no write API — the deploy is a MANUAL paste (D9; "paste" stays the
@@ -28,23 +28,11 @@ export interface RenderResult {
 }
 
 /**
- * Deterministic length priority for the About body: `long` (the free-form
- * main body) > `medium` > `short` (the compact one-liner slot). Ko-fi's About
- * is the page's only profile body — the longest curated bio wins.
- */
-const LENGTH_PRIORITY: readonly ("long" | "medium" | "short")[] = ["long", "medium", "short"];
-
-/**
- * Render the About paste-source from the compile() slice. Emit exactly ONE
- * bios row's text — never a merge: the artifact maps 1:1 to the SSOT row the
- * deploy ledger hashes (D18); a merged text would hash a composite no single
- * row owns, and `pasco diff/status` staleness could never match. Empty string
- * = no ko-fi bio row for this platform+lang → the build skips the artifact.
+ * Render the About paste-source from the compile() slice, delegating to the
+ * shared paste core (#150): length priority, single-row emission (the D18
+ * ledger hashes exactly one bios row), empty → "" (unbuild, §15.1). Never
+ * re-implement it per adapter (the `packages/markdown` precedent).
  */
 export function render(p: PlatformProfile): RenderResult {
-  for (const length of LENGTH_PRIORITY) {
-    const bio = p.bios.find((b) => b.length === length);
-    if (bio !== undefined) return { text: `${bio.text}\n` };
-  }
-  return { text: "" };
+  return { text: pasteSource(p) };
 }

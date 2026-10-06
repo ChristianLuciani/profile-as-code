@@ -35,6 +35,7 @@ export {
 } from "./load.js";
 export type { CollectMediaOptions, ManifestEntry, MediaAsset, MediaBundle } from "./media.js";
 export { artifactAssetTarget, collectMedia, DEFAULT_MAX_BYTES, mediaManifest } from "./media.js";
+export { pasteSource } from "./paste-source.js";
 export type { RegistryFinding, RegistryIssue } from "./registry.js";
 export {
   checkRegistryIntegrity,
