@@ -145,22 +145,27 @@ describe("hotmart renderer (v1.9, #137)", () => {
     expect(render(slice).text).toBe("Cuerpo en español.\n");
   });
 
-  it("emits plain text: no Markdown headers, links or code fences", () => {
+  it("passes the SSOT row through verbatim — the renderer transforms nothing", () => {
+    // The real guarantee: `render()` is a verbatim pass-through of the ONE bios row
+    // (`${bio.text}\n`) — it neither ADDS nor STRIPS Markdown/HTML. So a markdown-bearing
+    // `bios` row WOULD reach the paste target as-is; keeping the row plain is the skill's
+    // job (SKILL.md §Verificación, a human step — no check rule covers markdown/HTML
+    // absence today; the parametrized conformance suite is issue #150).
+    const body = "# Heading kept verbatim\n\nSee [link](https://example.org).";
     const slice = compile(
       load(
         workspace(
           `- platform: hotmart
   lang: en
   length: long
-  text: Plain paragraph one. Plain paragraph two.
+  text: ${JSON.stringify(body)}
 `,
         ),
       ),
       "hotmart",
       "en",
     );
-    const text = render(slice).text;
-    expect(text).not.toMatch(/^(#+\s|!\[|\[.*\]\(|```)/m);
+    expect(render(slice).text).toBe(`${body}\n`);
   });
 
   it("declares the manual deploy spec (§7 union; D9 paste in prose) and no assets", () => {
