@@ -3,11 +3,11 @@
  * (SPEC §7 `pasco build`) + rendered deploy artifacts (SPEC §15). Pure compile()
  * slices; no AI. Platforms WITH a renderer also write the rendered artifact to
  * profiles/<platform>/README.md (deploy spec: git for GitHub surfaces, manual
- * for the paste platforms — kofi (v1.7) and the creator-monetization family
- * (buymeacoffee, liberapay, gumroad, payhip — v1.8, issue #133); the artifact IS
- * the paste source, D9); platforms without a renderer print their slices
- * (renderers land in M4). Empty renders unbuild their platform output
- * (v1.7: profiles/ is a pure function, §15.1).
+ * for the paste platforms — kofi (v1.7), the creator-monetization family
+ * (buymeacoffee, liberapay, gumroad, payhip — v1.8, issue #133) and hotmart
+ * (v1.9, issue #137); the artifact IS the paste source, D9); platforms without
+ * a renderer print their slices (renderers land in M4). Empty renders unbuild
+ * their platform output (v1.7: profiles/ is a pure function, §15.1).
  */
 
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -26,6 +26,7 @@ import { render as renderBuymeacoffee } from "@profile-as-code/renderers-buymeac
 import { render as renderGithubOrg } from "@profile-as-code/renderers-github-org";
 import { render as renderGithubReadme } from "@profile-as-code/renderers-github-readme";
 import { render as renderGumroad } from "@profile-as-code/renderers-gumroad";
+import { render as renderHotmart } from "@profile-as-code/renderers-hotmart";
 import { render as renderKofi } from "@profile-as-code/renderers-kofi";
 import { render as renderLiberapay } from "@profile-as-code/renderers-liberapay";
 import { render as renderPayhip } from "@profile-as-code/renderers-payhip";
@@ -36,8 +37,8 @@ import type { Pascorc } from "../workspace.js";
 import { defaultsLang } from "../workspace.js";
 
 /** Platforms with an implemented renderer (M2: github-readme; M6: github-org;
- *  v1.7 #130: kofi; v1.8 #133: the creator-monetization family — paste
- *  platforms, D9 artifact = the paste source).
+ *  v1.7 #130: kofi; v1.8 #133 + v1.9 #137: the creator-monetization family —
+ *  paste platforms, D9 artifact = the paste source).
  *  M8 (§18.6): renderers receive the media bundle and declare the deploy-relative
  *  targets they reference — the build copies exactly those bytes (checksummed). */
 const RENDERERS: Partial<
@@ -53,6 +54,7 @@ const RENDERERS: Partial<
   liberapay: (slice) => renderLiberapay(slice),
   gumroad: (slice) => renderGumroad(slice),
   payhip: (slice) => renderPayhip(slice),
+  hotmart: (slice) => renderHotmart(slice),
 };
 
 export interface BuildArgs {

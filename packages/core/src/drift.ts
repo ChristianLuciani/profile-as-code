@@ -48,7 +48,7 @@ import { PLATFORMS, textOf } from "./types.js";
  *  surfaces (github-org, bluesky, instagram, tiktok, youtube, spotify, reddit,
  *  mastodon, soundcloud); v1.2 (D16) adds the Postiz-parity set + ghost; v1.7
  *  adds ko-fi.com (issue #130); v1.8 adds the creator-monetization family hosts
- *  (issue #133). The same
+ *  (issue #133); v1.9 adds hotmart.com (issue #137). The same
  *  host often serves content too (a YouTube demo video in projects.links) — drift
  *  is advisory (severity warn, D12), so over-warnings are safe. Open-ended instance
  *  networks (mastodon/lemmy/nostr beyond the curated entries) stay unflagged — drift
@@ -117,6 +117,13 @@ const PLATFORM_HOSTS: readonly string[] = [
   "liberapay.com",
   "gumroad.com",
   "payhip.com",
+  // v1.9 creator monetization family member (D16, issue #137). The apex hosts
+  // the storefront's public surfaces (ToU §B: www.hotmart.com + subdomains are
+  // the Platform); the Hotmart Space profile URL shape is unverified [?] —
+  // apex-only until the skill research sources it (no PLATFORM_SUBDOMAIN_HOSTS
+  // entry: `space.hotmart.com` DNS-resolves but apex-redirects, not a profile
+  // surface shape).
+  "hotmart.com",
 ];
 
 /** Profile URLs that live on SUBDOMAINS of a host (e.g. `user.substack.com`,
@@ -186,6 +193,11 @@ const HANDLE_HOSTS: Record<string, readonly string[]> = {
   liberapay: ["liberapay.com"],
   gumroad: ["gumroad.com"],
   payhip: ["payhip.com"],
+  // v1.9 creator monetization family member (D16, issue #137): the handle URL's
+  // host is the apex (www-stripped); the exact profile path shape is unverified
+  // [?] — drift checks host consistency only (offline proxy), the skill follow-up
+  // owns the verified shape.
+  hotmart: ["hotmart.com"],
   // Any-host platforms (no HANDLE_HOSTS entry → any URL allowed):
   //   - lemmy: federated (hundreds of instances) — a curated list would actively
   //     reject legitimate handles (mastodon.social-only is a v1.1 leftover, see #30 follow-up)

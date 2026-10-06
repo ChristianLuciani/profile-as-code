@@ -43,3 +43,7 @@
   lang: en
   length: long
   text: "Payhip — products from the sovereign-AI practice: playbooks and tooling for local-first inference, model routing and GEO for professional profiles."
+- platform: hotmart
+  lang: en
+  length: long
+  text: "Hotmart — products from the sovereign-AI practice: playbooks and tooling for local-first inference, model routing and GEO for professional profiles."

@@ -1,0 +1,21 @@
+{
+  "identity": { "name": "Ada Example" },
+  "bios": [
+    {
+      "platform": "hotmart",
+      "lang": "en",
+      "length": "long",
+      "text": "Hotmart storefront profile body paste-source — the artifact IS the text to paste (issue #137)."
+    }
+  ],
+  "checks": [{ "id": "hotmart-bio", "platform": "hotmart", "rule": "max-chars", "value": 1500 }],
+  "deployments": {
+    "bios:hotmart.long@en": {
+      "hotmart": {
+        "deployedAt": "2026-10-05T10:00:00Z",
+        "contentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "source": "manual"
+      }
+    }
+  }
+}

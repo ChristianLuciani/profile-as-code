@@ -1,0 +1,43 @@
+# checks.yaml — criterios machine-readable para `pasco check hotmart`
+# (unión con content/checks.yaml del workspace; misma rule catalog que el schema).
+#
+# Fuente de los valores: research/SOTA-2026.md (todas las fuentes fechadas
+# 2026-10-05). Hotmart NO documenta límite para el cuerpo de perfil [?] — no
+# hay artículo del Help Center que describa el campo (SOTA-2026 §6); el
+# max-chars es soft-cap curacional, no hard rule.
+
+- id: h-bio-soft
+  platform: hotmart
+  rule: max-chars
+  value: 500
+  note: "Soft-cap curacional del cuerpo de perfil — Hotmart no documenta el campo ni un límite [?]; curation, no hard rule (SOTA-2026 §6)."
+
+- id: h-facts-identity
+  platform: hotmart
+  rule: fact-present
+  value: true
+  note: "Hechos del cuerpo byte-idénticos al SSOT (D4); el cuerpo es el cierre de confianza del storefront (SOTA-2026 §1)."
+
+- id: h-links-identity
+  platform: hotmart
+  rule: link-in-identity
+  value: true
+  note: "Los links (tienda verificada, productos hotmart.com/<lang>/marketplace/...) viven en identity.links; la URL del Space queda fuera hasta verificarse (SOTA-2026 §5 [?])."
+
+- id: h-geo-consistent
+  platform: hotmart
+  rule: geo-consistent
+  value: true
+  note: "Hechos consistentes con CV/LinkedIn/GitHub = citabilidad; compradores y LLMs cruzan canales (SOTA-2026 §7)."
+
+- id: h-live
+  platform: hotmart
+  rule: url-live
+  value: true
+  note: "Página resuelve en browser — el SPA 404-a rutas adivinadas; verificá el Space real desde el dashboard (SOTA-2026 §5)."
+
+- id: h-lang
+  platform: hotmart
+  rule: lang-present
+  value: en
+  note: "EN requerido (D8/§11); compile no hace fallback por fila de bios — artefacto vacío = gap visible. ES priorizado para audiencia EC/ES (marketplace /es/)."

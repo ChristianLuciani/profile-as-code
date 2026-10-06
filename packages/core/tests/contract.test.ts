@@ -165,6 +165,31 @@ links:
     }
   });
 
+  it("treats hotmart.com as a platform surface (v1.9, #137)", () => {
+    const dir = makeWorkspace({
+      "identity.yaml": `name: Test
+links:
+  - platform: website
+    label: Site
+    url: https://example.org
+`,
+      "projects.yaml": `- name: Demo
+  links:
+    - https://hotmart.com/testcreator
+`,
+    });
+    try {
+      const issues = driftCheck(load(dir));
+      expect(
+        issues.some(
+          (i) => i.code === "drift/url-not-in-identity" && i.path === "projects[0].links[0]",
+        ),
+      ).toBe(true);
+    } finally {
+      clean(dir);
+    }
+  });
+
   it("does not warn for open-ended instance hosts (mastodon beyond curated)", () => {
     const dir = makeWorkspace({
       "identity.yaml": `name: Test
@@ -266,8 +291,12 @@ links:
     ["liberapay", "https://liberapay.com/kluciani"],
     ["gumroad", "https://kluciani.gumroad.com"],
     ["payhip", "https://payhip.com/kluciani"],
+    // hotmart: the profile path shape is unverified [?] (issue #137) — the
+    // offline handle proxy checks host consistency only, so the apex host with
+    // a handle path exercises the same contract without claiming a verified shape.
+    ["hotmart", "https://hotmart.com/kluciani"],
   ] as const)(
-    "validates %s end-to-end: bio + check + handle + ledger (v1.8, #133)",
+    "validates %s end-to-end: bio + check + handle + ledger (v1.8/v1.9, #133/#137)",
     (slug, handleUrl) => {
       const dir = makeWorkspace({
         "identity.yaml": `name: Test
