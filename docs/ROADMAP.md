@@ -18,7 +18,7 @@
 | **M6** brand flavor | ✅ | **✅ cerrado** | `flavor: brand`, `github-org` renderer, `skills/github-org/`, `templates/profile-data-brand` |
 | **M7** evidence core | ✅ | **✅ cerrado** | schema v1.4 (`credentials[]`/`artifacts[]`), `registryCheck`, `hasCredential` en JSON-LD |
 | **M8** media pipeline | ✅ | **✅ contrato sí, deploy no** | `assets/` + `manifest.json` + `collectMedia` en core; los playbooks de deploy son M4 |
-| **M9** training-time corpus presence | ⏳ contrato sí, decisión **deferida** (Q10, post-M3) | **✗ no empezado** — piso ya definido: AI-crawler-allow + CC-BY-4.0 en superficies publicadas | `docs/research/03-training-time-visibility.md` (PR #135, 2026-10-05); SPEC §12 M9 + §14 Q10 |
+| **M9** training-time corpus presence | ⏳ contrato sí, decisión **deferida** (Q10, post-M3) | **✗ no empezado** — piso ya definido: **privado-first** (bloquea crawlers de entrenamiento, sin licencia abierta) con opt-in explícito del dueño | `docs/research/03-training-time-visibility.md` (PR #135 + corrección de consentimiento, 2026-10-05); SPEC §12 M9 + §14 Q10 |
 
 **Lectura:** el engine y el README raíz están alineados tras el alineamiento M-state (#117, PR #121):
 `pasco` ✅ con `refine`/`check` 🚧, detalle en `packages/cli/README.md`. Lo que falta **no es motor
