@@ -111,11 +111,17 @@ Each stage validates what the next one makes irreversible:
 2. **Build + test** — the commit the tag points at compiles and passes;
 3. **`verify:pack`** — the packed tarball exposes and smoke-runs the `pasco`
    bin (issue #43);
-4. **`prepublishOnly`** — `packages/cli` self-validates its published metadata:
-   `publint && attw --pack .` (root devDependencies) runs inside
-   `npm publish`, dry runs included, so the irreversible step checks itself.
-   `build` is deliberately NOT part of it — release.yml already builds before
-   publishing, and a double build buys nothing;
+4. **`prepublishOnly`** — `packages/cli` self-validates its published manifest:
+   `publint` (root devDependency) runs inside `npm publish`, dry runs
+   included, so the irreversible step checks itself. `build` is deliberately
+   NOT part of it — release.yml already builds before publishing, and a
+   double build buys nothing. `attw` is deliberately NOT in this hook either:
+   its `--pack` mode shells out to `npm pack`, and npm's lifecycle env sets
+   `npm_config_dry_run=true` on `npm publish --dry-run`, so the child pack
+   produces no tarball and attw dies with ENOENT (measured 2026-10-06) —
+   which would break the dry-run smoke path of release.yml. The CLI is
+   bin-only (no `types` entry), so attw adds no signal there anyway; it runs
+   in `ci.yml` over the typed packages, where it does;
 5. **Publish** — `npm publish`, OIDC-first auth (below).
 
 The same validators run in `ci.yml` on every PR — `publint` over every

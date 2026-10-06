@@ -12,13 +12,15 @@ minor versions may contain breaking contract changes.
 ### Added
 
 - **Published-surface validators — publint + `@arethetypeswrong/cli` (issue #142)**:
-  `packages/cli` gains `prepublishOnly: publint && attw --pack .` — npm runs it
-  inside `npm publish` (dry runs included), so the irreversible step self-validates
-  its metadata; `ci.yml` runs the same validators on every PR (`publint` over every
-  workspace package, `attw --pack --profile esm-only` over the packages that ship a
-  `types` entry — the set is derived from the manifests, not a hand-maintained
-  list). The CLI stays bin-only by design (attw: "does not contain types", exit 0);
-  the typed packages are ESM-only by design, hence the profile.
+  `packages/cli` gains `prepublishOnly: publint` — npm runs it inside
+  `npm publish` (dry runs included), so the irreversible step self-validates its
+  manifest (`attw` stays out of that hook on purpose: its `--pack` mode inherits
+  npm's `npm_config_dry_run=true` under `npm publish --dry-run` and dies on the
+  missing tarball, and the bin-only CLI has no types for it to check);
+  `ci.yml` runs both validators on every PR (`publint` over every
+  workspace package, `attw --pack --profile esm-only` over the packages that ship
+  a `types` entry — the set is derived from the manifests, not a hand-maintained
+  list). The typed packages are ESM-only by design, hence the profile.
   `docs/ci-cd.md` documents the publish chain (guard → build → `verify:pack` →
   `prepublishOnly` → publish) and the post-publish verification runbook
   (`npm view` + publint/attw against the published tarball).
