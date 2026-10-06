@@ -16,10 +16,11 @@
 There **is** a documented layer ("training-time corpus presence") and its levers are documented — but
 as a *marketing discipline* it is not ratified like GEO: no standard name, no public benchmarks, no
 feedback signal. Feasibility is proven by adversarial literature (web-scale training-corpus
-poisoning). Consequence for this repo: a small floor — AI-crawler-allow posture + open licenses —
-lets today's GEO work compound across model generations at ~zero marginal cost. The dataset
-publication decision (Hugging Face dataset vs contributing to existing open datasets vs both) is
-frozen as **Q10** (SPEC §14), deferred until the M3 platform SOTA research closes.
+poisoning). Consequence for this repo: a consent-gated floor — **private-first default** (AI-training
+crawlers blocked, no open license); an owner's explicit opt-in is what lets today's GEO work compound
+across model generations at ~zero marginal cost. The dataset publication decision (Hugging Face
+dataset vs contributing to existing open datasets vs both) is frozen as **Q10** (SPEC §14), deferred
+until the M3 platform SOTA research closes.
 
 ## Map: three visibility layers
 
@@ -63,7 +64,10 @@ surface, not an abstraction.
 
 - Already covered by the engine: public GitHub repos (lever 3) and citability renderers +
   JSON-LD `schema.org/Person` (layer 2, SPEC §8).
-- Floor regardless of the Q10 resolution (SPEC §12, M9): `robots.txt` matrix on published surfaces
-  never blocks CCBot / vendor AI crawlers; published profiles carry open licenses (CC-BY-4.0).
+- Floor regardless of the Q10 resolution (SPEC §12, M9) — **private-first default**: the `robots.txt`
+  matrix on published surfaces **blocks** AI-training crawlers and published profiles carry **no**
+  open license, unless the profile owner explicitly opts in (consent field, deferred with Q10).
+  Consent framing: the levers above are opt-in mechanics that belong to the data owner — an engine
+  defaulting to allow-posture would make a privacy decision on users' behalf [MI].
 - Deferred to Q10: a `huggingface-dataset` renderer/exporter vs contributing profile data to existing
   open datasets vs both — decided when the M3 platform SOTA research closes.
