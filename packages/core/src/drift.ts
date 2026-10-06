@@ -119,10 +119,10 @@ const PLATFORM_HOSTS: readonly string[] = [
   "payhip.com",
   // v1.9 creator monetization family member (D16, issue #137). The apex hosts
   // the storefront's public surfaces (ToU §B: www.hotmart.com + subdomains are
-  // the Platform); the Hotmart Space profile URL shape is unverified [?] —
-  // apex-only until the skill research sources it (no PLATFORM_SUBDOMAIN_HOSTS
-  // entry: `space.hotmart.com` DNS-resolves but apex-redirects, not a profile
-  // surface shape).
+  // the Platform, fetched 2026-10-05); the Hotmart Space profile URL shape is
+  // unverified [?] — apex-only until the skill research sources it (no
+  // PLATFORM_SUBDOMAIN_HOSTS entry: `space.hotmart.com` DNS-resolves but
+  // apex-redirects, probed 2026-10-05, not a profile surface shape).
   "hotmart.com",
 ];
 

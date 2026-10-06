@@ -8,7 +8,7 @@
       "text": "Hotmart storefront profile body paste-source — the artifact IS the text to paste (issue #137)."
     }
   ],
-  "checks": [{ "id": "hotmart-bio", "platform": "hotmart", "rule": "max-chars", "value": 1500 }],
+  "checks": [{ "id": "hotmart-bio", "platform": "hotmart", "rule": "max-chars", "value": 500 }],
   "deployments": {
     "bios:hotmart.long@en": {
       "hotmart": {

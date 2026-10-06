@@ -75,9 +75,9 @@ content/keywords.yaml      → SEO + GEO (associations/claims)
 3. **¿Cuál es mi señal más fuerte?** El producto con evidencia: qué
    construis AHORA y qué resultado verificable tiene cada producto.
 
-Liderá con #3 filtrado por #1. El marketplace muestra la pestaña de producto
-antes que al creador (SOTA-2026 §5): el cuerpo de perfil es el cierre de
-confianza, no el descubrimiento.
+Liderá con #3 filtrado por #1. El producto se descubre en el marketplace y en
+tus otros canales; el cuerpo de perfil es el cierre de confianza, no el
+descubrimiento. [MI]
 
 ## Estructura del cuerpo (prosa plana, ≤ 3 párrafos)
 

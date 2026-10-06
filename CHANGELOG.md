@@ -12,9 +12,10 @@ minor versions may contain breaking contract changes.
 ### Added
 
 - **`hotmart` platform — schema additive v1.9, D16 operator extra #15 (49 total;
-  issue #137)** — Hotmart: the largest digital-products storefront for the
-  Spanish/Portuguese-speaking markets (storefront + memberships — the Payment Policy's
-  recurring billing — + affiliate program), the fifth `creator-monetization` member. Enum
+  issue #137)** — Hotmart: digital-products storefront + memberships (the Payment Policy's
+  recurring billing) + affiliate program, serving the Spanish/Portuguese-speaking markets
+  (offices in Belo Horizonte, Madrid, Bogotá, Ciudad de México — [OFICIAL] footer, fetched
+  2026-10-05), in the `creator-monetization` family. Enum
   entries in `$defs.platform` and the derived `check.platform`, ledger surface, drift host
   `hotmart.com` (+ `HANDLE_HOSTS`; the Hotmart Space profile URL shape stays `[?]` — no
   PLATFORM_SUBDOMAIN_HOSTS entry without a verified shape), Zod regenerated (D3). Paste
@@ -22,11 +23,14 @@ minor versions may contain breaking contract changes.
   covers sales/products [?]): `pasco build hotmart` → paste → `pasco status --mark`.
   Fees/eligibility sourced from the official legal texts, fetched 2026-10-05: no
   monthly/annual fees ([OFICIAL] pricing); fixed fee BRL 2.49 / USD 1.00 / EUR 1.00 +
-  service fee 9.9% (20% micro-transactions) ([OFICIAL] Payment Policy §5); worldwide
+  service fee 9.9% (20% micro-transactions) ([OFICIAL] Payment Policy §5); withdrawal
+  minimum BRL 2.00 + BRL 1.99 fee, 30/15-day deadlines ([OFICIAL] root FAQ #08); worldwide
   eligibility, sanctions-based exclusions only, bank account in own name in the country of
   residence after the first sale ([OFICIAL] ToU §A/§H/§2.8). **EC payout rail remains
   `[?]`** — carried per the #133 precedent (`kofi`/`payhip` PayPal-EC), verification item
-  in the venture instance.
+  in the venture instance. The market-leadership framing in issue #137 was NOT carried into
+  this contract text (no independent source; Hotmart's own "world's largest / Latin
+  America's leader" wording lives in the skill research as attributed vendor marketing).
 - **Renderer `@profile-as-code/renderers-hotmart` (v1.9, #137)** — deterministic
   plain-text profile paste-source: exactly ONE bios row (long > medium > short), byte-stable,
   empty slice → empty artifact (skipped/unbuilt by `pasco build`, §15.1). Deploy spec is
