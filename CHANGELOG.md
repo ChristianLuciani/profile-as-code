@@ -51,6 +51,18 @@ minor versions may contain breaking contract changes.
   eligibility from the official legal texts; the Space URL shape and EC payout carried
   `[?]` with sourcing leads).
 
+- **M9 floor — private-first, consent-gated AI-crawler posture (SPEC §12/§14, issue #141)** —
+  the training-time corpus floor inverts: `robots.txt` on published surfaces **blocks**
+  AI-training crawlers (CCBot / vendor AI crawlers) and user data ships **without** an open
+  license; entering corpora or open-licensing data requires the profile owner's explicit opt-in
+  (consent field — schema work deferred with Q10). Rationale: the engine is multi-tenant
+  (SPEC §9), so an allow-posture decides privacy + licensing on behalf of profile owners
+  (identity data entering training corpora without consent — GDPR-adjacent exposure when
+  productized); the operator's own profiles may opt in — that consent is theirs to give. Inputs
+  + sourced levers: `docs/research/03-training-time-visibility.md` (PR #135, issue #134;
+  fetched 2026-10-05). No schema/code change — the consent field lands with Q10 (SPEC-first).
+  `docs/ROADMAP.md` M9 row realigned.
+
 - **Platform families `freelance` + `job-boards` — SPEC docs-first declaration
   (issue #138)** — the platform families table in the SPEC (D16 block): `freelance`
   covers the pre-existing v1 `upwork` retroactively and names its backlog slice
@@ -93,18 +105,6 @@ minor versions may contain breaking contract changes.
   Social-links feature, ≤40-char status note) + playbook (paste checklist + rename-drift
   caveat) + checks.yaml (About soft-cap — Ko-fi documents no bio limit) + research/
   SOTA-2026.md (all sources fetched 2026-10-05).
-
-- **M9 floor — private-first, consent-gated AI-crawler posture (SPEC §12/§14, issue #141)** —
-  the training-time corpus floor inverts: `robots.txt` on published surfaces **blocks**
-  AI-training crawlers (CCBot / vendor AI crawlers) and user data ships **without** an open
-  license; entering corpora or open-licensing data requires the profile owner's explicit opt-in
-  (consent field — schema work deferred with Q10). Rationale: the engine is multi-tenant
-  (SPEC §9), so an allow-posture decides privacy + licensing on behalf of profile owners
-  (identity data entering training corpora without consent — GDPR-adjacent exposure when
-  productized); the operator's own profiles may opt in — that consent is theirs to give. Inputs
-  + sourced levers: `docs/research/03-training-time-visibility.md` (PR #135, issue #134;
-  fetched 2026-10-05). No schema/code change — the consent field lands with Q10 (SPEC-first).
-  `docs/ROADMAP.md` M9 row realigned.
 
 - **schema v1.6: `identity.links[].role` — entity identity gets a single home (SPEC §15.4, issue #103)** —
   the engine's JSON-LD had **no owner**: `geo.ts` and both renderers each assembled the entity
