@@ -1,7 +1,7 @@
 /**
  * Contract tests for the platform set (D16, issue #30): Postiz parity + operator
  * extras. Guards the single-source discipline the schema documents:
- *   - core `PLATFORMS` mirrors the schema enum (the two must never drift)
+ *   - the generated `PLATFORM_VALUES` matches the schema enum (codegen boundary)
  *   - PLATFORMS has no duplicates
  *   - behavior: new platform hosts are recognized by drift (patreon regression,
  *     ghost subdomains) and accepted by load (checks + bios on new platforms)
@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { PLATFORM_VALUES } from "../src/generated/schema.zod.js";
 import { driftCheck, load, PLATFORMS } from "../src/index.js";
 
 const SCHEMA = JSON.parse(
@@ -36,8 +37,10 @@ function makeWorkspace(files: Record<string, string>): string {
 const clean = (dir: string) => rmSync(dir, { recursive: true, force: true });
 
 describe("platform set contract (D16)", () => {
-  it("PLATFORMS mirrors the schema enum exactly", () => {
-    expect([...PLATFORMS]).toEqual(SCHEMA.$defs.platform.enum);
+  it("the generated platform value list matches the schema enum (codegen boundary)", () => {
+    // Both lists are generated from `$defs.platform.enum` by scripts/gen-zod.ts:
+    // a stale commit (schema changed, `pnpm gen:zod` not run) fails here.
+    expect([...PLATFORM_VALUES]).toEqual(SCHEMA.$defs.platform.enum);
   });
 
   it("PLATFORMS has no duplicates", () => {

@@ -144,6 +144,24 @@ defs.langMap = toLangMapShape();
 if (!defs.langMapList) throw new Error("gen-zod: $defs.langMapList missing from schema (v1.1)");
 defs.langMapList = toLangMapListShape();
 
+// The platform list is codegen-owned as a VALUE too (issue #152): the generated
+// module exports the ids as a const tuple so `types.ts` derives `Platform` /
+// `PLATFORMS` from it instead of mirroring the enum by hand. It is read from the
+// SAME `$defs.platform` the Zod enum is generated from — the JSON Schema stays
+// the single hand-authored home; every other list is generated or derived.
+const platformDef = defs.platform as JsonNode | undefined;
+if (!platformDef || !Array.isArray(platformDef.enum) || platformDef.enum.length === 0) {
+  throw new Error("gen-zod: $defs.platform.enum missing (or empty) from schema");
+}
+const platformValues = (platformDef.enum as unknown[]).map((value) => {
+  if (typeof value !== "string") {
+    throw new Error(
+      `gen-zod: $defs.platform.enum has a non-string entry: ${JSON.stringify(value)}`,
+    );
+  }
+  return value;
+});
+
 let droppedRequiredOnlyOneOf = 0;
 const inlined = inlineDefs(raw, defs) as JsonNode;
 const generated = jsonSchemaToZod(inlined, { module: "esm", name: "profileSchema", zodVersion: 4 });
@@ -207,10 +225,18 @@ const BANNER = `/**
 
 `;
 
+/** Platform ids as a value (issue #152): `types.ts` derives `Platform`/`PLATFORMS`
+ *  from this const, so the enum has exactly one hand-authored home (the schema). */
+const PLATFORM_VALUES_BLOCK = `
+/** Platform ids in schema order — generated from \`$defs.platform.enum\` (D3/D16). */
+export const PLATFORM_VALUES = [${platformValues.map((value) => JSON.stringify(value)).join(", ")}] as const;
+`;
+
 mkdirSync(OUT_DIR, { recursive: true });
-writeFileSync(OUT_PATH, `${BANNER}${withKeyGuard}${FOOTER}`, "utf8");
+writeFileSync(OUT_PATH, `${BANNER}${withKeyGuard}${PLATFORM_VALUES_BLOCK}${FOOTER}`, "utf8");
 console.log(
-  `gen-zod: wrote ${OUT_PATH} (${langMapCount} langMap key-guards applied)` +
+  `gen-zod: wrote ${OUT_PATH} (${langMapCount} langMap key-guards applied, ` +
+    `${platformValues.length} platform values exported)` +
     (droppedRequiredOnlyOneOf > 0
       ? ` — ${droppedRequiredOnlyOneOf} required-only oneOf occurrence(s) dropped from Zod (the XOR must be re-checked in core post-Zod — D12 fail class; the JSON Schema keeps it)`
       : ""),
