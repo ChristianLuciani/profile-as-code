@@ -13,6 +13,14 @@ packages:
 # only matching version); CI gates catch any breakage on the next refresh.
 overrides:
   esbuild: '>=0.28.1'
+  # #160: same class as esbuild — source-map-js is transitive (postcss) and pinned
+  # at 1.2.1 in pnpm-lock.yaml; the advisory is fixed in 1.2.2 ([OFICIAL]
+  # Dependabot alerts API 2026-10-07: vulnerable ">= 1.0.0, < 1.2.2",
+  # first_patched_version 1.2.2; published 2026-09-30). Dependabot cannot bump a
+  # transitive dep pinned in the lockfile (`security_update_not_possible`), so this
+  # lifts every resolution to the first patched version — mirroring the esbuild
+  # decision (issue #57) and paired with its `ignore` in .github/dependabot.yml.
+  source-map-js: '>=1.2.2'
 
 allowBuilds:
   esbuild: true

@@ -19,16 +19,28 @@ updates:
     # Revisit when Dependabot pnpm support matures (option c).
     ignore:
       - dependency-name: "esbuild"
-    # `scripts/dep-gate/fixtures/**` (43 package.json + 20 pnpm-workspace.yaml) is
-    # test data: INTENTIONALLY invalid manifests that exist so scripts/dep-gate
-    # rejects them. Dependabot scans them as real manifests, aborts the whole
-    # update job with `dependency_file_not_parseable` on
-    # `fixtures/fail-workspace-nested-key/pnpm-workspace.yaml`, and leaves main
-    # with a permanent `failure` run — which also poisons issue-select's gate 5
-    # (skills-studio #191). `exclude-paths` is the documented option for exactly
-    # this case ("test assets"), on the version-update path the updater runs
-    # [WEB: docs.github.com dependabot-options-reference, checked 2026-10-01;
-    # failing run 36792749688, 2026-09-30].
+      # #160: same class as esbuild (#57) — source-map-js is transitive (postcss),
+      # pinned at 1.2.1 in pnpm-lock.yaml, fixed in 1.2.2 ([OFICIAL] alerts API
+      # 2026-10-07: ">= 1.0.0, < 1.2.2", first_patched_version 1.2.2). Dependabot
+      # cannot bump a transitive dep pinned there: `security_update_not_possible`
+      # (run 37562089307) fails main forever. Real bump = the pnpm override; this
+      # stops the impossible retry.
+      - dependency-name: "source-map-js"
+      # #160: the 20 fixture manifests declare placeholder versions that GitHub
+      # advisories flag (19× yaml@1.0.0 + 1× zod@1.0.0 = 20 of the 21 open
+      # alerts, [OFICIAL] alerts API 2026-10-07). Those alerts open a SECURITY job
+      # over the DISCOVERED fixture workspaces; it aborts with
+      # `dependency_file_not_parseable` (run 37562091571, 2026-10-07).
+      # `exclude-paths` cannot stop it — it is a VERSION-UPDATES-ONLY option
+      # ([OFICIAL] docs.github.com dependabot-options-reference, checked
+      # 2026-10-07), so that security job arrives with `"exclude-paths": []`.
+      # Pinning the exact placeholder versions keeps the real yaml ^2.9.1 and
+      # zod ^4.6.5 updates alive (both resolve outside the affected ranges).
+      - dependency-name: "yaml"
+        versions: ["1.0.0"]
+      - dependency-name: "zod"
+        versions: ["1.0.0"]
+    # Version-update path only; the security path is covered by the ignores above.
     exclude-paths:
       - "scripts/dep-gate/fixtures/**"
   - package-ecosystem: github-actions
