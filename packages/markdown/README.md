@@ -15,11 +15,12 @@ and labels are free text — and each one breaks the parse when interpolated raw
 Both are pure and total. Structured surfaces (JSON-LD `sameAs`/`email`) stay
 verbatim (§18.4), and facts keep their bytes: `mdText` escapes only `\`, `[` and
 `]`, and the parser removes the escape again, so the rendered label is
-unchanged — with one known, accepted cosmetic exception: a label carrying a code
-span **and** a bracket still parses (the span protects the bracket), but the
-visible text shows the backslash, because CommonMark does not process escapes
-inside a code span. Escaping the backtick would fix that case by destroying the
-intended span — a worse trade, so it is deliberately not done.
+unchanged — with a known, accepted cosmetic exception (the one the source
+documents): a label carrying a code span **and** a bracket still parses (the
+span protects the bracket), but the visible text shows the backslash, because
+CommonMark does not process escapes inside a code span. Escaping the backtick
+would fix that case by destroying the intended span — a worse trade, so it is
+deliberately not done.
 
 ## Usage
 

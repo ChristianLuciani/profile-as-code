@@ -29,9 +29,12 @@ skills · links (the contact email first, then every `identity.links[]` entry,
 all visible) · evidence registry (`public` entries only, §18.5) · `schema.org`
 Person JSON-LD · generated footer with a fact count.
 
-The JSON-LD `sameAs` set is **narrower** than that visible list: it carries only
-`role: realization` links (plus claimed handles) and is assembled by core
-(`structured-data.ts`) — this renderer never re-derives `@id`/`sameAs` (§15.4).
+The JSON-LD `sameAs` set is a **different, overlapping** set — not a subset of
+that visible list: it drops the contact email and adds the claimed
+`socialHandles[].url` entries (which the visible list never prints), and it
+carries only `role: realization` links plus claimed handles. It is assembled by
+core (`structured-data.ts`) — this renderer never re-derives `@id`/`sameAs`
+(§15.4).
 
 Nothing is invented: every line comes from the SSOT, and an empty accessor is
 absent rather than rendered blank.
