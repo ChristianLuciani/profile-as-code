@@ -9,32 +9,33 @@ import { compile, load, PLATFORMS } from "../src/index.js";
 const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
 const minimal = () => load(fixture("minimal"));
 
+/** `$defs.platform.enum` — the one hand-authored home of the platform set (D16).
+ *  Read once: the two guards below iterate/compare against it, never a copy. */
+const SCHEMA_PLATFORMS = (
+  JSON.parse(
+    readFileSync(
+      fileURLToPath(new URL("../../../schema/profile.schema.json", import.meta.url)),
+      "utf8",
+    ),
+  ) as { $defs: { platform: { enum: string[] } } }
+).$defs.platform.enum;
+
 describe("compile(profile, platform, lang)", () => {
-  it("accepts every platform in the schema enum (incl. patreon)", () => {
-    const platforms: readonly Platform[] = [
-      "github-readme",
-      "linkedin",
-      "upwork",
-      "x",
-      "researchgate",
-      "substack",
-      "patreon",
-    ];
-    for (const p of platforms) {
-      expect(() => compile(minimal(), p, "en")).not.toThrow();
+  it("accepts every platform in the schema enum", () => {
+    // No hand list (issue #152 review F1): the loop walks the schema enum, so a
+    // new platform is exercised the moment `pnpm gen:zod` regenerates PLATFORMS.
+    // The cast is the point of the test — raw schema strings must be accepted.
+    for (const platform of SCHEMA_PLATFORMS) {
+      expect(() => compile(minimal(), platform as Platform, "en")).not.toThrow();
     }
   });
 
   it("PLATFORMS mirrors the schema enum (single source of truth guard)", () => {
-    // Regression guard for the duplication fix: packages/core/src/types.ts PLATFORMS
-    // must never drift from schema/profile.schema.json $defs.platform.enum.
-    const schema = JSON.parse(
-      readFileSync(
-        fileURLToPath(new URL("../../../schema/profile.schema.json", import.meta.url)),
-        "utf8",
-      ),
-    ) as { $defs: { platform: { enum: string[] } } };
-    expect([...PLATFORMS].sort()).toEqual([...schema.$defs.platform.enum].sort());
+    // Named literally by docs/SPEC.md D16 ("core `PLATFORMS` MUST mirror the
+    // schema enum (vitest contract test)") — this direct assertion is what keeps
+    // that sentence true; contract.test.ts guards the codegen boundary (the
+    // generated value list vs the schema), a different link in the chain.
+    expect([...PLATFORMS].sort()).toEqual([...SCHEMA_PLATFORMS].sort());
   });
 
   it("slices bios and headlines by platform+lang", () => {
