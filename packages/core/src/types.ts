@@ -91,8 +91,10 @@ export type Credential = NonNullable<Profile["credentials"]>[number];
 export type Artifact = NonNullable<Profile["artifacts"]>[number];
 
 export type Lang = Bio["lang"];
-/** The platform set — derived from the GENERATED `PLATFORM_VALUES` (D3/D16). */
-export type Platform = (typeof PLATFORM_VALUES)[number];
+/** The platform set — the GENERATED Zod union (`Bio` is `z.infer` of the
+ *  generated schema). Typing `PLATFORMS` with it makes `tsc` refuse any value
+ *  the runtime validator would not accept (see `PLATFORMS` below). */
+export type Platform = Bio["platform"];
 export type BioLength = Bio["length"];
 export type LangMap = Record<Lang, string>;
 
