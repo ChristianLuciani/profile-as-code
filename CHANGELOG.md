@@ -9,6 +9,21 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Changed
+
+- **Paste-renderer core — the invariant gets one home (#150, PR #158)**: the six paste
+  adapters (`kofi`…`hotmart`) carried a byte-identical render body (sha256[:16]
+  `b00031017ee2bbc4` after comment strip). The shared body — length priority
+  `long > medium > short`, EXACTLY ONE `bios` row's verbatim text + `\n`, `""` on an empty
+  slice — now lives in **`core/src/paste-source.ts`** (`pasteSource()`): the
+  `structured-data.ts` v1.6 / `packages/markdown` precedent — a contract shared by every
+  adapter lives in one module, and adapters delegate rather than re-implement. `kofi`
+  migrates first: its suite passes, with the overclaiming "emits plain text" fixture check
+  tightened to exact-equality verbatim pass-through — identical input → identical output is
+  the byte-preservation proof. `pasco build` output is unchanged (byte-stable; empty slice →
+  unbuild, §15.1). The remaining five adapters and the six copied suites are tracked in
+  #157.
+
 ### Planned (roadmap)
 
 - Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
