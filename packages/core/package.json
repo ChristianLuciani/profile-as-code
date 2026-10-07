@@ -4,6 +4,26 @@
   "description": "Core engine of profile-as-code: load (schema-validate), driftCheck, geoCheck, compile. Contract source is schema/profile.schema.json (D3) — Zod is generated, never hand-written.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChristianLuciani/profile-as-code.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/ChristianLuciani/profile-as-code/issues"
+  },
+  "homepage": "https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/core#readme",
+  "sideEffects": false,
+  "keywords": [
+    "profile-as-code",
+    "profile",
+    "json-schema",
+    "zod",
+    "validation",
+    "drift",
+    "geo",
+    "static-site"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

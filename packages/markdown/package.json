@@ -4,6 +4,23 @@
   "description": "Markdown-safety helpers shared by markdown-emitting renderers: CommonMark-safe destinations (`mdHref`) and link text (`mdText`). SPEC §15.2.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChristianLuciani/profile-as-code.git",
+    "directory": "packages/markdown"
+  },
+  "bugs": {
+    "url": "https://github.com/ChristianLuciani/profile-as-code/issues"
+  },
+  "homepage": "https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/markdown#readme",
+  "sideEffects": false,
+  "keywords": [
+    "profile-as-code",
+    "markdown",
+    "commonmark",
+    "escaping",
+    "link"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
