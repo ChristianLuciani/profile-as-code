@@ -37,10 +37,14 @@ describe("pasteSource — shared paste-core contract (#150)", () => {
     expect(slice(row("short", "S."))).toBe("S.\n");
   });
 
-  it("passes ONE row through VERBATIM (markdown chars survive; never a merge — D18 hashes one row)", () => {
+  it("passes ONE row through verbatim plus a trailing newline (markdown chars survive; never a merge — D18 hashes one row)", () => {
     expect(slice(row("long", "# Head. [link](u) `code`"))).toBe("# Head. [link](u) `code`\n");
   });
 
+  // Scope of this case: the same input, rendered in two different temp workspaces, must
+  // produce identical bytes — it catches a leaked temp path (or any cwd-dependent byte) in
+  // the output. Per-adapter determinism over a fixed workspace is covered by each
+  // renderer's own byte-stability test.
   it("is byte-stable across two runs (§15.1)", () => {
     const bios = row("long", "Stable body — identical input, identical bytes.");
     expect(slice(bios)).toBe(slice(bios));

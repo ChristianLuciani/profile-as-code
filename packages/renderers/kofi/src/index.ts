@@ -1,8 +1,11 @@
 /**
  * Renderer `kofi` (v1.7, issue #130) — Ko-fi creator page About, paste platform
- * (D9: no API deploy). The artifact IS the paste source: plain text for the
- * Ko-fi About section — no Markdown syntax is emitted (see
- * skills/kofi/research for the sourced formatting facts).
+ * (D9: no API deploy). The artifact IS the paste source for the Ko-fi About
+ * section: `pasteSource()` passes the ONE SSOT bios row through VERBATIM
+ * (`${bio.text}\n`) — it neither ADDS nor STRIPS Markdown/HTML, so a
+ * markdown-bearing row would reach the paste target as-is. Keeping the row
+ * plain is the skill's job (skills/kofi/research owns the sourced formatting
+ * facts, applied by a human step — no check rule covers markdown absence).
  *
  * Deterministic: same input → same bytes (§15.1). No network, no AI, no
  * randomness. Facts pass through untouched from the SSOT; texts are the
