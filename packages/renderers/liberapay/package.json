@@ -4,7 +4,7 @@
   },
   "description": "Renderer liberapay (v1.8, issue #133): deterministic plain-text profile-description paste-source from a PlatformProfile slice. Liberapay is a paste platform (D9) — the artifact IS the text to paste into the public profile Description (verified surface, 2026-10-05). Pure function of the SSOT — no network, no AI, no randomness.",
   "devDependencies": {
-    "@types/node": "^26.6.3",
+    "@types/node": "^26.6.4",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
   },
