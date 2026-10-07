@@ -4,6 +4,25 @@
   "description": "Renderer github-org (M6, brand flavor): deterministic, byte-stable org README.md from a brand PlatformProfile (compile() slice). Pure function of the SSOT — no network, no AI, no randomness. SPEC §17.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChristianLuciani/profile-as-code.git",
+    "directory": "packages/renderers/github-org"
+  },
+  "bugs": {
+    "url": "https://github.com/ChristianLuciani/profile-as-code/issues"
+  },
+  "homepage": "https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/renderers/github-org#readme",
+  "sideEffects": false,
+  "keywords": [
+    "profile-as-code",
+    "github",
+    "organization",
+    "readme",
+    "brand",
+    "renderer",
+    "json-ld"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

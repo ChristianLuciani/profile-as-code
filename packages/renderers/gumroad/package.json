@@ -21,6 +21,24 @@
     "dist"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChristianLuciani/profile-as-code.git",
+    "directory": "packages/renderers/gumroad"
+  },
+  "bugs": {
+    "url": "https://github.com/ChristianLuciani/profile-as-code/issues"
+  },
+  "homepage": "https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/renderers/gumroad#readme",
+  "sideEffects": false,
+  "keywords": [
+    "profile-as-code",
+    "gumroad",
+    "creator",
+    "storefront",
+    "paste",
+    "renderer"
+  ],
   "main": "./dist/index.js",
   "name": "@profile-as-code/renderers-gumroad",
   "scripts": {

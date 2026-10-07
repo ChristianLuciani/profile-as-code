@@ -16,6 +16,15 @@
     "url": "https://github.com/ChristianLuciani/profile-as-code/issues"
   },
   "homepage": "https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/cli#readme",
+  "keywords": [
+    "profile-as-code",
+    "pasco",
+    "cli",
+    "profile",
+    "personal-brand",
+    "static-site",
+    "json-schema"
+  ],
   "files": [
     "dist"
   ],

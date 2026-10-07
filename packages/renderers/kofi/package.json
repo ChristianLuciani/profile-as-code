@@ -4,6 +4,25 @@
   "description": "Renderer kofi (v1.7, issue #130): deterministic plain-text About paste-source from a PlatformProfile slice. Ko-fi is a paste platform (D9) — the artifact IS the text to paste. Pure function of the SSOT — no network, no AI, no randomness.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChristianLuciani/profile-as-code.git",
+    "directory": "packages/renderers/kofi"
+  },
+  "bugs": {
+    "url": "https://github.com/ChristianLuciani/profile-as-code/issues"
+  },
+  "homepage": "https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/renderers/kofi#readme",
+  "sideEffects": false,
+  "keywords": [
+    "profile-as-code",
+    "kofi",
+    "ko-fi",
+    "creator",
+    "donations",
+    "paste",
+    "renderer"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

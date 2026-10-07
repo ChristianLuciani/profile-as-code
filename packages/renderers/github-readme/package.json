@@ -4,6 +4,24 @@
   "description": "Renderer github-readme (M2): deterministic, byte-stable README.md from a PlatformProfile (compile() slice). Pure function of the SSOT — no network, no AI, no randomness. SPEC §15.",
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChristianLuciani/profile-as-code.git",
+    "directory": "packages/renderers/github-readme"
+  },
+  "bugs": {
+    "url": "https://github.com/ChristianLuciani/profile-as-code/issues"
+  },
+  "homepage": "https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/renderers/github-readme#readme",
+  "sideEffects": false,
+  "keywords": [
+    "profile-as-code",
+    "github",
+    "readme",
+    "renderer",
+    "structured-data",
+    "json-ld"
+  ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
