@@ -43,8 +43,9 @@ slice, so it would be dead code).
 
 `deploySpec: "manual"` — the documented `developers.hotmart.com` APIs cover
 sales/products, not the profile body `[?]`, so the artifact **is** the paste
-source and `pasco status --mark hotmart <surface>` records the paste in the D18
-ledger (`source: manual`, D9).
+source and `pasco status --mark bios:<platform>:<lang>:<length> <platform>` records the
+paste in the D18 ledger (`source: manual`, D9) — the ledger key is the row the
+artifact hashes (§19.2), the surface is positional.
 
 Fees and eligibility follow the official legal texts, fetched 2026-10-05 — see
 [skills/hotmart/research/SOTA-2026.md](../../../skills/hotmart/research/SOTA-2026.md).

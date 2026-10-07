@@ -41,8 +41,9 @@ slice, so it would be dead code).
 ## Deploy
 
 `deploySpec: "manual"` — no management API for the profile body, so the
-artifact **is** the paste source and `pasco status --mark payhip <surface>`
-records the paste in the D18 ledger (`source: manual`, D9).
+artifact **is** the paste source and `pasco status --mark bios:<platform>:<lang>:<length> <platform>` records the
+paste in the D18 ledger (`source: manual`, D9) — the ledger key is the row the
+artifact hashes (§19.2), the surface is positional.
 
 ## Dependencies
 

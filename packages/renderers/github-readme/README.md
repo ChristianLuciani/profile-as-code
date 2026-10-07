@@ -25,8 +25,13 @@ const { text, assets } = render(slice);
 
 Ordered, deterministic sections (§15.3): header (name · headline · identity
 badges) · statement · featured projects · publications (DOI-resolvable) ·
-skills · links (`sameAs`) · evidence registry (`public` entries only, §18.5) ·
-`schema.org` Person JSON-LD · generated footer with a fact count.
+skills · links (the contact email first, then every `identity.links[]` entry,
+all visible) · evidence registry (`public` entries only, §18.5) · `schema.org`
+Person JSON-LD · generated footer with a fact count.
+
+The JSON-LD `sameAs` set is **narrower** than that visible list: it carries only
+`role: realization` links (plus claimed handles) and is assembled by core
+(`structured-data.ts`) — this renderer never re-derives `@id`/`sameAs` (§15.4).
 
 Nothing is invented: every line comes from the SSOT, and an empty accessor is
 absent rather than rendered blank.

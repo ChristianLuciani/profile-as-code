@@ -13,9 +13,13 @@ and labels are free text — and each one breaks the parse when interpolated raw
 | `mdText(label)` | a link **label** | a raw `[`/`]` closes the label early — the link disappears and the rest degrades into text plus an autolink |
 
 Both are pure and total. Structured surfaces (JSON-LD `sameAs`/`email`) stay
-verbatim (§18.4), and facts keep their bytes: `mdText` adds a CommonMark
-backslash escape that the parser removes again, so the rendered label is
-unchanged — only the Markdown source gains the escape.
+verbatim (§18.4), and facts keep their bytes: `mdText` escapes only `\`, `[` and
+`]`, and the parser removes the escape again, so the rendered label is
+unchanged — with one known, accepted cosmetic exception: a label carrying a code
+span **and** a bracket still parses (the span protects the bracket), but the
+visible text shows the backslash, because CommonMark does not process escapes
+inside a code span. Escaping the backtick would fix that case by destroying the
+intended span — a worse trade, so it is deliberately not done.
 
 ## Usage
 

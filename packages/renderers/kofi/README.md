@@ -38,8 +38,9 @@ skill's lang rule is what surfaces that gap to the operator.
 ## Deploy
 
 `deploySpec: "manual"` — Ko-fi has no write API for the About section, so the
-artifact **is** the paste source and `pasco status --mark kofi <surface>`
-records the paste in the D18 ledger (`source: manual`, D9).
+artifact **is** the paste source and `pasco status --mark bios:<platform>:<lang>:<length> <platform>` records the
+paste in the D18 ledger (`source: manual`, D9) — the ledger key is the row the
+artifact hashes (§19.2), the surface is positional.
 
 ## Dependencies
 
