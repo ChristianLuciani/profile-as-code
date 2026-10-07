@@ -6,8 +6,8 @@
  * statement, audiences, citationsGoal) is filtered by platform+lang, falling back
  * to `en` when the requested lang is absent (EN is always required by the schema).
  *
- * The platform set is the single `PLATFORMS` const from types.js (mirror of the
- * schema enum) — never duplicated here.
+ * The platform set is the single `PLATFORMS` const from types.js (generated from
+ * the schema enum) — never duplicated here.
  */
 
 import { structuredData } from "./structured-data.js";

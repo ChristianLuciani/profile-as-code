@@ -11,7 +11,7 @@
  * guaranteed to be defined (empty arrays when absent in the workspace).
  */
 
-import type { profileSchema } from "./generated/schema.zod.js";
+import { PLATFORM_VALUES, type profileSchema } from "./generated/schema.zod.js";
 
 /** The profile as defined by the contract (schema/profile.schema.json). */
 export type Profile = import("zod").z.infer<typeof profileSchema>;
@@ -91,7 +91,8 @@ export type Credential = NonNullable<Profile["credentials"]>[number];
 export type Artifact = NonNullable<Profile["artifacts"]>[number];
 
 export type Lang = Bio["lang"];
-export type Platform = Bio["platform"];
+/** The platform set — derived from the GENERATED `PLATFORM_VALUES` (D3/D16). */
+export type Platform = (typeof PLATFORM_VALUES)[number];
 export type BioLength = Bio["length"];
 export type LangMap = Record<Lang, string>;
 
@@ -108,69 +109,13 @@ export function textOf(v: string | GeneratedLangMap | undefined): string {
   return typeof v === "string" ? v : (v.en ?? "");
 }
 
-/** The platform set — mirrors the schema enum (never hand-maintained here).
- *  v1.1 adds the brand surfaces (D15/§17); v1.2 adds Postiz parity + operator
- *  extras (D16); v1.7 adds kofi (operator extra, issue #130); v1.8 adds the
- *  creator-monetization family (buymeacoffee, liberapay, gumroad, payhip —
- *  issue #133); v1.9 adds hotmart (issue #137) — enforced by the vitest
- *  contract test (tests/contract.test.ts). */
-export const PLATFORMS: readonly Platform[] = [
-  // v1 person surfaces
-  "github-readme",
-  "linkedin",
-  "upwork",
-  "x",
-  "researchgate",
-  "substack",
-  "patreon",
-  // v1.1 brand surfaces (D15/§17)
-  "github-org",
-  "bluesky",
-  "instagram",
-  "tiktok",
-  "youtube",
-  "spotify",
-  "reddit",
-  "mastodon",
-  "soundcloud",
-  // v1.2 Postiz parity + operator extras (D16)
-  "facebook",
-  "linkedin-page",
-  "instagram-standalone",
-  "warpcast",
-  "lemmy",
-  "discord",
-  "slack",
-  "skool",
-  "whop",
-  "pinterest",
-  "dribbble",
-  "medium",
-  "devto",
-  "hashnode",
-  "wordpress",
-  "gmb",
-  "listmonk",
-  "twitch",
-  "threads",
-  "telegram",
-  "nostr",
-  "vk",
-  "kick",
-  "moltbook",
-  "ghost",
-  "mewe",
-  "tumblr",
-  // v1.7 operator extras (D16 pattern, issue #130)
-  "kofi",
-  // v1.8 creator monetization family (D16, issue #133)
-  "buymeacoffee",
-  "liberapay",
-  "gumroad",
-  "payhip",
-  // v1.9 creator monetization family member (D16, issue #137)
-  "hotmart",
-] as const;
+/** The platform set — the generated `PLATFORM_VALUES` (D3/D16).
+ *
+ *  `schema/profile.schema.json` (`$defs.platform.enum`) is the single
+ *  hand-authored home: `scripts/gen-zod.ts` emits both the Zod enum and this
+ *  value list from it, and the vitest contract test asserts that codegen
+ *  boundary (tests/contract.test.ts). Never re-list platforms here. */
+export const PLATFORMS: readonly Platform[] = PLATFORM_VALUES;
 
 export const LANGS: readonly Lang[] = ["en", "es", "fr"] as const;
 
