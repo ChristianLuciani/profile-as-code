@@ -2,8 +2,8 @@ name: release
 
 # Publishes @profile-as-code/cli to npm on a version tag (issue #42) and creates the
 # matching GitHub Release from CHANGELOG.md (issue #58). The FIRST tag push (v0.2.0)
-# is the operator's publish action — pushing the tag IS publishing (issue #44);
-# workflow_dispatch is for retries.
+# is the operator's publish action — pushing the tag IS publishing (issue #113 —
+# #44 closed without the tag); workflow_dispatch is for retries.
 #
 # Publish auth is trusted publishing (OIDC, issue #80). The npm CLI detects the OIDC
 # environment and uses it BEFORE falling back to a traditional token
