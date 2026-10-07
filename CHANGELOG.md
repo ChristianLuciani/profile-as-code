@@ -272,6 +272,7 @@ minor versions may contain breaking contract changes.
   instancias más y las arregla en el mismo PR: `skill.level` (omisión del paréntesis) y `project.status` (omisión del
   segmento ` · \`status\``). Byte-parity: inputs con los tres campos poblados emiten byte-idéntico (test EXPECTED sin
   cambios); `github-org` verificado limpio (todas sus interpolaciones opcionales están guardadas).
+
 - **`exports` condition order in the five newest paste renderers
   (`buymeacoffee`, `liberapay`, `gumroad`, `payhip` — v1.8; `hotmart` — v1.9,
   issue #142)**: `"types"` now precedes `"import"` in the `.` entry, matching
