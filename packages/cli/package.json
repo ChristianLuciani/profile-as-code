@@ -54,7 +54,7 @@
     "@profile-as-code/renderers-kofi": "workspace:*",
     "@profile-as-code/renderers-liberapay": "workspace:*",
     "@profile-as-code/renderers-payhip": "workspace:*",
-    "@types/node": "^26.6.3",
+    "@types/node": "^26.6.4",
     "tsup": "^8.5.1",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
