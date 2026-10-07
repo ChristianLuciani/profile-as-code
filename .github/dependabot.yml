@@ -30,7 +30,8 @@ updates:
       # advisories flag (19× yaml@1.0.0 + 1× zod@1.0.0 = 20 of the 21 open
       # alerts, [OFICIAL] alerts API 2026-10-07). Those alerts open a SECURITY job
       # over the DISCOVERED fixture workspaces; it aborts with
-      # `dependency_file_not_parseable` (run 37562091571, 2026-10-07).
+      # `dependency_file_not_parseable` (run 37562091571, 2026-10-07), poisoning
+      # issue-select's gate 5 (main CI-verde; skills-studio #191).
       # `exclude-paths` cannot stop it — it is a VERSION-UPDATES-ONLY option
       # ([OFICIAL] docs.github.com dependabot-options-reference, checked
       # 2026-10-07), so that security job arrives with `"exclude-paths": []`.
