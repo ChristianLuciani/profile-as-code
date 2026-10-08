@@ -48,7 +48,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { parseWorkspaceGlobs } from "../dep-gate/check.mjs";
+import { expandGlob, parseWorkspaceGlobs } from "../dep-gate/check.mjs";
 
 /** Configuration/shape error: the gate cannot verify what it was asked to verify. */
 class GateError extends Error {}
@@ -97,40 +97,13 @@ async function schemaPlatforms(root) {
   return values;
 }
 
-/** Expand the `packages:` globs (single `*` segments, validated by the parser). */
+/** Expand the `packages:` globs — dep-gate's walk, reused (never a second
+ *  walker: two implementations that disagree on dotfile or symlink semantics
+ *  would silently drop a package from one gate and not the other). */
 async function expandGlobs(root, globs) {
   const found = new Set();
   for (const segments of globs) {
-    let dirs = [root];
-    for (const segment of segments) {
-      const next = [];
-      for (const dir of dirs) {
-        if (segment === "*") {
-          let entries;
-          try {
-            entries = await readdir(dir, { withFileTypes: true });
-          } catch {
-            continue; // absent branch of the glob — pnpm skips it too
-          }
-          for (const entry of entries) {
-            if (entry.isDirectory() && !entry.name.startsWith(".")) {
-              next.push(path.join(dir, entry.name));
-            }
-          }
-        } else {
-          const candidate = path.join(dir, segment);
-          try {
-            if ((await stat(candidate)).isDirectory()) next.push(candidate);
-          } catch {
-            // absent literal segment — skip
-          }
-        }
-      }
-      dirs = next;
-    }
-    for (const dir of dirs) {
-      if (await isFile(path.join(dir, "package.json"))) found.add(dir);
-    }
+    for (const dir of await expandGlob(root, segments)) found.add(dir);
   }
   return [...found].sort();
 }
@@ -264,11 +237,26 @@ export async function collectRenderers(root) {
     }
   }
 
+  // The projection names each import after its platform (`render<Pascal>`):
+  // two platforms whose Pascal forms collide (`github-readme` vs `githubreadme`)
+  // would emit the same binding twice — a broken generated module that only
+  // `tsc`/`tsup` would report, far from here. Refuse it at the source.
+  const byIdentifier = new Map();
+  for (const entry of entries) {
+    const alias = `render${pascal(entry.platform)}`;
+    if (byIdentifier.has(alias)) {
+      throw new GateError(
+        `platforms "${byIdentifier.get(alias)}" and "${entry.platform}" both project to the import ${alias} — rename one`,
+      );
+    }
+    byIdentifier.set(alias, entry.platform);
+  }
+
   entries.sort((a, b) => (a.platform < b.platform ? -1 : a.platform > b.platform ? 1 : 0));
   return entries;
 }
 
-/** `github-readme` → `GithubReadme` — deterministic, and unique: platforms are. */
+/** `github-readme` → `GithubReadme` — deterministic; collisions refused above. */
 function pascal(platform) {
   return platform
     .split(/[^A-Za-z0-9]+/)
@@ -326,6 +314,11 @@ export const RENDERERS: Partial<Record<string, RendererFn>> = {
 ${table}
 };
 
+/** SPEC §7 \`deploySpec\`, projected from the same data home. This is the
+ *  DECLARED-CONTRACT view — \`build.ts\` does not read it (the deploy spec is a
+ *  property of the renderer, not of a build step); it exists so a consumer or
+ *  gate can read the declared contract without importing every adapter, and
+ *  \`tests/renderer-map.test.ts\` asserts it against each module's own export. */
 export const RENDERER_DEPLOY_SPECS: Partial<Record<string, DeploySpec>> = {
 ${deploySpecs}
 };

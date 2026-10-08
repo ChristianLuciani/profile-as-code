@@ -199,6 +199,24 @@ try {
     );
   }
   {
+    // #165 review F4: two platforms whose Pascal forms collide would emit the
+    // same import binding twice — refuse at the source, not in tsc. (Case-only
+    // differences do NOT collide: JS identifiers are case-sensitive.)
+    const root = tree({
+      renderers: [
+        { ...KOFI, platform: "github-readme" },
+        { ...README, platform: "github--readme" },
+      ],
+      enumPlatforms: [...DEFAULT_ENUM, "github--readme"],
+    });
+    const res = run(root);
+    check(
+      "import-identifier collision refuses",
+      res.code === 1 && res.out.includes("both project to the import"),
+      res.out.trim(),
+    );
+  }
+  {
     const root = tree({ renderers: [{ ...KOFI, deploySpec: "ftp" }] });
     const res = run(root);
     check(

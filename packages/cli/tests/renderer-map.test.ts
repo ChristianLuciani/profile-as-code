@@ -14,7 +14,7 @@
  * renderer joins this gate by existing (the loud half — a renderer without a
  * `pasco.platform` — is `scripts/renderer-map/gen.mjs`).
  */
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PLATFORMS } from "@profile-as-code/core";
@@ -29,8 +29,12 @@ interface RendererManifest {
   pasco: { platform: string; deploySpec: string; assets?: boolean };
 }
 
+/** A renderer is a directory with a manifest — the same subject the generator
+ *  arms on (`rendererDirs`), so a stray non-package directory under
+ *  `packages/renderers/` cannot crash this suite at import time (review F1). */
 const manifests: RendererManifest[] = readdirSync(RENDERERS_DIR, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
+  .filter((entry) => existsSync(join(RENDERERS_DIR, entry.name, "package.json")))
   .map((entry) => {
     const manifest = JSON.parse(
       readFileSync(join(RENDERERS_DIR, entry.name, "package.json"), "utf8"),

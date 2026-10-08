@@ -38,6 +38,11 @@ export const RENDERERS: Partial<Record<string, RendererFn>> = {
   payhip: (slice) => renderPayhip(slice),
 };
 
+/** SPEC §7 `deploySpec`, projected from the same data home. This is the
+ *  DECLARED-CONTRACT view — `build.ts` does not read it (the deploy spec is a
+ *  property of the renderer, not of a build step); it exists so a consumer or
+ *  gate can read the declared contract without importing every adapter, and
+ *  `tests/renderer-map.test.ts` asserts it against each module's own export. */
 export const RENDERER_DEPLOY_SPECS: Partial<Record<string, DeploySpec>> = {
   buymeacoffee: "manual",
   "github-org": "git",
