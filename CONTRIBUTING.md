@@ -101,6 +101,52 @@ locally with `bash scripts/dco-check/test.sh`.
 5. Address review comments; all conversations must be resolved before merge.
 6. The maintainer merges (currently 0 mandatory approvals — review is the maintainer's process).
 
+## Escalation and expected latency
+
+**The number published here is measured, not a promise** — this project states its real
+merge latency instead of committing to an SLA it cannot control. What follows is the time
+from PR opened to PR merged, in hours, over every merged PR in the measurement window.
+
+| Stratum | n | p50 | p90 | max |
+|---|---|---|---|---|
+| All merged PRs | 103 | 2.4 h | 83.0 h | 407.8 h |
+| Maintainer / agent sessions | 80 | 1.6 h | 21.3 h | 407.8 h |
+| Dependabot (waiting on the operator's turn) | 23 | 42.8 h | 109.3 h | 116.2 h |
+
+Measured 2026-10-08, n=103 merged PRs (window 2026-08-08 → 2026-10-07), `[MI]`.
+Distribution: 65% <6 h · 22% 6–48 h · 11% 2–7 d · 1.9% >7 d.
+
+Read the strata, not the headline: the 83.0 h p90 for *all* PRs is an artifact of the 23
+Dependabot PRs, which queue behind the operator's turn. The stratum analogous to a PR that
+needs a maintainer's judgement — a human or agent contribution — is 21.3 h at p90, and the
+Dependabot stratum is the honest reference when your PR needs a scheduling decision.
+
+**Honest caveat: there are no external PRs yet.** Every PR in this sample was opened by the
+maintainer or an agent session, so the number describes *maintenance cadence*, not response
+to an outsider. The external stratum will be published here once the first 3 external PRs
+exist; until then, treat these figures as the floor you can expect, not a measurement of how
+this project treats strangers.
+
+Regenerate the table yourself with `gh` + `python3`:
+
+```bash
+gh pr list --state merged --limit 200 --json createdAt,mergedAt | python3 -c 'import json,sys,math;from datetime import datetime as D;d=json.load(sys.stdin);v=sorted((D.fromisoformat(p["mergedAt"].replace("Z","+00:00"))-D.fromisoformat(p["createdAt"].replace("Z","+00:00"))).total_seconds()/3600 for p in d);q=lambda x:v[max(0,math.ceil(x*len(v))-1)];print(f"n={len(v)} p50={q(.5):.1f}h p90={q(.9):.1f}h max={max(v):.1f}h")'
+```
+
+### If your PR stalls
+
+- **Stalled means: no maintainer response after 7 days.** That threshold is set by the
+  history, not by optimism — only **1.9%** of merged PRs ever exceeded it (the p90 of the
+  analogous stratum is ~4.5 d), so a 7-day silence is a real signal that something was
+  dropped, not normal queueing.
+- **Where to escalate:** leave **one comment on the PR mentioning `@ChristianLuciani`**.
+  The context stays in the thread — there is no separate channel to watch, and no second
+  surface to go stale.
+- **What happens next is never silence.** A stalled PR gets one of three explicit outcomes:
+  a maintainer review, a `help wanted` label plus a note saying what is needed, or a close
+  with a stated reason. This is the same discipline our issue triage already commits to
+  (community-first §4, ≤48 h close-or-label), applied to the PR side.
+
 ## Contributing a platform skill (the special case)
 
 Skills are the living-knowledge layer (D5). Every skill must follow `skills/README.md`:
