@@ -268,6 +268,7 @@ interface Renderer {
   id: 'github-readme' | 'linkedin' | 'upwork' | 'x' | 'researchgate' | 'substack';
   render(p: PlatformProfile, opts): { text: string; assets?: string[] };
   deploySpec: 'git' | 'api' | 'manual';   // manual → playbook + checks
+                                          // must equal pasco.deploySpec (CI-asserted, #165)
 }
 
 interface SkillChecks {  // from skills/<platform>/checks.yaml
@@ -275,18 +276,19 @@ interface SkillChecks {  // from skills/<platform>/checks.yaml
 }
 ```
 
-**One data home for `id` + `deploySpec` (issue #165).** The pair above is
-declared once, in the renderer's own `package.json` —
-`"pasco": { "platform": "<id>", "deploySpec": "<spec>" }`, plus `"assets": true`
-on the renderer that consumes the media bundle (§18.6). `pnpm gen:renderers`
-projects that field into the CLI's `RENDERERS` map
-(`packages/cli/src/generated/renderers.gen.ts`, committed, never hand-edited);
-CI asserts the projection is fresh, that every declared platform is in
-`$defs.platform.enum` (the contract), that the association is one-to-one, and
-that each module's own `deploySpec` export agrees — a renderer without a
-resolvable platform fails the gate loudly, it is never skipped. The
-machine-readable registry (#154) adds the reverse assertion (every platform in
-the enum has a declared renderer or an explicit "not implemented yet").
+**One declared home for `id` + `deploySpec` + asset consumption (issue #165).** The
+manifest is the source: `"pasco": { "platform": "<id>", "deploySpec": "<spec>" }`, plus
+`"assets": true` on the renderer that consumes the media bundle (§18.6). The module keeps a
+typed copy of the two capabilities (`export const deploySpec`, `export const consumesAssets`)
+because the render seam is code, not data — so the pair has one *declared* home and one
+*gate-checked* projection, not two hand-kept lists: `renderer-map.test.ts` asserts each module
+copy agrees with the manifest. `pnpm gen:renderers` projects the manifest into the CLI's
+`RENDERERS` map (`packages/cli/src/generated/renderers.gen.ts`, committed, never hand-edited);
+CI asserts the projection is fresh, that every declared platform is in `$defs.platform.enum`
+(the contract), that the association is one-to-one, and that the module copies agree — a
+renderer without a resolvable platform fails the gate loudly, it is never skipped. The
+machine-readable registry (#154) adds the reverse assertion (every platform in the enum has a
+declared renderer or an explicit "not implemented yet").
 
 `pasco` (CLI) commands — v1:
 

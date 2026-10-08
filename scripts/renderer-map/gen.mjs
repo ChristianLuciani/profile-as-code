@@ -27,8 +27,11 @@
  *   E-GATE  a platform outside the schema enum, or declared by two renderers;
  *   E-GATE  a renderer that is not a workspace member, or a workspace member
  *           OUTSIDE the renderer layout declaring `pasco.platform` (a moved
- *           renderer must not fall out of the projection — the D20 precedent,
- *           `scripts/dep-gate/check.mjs`, refuses the same shape);
+ *           renderer must not fall out of the projection while it is still a
+ *           workspace member — the D20 precedent, `scripts/dep-gate/check.mjs`,
+ *           refuses the same shape; a directory moved outside the workspace
+ *           globs leaves this gate's subject, and the CLI's static import stops
+ *           resolving, which the build catches);
  *   E-GATE  a renderer the CLI does not depend on (the generated static import
  *           would not resolve on a fresh install);
  *   --check stale projection (a manifest edited without `pnpm gen:renderers`).

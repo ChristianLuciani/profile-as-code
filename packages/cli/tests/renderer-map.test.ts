@@ -81,4 +81,17 @@ describe("renderer map — one data home (#165)", () => {
       expect(RENDERER_DEPLOY_SPECS[pasco.platform], `${name}: projection`).toBe(module.deploySpec);
     }
   });
+
+  // F1 of the fresh review: `pasco.assets` decides the generated call SHAPE, so a
+  // manifest flag that disagrees with the module would drop the media bundle with
+  // every gate green (the generator cannot import a module). The declaration is
+  // the module's own export — code, reviewable — and this assertion is the gate.
+  it("asset consumption is declared in the module exactly where the manifest claims it", async () => {
+    for (const { name, pasco } of manifests) {
+      const module = (await import(name)) as { consumesAssets?: unknown };
+      expect(module.consumesAssets ?? false, `${name}: module vs manifest pasco.assets`).toBe(
+        pasco.assets === true,
+      );
+    }
+  });
 });

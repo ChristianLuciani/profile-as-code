@@ -9,7 +9,7 @@ every decision lives in [`docs/SPEC.md`](docs/SPEC.md) (decisions D1–D18). Rea
 |---|---|---|
 | **Core engine** (load, drift, geo, compile) | `packages/core/` | [`good first issue`](https://github.com/ChristianLuciani/profile-as-code/labels/good%20first%20issue) |
 | **Schema** (the contract) | `schema/profile.schema.json` + `scripts/schema-check/` | Issue first — the contract is additive and reviewed carefully (D3) |
-| **Renderers** | `packages/renderers/<platform>/` — 3 shipped (`github-readme`, `github-org`, `kofi`); new platforms welcome | One adapter per platform — the contribution seam. CommonMark escaping comes from `packages/markdown/` (`mdHref`/`mdText`) — never re-implement it in an adapter |
+| **Renderers** | `packages/renderers/<platform>/` — 3 shipped (`github-readme`, `github-org`, `kofi`); new platforms welcome | One adapter per platform — the contribution seam. A renderer registers itself in its own `package.json` `pasco` block (`platform`, `deploySpec`, plus `assets: true` if it consumes the media bundle), then run `pnpm gen:renderers` — the CLI's map is generated, never hand-edited (#165). CommonMark escaping comes from `packages/markdown/` (`mdHref`/`mdText`) — never re-implement it in an adapter |
 | **Platform skills** | `skills/<platform>/` | SOTA knowledge for a platform we don't cover (Behance, Xing, Indeed…) — see `skills/README.md` |
 | **Research** | `docs/research/` | Prior-art and per-platform SOTA research, all claims sourced and dated |
 | **Docs** | `docs/`, `README.md` | Typos, clarifications, translation of docs |
