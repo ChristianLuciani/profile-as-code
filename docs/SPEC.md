@@ -275,6 +275,19 @@ interface SkillChecks {  // from skills/<platform>/checks.yaml
 }
 ```
 
+**One data home for `id` + `deploySpec` (issue #165).** The pair above is
+declared once, in the renderer's own `package.json` —
+`"pasco": { "platform": "<id>", "deploySpec": "<spec>" }`, plus `"assets": true`
+on the renderer that consumes the media bundle (§18.6). `pnpm gen:renderers`
+projects that field into the CLI's `RENDERERS` map
+(`packages/cli/src/generated/renderers.gen.ts`, committed, never hand-edited);
+CI asserts the projection is fresh, that every declared platform is in
+`$defs.platform.enum` (the contract), that the association is one-to-one, and
+that each module's own `deploySpec` export agrees — a renderer without a
+resolvable platform fails the gate loudly, it is never skipped. The
+machine-readable registry (#154) adds the reverse assertion (every platform in
+the enum has a declared renderer or an explicit "not implemented yet").
+
 `pasco` (CLI) commands — v1:
 
 | Command | Purpose |

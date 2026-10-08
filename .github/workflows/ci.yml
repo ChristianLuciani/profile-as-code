@@ -47,6 +47,23 @@ jobs:
           node scripts/dep-gate/test.mjs
           node scripts/dep-gate/check.mjs
 
+      # Issue #165: the platform↔renderer association has one data home — the
+      # `pasco` block of each renderer's package.json. The CLI's RENDERERS map is
+      # GENERATED from it (`packages/cli/src/generated/renderers.gen.ts`), so a
+      # manifest edit without `pnpm gen:renderers` must fail here, not drift
+      # silently. The self-test first proves the gate itself against synthesized
+      # trees covering every refusal it claims (missing platform, platform
+      # outside the schema enum, duplicate, non-member renderer, stale
+      # projection). Same D3 drift-check shape as the zod gate below; `--check`
+      # also runs the platform membership/one-to-one validation, so a renderer
+      # without a resolvable platform can never be skipped. Zero deps, runs
+      # before install to fail fast.
+      - name: Renderer map in sync with the renderer manifests (#165)
+        if: hashFiles('package.json') != ''
+        run: |
+          node scripts/renderer-map/test.mjs
+          node scripts/renderer-map/gen.mjs --check
+
       - name: Install dependencies
         if: hashFiles('package.json') != ''
         run: pnpm install --frozen-lockfile

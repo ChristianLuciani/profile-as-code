@@ -16,7 +16,8 @@
     "lint:fix": "biome check --write .",
     "lint:fix:unsafe": "biome check --write --unsafe .",
     "format": "biome format --write .",
-    "gen:zod": "pnpm -F @profile-as-code/core gen:zod"
+    "gen:zod": "pnpm -F @profile-as-code/core gen:zod",
+    "gen:renderers": "node scripts/renderer-map/gen.mjs"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",

@@ -31,6 +31,10 @@
   },
   "homepage": "https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/renderers/buymeacoffee#readme",
   "sideEffects": false,
+  "pasco": {
+    "platform": "buymeacoffee",
+    "deploySpec": "manual"
+  },
   "keywords": [
     "profile-as-code",
     "buymeacoffee",
