@@ -114,31 +114,47 @@ from PR opened to PR merged, in hours, over every merged PR in the measurement w
 | Dependabot (waiting on the operator's turn) | 23 | 42.8 h | 109.3 h | 116.2 h |
 
 Measured 2026-10-08, n=103 merged PRs (window 2026-08-08 → 2026-10-07), `[MI]`.
-Distribution: 65% <6 h · 22% 6–48 h · 11% 2–7 d · 1.9% >7 d.
+Distribution: 65.05% <6 h · 22.33% 6–48 h · 10.68% 2–7 d · 1.94% >7 d.
 
 Read the strata, not the headline: the 83.0 h p90 for *all* PRs is an artifact of the 23
-Dependabot PRs, which queue behind the operator's turn. The stratum analogous to a PR that
-needs a maintainer's judgement — a human or agent contribution — is 21.3 h at p90, and the
-Dependabot stratum is the honest reference when your PR needs a scheduling decision.
+Dependabot PRs, which queue behind the operator's turn. **The closest analog to a third-party
+PR — something that waits for the operator to act and is not their own work — is the Dependabot
+stratum: 42.8 h p50 / 109.3 h p90.** The 21.3 h stratum is the maintainer's own work,
+self-merged without a review gate; don't read it as your expected wait.
 
 **Honest caveat: there are no external PRs yet.** Every PR in this sample was opened by the
 maintainer or an agent session, so the number describes *maintenance cadence*, not response
 to an outsider. The external stratum will be published here once the first 3 external PRs
-exist; until then, treat these figures as the floor you can expect, not a measurement of how
-this project treats strangers.
+exist (tracked in #175). Until then, treat these figures as the optimistic bound, not a
+measurement of how this project treats strangers.
 
-Regenerate the table yourself with `gh` + `python3`:
+Regenerate every number above with `gh` + `python3` — the measurement window is pinned in the query and `--limit` exceeds that window's PR count:
 
 ```bash
-gh pr list --state merged --limit 200 --json createdAt,mergedAt | python3 -c 'import json,sys,math;from datetime import datetime as D;d=json.load(sys.stdin);v=sorted((D.fromisoformat(p["mergedAt"].replace("Z","+00:00"))-D.fromisoformat(p["createdAt"].replace("Z","+00:00"))).total_seconds()/3600 for p in d);q=lambda x:v[max(0,math.ceil(x*len(v))-1)];print(f"n={len(v)} p50={q(.5):.1f}h p90={q(.9):.1f}h max={max(v):.1f}h")'
+gh pr list --state merged --limit 500 --search 'merged:2026-08-08..2026-10-07' --json createdAt,mergedAt,author | python3 -c '
+import json,sys,math
+from datetime import datetime as D
+d=json.load(sys.stdin)
+h=lambda p:(D.fromisoformat(p["mergedAt"].replace("Z","+00:00"))-D.fromisoformat(p["createdAt"].replace("Z","+00:00"))).total_seconds()/3600
+q=lambda v,x:sorted(v)[max(0,math.ceil(x*len(v))-1)] if v else float("nan")
+def row(label,v):print(f"{label:<22} n={len(v):>3}  p50={q(v,.5):6.1f}h  p90={q(v,.9):6.1f}h  max={max(v):7.1f}h")
+rows=[(p,h(p)) for p in d]
+row("all merged PRs",[x for _,x in rows])
+row("maintainer/agent",[x for p,x in rows if not p["author"]["login"].startswith("app/")])
+row("dependabot",[x for p,x in rows if p["author"]["login"].startswith("app/")])
+v=[x for _,x in rows]
+for lo,hi,lab in ((0,6,"<6h"),(6,48,"6-48h"),(48,168,"2-7d"),(168,1e9,">7d")):
+    c=len([x for x in v if lo<=x<hi]);print(f"{lab:<22} {c:>3}  ({100*c/len(v):5.2f}%)")
+'
 ```
 
 ### If your PR stalls
 
-- **Stalled means: no maintainer response after 7 days.** That threshold is set by the
-  history, not by optimism — only **1.9%** of merged PRs ever exceeded it (the p90 of the
-  analogous stratum is ~4.5 d), so a 7-day silence is a real signal that something was
-  dropped, not normal queueing.
+- **Stalled means: no maintainer response after 7 days.** That line is deliberate, not measured:
+  response latency is not measurable yet — only 4 of 103 merged PRs carry any response from
+  someone other than the author — so we set the threshold and will revisit it when the external
+  stratum exists (#175). A 7-day silence is a signal that something was dropped, not normal
+  queueing.
 - **Where to escalate:** leave **one comment on the PR mentioning `@ChristianLuciani`**.
   The context stays in the thread — there is no separate channel to watch, and no second
   surface to go stale.
