@@ -1,0 +1,28 @@
+# Formats Biome does not own. The single-formatter decision is recorded in
+# `docs/ci-cd.md` §"Why Biome" (#59) — not D3 (SPEC §5: JSON Schema as the
+# contract source).
+# Markdown stays under the global trim: write a hard line break as a trailing
+# backslash or <br>.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# scripts/schema-check/check.py is 4-space indented.
+[*.py]
+indent_size = 4
+
+# Immutable artifacts: review records and test fixtures are not rewritten by an
+# editor on save (14 tracked files currently lack a final newline).
+[.sota/**]
+insert_final_newline = false
+trim_trailing_whitespace = false
+
+[**/fixtures/**]
+insert_final_newline = false
+trim_trailing_whitespace = false
