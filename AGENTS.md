@@ -35,6 +35,9 @@ per-user private repo (`profile-data`), scaffolded from the template
    deliberately designed (§7).
 2. **Zod is generated (D3).** Change `schema/profile.schema.json`, run `pnpm gen:zod`,
    commit both. Never edit `packages/core/src/generated/schema.zod.ts` by hand.
+   The renderer map is generated the same way (#165): change a renderer's `pasco`
+   block, run `pnpm gen:renderers`, commit both — never hand-edit
+   `packages/cli/src/generated/renderers.gen.ts`.
 3. **Evidence rule.** Quantitative claims need source + date
    (`[OFICIAL]`/`[EXPERTO]`/`[BENCHMARK]`/`[?]`). Use epistemic notation
    `[MI]`/`[WEB]`/`[INF]`/`[?]` for inference vs. source.
@@ -50,6 +53,7 @@ per-user private repo (`profile-data`), scaffolded from the template
 ```bash
 pnpm install && pnpm test && pnpm build && pnpm typecheck && pnpm lint
 pnpm gen:zod                      # after schema changes
+pnpm gen:renderers                # after changing a renderer's pasco block
 python3 -m venv /tmp/schema-venv && /tmp/schema-venv/bin/pip install jsonschema
 /tmp/schema-venv/bin/python scripts/schema-check/check.py
 ```

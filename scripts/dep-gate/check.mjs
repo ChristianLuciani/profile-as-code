@@ -131,7 +131,14 @@ function validateGlob(glob) {
   });
 }
 
-async function expandGlob(root, segments) {
+/**
+ * Expand one parsed glob to the workspace directories that carry a manifest.
+ * Exported for the second consumer (`scripts/renderer-map/gen.mjs`, #165): the
+ * workspace walk must not diverge between gates — two walkers disagreeing on
+ * dotfile or symlink semantics is a discovery skew that silently drops a
+ * package from one gate and not the other (review F3 on #165).
+ */
+export async function expandGlob(root, segments) {
   let current = [root];
   for (const segment of segments) {
     const next = [];

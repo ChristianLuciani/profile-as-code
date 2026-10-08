@@ -14,6 +14,10 @@
   },
   "homepage": "https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/renderers/kofi#readme",
   "sideEffects": false,
+  "pasco": {
+    "platform": "kofi",
+    "deploySpec": "manual"
+  },
   "keywords": [
     "profile-as-code",
     "kofi",

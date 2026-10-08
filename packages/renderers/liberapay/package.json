@@ -31,6 +31,10 @@
   },
   "homepage": "https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/renderers/liberapay#readme",
   "sideEffects": false,
+  "pasco": {
+    "platform": "liberapay",
+    "deploySpec": "manual"
+  },
   "keywords": [
     "profile-as-code",
     "liberapay",

@@ -28,6 +28,11 @@ import { mdHref, mdText } from "@profile-as-code/markdown";
 
 export const deploySpec = "git" as const;
 
+/** True: this renderer consumes the media bundle. `renderer-map.test.ts` asserts
+ *  it agrees with the manifest's `pasco.assets`, so a wrong flag fails CI instead
+ *  of silently emitting a call without the assets (#165). */
+export const consumesAssets = true;
+
 export interface RenderResult {
   text: string;
   assets?: string[];

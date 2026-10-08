@@ -31,6 +31,10 @@
   },
   "homepage": "https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/renderers/gumroad#readme",
   "sideEffects": false,
+  "pasco": {
+    "platform": "gumroad",
+    "deploySpec": "manual"
+  },
   "keywords": [
     "profile-as-code",
     "gumroad",

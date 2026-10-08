@@ -2,17 +2,16 @@
  * pasco build [platform] [--lang] — deterministic base texts per platform+lang
  * (SPEC §7 `pasco build`) + rendered deploy artifacts (SPEC §15). Pure compile()
  * slices; no AI. Platforms WITH a renderer also write the rendered artifact to
- * profiles/<platform>/README.md (deploy spec: git for GitHub surfaces, manual
- * for the paste platforms — kofi (v1.7), the creator-monetization family
- * (buymeacoffee, liberapay, gumroad, payhip — v1.8, issue #133) and hotmart
- * (v1.9, issue #137); the artifact IS the paste source, D9); platforms without
- * a renderer print their slices (renderers land in M4). Empty renders unbuild
- * their platform output (v1.7: profiles/ is a pure function, §15.1).
+ * profiles/<platform>/README.md (deploy spec comes from the renderer's own
+ * manifest — `pasco.deploySpec`, §7/#165: git for the GitHub surfaces, manual
+ * for the paste platforms, whose artifact IS the paste source, D9); platforms
+ * without a renderer print their slices (renderers land in M4). Empty renders
+ * unbuild their platform output (v1.7: profiles/ is a pure function, §15.1).
  */
 
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { LoadedProfile, MediaAsset, PlatformProfile } from "@profile-as-code/core";
+import type { LoadedProfile, PlatformProfile } from "@profile-as-code/core";
 import {
   collectMedia,
   compile,
@@ -22,40 +21,20 @@ import {
   PLATFORMS,
   SchemaValidationError,
 } from "@profile-as-code/core";
-import { render as renderBuymeacoffee } from "@profile-as-code/renderers-buymeacoffee";
-import { render as renderGithubOrg } from "@profile-as-code/renderers-github-org";
-import { render as renderGithubReadme } from "@profile-as-code/renderers-github-readme";
-import { render as renderGumroad } from "@profile-as-code/renderers-gumroad";
-import { render as renderHotmart } from "@profile-as-code/renderers-hotmart";
-import { render as renderKofi } from "@profile-as-code/renderers-kofi";
-import { render as renderLiberapay } from "@profile-as-code/renderers-liberapay";
-import { render as renderPayhip } from "@profile-as-code/renderers-payhip";
 import { parseLang, parsePlatform } from "../contract.js";
 import { EXIT } from "../exit.js";
+import { RENDERERS } from "../generated/renderers.gen.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import type { Pascorc } from "../workspace.js";
 import { defaultsLang } from "../workspace.js";
 
-/** Platforms with an implemented renderer (M2: github-readme; M6: github-org;
- *  v1.7 #130: kofi; v1.8 #133 + v1.9 #137: the creator-monetization family —
- *  paste platforms, D9 artifact = the paste source).
- *  M8 (§18.6): renderers receive the media bundle and declare the deploy-relative
- *  targets they reference — the build copies exactly those bytes (checksummed). */
-const RENDERERS: Partial<
-  Record<
-    string,
-    (slice: PlatformProfile, assets: readonly MediaAsset[]) => { text: string; assets?: string[] }
-  >
-> = {
-  "github-readme": (slice, assets) => renderGithubReadme(slice, { assets }),
-  "github-org": (slice) => renderGithubOrg(slice),
-  kofi: (slice) => renderKofi(slice),
-  buymeacoffee: (slice) => renderBuymeacoffee(slice),
-  liberapay: (slice) => renderLiberapay(slice),
-  gumroad: (slice) => renderGumroad(slice),
-  payhip: (slice) => renderPayhip(slice),
-  hotmart: (slice) => renderHotmart(slice),
-};
+/** Which renderer serves which platform is NOT decided here any more (#165):
+ *  the map is generated from each renderer's own `pasco.platform` manifest field
+ *  (`pnpm gen:renderers`, freshness asserted in CI + the manifest↔module parity
+ *  in `tests/renderer-map.test.ts`). A platform without a renderer simply has no
+ *  entry and prints its slices (renderers land in M4). M8 (§18.6): renderers
+ *  receive the media bundle and declare the deploy-relative targets they
+ *  reference — the build copies exactly those bytes (checksummed). */
 
 export interface BuildArgs {
   workspace: string;
