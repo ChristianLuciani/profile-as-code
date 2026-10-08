@@ -74,9 +74,12 @@ re-argued from taste):
 
 - **npm** ecosystem (weekly): dependency PRs for the pnpm workspace (root + `packages/*`)
 - **github-actions** ecosystem (weekly): updates to our own workflow actions
-- **Fixture exclusion**: `exclude-paths: scripts/dep-gate/fixtures/**` — those manifests are
-  *intentionally invalid* (they exist so the D20 gate rejects them), and parsing one aborts the
-  updater with `dependency_file_not_parseable`, leaving a red run on `main` (skills-studio #191).
+- **Fixture exclusion**: the fixtures are stored as undiscoverable data
+  (`fixture.package.json` / `fixture.pnpm-workspace.yaml`) and materialized with real names only at
+  test time by `scripts/dep-gate/test.mjs` (which runs the production `check.mjs` unchanged), so no
+  advisory can open a security job over them — `dependency_file_not_parseable` (#191) is gone by
+  construction (#166). `exclude-paths: scripts/dep-gate/fixtures/**` is kept for the version-update
+  path only (belt-and-braces).
 - Both open PRs with the `dependencies` / `ci` labels; they must pass the `ci` check.
 
 ## Release — `.github/workflows/release.yml`
