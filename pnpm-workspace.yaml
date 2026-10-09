@@ -21,6 +21,22 @@ overrides:
   # lifts every resolution to the first patched version — mirroring the esbuild
   # decision (issue #57) and paired with its `ignore` in .github/dependabot.yml.
   source-map-js: '>=1.2.2'
+  # #184: chokidar is transitive (tsup's file watcher) and resolved to 4.0.3 in
+  # pnpm-lock.yaml. 4.0.2/4.0.3 were published without npm provenance while
+  # 4.0.0/4.0.1 carry SLSA attestations ([OFICIAL] registry.npmjs.org, 2026-10-09),
+  # so `trustPolicy: no-downgrade` (below) correctly refuses the 4.0.3 resolution.
+  # tsup declares `chokidar: ^4.0.3`, but 4.0.4+ does not exist and 5.0.0 is a
+  # breaking, ESM-only major; the closest attested resolution is 4.0.1 — the newest
+  # attested 4.x (4.0.0 is also attested, but further behind). This deliberately
+  # pins BELOW tsup's declared ^4.0.3 floor; the delta is small but not types-only
+  # ([OFICIAL] upstream releases + tarball diff 4.0.1↔4.0.3, 2026-10-09): it
+  # refactors the emit-argument plumbing (net `(event, path, stats)` emission
+  # unchanged), adds an `isFreeBSD` branch to the inode-change path (FreeBSD only),
+  # and drops the source maps. tsup loads chokidar lazily for `--watch` only, so the
+  # exposure is dev-time and the build does not import it; `tsup --watch` was
+  # verified on 4.0.1. This pin replaces the temporary `trustPolicyExclude` shipped
+  # in #182. Revisit if any consumer ever requires ^5.
+  chokidar: '4.0.1'
 
 allowBuilds:
   esbuild: true
@@ -44,10 +60,6 @@ blockExoticSubdeps: true
 # Refuse a version whose trust level dropped versus earlier releases (e.g. a
 # previously-attested package republished without provenance).
 trustPolicy: no-downgrade
-# Accepted risk (#audit 2026-10-09): chokidar@4.0.3 is a pre-existing lockfile
-# entry flagged TRUST_DOWNGRADE; excluded to keep install green. Removal tracked in #184.
-trustPolicyExclude:
-  - chokidar@4.0.3
 # A dependency whose declared engine range excludes the running Node fails the
 # install. `engineStrict` is a pnpm setting and belongs HERE: pnpm reads `.npmrc`
 # only for registry/auth keys, so the same line there is a no-op.
