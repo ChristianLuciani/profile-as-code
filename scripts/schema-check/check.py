@@ -33,6 +33,9 @@ GEN_CLOSE = "<!-- /gen -->"
 ARITHMETIC_RE = re.compile(
     r"^(\d+(?: \+ \d+)*) = (\d+) extras; (\d+) \+ (\d+) = \*\*(\d+)\*\*\.$", re.MULTILINE
 )
+# A backticked slug in a family-table cell (notes may carry `[?]`/`[MI]`, which
+# this deliberately does not match).
+SLUG_RE = re.compile(r"`([a-z0-9][a-z0-9-]*)`")
 
 
 def load_registry() -> dict | None:
@@ -82,6 +85,52 @@ def generated_block(path: pathlib.Path, marker: str) -> str | None:
         print(f"FAIL: {path.relative_to(REPO_ROOT)} is missing {GEN_CLOSE} after {marker}")
         return None
     return source[start + len(marker) : end]
+
+
+def check_spec_table(spec_block: str, members_by_family: dict, backlog_by_family: dict) -> int:
+    """The SPEC §6 family table BODY must match the registry (issue #154 review F1).
+
+    The count arithmetic is asserted separately; this closes the table itself — a
+    mutated or reordered members/backlog cell, or a dropped/renamed family row,
+    fails here, so the Python gate's claim to check the generated SPEC block holds
+    even without the node gate's byte comparison.
+    """
+    seen = set()
+    rows = 0
+    for line in spec_block.splitlines():
+        line = line.strip()
+        if not line.startswith("|") or "Family (label)" in line or set(line) <= set("|-: "):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) != 5:
+            print(f"FAIL: SPEC.md family table row is malformed: {line}")
+            return 1
+        family = cells[0].strip("`")
+        seen.add(family)
+        got_members = SLUG_RE.findall(cells[3])
+        got_backlog = SLUG_RE.findall(cells[4])
+        exp_members = members_by_family.get(family)
+        exp_backlog = backlog_by_family.get(family)
+        if exp_members is None or exp_backlog is None:
+            print(f"FAIL: SPEC.md family table has a row for undeclared family `{family}`")
+            return 1
+        if got_members != exp_members or got_backlog != exp_backlog:
+            print(
+                f"FAIL: SPEC.md family table row `{family}` disagrees with the registry — "
+                f"members {got_members} vs {exp_members}, backlog {got_backlog} vs {exp_backlog} "
+                "— run `pnpm gen:platforms`"
+            )
+            return 1
+        rows += 1
+    missing = sorted(set(members_by_family) - seen)
+    if missing or rows != len(members_by_family):
+        print(
+            "FAIL: SPEC.md family table is missing declared families: "
+            + (", ".join(missing) if missing else "—")
+        )
+        return 1
+    print(f"PASS: SPEC.md family table matches the registry ({rows} families)")
+    return 0
 
 
 def check_registry(platform_enum: list[str]) -> int:
@@ -172,16 +221,31 @@ def check_registry(platform_enum: list[str]) -> int:
         return 1
     print(f"PASS: SPEC.md generated count arithmetic == registry ({total} total)")
 
+    families = registry.get("families") or {}
+    members_by_family = {
+        fid: [s for s in members if members[s].get("family") == fid] for fid in families
+    }
+    backlog_by_family = {
+        fid: [s for s in backlog if backlog[s].get("family") == fid] for fid in families
+    }
+    if check_spec_table(spec_block, members_by_family, backlog_by_family) != 0:
+        return 1
+
     readme_block = generated_block(README_PATH, GEN_STATUS_OPEN)
     if readme_block is None:
         return 1
-    if f"**{len(platform_enum)}**" not in readme_block:
-        print(
-            f"FAIL: README.md generated block does not carry the enum size "
-            f"**{len(platform_enum)}** — run `pnpm gen:platforms`"
-        )
-        return 1
-    print(f"PASS: README.md generated status carries the enum size ({len(platform_enum)})")
+    extras_total = len(platform_enum) - postiz["count"]
+    for needle in (
+        f"**{len(platform_enum)}**",
+        f"({postiz['count']} Postiz + {extras_total} operator extras)",
+    ):
+        if needle not in readme_block:
+            print(
+                f"FAIL: README.md generated block is missing {needle!r} "
+                "— run `pnpm gen:platforms`"
+            )
+            return 1
+    print(f"PASS: README.md generated counts match the registry ({len(platform_enum)} total)")
     return 0
 
 

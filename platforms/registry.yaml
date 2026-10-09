@@ -69,10 +69,11 @@ families:
     purpose: "recruiter-facing CV surfaces — the buyer is a recruiter and the native content is the structured CV the SSOT already models (`experience[]` / `education[]` / `skills[]`); GEO hook = name-reputation in search results only"
 
 # All 49 enum members with status: member, then the declared backlog with status:
-# backlog. Member order is deliberate: creator-monetization members in the
-# curated slice order (membership → tip → donation → storefront), then the
-# freelance member, then the un-bucketed remainder. The generated SPEC family
-# table preserves this order; the generated slug list follows the schema enum.
+# backlog. Member order is deliberate and IS the SPEC family-table order:
+# creator-monetization members, then the freelance member, then the un-bucketed
+# remainder (the slice grouping — membership/tip/donation/storefront — is prose in
+# §6, not the row order). The generated SPEC family table preserves this order;
+# the generated slug list follows the schema enum.
 platforms:
   # ── creator-monetization family ──────────────────────────────────────────
   patreon:
