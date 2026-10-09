@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "rule": "E-ANCHOR-MISSING",
+  "note": "the collapsed form (`5-validate-build`) 404s on GitHub and must be rejected"
+}

@@ -11,11 +11,12 @@
  *     corpus resolves to a file or directory that exists in the checkout.
  *   Rule B — every in-page anchor (`#section`, including same-file `#anchor`)
  *     resolves against the headings of the destination Markdown file, using
- *     GitHub's slug rules (lowercased, punctuation removed, spaces → `-`,
- *     duplicates suffixed `-1`, `-2`, …).
+ *     GitHub's slug rules (`github-slugger`: lowercased, punctuation removed,
+ *     EACH space → `-` with no collapse, `_`/`-` kept; duplicates suffixed
+ *     `-1`, `-2`, …).
  *   Rule C — the private-target allowlist (`allowlist.json`) is well-formed:
- *     every entry declares a target, a reason and a REMOVAL TRIGGER, and no
- *     two entries share a target.
+ *     every entry declares an http(s) target, a reason and a REMOVAL TRIGGER,
+ *     and no two entries share a target.
  *
  * Explicitly OUT of scope, per the issue:
  *   - external URLs are never fetched. Walled/anti-bot surfaces answer 403 to
@@ -30,12 +31,15 @@
  *     scope references is reported as a WARNING so the registry cannot rot
  *     silently (W-ALLOWLIST-UNUSED).
  *
- * Scope is the corpus the issue enumerates: root `README.md`, `CONTRIBUTING.md`
- * and `AGENTS.md`, `docs/`, `skills/`, `templates/`, and each package README
- * (`packages/<pkg>/README.md`, renderers included). Walking is filesystem
- * based (like `scripts/dep-gate`), skipping VCS/build directories — the scope
- * paths are all tracked by construction, and the checker must also run against
- * a bare fixture tree in the self-test.
+ * Scope is every tracked, non-hidden Markdown doc area: root `*.md`
+ * (`README`, `CONTRIBUTING`, `AGENTS`, `GOVERNANCE`, `SECURITY`,
+ * `CODE_OF_CONDUCT`, `CHANGELOG`), `docs/`, `schema/`, `skills/`, `templates/`,
+ * and each package README (`packages/<pkg>/README.md`, renderers included).
+ * Walking is filesystem based (like `scripts/dep-gate`), skipping VCS, build,
+ * and hidden directories — hidden trees (`.github/`, `.sota/`) are excluded by
+ * decision, not by accident (`.sota/` holds frozen historical artifacts, not
+ * live docs). The scope paths are all tracked by construction, and the checker
+ * must also run against a bare fixture tree in the self-test.
  *
  * Zero dependencies, `node >=22` — runs on a fresh checkout before any install.
  * A file the gate cannot read, or a link shape it cannot parse, is an explicit
@@ -49,12 +53,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ALLOWLIST = path.join(HERE, "allowlist.json");
 
-/** The scope corpus (#149). Paths use POSIX separators, relative to the root. */
+/** The scope corpus (#149): every tracked, non-hidden Markdown doc area. */
 const SCOPE = [
-  /^README\.md$/,
-  /^CONTRIBUTING\.md$/,
-  /^AGENTS\.md$/,
+  /^[^/]+\.md$/, // root: README, CONTRIBUTING, AGENTS, GOVERNANCE, SECURITY, CODE_OF_CONDUCT, CHANGELOG
   /^docs\/.+\.md$/,
+  /^schema\/.+\.md$/,
   /^skills\/.+\.md$/,
   /^templates\/.+\.md$/,
   /^packages\/[^/]+\/README\.md$/,
@@ -136,15 +139,20 @@ function maskFencedCode(text) {
   return lines.join("\n");
 }
 
-/** GitHub's slugger: lowercase, drop punctuation, spaces → `-`, keep `_`/`-`. */
-function slugify(text) {
+/**
+ * GitHub's heading slug (`github-slugger`, the reference implementation):
+ * lowercase, drop punctuation, then replace EACH space with `-` — no collapse,
+ * no trim, so `## 5. Validate & build` → `5-validate--build` (the `&` goes and
+ * both spaces become hyphens). `_` and `-` are kept. The punctuation class is
+ * the ASCII-equivalent of github-slugger's regex for the corpus's headings; it
+ * is verified against the library in `test.mjs` (see the slug oracle fixtures),
+ * so a divergence fails CI instead of silently rejecting a correct anchor.
+ */
+export function slugify(text) {
   return text
     .toLowerCase()
-    .replace(/<[^>]*>/g, "") // inline HTML
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // [label](dest) → label
-    .replace(/[^\p{L}\p{N}\p{M}\s_-]/gu, "") // punctuation out
-    .trim()
-    .replace(/\s+/g, "-");
+    .replace(/[^\p{L}\p{N}\p{M} _-]/gu, "")
+    .replace(/ /g, "-");
 }
 
 /** Anchor ids a destination exposes: heading slugs + explicit `<a id|name>`. */
@@ -254,9 +262,9 @@ function validateAllowlist(raw) {
         };
       }
     }
-    if (isExternal(entry.target) === false) {
+    if (!/^https?:\/\//.test(entry.target)) {
       return {
-        error: `${RULES.allowlistInvalid}: entry ${index} target must be an absolute URL: ${entry.target}`,
+        error: `${RULES.allowlistInvalid}: entry ${index} target must be an http(s) URL: ${entry.target}`,
       };
     }
     if (targets.has(entry.target)) {
@@ -352,14 +360,30 @@ export function check(root, options = {}) {
           messages.push(`${RULES.linkMissing}: ${rel}:${line}: ${dest}`);
           continue;
         }
-        const wantsDir = rawPath.endsWith("/");
-        if (wantsDir && !statSync(target).isDirectory()) {
-          messages.push(`${RULES.linkMissing}: ${rel}:${line}: ${dest} (not a directory)`);
-          continue;
-        }
       }
 
-      if (fragment === "" || statSync(target).isDirectory()) continue;
+      // The module contract says an unreadable target is an explicit E-GATE
+      // failure, never a stack trace: existsSync can be beaten by an FS race, a
+      // symlink appearing/disappearing, or an OS sandbox, so the stat is guarded.
+      let targetStat;
+      try {
+        targetStat = statSync(target);
+      } catch (error) {
+        messages.push(`${RULES.gate}: ${rel}:${line}: cannot stat ${dest}: ${error.message}`);
+        continue;
+      }
+      if (rawPath !== "" && rawPath.endsWith("/") && !targetStat.isDirectory()) {
+        messages.push(`${RULES.linkMissing}: ${rel}:${line}: ${dest} (not a directory)`);
+        continue;
+      }
+
+      if (fragment === "") continue;
+      if (targetStat.isDirectory()) {
+        // A fragment on a directory can never resolve — a directory has no
+        // headings — so it is an explicit finding, not a silent skip.
+        messages.push(`${RULES.anchorMissing}: ${rel}:${line}: ${dest} (fragment on a directory)`);
+        continue;
+      }
       // Line anchors (`#L10`) address code files, not headings — out of scope.
       if (/^L\d+(-L\d+)?$/.test(fragment)) continue;
       if (path.extname(target).toLowerCase() !== ".md") continue;

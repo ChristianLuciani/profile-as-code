@@ -1,0 +1,6 @@
+{
+  "status": "fail",
+  "rule": "E-ALLOWLIST-INVALID",
+  "minLinks": 0,
+  "note": "allowlist targets must be http(s) URLs"
+}

@@ -28,7 +28,7 @@ import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { check } from "./check.mjs";
+import { check, slugify } from "./check.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.join(HERE, "fixtures");
@@ -117,6 +117,23 @@ if (!caseDirs.includes("fail-broken-relative")) {
   } else {
     console.log("PASS acceptance — a deliberately broken relative link fails the gate (#149)");
   }
+}
+
+// Slug oracle: the expected anchors are `github-slugger@2.0.0` — the reference
+// implementation — committed as data (`slug-oracle.json`), so a slugger
+// regression fails CI without adding a dependency. This is the falsifiable
+// answer to "does the gate really follow GitHub's rules?".
+const oracle = JSON.parse(readFileSync(path.join(HERE, "slug-oracle.json"), "utf8"));
+let oracleOk = true;
+for (const { heading, slug } of oracle.cases) {
+  const got = slugify(heading);
+  if (got !== slug) {
+    failures.push(`FAIL slug oracle: ${JSON.stringify(heading)} → ${got}, expected ${slug}`);
+    oracleOk = false;
+  }
+}
+if (oracleOk) {
+  console.log(`PASS slug oracle — ${oracle.cases.length} headings match github-slugger@2.0.0`);
 }
 
 // The CI gate observes the CLI's EXIT CODE, not check()'s status string.

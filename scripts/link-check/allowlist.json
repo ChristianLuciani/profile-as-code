@@ -1,5 +1,5 @@
 {
-  "$comment": "Private-target allowlist for scripts/link-check (issue #149). External URLs are never fetched by the gate (walled/anti-bot surfaces answer 403 to bots, #132), so a private family repo needs an explicit declaration, not a resolution. Each entry records WHY the target is private and the TRIGGER that removes it. A declared target nothing in scope references is reported as W-ALLOWLIST-UNUSED — the registry cannot rot silently. This file is data, not a manifest: Dependabot does not read it.",
+  "$comment": "Private-target allowlist for scripts/link-check (issue #149). External URLs are never fetched by the gate (walled/anti-bot surfaces answer 403 to bots, #132), so a private family repo needs an explicit declaration, not a resolution. `target` must be an http(s) URL (validated). Each entry records WHY the target is private and the TRIGGER that removes it. A declared target nothing in scope references is reported as W-ALLOWLIST-UNUSED — the registry cannot rot silently. This file is data, not a manifest: Dependabot does not read it.",
   "privateTargets": [
     {
       "target": "https://github.com/ChristianLuciani/profile-data-template",

@@ -32,21 +32,25 @@ One job, **`ci`**, required on every PR and push to `main`:
      bad DOI, unsupported platform)
    - This guards the contract even before the TypeScript workspace exists.
 2. **Documentation link gate** (`scripts/link-check`, issue #149) — always runs:
-   every RELATIVE link/path in the tracked Markdown corpus (`README.md`,
-   `docs/`, `CONTRIBUTING.md`, `AGENTS.md`, `skills/`, `templates/`, package
-   READMEs) must resolve to a file or directory, and every in-page anchor
-   (`#section`) must resolve against the headings of its destination (GitHub
-   slug rules). Offline and deterministic: external URLs are never fetched — a
-   required check cannot depend on third-party uptime or rate limits
-   (`https://ko-fi.com/christianluciani` answered HTTP 403 to a bot, #132,
-   2026-10) — and the private family target `profile-data-template` is DECLARED
-   in `scripts/link-check/allowlist.json` with its removal trigger (the
+   every RELATIVE link/path in the tracked, non-hidden Markdown doc areas (root
+   `*.md` — `README`, `CONTRIBUTING`, `AGENTS`, `GOVERNANCE`, `SECURITY`,
+   `CODE_OF_CONDUCT`, `CHANGELOG` — plus `docs/`, `schema/`, `skills/`,
+   `templates/` and the package READMEs) must resolve to a file or directory,
+   and every in-page anchor (`#section`) must resolve against the headings of
+   its destination using `github-slugger`'s rules (the reference
+   implementation: each space becomes `-`, `_`/`-` kept). Hidden trees
+   (`.github/`, `.sota/`) are excluded by decision — `.sota/` holds frozen
+   historical artifacts, not live docs. Offline and deterministic: external URLs
+   are never fetched — a required check cannot depend on third-party uptime or
+   rate limits (`https://ko-fi.com/christianluciani` answered HTTP 403 to a bot,
+   #132, 2026-10) — and the private family target `profile-data-template` is
+   DECLARED in `scripts/link-check/allowlist.json` with its removal trigger (the
    visibility flip). Node-only, needs no install, so it runs before
    `pnpm install` to fail fast — after the pinned Node setup, like every other
    node gate, so the required check is reproducible; the step is unconditional
    (it uses no workspace code, so it must run even without `package.json`). The
-   fixture self-test runs first and proves the gate refuses a deliberately
-   broken relative link.
+   link-gate fixture self-test runs first (within the step) and proves the gate
+   refuses a deliberately broken relative link.
 3. **TypeScript workspace** — steps activate automatically once `package.json` lands
    (M1 core), in this order: **dependency gate** (`scripts/dep-gate`, issue #98 —
    node-only, before install to fail fast: `packages/server` must depend on
@@ -93,7 +97,7 @@ trade-off recorded either way. The local gate won, on the same reasoning as
 Biome over `eslint + prettier` (#149): one less external action/dependency
 stream, and a check that is **resolvable offline**. The measured cost is small —
 zero dependencies; `node scripts/link-check/check.mjs` runs in ~0.06 s over the
-whole corpus (41 files, 80 links at #149, 2026-10-08) and the self-test step
+whole corpus (46 files, 86 links at #149, 2026-10-09) and the self-test step
 completes in well under a second on CI (`ci` run 37863932326) — so the offline
 gate is not more expensive than the action, it is cheaper to run and to trust.
 
@@ -105,6 +109,13 @@ flakiness and 403s from walled surfaces (the `ko-fi` case, #132) inside a
 required check, which is exactly what the issue excludes. External liveness
 belongs, if ever, in a scheduled non-required workflow with an explicit
 allowlist — not here.
+
+The slug rule is not taken on faith either: `scripts/link-check/slug-oracle.json`
+commits the expected anchors for a representative heading set as produced by
+`github-slugger@2.0.0` (the reference implementation), and `test.mjs` asserts the
+gate reproduces every pair — so a slugger regression fails CI without adding a
+dependency. The known limit is raw inline HTML in a heading, where the rendered
+text is renderer-dependent; it does not occur in the current corpus.
 
 **Revisit trigger**: if the corpus grows past what `node` can parse reliably
 (a renderer/extension the gate cannot read), or a whole class of broken external

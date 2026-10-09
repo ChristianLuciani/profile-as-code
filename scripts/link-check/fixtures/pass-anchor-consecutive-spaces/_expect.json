@@ -1,0 +1,4 @@
+{
+  "status": "pass",
+  "note": "GitHub turns EACH space into a hyphen: `## 5. Validate & build` is `#5-validate--build`"
+}
