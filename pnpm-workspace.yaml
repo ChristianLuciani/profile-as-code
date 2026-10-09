@@ -28,3 +28,27 @@ allowBuilds:
 # esbuild's postinstall fetches its platform binary (used by vitest's transform pipeline).
 onlyBuiltDependencies:
   - esbuild
+
+# Supply-chain hardening (#audit 2026-10-09).
+# minimumReleaseAge: every resolution waits this many minutes after publish, so a
+# freshly compromised release is usually yanked before it can be installed (pnpm's
+# default is 1440 min = 1 day; 4320 = 3 days). Setting it explicitly turns strict
+# enforcement ON (`minimumReleaseAgeStrict` defaults to true when configured), so an
+# entry younger than the threshold FAILS the install instead of falling back — the
+# Dependabot `cooldown` in .github/dependabot.yml keeps version-update PRs out of
+# that window.
+minimumReleaseAge: 4320
+# Reject transitive deps from exotic sources — already pnpm's default since 10.26;
+# stated explicitly so a future default change cannot silently weaken it.
+blockExoticSubdeps: true
+# Refuse a version whose trust level dropped versus earlier releases (e.g. a
+# previously-attested package republished without provenance).
+trustPolicy: no-downgrade
+# Accepted risk (#audit 2026-10-09): chokidar@4.0.3 is a pre-existing lockfile
+# entry flagged TRUST_DOWNGRADE; excluded to keep install green. Removal tracked in #184.
+trustPolicyExclude:
+  - chokidar@4.0.3
+# A dependency whose declared engine range excludes the running Node fails the
+# install. `engineStrict` is a pnpm setting and belongs HERE: pnpm reads `.npmrc`
+# only for registry/auth keys, so the same line there is a no-op.
+engineStrict: true

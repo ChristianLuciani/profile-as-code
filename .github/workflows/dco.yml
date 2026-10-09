@@ -17,14 +17,17 @@ permissions:
 
 jobs:
   sign-off:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       # A gate must not be supplied BY the thing it judges. `actions/checkout`
       # defaults to the PR's merge ref, so a contributor could rewrite
       # scripts/dco-check/check.sh to `exit 0` and pass with unsigned commits
       # (verified: an unsigned commit passes against a rewritten gate). Check out
       # the base branch instead — trusted code — and only READ the PR's commits.
-      - uses: actions/checkout@v7
+      # persist-credentials stays at its default here on purpose: the next step
+      # runs `git fetch` against origin and needs the token (#audit).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           fetch-depth: 0 # the gate reads base..head, not just the tip

@@ -1,0 +1,4 @@
+# Default owner for every path (#audit 2026-10-09). Only *enforced* once branch
+# protection requires code-owner reviews (public repo or GitHub Pro); meanwhile
+# it drives review requests.
+* @ChristianLuciani

@@ -38,7 +38,8 @@ concurrency:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     # Exposed so the release job can build its page from the SAME verified commit
     # (issue #58) — a release page must describe the artifact that shipped.
     outputs:
@@ -47,7 +48,10 @@ jobs:
     steps:
       # fetch-depth: 0 — the guard compares the tagged commit against the default
       # branch tip, and ancestry is not computable from a shallow clone.
-      - uses: actions/checkout@v7
+      # persist-credentials stays at its default: release-guard.mjs runs
+      # `git fetch origin` and `git ls-remote origin`, which need the token on a
+      # private repo (review finding on this PR).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -78,14 +82,16 @@ jobs:
       # Skipped on a dry run: nothing is published, and the guard deliberately
       # emits no commit there, so an empty ref cannot silently fall back.
       - if: inputs.dry_run != true
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ steps.guard.outputs.commit }}
           fetch-depth: 0
+          persist-credentials: false
 
-      - uses: pnpm/action-setup@v6 # reads packageManager from package.json
+      # reads packageManager from package.json
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -99,7 +105,7 @@ jobs:
       # this out at a glance.
       - name: 'Prerequisite — npm CLI >= 11.5.1 (trusted publishing)'
         run: |
-          npm install -g npm@^11.5.1
+          npm install -g npm@11.6.1
           npm --version
 
       - name: Install dependencies
@@ -159,15 +165,17 @@ jobs:
     # context in a `push` run (an assumption the fresh-context review flagged as
     # never exercised — there is no `v*` tag yet).
     if: needs.publish.outputs.tag != ''
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: write # gh release create — scoped to this job, not the publish job
     steps:
       # Same commit the publish job built: the notes must describe the artifact.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ needs.publish.outputs.commit }}
           fetch-depth: 0
+          persist-credentials: false
 
       # The CHANGELOG heading is `## [0.2.0]` while the tag is `v0.2.0`.
       - name: Extract release notes from CHANGELOG.md
