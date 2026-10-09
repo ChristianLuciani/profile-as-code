@@ -14,7 +14,7 @@
  * renderer joins this gate by existing (the loud half — a renderer without a
  * `pasco.platform` — is `scripts/renderer-map/gen.mjs`).
  */
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PLATFORMS } from "@profile-as-code/core";
@@ -31,9 +31,19 @@ interface RendererManifest {
 
 /** A renderer is a directory with a manifest — the same subject the generator
  *  arms on (`rendererDirs`), so a stray non-package directory under
- *  `packages/renderers/` cannot crash this suite at import time (review F1). */
+ *  `packages/renderers/` cannot crash this suite at import time (review F1).
+ *  The read follows a symlinked directory (`statSync`) and skips dotfiles, the
+ *  way `rendererDirs` does: a `Dirent` check would hide a renderer the generator
+ *  projects from the very oracle that validates it (#176, review F2). */
 const manifests: RendererManifest[] = readdirSync(RENDERERS_DIR, { withFileTypes: true })
-  .filter((entry) => entry.isDirectory())
+  .filter((entry) => !entry.name.startsWith("."))
+  .filter((entry) => {
+    try {
+      return statSync(join(RENDERERS_DIR, entry.name)).isDirectory();
+    } catch {
+      return false;
+    }
+  })
   .filter((entry) => existsSync(join(RENDERERS_DIR, entry.name, "package.json")))
   .map((entry) => {
     const manifest = JSON.parse(

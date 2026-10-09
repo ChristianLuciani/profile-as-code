@@ -68,8 +68,9 @@ const WORKSPACE_REL = "pnpm-workspace.yaml";
  * mirrors it and is not a second source of truth. A fourth value means editing
  * SPEC §7 *and* this constant; the schema is deliberately not the home, because
  * it models workspace data, not `package.json` metadata. The gate that catches a
- * renderer disagreeing is the module↔manifest parity test
- * (`packages/cli/tests/renderer-map.test.ts`). */
+ * renderer module disagreeing with its manifest is the module↔manifest parity
+ * test (`packages/cli/tests/renderer-map.test.ts`); an out-of-union value is
+ * refused here by the check above. */
 const DEPLOY_SPECS = ["git", "api", "manual"];
 
 const rel = (root, target) => path.relative(root, target) || ".";
