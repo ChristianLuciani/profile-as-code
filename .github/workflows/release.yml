@@ -47,10 +47,12 @@ jobs:
     steps:
       # fetch-depth: 0 — the guard compares the tagged commit against the default
       # branch tip, and ancestry is not computable from a shallow clone.
+      # persist-credentials stays at its default: release-guard.mjs runs
+      # `git fetch origin` and `git ls-remote origin`, which need the token on a
+      # private repo (review finding on this PR).
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
-          persist-credentials: false
 
       # Publish invariant: only a tagged, version-matched release whose COMMIT is
       # on the default branch may publish (issues #42/#43, hardened in #81).
@@ -85,7 +87,8 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6 (reads packageManager)
+      # reads packageManager from package.json
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:

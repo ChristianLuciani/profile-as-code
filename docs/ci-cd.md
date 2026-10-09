@@ -153,8 +153,10 @@ Enforced in-repo (not a plan gate):
   `pnpm/action-setup`. A moved tag can no longer run new code in CI; Dependabot's
   `github-actions` updates keep the SHAs current.
 - **`persist-credentials: false`** on every checkout whose later steps do not need git
-  auth, so a compromised dependency cannot read the token from `.git/config`. `dco.yml`
-  keeps the default on purpose — its next step runs `git fetch` against origin.
+  auth, so a compromised dependency cannot read the token from `.git/config`. Two keep
+  the default on purpose because a later step runs `git fetch` / `git ls-remote`:
+  `dco.yml` (the DCO gate fetches the PR head) and the release publish job's first
+  checkout (`release-guard.mjs` fetches the default-branch tip and the tag).
 - **pnpm supply-chain policies** (`pnpm-workspace.yaml`): `minimumReleaseAge: 4320`
   (3 days; pnpm's default is 1) delays freshly published versions; `blockExoticSubdeps`
   rejects git/tarball transitive sources; `trustPolicy: no-downgrade` rejects a package
