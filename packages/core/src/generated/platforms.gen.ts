@@ -193,20 +193,3 @@ export const PASTE_PLATFORMS: readonly PastePlatformCase[] = [
   { platform: "payhip", host: "payhip.com" },
   { platform: "hotmart", host: "hotmart.com" },
 ];
-
-/** One platform and the test fixture workspace that exercises it. */
-export interface PlatformFixture {
-  readonly platform: string;
-  readonly fixture: string;
-}
-
-/** Platforms with a declared fixture (CI asserts each directory exists). */
-export const PLATFORM_FIXTURES: readonly PlatformFixture[] = [
-  { platform: "kofi", fixture: "minimal-kofi" },
-  { platform: "buymeacoffee", fixture: "minimal-creator-monetization" },
-  { platform: "liberapay", fixture: "minimal-creator-monetization" },
-  { platform: "gumroad", fixture: "minimal-creator-monetization" },
-  { platform: "payhip", fixture: "minimal-creator-monetization" },
-  { platform: "hotmart", fixture: "minimal-creator-monetization" },
-  { platform: "github-readme", fixture: "minimal" },
-];

@@ -38,7 +38,7 @@
 #                    assert requires — never a silent gap.
 #   fixture          optional test workspace under packages/core/tests/fixtures/
 #   note             optional short annotation rendered into the SPEC family table
-#   sources          where the facts were verified (evidence rule)
+#   sources          REQUIRED — where the facts were verified (evidence rule)
 version: 1
 
 # Postiz parity baseline (D16): the union is Postiz's supported networks plus

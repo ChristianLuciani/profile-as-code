@@ -190,11 +190,6 @@ try {
       module.includes('{ platform: "alpha", host: "alpha.com" },'),
       module,
     );
-    check(
-      "emits the fixture projection",
-      module.includes('{ platform: "alpha", fixture: "alpha-ws" },'),
-      module,
-    );
     const spec = readFileSync(join(root, SPEC_REL), "utf8");
     check("fills the SPEC count arithmetic", spec.includes("1 = 1 extras; 1 + 1 = **2**."), spec);
     check(
@@ -339,6 +334,45 @@ try {
     check(
       "a manual renderer platform with no fixture refuses",
       res.code === 1 && res.out.includes("declares no fixture"),
+      res.out.trim(),
+    );
+  }
+
+  // ── refusals: family shape and provenance ─────────────────────────────────
+  {
+    const root = tree({
+      ...BASE_TREE,
+      platforms: { ...BASE_PLATFORMS, alpha: { ...BASE_PLATFORMS.alpha, sources: [] } },
+    });
+    const res = run(root);
+    check(
+      "a platform with no sources refuses",
+      res.code === 1 && res.out.includes('"alpha".sources must be a non-empty array'),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree({
+      ...BASE_TREE,
+      families: { "creator-monetization": { purpose: "pays", backlog: [] } },
+    });
+    const res = run(root);
+    check(
+      "a family without a display refuses",
+      res.code === 1 && res.out.includes('family "creator-monetization".display'),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree({
+      ...BASE_TREE,
+      families: { "creator-monetization": { display: "X", purpose: "pays", backlog: [{}] } },
+    });
+    const res = run(root);
+    check(
+      "a backlog entry without a name refuses",
+      res.code === 1 &&
+        res.out.includes('family "creator-monetization".backlog entries need a non-empty "name"'),
       res.out.trim(),
     );
   }
