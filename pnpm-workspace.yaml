@@ -27,11 +27,15 @@ overrides:
   # so `trustPolicy: no-downgrade` (below) correctly refuses the 4.0.3 resolution.
   # tsup declares `chokidar: ^4.0.3`, but 4.0.4+ does not exist and 5.0.0 is a
   # breaking, ESM-only major; the closest attested resolution is 4.0.1 — the newest
-  # attested 4.x (4.0.0 is also attested, but further behind). The 4.0.1 → 4.0.3
-  # delta is TypeScript-types-only ([OFICIAL] upstream releases 2024-12-16/18) and
-  # tsup loads chokidar lazily for `--watch` only, so runtime behavior is unchanged —
-  # CI gates still cover the build. This pin replaces the temporary
-  # `trustPolicyExclude` shipped in #182. Revisit if any consumer ever requires ^5.
+  # attested 4.x (4.0.0 is also attested, but further behind). This deliberately
+  # pins BELOW tsup's declared ^4.0.3 floor; the delta is small but not types-only
+  # ([OFICIAL] upstream releases + tarball diff 4.0.1↔4.0.3, 2026-10-09): it
+  # refactors the emit-argument plumbing (net `(event, path, stats)` emission
+  # unchanged), adds an `isFreeBSD` branch to the inode-change path (FreeBSD only),
+  # and drops the source maps. tsup loads chokidar lazily for `--watch` only, so the
+  # exposure is dev-time and the build does not import it; `tsup --watch` was
+  # verified on 4.0.1. This pin replaces the temporary `trustPolicyExclude` shipped
+  # in #182. Revisit if any consumer ever requires ^5.
   chokidar: '4.0.1'
 
 allowBuilds:
