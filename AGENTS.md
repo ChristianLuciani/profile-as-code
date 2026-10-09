@@ -22,6 +22,7 @@ per-user private repo (`profile-data`), scaffolded from the template
 | `packages/core/` | Engine: load · drift · geo · compile | vitest; fixtures in `packages/core/tests/fixtures/` |
 | `packages/cli/` | `pasco` CLI | consumes core; never re-implements it |
 | `packages/markdown/` | CommonMark escaping (`mdHref` destinations · `mdText` labels) | shared by every markdown renderer — never re-implement in an adapter |
+| `packages/paste/` | Shared paste-renderer core (`pasteSource`) + conformance body | one home for the paste invariant — every paste adapter delegates, never re-implements (#150/#157) |
 | `packages/renderers/` | One adapter per platform | the contribution seam |
 | `skills/<platform>/` | Living knowledge per platform (D5) | follows `skills/README.md` |
 | `docs/research/` | Prior-art + SOTA, sourced + dated | |

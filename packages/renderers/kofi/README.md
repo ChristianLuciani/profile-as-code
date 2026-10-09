@@ -44,9 +44,8 @@ artifact hashes (§19.2), the surface is positional.
 
 ## Dependencies
 
-`@profile-as-code/core` — this adapter delegates to the shared paste core
-(`pasteSource()`, #150) rather than re-implementing the invariant.
+`@profile-as-code/core` (the `PlatformProfile` type) and
+`@profile-as-code/paste` — this adapter delegates to the shared paste core
+(`pasteSource()`, #150/#157) rather than re-implementing the invariant.
 
-See [SPEC §15](../../../docs/SPEC.md) · [skills/kofi](../../../skills/kofi/) ·
-[issue #157](https://github.com/ChristianLuciani/profile-as-code/issues/157)
-(sibling adapters still to migrate).
+See [SPEC §15](../../../docs/SPEC.md) · [skills/kofi](../../../skills/kofi/).

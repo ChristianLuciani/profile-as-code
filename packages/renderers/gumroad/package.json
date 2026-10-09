@@ -1,6 +1,7 @@
 {
   "dependencies": {
-    "@profile-as-code/core": "workspace:*"
+    "@profile-as-code/core": "workspace:*",
+    "@profile-as-code/paste": "workspace:*"
   },
   "description": "Renderer gumroad (v1.8, issue #133): deterministic plain-text profile-bio paste-source from a PlatformProfile slice. Gumroad is a paste platform (D9) — the artifact IS the text to paste into the creator profile body [? — bio field unverified, pending skill]. Pure function of the SSOT — no network, no AI, no randomness.",
   "devDependencies": {
