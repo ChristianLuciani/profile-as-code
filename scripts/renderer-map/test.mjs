@@ -15,7 +15,7 @@
  * Exit:  0 all cases pass · 1 any case fails
  */
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -281,6 +281,37 @@ try {
     const res = run(root);
     check(
       "renderer that is not a workspace member refuses",
+      res.code === 1 && res.out.includes("not a workspace member"),
+      res.out.trim(),
+    );
+  }
+  {
+    // #176 item 2: a symlinked renderer directory must be read the way the
+    // workspace globs are (`stat`), not via the Dirent. Symlink-blind, rule 1
+    // cannot see it, so a renderer the globs do not match is neither projected
+    // nor refused — the silent-pass channel this case closes.
+    const root = tree({ renderers: [KOFI] });
+    write(root, "pnpm-workspace.yaml", "packages:\n  - packages/*\n  - packages/renderers/kofi\n");
+    write(
+      root,
+      join("outside-renderer", "package.json"),
+      JSON.stringify(
+        {
+          name: "@profile-as-code/renderers-ghost",
+          pasco: { platform: "patreon", deploySpec: "manual" },
+        },
+        null,
+        2,
+      ),
+    );
+    symlinkSync(
+      join(root, "outside-renderer"),
+      join(root, "packages", "renderers", "ghost"),
+      "dir",
+    );
+    const res = run(root);
+    check(
+      "symlinked renderer the globs do not match refuses",
       res.code === 1 && res.out.includes("not a workspace member"),
       res.out.trim(),
     );

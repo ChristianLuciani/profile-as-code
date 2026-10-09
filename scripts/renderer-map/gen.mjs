@@ -61,7 +61,16 @@ const RENDERERS_REL = path.join("packages", "renderers");
 const CLI_MANIFEST_REL = path.join("packages", "cli", "package.json");
 const SCHEMA_REL = path.join("schema", "profile.schema.json");
 const WORKSPACE_REL = "pnpm-workspace.yaml";
-/** SPEC §7: `deploySpec: 'git' | 'api' | 'manual'` (manual → playbook + checks). */
+/**
+ * SPEC §7 `deploySpec: 'git' | 'api' | 'manual'` (manual → playbook + checks).
+ *
+ * ADR-lite (#176): SPEC §7 prose IS the home of this union — this constant
+ * mirrors it and is not a second source of truth. A fourth value means editing
+ * SPEC §7 *and* this constant; the schema is deliberately not the home, because
+ * it models workspace data, not `package.json` metadata. The gate that catches a
+ * renderer module disagreeing with its manifest is the module↔manifest parity
+ * test (`packages/cli/tests/renderer-map.test.ts`); an out-of-union value is
+ * refused here by the check above. */
 const DEPLOY_SPECS = ["git", "api", "manual"];
 
 const rel = (root, target) => path.relative(root, target) || ".";
@@ -111,7 +120,13 @@ async function expandGlobs(root, globs) {
   return [...found].sort();
 }
 
-/** Direct children of `packages/renderers/` that carry a manifest. */
+/** Direct children of `packages/renderers/` that carry a manifest.
+ *
+ *  A symlinked directory is followed via `stat`, the way `expandGlob` (dep-gate)
+ *  reads the workspace globs. The two reads must agree: rule 1 refuses a renderer
+ *  directory that is not a workspace member, so a symlink skipped here but
+ *  matched there would be neither projected nor refused — a silent-pass channel
+ *  (review NIT on #165, deferred to #176). */
 async function rendererDirs(root) {
   const renderersRoot = path.join(root, RENDERERS_REL);
   let entries;
@@ -122,8 +137,12 @@ async function rendererDirs(root) {
   }
   const dirs = [];
   for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+    if (entry.name.startsWith(".")) continue;
     const dir = path.join(renderersRoot, entry.name);
+    const isDir = await stat(dir)
+      .then((stats) => stats.isDirectory())
+      .catch(() => false);
+    if (!isDir) continue;
     if (await isFile(path.join(dir, "package.json"))) dirs.push(dir);
   }
   return dirs.sort();

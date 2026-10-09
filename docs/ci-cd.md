@@ -37,6 +37,7 @@ One job, **`ci`**, required on every PR and push to `main`:
    `core` only among its runtime dependencies and nothing in `core`'s dependency
    graph may reach `server`, SPEC §5 D20; the gate passes vacuously until
    `packages/server` exists, and a fixture self-test runs first) →
+   **renderer map in sync** (`scripts/renderer-map`, issue #165 — the `pasco` block of each renderer manifest is the sole data home, and the generated CLI map must match: self-test + `--check`, before install) →
    `pnpm install --frozen-lockfile` →
    **`pnpm lint`** (Biome: lint + format + import order, issue #59) →
    **D3 freshness** (`pnpm gen:zod` then `git diff --exit-code` on the committed Zod, so a
