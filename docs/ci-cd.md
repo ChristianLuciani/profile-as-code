@@ -41,9 +41,12 @@ One job, **`ci`**, required on every PR and push to `main`:
    (`https://ko-fi.com/christianluciani` answered HTTP 403 to a bot, #132,
    2026-10) — and the private family target `profile-data-template` is DECLARED
    in `scripts/link-check/allowlist.json` with its removal trigger (the
-   visibility flip). Node-only, needs no install, so it runs with the always-on
-   contract gate; the fixture self-test runs first and proves the gate refuses a
-   deliberately broken relative link.
+   visibility flip). Node-only, needs no install, so it runs before
+   `pnpm install` to fail fast — after the pinned Node setup, like every other
+   node gate, so the required check is reproducible; the step is unconditional
+   (it uses no workspace code, so it must run even without `package.json`). The
+   fixture self-test runs first and proves the gate refuses a deliberately
+   broken relative link.
 3. **TypeScript workspace** — steps activate automatically once `package.json` lands
    (M1 core), in this order: **dependency gate** (`scripts/dep-gate`, issue #98 —
    node-only, before install to fail fast: `packages/server` must depend on
@@ -89,8 +92,9 @@ The issue considered `lychee` and left the choice to the implementer, with the
 trade-off recorded either way. The local gate won, on the same reasoning as
 Biome over `eslint + prettier` (#149): one less external action/dependency
 stream, and a check that is **resolvable offline**. The measured cost is small —
-zero dependencies, `node scripts/link-check/test.mjs` + `check.mjs` run in ~0.1 s
-over the whole corpus (41 files, 80 links at #149, 2026-10-08) — so the offline
+zero dependencies; `node scripts/link-check/check.mjs` runs in ~0.06 s over the
+whole corpus (41 files, 80 links at #149, 2026-10-08) and the self-test step
+completes in well under a second on CI (`ci` run 37863932326) — so the offline
 gate is not more expensive than the action, it is cheaper to run and to trust.
 
 **Honest trade-off.** The local gate deliberately does **not** fetch external
