@@ -164,9 +164,8 @@ Enforced in-repo (not a plan gate):
   that window; security updates bypass cooldown and may leave `ci` red for up to 3 days
   by design. `trustPolicy: no-downgrade` rejects a package whose trust level dropped —
   the transitive `chokidar` (tsup's watcher) carries no exclusion: the `overrides`
-  block pins it to the attested 4.0.1, which is also the smallest version whose
-  4.x line has provenance (#184). `blockExoticSubdeps` is stated explicitly (already
-  pnpm's default since 10.26).
+  block pins it to 4.0.1, the newest attested 4.x (#184). `blockExoticSubdeps` is
+  stated explicitly (already pnpm's default since 10.26).
 - **Pinned tool installs**: `jsonschema==4.26.0`, `pyyaml==6.0.3` (CI) and `npm@11.6.1`
   (release) replace floating versions.
 - **`engineStrict: true`** (`pnpm-workspace.yaml`) — a dependency whose declared engine
