@@ -19,6 +19,7 @@ per-user private repo (`profile-data`), scaffolded from the template
 |---|---|---|
 | `docs/SPEC.md` | The contract — read first | D1–D18, §7 interfaces, §12 roadmap |
 | `schema/profile.schema.json` | Contract source (D3) | additive + reviewed; never hand-write Zod |
+| `platforms/registry.yaml` | Platform METADATA — one home (#154) | family · deploy · hosts · status · sources; generates the derived surfaces |
 | `packages/core/` | Engine: load · drift · geo · compile | vitest; fixtures in `packages/core/tests/fixtures/` |
 | `packages/cli/` | `pasco` CLI | consumes core; never re-implements it |
 | `packages/markdown/` | CommonMark escaping (`mdHref` destinations · `mdText` labels) | shared by every markdown renderer — never re-implement in an adapter |
@@ -38,7 +39,11 @@ per-user private repo (`profile-data`), scaffolded from the template
    commit both. Never edit `packages/core/src/generated/schema.zod.ts` by hand.
    The renderer map is generated the same way (#165): change a renderer's `pasco`
    block, run `pnpm gen:renderers`, commit both — never hand-edit
-   `packages/cli/src/generated/renderers.gen.ts`.
+   `packages/cli/src/generated/renderers.gen.ts`. **Platform metadata** (#154): add
+   or edit an entry in `platforms/registry.yaml`, then run `pnpm gen:platforms` —
+   it projects the core host maps + slug list, the SPEC §6 family table/counts and
+   the README status counts; never hand-edit those projections. The schema enum
+   stays hand-authored (the reviewed contract).
 3. **Evidence rule.** Quantitative claims need source + date
    (`[OFICIAL]`/`[EXPERTO]`/`[BENCHMARK]`/`[?]`). Use epistemic notation
    `[MI]`/`[WEB]`/`[INF]`/`[?]` for inference vs. source.
@@ -55,7 +60,9 @@ per-user private repo (`profile-data`), scaffolded from the template
 pnpm install && pnpm test && pnpm build && pnpm typecheck && pnpm lint
 pnpm gen:zod                      # after schema changes
 pnpm gen:renderers                # after changing a renderer's pasco block
-python3 -m venv /tmp/schema-venv && /tmp/schema-venv/bin/pip install jsonschema
+pnpm gen:platforms                # after editing platforms/registry.yaml
+node scripts/gen-platforms/gen.mjs --check   # assert the projections are fresh
+python3 -m venv /tmp/schema-venv && /tmp/schema-venv/bin/pip install jsonschema pyyaml
 /tmp/schema-venv/bin/python scripts/schema-check/check.py
 ```
 

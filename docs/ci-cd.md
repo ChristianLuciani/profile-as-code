@@ -27,6 +27,13 @@ One job, **`ci`**, required on every PR and push to `main`:
 
 1. **Schema contract self-test** (`scripts/schema-check/check.py`) — always runs:
    - `schema/profile.schema.json` must be a valid JSON Schema (2020-12, D3)
+   - the platform registry (`platforms/registry.yaml`) ↔ `$defs/platform.enum` ↔ the
+     committed generated projections (`packages/core/src/generated/platforms.gen.ts`
+     slug list, the SPEC §6 **family table body + count arithmetic**, the README
+     status counts) must agree, and the hand-authored `<N> total` in the platform
+     description must match the enum size (issue #154; `pyyaml` reads the registry).
+     The node gate below byte-compares the same blocks, so the two are
+     defense-in-depth, not duplicates.
    - 13 fixtures in `scripts/schema-check/fixtures/` behave as named:
      `valid-*` accepted, `invalid-*` rejected (missing `en`, unknown property,
      bad DOI, unsupported platform)
@@ -42,6 +49,10 @@ One job, **`ci`**, required on every PR and push to `main`:
    **`pnpm lint`** (Biome: lint + format + import order, issue #59) →
    **D3 freshness** (`pnpm gen:zod` then `git diff --exit-code` on the committed Zod, so a
    schema edit without regeneration fails here) →
+   **platform registry projections** (`scripts/gen-platforms/test.mjs` then
+   `node scripts/gen-platforms/gen.mjs --check`, issue #154 — the registry ↔ enum ↔
+   generated surfaces must be fresh; reads YAML through the root `yaml` dependency,
+   so it runs after install) →
    **Typecheck** (`pnpm build && pnpm typecheck`, issue #108 — the CLI builds with
    tsup, which transpiles without type-checking, so the gate runs an explicit
    build first: workspace type resolution needs the built `dist/`) →

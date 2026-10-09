@@ -30,7 +30,10 @@ every decision lives in [`docs/SPEC.md`](docs/SPEC.md) (decisions D1–D18). Rea
 4. **Docs in English (D8).** Code comments too, when present.
 5. **Zod is generated, never hand-written (D3).** The contract is `schema/profile.schema.json`;
    `packages/core/scripts/gen-zod.ts` regenerates the Zod schemas. If you change the schema, run
-   `pnpm gen:zod` and commit both.
+   `pnpm gen:zod` and commit both. Platform **metadata** (family, deploy kind, hosts, status) lives
+   in `platforms/registry.yaml` (#154): edit an entry and run `pnpm gen:platforms`, which projects
+   the core host maps + slug list, the SPEC §6 family/count block and the README status block —
+   never hand-edit those projections. The schema enum stays hand-reviewed.
 6. **Tests accompany behavior.** `packages/core` uses vitest; new behavior needs tests
    (fixtures live in `packages/core/tests/fixtures/`).
 7. **Sign your work (DCO, D21).** Every commit carries a sign-off — commit with
@@ -53,7 +56,7 @@ pnpm format        # reformat only
 
 # contract self-test (also runs in CI)
 python3 -m venv /tmp/schema-venv
-/tmp/schema-venv/bin/pip install jsonschema
+/tmp/schema-venv/bin/pip install jsonschema pyyaml
 /tmp/schema-venv/bin/python scripts/schema-check/check.py
 ```
 

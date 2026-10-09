@@ -7,6 +7,9 @@
 
 export { compile } from "./compile.js";
 export { driftCheck } from "./drift.js";
+/** The creator-monetization paste set, projected from `platforms/registry.yaml`
+ *  (#154) — the derived test enumeration, never a hand-extended list. */
+export { PASTE_PLATFORMS } from "./generated/platforms.gen.js";
 export { geoCheck } from "./geo.js";
 export type {
   LedgerIssue,

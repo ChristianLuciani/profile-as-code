@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { PLATFORM_VALUES } from "../src/generated/schema.zod.js";
-import { driftCheck, load, PLATFORMS } from "../src/index.js";
+import { driftCheck, load, PASTE_PLATFORMS, PLATFORMS } from "../src/index.js";
 
 const SCHEMA = JSON.parse(
   readFileSync(
@@ -41,6 +41,13 @@ describe("platform set contract (D16)", () => {
     // Both lists are generated from `$defs.platform.enum` by scripts/gen-zod.ts:
     // a stale commit (schema changed, `pnpm gen:zod` not run) fails here.
     expect([...PLATFORM_VALUES]).toEqual(SCHEMA.$defs.platform.enum);
+  });
+
+  it("PLATFORMS (registry projection) matches the schema enum (#154)", () => {
+    // `PLATFORMS` now comes from `platforms/registry.yaml` via `pnpm gen:platforms`;
+    // the registry ↔ enum ↔ generated agreement is the CI contract
+    // (scripts/schema-check/check.py). A stale projection fails here.
+    expect([...PLATFORMS]).toEqual(SCHEMA.$defs.platform.enum);
   });
 
   it("PLATFORMS has no duplicates", () => {
@@ -289,16 +296,14 @@ links:
     }
   });
 
-  it.each([
-    ["buymeacoffee", "https://buymeacoffee.com/kluciani"],
-    ["liberapay", "https://liberapay.com/kluciani"],
-    ["gumroad", "https://kluciani.gumroad.com"],
-    ["payhip", "https://payhip.com/kluciani"],
-    // hotmart: the profile path shape is unverified [?] (issue #137) — the
-    // offline handle proxy checks host consistency only, so the apex host with
-    // a handle path exercises the same contract without claiming a verified shape.
-    ["hotmart", "https://hotmart.com/kluciani"],
-  ] as const)(
+  // Derived from `platforms/registry.yaml` (#154), never a hand-extended list:
+  // the creator-monetization members added v1.8+, with a handle URL built from
+  // each entry's handle host. For hotmart the apex carries the handle path — the
+  // offline handle proxy checks host consistency only, so that exercises the
+  // same contract without claiming a verified shape (issue #137).
+  it.each(
+    PASTE_PLATFORMS.map((entry) => [entry.platform, `https://${entry.host}/kluciani`] as const),
+  )(
     "validates %s end-to-end: bio + check + handle + ledger (v1.8/v1.9, #133/#137)",
     (slug, handleUrl) => {
       const dir = makeWorkspace({
