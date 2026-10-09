@@ -174,7 +174,7 @@ describe("deployStatus (D18 §19.3)", () => {
     try {
       const report = deployStatus(load(dir));
       expect(report.removed.map((r) => r.key)).toEqual(["experience:exp-gone"]);
-      expect(report.removed[0].surfaces).toEqual(["linkedin"]);
+      expect(report.removed[0]?.surfaces).toEqual(["linkedin"]);
     } finally {
       clean(dir);
     }

@@ -65,6 +65,13 @@ One job, **`ci`**, required on every PR and push to `main`:
    graph may reach `server`, SPEC §5 D20; the gate passes vacuously until
    `packages/server` exists, and a fixture self-test runs first) →
    **renderer map in sync** (`scripts/renderer-map`, issue #165 — the `pasco` block of each renderer manifest is the sole data home, and the generated CLI map must match: self-test + `--check`, before install) →
+   **test-typecheck wiring gate** (`scripts/typecheck-gate`, issue #181 — node-only,
+   before install to fail fast: every workspace package must wire a
+   `tsconfig.test.json` into its `typecheck` script, with `tests/` included and
+   not excluded and `noEmit` set; without the gate, `pnpm -r typecheck` silently
+   skips a package that omits the script, so a new package could ship unchecked
+   tests with CI green; the self-test first proves the gate refuses every class
+   it claims) →
    `pnpm install --frozen-lockfile` →
    **`pnpm lint`** (Biome: lint + format + import order, issue #59) →
    **D3 freshness** (`pnpm gen:zod` then `git diff --exit-code` on the committed Zod, so a
@@ -75,7 +82,12 @@ One job, **`ci`**, required on every PR and push to `main`:
    so it runs after install) →
    **Typecheck** (`pnpm build && pnpm typecheck`, issue #108 — the CLI builds with
    tsup, which transpiles without type-checking, so the gate runs an explicit
-   build first: workspace type resolution needs the built `dist/`) →
+   build first: workspace type resolution needs the built `dist/`; issue #181 —
+   each package's `typecheck` runs a `tsconfig.test.json` that extends the
+   package's own tsconfig and adds `tests/**/*.ts` + `*.config.ts` +
+   `scripts/**/*.ts`, so the test suites (and the vitest/tsup/build scripts) are
+   type-checked too and a mistyped shared contract, e.g.
+   `@profile-as-code/paste/conformance`, fails the gate) →
    `pnpm test` → `pnpm build`
    (all recursive over `packages/*`) → tarball bin smoke check (issue #43).
    pnpm version comes from the `packageManager` field in the root `package.json`.
