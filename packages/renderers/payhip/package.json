@@ -1,6 +1,7 @@
 {
   "dependencies": {
-    "@profile-as-code/core": "workspace:*"
+    "@profile-as-code/core": "workspace:*",
+    "@profile-as-code/paste": "workspace:*"
   },
   "description": "Renderer payhip (v1.8, issue #133): deterministic plain-text About paste-source from a PlatformProfile slice. Payhip is a paste platform (D9) — the artifact IS the text to paste into the storefront's profile body [? — unverified surface, pending skill]. Pure function of the SSOT — no network, no AI, no randomness.",
   "devDependencies": {
