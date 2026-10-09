@@ -1,11 +1,12 @@
 /**
  * Renderer `kofi` (v1.7, issue #130) — Ko-fi creator page About, paste platform
  * (D9: no API deploy). The artifact IS the paste source for the Ko-fi About
- * section: `pasteSource()` passes the ONE SSOT bios row through VERBATIM
- * (`${bio.text}\n`) — it neither ADDS nor STRIPS Markdown/HTML, so a
- * markdown-bearing row would reach the paste target as-is. Keeping the row
- * plain is the skill's job (skills/kofi/research owns the sourced formatting
- * facts, applied by a human step — no check rule covers markdown absence).
+ * section: `pasteSource()` (`@profile-as-code/paste`, #150/#157) passes the ONE
+ * SSOT bios row through VERBATIM (`${bio.text}\n`) — it neither ADDS nor STRIPS
+ * Markdown/HTML, so a markdown-bearing row would reach the paste target as-is.
+ * Keeping the row plain is the skill's job (skills/kofi/research owns the
+ * sourced formatting facts, applied by a human step — no check rule covers
+ * markdown absence).
  *
  * Deterministic: same input → same bytes (§15.1). No network, no AI, no
  * randomness. Facts pass through untouched from the SSOT; texts are the
@@ -17,7 +18,8 @@
  * already the compile() slice, so one would be dead code.
  */
 
-import { type PlatformProfile, pasteSource } from "@profile-as-code/core";
+import type { PlatformProfile } from "@profile-as-code/core";
+import { pasteSource } from "@profile-as-code/paste";
 
 /** SPEC §7 Renderer contract (`deploySpec: 'git' | 'api' | 'manual'`). Ko-fi
  *  has no write API — the deploy is a MANUAL paste (D9; "paste" stays the
@@ -32,9 +34,10 @@ export interface RenderResult {
 
 /**
  * Render the About paste-source from the compile() slice, delegating to the
- * shared paste core (#150): length priority, single-row emission (the D18
- * ledger hashes exactly one bios row), empty → "" (unbuild, §15.1). Never
- * re-implement it per adapter (the `packages/markdown` precedent).
+ * shared paste core (`@profile-as-code/paste`, #150/#157): length priority,
+ * single-row emission (the D18 ledger hashes exactly one bios row), empty → ""
+ * (unbuild, §15.1). Never re-implement it per adapter (the `packages/markdown`
+ * precedent).
  */
 export function render(p: PlatformProfile): RenderResult {
   return { text: pasteSource(p) };

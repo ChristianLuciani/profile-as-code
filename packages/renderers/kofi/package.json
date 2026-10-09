@@ -48,7 +48,8 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@profile-as-code/core": "workspace:*"
+    "@profile-as-code/core": "workspace:*",
+    "@profile-as-code/paste": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
