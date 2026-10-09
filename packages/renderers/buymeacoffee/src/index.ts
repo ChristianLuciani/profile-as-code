@@ -4,7 +4,10 @@
  * (D9: no management API for the profile body — the deploy is a manual paste and
  * `pasco status --mark` records it, D18 ledger, `source: manual`; the per-platform
  * skill follow-up owns the platform's sourced facts, D16 parity caveat).
- * The artifact IS the paste source: plain text — no Markdown syntax is emitted
+ * The artifact IS the paste source: `pasteSource()` (`@profile-as-code/paste`,
+ * #150/#157) passes the ONE SSOT bios row through VERBATIM (`${bio.text}\n`) —
+ * it neither ADDS nor STRIPS Markdown/HTML, so a markdown-bearing row would
+ * reach the paste target as-is; keeping the row plain is the skill's job
  * (byte-stable, §15.1).
  *
  * Deterministic: same input → same bytes (§15.1). No network, no AI, no
@@ -18,6 +21,7 @@
  */
 
 import type { PlatformProfile } from "@profile-as-code/core";
+import { pasteSource } from "@profile-as-code/paste";
 
 /** SPEC §7 Renderer contract (`deploySpec: 'git' | 'api' | 'manual'`). */
 export const deploySpec = "manual" as const;
@@ -28,23 +32,13 @@ export interface RenderResult {
 }
 
 /**
- * Deterministic length priority for the profile body: `long` (the free-form
- * main body) > `medium` > `short` (the compact one-liner slot). Buy Me a Coffee's profile body
- * is the page's main profile text — the longest curated bio wins.
- */
-const LENGTH_PRIORITY: readonly ("long" | "medium" | "short")[] = ["long", "medium", "short"];
-
-/**
- * Render the profile paste-source from the compile() slice. Emit exactly ONE
- * bios row's text — never a merge: the artifact maps 1:1 to the SSOT row the
- * deploy ledger hashes (D18); a merged text would hash a composite no single
- * row owns, and `pasco diff/status` staleness could never match. Empty string
- * = no buymeacoffee bio row for this platform+lang → the build unbuilds the artifact.
+ * Render the profile paste-source from the compile() slice, delegating to the
+ * shared paste core (`@profile-as-code/paste`, #150/#157): length priority
+ * `long` > `medium` > `short` (Buy Me a Coffee's profile body is the page's
+ * main profile text — the longest curated bio wins), single-row emission (the
+ * D18 ledger hashes exactly one bios row — never a merge), empty → "" (unbuild,
+ * §15.1). Never re-implement it per adapter (the `packages/markdown` precedent).
  */
 export function render(p: PlatformProfile): RenderResult {
-  for (const length of LENGTH_PRIORITY) {
-    const bio = p.bios.find((b) => b.length === length);
-    if (bio !== undefined) return { text: `${bio.text}\n` };
-  }
-  return { text: "" };
+  return { text: pasteSource(p) };
 }
