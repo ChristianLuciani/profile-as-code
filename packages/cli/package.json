@@ -33,7 +33,7 @@
     "verify:pack": "node scripts/verify-pack.mjs",
     "guard:release": "node scripts/release-guard.mjs",
     "prepublishOnly": "publint",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.test.json",
     "test": "pnpm build && vitest run",
     "test:watch": "vitest"
   },

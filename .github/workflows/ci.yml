@@ -96,6 +96,21 @@ jobs:
           node scripts/renderer-map/test.mjs
           node scripts/renderer-map/gen.mjs --check
 
+      # Issue #181: the per-package `tsconfig.test.json` wiring is a convention
+      # until it has a gate — `pnpm -r typecheck` SKIPS a package that does not
+      # declare `typecheck`, so a new package (e.g. the planned
+      # `packages/server`) could ship unchecked tests with CI still green. The
+      # gate asserts every workspace package's `typecheck` runs
+      # `tsconfig.test.json` with `tests/` included, not excluded, and `noEmit`.
+      # The self-test first proves the gate refuses every class it claims
+      # (missing script, old script, missing/malformed config, tests excluded,
+      # no noEmit, empty workspace). Zero deps, runs before install to fail fast.
+      - name: Test-typecheck wiring gate (#181)
+        if: hashFiles('package.json') != ''
+        run: |
+          node scripts/typecheck-gate/test.mjs
+          node scripts/typecheck-gate/check.mjs
+
       - name: Install dependencies
         if: hashFiles('package.json') != ''
         run: pnpm install --frozen-lockfile
@@ -138,6 +153,12 @@ jobs:
       # it resolves workspace types from their built `dist/` (core exports ->
       # dist/index.d.ts), which does not exist on a fresh checkout — hence the
       # explicit build right before it. Runs before Test to fail fast.
+      # Issue #181: `pnpm typecheck` no longer checks `src/` only — every
+      # package's `typecheck` runs a `tsconfig.test.json` that extends the
+      # package's own tsconfig and adds `tests/**/*.ts` + `*.config.ts` +
+      # `scripts/**/*.ts` (noEmit), so every package `.ts` file is checked and
+      # an adapter suite that mistypes a shared contract (e.g.
+      # `@profile-as-code/paste/conformance`) fails here.
       - name: Typecheck (tsc strict, whole workspace)
         if: hashFiles('package.json') != ''
         run: pnpm build && pnpm typecheck

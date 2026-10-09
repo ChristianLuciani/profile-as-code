@@ -189,7 +189,11 @@ export function structuredData(profile: Profile, lang: Lang = "en"): StructuredD
     // declares no `role` keeps this key ORDER (the v1.6 deltas are the field set, not the
     // shape); `@id` slots in after `@type` when
     // present. Byte-stability is a contract (§15.1) — this order is not aesthetic.
-    const jsonLd = identity.name
+    // Annotated so the declared `jsonLd` interface is actually enforced: without
+    // it the object is built unannotated and spread into the return literal, so
+    // excess/missing keys were never checked (a key emitted here but undeclared
+    // in `StructuredDataReadiness` passed typecheck silently — premerge #186 F3).
+    const jsonLd: StructuredDataReadiness["jsonLd"] = identity.name
       ? {
           "@context": "https://schema.org" as const,
           "@type": "Organization" as const,
@@ -240,7 +244,7 @@ export function structuredData(profile: Profile, lang: Lang = "en"): StructuredD
   // workspace that declares no `role` keeps this key ORDER. `jobTitle`/`worksFor`
   // are the fields the OLD renderer silently dropped while geo.ts computed them — the
   // divergence this module removes; they now follow `address`.
-  const jsonLd = identity.name
+  const jsonLd: StructuredDataReadiness["jsonLd"] = identity.name
     ? {
         "@context": "https://schema.org" as const,
         "@type": "Person" as const,

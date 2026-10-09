@@ -191,6 +191,10 @@ export interface StructuredDataReadiness {
      *  would strip structured data from every pre-v1.6 workspace. */
     "@id"?: string;
     name: string;
+    /** v1.5 (issue #71): the contact email (schema.org `email`) — emitted on both
+     *  Person and Organization JSON-LD; declared here so the test type-check can
+     *  read it (#181). */
+    email?: string;
     sameAs: string[];
     image?: string;
     address?: string;
