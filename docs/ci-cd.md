@@ -14,7 +14,7 @@ Applied via the REST API (see "How to change" below) when the repo is public. Cu
 |---|---|---|
 | Require a pull request before merging | ✅ | No direct pushes to `main` — every change goes through a PR |
 | Required approving reviews | 0 | Solo maintainer cannot self-approve; review is a **human process at merge time**, not a bot gate. Tighten to 1 + CODEOWNERS when real collaborators join |
-| Require status checks | `ci` (strict) | The `ci` workflow must be green; **strict** = branch must be up to date with `main` (prevents stale-branch merges in parallel sessions) |
+| Require status checks | `ci`, `sign-off` (strict) | Both workflows must be green; **strict** = branch must be up to date with `main` (prevents stale-branch merges in parallel sessions). `sign-off` is the DCO gate (D21) — requiring it makes the signature a merge blocker, not advisory |
 | Require conversation resolution | ✅ | All PR comments resolved before merge |
 | Enforce for admins | ✅ | Even the owner/agents cannot bypass — this is the point of protection (agent-work safety). Emergency hotfix: temporarily disable the rule, then re-enable |
 | Allow force pushes | ❌ | History on `main` is immutable |
@@ -144,6 +144,32 @@ links actually bites, reopen the choice with the failing case.
   construction (#166). `exclude-paths: scripts/dep-gate/fixtures/**` is kept for the version-update
   path only (belt-and-braces).
 - Both open PRs with the `dependencies` / `ci` labels; they must pass the `ci` check.
+
+## Supply-chain & action hardening (audit 2026-10-09)
+
+Enforced in-repo (not a plan gate):
+
+- **Actions pinned to a full commit SHA** — `actions/checkout`, `actions/setup-node`,
+  `pnpm/action-setup`. A moved tag can no longer run new code in CI; Dependabot's
+  `github-actions` updates keep the SHAs current.
+- **`persist-credentials: false`** on every checkout whose later steps do not need git
+  auth, so a compromised dependency cannot read the token from `.git/config`. `dco.yml`
+  keeps the default on purpose — its next step runs `git fetch` against origin.
+- **pnpm supply-chain policies** (`pnpm-workspace.yaml`): `minimumReleaseAge: 4320`
+  (3 days; pnpm's default is 1) delays freshly published versions; `blockExoticSubdeps`
+  rejects git/tarball transitive sources; `trustPolicy: no-downgrade` rejects a package
+  whose trust level dropped — `trustPolicyExclude` records the accepted `chokidar@4.0.3`
+  exception (provenance review pending).
+- **Pinned tool installs**: `jsonschema==4.26.0`, `pyyaml==6.0.3` (CI) and `npm@11.6.1`
+  (release) replace floating versions.
+- **`.npmrc`**: `engine-strict=true` — an engine mismatch fails the install.
+- `runs-on: ubuntu-24.04` (not `-latest`), plus `timeout-minutes` and `concurrency` on CI.
+- `.gitattributes` normalizes line endings to LF; `.github/CODEOWNERS` names the owner.
+
+Still to enable at the visibility flip (needs public or GitHub Pro): the Actions
+SHA-pinning policy and a restricted allowed-actions list, a **tag protection ruleset for
+`v*`** (the release trigger), `sign-off` in the required status checks, secret scanning +
+push protection, and an environment approval gate on publish.
 
 ## Release — `.github/workflows/release.yml`
 

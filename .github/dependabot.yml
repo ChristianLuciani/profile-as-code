@@ -6,6 +6,13 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     labels: ["dependencies"]
+    commit-message:
+      prefix: "chore(deps)"
+    # One PR per minor/patch batch; majors stay individual for scrutiny.
+    groups:
+      npm-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
     # pnpm workspace: root package.json + packages/*/package.json
     # esbuild is transitive here (tsup/bundle-require auto-installed peer + vite).
     # Dependabot's npm resolver cannot bump transitive deps pinned in
@@ -26,7 +33,10 @@ updates:
       # (run 37562089307) fails main forever. Real bump = the pnpm override; this
       # stops the impossible retry.
       - dependency-name: "source-map-js"
-    # Version-update path only; the security path is covered by the ignores above.
+    # Security updates for the two ignored transitive deps cannot be produced by
+    # Dependabot (it does not rewrite locked transitive pins) — the pnpm
+    # `overrides` above are that path. This `ignore` silences only the impossible
+    # retry; version bumps still ride tsup/vite.
     exclude-paths:
       - "scripts/dep-gate/fixtures/**"
   - package-ecosystem: github-actions
@@ -35,3 +45,8 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     labels: ["ci"]
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      actions:
+        patterns: ["*"]

@@ -28,3 +28,20 @@ allowBuilds:
 # esbuild's postinstall fetches its platform binary (used by vitest's transform pipeline).
 onlyBuiltDependencies:
   - esbuild
+
+# Supply-chain hardening (#audit 2026-10-09).
+# minimumReleaseAge: every resolution waits this many minutes after publish, so a
+# freshly compromised release is usually yanked before it can be installed
+# (pnpm's default is 1440 = 1 day; 10080 = 7 days).
+minimumReleaseAge: 4320
+# Transitive deps must resolve from the registry — git/tarball URLs are exotic
+# sources a compromised manifest could smuggle in.
+blockExoticSubdeps: true
+# Refuse a version whose trust level dropped versus earlier releases (e.g. a
+# previously-attested package republished without provenance).
+trustPolicy: no-downgrade
+# Accepted risk (#audit 2026-10-09): chokidar@4.0.3 is a pre-existing lockfile
+# entry flagged TRUST_DOWNGRADE; excluded to keep install green. Needs a
+# provenance review before this exclusion is removed.
+trustPolicyExclude:
+  - chokidar@4.0.3

@@ -1,0 +1,6 @@
+# Normalize line endings so the repo builds identically on every OS
+# (#audit 2026-10-09).
+* text=auto eol=lf
+
+# Shell scripts must stay LF to remain executable under bash.
+*.sh text eol=lf
