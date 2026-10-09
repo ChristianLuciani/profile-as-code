@@ -52,7 +52,17 @@ import { PLATFORMS, textOf } from "./types.js";
  *  The metadata (hosts, subdomain hosts, handle hosts) has one data home; the
  *  per-platform provenance (v1 … v1.9, sources) lives in the registry. Open-ended
  *  instance networks (mastodon/lemmy/nostr beyond the curated entries) stay
- *  unflagged — drift never guesses hosts it cannot verify. */
+ *  unflagged — drift never guesses hosts it cannot verify.
+ *
+ *  Any-host platforms (no `handle_hosts` → `hostMatchesPlatform` allows any host),
+ *  preserved from the pre-registry map:
+ *    - lemmy: federated (hundreds of instances) — a curated list would actively
+ *      reject legitimate handles;
+ *    - gmb: the public surface varies (g.page / google.com/maps) and the dashboard
+ *      host is login-only — live reachability is the skill's job;
+ *    - ghost: self-hosted on an own domain is the canonical case (§17); ghost.io
+ *      Pro is still a platform surface via `PLATFORM_SUBDOMAIN_HOSTS`;
+ *    - listmonk: self-hosted, no canonical host. */
 /** True when `host` is a valid host for `platform`'s handle URLs (or the platform
  *  has no registered hosts — then any URL is allowed). Some platforms host profiles
  *  on subdomains (`user.substack.com`, `blog.ghost.io`) — PLATFORM_SUBDOMAIN_HOSTS. */

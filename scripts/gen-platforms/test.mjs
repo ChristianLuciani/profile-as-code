@@ -44,6 +44,7 @@ function write(root, rel, content) {
 }
 
 const PLATFORM = (over = {}) => ({
+  status: "member",
   origin: "extra",
   since: "v1",
   deploy: "manual",
@@ -52,6 +53,13 @@ const PLATFORM = (over = {}) => ({
   handle_hosts: [],
   renderer: false,
   sources: ["SPEC §6 (D16)"],
+  ...over,
+});
+
+const BACKLOG = (over = {}) => ({
+  status: "backlog",
+  family: "creator-monetization",
+  sources: ["[MI] issue #138"],
   ...over,
 });
 
@@ -136,7 +144,6 @@ const BASE_FAMILIES = {
   "creator-monetization": {
     display: "Creator monetization",
     purpose: "pays",
-    backlog: [{ name: "gofundme", note: "deferred" }],
   },
 };
 const BASE_PLATFORMS = {
@@ -155,6 +162,7 @@ const BASE_PLATFORMS = {
     handle_hosts: ["beta.com"],
     renderer: false,
   }),
+  gofundme: BACKLOG({ note: "deferred" }),
 };
 const BASE_POSTIZ = { count: 1, source: "[OFICIAL] test" };
 const ALPHA_RENDERER = {
@@ -243,7 +251,7 @@ try {
     const res = run(root);
     check(
       "registry slug outside the enum refuses",
-      res.code === 1 && res.out.includes("registry slugs outside the enum: gamma"),
+      res.code === 1 && res.out.includes("status:member slugs outside the enum: gamma"),
       res.out.trim(),
     );
   }
@@ -256,7 +264,8 @@ try {
     const res = run(root);
     check(
       "enum member with no registry entry refuses",
-      res.code === 1 && res.out.includes("enum members without a registry entry: beta"),
+      res.code === 1 &&
+        res.out.includes("enum members without a status:member registry entry: beta"),
       res.out.trim(),
     );
   }
@@ -338,7 +347,7 @@ try {
     );
   }
 
-  // ── refusals: family shape and provenance ─────────────────────────────────
+  // ── refusals: family shape, status and provenance ─────────────────────────
   {
     const root = tree({
       ...BASE_TREE,
@@ -354,7 +363,7 @@ try {
   {
     const root = tree({
       ...BASE_TREE,
-      families: { "creator-monetization": { purpose: "pays", backlog: [] } },
+      families: { "creator-monetization": { purpose: "pays" } },
     });
     const res = run(root);
     check(
@@ -366,13 +375,33 @@ try {
   {
     const root = tree({
       ...BASE_TREE,
-      families: { "creator-monetization": { display: "X", purpose: "pays", backlog: [{}] } },
+      platforms: { ...BASE_PLATFORMS, alpha: { ...BASE_PLATFORMS.alpha, status: "memberr" } },
     });
     const res = run(root);
     check(
-      "a backlog entry without a name refuses",
-      res.code === 1 &&
-        res.out.includes('family "creator-monetization".backlog entries need a non-empty "name"'),
+      "an invalid status refuses",
+      res.code === 1 && res.out.includes('"alpha".status must be one of member | backlog'),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree({ ...BASE_TREE, enumPlatforms: ["alpha", "beta", "gofundme"] });
+    const res = run(root);
+    check(
+      "a backlog slug that is an enum entry refuses",
+      res.code === 1 && res.out.includes("status:backlog slugs that ARE enum entries: gofundme"),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree({
+      ...BASE_TREE,
+      platforms: { ...BASE_PLATFORMS, gofundme: BACKLOG({ family: undefined }) },
+    });
+    const res = run(root);
+    check(
+      "a backlog entry without a family refuses",
+      res.code === 1 && res.out.includes('backlog "gofundme" must declare a family'),
       res.out.trim(),
     );
   }

@@ -8,8 +8,9 @@ import { realpathSync } from "node:fs";
  * (`$defs.platform.enum`, D3) — this generator owns neither, it projects the
  * registry and REFUSES every disagreement (never a silent pass):
  *
- *   E-GATE  a registry slug missing from the schema enum, or an enum member
- *           with no registry entry (the registry is exhaustive by contract);
+ *   E-GATE  a `status: member` slug missing from the schema enum, an enum member
+ *           with no `status: member` entry, or a `status: backlog` slug that IS
+ *           an enum entry (the registry is exhaustive by contract);
  *   E-GATE  `postiz.count` != the number of entries with `origin: postiz`;
  *   E-GATE  a renderer manifest (`packages/renderers/<p>/package.json`,
  *           `pasco.platform` — #165) that disagrees with `renderer:` (the
@@ -52,6 +53,7 @@ const README_REL = "README.md";
 const FIXTURES_REL = path.join("packages", "core", "tests", "fixtures");
 const SKILLS_REL = "skills";
 const DEPLOY_KINDS = ["git", "api", "manual"];
+const STATUSES = ["member", "backlog"];
 const ORIGINS = ["postiz", "extra"];
 const SPEC_MARKER = "gen:platform-families";
 const README_MARKER = "gen:platform-status";
@@ -132,27 +134,38 @@ async function loadRegistry(root) {
         throw new GateError(`${REGISTRY_REL}: family "${id}".${field} must be a non-empty string`);
       }
     }
-    const backlog = family.backlog ?? [];
-    if (!Array.isArray(backlog)) {
-      throw new GateError(`${REGISTRY_REL}: family "${id}".backlog must be a list when present`);
-    }
-    for (const entry of backlog) {
-      if (
-        entry === null ||
-        typeof entry !== "object" ||
-        typeof entry.name !== "string" ||
-        entry.name.length === 0
-      ) {
-        throw new GateError(
-          `${REGISTRY_REL}: family "${id}".backlog entries need a non-empty "name"`,
-        );
-      }
-    }
   }
 
   for (const [slug, entry] of Object.entries(platforms)) {
     if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
       throw new GateError(`${REGISTRY_REL}: "${slug}" must be a mapping`);
+    }
+    if (!STATUSES.includes(entry.status)) {
+      throw new GateError(
+        `${REGISTRY_REL}: "${slug}".status must be one of ${STATUSES.join(" | ")}`,
+      );
+    }
+    if (entry.family !== undefined && !(entry.family in families)) {
+      throw new GateError(
+        `${REGISTRY_REL}: "${slug}".family "${entry.family}" is not declared under "families"`,
+      );
+    }
+    if (
+      !Array.isArray(entry.sources) ||
+      entry.sources.length === 0 ||
+      entry.sources.some((s) => typeof s !== "string" || s.length === 0)
+    ) {
+      throw new GateError(
+        `${REGISTRY_REL}: "${slug}".sources must be a non-empty array of strings (evidence rule)`,
+      );
+    }
+    if (entry.status === "backlog") {
+      // A backlog slug is NOT an enum entry: it carries only its family and the
+      // sourced descriptor — no deploy/hosts/renderer until it is promoted.
+      if (typeof entry.family !== "string" || entry.family.length === 0) {
+        throw new GateError(`${REGISTRY_REL}: backlog "${slug}" must declare a family`);
+      }
+      continue;
     }
     if (!ORIGINS.includes(entry.origin)) {
       throw new GateError(
@@ -177,20 +190,6 @@ async function loadRegistry(root) {
       if (!Array.isArray(values) || values.some((v) => typeof v !== "string")) {
         throw new GateError(`${REGISTRY_REL}: "${slug}".${field} must be an array of strings`);
       }
-    }
-    if (entry.family !== undefined && !(entry.family in families)) {
-      throw new GateError(
-        `${REGISTRY_REL}: "${slug}".family "${entry.family}" is not declared under "families"`,
-      );
-    }
-    if (
-      !Array.isArray(entry.sources) ||
-      entry.sources.length === 0 ||
-      entry.sources.some((s) => typeof s !== "string" || s.length === 0)
-    ) {
-      throw new GateError(
-        `${REGISTRY_REL}: "${slug}".sources must be a non-empty array of strings (evidence rule)`,
-      );
     }
   }
   return { families, platforms, postiz };
@@ -217,19 +216,28 @@ async function buildModel(root) {
 
   const enumSet = new Set(enumPlatforms);
   const registrySlugs = Object.keys(platforms);
-  const missing = enumPlatforms.filter((slug) => !(slug in platforms));
-  const surplus = registrySlugs.filter((slug) => !enumSet.has(slug));
-  if (missing.length > 0 || surplus.length > 0) {
+  const memberSlugs = registrySlugs.filter((slug) => platforms[slug].status === "member");
+  const backlogSlugs = registrySlugs.filter((slug) => platforms[slug].status === "backlog");
+  const memberSet = new Set(memberSlugs);
+  const missing = enumPlatforms.filter((slug) => !memberSet.has(slug));
+  const surplus = memberSlugs.filter((slug) => !enumSet.has(slug));
+  const backlogInEnum = backlogSlugs.filter((slug) => enumSet.has(slug));
+  if (missing.length > 0 || surplus.length > 0 || backlogInEnum.length > 0) {
     throw new GateError(
       `${REGISTRY_REL} and ${SCHEMA_REL} $defs.platform.enum disagree: ` +
         (missing.length > 0
-          ? `enum members without a registry entry: ${missing.join(", ")}. `
+          ? `enum members without a status:member registry entry: ${missing.join(", ")}. `
           : "") +
-        (surplus.length > 0 ? `registry slugs outside the enum: ${surplus.join(", ")}.` : ""),
+        (surplus.length > 0
+          ? `status:member slugs outside the enum: ${surplus.join(", ")}. `
+          : "") +
+        (backlogInEnum.length > 0
+          ? `status:backlog slugs that ARE enum entries: ${backlogInEnum.join(", ")}.`
+          : ""),
     );
   }
 
-  const postizMembers = registrySlugs.filter((slug) => platforms[slug].origin === "postiz");
+  const postizMembers = memberSlugs.filter((slug) => platforms[slug].origin === "postiz");
   if (postizMembers.length !== postiz.count) {
     throw new GateError(
       `${REGISTRY_REL}: postiz.count is ${postiz.count} but ${postizMembers.length} entries declare origin: postiz`,
@@ -238,7 +246,7 @@ async function buildModel(root) {
 
   // Reverse assert (#154): the enum must have a renderer OR an explicit
   // `renderer: false`; a manifest must never disagree with the declaration.
-  for (const slug of registrySlugs) {
+  for (const slug of memberSlugs) {
     const declared = platforms[slug].renderer;
     const manifest = renderers.get(slug);
     if (declared && manifest === undefined) {
@@ -259,7 +267,7 @@ async function buildModel(root) {
   }
 
   // Fixture check: a declared fixture must exist (the "slugs have fixtures" CI check).
-  for (const slug of registrySlugs) {
+  for (const slug of memberSlugs) {
     const fixture = platforms[slug].fixture;
     if (fixture === undefined) continue;
     let entries;
@@ -277,7 +285,7 @@ async function buildModel(root) {
   // A paste renderer (manual deploy) must name the test workspace that exercises
   // it — the skeleton is a check, not a silent gap. `git` surfaces (github-readme,
   // github-org) are exercised by the template/scaffold instead and are exempt.
-  for (const slug of registrySlugs) {
+  for (const slug of memberSlugs) {
     const entry = platforms[slug];
     if (entry.renderer && entry.deploy === "manual" && entry.fixture === undefined) {
       throw new GateError(
@@ -287,12 +295,12 @@ async function buildModel(root) {
   }
 
   const hosts = new Set();
-  for (const slug of registrySlugs) {
+  for (const slug of memberSlugs) {
     for (const host of platforms[slug].hosts) hosts.add(host);
   }
   const subdomainHosts = {};
   const handleHosts = {};
-  for (const slug of registrySlugs) {
+  for (const slug of memberSlugs) {
     if (platforms[slug].subdomain_hosts.length > 0) {
       subdomainHosts[slug] = platforms[slug].subdomain_hosts;
     }
@@ -301,7 +309,7 @@ async function buildModel(root) {
 
   // Paste test enumeration: creator-monetization members added v1.8+ (the shared
   // family fixture), derived instead of a hand-extended `it.each` list.
-  const paste = registrySlugs
+  const paste = memberSlugs
     .filter((slug) => {
       const entry = platforms[slug];
       if (entry.family !== "creator-monetization") return false;
@@ -318,7 +326,7 @@ async function buildModel(root) {
       return { platform: slug, host };
     });
 
-  const extras = registrySlugs.filter((slug) => platforms[slug].origin === "extra");
+  const extras = memberSlugs.filter((slug) => platforms[slug].origin === "extra");
   const extrasByVersion = new Map();
   for (const slug of extras) {
     const since = platforms[slug].since;
@@ -344,13 +352,14 @@ async function buildModel(root) {
     enumPlatforms,
     families,
     platforms,
-    registrySlugs,
+    memberSlugs,
+    backlogSlugs,
     hosts: [...hosts].sort(),
     subdomainHosts,
     handleHosts,
     paste,
     counts: {
-      total: registrySlugs.length,
+      total: memberSlugs.length,
       postiz: postiz.count,
       extras: extras.length,
       extraCounts,
@@ -426,16 +435,13 @@ export function renderSpecBlock(model) {
   const { counts } = model;
   const arithmetic = `${counts.extraCounts.join(" + ")} = ${counts.extras} extras; ${counts.postiz} + ${counts.extras} = **${counts.total}**.`;
   const rows = Object.entries(model.families).map(([id, family]) => {
-    const members = model.registrySlugs
-      .filter((slug) => model.platforms[slug].family === id)
-      .map((slug) => {
-        const note = model.platforms[slug].note;
-        return note === undefined ? `\`${slug}\`` : `\`${slug}\` (${note})`;
-      });
-    const backlog = (family.backlog ?? []).map((entry) =>
-      entry.note === undefined ? `\`${entry.name}\`` : `\`${entry.name}\` (${entry.note})`,
-    );
-    return `| \`${id}\` | ${family.display} | ${family.purpose} | ${members.length > 0 ? members.join(", ") : "— (no enum entries)"} | ${backlog.length > 0 ? backlog.join(", ") : "—"} |`;
+    const label = (slug) => {
+      const note = model.platforms[slug].note;
+      return note === undefined ? `\`${slug}\`` : `\`${slug}\` (${note})`;
+    };
+    const members = model.memberSlugs.filter((slug) => model.platforms[slug].family === id);
+    const backlog = model.backlogSlugs.filter((slug) => model.platforms[slug].family === id);
+    return `| \`${id}\` | ${family.display} | ${family.purpose} | ${members.length > 0 ? members.map(label).join(", ") : "— (no enum entries)"} | ${backlog.length > 0 ? backlog.map(label).join(", ") : "—"} |`;
   });
   return [
     "<!-- GENERATED by scripts/gen-platforms/gen.mjs from platforms/registry.yaml — do not edit by hand. -->",

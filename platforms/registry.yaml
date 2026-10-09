@@ -20,22 +20,30 @@
 # registry ↔ schema enum ↔ generated all agree, naming the exact pair that
 # drifts. Prose in SPEC/README *outside* the markers stays hand-authored.
 #
-# FIELD CONTRACT (one entry per slug; every enum member MUST appear here)
+# FIELD CONTRACT (one entry per slug — members AND backlog; every enum member
+# MUST be here as `status: member`)
 # -----------------------------------------------------------------------
+#   status           member | backlog (REQUIRED). `member` = a real enum entry;
+#                    `backlog` = declared but NOT an enum entry (verify the
+#                    official eligibility page before any claim). Backlog entries
+#                    carry only family + note + sources.
 #   family           optional family id (see `families:`); absent = un-bucketed
 #   origin           postiz | extra — Postiz parity vs operator extra (D16)
-#   since            version the slug entered the enum (v1 … v1.9)
+#                    [member only]
+#   since            version the slug entered the enum (v1 … v1.9) [member only]
 #   issue            optional GitHub issue that added it
-#   deploy           git | api | manual (D9) — the declared deploy kind. `manual`
-#                    is the checklist default for a platform with no evidenced
-#                    profile-body API. For a slug with a renderer this MUST equal
-#                    that renderer's `pasco.deploySpec` (#165) — CI-asserted.
+#   deploy           git | api | manual (D9) [member only] — the declared deploy
+#                    kind. `manual` is the checklist default for a platform with
+#                    no evidenced profile-body API. For a slug with a renderer
+#                    this MUST equal that renderer's `pasco.deploySpec` (#165).
 #   hosts            apex hosts that are platform surfaces (drift PLATFORM_HOSTS)
-#   subdomain_hosts  hosts whose SUBDOMAINS are profile surfaces (drift)
+#                    [member only]
+#   subdomain_hosts  hosts whose SUBDOMAINS are profile surfaces [member only]
 #   handle_hosts     expected hosts for socialHandles URLs; [] = any host allowed
-#   renderer         true iff a renderer manifest declares this platform (#165).
-#                    `false` is the explicit "not implemented yet" the reverse
-#                    assert requires — never a silent gap.
+#                    [member only]
+#   renderer         true iff a renderer manifest declares this platform (#165)
+#                    [member only]. `false` is the explicit "not implemented yet"
+#                    the reverse assert requires — never a silent gap.
 #   fixture          optional test workspace under packages/core/tests/fixtures/
 #   note             optional short annotation rendered into the SPEC family table
 #   sources          REQUIRED — where the facts were verified (evidence rule)
@@ -48,42 +56,27 @@ postiz:
   source: "[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"
 
 # Families are declared docs-first (issue #138) — prose labels, never a hard
-# schema field. `backlog` members are NOT enum entries.
+# schema field. Membership is derived from each platform entry's `family`.
 families:
   creator-monetization:
     display: Creator monetization platforms
     purpose: "audience pays for content, memberships or works (declared v1.8, #133)"
-    backlog:
-      - name: gofundme
-        note: "deferred — no EC organizer payout, #133"
   freelance:
     display: Freelance marketplaces
     purpose: client-facing surfaces — the product is the operator's professional time
-    backlog:
-      - name: freelancer
-        note: "freelancer.com, global"
-      - name: workana
-        note: "Brazil-founded, LatAm-wide ES/PT — EC-priority candidate"
-      - name: fiverr
-        note: "boundary: gig **storefronts** of services — filed here with that note"
   job-boards:
     display: Recruiting surfaces
     purpose: "recruiter-facing CV surfaces — the buyer is a recruiter and the native content is the structured CV the SSOT already models (`experience[]` / `education[]` / `skills[]`); GEO hook = name-reputation in search results only"
-    backlog:
-      - name: infojobs
-        note: "Spain + LatAm"
-      - name: computrabajo
-        note: "Ecuador-founded + LatAm-wide — `[MI] — verify` the whole descriptor; in-session corroboration inconclusive, PR #140 review F1"
-      - name: indeed
-        note: "aggregator"
 
-# All 49 enum members. Order is deliberate: creator-monetization members in the
+# All 49 enum members with status: member, then the declared backlog with status:
+# backlog. Member order is deliberate: creator-monetization members in the
 # curated slice order (membership → tip → donation → storefront), then the
 # freelance member, then the un-bucketed remainder. The generated SPEC family
 # table preserves this order; the generated slug list follows the schema enum.
 platforms:
   # ── creator-monetization family ──────────────────────────────────────────
   patreon:
+    status: member
     family: creator-monetization
     origin: extra
     since: v1
@@ -94,6 +87,7 @@ platforms:
     renderer: false
     sources: ["SPEC §6 (D16)"]
   kofi:
+    status: member
     family: creator-monetization
     origin: extra
     since: v1.7
@@ -106,6 +100,7 @@ platforms:
     fixture: minimal-kofi
     sources: ["SPEC §6 (D16)", "issue #130"]
   buymeacoffee:
+    status: member
     family: creator-monetization
     origin: extra
     since: v1.8
@@ -118,6 +113,7 @@ platforms:
     fixture: minimal-creator-monetization
     sources: ["SPEC §6 (D16)", "issue #133"]
   liberapay:
+    status: member
     family: creator-monetization
     origin: extra
     since: v1.8
@@ -130,6 +126,7 @@ platforms:
     fixture: minimal-creator-monetization
     sources: ["SPEC §6 (D16)", "issue #133", "[WEB] liberapay.com FAQ, fetched 2026-10-05"]
   gumroad:
+    status: member
     family: creator-monetization
     origin: extra
     since: v1.8
@@ -142,6 +139,7 @@ platforms:
     fixture: minimal-creator-monetization
     sources: ["SPEC §6 (D16)", "issue #133", "[WEB] gumroad.com, fetched 2026-10-05"]
   payhip:
+    status: member
     family: creator-monetization
     origin: extra
     since: v1.8
@@ -153,7 +151,11 @@ platforms:
     renderer: true
     fixture: minimal-creator-monetization
     sources: ["SPEC §6 (D16)", "issue #133"]
+  # Apex-only: `space.hotmart.com` DNS-resolves but apex-redirects (probed
+  # 2026-10-05) — not a verified profile surface, so `subdomain_hosts` stays
+  # empty until the skill research sources the Space URL shape (issue #137).
   hotmart:
+    status: member
     family: creator-monetization
     origin: extra
     since: v1.9
@@ -167,6 +169,7 @@ platforms:
     note: "v1.9, #137 — EC payout `[?]` carried per the #133 precedent"
     sources: ["SPEC §6 (D16)", "issue #137", "[WEB] hotmart.com ToU §B, fetched 2026-10-05"]
   substack:
+    status: member
     family: creator-monetization
     origin: extra
     since: v1
@@ -177,6 +180,7 @@ platforms:
     renderer: false
     sources: ["SPEC §6 (D16)"]
   whop:
+    status: member
     family: creator-monetization
     origin: postiz
     since: v1.2
@@ -191,6 +195,7 @@ platforms:
 
   # ── freelance family ─────────────────────────────────────────────────────
   upwork:
+    status: member
     family: freelance
     origin: extra
     since: v1
@@ -204,6 +209,7 @@ platforms:
 
   # ── un-bucketed (no declared family) ─────────────────────────────────────
   github-readme:
+    status: member
     origin: extra
     since: v1
     deploy: git
@@ -214,6 +220,7 @@ platforms:
     fixture: minimal
     sources: ["SPEC §6 (D16)"]
   linkedin:
+    status: member
     origin: postiz
     since: v1
     deploy: manual
@@ -223,6 +230,7 @@ platforms:
     renderer: false
     sources: ["SPEC §6 (D16)", "README (deploy: no API)"]
   x:
+    status: member
     origin: postiz
     since: v1
     deploy: manual
@@ -232,6 +240,7 @@ platforms:
     renderer: false
     sources: ["SPEC §6 (D16)"]
   researchgate:
+    status: member
     origin: extra
     since: v1
     deploy: manual
@@ -241,6 +250,7 @@ platforms:
     renderer: false
     sources: ["SPEC §6 (D16)"]
   github-org:
+    status: member
     origin: extra
     since: v1
     deploy: git
@@ -250,6 +260,7 @@ platforms:
     renderer: true
     sources: ["SPEC §6 (D16)", "SPEC §17 (brand)"]
   bluesky:
+    status: member
     origin: postiz
     since: v1.1
     deploy: manual
@@ -259,6 +270,7 @@ platforms:
     renderer: false
     sources: ["SPEC §6 (D16)"]
   instagram:
+    status: member
     origin: postiz
     since: v1.1
     deploy: manual
@@ -268,6 +280,7 @@ platforms:
     renderer: false
     sources: ["SPEC §6 (D16)"]
   tiktok:
+    status: member
     origin: postiz
     since: v1.1
     deploy: manual
@@ -277,6 +290,7 @@ platforms:
     renderer: false
     sources: ["SPEC §6 (D16)"]
   youtube:
+    status: member
     origin: postiz
     since: v1.1
     deploy: manual
@@ -286,6 +300,7 @@ platforms:
     renderer: false
     sources: ["SPEC §6 (D16)"]
   spotify:
+    status: member
     origin: extra
     since: v1.1
     deploy: manual
@@ -295,6 +310,7 @@ platforms:
     renderer: false
     sources: ["SPEC §6 (D16)", "SPEC §17 (brand, v1.1)"]
   reddit:
+    status: member
     origin: postiz
     since: v1.1
     deploy: manual
@@ -304,6 +320,7 @@ platforms:
     renderer: false
     sources: ["SPEC §6 (D16)"]
   mastodon:
+    status: member
     origin: postiz
     since: v1.1
     deploy: manual
@@ -313,6 +330,7 @@ platforms:
     renderer: false
     sources: ["SPEC §6 (D16)"]
   soundcloud:
+    status: member
     origin: extra
     since: v1.1
     deploy: manual
@@ -322,6 +340,7 @@ platforms:
     renderer: false
     sources: ["SPEC §6 (D16)", "SPEC §17 (brand, v1.1)"]
   facebook:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -332,6 +351,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   linkedin-page:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -342,6 +362,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   instagram-standalone:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -352,6 +373,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   warpcast:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -362,6 +384,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   lemmy:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -372,6 +395,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   discord:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -382,6 +406,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   slack:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -392,6 +417,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   skool:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -402,6 +428,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   pinterest:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -412,6 +439,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   dribbble:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -422,6 +450,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   medium:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -432,6 +461,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   devto:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -442,6 +472,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   hashnode:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -452,6 +483,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   wordpress:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -462,6 +494,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   gmb:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -472,6 +505,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   listmonk:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -482,6 +516,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   twitch:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -492,6 +527,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   threads:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -502,6 +538,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   telegram:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -512,6 +549,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   nostr:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -522,6 +560,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   vk:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -532,6 +571,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   kick:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -542,6 +582,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   moltbook:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -552,6 +593,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   ghost:
+    status: member
     origin: extra
     since: v1.1
     deploy: manual
@@ -561,6 +603,7 @@ platforms:
     renderer: false
     sources: ["SPEC §6 (D16)", "SPEC §17 (brand, v1.1)"]
   mewe:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -571,6 +614,7 @@ platforms:
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   tumblr:
+    status: member
     origin: postiz
     since: v1.2
     issue: 30
@@ -580,3 +624,41 @@ platforms:
     handle_hosts: [tumblr.com]
     renderer: false
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+
+  # ── backlog (status: backlog — NOT enum entries; official eligibility page
+  #    before any claim, #138). Promoted to member only by the #133 chain.
+  gofundme:
+    status: backlog
+    family: creator-monetization
+    note: "deferred — no EC organizer payout, #133"
+    sources: ["[MI] issue #138, 2026-10-05"]
+  freelancer:
+    status: backlog
+    family: freelance
+    note: "freelancer.com, global"
+    sources: ["[MI] issue #138, 2026-10-05"]
+  workana:
+    status: backlog
+    family: freelance
+    note: "Brazil-founded, LatAm-wide ES/PT — EC-priority candidate"
+    sources: ["[MI] issue #138, 2026-10-05"]
+  fiverr:
+    status: backlog
+    family: freelance
+    note: "boundary: gig **storefronts** of services — filed here with that note"
+    sources: ["[MI] issue #138, 2026-10-05"]
+  infojobs:
+    status: backlog
+    family: job-boards
+    note: "Spain + LatAm"
+    sources: ["[MI] issue #138, 2026-10-05"]
+  computrabajo:
+    status: backlog
+    family: job-boards
+    note: "Ecuador-founded + LatAm-wide — `[MI] — verify` the whole descriptor; in-session corroboration inconclusive, PR #140 review F1"
+    sources: ["[MI] issue #138, 2026-10-05"]
+  indeed:
+    status: backlog
+    family: job-boards
+    note: "aggregator"
+    sources: ["[MI] issue #138, 2026-10-05"]

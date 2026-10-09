@@ -100,19 +100,31 @@ def check_registry(platform_enum: list[str]) -> int:
         print("FAIL: platforms/registry.yaml has no non-empty `platforms` mapping")
         return 1
 
-    missing = sorted(set(platform_enum) - set(platforms))
-    surplus = sorted(set(platforms) - set(platform_enum))
-    if missing or surplus:
+    platform_enum_set = set(platform_enum)
+    unknown = sorted(s for s, p in platforms.items() if p.get("status") not in ("member", "backlog"))
+    if unknown:
         print(
-            "FAIL: platforms/registry.yaml and $defs/platform.enum disagree — "
-            + ("enum members without a registry entry: " + ", ".join(missing) + ". " if missing else "")
-            + ("registry slugs outside the enum: " + ", ".join(surplus) if surplus else "")
+            "FAIL: platforms/registry.yaml entries without a valid status "
+            f"(member | backlog): {', '.join(unknown)}"
         )
         return 1
-    print(f"PASS: registry covers $defs/platform.enum ({len(platforms)} entries)")
+    members = {s: p for s, p in platforms.items() if p.get("status") == "member"}
+    backlog = {s: p for s, p in platforms.items() if p.get("status") == "backlog"}
+    missing = sorted(platform_enum_set - set(members))
+    surplus = sorted(set(members) - platform_enum_set)
+    backlog_in_enum = sorted(set(backlog) & platform_enum_set)
+    if missing or surplus or backlog_in_enum:
+        print(
+            "FAIL: platforms/registry.yaml and $defs/platform.enum disagree — "
+            + ("enum members without a status:member entry: " + ", ".join(missing) + ". " if missing else "")
+            + ("status:member slugs outside the enum: " + ", ".join(surplus) + ". " if surplus else "")
+            + ("status:backlog slugs that ARE enum entries: " + ", ".join(backlog_in_enum) if backlog_in_enum else "")
+        )
+        return 1
+    print(f"PASS: registry covers $defs/platform.enum ({len(members)} members, {len(backlog)} backlog)")
 
     postiz = registry.get("postiz") or {}
-    postiz_members = [s for s, p in platforms.items() if p.get("origin") == "postiz"]
+    postiz_members = [s for s, p in members.items() if p.get("origin") == "postiz"]
     if postiz.get("count") != len(postiz_members):
         print(
             f"FAIL: registry postiz.count is {postiz.get('count')!r} but "
