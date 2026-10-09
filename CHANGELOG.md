@@ -11,6 +11,44 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+### Changed
+
+### Planned (roadmap)
+
+- Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
+- CLI `pasco`: build · validate · diff · check · refine · skills:install (M1/M3)
+- Per-platform skills v1 from SOTA research (M3)
+- `profile-data` template repo + web renderer (M5)
+
+## [0.2.0] - 2026-10-09
+
+**First public release.** This section covers what changed since the 2026-10-06
+prep; the untagged `## [0.1.0]` section below (schema v1, the core engine, the
+`pac` → `pasco` rename, brand flavor, the evidence registry) is the project's
+pre-release history and was never tagged or published.
+
+### Added
+
+- **CI — offline, self-tested link gate for the Markdown corpus (#149)** —
+  `scripts/link-check/` (checker + fixture self-test first, the `scripts/dep-gate`
+  shape): every relative link/path in the tracked, non-hidden Markdown doc areas
+  must resolve to a file or directory, every in-page anchor must match its
+  destination's headings under GitHub's slug rules (the expected anchors are
+  committed as `github-slugger@2.0.0` output and asserted by the self-test), and
+  private targets go through an allowlist that requires a reason + removal
+  trigger. Offline and deterministic — external URLs are never fetched — so the
+  required check cannot depend on third-party uptime. Runs after the pinned Node
+  setup and before `pnpm install` (fail fast).
+
+- **CI — every package type-checks its tests, and the wiring is gated (#181)** —
+  each package gains a `tsconfig.test.json` that extends its own tsconfig (single
+  source for compiler options) and adds `tests/**`, the root `*.config.ts` and
+  `scripts/**`; `pnpm -r typecheck` now covers the suites, so a mistyped shared
+  contract (e.g. `@profile-as-code/paste/conformance`) fails the gate. A node-only
+  `scripts/typecheck-gate` runs first and refuses a package whose `typecheck`
+  script omits the test program — without it, `pnpm -r typecheck` silently skips
+  the package and CI stays green.
+
 - **Platform registry — per-platform metadata now has one machine-readable home (#154)**:
   `platforms/registry.yaml` carries the metadata that used to live hand-written across ≥7
   surfaces (family, deploy kind, hosts, subdomain hosts, handle hosts, status, since, issue,
@@ -25,42 +63,20 @@ minor versions may contain breaking contract changes.
   `renderer: false` ("not implemented yet"), and each renderer's `deploySpec` equals the
   registry `deploy` (D9).
 
-### Changed
+- **CONTRIBUTING — escalation path and measured response latency (#148)** — the
+  published latency is measured, not a promise: a table over the three strata
+  (n=103 merged PRs, [MI], 2026-10-08), the regenerable `gh` + `python3`
+  one-liner, and the honest caveat that no external PRs exist yet so the figure
+  describes maintenance cadence. Stalled = no maintainer response after 7 days;
+  the escalation channel and the possible outcomes are named, and silence is not
+  one of them.
 
-- **Paste-renderer core — the invariant gets one home (#150, PR #158)**: the six paste
-  adapters (`kofi`…`hotmart`) carried a byte-identical render body (sha256[:16]
-  `b00031017ee2bbc4` after comment strip). The shared body — length priority
-  `long > medium > short`, EXACTLY ONE `bios` row's verbatim text + `\n`, `""` on an empty
-  slice — now lives in a dedicated shared module (`pasteSource()`; re-homed to
-  `packages/paste/` in #157 below): the
-  `structured-data.ts` v1.6 / `packages/markdown` precedent — a contract shared by every
-  adapter lives in one module, and adapters delegate rather than re-implement. `kofi`
-  migrates first: its suite passes, with the overclaiming "emits plain text" fixture check
-  tightened to exact-equality verbatim pass-through — identical input → identical output is
-  the byte-preservation proof. `pasco build` output is unchanged (byte-stable; empty slice →
-  unbuild, §15.1). The remaining five adapters and the six copied suites landed in #157.
-
-- **Paste-renderer core — the seam gets its own support package; all six paste adapters
-  delegate (#157)**: the shared body moved from `core/src/paste-source.ts` to
-  **`packages/paste/`** (`@profile-as-code/paste`) — a renderer support package (the
-  `packages/markdown` precedent), so the engine stays an engine and vitest never enters
-  core's runtime. The conformance body ships as the test-only
-  `@profile-as-code/paste/conformance` subpath; every adapter suite now invokes it
-  (`describePasteConformance`) and keeps only its platform facts (`deploySpec: "manual"`,
-  no assets). The six copied suites and the four overclaiming "emits plain text"
-  assertions are gone, and the adapter docblocks now state the honest pass-through.
-  `pasco build` output is unchanged (byte-stable; empty slice → unbuild, §15.1).
-
-### Planned (roadmap)
-
-- Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
-- CLI `pasco`: build · validate · diff · check · refine · skills:install (M1/M3)
-- Per-platform skills v1 from SOTA research (M3)
-- `profile-data` template repo + web renderer (M5)
-
-## [0.2.0] - 2026-10-06
-
-### Added
+- **Package READMEs + complete publication metadata (#143)** — 9 new READMEs
+  (D8, English: `packages/markdown` + the 8 renderers) with one uniform skeleton,
+  since npm always packs `README.md` and publishing would otherwise show an empty
+  package page; the 10 libraries + the CLI gain `repository` (+ `directory`),
+  `bugs`, `homepage` and `keywords`, and the pure libraries gain
+  `sideEffects: false`.
 
 - **`hotmart` platform — schema additive v1.9, D16 operator extra #15 (49 total;
   issue #137)** — Hotmart: digital-products storefront + memberships (the Payment Policy's
@@ -229,6 +245,67 @@ minor versions may contain breaking contract changes.
 
 ### Changed
 
+- **Repo config & supply-chain hardening (2026-10-09 audit)** — actions
+  (`checkout`, `setup-node`, `pnpm/action-setup`) pinned to full commit SHAs;
+  `persist-credentials: false` on every checkout whose later steps need no git
+  auth (`dco.yml` and the release guard keep it on purpose — they run `git
+  fetch`); pnpm `minimumReleaseAge: 4320`, `blockExoticSubdeps: true` and
+  `trustPolicy: no-downgrade`; pinned tool installs (`jsonschema==4.26.0`,
+  `npm@11.6.1`); `runs-on: ubuntu-24.04` with `timeout-minutes` + `concurrency`;
+  `.gitattributes` LF normalization and `.github/CODEOWNERS`. `docs/ci-cd.md`
+  records what still waits on a public repo / GitHub Pro: the Actions SHA-pinning
+  policy, a tag-protection ruleset for `v*`, secret scanning, and an environment
+  approval gate on publish.
+
+- **`chokidar` resolved to the attested 4.0.1, `trustPolicyExclude` dropped
+  (#184)** — the transitive lockfile entry (tsup's file watcher) tripped
+  `no-downgrade`; instead of excluding the untrusted version the graph resolves
+  an attested one. 4.0.1 is same-major and behaviorally identical — the
+  4.0.1→4.0.3 delta is TypeScript types only ([OFICIAL] upstream releases) — and
+  5.0.0 (also attested) is a breaking, ESM-only major tsup's lazy `require` does
+  not target.
+
+- **One-home codegen and build wiring (#152, #164, #165)** — three
+  hand-maintained mirrors removed: the `PLATFORMS` mirror is gone (#152; the list
+  is now the `platforms/registry.yaml` projection — see the #154 entry);
+  `packages/cli` builds from the workspace dependency graph
+  (`pnpm --filter "@profile-as-code/cli^..." build`) instead of an eight-entry
+  hand-written renderer chain (#164); the platform↔renderer mapping moves into
+  each renderer's own `pasco` manifest block, projected into a generated CLI map
+  that a parity test keeps in sync (#165).
+
+- **dep-gate fixtures are undiscoverable data (#166)** — the fixture manifests
+  are committed as `fixture.package.json` / `fixture.pnpm-workspace.yaml` and
+  materialized under their real names in a temp dir by `scripts/dep-gate/test.mjs`
+  before the production `check.mjs` runs over them, so Dependabot can no longer
+  discover (and fail on) an intentionally invalid workspace manifest. The
+  production checker is unchanged and stays the tested path; `exclude-paths`
+  remains documented as belt-and-braces for the version-update path.
+
+- **Paste-renderer core — the invariant gets one home (#150, PR #158)**: the six paste
+  adapters (`kofi`…`hotmart`) carried a byte-identical render body (sha256[:16]
+  `b00031017ee2bbc4` after comment strip). The shared body — length priority
+  `long > medium > short`, EXACTLY ONE `bios` row's verbatim text + `\n`, `""` on an empty
+  slice — now lives in a dedicated shared module (`pasteSource()`; re-homed to
+  `packages/paste/` in #157 below): the
+  `structured-data.ts` v1.6 / `packages/markdown` precedent — a contract shared by every
+  adapter lives in one module, and adapters delegate rather than re-implement. `kofi`
+  migrates first: its suite passes, with the overclaiming "emits plain text" fixture check
+  tightened to exact-equality verbatim pass-through — identical input → identical output is
+  the byte-preservation proof. `pasco build` output is unchanged (byte-stable; empty slice →
+  unbuild, §15.1). The remaining five adapters and the six copied suites landed in #157.
+
+- **Paste-renderer core — the seam gets its own support package; all six paste adapters
+  delegate (#157)**: the shared body moved from `core/src/paste-source.ts` to
+  **`packages/paste/`** (`@profile-as-code/paste`) — a renderer support package (the
+  `packages/markdown` precedent), so the engine stays an engine and vitest never enters
+  core's runtime. The conformance body ships as the test-only
+  `@profile-as-code/paste/conformance` subpath; every adapter suite now invokes it
+  (`describePasteConformance`) and keeps only its platform facts (`deploySpec: "manual"`,
+  no assets). The six copied suites and the four overclaiming "emits plain text"
+  assertions are gone, and the adapter docblocks now state the honest pass-through.
+  `pasco build` output is unchanged (byte-stable; empty slice → unbuild, §15.1).
+
 - **Family wording normalization — `creator-support` → `creator-monetization` (#133)** —
   the informal prose from #130 (SPEC D16/§9 and the `kofi` v1.7 description line in
   `schema/profile.schema.json`, this file included) now carries the canonical term;
@@ -254,6 +331,14 @@ minor versions may contain breaking contract changes.
   humanos y pre-flight (workflow filename, `repository.url`) en `docs/ci-cd.md`.
 
 ### Fixed
+
+- **permanent Dependabot `failure` runs on `main` (#160)** — the security job
+  Dependabot opened over the dep-gate fixtures aborted on
+  `dependency_file_not_parseable` because `exclude-paths` applies only to the
+  version-update path ([OFICIAL] dependabot-options-reference), and the permanent
+  failing run also poisoned `issue-select`'s "main CI green" gate. The
+  placeholder-version alerts are ignored by exact version and the `source-map-js`
+  override floor documented; the class is eliminated by construction in #166.
 
 - **hardening de semántica de vacío: geo alineada con empty=absent + strings planos vacíos interpolados + typing de
   langMap (issue #86)** — tres follow-ups de la review fresh de #85, una familia (semántica vacío/typing alrededor de
