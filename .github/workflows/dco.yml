@@ -18,6 +18,7 @@ permissions:
 jobs:
   sign-off:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       # A gate must not be supplied BY the thing it judges. `actions/checkout`
       # defaults to the PR's merge ref, so a contributor could rewrite

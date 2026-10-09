@@ -158,20 +158,25 @@ Enforced in-repo (not a plan gate):
   `dco.yml` (the DCO gate fetches the PR head) and the release publish job's first
   checkout (`release-guard.mjs` fetches the default-branch tip and the tag).
 - **pnpm supply-chain policies** (`pnpm-workspace.yaml`): `minimumReleaseAge: 4320`
-  (3 days; pnpm's default is 1) delays freshly published versions; `blockExoticSubdeps`
-  rejects git/tarball transitive sources; `trustPolicy: no-downgrade` rejects a package
-  whose trust level dropped — `trustPolicyExclude` records the accepted `chokidar@4.0.3`
-  exception (provenance review pending).
+  (3 days; pnpm's default is 1 day) delays freshly published versions — and because it
+  is set explicitly, strict enforcement is on, so a younger entry fails the install
+  instead of falling back. Dependabot's `cooldown: 7` keeps version-update PRs out of
+  that window; security updates bypass cooldown and may leave `ci` red for up to 3 days
+  by design. `trustPolicy: no-downgrade` rejects a package whose trust level dropped —
+  `trustPolicyExclude` records the accepted `chokidar@4.0.3` exception (#184).
+  `blockExoticSubdeps` is stated explicitly (already pnpm's default since 10.26).
 - **Pinned tool installs**: `jsonschema==4.26.0`, `pyyaml==6.0.3` (CI) and `npm@11.6.1`
   (release) replace floating versions.
-- **`.npmrc`**: `engine-strict=true` — an engine mismatch fails the install.
+- **`engineStrict: true`** (`pnpm-workspace.yaml`) — a dependency whose declared engine
+  range excludes the running Node fails the install. It is a pnpm setting; `.npmrc` is
+  read only for registry/auth keys, so the same line there is a no-op.
 - `runs-on: ubuntu-24.04` (not `-latest`), plus `timeout-minutes` and `concurrency` on CI.
 - `.gitattributes` normalizes line endings to LF; `.github/CODEOWNERS` names the owner.
 
 Still to enable at the visibility flip (needs public or GitHub Pro): the Actions
 SHA-pinning policy and a restricted allowed-actions list, a **tag protection ruleset for
-`v*`** (the release trigger), `sign-off` in the required status checks, secret scanning +
-push protection, and an environment approval gate on publish.
+`v*`** (the release trigger), secret scanning + push protection, and an environment
+approval gate on publish.
 
 ## Release — `.github/workflows/release.yml`
 

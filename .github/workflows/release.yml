@@ -39,6 +39,7 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     # Exposed so the release job can build its page from the SAME verified commit
     # (issue #58) — a release page must describe the artifact that shipped.
     outputs:
@@ -165,6 +166,7 @@ jobs:
     # never exercised — there is no `v*` tag yet).
     if: needs.publish.outputs.tag != ''
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: write # gh release create — scoped to this job, not the publish job
     steps:

@@ -1,6 +1,3 @@
 # Normalize line endings so the repo builds identically on every OS
-# (#audit 2026-10-09).
+# (#audit 2026-10-09). `eol=lf` already covers shell scripts, so no per-glob rule.
 * text=auto eol=lf
-
-# Shell scripts must stay LF to remain executable under bash.
-*.sh text eol=lf

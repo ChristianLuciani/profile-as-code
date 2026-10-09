@@ -8,6 +8,12 @@ updates:
     labels: ["dependencies"]
     commit-message:
       prefix: "chore(deps)"
+    # Hold version-update PRs until a release is 7 days old, above pnpm's
+    # minimumReleaseAge (3 days): a Dependabot bump to a too-fresh version would
+    # otherwise fail the required `ci` install. Security updates skip cooldown by
+    # design — a fresh security release can leave `ci` red for up to 3 days.
+    cooldown:
+      default-days: 7
     # One PR per minor/patch batch; majors stay individual for scrutiny.
     groups:
       npm-minor-patch:
@@ -35,8 +41,8 @@ updates:
       - dependency-name: "source-map-js"
     # Security updates for the two ignored transitive deps cannot be produced by
     # Dependabot (it does not rewrite locked transitive pins) — the pnpm
-    # `overrides` above are that path. This `ignore` silences only the impossible
-    # retry; version bumps still ride tsup/vite.
+    # `overrides` in pnpm-workspace.yaml are that path. This `ignore` silences only
+    # the impossible retry; version bumps still ride tsup/vite.
     exclude-paths:
       - "scripts/dep-gate/fixtures/**"
   - package-ecosystem: github-actions
