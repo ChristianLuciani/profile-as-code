@@ -11,7 +11,8 @@
  * guaranteed to be defined (empty arrays when absent in the workspace).
  */
 
-import { PLATFORM_VALUES, type profileSchema } from "./generated/schema.zod.js";
+import { PLATFORM_SLUGS } from "./generated/platforms.gen.js";
+import type { profileSchema } from "./generated/schema.zod.js";
 
 /** The profile as defined by the contract (schema/profile.schema.json). */
 export type Profile = import("zod").z.infer<typeof profileSchema>;
@@ -111,13 +112,15 @@ export function textOf(v: string | GeneratedLangMap | undefined): string {
   return typeof v === "string" ? v : (v.en ?? "");
 }
 
-/** The platform set — the generated `PLATFORM_VALUES` (D3/D16).
+/** The platform set — the generated `PLATFORM_SLUGS` (D3/D16, #154).
  *
- *  `schema/profile.schema.json` (`$defs.platform.enum`) is the single
- *  hand-authored home: `scripts/gen-zod.ts` emits both the Zod enum and this
- *  value list from it, and the vitest contract test asserts that codegen
- *  boundary (tests/contract.test.ts). Never re-list platforms here. */
-export const PLATFORMS: readonly Platform[] = PLATFORM_VALUES;
+ *  `schema/profile.schema.json` (`$defs.platform.enum`) stays the single
+ *  hand-authored CONTRACT — `scripts/gen-zod.ts` emits the Zod union from it.
+ *  The metadata home is `platforms/registry.yaml`; `pnpm gen:platforms` projects
+ *  it here and CI asserts registry == enum == this projection
+ *  (`tests/contract.test.ts`, `scripts/schema-check/check.py`). Never re-list
+ *  platforms here. */
+export const PLATFORMS: readonly Platform[] = PLATFORM_SLUGS;
 
 export const LANGS: readonly Lang[] = ["en", "es", "fr"] as const;
 

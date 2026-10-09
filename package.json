@@ -17,11 +17,13 @@
     "lint:fix:unsafe": "biome check --write --unsafe .",
     "format": "biome format --write .",
     "gen:zod": "pnpm -F @profile-as-code/core gen:zod",
-    "gen:renderers": "node scripts/renderer-map/gen.mjs"
+    "gen:renderers": "node scripts/renderer-map/gen.mjs",
+    "gen:platforms": "node scripts/gen-platforms/gen.mjs"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@biomejs/biome": "^2.5.15",
-    "publint": "^0.3.25"
+    "publint": "^0.3.25",
+    "yaml": "^2.9.1"
   }
 }

@@ -21,6 +21,9 @@ importers:
       publint:
         specifier: ^0.3.25
         version: 0.3.25
+      yaml:
+        specifier: ^2.9.1
+        version: 2.9.1
 
   packages/cli:
     dependencies:

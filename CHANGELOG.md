@@ -9,6 +9,22 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Added
+
+- **Platform registry — per-platform metadata now has one machine-readable home (#154)**:
+  `platforms/registry.yaml` carries the metadata that used to live hand-written across ≥7
+  surfaces (family, deploy kind, hosts, subdomain hosts, handle hosts, status, since, issue,
+  sources). `pnpm gen:platforms` (`scripts/gen-platforms/`, the D3 drift-check shape) projects
+  every derived surface: `packages/core/src/generated/platforms.gen.ts` (the host maps + slug
+  list consumed by `drift.ts`/`types.ts`, plus the derived test enumerations), the SPEC §6
+  family table + count arithmetic and the README status counts between explicit
+  `<!-- gen:… -->` … `<!-- /gen -->` markers. The reviewed contract is unchanged — the schema
+  keeps `$defs.platform.enum` (D3) — and CI asserts registry ↔ enum ↔ generated agree
+  (`scripts/schema-check/check.py` + `node scripts/gen-platforms/gen.mjs --check`), including
+  the reverse assert: every enum member has a declared renderer or an explicit
+  `renderer: false` ("not implemented yet"), and each renderer's `deploySpec` equals the
+  registry `deploy` (D9).
+
 ### Changed
 
 - **Paste-renderer core — the invariant gets one home (#150, PR #158)**: the six paste

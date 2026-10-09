@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PLATFORMS } from "@profile-as-code/core";
+import { PASTE_PLATFORMS, PLATFORMS } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -251,7 +251,9 @@ describe("pasco build (compile slices)", () => {
   });
 
   // v1.8 (#133) + v1.9 (#137): the creator-monetization family — same paste chain as kofi.
-  it.each(["buymeacoffee", "liberapay", "gumroad", "payhip", "hotmart"] as const)(
+  // The list is projected from `platforms/registry.yaml` (#154) — derived, not
+  // hand-extended when a new creator-monetization paste platform lands.
+  it.each(PASTE_PLATFORMS.map((entry) => entry.platform))(
     "writes the %s paste artifact for the family workspace (v1.8/v1.9, #133/#137)",
     (slug) => {
       const ws = tempDir();
@@ -289,11 +291,7 @@ describe("pasco build (compile slices)", () => {
     // in this fixture → empty render → not written (§15.1 pure profiles/).
     expect(data.data.written.map((w) => w.platform)).toEqual([
       "github-readme",
-      "buymeacoffee",
-      "liberapay",
-      "gumroad",
-      "payhip",
-      "hotmart",
+      ...PASTE_PLATFORMS.map((entry) => entry.platform),
     ]);
     expect(existsSync(join(ws, "profiles", "kofi"))).toBe(false);
   });

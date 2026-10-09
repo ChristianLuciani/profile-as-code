@@ -1,0 +1,582 @@
+# platforms/registry.yaml — the machine-readable platform registry (issue #154).
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# Per-platform *metadata* had no single home: one fact ("hotmart is a paste
+# platform in the creator-monetization family whose host is hotmart.com") lived
+# hand-written in ≥7 surfaces, and PR #146 edited 24 files for one platform.
+# This registry is now the ONE data home for that metadata. The reviewed
+# contract is unchanged: `schema/profile.schema.json` keeps `$defs.platform.enum`
+# (hand-edited, D3) — this file never owns the constraint, only the metadata.
+#
+# WHAT IS GENERATED FROM IT (never edit the outputs by hand)
+# ----------------------------------------------------------
+#   node scripts/gen-platforms/gen.mjs            # pnpm gen:platforms
+#     ├── packages/core/src/generated/platforms.gen.ts   host maps + slug list
+#     ├── docs/SPEC.md  block between `<!-- gen:platform-families -->` … `<!-- /gen -->`
+#     └── README.md     block between `<!-- gen:platform-status -->` … `<!-- /gen -->`
+#
+# CI (scripts/schema-check/check.py and `gen.mjs --check`) asserts
+# registry ↔ schema enum ↔ generated all agree, naming the exact pair that
+# drifts. Prose in SPEC/README *outside* the markers stays hand-authored.
+#
+# FIELD CONTRACT (one entry per slug; every enum member MUST appear here)
+# -----------------------------------------------------------------------
+#   family           optional family id (see `families:`); absent = un-bucketed
+#   origin           postiz | extra — Postiz parity vs operator extra (D16)
+#   since            version the slug entered the enum (v1 … v1.9)
+#   issue            optional GitHub issue that added it
+#   deploy           git | api | manual (D9) — the declared deploy kind. `manual`
+#                    is the checklist default for a platform with no evidenced
+#                    profile-body API. For a slug with a renderer this MUST equal
+#                    that renderer's `pasco.deploySpec` (#165) — CI-asserted.
+#   hosts            apex hosts that are platform surfaces (drift PLATFORM_HOSTS)
+#   subdomain_hosts  hosts whose SUBDOMAINS are profile surfaces (drift)
+#   handle_hosts     expected hosts for socialHandles URLs; [] = any host allowed
+#   renderer         true iff a renderer manifest declares this platform (#165).
+#                    `false` is the explicit "not implemented yet" the reverse
+#                    assert requires — never a silent gap.
+#   fixture          optional test workspace under packages/core/tests/fixtures/
+#   note             optional short annotation rendered into the SPEC family table
+#   sources          where the facts were verified (evidence rule)
+version: 1
+
+# Postiz parity baseline (D16): the union is Postiz's supported networks plus
+# operator extras. `count` is Postiz's own published number — a fact, not derived.
+postiz:
+  count: 34
+  source: "[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"
+
+# Families are declared docs-first (issue #138) — prose labels, never a hard
+# schema field. `backlog` members are NOT enum entries.
+families:
+  creator-monetization:
+    display: Creator monetization platforms
+    purpose: "audience pays for content, memberships or works (declared v1.8, #133)"
+    backlog:
+      - name: gofundme
+        note: "deferred — no EC organizer payout, #133"
+  freelance:
+    display: Freelance marketplaces
+    purpose: client-facing surfaces — the product is the operator's professional time
+    backlog:
+      - name: freelancer
+        note: "freelancer.com, global"
+      - name: workana
+        note: "Brazil-founded, LatAm-wide ES/PT — EC-priority candidate"
+      - name: fiverr
+        note: "boundary: gig **storefronts** of services — filed here with that note"
+  job-boards:
+    display: Recruiting surfaces
+    purpose: "recruiter-facing CV surfaces — the buyer is a recruiter and the native content is the structured CV the SSOT already models (`experience[]` / `education[]` / `skills[]`); GEO hook = name-reputation in search results only"
+    backlog:
+      - name: infojobs
+        note: "Spain + LatAm"
+      - name: computrabajo
+        note: "Ecuador-founded + LatAm-wide — `[MI] — verify` the whole descriptor; in-session corroboration inconclusive, PR #140 review F1"
+      - name: indeed
+        note: "aggregator"
+
+# All 49 enum members. Order is deliberate: creator-monetization members in the
+# curated slice order (membership → tip → donation → storefront), then the
+# freelance member, then the un-bucketed remainder. The generated SPEC family
+# table preserves this order; the generated slug list follows the schema enum.
+platforms:
+  # ── creator-monetization family ──────────────────────────────────────────
+  patreon:
+    family: creator-monetization
+    origin: extra
+    since: v1
+    deploy: manual
+    hosts: [patreon.com]
+    subdomain_hosts: []
+    handle_hosts: [patreon.com]
+    renderer: false
+    sources: ["SPEC §6 (D16)"]
+  kofi:
+    family: creator-monetization
+    origin: extra
+    since: v1.7
+    issue: 130
+    deploy: manual
+    hosts: [ko-fi.com]
+    subdomain_hosts: []
+    handle_hosts: [ko-fi.com]
+    renderer: true
+    fixture: minimal-kofi
+    sources: ["SPEC §6 (D16)", "issue #130"]
+  buymeacoffee:
+    family: creator-monetization
+    origin: extra
+    since: v1.8
+    issue: 133
+    deploy: manual
+    hosts: [buymeacoffee.com]
+    subdomain_hosts: []
+    handle_hosts: [buymeacoffee.com]
+    renderer: true
+    fixture: minimal-creator-monetization
+    sources: ["SPEC §6 (D16)", "issue #133"]
+  liberapay:
+    family: creator-monetization
+    origin: extra
+    since: v1.8
+    issue: 133
+    deploy: manual
+    hosts: [liberapay.com]
+    subdomain_hosts: [liberapay.com]
+    handle_hosts: [liberapay.com]
+    renderer: true
+    fixture: minimal-creator-monetization
+    sources: ["SPEC §6 (D16)", "issue #133", "[WEB] liberapay.com FAQ, fetched 2026-10-05"]
+  gumroad:
+    family: creator-monetization
+    origin: extra
+    since: v1.8
+    issue: 133
+    deploy: manual
+    hosts: [gumroad.com]
+    subdomain_hosts: [gumroad.com]
+    handle_hosts: [gumroad.com]
+    renderer: true
+    fixture: minimal-creator-monetization
+    sources: ["SPEC §6 (D16)", "issue #133", "[WEB] gumroad.com, fetched 2026-10-05"]
+  payhip:
+    family: creator-monetization
+    origin: extra
+    since: v1.8
+    issue: 133
+    deploy: manual
+    hosts: [payhip.com]
+    subdomain_hosts: []
+    handle_hosts: [payhip.com]
+    renderer: true
+    fixture: minimal-creator-monetization
+    sources: ["SPEC §6 (D16)", "issue #133"]
+  hotmart:
+    family: creator-monetization
+    origin: extra
+    since: v1.9
+    issue: 137
+    deploy: manual
+    hosts: [hotmart.com]
+    subdomain_hosts: []
+    handle_hosts: [hotmart.com]
+    renderer: true
+    fixture: minimal-creator-monetization
+    note: "v1.9, #137 — EC payout `[?]` carried per the #133 precedent"
+    sources: ["SPEC §6 (D16)", "issue #137", "[WEB] hotmart.com ToU §B, fetched 2026-10-05"]
+  substack:
+    family: creator-monetization
+    origin: extra
+    since: v1
+    deploy: manual
+    hosts: [substack.com]
+    subdomain_hosts: [substack.com]
+    handle_hosts: [substack.com]
+    renderer: false
+    sources: ["SPEC §6 (D16)"]
+  whop:
+    family: creator-monetization
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [whop.com]
+    subdomain_hosts: []
+    handle_hosts: [whop.com]
+    renderer: false
+    note: "Postiz parity"
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+
+  # ── freelance family ─────────────────────────────────────────────────────
+  upwork:
+    family: freelance
+    origin: extra
+    since: v1
+    deploy: manual
+    hosts: [upwork.com]
+    subdomain_hosts: []
+    handle_hosts: []
+    renderer: false
+    note: "v1, retroactive"
+    sources: ["SPEC §6 (D16), issue #138"]
+
+  # ── un-bucketed (no declared family) ─────────────────────────────────────
+  github-readme:
+    origin: extra
+    since: v1
+    deploy: git
+    hosts: [github.com]
+    subdomain_hosts: []
+    handle_hosts: []
+    renderer: true
+    fixture: minimal
+    sources: ["SPEC §6 (D16)"]
+  linkedin:
+    origin: postiz
+    since: v1
+    deploy: manual
+    hosts: [linkedin.com]
+    subdomain_hosts: []
+    handle_hosts: []
+    renderer: false
+    sources: ["SPEC §6 (D16)", "README (deploy: no API)"]
+  x:
+    origin: postiz
+    since: v1
+    deploy: manual
+    hosts: [x.com, twitter.com]
+    subdomain_hosts: []
+    handle_hosts: [x.com, twitter.com]
+    renderer: false
+    sources: ["SPEC §6 (D16)"]
+  researchgate:
+    origin: extra
+    since: v1
+    deploy: manual
+    hosts: [researchgate.net]
+    subdomain_hosts: []
+    handle_hosts: []
+    renderer: false
+    sources: ["SPEC §6 (D16)"]
+  github-org:
+    origin: extra
+    since: v1
+    deploy: git
+    hosts: [github.com]
+    subdomain_hosts: []
+    handle_hosts: [github.com]
+    renderer: true
+    sources: ["SPEC §6 (D16)", "SPEC §17 (brand)"]
+  bluesky:
+    origin: postiz
+    since: v1.1
+    deploy: manual
+    hosts: [bsky.app, bluesky.social]
+    subdomain_hosts: []
+    handle_hosts: [bsky.app, bluesky.social]
+    renderer: false
+    sources: ["SPEC §6 (D16)"]
+  instagram:
+    origin: postiz
+    since: v1.1
+    deploy: manual
+    hosts: [instagram.com]
+    subdomain_hosts: []
+    handle_hosts: [instagram.com]
+    renderer: false
+    sources: ["SPEC §6 (D16)"]
+  tiktok:
+    origin: postiz
+    since: v1.1
+    deploy: manual
+    hosts: [tiktok.com]
+    subdomain_hosts: []
+    handle_hosts: [tiktok.com]
+    renderer: false
+    sources: ["SPEC §6 (D16)"]
+  youtube:
+    origin: postiz
+    since: v1.1
+    deploy: manual
+    hosts: [youtube.com]
+    subdomain_hosts: []
+    handle_hosts: [youtube.com]
+    renderer: false
+    sources: ["SPEC §6 (D16)"]
+  spotify:
+    origin: extra
+    since: v1.1
+    deploy: manual
+    hosts: [open.spotify.com, spotify.com]
+    subdomain_hosts: []
+    handle_hosts: [open.spotify.com, spotify.com]
+    renderer: false
+    sources: ["SPEC §6 (D16)", "SPEC §17 (brand, v1.1)"]
+  reddit:
+    origin: postiz
+    since: v1.1
+    deploy: manual
+    hosts: [reddit.com]
+    subdomain_hosts: []
+    handle_hosts: [reddit.com]
+    renderer: false
+    sources: ["SPEC §6 (D16)"]
+  mastodon:
+    origin: postiz
+    since: v1.1
+    deploy: manual
+    hosts: [mastodon.social]
+    subdomain_hosts: []
+    handle_hosts: [mastodon.social]
+    renderer: false
+    sources: ["SPEC §6 (D16)"]
+  soundcloud:
+    origin: extra
+    since: v1.1
+    deploy: manual
+    hosts: [soundcloud.com]
+    subdomain_hosts: []
+    handle_hosts: [soundcloud.com]
+    renderer: false
+    sources: ["SPEC §6 (D16)", "SPEC §17 (brand, v1.1)"]
+  facebook:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [facebook.com]
+    subdomain_hosts: []
+    handle_hosts: [facebook.com]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  linkedin-page:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [linkedin.com]
+    subdomain_hosts: []
+    handle_hosts: [linkedin.com]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  instagram-standalone:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [instagram.com]
+    subdomain_hosts: []
+    handle_hosts: [instagram.com]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  warpcast:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [warpcast.com, farcaster.xyz]
+    subdomain_hosts: []
+    handle_hosts: [warpcast.com, farcaster.xyz]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  lemmy:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [lemmy.ml, lemmy.world]
+    subdomain_hosts: []
+    handle_hosts: []
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  discord:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [discord.com, discord.gg]
+    subdomain_hosts: []
+    handle_hosts: [discord.com, discord.gg]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  slack:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [slack.com]
+    subdomain_hosts: [slack.com]
+    handle_hosts: [slack.com]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  skool:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [skool.com]
+    subdomain_hosts: []
+    handle_hosts: [skool.com]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  pinterest:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [pinterest.com]
+    subdomain_hosts: []
+    handle_hosts: [pinterest.com]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  dribbble:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [dribbble.com]
+    subdomain_hosts: []
+    handle_hosts: [dribbble.com]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  medium:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [medium.com]
+    subdomain_hosts: [medium.com]
+    handle_hosts: [medium.com]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  devto:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [dev.to]
+    subdomain_hosts: []
+    handle_hosts: [dev.to]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  hashnode:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [hashnode.dev]
+    subdomain_hosts: [hashnode.dev]
+    handle_hosts: [hashnode.dev]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  wordpress:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [wordpress.com]
+    subdomain_hosts: [wordpress.com]
+    handle_hosts: [wordpress.com]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  gmb:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [business.google.com]
+    subdomain_hosts: []
+    handle_hosts: []
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  listmonk:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: []
+    subdomain_hosts: []
+    handle_hosts: []
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  twitch:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [twitch.tv]
+    subdomain_hosts: []
+    handle_hosts: [twitch.tv]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  threads:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [threads.net, threads.com]
+    subdomain_hosts: []
+    handle_hosts: [threads.net, threads.com]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  telegram:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [t.me, telegram.org]
+    subdomain_hosts: []
+    handle_hosts: [t.me, telegram.org]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  nostr:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [njump.me, primal.net, iris.to]
+    subdomain_hosts: []
+    handle_hosts: [njump.me, primal.net, iris.to]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  vk:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [vk.com]
+    subdomain_hosts: []
+    handle_hosts: [vk.com]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  kick:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [kick.com]
+    subdomain_hosts: []
+    handle_hosts: [kick.com]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  moltbook:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [moltbook.com]
+    subdomain_hosts: []
+    handle_hosts: [moltbook.com]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  ghost:
+    origin: extra
+    since: v1.1
+    deploy: manual
+    hosts: [ghost.io]
+    subdomain_hosts: [ghost.io]
+    handle_hosts: []
+    renderer: false
+    sources: ["SPEC §6 (D16)", "SPEC §17 (brand, v1.1)"]
+  mewe:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [mewe.com]
+    subdomain_hosts: []
+    handle_hosts: [mewe.com]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
+  tumblr:
+    origin: postiz
+    since: v1.2
+    issue: 30
+    deploy: manual
+    hosts: [tumblr.com]
+    subdomain_hosts: [tumblr.com]
+    handle_hosts: [tumblr.com]
+    renderer: false
+    sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
