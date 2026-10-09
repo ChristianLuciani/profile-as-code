@@ -266,8 +266,9 @@ pre-release history and was never tagged or published.
   not target.
 
 - **One-home codegen and build wiring (#152, #164, #165)** — three
-  hand-maintained mirrors removed: the `PLATFORMS` list is generated from the
-  schema enum (#152); `packages/cli` builds from the workspace dependency graph
+  hand-maintained mirrors removed: the `PLATFORMS` mirror is gone (#152; the list
+  is now the `platforms/registry.yaml` projection — see the #154 entry);
+  `packages/cli` builds from the workspace dependency graph
   (`pnpm --filter "@profile-as-code/cli^..." build`) instead of an eight-entry
   hand-written renderer chain (#164); the platform↔renderer mapping moves into
   each renderer's own `pasco` manifest block, projected into a generated CLI map
