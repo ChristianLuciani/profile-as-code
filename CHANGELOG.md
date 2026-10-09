@@ -11,6 +11,19 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+### Changed
+
+### Planned (roadmap)
+
+- Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
+- CLI `pasco`: build · validate · diff · check · refine · skills:install (M1/M3)
+- Per-platform skills v1 from SOTA research (M3)
+- `profile-data` template repo + web renderer (M5)
+
+## [0.2.0] - 2026-10-09
+
+### Added
+
 - **Platform registry — per-platform metadata now has one machine-readable home (#154)**:
   `platforms/registry.yaml` carries the metadata that used to live hand-written across ≥7
   surfaces (family, deploy kind, hosts, subdomain hosts, handle hosts, status, since, issue,
@@ -24,43 +37,6 @@ minor versions may contain breaking contract changes.
   the reverse assert: every enum member has a declared renderer or an explicit
   `renderer: false` ("not implemented yet"), and each renderer's `deploySpec` equals the
   registry `deploy` (D9).
-
-### Changed
-
-- **Paste-renderer core — the invariant gets one home (#150, PR #158)**: the six paste
-  adapters (`kofi`…`hotmart`) carried a byte-identical render body (sha256[:16]
-  `b00031017ee2bbc4` after comment strip). The shared body — length priority
-  `long > medium > short`, EXACTLY ONE `bios` row's verbatim text + `\n`, `""` on an empty
-  slice — now lives in a dedicated shared module (`pasteSource()`; re-homed to
-  `packages/paste/` in #157 below): the
-  `structured-data.ts` v1.6 / `packages/markdown` precedent — a contract shared by every
-  adapter lives in one module, and adapters delegate rather than re-implement. `kofi`
-  migrates first: its suite passes, with the overclaiming "emits plain text" fixture check
-  tightened to exact-equality verbatim pass-through — identical input → identical output is
-  the byte-preservation proof. `pasco build` output is unchanged (byte-stable; empty slice →
-  unbuild, §15.1). The remaining five adapters and the six copied suites landed in #157.
-
-- **Paste-renderer core — the seam gets its own support package; all six paste adapters
-  delegate (#157)**: the shared body moved from `core/src/paste-source.ts` to
-  **`packages/paste/`** (`@profile-as-code/paste`) — a renderer support package (the
-  `packages/markdown` precedent), so the engine stays an engine and vitest never enters
-  core's runtime. The conformance body ships as the test-only
-  `@profile-as-code/paste/conformance` subpath; every adapter suite now invokes it
-  (`describePasteConformance`) and keeps only its platform facts (`deploySpec: "manual"`,
-  no assets). The six copied suites and the four overclaiming "emits plain text"
-  assertions are gone, and the adapter docblocks now state the honest pass-through.
-  `pasco build` output is unchanged (byte-stable; empty slice → unbuild, §15.1).
-
-### Planned (roadmap)
-
-- Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
-- CLI `pasco`: build · validate · diff · check · refine · skills:install (M1/M3)
-- Per-platform skills v1 from SOTA research (M3)
-- `profile-data` template repo + web renderer (M5)
-
-## [0.2.0] - 2026-10-06
-
-### Added
 
 - **`hotmart` platform — schema additive v1.9, D16 operator extra #15 (49 total;
   issue #137)** — Hotmart: digital-products storefront + memberships (the Payment Policy's
@@ -228,6 +204,30 @@ minor versions may contain breaking contract changes.
   (`npm view` + publint/attw against the published tarball).
 
 ### Changed
+
+- **Paste-renderer core — the invariant gets one home (#150, PR #158)**: the six paste
+  adapters (`kofi`…`hotmart`) carried a byte-identical render body (sha256[:16]
+  `b00031017ee2bbc4` after comment strip). The shared body — length priority
+  `long > medium > short`, EXACTLY ONE `bios` row's verbatim text + `\n`, `""` on an empty
+  slice — now lives in a dedicated shared module (`pasteSource()`; re-homed to
+  `packages/paste/` in #157 below): the
+  `structured-data.ts` v1.6 / `packages/markdown` precedent — a contract shared by every
+  adapter lives in one module, and adapters delegate rather than re-implement. `kofi`
+  migrates first: its suite passes, with the overclaiming "emits plain text" fixture check
+  tightened to exact-equality verbatim pass-through — identical input → identical output is
+  the byte-preservation proof. `pasco build` output is unchanged (byte-stable; empty slice →
+  unbuild, §15.1). The remaining five adapters and the six copied suites landed in #157.
+
+- **Paste-renderer core — the seam gets its own support package; all six paste adapters
+  delegate (#157)**: the shared body moved from `core/src/paste-source.ts` to
+  **`packages/paste/`** (`@profile-as-code/paste`) — a renderer support package (the
+  `packages/markdown` precedent), so the engine stays an engine and vitest never enters
+  core's runtime. The conformance body ships as the test-only
+  `@profile-as-code/paste/conformance` subpath; every adapter suite now invokes it
+  (`describePasteConformance`) and keeps only its platform facts (`deploySpec: "manual"`,
+  no assets). The six copied suites and the four overclaiming "emits plain text"
+  assertions are gone, and the adapter docblocks now state the honest pass-through.
+  `pasco build` output is unchanged (byte-stable; empty slice → unbuild, §15.1).
 
 - **Family wording normalization — `creator-support` → `creator-monetization` (#133)** —
   the informal prose from #130 (SPEC D16/§9 and the `kofi` v1.7 description line in
