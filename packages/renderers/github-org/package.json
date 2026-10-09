@@ -1,5 +1,6 @@
 {
   "name": "@profile-as-code/renderers-github-org",
+  "private": true,
   "version": "0.1.0",
   "description": "Renderer github-org (M6, brand flavor): deterministic, byte-stable org README.md from a brand PlatformProfile (compile() slice). Pure function of the SSOT — no network, no AI, no randomness. SPEC §17.",
   "type": "module",

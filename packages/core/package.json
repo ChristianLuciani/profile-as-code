@@ -1,5 +1,6 @@
 {
   "name": "@profile-as-code/core",
+  "private": true,
   "version": "0.1.0",
   "description": "Core engine of profile-as-code: load (schema-validate), driftCheck, geoCheck, compile. Contract source is schema/profile.schema.json (D3) — Zod is generated, never hand-written.",
   "type": "module",

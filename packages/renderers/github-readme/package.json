@@ -1,5 +1,6 @@
 {
   "name": "@profile-as-code/renderers-github-readme",
+  "private": true,
   "version": "0.1.0",
   "description": "Renderer github-readme (M2): deterministic, byte-stable README.md from a PlatformProfile (compile() slice). Pure function of the SSOT — no network, no AI, no randomness. SPEC §15.",
   "type": "module",

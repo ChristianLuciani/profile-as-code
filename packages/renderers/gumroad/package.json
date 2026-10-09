@@ -46,6 +46,7 @@
   ],
   "main": "./dist/index.js",
   "name": "@profile-as-code/renderers-gumroad",
+  "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "pnpm build && vitest run",
