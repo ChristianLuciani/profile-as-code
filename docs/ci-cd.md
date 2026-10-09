@@ -163,8 +163,10 @@ Enforced in-repo (not a plan gate):
   instead of falling back. Dependabot's `cooldown: 7` keeps version-update PRs out of
   that window; security updates bypass cooldown and may leave `ci` red for up to 3 days
   by design. `trustPolicy: no-downgrade` rejects a package whose trust level dropped —
-  `trustPolicyExclude` records the accepted `chokidar@4.0.3` exception (#184).
-  `blockExoticSubdeps` is stated explicitly (already pnpm's default since 10.26).
+  the transitive `chokidar` (tsup's watcher) carries no exclusion: the `overrides`
+  block pins it to the attested 4.0.1, which is also the smallest version whose
+  4.x line has provenance (#184). `blockExoticSubdeps` is stated explicitly (already
+  pnpm's default since 10.26).
 - **Pinned tool installs**: `jsonschema==4.26.0`, `pyyaml==6.0.3` (CI) and `npm@11.6.1`
   (release) replace floating versions.
 - **`engineStrict: true`** (`pnpm-workspace.yaml`) — a dependency whose declared engine
