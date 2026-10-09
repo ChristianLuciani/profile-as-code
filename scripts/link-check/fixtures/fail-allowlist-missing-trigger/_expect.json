@@ -1,0 +1,6 @@
+{
+  "status": "fail",
+  "rule": "E-ALLOWLIST-INVALID",
+  "note": "a private-target entry without a removal trigger is refused",
+  "minLinks": 0
+}

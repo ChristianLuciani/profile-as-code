@@ -1,0 +1,9 @@
+{
+  "privateTargets": [
+    {
+      "target": "mailto:someone@example.com",
+      "reason": "fixture: a non-http scheme is not a private web target",
+      "removalTrigger": "fixture: never"
+    }
+  ]
+}

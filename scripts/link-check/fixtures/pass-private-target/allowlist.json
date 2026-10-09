@@ -1,0 +1,9 @@
+{
+  "privateTargets": [
+    {
+      "target": "https://github.com/ChristianLuciani/profile-data-template",
+      "reason": "fixture: private family satellite",
+      "removalTrigger": "fixture: the visibility flip"
+    }
+  ]
+}

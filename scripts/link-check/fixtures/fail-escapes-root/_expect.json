@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "rule": "E-LINK-ESCAPES",
+  "note": "a target resolving outside the repo root fails instead of being probed on the host"
+}

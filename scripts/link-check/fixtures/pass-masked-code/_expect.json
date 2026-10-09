@@ -1,0 +1,5 @@
+{
+  "status": "pass",
+  "note": "links inside fences and inline code are masked, never resolved",
+  "minLinks": 0
+}

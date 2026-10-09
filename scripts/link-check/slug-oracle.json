@@ -1,0 +1,53 @@
+{
+  "$comment": "Expected GitHub heading anchors (github-slugger@2.0.0, the reference implementation), generated 2026-10-09. test.mjs asserts scripts/link-check/check.mjs slugify() reproduces every pair — the oracle, committed as data so CI needs no dependency.",
+  "cases": [
+    {
+      "heading": "5. Validate & build",
+      "slug": "5-validate--build"
+    },
+    {
+      "heading": "AGENTS.md — profile-as-code",
+      "slug": "agentsmd--profile-as-code"
+    },
+    {
+      "heading": "2. Goals / Non-goals",
+      "slug": "2-goals--non-goals"
+    },
+    {
+      "heading": "4.1 The golden rule: one file = one root property",
+      "slug": "41-the-golden-rule-one-file--one-root-property"
+    },
+    {
+      "heading": "2. Install the `pasco` CLI",
+      "slug": "2-install-the-pasco-cli"
+    },
+    {
+      "heading": "Option A — npm (the user path; pending the first publish)",
+      "slug": "option-a--npm-the-user-path-pending-the-first-publish"
+    },
+    {
+      "heading": "18.9 GEO & multi-area",
+      "slug": "189-geo--multi-area"
+    },
+    {
+      "heading": "3. Create your workspace (`profile-data-<username>`)",
+      "slug": "3-create-your-workspace-profile-data-username"
+    },
+    {
+      "heading": "4. Payout rail — the deciding datum is still `[?]`",
+      "slug": "4-payout-rail--the-deciding-datum-is-still-"
+    },
+    {
+      "heading": "snake_case_name stays",
+      "slug": "snake_case_name-stays"
+    },
+    {
+      "heading": "Why Biome (and when we would revisit)",
+      "slug": "why-biome-and-when-we-would-revisit"
+    },
+    {
+      "heading": "Same",
+      "slug": "same"
+    }
+  ]
+}

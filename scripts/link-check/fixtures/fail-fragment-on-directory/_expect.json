@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "rule": "E-ANCHOR-MISSING",
+  "note": "a fragment on a directory can never resolve — explicit finding, not a silent skip"
+}

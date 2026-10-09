@@ -36,6 +36,24 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      # Issue #149: documentation link gate. Relative links and in-page anchors
+      # in the tracked Markdown corpus (README, docs/, CONTRIBUTING, AGENTS,
+      # skills/, templates/, package READMEs) must resolve to a file/directory
+      # and to a heading of the destination. Offline and deterministic:
+      # external URLs are never fetched (walled/anti-bot surfaces answer 403 to
+      # bots — #132) and the private family target is DECLARED in
+      # scripts/link-check/allowlist.json with its removal trigger. Zero deps
+      # and no install, so it runs before `pnpm install` to fail fast — but
+      # AFTER the pinned Node setup, like every other node gate, so the required
+      # check is reproducible (it uses no workspace code, hence the `run` is
+      # unconditional: it must run even if `package.json` is absent). The
+      # fixture self-test runs first and proves the gate refuses a deliberately
+      # broken relative link.
+      - name: Documentation link gate (offline, self-tested)
+        run: |
+          node scripts/link-check/test.mjs
+          node scripts/link-check/check.mjs
+
       # Issue #98: dependency gate (D20 scope rule). The D3 drift-check shape
       # applied to the workspace graph — `packages/server` may depend on core
       # only among its runtime dependencies, and nothing in core's dependency

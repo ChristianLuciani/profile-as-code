@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "rule": "E-LINK-MISSING",
+  "note": "THE acceptance fixture (#149): a deliberately broken relative link must fail the gate"
+}

@@ -1,0 +1,9 @@
+{
+  "privateTargets": [
+    {
+      "target": "https://github.com/ChristianLuciani/profile-data-template",
+      "reason": "fixture: declared but unreferenced in scope",
+      "removalTrigger": "fixture: the visibility flip"
+    }
+  ]
+}
