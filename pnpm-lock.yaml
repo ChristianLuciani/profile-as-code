@@ -183,6 +183,9 @@ importers:
       '@profile-as-code/core':
         specifier: workspace:*
         version: link:../../core
+      '@profile-as-code/paste':
+        specifier: workspace:*
+        version: link:../../paste
     devDependencies:
       '@types/node':
         specifier: ^26.6.4
