@@ -20,6 +20,11 @@ const LENGTH_PRIORITY = ["long", "medium", "short"] as const;
  * text + "\n" — never a merge, because the D18 ledger hashes exactly one row
  * per entry (`trackableUnits()`, SPEC §19.1): a composite would hash something
  * no single row owns and staleness could never match. "" → unbuild (§15.1).
+ *
+ * Two rows sharing `platform+lang+length` are not rejected upstream
+ * (`registry.ts` dedupes credentials/artifacts only); `find` is first-match-wins
+ * over `load`'s preserved input order. A schema-level bios-uniqueness rule is a
+ * separate decision, not pinned here.
  */
 export function pasteSource(p: PlatformProfile): string {
   for (const length of LENGTH_PRIORITY) {

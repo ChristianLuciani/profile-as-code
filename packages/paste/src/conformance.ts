@@ -12,6 +12,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  type BioLength,
   compile,
   type Lang,
   load,
@@ -38,7 +39,8 @@ const tempDirs: string[] = [];
 /**
  * Build a `compile()` slice for `platform` from a `bios.yaml` body. Exported so
  * an adapter's platform-fact assertions reuse the shared fixture instead of
- * copying the workspace scaffolding.
+ * copying the workspace scaffolding. Call it from a suite that also runs
+ * `describePasteConformance` — cleanup is that suite's `afterAll`.
  */
 export function pasteSlice(platform: Platform, bios: string, lang: Lang = "en"): PlatformProfile {
   const dir = mkdtempSync(join(tmpdir(), `pasco-paste-${platform}-`));
@@ -53,7 +55,7 @@ export function pasteSlice(platform: Platform, bios: string, lang: Lang = "en"):
 /** One `bios` row, YAML-safe (`JSON.stringify` keeps a leading `#` a scalar). */
 export function pasteRow(
   platform: Platform,
-  length: string,
+  length: BioLength,
   text: string,
   lang: Lang = "en",
 ): string {
@@ -97,18 +99,14 @@ export function describePasteConformance({ platform, render }: PasteConformanceO
     it('returns "" for a platform+lang with no bio row (build unbuilds)', () => {
       const foreignPlatform: Platform = platform === "linkedin" ? "github-org" : "linkedin";
       const foreign = pasteRow(foreignPlatform, "long", "A foreign bio must never leak.");
-      const slice = pasteSlice(platform, foreign);
-      expect(slice.bios.length).toBe(0);
-      expect(render(slice).text).toBe("");
+      expect(render(pasteSlice(platform, foreign)).text).toBe("");
     });
 
     it("renders only the requested lang slice (compile filters by exact lang)", () => {
       const bios =
         pasteRow(platform, "long", "English body.", "en") +
         pasteRow(platform, "long", "Cuerpo en español.", "es");
-      const slice = pasteSlice(platform, bios, "es");
-      expect(slice.bios.length).toBe(1);
-      expect(render(slice).text).toBe("Cuerpo en español.\n");
+      expect(render(pasteSlice(platform, bios, "es")).text).toBe("Cuerpo en español.\n");
     });
   });
 }

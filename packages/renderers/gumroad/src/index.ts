@@ -9,7 +9,9 @@
  * #150/#157) passes the ONE SSOT bios row through VERBATIM (`${bio.text}\n`) —
  * it neither ADDS nor STRIPS Markdown/HTML, so a markdown-bearing row would
  * reach the paste target as-is; keeping the row plain is the skill's job
- * (byte-stable, §15.1).
+ * (the per-platform skill's research owns the sourced formatting facts,
+ * applied by a human step — no check rule covers markdown absence; byte-stable,
+ * §15.1).
  *
  * Deterministic: same input → same bytes (§15.1). No network, no AI, no
  * randomness. Facts pass through untouched from the SSOT; texts are the

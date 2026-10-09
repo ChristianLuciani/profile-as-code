@@ -49,3 +49,5 @@ describe("kofi renderer", () => {
 `@profile-as-code/core` (the `PlatformProfile` type and, for the conformance
 harness, `compile`/`load`). `vitest` is an optional peer, needed only by
 `./conformance`.
+
+See [SPEC §15.1](../../docs/SPEC.md) · [repository README](../../README.md).
