@@ -52,8 +52,8 @@ Fees and eligibility follow the official legal texts, fetched 2026-10-05 — see
 
 ## Dependencies
 
-`@profile-as-code/core`. The shared paste core (`pasteSource()`, #150) is this
-adapter's extraction target
-([#157](https://github.com/ChristianLuciani/profile-as-code/issues/157)).
+`@profile-as-code/core` (the `PlatformProfile` type) and
+`@profile-as-code/paste` — this adapter delegates to the shared paste core
+(`pasteSource()`, #150/#157) rather than re-implementing the invariant.
 
 See [SPEC §15](../../../docs/SPEC.md) · [skills/hotmart](../../../skills/hotmart/).
