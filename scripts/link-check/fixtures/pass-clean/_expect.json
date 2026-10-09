@@ -1,0 +1,4 @@
+{
+  "status": "pass",
+  "note": "relative file, file#anchor, directory, ../ path, reference definition, image and external URL all resolve"
+}

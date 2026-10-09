@@ -1,0 +1,5 @@
+{
+  "status": "pass",
+  "warn": "W-ALLOWLIST-UNUSED",
+  "note": "an unreferenced declaration warns (registry cannot rot silently) but does not fail"
+}

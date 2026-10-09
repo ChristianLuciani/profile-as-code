@@ -1,0 +1,4 @@
+{
+  "status": "pass",
+  "note": "an allowlisted private target is declared and never fetched (offline)"
+}

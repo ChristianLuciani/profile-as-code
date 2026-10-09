@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "rule": "E-ANCHOR-MISSING",
+  "note": "a same-file anchor is checked against the file's own headings"
+}

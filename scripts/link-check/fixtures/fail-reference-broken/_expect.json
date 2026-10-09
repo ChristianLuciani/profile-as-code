@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "rule": "E-LINK-MISSING",
+  "note": "reference-style definitions are validated like inline links"
+}

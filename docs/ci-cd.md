@@ -31,7 +31,20 @@ One job, **`ci`**, required on every PR and push to `main`:
      `valid-*` accepted, `invalid-*` rejected (missing `en`, unknown property,
      bad DOI, unsupported platform)
    - This guards the contract even before the TypeScript workspace exists.
-2. **TypeScript workspace** — steps activate automatically once `package.json` lands
+2. **Documentation link gate** (`scripts/link-check`, issue #149) — always runs:
+   every RELATIVE link/path in the tracked Markdown corpus (`README.md`,
+   `docs/`, `CONTRIBUTING.md`, `AGENTS.md`, `skills/`, `templates/`, package
+   READMEs) must resolve to a file or directory, and every in-page anchor
+   (`#section`) must resolve against the headings of its destination (GitHub
+   slug rules). Offline and deterministic: external URLs are never fetched — a
+   required check cannot depend on third-party uptime or rate limits
+   (`https://ko-fi.com/christianluciani` answered HTTP 403 to a bot, #132,
+   2026-10) — and the private family target `profile-data-template` is DECLARED
+   in `scripts/link-check/allowlist.json` with its removal trigger (the
+   visibility flip). Node-only, needs no install, so it runs with the always-on
+   contract gate; the fixture self-test runs first and proves the gate refuses a
+   deliberately broken relative link.
+3. **TypeScript workspace** — steps activate automatically once `package.json` lands
    (M1 core), in this order: **dependency gate** (`scripts/dep-gate`, issue #98 —
    node-only, before install to fail fast: `packages/server` must depend on
    `core` only among its runtime dependencies and nothing in `core`'s dependency
@@ -69,6 +82,29 @@ re-argued from taste):
 1. an async correctness bug slips through that `tsc` cannot catch → add a narrow `typescript-eslint`
    layer for the type-aware rules only, or swap wholesale;
 2. a custom rule is needed that Biome cannot express.
+
+### Why a local link gate (and not `lycheeverse/lychee-action`)
+
+The issue considered `lychee` and left the choice to the implementer, with the
+trade-off recorded either way. The local gate won, on the same reasoning as
+Biome over `eslint + prettier` (#149): one less external action/dependency
+stream, and a check that is **resolvable offline**. The measured cost is small —
+zero dependencies, `node scripts/link-check/test.mjs` + `check.mjs` run in ~0.1 s
+over the whole corpus (41 files, 80 links at #149, 2026-10-08) — so the offline
+gate is not more expensive than the action, it is cheaper to run and to trust.
+
+**Honest trade-off.** The local gate deliberately does **not** fetch external
+URLs, so it cannot catch a dead `https://` link, and it knows only the GitHub
+heading-slug rules (not the HTML an unusual renderer might produce). `lychee`
+would add external-URL liveness — at the price of a third-party action, network
+flakiness and 403s from walled surfaces (the `ko-fi` case, #132) inside a
+required check, which is exactly what the issue excludes. External liveness
+belongs, if ever, in a scheduled non-required workflow with an explicit
+allowlist — not here.
+
+**Revisit trigger**: if the corpus grows past what `node` can parse reliably
+(a renderer/extension the gate cannot read), or a whole class of broken external
+links actually bites, reopen the choice with the failing case.
 
 ## Dependabot — `.github/dependabot.yml`
 
