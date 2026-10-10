@@ -13,6 +13,12 @@ minor versions may contain breaking contract changes.
 
 ### Changed
 
+- **CLI manifest — npm-canonical `bin` path (issue #193)** —
+  `packages/cli/package.json` declares `"pasco": "dist/index.js"` instead of
+  `"./dist/index.js"`. The leading `./` made `npm publish` "auto-correct" the
+  manifest and print a warning; the published tarball was always correct, but the
+  source is now canonical, so `npm pkg fix` is a no-op and the warning is gone.
+
 ### Planned (roadmap)
 
 - Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
