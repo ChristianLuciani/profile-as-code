@@ -237,8 +237,8 @@ Each stage validates what the next one makes irreversible:
 5. **Publish** — `npm publish`, OIDC-first auth (below).
 
 One class of manifest error escapes every hook above: npm's publish-time
-auto-correction. `npm publish` silently fixes some malformed fields and only
-warns (`npm warn publish npm auto-corrected some errors in your package.json …
+auto-correction. `npm publish` fixes some malformed fields at publish time and
+only warns (`npm warn publish npm auto-corrected some errors in your package.json …
 Please run "npm pkg fix"`); the v0.2.0 tag run hit it once — `bin.pasco` was
 `"pasco": "./dist/index.js"` and npm cleaned it to `dist/index.js` (#192). The
 fix is `npm pkg fix` in `packages/cli/`, committed like any other manifest
