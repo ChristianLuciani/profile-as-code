@@ -91,7 +91,7 @@ pasco --version                  # the bin — expect 0.2.0
 One global install: no clone, no build, nothing written outside the npm prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
-> **Status** [OFICIAL: registry.npmjs.org, checked 2026-10-09]: `@profile-as-code/cli@0.2.0`
+> **Status** [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-09]: `@profile-as-code/cli@0.2.0`
 > is **public** and tagged `latest` (published 2026-10-09T23:25:23Z; tag `v0.2.0` → `c1ca30c`),
 > and the bin was verified running (`npx @profile-as-code/cli@0.2.0 --version` → `pasco 0.2.0`).
 > Caveat: while the engine repo stays private the package's `repository.url` points at a repo
@@ -99,7 +99,7 @@ One global install: no clone, no build, nothing written outside the npm prefix.
 > (STANDARDS §Order ratified 2026-10-03; the OIDC migration is
 > [#80](https://github.com/ChristianLuciani/profile-as-code/issues/80)).
 >
-> Why the names (same 2026-09-30 check): the bin was renamed `pac` → `pasco`
+> Why the names (the names were checked 2026-09-30): the bin was renamed `pac` → `pasco`
 > (issue #38) because an unrelated npm package named `pac` already ships a `pac`
 > binary (`pac@1.0.0`, published 2015-04-26, still latest), while `pasco` itself
 > was unclaimed (`404` at the time) — so there is no global-install bin conflict.
