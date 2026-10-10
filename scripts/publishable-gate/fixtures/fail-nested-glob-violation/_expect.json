@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "note": "violation lives under the SECOND (nested) glob — a walk honoring only globs[0] passes this and is caught here",
+  "marker": "'packages/renderers/bad' (@fixture/renderers-bad) does not declare \"private\": true"
+}

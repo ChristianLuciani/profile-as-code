@@ -18,7 +18,7 @@ import { realpathSync } from "node:fs";
  *   every workspace manifest OUTSIDE the publishable allowlist declares
  *   `"private": true`.
  *
- * `PUBLISHABLE` is the explicit allowlist of directories allowed to omit it —
+ * `DEFAULT_PUBLISHABLE` is the explicit allowlist of directories allowed to omit it —
  * today only the CLI. Adding a future intentional publisher is a reviewed
  * one-line edit here, never an accident. The allowlist is keyed by
  * workspace-relative DIRECTORY, not by manifest name (the D20/dep-gate
@@ -36,6 +36,13 @@ import { realpathSync } from "node:fs";
  * silently drop a package from one gate and not the other (the #165 F3
  * lesson). A workspace shape the gate cannot verify is an explicit failure
  * (E-GATE), never a silent pass.
+ *
+ * Scope: the subject is a WORKSPACE MEMBER — a directory matched by a
+ * `pnpm-workspace.yaml` glob. A manifest sitting OUTSIDE the globs is not
+ * reachable by `pnpm -r publish` and is deliberately out of scope here:
+ * dep-gate refuses a non-member `packages/server` because its rule ARMS on that
+ * fixed directory, while this gate has no fixed subject directory and checks
+ * exactly the surface pnpm publishes — no more (fresh-context F2, #195).
  */
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";

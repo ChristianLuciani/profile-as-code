@@ -157,7 +157,8 @@ links actually bites, reopen the choice with the failing case.
 - **npm** ecosystem (weekly): dependency PRs for the pnpm workspace (root + `packages/*`)
 - **github-actions** ecosystem (weekly): updates to our own workflow actions
 - **Fixture exclusion**: the fixtures are stored as undiscoverable data
-  (`fixture.package.json` / `fixture.pnpm-workspace.yaml`) and materialized with real names only at
+  (`fixture.package.json` / `fixture.pnpm-workspace.yaml` / `fixture.package.invalid-json` — the last
+  for the deliberately-invalid manifest) and materialized with real names only at
   test time by `scripts/dep-gate/test.mjs` and `scripts/publishable-gate/test.mjs` (which run the
   production `check.mjs` unchanged), so no advisory can open a security job over them —
   `dependency_file_not_parseable` (#191) is gone by construction (#166).
