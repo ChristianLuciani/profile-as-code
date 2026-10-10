@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "note": "the dep-gate parser refuses a quoted glob; the gate translates it to E-GATE",
+  "marker": "E-GATE: pnpm-workspace.yaml:"
+}

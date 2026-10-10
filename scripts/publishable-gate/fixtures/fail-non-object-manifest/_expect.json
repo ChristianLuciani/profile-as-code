@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "note": "a manifest that parses as JSON but is not an object (null) must be an E-GATE, not a TypeError crash",
+  "marker": "E-GATE: 'packages/core/package.json' is not a JSON object (found: null)"
+}

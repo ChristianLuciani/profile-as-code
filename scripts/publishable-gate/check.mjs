@@ -135,6 +135,16 @@ export async function check(root, options = {}) {
     for (const dir of dirs) {
       const relDir = path.relative(path.resolve(root), dir).split(path.sep).join("/");
       const manifest = await readManifest(dir);
+      if (manifest === null || typeof manifest !== "object" || Array.isArray(manifest)) {
+        // A manifest that PARSES as JSON but is not an object (`null`, an array,
+        // a bare string/number) has no `name`/`private` to read — refuse it with
+        // the gate's own E-GATE vocabulary instead of crashing on a property
+        // access (fresh-context reconcile NIT on #195, hardened here).
+        throw new GateError(
+          `'${relDir}/package.json' is not a JSON object (found: ${describe(manifest)}) — ` +
+            "the gate cannot read a manifest of this shape",
+        );
+      }
       const name =
         typeof manifest.name === "string" && manifest.name.length > 0 ? manifest.name : null;
       if (name === null) {
