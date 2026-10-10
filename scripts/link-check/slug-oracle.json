@@ -1,5 +1,5 @@
 {
-  "$comment": "Expected GitHub heading anchors (github-slugger@2.0.0, the reference implementation), generated 2026-10-09. test.mjs asserts scripts/link-check/check.mjs slugify() reproduces every pair — the oracle, committed as data so CI needs no dependency.",
+  "$comment": "Expected GitHub heading anchors (github-slugger@2.0.0, the reference implementation), generated 2026-10-09; one pair updated 2026-10-10 for the #192 heading rename. test.mjs asserts scripts/link-check/check.mjs slugify() reproduces every pair — the oracle, committed as data so CI needs no dependency.",
   "cases": [
     {
       "heading": "5. Validate & build",
@@ -22,8 +22,8 @@
       "slug": "2-install-the-pasco-cli"
     },
     {
-      "heading": "Option A — npm (the user path; pending the first publish)",
-      "slug": "option-a--npm-the-user-path-pending-the-first-publish"
+      "heading": "Option A — npm (the user path)",
+      "slug": "option-a--npm-the-user-path"
     },
     {
       "heading": "18.9 GEO & multi-area",

@@ -236,6 +236,15 @@ Each stage validates what the next one makes irreversible:
    in `ci.yml` over the typed packages, where it does;
 5. **Publish** — `npm publish`, OIDC-first auth (below).
 
+One class of manifest error escapes every hook above: npm's publish-time
+auto-correction. `npm publish` fixes some malformed fields at publish time and
+only warns (`npm warn publish npm auto-corrected some errors in your package.json …
+Please run "npm pkg fix"`); the v0.2.0 tag run hit it once — `bin.pasco` was
+`"pasco": "./dist/index.js"` and npm cleaned it to `dist/index.js` (#192). The
+fix is `npm pkg fix` in `packages/cli/`, committed like any other manifest
+change; after it, `npm publish --dry-run` prints no auto-corrections, which is
+the check to run before tagging.
+
 The same validators run in `ci.yml` on every PR — `publint` over every
 workspace package, `attw --pack --profile esm-only` over the packages that ship
 a `types` entry (the set is derived from the manifests, not a hand-maintained

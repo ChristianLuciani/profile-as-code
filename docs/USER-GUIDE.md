@@ -7,7 +7,8 @@ updated, and stay in sync as the engine evolves.
 > Audience: a **user** of the engine (not an engine contributor). Contributor
 > docs live in [CONTRIBUTING.md](../CONTRIBUTING.md); the product contract is
 > [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli`
-> version **0.2.0** (prep landed 2026-09-24; not yet tagged or published — #113).
+> version **0.2.0** — tagged `v0.2.0` and published to npm (`latest`) on
+> 2026-10-09 (#113).
 > The [CLI's command/status table](../packages/cli/README.md) is authoritative
 > on which commands are still partial; SPEC §12 holds the milestone roadmap.
 
@@ -17,9 +18,9 @@ updated, and stay in sync as the engine evolves.
 >
 > | If you have… | Your path today |
 > |---|---|
-> | a **GitHub account with access to the engine repo** (private today) **and** to the template repo | the whole guide — install (§2 Option B is the only working install until #113 publishes), template workspace (§3 Option A), GitHub deploy targets (§7) |
+> | a **GitHub account with access to the engine repo** (private today) **and** to the template repo | the whole guide — install (§2 Option A, npm; Option B builds from source), template workspace (§3 Option A), GitHub deploy targets (§7) |
 > | a GitHub account with access to the engine repo but **not** the template repo | partial — `pasco init` scaffolds a **local** workspace (§3 Option B) and you paste the generated texts into the platforms you do have, by hand (§7). The template path is unavailable while the satellite stays private (STANDARDS item 10) |
-> | **no GitHub account, or no access to the engine repo** | **no path today** — there is no way to obtain `pasco`: the npm package is not published yet ([#113](https://github.com/ChristianLuciani/profile-as-code/issues/113)) and the source install (§2 Option B) clones a **private** repo. Planned: the npm path (Option A) once #113 lands — still developer-shaped — and the guided, no-terminal path at M5 (SPEC §12), tracked as a product decision in [#122](https://github.com/ChristianLuciani/profile-as-code/issues/122) |
+> | **no GitHub account, or no access to the engine repo** | **npm only** — §2 Option A installs `pasco` from the public registry; `pasco init` scaffolds a **local** workspace (§3 Option B) and you paste the generated texts into your platforms by hand (§7). The template workspace (§3 Option A) and the GitHub deploy targets (§7) still need a GitHub account. The guided, no-terminal path is M5 (SPEC §12), tracked as a product decision in [#122](https://github.com/ChristianLuciani/profile-as-code/issues/122) |
 
 ---
 
@@ -67,19 +68,20 @@ accounts. §3 Option A uses `gh` to create the workspace from the template and
 `git` to clone it, with SSH or HTTPS credentials configured for your account.
 §3 Option B (`pasco init`) needs neither `gh` nor a GitHub account.
 
-Repo access is a prerequisite of its own **today**: §2 Option B clones a
-**private** engine repo and §3 Option A clones a **private** template — a third
-party without access fails at the first step (STANDARDS item 10; see the table
-under "Before you start").
+Repo access is a prerequisite of the source and template paths, not of npm: §2
+Option B clones a **private** engine repo and §3 Option A clones a **private**
+template — a third party without access fails there (STANDARDS item 10; see the
+table under "Before you start"). §2 Option A installs from the public npm
+registry.
 
 ---
 
 ## 2. Install the `pasco` CLI
 
-Two paths. **Option A is the intended path for users**; **Option B is the one
-that works today** — the npm package is version-ready but not yet published.
+Two paths. **Option A is the intended path for users** (published on npm);
+**Option B builds from source** (contributors, or pinning an unreleased commit).
 
-### Option A — npm (the user path; pending the first publish)
+### Option A — npm (the user path)
 
 ```sh
 npm i -g @profile-as-code/cli    # the package
@@ -89,20 +91,22 @@ pasco --version                  # the bin — expect 0.2.0
 One global install: no clone, no build, nothing written outside the npm prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
-> **Status** [WEB: npm registry, checked 2026-09-30]: `@profile-as-code/cli` is
-> **not published yet** — `npm view @profile-as-code/cli` → `404`. The first
-> publish is an operator action
-> ([#113](https://github.com/ChristianLuciani/profile-as-code/issues/113)), so
-> Option A fails with `E404` until it lands — use Option B meanwhile.
+> **Status** [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-09]: `@profile-as-code/cli@0.2.0`
+> is **public** and tagged `latest` (published 2026-10-09T23:25:23Z; tag `v0.2.0` → `c1ca30c`),
+> and the bin was verified running (`npx @profile-as-code/cli@0.2.0 --version` → `pasco 0.2.0`).
+> Caveat: while the engine repo stays private the package's `repository.url` points at a repo
+> outsiders cannot read, and this first version carries **no provenance attestation**
+> (STANDARDS §Order ratified 2026-10-03; the OIDC migration is
+> [#80](https://github.com/ChristianLuciani/profile-as-code/issues/80)).
 >
-> Why the names (same 2026-09-30 check): the bin was renamed `pac` → `pasco`
+> Why the names (the names were checked 2026-09-30): the bin was renamed `pac` → `pasco`
 > (issue #38) because an unrelated npm package named `pac` already ships a `pac`
 > binary (`pac@1.0.0`, published 2015-04-26, still latest), while `pasco` itself
-> is unclaimed (`404`) — so there is no global-install bin conflict. Reserving
-> the npm name (publishing a placeholder) is an operator decision — publishing
-> stays human-only.
+> was unclaimed (`404` at the time) — so there is no global-install bin conflict.
+> `pasco` is now claimed by the real `v0.2.0` publish (2026-10-09), so no
+> placeholder reservation is needed.
 
-### Option B — from source (works today)
+### Option B — from source
 
 ```sh
 # 1. Clone the engine (the product repo — private until the public flip;
@@ -330,8 +334,14 @@ pasco diff [--json]                  # what changed since the last release tag
 - **`profiles/` are committed** — they ARE the deploy artifacts — and are
   regenerated by `pasco build`. Never edit them by hand; your edits get overwritten.
 - `pasco diff` compares the **committed** history of your workspace against the
-  latest `release-*` git tag (no tag yet → the first commit) and hints what
-  belongs in `CHANGELOG.md`. Uncommitted edits do not appear — commit first.
+  latest git tag matching `.pascorc → diff.tagPattern` (default `release-*`) and
+  hints what belongs in `CHANGELOG.md`; when no tag matches the pattern it falls
+  back to the first commit. Uncommitted edits do not appear — commit first.
+  **Verified 2026-10-09:** the engine repo's release tag is `v0.2.0`, which does
+  **not** match the default `release-*` pattern (`git tag -l 'release-*'` →
+  empty; `packages/cli/src/commands/diff.ts`), so with the default config
+  `pasco diff` still diffs against the first commit there — set
+  `diff.tagPattern` to the tag convention your workspace uses.
 
 All commands accept `--json` for machine-readable output, and `--workspace <path>`
 to target a workspace other than the one in `.pascorc`.
@@ -507,7 +517,7 @@ facts so you know which platforms need attention. `pasco status` is the
 Match the line to how you installed it in [§2](#2-install-the-pasco-cli):
 
 ```sh
-# Option A — npm (once published)
+# Option A — npm
 npm i -g @profile-as-code/cli@latest
 
 # Option B — from source
