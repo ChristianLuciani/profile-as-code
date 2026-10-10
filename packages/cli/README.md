@@ -15,11 +15,11 @@ pasco --version                 # the bin — expect 0.2.0
 The install adds one global bin and nothing else: no post-install script, no
 server, no account.
 
-> **Not published yet** [WEB: npm registry, checked 2026-09-30]:
-> `npm view @profile-as-code/cli` → `404`. The package is version-ready but the
-> first publish is an operator action
-> ([#113](https://github.com/ChristianLuciani/profile-as-code/issues/113)).
-> Until it lands, install from source — [User Guide §2](../../docs/USER-GUIDE.md#2-install-the-pasco-cli).
+> **Published** [OFICIAL: registry.npmjs.org, checked 2026-10-09]:
+> `@profile-as-code/cli@0.2.0` is public and tagged `latest` (published
+> 2026-10-09T23:25:23Z; tag `v0.2.0` → `c1ca30c`), and the bin was verified
+> running (`npx @profile-as-code/cli@0.2.0 --version` → `pasco 0.2.0`).
+> Source install: [User Guide §2](../../docs/USER-GUIDE.md#2-install-the-pasco-cli).
 
 ## Commands
 
