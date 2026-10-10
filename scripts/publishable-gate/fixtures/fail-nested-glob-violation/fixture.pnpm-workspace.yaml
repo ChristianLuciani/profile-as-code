@@ -1,0 +1,7 @@
+# Fixture workspace for the publishable-surface gate self-test (scripts/publishable-gate/).
+# TWO globs, the second NESTED — mirrors the real tree (packages/* + packages/renderers/*).
+# The ONLY violation lives under the second glob, so a regression that honors only
+# globs[0] passes this fixture's tree and is caught by the self-test (fresh-context F1, #195).
+packages:
+  - packages/*
+  - packages/renderers/*

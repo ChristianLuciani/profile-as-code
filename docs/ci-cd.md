@@ -72,6 +72,13 @@ One job, **`ci`**, required on every PR and push to `main`:
    skips a package that omits the script, so a new package could ship unchecked
    tests with CI green; the self-test first proves the gate refuses every class
    it claims) →
+   **publishable-surface gate** (`scripts/publishable-gate`, issue #190 — node-only,
+   before install to fail fast: every workspace manifest OUTSIDE the explicit
+   allowlist (`packages/cli`) must declare `"private": true`, so a new package
+   (e.g. the planned `packages/server`, D20) cannot silently rejoin the
+   accidental-publish surface with every gate green; the gate VERIFIES, it never
+   fixes a manifest, and the self-test first proves it refuses every class it
+   claims) →
    `pnpm install --frozen-lockfile` →
    **`pnpm lint`** (Biome: lint + format + import order, issue #59) →
    **D3 freshness** (`pnpm gen:zod` then `git diff --exit-code` on the committed Zod, so a
@@ -150,11 +157,13 @@ links actually bites, reopen the choice with the failing case.
 - **npm** ecosystem (weekly): dependency PRs for the pnpm workspace (root + `packages/*`)
 - **github-actions** ecosystem (weekly): updates to our own workflow actions
 - **Fixture exclusion**: the fixtures are stored as undiscoverable data
-  (`fixture.package.json` / `fixture.pnpm-workspace.yaml`) and materialized with real names only at
-  test time by `scripts/dep-gate/test.mjs` (which runs the production `check.mjs` unchanged), so no
-  advisory can open a security job over them — `dependency_file_not_parseable` (#191) is gone by
-  construction (#166). `exclude-paths: scripts/dep-gate/fixtures/**` is kept for the version-update
-  path only (belt-and-braces).
+  (`fixture.package.json` / `fixture.pnpm-workspace.yaml` / `fixture.package.invalid-json` — the last
+  for the deliberately-invalid manifest) and materialized with real names only at
+  test time by `scripts/dep-gate/test.mjs` and `scripts/publishable-gate/test.mjs` (which run the
+  production `check.mjs` unchanged), so no advisory can open a security job over them —
+  `dependency_file_not_parseable` (#191) is gone by construction (#166).
+  `exclude-paths: scripts/dep-gate/fixtures/**` and `scripts/publishable-gate/fixtures/**` are kept
+  for the version-update path only (belt-and-braces).
 - Both open PRs with the `dependencies` / `ci` labels; they must pass the `ci` check.
 
 ## Supply-chain & action hardening (audit 2026-10-09)

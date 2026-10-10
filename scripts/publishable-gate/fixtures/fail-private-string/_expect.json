@@ -1,0 +1,4 @@
+{
+  "status": "fail",
+  "marker": "\u0027packages/core\u0027 (@fixture/core) does not declare \"private\": true (found: \"true\")"
+}

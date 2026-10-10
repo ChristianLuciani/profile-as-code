@@ -45,6 +45,9 @@ updates:
     # the impossible retry; version bumps still ride tsup/vite.
     exclude-paths:
       - "scripts/dep-gate/fixtures/**"
+      # Same class as dep-gate's (#166/#191): publishable-gate fixtures are
+      # stored undiscoverable and materialized only at test time (#190).
+      - "scripts/publishable-gate/fixtures/**"
   - package-ecosystem: github-actions
     directory: "/"
     schedule:

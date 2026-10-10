@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "note": "an extra package without private:true (issue #190 repro)",
+  "marker": "\u0027packages/server\u0027 (@fixture/server) does not declare \"private\": true"
+}

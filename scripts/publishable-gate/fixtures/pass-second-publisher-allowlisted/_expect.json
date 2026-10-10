@@ -1,0 +1,5 @@
+{
+  "status": "pass",
+  "note": "a second allowlisted directory may stay non-private",
+  "publishable": ["packages/cli", "packages/contrib"]
+}
