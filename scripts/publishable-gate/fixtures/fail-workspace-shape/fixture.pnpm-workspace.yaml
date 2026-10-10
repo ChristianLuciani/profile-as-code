@@ -1,0 +1,5 @@
+# Fixture workspace for the publishable-surface gate self-test (scripts/publishable-gate/).
+# Deliberately-unsupported shape: a QUOTED glob makes the reused dep-gate parser throw,
+# exercising this gate's translation of that error into its own E-GATE vocabulary.
+packages:
+  - "packages/*"
