@@ -111,6 +111,23 @@ jobs:
           node scripts/typecheck-gate/test.mjs
           node scripts/typecheck-gate/check.mjs
 
+      # Issue #190: the publishable surface is a convention until it has a
+      # gate. #189 marked the 11 bundle-only workspace packages `"private": true`,
+      # leaving `@profile-as-code/cli` as the only publishable manifest — but a
+      # new workspace package (e.g. the planned `packages/server`, D20) could be
+      # added without it and silently rejoin the accidental-publish surface with
+      # every gate green. The gate asserts every workspace manifest OUTSIDE the
+      # explicit allowlist (`packages/cli`) declares `"private": true`; it
+      # VERIFIES, it never fixes (it touches neither `pnpm-workspace.yaml` nor a
+      # manifest). The self-test first proves the gate refuses every class it
+      # claims (extra package, `private: false`, non-literal, missing workspace,
+      # unparseable manifest). Zero deps, runs before install to fail fast.
+      - name: Publishable-surface gate (#190)
+        if: hashFiles('package.json') != ''
+        run: |
+          node scripts/publishable-gate/test.mjs
+          node scripts/publishable-gate/check.mjs
+
       - name: Install dependencies
         if: hashFiles('package.json') != ''
         run: pnpm install --frozen-lockfile

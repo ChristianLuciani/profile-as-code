@@ -1,0 +1,3 @@
+# Fixture workspace for the publishable-surface gate self-test (scripts/publishable-gate/).
+packages:
+  - packages/*
