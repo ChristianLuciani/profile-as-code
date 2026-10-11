@@ -20,6 +20,89 @@ minor versions may contain breaking contract changes.
 - Per-platform skills v1 from SOTA research (M3)
 - `profile-data` template repo + web renderer (M5)
 
+## [0.3.0] - 2026-10-11
+
+### Added
+
+- **Profile completeness — engine-computed checklist + percentage (SPEC §20, issue #102)** —
+  the schema is deliberately permissive (`identity` is the only required block), so a
+  workspace at 5% and one at 95% produced the same green `pasco validate`: a passing check
+  with no direction. New pure, deterministic, offline `completeness(profile, policy)` in
+  `packages/core/` (beside `geoCheck`, SPEC §7) scores five weighted items over signals
+  already in the engine — `presence` (flavor-aware expected blocks), `langCoverage` (en/es/fr
+  over every langMap), `geoAnchors` (associations reinforced elsewhere), `evidence` (sourced
+  claims + registry) and `deployment` (share of trackable units with a ledger record) — with
+  `COMPLETENESS_CATALOG` + `DEFAULT_COMPLETENESS_POLICY`. The percentage is **never stored**:
+  only the policy is, read from `.pascorc` `"completeness"` (`target` / `langs` / `items`; a
+  `weight` of 0 drops an item from the denominator), and `compile()` attaches the report to
+  the slice so the renderer emits it verbatim rather than recomputing it. `pasco status
+  --completeness [--json]` prints the checklist + percentage; `--write-checklist` folds the
+  line into the generated `CHECKLIST.md` (D18 — the view is where the user looks);
+  `github-readme` emits one deterministic ASCII line (`Profile completeness: <pct>% —
+  <n>/<m>`) only when the slice carries a report — a hand-built slice renders byte-identical
+  to before. No new required schema field: completeness is advisory (D12 preserved).
+
+- **Publishable-surface gate — only `packages/cli` may omit `private: true` (#190; the
+  surface set by #189)** — the 11 bundle-only workspace packages are marked `"private":
+  true` (they ship inside the CLI bundle, not as standalone npm packages), leaving
+  `@profile-as-code/cli` as the only publishable manifest — but after #189 that invariant was
+  convention-only. `scripts/publishable-gate/` (the `scripts/dep-gate` /
+  `scripts/typecheck-gate` shape: a fail-loud `--check` plus a fixture self-test that runs
+  first) asserts every workspace manifest outside the explicit allowlist declares `"private":
+  true`, so a new package (e.g. the planned `packages/server`) cannot silently rejoin the
+  accidental-publish surface with every gate green. It reuses dep-gate's exported workspace
+  walk instead of re-implementing it and runs in the pre-install block of `ci.yml` (fail
+  fast). The gate verifies, never fixes, and its `E-GATE` vocabulary refuses the pathological
+  shapes — non-object manifest, parser refusal — instead of crashing with a `TypeError`
+  (#195, #199).
+
+- **CLI — the documented `pasco diff` no-match `tagPattern` fallback is pinned by tests
+  (#197)** — `docs/USER-GUIDE.md` §5 documented that a workspace whose `diff.tagPattern`
+  matches no tag falls back to the root commit, but that was verified only by hand: a change
+  to `packages/cli/src/commands/diff.ts` could silently invalidate the doc. Two vitest cases
+  now lock it with a **non-default** `diff.tagPattern: "rel-*"` fixture (so the `.pascorc`
+  read is load-bearing, not the engine default): no matching tag → `tag: null`, base = the
+  root commit, the post-root commits and `hasChanges: true`; adding `rel-1` → `tag: "rel-1"`,
+  base = the tagged commit, no commits, `hasChanges: false`. No behaviour change.
+
+### Changed
+
+- **SPEC §9 — the workspace is a folder; the three on-ramps are declared as peers (#200)** —
+  the contract and the guides treated this repository as *the* shape of the workspace, and
+  every surface assumed the reader was standing in it. But the local path already works
+  (`pasco init`), some users want no repo at all, and a prospective user can arrive from the
+  npm catalog, a search engine, an agent or a shared link. §9 is retitled *"the profile-data
+  workspace (folder-first; a repo is recommended)"*: the only hard requirement is a folder
+  `pasco` can read by configured path whose `content/*.yaml` satisfies the schema, and a repo
+  (GitHub, another git host, or none at all) is the **recommended** home. New **§9.2**
+  declares three on-ramps as peers with their capability differences up front: A template
+  (automation + history; requires account/repo) · B local `pasco init` (no account, no repo;
+  loses automation and history) · C the same `pasco init` scaffold written at a path you
+  choose. **D14 is amended** ("separate repo" → "separate workspace; a repo is the
+  recommended home, not a requirement") and §3/§4/§10/§13 are reconciled; `docs/USER-GUIDE.md`,
+  `packages/cli/README.md` (the npm page), `README.md`, `templates/profile-data/README.md` and
+  `docs/STANDARDS.md` carry the same framing. No engine behaviour changes.
+
+- **Release docs reconciled against the real v0.2.0 publish (#192)** — the post-release
+  surfaces still claimed the package was unpublished. Corrected against the actual sources
+  (tag, GitHub Release, npm registry, a running bin): `docs/STANDARDS.md` item 3 (`Tagged
+  release + changelog`) `❌ blocker → ✅`, `docs/USER-GUIDE.md`, `docs/ci-cd.md` and
+  `packages/cli/README.md`; and `packages/cli/package.json`'s `bin.pasco` was normalized with
+  `npm pkg fix` (`"./dist/index.js"` → `"dist/index.js"`), removing the single npm manifest
+  auto-correction the v0.2.0 publish warned about.
+
+### Fixed
+
+- **`dep-gate` and `typecheck-gate` refuse a non-object manifest instead of crashing (#198)** —
+  a `package.json` containing the JSON literal `null` parses without throwing, then crashed
+  both gates on `manifest.name` with a raw `TypeError` instead of their declared `E-GATE`
+  vocabulary (fail-loud, but the wrong failure shape — and the refusal class had no committed
+  fixture). Both now guard the manifest shape right after the parse, pinned by a
+  `null`-manifest fixture in each sibling self-test. The same pass closed two adjacent
+  escapes found in review: `tsconfig.test.json` = `null`, and a `pnpm-workspace.yaml` whose
+  quoted glob the reused parser refuses (whose `GateError` class did not match
+  `typecheck-gate`'s own catch).
+
 ## [0.2.0] - 2026-10-09
 
 **First public release.** This section covers what changed since the 2026-10-06
