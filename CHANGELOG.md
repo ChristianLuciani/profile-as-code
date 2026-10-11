@@ -38,9 +38,9 @@ minor versions may contain breaking contract changes.
   the slice so the renderer emits it verbatim rather than recomputing it. `pasco status
   --completeness [--json]` prints the checklist + percentage; `--write-checklist` folds the
   line into the generated `CHECKLIST.md` (D18 — the view is where the user looks);
-  `github-readme` emits one deterministic ASCII line (`Profile completeness: <pct>% —
-  <n>/<m>`) only when the slice carries a report — a hand-built slice renders byte-identical
-  to before. No new required schema field: completeness is advisory (D12 preserved).
+  `github-readme` emits one deterministic line (`Profile completeness: <pct>% — <n>/<m>`)
+  only when the slice carries a report — a hand-built slice renders byte-identical to
+  before. No new required schema field: completeness is advisory (D12 preserved).
 
 - **Publishable-surface gate — only `packages/cli` may omit `private: true` (#190; the
   surface set by #189)** — the 11 bundle-only workspace packages are marked `"private":
