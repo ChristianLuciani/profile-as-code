@@ -1023,7 +1023,7 @@ the engine; the shipped default weights are the ones `COMPLETENESS_CATALOG` decl
 |---|---|---|
 | `presence` | 0.30 | `flavor` + the expected top-level blocks (brand expects `socialHandles`, person expects `education`); a block counts only when it **carries content** — `positioning: {}` / `keywords: {}` are valid but not "present" |
 | `langCoverage` | 0.15 | `en`/`es`/`fr` coverage of every langMap (`load`/schema) |
-| `geoAnchors` | 0.15 | `positioning.geo.semanticAssociations` reinforced in `keywords`/skills/projects |
+| `geoAnchors` | 0.15 | `positioning.geo.semanticAssociations` reinforced in `keywords`/skills/projects; the score is the reinforced **share squared** — an association anchored in only some surfaces is worth less than proportionally, since the point is convergence on the same 3–5 anchors |
 | `evidence` | 0.15 | `projects[].evidence[]` claims carrying a `source` + registry entries (`evidenceItem`); no projects and an empty registry score 0 |
 | `deployment` | 0.25 | share of trackable units with a ledger record (`ledger`, §19) — **coverage only**; freshness (`stale`) is §19's report, not this item's |
 

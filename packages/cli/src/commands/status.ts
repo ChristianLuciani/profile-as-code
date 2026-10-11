@@ -17,7 +17,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  type CompletenessPolicy,
   type CompletenessReport,
   completeness,
   completenessLine,
@@ -33,7 +32,7 @@ import {
 import { parseDocument, stringify } from "yaml";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
-import type { CompletenessPolicyConfig } from "../workspace.js";
+import { type CompletenessPolicyConfig, sanitizeCompletenessPolicy } from "../workspace.js";
 
 export interface StatusArgs {
   workspace: string;
@@ -195,7 +194,7 @@ function checklistBody(reportData: LedgerReport, completion: CompletenessReport)
 }
 
 function completenessOf(args: StatusArgs, profile: LoadedProfile): CompletenessReport {
-  return completeness(profile, (args.completenessPolicy ?? {}) as CompletenessPolicy);
+  return completeness(profile, sanitizeCompletenessPolicy(args.completenessPolicy));
 }
 
 /** `pasco status --completeness` — the checklist + percentage (issue #102). */
@@ -237,6 +236,17 @@ export function runStatus(args: StatusArgs): number {
       error: {
         kind: "usage",
         message: "usage: --completeness and --mark are mutually exclusive — run them sequentially",
+      },
+    });
+  }
+  // Review of #205, F6: both flags are documented as alternatives, so accepting
+  // them together and silently writing nothing was a lie. Reject explicitly.
+  if (args.completeness === true && args.writeChecklist === true) {
+    return report("status", false, EXIT.USAGE, {
+      error: {
+        kind: "usage",
+        message:
+          "usage: --completeness is a read-only report and --write-checklist writes CHECKLIST.md — run them separately (the generated view includes the completeness line)",
       },
     });
   }

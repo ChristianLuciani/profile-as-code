@@ -774,6 +774,37 @@ describe("pasco status (D18 deploy ledger)", () => {
     expect(res.stderr).toContain("mutually exclusive");
   });
 
+  // Review of #205, F5: a malformed weight must not reach the arithmetic.
+  it("a malformed .pascorc weight is dropped, never rendered as NaN", () => {
+    const ws = mkws();
+    writeFileSync(
+      join(ws, ".pascorc"),
+      // "heavy" is not a number, "" is empty, "geoanchor" is not a catalog id.
+      '{"workspace":".","completeness":{"items":[{"id":"presence","weight":"heavy"},{"id":"evidence","weight":0.5},{"id":"geoAnchors","weight":""},{"id":"nope","weight":1}]}}',
+      "utf8",
+    );
+    const res = run(["status", "--completeness", "--json", "--workspace", ws]);
+    expect(res.code).toBe(0);
+    const data = json(res.stdout).data as {
+      percent: number;
+      items: { id: string; weight: number }[];
+    };
+    expect(Number.isFinite(data.percent)).toBe(true);
+    expect(res.stdout).not.toContain("NaN");
+    // the valid override survives; the malformed ones fall back / drop out
+    expect(data.items.find((i) => i.id === "evidence")?.weight).toBe(0.5);
+    expect(data.items.map((i) => i.id)).not.toContain("nope");
+    expect(Number.isFinite(data.items.find((i) => i.id === "presence")?.weight)).toBe(true);
+  });
+
+  it("--completeness + --write-checklist is rejected instead of silently dropping the write", () => {
+    const ws = mkws();
+    const res = run(["status", "--completeness", "--write-checklist", "--workspace", ws]);
+    expect(res.code).toBe(2);
+    expect(res.stderr).toContain("run them separately");
+    expect(existsSync(join(ws, "CHECKLIST.md"))).toBe(false); // nothing half-written
+  });
+
   // Review of #205, finding 3: `pasco build` compiles with the WORKSPACE policy,
   // so the rendered artifact and `status --completeness` report one number.
   it("build renders the workspace policy's number, matching status --completeness", () => {

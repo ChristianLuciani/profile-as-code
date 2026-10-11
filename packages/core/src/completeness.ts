@@ -93,52 +93,102 @@ export const DEFAULT_COMPLETENESS_POLICY: CompletenessPolicy = {
 /** A langMap value as it reaches core after normalization. */
 type LangMap = Record<string, string>;
 
-/** True when a schema `string | langMap | langMapList` field is a plain langMap
- *  (string keys with string values) — langMapList (arrays) is not text coverage. */
+/** True when a schema `string | langMap` field is a langMap (string keys →
+ *  string values). A plain string is invariant text (org, institution, venue
+ *  are proper nouns and never translated, SPEC §11) and carries no coverage. */
 function isLangMap(v: unknown): v is LangMap {
   if (v === null || typeof v !== "object" || Array.isArray(v)) return false;
   return Object.values(v as Record<string, unknown>).every((x) => typeof x === "string");
 }
 
-/** Every langMap reachable from the loaded profile, with its dot-path. */
-function langMaps(profile: LoadedProfile): { path: string; map: LangMap }[] {
-  const out: { path: string; map: LangMap }[] = [];
-  const push = (path: string, map: unknown): void => {
-    if (map !== undefined && isLangMap(map)) out.push({ path, map });
+/** True for the `langMapList` shape (values are string arrays) — the schema's
+ *  list-shaped variant used by `experience[].highlights`. */
+function isLangMapList(v: unknown): v is Record<string, string[]> {
+  if (v === null || typeof v !== "object" || Array.isArray(v)) return false;
+  return Object.values(v as Record<string, unknown>).every((x) => Array.isArray(x));
+}
+
+/**
+ * Every langMap reachable from the loaded profile — the languages each map
+ * covers, with its dot-path.
+ *
+ * The review of #205 (F3) caught this covering only 10 of the schema's **22**
+ * `langMap`/`langMapList` references, so a brand whose only multilingual text is
+ * `identity.mission`/`tagline`/`brandVoice.tone` scored a false "no language maps
+ * to measure". The walk below covers every reference the contract declares:
+ * identity mission/tagline · positioning statement/audiences/citationsGoal ·
+ * audiences · experience role/highlights · education degree/field/note ·
+ * projects description/evidence[].claim · press outlet/title · newsletter
+ * name/description · podcast title/description · artifacts description ·
+ * brandVoice tone. (`publications.title`/`venue` are plain invariant strings —
+ * proper nouns are never translated — so they carry no coverage.)
+ *
+ * A `langMapList` (values are string arrays) reports the languages for which it
+ * has at least one line, so the list and object shapes score identically.
+ *
+ * The guard test in `tests/completeness.test.ts` pins the reference count from
+ * `schema/profile.schema.json`, so a new langMap field cannot escape silently.
+ */
+function langMaps(profile: LoadedProfile): { path: string; langs: Set<string> }[] {
+  const out: { path: string; langs: Set<string> }[] = [];
+  const has = (v: unknown): boolean => typeof v === "string" && v.trim() !== "";
+  const push = (path: string, value: unknown): void => {
+    if (isLangMap(value)) {
+      out.push({ path, langs: new Set(Object.keys(value).filter((l) => has(value[l]))) });
+    } else if (isLangMapList(value)) {
+      const langs = new Set<string>();
+      for (const [lang, lines] of Object.entries(value)) {
+        if (lines.some((line) => line.trim() !== "")) langs.add(lang);
+      }
+      out.push({ path, langs });
+    }
   };
-  for (const [i, e] of (profile.experience ?? []).entries()) {
-    push(`experience[${i}].highlights`, e.highlights);
-  }
-  for (const [i, p] of (profile.projects ?? []).entries()) {
-    push(`projects[${i}].description`, p.description);
-  }
-  for (const [i, e] of (profile.education ?? []).entries()) {
-    if (e.degree !== undefined && typeof e.degree !== "string")
-      push(`education[${i}].degree`, e.degree);
-    if (e.field !== undefined && typeof e.field !== "string")
-      push(`education[${i}].field`, e.field);
-  }
-  for (const [i, p] of (profile.press ?? []).entries()) {
-    if (typeof p.title !== "string") push(`press[${i}].title`, p.title);
-    if (p.outlet !== undefined && typeof p.outlet !== "string")
-      push(`press[${i}].outlet`, p.outlet);
-  }
-  for (const [i, p] of (profile.publications ?? []).entries()) {
-    if (typeof p.title !== "string") push(`publications[${i}].title`, p.title);
-    if (typeof p.venue !== "string") push(`publications[${i}].venue`, p.venue);
-  }
+  const pushOptional = (path: string, value: unknown): void => {
+    if (value !== undefined && typeof value !== "string") push(path, value);
+  };
+
+  // identity (brand flavor: mission/tagline are langMaps)
+  push("identity.mission", profile.identity?.mission);
+  push("identity.tagline", profile.identity?.tagline);
+  // positioning
   push("positioning.statement", profile.positioning?.statement);
   for (const [name, map] of Object.entries(profile.positioning?.audiences ?? {})) {
     push(`positioning.audiences.${name}`, map);
   }
+  push("positioning.geo.citationsGoal", profile.positioning?.geo?.citationsGoal);
+  // top-level audiences (brand)
   for (const [name, map] of Object.entries(profile.audiences ?? {})) {
     push(`audiences.${name}`, map);
   }
-  push("positioning.geo.citationsGoal", profile.positioning?.geo?.citationsGoal);
+  // row blocks
+  for (const [i, e] of (profile.experience ?? []).entries()) {
+    pushOptional(`experience[${i}].role`, e.role);
+    push(`experience[${i}].highlights`, e.highlights);
+  }
+  for (const [i, e] of (profile.education ?? []).entries()) {
+    pushOptional(`education[${i}].degree`, e.degree);
+    pushOptional(`education[${i}].field`, e.field);
+    push(`education[${i}].note`, e.note);
+  }
+  for (const [i, p] of (profile.projects ?? []).entries()) {
+    push(`projects[${i}].description`, p.description);
+    for (const [j, ev] of (p.evidence ?? []).entries()) {
+      push(`projects[${i}].evidence[${j}].claim`, ev.claim);
+    }
+  }
+  for (const [i, p] of (profile.press ?? []).entries()) {
+    pushOptional(`press[${i}].title`, p.title);
+    pushOptional(`press[${i}].outlet`, p.outlet);
+  }
+  for (const [i, a] of (profile.artifacts ?? []).entries()) {
+    push(`artifacts[${i}].description`, a.description);
+  }
+  // single blocks
   push("newsletter.name", profile.newsletter?.name);
   push("newsletter.description", profile.newsletter?.description);
   push("podcast.title", profile.podcast?.title);
   push("podcast.description", profile.podcast?.description);
+  push("brandVoice.tone", profile.identity?.brandVoice?.tone);
   return out;
 }
 
@@ -205,15 +255,13 @@ function langCoverageScore(
   profile: LoadedProfile,
   langs: readonly string[],
 ): { score: number; detail: string } {
-  const maps = langMaps(profile).map((m) => m.map);
+  const maps = langMaps(profile);
   if (maps.length === 0) return { score: 0, detail: "no language maps to measure" };
-  const covers = (map: LangMap, lang: string): boolean => (map[lang] ?? "").trim() !== "";
+  const denom = Math.max(1, langs.length);
   const avg =
-    maps.reduce(
-      (sum, m) => sum + langs.filter((l) => covers(m, l)).length / Math.max(1, langs.length),
-      0,
-    ) / maps.length;
-  const full = maps.filter((m) => langs.every((l) => covers(m, l))).length;
+    maps.reduce((sum, m) => sum + langs.filter((l) => m.langs.has(l)).length / denom, 0) /
+    maps.length;
+  const full = maps.filter((m) => langs.every((l) => m.langs.has(l))).length;
   return {
     score: avg,
     detail: `${full}/${maps.length} texts cover ${langs.join("/")}`,

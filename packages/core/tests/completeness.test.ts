@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -195,5 +195,86 @@ describe("completeness(profile, policy)", () => {
     expect(slice.completeness?.percent).not.toBe(
       compile(profile, "github-readme", "en").completeness?.percent,
     );
+  });
+
+  // Review of #205, F3: the brand flavor's only multilingual text lives in
+  // mission/tagline/brandVoice.tone — it must count, not report "no language maps".
+  it("measures a brand profile whose only multilingual text is mission/tagline/tone", () => {
+    const profile = load(
+      workspace({
+        "identity.yaml":
+          "name: Topia\nmission:\n  en: We map the ecosystem.\n  es: Mapeamos el ecosistema.\ntagline:\n  en: One map.\n  es: Un mapa.\nbrandVoice:\n  tone:\n    en: editorial\n    es: editorial\n",
+        "flavor.yaml": "brand\n",
+      }),
+    );
+    const langCoverage = completeness(profile).items.find((i) => i.id === "langCoverage");
+    expect(langCoverage?.score).toBeGreaterThan(0);
+    expect(langCoverage?.detail).not.toContain("no language maps");
+    // three maps measured; each covers en+es of the expected en/es/fr → 2/3 each.
+    expect(langCoverage?.detail).toContain("3 texts cover");
+    expect(langCoverage?.score).toBeCloseTo(2 / 3, 6);
+  });
+
+  // Review of #205, F3: `experience[].highlights` is `langMap | langMapList`;
+  // the list shape was silently dropped from coverage.
+  it("measures the langMapList shape (list-shaped highlights)", () => {
+    const profile = load(
+      workspace({
+        "identity.yaml": IDENTITY_MIN,
+        "experience.yaml":
+          "- role: Eng\n  org: Acme\n  start: 2020-01-01\n  highlights:\n    en: [one, two]\n    es: [uno, dos]\n",
+      }),
+    );
+    const langCoverage = completeness(profile).items.find((i) => i.id === "langCoverage");
+    expect(langCoverage?.score).toBeGreaterThan(0);
+    // one highlights map, list shape: en+es of the expected en/es/fr → 2/3.
+    expect(langCoverage?.detail).toContain("1 text");
+    expect(langCoverage?.score).toBeCloseTo(2 / 3, 6);
+  });
+
+  // Review of #205, F3 — the guard, not another list: derive the expected langMap
+  // location count from the CONTRACT so a future schema field cannot escape the
+  // walk unnoticed (the same D3 drift-check shape the repo uses elsewhere).
+  it("covers every langMap location the schema declares (drift guard)", () => {
+    const schema = JSON.parse(
+      readFileSync(new URL("../../../schema/profile.schema.json", import.meta.url), "utf8"),
+    ) as Record<string, unknown>;
+    // Count `$ref` occurrences that land on the two langMap defs, anywhere.
+    const refs = JSON.stringify(schema).match(/#\/\$defs\/langMap(List)?/g) ?? [];
+    // If this fails: the schema gained/lost a langMap location. Update the walk in
+    // `src/completeness.ts` (langMaps) AND this number — the body below then proves
+    // the new location is actually read.
+    expect(refs.length).toBe(22);
+
+    // And prove the walk actually READS the previously-missed spots by putting
+    // content there: if any silently disappears, langCoverage cannot reach 100%.
+    const profile = load(
+      workspace({
+        "identity.yaml":
+          "name: Topia\nmission:\n  en: m\n  es: m\n  fr: m\ntagline:\n  en: t\n  es: t\n  fr: t\nbrandVoice:\n  tone:\n    en: a\n    es: a\n    fr: a\n",
+        "flavor.yaml": "brand\n",
+        "positioning.yaml":
+          "statement:\n  en: s\n  es: s\n  fr: s\naudiences:\n  recruiter:\n    en: a\n    es: a\n    fr: a\ngeo:\n  citationsGoal:\n    en: c\n    es: c\n    fr: c\n",
+        "audiences.yaml": "client:\n  en: a\n  es: a\n  fr: a\n",
+        "experience.yaml":
+          "- role:\n    en: r\n    es: r\n    fr: r\n  org: Acme\n  start: 2020-01-01\n  highlights:\n    en: [h]\n    es: [h]\n    fr: [h]\n",
+        "education.yaml":
+          "- degree:\n    en: d\n    es: d\n    fr: d\n  field:\n    en: f\n    es: f\n    fr: f\n  note:\n    en: n\n    es: n\n    fr: n\n  institution: U\n  start: 2015-01-01\n",
+        "projects.yaml":
+          "- name: P\n  description:\n    en: d\n    es: d\n    fr: d\n  evidence:\n    - claim:\n        en: c\n        es: c\n        fr: c\n      source: https://example.com/s\n",
+        "press.yaml":
+          "- outlet:\n    en: o\n    es: o\n    fr: o\n  title:\n    en: t\n    es: t\n    fr: t\n  url: https://example.com/p\n  date: 2024-01-01\n",
+        "publications.yaml":
+          "- title: Routing LLM Traffic\n  venue: Journal of Open AI Infrastructure\n  year: 2024\n",
+        "artifacts.yaml":
+          "- id: a1\n  kind: code\n  title: A\n  description:\n    en: d\n    es: d\n    fr: d\n  locator:\n    url: https://example.com/a\n",
+        "newsletter.yaml":
+          "platform: substack\nurl: https://example.com/n\nname:\n  en: n\n  es: n\n  fr: n\ndescription:\n  en: d\n  es: d\n  fr: d\n",
+        "podcast.yaml":
+          "title:\n  en: p\n  es: p\n  fr: p\ndescription:\n  en: d\n  es: d\n  fr: d\n",
+      }),
+    );
+    const langCoverage = completeness(profile).items.find((i) => i.id === "langCoverage");
+    expect(langCoverage?.score).toBe(1);
   });
 });
