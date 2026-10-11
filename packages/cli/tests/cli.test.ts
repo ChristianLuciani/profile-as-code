@@ -42,7 +42,7 @@ function git(dir: string, args: string[]): void {
 
 /** `git`, capturing trimmed stdout (sync) — for SHAs a test must assert against. */
 function gitOut(dir: string, args: string[]): string {
-  return execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" }).trim();
+  return execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", stdio: "pipe" }).trim();
 }
 
 const tempDirs: string[] = [];
