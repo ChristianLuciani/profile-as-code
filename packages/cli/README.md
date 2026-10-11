@@ -21,6 +21,34 @@ server, no account.
 > running (`npx @profile-as-code/cli@0.2.0 --version` → `pasco 0.2.0`).
 > Source install: [User Guide §2](../../docs/USER-GUIDE.md#2-install-the-pasco-cli).
 
+## Get a workspace
+
+`pasco` reads a **workspace folder** (`content/*.yaml` + `.pascorc`) by configured
+path. That folder does not have to be a git repository, and it does not have to live
+on GitHub — a repo is the **recommended** place to keep it, not a requirement
+([SPEC §9](../../docs/SPEC.md)). Three on-ramps, each with its capability difference
+stated up front:
+
+| On-ramp | What you get | Automation + history | Account + repo |
+|---|---|---|---|
+| **Template repo** *(recommended)* | the complete example workspace, operational docs, licence, repo automation | yes | **required** |
+| **`pasco init`** (this package) | a minimal validating folder in seconds | **no** — nothing runs on a change and nothing versions it | **none** |
+| **Bring your own storage** | the same `pasco init` scaffold, written at a path you choose (local disk, a synced folder, another git host) | same as `pasco init` | **none** |
+
+```sh
+pasco init ~/profile-data-me     # person flavor (default); brand: --flavor brand
+pasco validate                   # run from the workspace root
+```
+
+The two no-account on-ramps keep the whole engine command set except `pasco diff`
+(which needs a git history). What they lose is the template's automation and
+history — `pasco init` is minimal on purpose, and the complete package lives in
+the template. **Where each on-ramp is discovered:** the template repo's own README,
+this package page, and — in the repository — the
+[User Guide §3](../../docs/USER-GUIDE.md#3-create-your-workspace-profile-data-username)
+(EN). Links into `docs/` resolve in the repository, not on this npm page: the two
+commands above are the standalone path.
+
 ## Commands
 
 | Command | Purpose | Status |

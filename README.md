@@ -12,18 +12,25 @@ conocimiento SOTA de cada red.
 
 ## Para quién es (y qué necesitás)
 
-**Hoy es una herramienta para gente técnica**: lo mínimo es una terminal y **Node.js ≥ 22** — y
-hoy hace falta además **una cuenta de GitHub con acceso al repo del motor** (privado). Sin eso
-**no hay forma de obtener `pasco`**: el paquete de npm todavía no está publicado y la
-instalación desde fuente clona un repo privado. Con acceso al motor pero no al template (también
-privado), el camino es parcial: `pasco init` local y pegado a mano en cada plataforma.
+**Es una herramienta para gente técnica**: lo mínimo es una terminal y **Node.js ≥ 22**.
+El workspace **es una carpeta**; un repo es el lugar **recomendado** para guardarla, no un
+requisito (SPEC §9). Tres on-ramps, cada uno con su diferencia de capacidades al frente:
 
-**Si no tenés cuenta de GitHub —o no tenés acceso al motor—, este camino todavía no es para vos:**
-el camino guiado y sin terminal es el hito M5 y **todavía no existe** — diseñarlo es una decisión
-de producto, trackeada como
+| On-ramp | Qué te da | Automatización + historial | Cuenta + repo |
+|---|---|---|---|
+| **Template repo** (recomendado) | workspace de ejemplo completo, docs operativas, licencia, automatización | sí | **requerido** |
+| **`pasco init`** local | carpeta mínima y válida en segundos | **no** | **ninguno** |
+| **Traé tu almacenamiento** | el mismo `pasco init`, escrito en la ruta que elijas (disco, nube, otro host git) | igual que `pasco init` | **ninguno** |
+
+El paquete `@profile-as-code/cli` está **publicado en npm** (0.2.0), así que los dos caminos
+sin cuenta funcionan hoy sin acceso a ningún repo. El template repo (on-ramp A) sigue privado
+y llega solo a quien ya tiene acceso, hasta el flip de familia (STANDARDS community item 10).
+
+El camino guiado y sin terminal es el hito M5 y **todavía no existe** — diseñarlo es una
+decisión de producto, trackeada como
 [#122](https://github.com/ChristianLuciani/profile-as-code/issues/122).
 
-Instalación, verificación y qué cambia según lo que tengas: [**User Guide**](docs/USER-GUIDE.md) (EN).
+Instalación, verificación y el paso a paso de cada on-ramp: [**User Guide**](docs/USER-GUIDE.md) (EN).
 Acá abajo, el qué y el por qué.
 
 ## Problema
@@ -87,7 +94,8 @@ Plataformas (enum D16): **49** (34 Postiz + 15 operator extras) · renderers: **
 
 **Brand flavor (M6, D15):** el mismo engine modela identidades de marca — `pasco init
 --flavor brand`, handle matrix (`socialHandles`), `schema.org/Organization` GEO,
-renderer `github-org`. Primer workspace brand: Topia — planeado como repo privado (`profile-data-<username>`, SPEC §9.1).
+renderer `github-org`. Primer workspace brand: Topia — planeado como repo privado
+(recomendado, no requisito; la carpeta es el workspace, SPEC §9.1).
 
 ## Arranque (dev)
 
@@ -129,13 +137,15 @@ profile-as-code/
 │   └── cli/              # pasco — init·validate·build·diff·status ✅ (refine/check/skills:install 🚧; check ejecuta reglas offline M6/M7/M8, igual que packages/cli/README.md)
 ├── skills/               # skills por plataforma (conocimiento SOTA)
 ├── templates/
-│   ├── profile-data/       # workspace de datos del usuario — template fork/clone (SPEC §9)
-│   └── profile-data-brand/ # workspace brand — template fork/clone (multi-workspace, §9.1/§17.2)
+│   ├── profile-data/       # on-ramp A: puntero al template repo del workspace (SPEC §9.2)
+│   └── profile-data-brand/ # on-ramp B (brand): skeleton brand generado por `pasco init --flavor brand` (multi-workspace, §9.1/§17.2)
 └── docs/                 # SPEC, research, ci-cd, build prompts
 ```
 
-Los datos reales de cada usuario viven en un **repo privado separado** (`profile-data-<username>/`), nunca aquí.
-Cada usuario arranca con el template `templates/profile-data/` (fork o clone) — ver `docs/SPEC.md` §9.
+Los datos reales de cada usuario viven en una **carpeta propia** (privada por recomendación),
+nunca aquí. La forma recomendada de crearla es el template repo — on-ramp A, ver
+`docs/SPEC.md` §9.2; los on-ramps B (`pasco init`) y C (traé tu almacenamiento) no necesitan
+cuenta ni repo.
 
 ## Comunidad
 

@@ -8,15 +8,17 @@ pasco init --flavor brand        # crea content/{flavor,identity,socialHandles,n
 ```
 
 El template repo `profile-data-template` sigue siendo la fuente del esqueleto
-**person** (ver `templates/profile-data/README.md`). Un workspace brand es un
-repo privado propio por identidad (multi-workspace, §9.1): p. ej.
-`profile-data-topia` para la marca Topia — nunca mezclado con el workspace
+**person** (ver `templates/profile-data/README.md`). Un workspace brand vive en una
+carpeta propia por identidad (multi-workspace, §9.1); un repo privado es el lugar
+**recomendado** para guardarla, no un requisito (SPEC §9) — p. ej.
+`profile-data-topia` para la marca Topia, nunca mezclado con el workspace
 personal. Misma familia de nombres (`profile-data`-primero), mismo engine,
 mismo contrato.
 
 ## Flujo brand
 
-1. `pasco init --flavor brand` en un repo privado (`profile-data-topia`).
+1. `pasco init --flavor brand` en la carpeta que elijas (recomendado: un repo privado,
+   `profile-data-topia`).
 2. Llenar `content/` (identity org + handle matrix + newsletter/podcast/press/audiences).
 3. `pasco validate` → 0 drift warnings en la matrix; `pasco check` → handle rules OK.
 4. `pasco build github-org --lang en` → `profiles/github-org/README.md` (git deploy).
