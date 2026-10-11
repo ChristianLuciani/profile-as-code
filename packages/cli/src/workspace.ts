@@ -26,11 +26,26 @@ export interface PascorcDefaults {
   variants?: number;
 }
 
+/**
+ * Issue #102: the completeness policy — what the workspace is measured
+ * against. Config, not code (dev-methodology §3): the engine owns the catalog,
+ * the workspace owns the target/weights/langs. This is a STRUCTURAL mirror of
+ * core's `CompletenessPolicy` (the CLI package must not reach into core types
+ * at config-parse time); `status.ts` passes it straight to `completeness()`.
+ */
+export interface CompletenessPolicyConfig {
+  target?: string;
+  langs?: readonly string[];
+  items?: readonly { id: string; weight: number }[];
+}
+
 export interface Pascorc {
   /** Workspace path relative to the .pascorc file location. */
   workspace?: string;
   defaults?: PascorcDefaults;
   diff?: { tagPattern?: string };
+  /** Issue #102: completeness policy (weights/target/langs) — optional. */
+  completeness?: CompletenessPolicyConfig;
 }
 
 export class ConfigError extends Error {

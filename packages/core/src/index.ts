@@ -6,6 +6,19 @@
  */
 
 export { compile } from "./compile.js";
+export type {
+  CompletenessCatalogItem,
+  CompletenessItemResult,
+  CompletenessPolicy,
+  CompletenessReport,
+  CompletenessSignal,
+} from "./completeness.js";
+export {
+  COMPLETENESS_CATALOG,
+  completeness,
+  completenessLine,
+  DEFAULT_COMPLETENESS_POLICY,
+} from "./completeness.js";
 export { driftCheck } from "./drift.js";
 /** The creator-monetization paste set, projected from `platforms/registry.yaml`
  *  (#154) — the derived test enumeration, never a hand-extended list. */

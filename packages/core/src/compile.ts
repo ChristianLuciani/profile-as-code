@@ -10,6 +10,8 @@
  * the schema enum) — never duplicated here.
  */
 
+import { completeness } from "./completeness.js";
+import { normalizeProfile } from "./load.js";
 import { structuredData } from "./structured-data.js";
 import type { Lang, Platform, PlatformProfile, Profile } from "./types.js";
 import { PLATFORMS } from "./types.js";
@@ -106,6 +108,11 @@ export function compile(profile: Profile, platform: Platform, lang: Lang = "en")
     // v1.6 (#103): entity structured-data identity — assembled ONCE here, so no
     // renderer re-derives `@id`/`sameAs` (SPEC §15.4, the §18.9 precedent).
     structuredData: structuredData(profile, lang),
+    // Issue #102: the completeness report travels WITH the slice (like
+    // structuredData) so a renderer emits the number verbatim and never
+    // recomputes it. Computed at the shipped default policy; the CLI may
+    // recompute with a workspace policy for `pasco status --completeness`.
+    completeness: completeness(normalizeProfile(profile)),
     fallbacks,
   };
 }

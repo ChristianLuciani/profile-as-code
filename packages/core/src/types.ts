@@ -292,4 +292,11 @@ export interface PlatformProfile {
   structuredData?: StructuredDataReadiness;
   /** Dot-paths of langMaps that fell back to `en` because `lang` was absent. */
   fallbacks: string[];
+  /** Issue #102: the profile-completeness report for this slice, computed by
+   *  `compile()` with the DEFAULT policy. OPTIONAL for the same reason as
+   *  `structuredData` — a hand-built slice (the documented seam) may omit it,
+   *  and the renderer degrades (no progress line) rather than throwing. The
+   *  renderer emits the number verbatim; it NEVER recomputes it (the §18.9
+   *  `credentialLdEntries` precedent). */
+  completeness?: import("./completeness.js").CompletenessReport;
 }

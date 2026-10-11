@@ -701,6 +701,78 @@ describe("pasco status (D18 deploy ledger)", () => {
     expect(help.stdout).toContain("--mark");
     expect(run(["status", "--mark", "identity", "--workspace", mkws()]).code).toBe(2);
   });
+
+  it("--completeness reports the weighted checklist plus the percentage (issue #102)", () => {
+    const ws = mkws();
+    const res = run(["status", "--completeness", "--json", "--workspace", ws]);
+    expect(res.code).toBe(0);
+    const data = json(res.stdout).data as {
+      mode: string;
+      percent: number;
+      satisfied: number;
+      total: number;
+      target: string;
+      items: { id: string; score: number }[];
+    };
+    expect(data.mode).toBe("completeness");
+    expect(data.percent).toBeGreaterThan(0);
+    expect(data.percent).toBeLessThan(100);
+    expect(data.items.length).toBe(5);
+    expect(data.total).toBe(data.items.length);
+    expect(data.target).toBe("profile-complete"); // shipped default
+  });
+
+  it("--completeness honours the .pascorc policy (dropped item leaves the score)", () => {
+    const ws = mkws();
+    // en/es/fr expected by default; a single-lang policy raises coverage, and
+    // dropping the ledger item removes it from the denominator entirely.
+    writeFileSync(
+      join(ws, ".pascorc"),
+      JSON.stringify({
+        workspace: ".",
+        completeness: {
+          target: "github-milestone",
+          langs: ["en"],
+          items: [{ id: "deployment", weight: 0 }],
+        },
+      }),
+      "utf8",
+    );
+    const res = run(["status", "--completeness", "--json", "--workspace", ws]);
+    expect(res.code).toBe(0);
+    const data = json(res.stdout).data as {
+      target: string;
+      total: number;
+      items: { id: string }[];
+    };
+    expect(data.target).toBe("github-milestone");
+    expect(data.total).toBe(4);
+    expect(data.items.some((i) => i.id === "deployment")).toBe(false);
+  });
+
+  it("--write-checklist folds the completeness line into the generated view", () => {
+    const ws = mkws();
+    expect(run(["status", "--write-checklist", "--workspace", ws]).code).toBe(0);
+    const body = readFileSync(join(ws, "CHECKLIST.md"), "utf8");
+    expect(body).toContain("Profile completeness:");
+    expect(body).toContain("% — ");
+    // still the generated view, never hand-edited (D18)
+    expect(body).toContain("AUTO-GENERATED");
+  });
+
+  it("--completeness + --mark is rejected, not silently ignored", () => {
+    const res = run([
+      "status",
+      "--mark",
+      "identity",
+      "linkedin",
+      "--completeness",
+      "--workspace",
+      mkws(),
+    ]);
+    expect(res.code).toBe(2);
+    expect(res.stderr).toContain("mutually exclusive");
+  });
 });
 
 /** Recursive copy of a fixture workspace into a temp dir (tests mutate it). */

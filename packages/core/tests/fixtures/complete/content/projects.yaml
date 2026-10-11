@@ -1,0 +1,31 @@
+- id: sovereign-hub
+  name: sovereign-agentic-hub
+  status: active
+  description:
+    en: A sovereign agentic hub routing LLM calls to local-first providers.
+    es: Un hub agéntico soberano que enruta llamadas LLM a proveedores local-first.
+    fr: Un hub agentique souverain qui route les appels LLM vers des fournisseurs locaux.
+  keywords:
+    - sovereign AI
+    - LLM routing
+  evidence:
+    - claim:
+        en: Serves 100k+ requests/month across 12 deployments.
+        es: Sirve más de 100k peticiones al mes en 12 despliegues.
+        fr: Sert plus de 100k requêtes par mois sur 12 déploiements.
+      source: https://doi.org/10.5555/sovereign-hub
+- id: oer-platform
+  name: open-education-platform
+  status: maintained
+  description:
+    en: OER platform used by 40 universities across Latin America.
+    es: Plataforma de REA usada por 40 universidades en América Latina.
+    fr: Plateforme de REL utilisée par 40 universités en Amérique latine.
+  keywords:
+    - open-source education
+  evidence:
+    - claim:
+        en: Adopted by 40 universities.
+        es: Adoptada por 40 universidades.
+        fr: Adoptée par 40 universités.
+      source: https://example.com/oer-proof

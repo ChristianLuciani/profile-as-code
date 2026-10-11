@@ -81,6 +81,7 @@ interface FlagOptions {
   mark?: string;
   at?: string;
   "write-checklist"?: boolean;
+  completeness?: boolean;
 }
 
 function parseCommandFlags(
@@ -144,15 +145,18 @@ owner line (src/commands/check.ts).`,
   "skills:install": `pasco skills:install <agent>
 Prints the skills-studio projection command for <agent> (pi|claude|aionui|opencode).
 Projection is the skills-studio job (AGOS), not the CLI's.`,
-  status: `pasco status [platform] [--mark <ledgerKey> <surface>] [--at <iso8601>] [--write-checklist] [--json] [--workspace <path>]
+  status: `pasco status [platform] [--mark <ledgerKey> <surface>] [--at <iso8601>] [--write-checklist] [--completeness] [--json] [--workspace <path>]
 Per-entry deploy-status report (D18, §19): ledger key · origin (template/user) ·
 surfaces published · sync state (in-sync / stale / never) — plus untracked rows
 (add an id to track) and removed keys (ledger keeps the audit trail).
   --mark <ledgerKey> <surface>  confirm a manual paste: records deployedAt + the
         CURRENT contentHash in content/deployments.yaml (only pasco writes it,
         D14). --at overrides the timestamp.
-  --write-checklist             regenerate CHECKLIST.md from the ledger
-        (AUTO-GENERATED view — do not edit by hand).`,
+  --write-checklist             regenerate CHECKLIST.md from the ledger + the
+        completeness line (AUTO-GENERATED view — do not edit by hand).
+  --completeness                profile-completeness checklist + percentage
+        (issue #102). Policy (target/weights/langs) from .pascorc "completeness";
+        the percentage is DERIVED — only the policy is ever stored.`,
 };
 
 function runMain(): number {
@@ -277,6 +281,7 @@ function runMain(): number {
         mark: { type: "string" },
         at: { type: "string" },
         "write-checklist": { type: "boolean" },
+        completeness: { type: "boolean" },
       });
       if (flags.help === true) {
         process.stdout.write(`${COMMAND_HELP.status}\n`);
@@ -286,7 +291,9 @@ function runMain(): number {
         throw new UsageError("usage: pasco status --mark <ledgerKey> <surface> [--at <iso8601>]");
       }
       if (flags.mark === undefined && positionals.length > 1) {
-        throw new UsageError("usage: pasco status [platform] [--write-checklist] [--json]");
+        throw new UsageError(
+          "usage: pasco status [platform] [--write-checklist | --completeness] [--json]",
+        );
       }
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
@@ -296,6 +303,8 @@ function runMain(): number {
         markKey: flags.mark,
         markAt: flags.at,
         writeChecklist: flags["write-checklist"],
+        completeness: flags.completeness,
+        completenessPolicy: readWorkspacePascorc(workspace).completeness,
       });
     }
     case "skills:install": {
