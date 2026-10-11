@@ -67,7 +67,12 @@ export function runBuild(args: BuildArgs): number {
     args.platformArg !== undefined ? [parsePlatform(args.platformArg)] : [...PLATFORMS];
   const lang = parseLang(defaultsLang(args.pascorc, args.langArg));
 
-  const slices: PlatformProfile[] = platforms.map((p) => compile(profile, p, lang));
+  // Issue #102: compile WITH the workspace completeness policy, so the rendered
+  // artifact carries the same number `pasco status --completeness` reports
+  // (review of #205, finding 3 — the default policy silently won before).
+  const slices: PlatformProfile[] = platforms.map((p) =>
+    compile(profile, p, lang, args.pascorc.completeness),
+  );
 
   // Renderer platforms: write the deploy artifact (SPEC §15.5 — profiles/ ARE the deploy artifacts).
   // github-org is a brand surface (D15/§17) — only rendered for brand workspaces.

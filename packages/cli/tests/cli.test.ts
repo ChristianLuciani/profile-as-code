@@ -773,6 +773,41 @@ describe("pasco status (D18 deploy ledger)", () => {
     expect(res.code).toBe(2);
     expect(res.stderr).toContain("mutually exclusive");
   });
+
+  // Review of #205, finding 3: `pasco build` compiles with the WORKSPACE policy,
+  // so the rendered artifact and `status --completeness` report one number.
+  it("build renders the workspace policy's number, matching status --completeness", () => {
+    const ws = mkws();
+    // observe the DEFAULT number first (no .pascorc yet)
+    const defaultPercent = (
+      json(run(["status", "--completeness", "--json", "--workspace", ws]).stdout).data as {
+        percent: number;
+      }
+    ).percent;
+
+    writeFileSync(
+      join(ws, ".pascorc"),
+      JSON.stringify({
+        workspace: ".",
+        completeness: {
+          target: "github-milestone",
+          langs: ["en"],
+          items: [{ id: "deployment", weight: 0 }],
+        },
+      }),
+      "utf8",
+    );
+    const percent = (
+      json(run(["status", "--completeness", "--json", "--workspace", ws]).stdout).data as {
+        percent: number;
+      }
+    ).percent;
+    expect(percent).not.toBe(defaultPercent); // the policy is observable
+
+    expect(run(["build", "github-readme", "--workspace", ws]).code).toBe(0);
+    const readme = readFileSync(join(ws, "profiles", "github-readme", "README.md"), "utf8");
+    expect(readme).toContain(`Profile completeness: ${percent}%`);
+  });
 });
 
 /** Recursive copy of a fixture workspace into a temp dir (tests mutate it). */

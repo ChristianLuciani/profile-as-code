@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { completeness, DEFAULT_COMPLETENESS_POLICY, load } from "../src/index.js";
+import { compile, completeness, DEFAULT_COMPLETENESS_POLICY, load } from "../src/index.js";
 
 const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
 
@@ -147,5 +147,53 @@ describe("completeness(profile, policy)", () => {
   it("target names the milestone set and is reported verbatim", () => {
     const report = completeness(load(fixture("minimal")), { target: "github-milestone" });
     expect(report.target).toBe("github-milestone");
+  });
+
+  // Review of #205, finding 1: `positioning: {}` / `keywords: {}` are VALID but
+  // empty — presence must mean "carries content", never "the key exists".
+  it("an empty positioning/keywords object is NOT a present block", () => {
+    const profile = load(
+      workspace({
+        "identity.yaml": IDENTITY_MIN,
+        "positioning.yaml": "{}\n",
+        "keywords.yaml": "{}\n",
+      }),
+    );
+    const presence = completeness(profile).items.find((i) => i.id === "presence");
+    expect(presence?.detail).toContain("1/10"); // identity only
+    expect(presence?.detail).toContain("positioning");
+    expect(presence?.detail).toContain("keywords");
+  });
+
+  it("a positioning object with only a statement IS present (content, not emptiness, is the test)", () => {
+    const profile = load(
+      workspace({
+        "identity.yaml": IDENTITY_MIN,
+        "positioning.yaml": "statement:\n  en: I build things.\n",
+      }),
+    );
+    expect(completeness(profile).items.find((i) => i.id === "presence")?.detail).toContain("2/10");
+  });
+
+  // Review of #205, finding 2: an absent signal must not score above zero.
+  it("no projects and an empty registry score 0 — never a positive base", () => {
+    const profile = load(workspace({ "identity.yaml": IDENTITY_MIN }));
+    const evidence = completeness(profile).items.find((i) => i.id === "evidence");
+    expect(evidence?.score).toBe(0);
+  });
+
+  // Review of #205, finding 3: the rendered slice must carry the WORKSPACE policy,
+  // so `pasco build` and `pasco status --completeness` cannot disagree.
+  it("compile accepts the workspace policy and the slice matches it", () => {
+    const profile = load(workspace({ "identity.yaml": IDENTITY_MIN }));
+    const policy = { langs: ["en"], items: [{ id: "deployment", weight: 0 }] };
+    const slice = compile(profile, "github-readme", "en", policy);
+    const direct = completeness(profile, policy);
+    expect(slice.completeness?.percent).toBe(direct.percent);
+    expect(slice.completeness?.total).toBe(4);
+    // and it differs from the default policy, which is the bug that was fixed
+    expect(slice.completeness?.percent).not.toBe(
+      compile(profile, "github-readme", "en").completeness?.percent,
+    );
   });
 });

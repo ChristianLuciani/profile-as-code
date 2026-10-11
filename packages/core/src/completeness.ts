@@ -142,23 +142,49 @@ function langMaps(profile: LoadedProfile): { path: string; map: LangMap }[] {
   return out;
 }
 
+/** True when a collection has at least one item. */
+function anyOf(v: readonly unknown[] | undefined): boolean {
+  return (v?.length ?? 0) > 0;
+}
+
+/**
+ * Presence means "carries content", not "the key exists". `schema` requires
+ * nothing inside `positioning`/`keywords`, so `positioning: {}` and `keywords: {}`
+ * are VALID workspaces — and counting them as present would hand two free points
+ * to a profile that supplied nothing (the exact "green with no direction" failure
+ * this feature exists to fix). `identity` was already guarded by `name`; these two
+ * get the same treatment (review of #205, finding 1).
+ */
+function hasPositioning(profile: LoadedProfile): boolean {
+  return (
+    profile.positioning?.statement !== undefined ||
+    anyOf(Object.keys(profile.positioning?.audiences ?? {}))
+  );
+}
+
+function hasKeywords(profile: LoadedProfile): boolean {
+  const kw = profile.keywords;
+  if (kw === undefined) return false;
+  return anyOf(Object.keys(kw.seo ?? {})) || anyOf(kw.geo?.associations) || anyOf(kw.geo?.claims);
+}
+
 /** The blocks a flavor is expected to carry (absent → not satisfied). */
 function presenceChecks(profile: LoadedProfile): { label: string; present: boolean }[] {
   const brand = profile.flavor === "brand";
   return [
     { label: "identity", present: (profile.identity?.name ?? "").length > 0 },
-    { label: "positioning", present: profile.positioning !== undefined },
-    { label: "bios", present: profile.bios.length > 0 },
-    { label: "headlines", present: profile.headlines.length > 0 },
-    { label: "experience", present: (profile.experience ?? []).length > 0 },
-    { label: "projects", present: (profile.projects ?? []).length > 0 },
-    { label: "skills", present: (profile.skills ?? []).length > 0 },
-    { label: "publications", present: (profile.publications ?? []).length > 0 },
-    { label: "keywords", present: profile.keywords !== undefined },
+    { label: "positioning", present: hasPositioning(profile) },
+    { label: "bios", present: anyOf(profile.bios) },
+    { label: "headlines", present: anyOf(profile.headlines) },
+    { label: "experience", present: anyOf(profile.experience) },
+    { label: "projects", present: anyOf(profile.projects) },
+    { label: "skills", present: anyOf(profile.skills) },
+    { label: "publications", present: anyOf(profile.publications) },
+    { label: "keywords", present: hasKeywords(profile) },
     // Flavor-specific surface: brand expects its handle matrix; person expects education.
     brand
-      ? { label: "socialHandles", present: (profile.socialHandles ?? []).length > 0 }
-      : { label: "education", present: (profile.education ?? []).length > 0 },
+      ? { label: "socialHandles", present: anyOf(profile.socialHandles) }
+      : { label: "education", present: anyOf(profile.education) },
   ];
 }
 
@@ -222,7 +248,10 @@ function evidenceScore(profile: LoadedProfile): { score: number; detail: string 
   ).length;
   const claimsOK = projects.length === 0 ? 0 : sourced / projects.length;
   const hasRegistry = (profile.credentials ?? []).length + (profile.artifacts ?? []).length > 0;
-  const score = 0.1 + 0.6 * claimsOK + 0.3 * (hasRegistry ? 1 : 0);
+  // Two real axes of the item, weights summing to 1 so a fully-sourced profile
+  // with a registry reaches 1 and an empty one reaches 0 — no unconditional base
+  // (review of #205, finding 2: `0/0 → 0.1` was a green-looking absent signal).
+  const score = 0.7 * claimsOK + 0.3 * (hasRegistry ? 1 : 0);
   return {
     score: Math.min(1, score),
     detail: `${sourced}/${projects.length} projects carry sourced evidence · registry ${hasRegistry ? "present" : "empty"}`,
@@ -294,7 +323,7 @@ export function completeness(
   };
 }
 
-/** `62% — 11/18` — the deterministic one-liner the CLI and the renderer share. */
+/** `62.5% — 3/5` — the deterministic one-liner the CLI and the renderer share. */
 export function completenessLine(report: CompletenessReport): string {
   return `${report.percent}% — ${report.satisfied}/${report.total}`;
 }
