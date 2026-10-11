@@ -46,7 +46,9 @@ skills + deploy playbooks**.
   variant is committed and marked as active. Sah/hub may become the default path once it matures (D13).
 - GitHub profile README + web are fully git/API-driven (dogfood: Christian's real profile).
 - Every quantitative claim in every skill has a dated source (claims-evidence enforced).
-- A fresh user can start from the `profile-data` template (fork/clone) in under 10 minutes.
+- A fresh user can reach a validating workspace in under 10 minutes through **any** on-ramp:
+  on-ramp A (template repo), on-ramp B (`pasco init`, seconds), or on-ramp C (their own
+  storage) — see §9.2.
 
 ## 4. Architecture
 
@@ -68,8 +70,9 @@ skills + deploy playbooks**.
 ```
 
 - **Public repo** = product: schema, core, renderers, CLI, skills, templates, docs, examples (fictional person).
-- **profile-data** = per-user private workspace (or local-only). Never in the public repo.
-  Provided as a **GitHub template repo / forkable skeleton** — see §9.
+- **profile-data** = per-user private workspace (a folder; or local-only, no repo at all). Never
+  in the public repo. Provided as a **GitHub template repo / forkable skeleton** (on-ramp A) and
+  scaffoldable locally with `pasco init` (on-ramp B) — see §9.
 
 ## 5. Decisions (ADR-lite)
 
@@ -88,7 +91,7 @@ skills + deploy playbooks**.
 | D11 | Refinement is **agnostic agent-driven** (AionUi, OpenHands, Claude Code, Cursor…) | Skills drive, `pasco` executes; user picks variant. No closed CLI picker. |
 | D12 | Drift-check: **warn on facts, fail on schema** | Users may have different intents per platform; integrity vs flexibility. |
 | D13 | Model-agnostic default; sah as future default path | Revisit when sovereign hub matures (Q3→RESOLVED). |
-| D14 | User data in **separate repo** `profile-data`, integrated by configured path, no symlink in normal flow | Symlink mount only as advanced CI option (Q4→RESOLVED). |
+| D14 | User data in a **separate workspace** `profile-data` (a folder; a repo is the recommended home, not a requirement — §9; wording amended by #200, originally "separate repo"), integrated by configured path, no symlink in normal flow | Symlink mount only as advanced CI option (Q4→RESOLVED). |
 | D15 | **Brand flavor** (`flavor: brand`): the same engine models commercial/brand identities — org schema, `socialHandles` matrix, brand surfaces. Workspace flavor is a **contract field**, not a separate product | The Topia brand needs the same SSOT→validate→refine→check→deploy machinery; one engine, one schema, one CLI — flavor only changes which blocks/checks apply (Q8→RESOLVED). |
 | D16 | **Platform set = Postiz parity + operator extras** (union, 49 — v1.9 adds `hotmart` (operator extra #15, issue #137 — storefront + memberships for the Spanish/Portuguese-speaking markets, EC payout `[?]` carried per the #133 precedent) to the `creator-monetization` family; v1.8 added `buymeacoffee`, `liberapay`, `gumroad`, `payhip` as operator extras #11–#14, issue #133; v1.7 added `kofi` as #10, issue #130; issue #138 declares the remaining families docs-first — `freelance` covers the pre-existing v1 `upwork`, `job-boards` stays backlog-only — no enum change): ONE shared enum for person + brand flavors; new slugs Postiz verbatim (`linkedin-page`, `instagram-standalone`, `devto`, `gmb`, `warpcast`, `moltbook`, `mewe`, `tumblr`); single-source discipline enforced by contract self-tests (schema-check asserts `check.platform == ['all', ...platform]`; vitest asserts core `PLATFORMS` == schema enum) | The operator's surfaces must cover every network a cross-posting tool can reach (Postiz's 34 — [OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02; the API intro page's own "32" header undercounts its tables); `ghost` is an operator extra Postiz lacks; the family completes the creator monetization platforms slice (canonical industry term — see the issue #133 naming note): memberships, tips, donations, storefronts; the v1.8 members and `hotmart` are paste platforms (D9) and the family is declared docs-first, not as a hard schema field; issue #138 adds the families `freelance` (covers the v1 `upwork`, retroactive) and backlog-only `job-boards` under the same docs-first discipline. Schema parity ≠ skill coverage — per-platform skills are separate follow-ups (issue #30). |
 | D17 | **Evidence registry is pointer-first** (§18): two typed root blocks — `credentials[]` (third-party attestations) and `artifacts[]` (works/media) — with a **locator-capability matrix**; in-workspace `media/` reaches public surfaces only via renderer `assets/` output; external paths resolve via per-machine `PASCO_EVIDENCE_ROOT` (env/gitignored override, never committed); symlink/stow = documented power-user convenience only | A claim is not an artifact, and neither duplicates `publications[]`/`press[]` (naming discipline §9.1/§18.1); a private workspace is not a public media host (D14) — the capability matrix protects byte-stability (§15.1) and the URL SSOT (§15.4/§18.4). Direction ratified by the operator (issue #48) |
@@ -324,7 +327,23 @@ GEO is not a renderer — it is enforced in four places:
 Anti-patterns to forbid: keyword stuffing (LLMs discount it), contradictions (auto-filtered),
 unverifiable claims (no source → dropped by cite-aware systems).
 
-## 9. profile-data template (fork/clone flow)
+## 9. the profile-data workspace (folder-first; a repo is recommended)
+
+The workspace is **a folder** on disk. The engine consumes `content/*.yaml` plus the policy
+file `.pascorc` by configured path, and `pasco build` writes the generated `profiles/` into
+the same folder. Every on-ramp also ships a workspace `README.md`; only on-ramp A (the
+template) ships `CHANGELOG.md` and `CHECKLIST.md` — `pasco init` creates the minimal set and
+stops there (§9.2).
+It does **not** have to be a git repository, and it does **not** have to live on GitHub.
+The folder can live on GitHub, on another git host, on plain disk, or in synced storage;
+storing it in a **repo** is the **recommended** option, because it buys history and lets
+automation run over the data. The engine does
+not see the difference — it reads the workspace by **configured path**
+(`.pascorc → workspace`, D14).
+
+**Hard requirement (the only one):** a folder `pasco` can read by configured path whose
+`content/*.yaml` satisfies `schema/profile.schema.json`. Where that folder lives and how
+it is versioned are recommendations, not conditions of use.
 
 ### 9.1 Terminology — the profile-* family (single source of naming)
 
@@ -334,8 +353,8 @@ This table is the canonical terminology; docs and code reference it, never inven
 | Surface | Name | Visibility | Role |
 |---|---|---|---|
 | Engine | `profile-as-code` | public (product) | schema, core, CLI `pasco`, renderers |
-| Template | `profile-data-template` | public | fork/clone skeleton (empty workspace + instructions) |
-| Workspace (per user) | `profile-data-<username>` | private by default | the user's facts (SSOT) — what they edit |
+| Template | `profile-data-template` | public | on-ramp **A** skeleton (example workspace + instructions) |
+| Workspace (per user) | `profile-data-<username>` | private by default | the user's facts (SSOT) — what they edit; a folder first, stored in a repo by recommendation |
 | Deploy surfaces | e.g. `ChristianLuciani/ChristianLuciani`, CV site | public | rendered output (never edited by hand) |
 
 Future workspaces follow the same family: individual identities today, **commercial/brand
@@ -353,13 +372,47 @@ product: it only changes which blocks/checks apply (brand adds `socialHandles`, 
 `podcast`, `press`, `audiences` and org identity fields; GEO emits `schema.org/Organization`
 instead of `Person`). See §17.
 
-Delivered as a **GitHub template repository** (`ChristianLuciani/profile-data-template`), so a new
-user can `Use this template` or fork (then rename the fork to `profile-data-<username>` and make it private).
-The folder `templates/profile-data/` in the engine repo is a **pointer** to it (no duplication → no drift).
+### 9.2 On-ramps — three peers, capability differences said up front
+
+The **recommended** on-ramp is delivered as a **GitHub template repository**
+(`ChristianLuciani/profile-data-template`): a new user clicks `Use this template` (or forks),
+renames the result to `profile-data-<username>` and makes it private. The folder
+`templates/profile-data/` in the engine repo is a **pointer** to it (no duplication → no
+drift). That is on-ramp **A**; the two on-ramps that need no account and no repo are **B**
+(local, `pasco init`) and **C** (bring your own storage). They are **peers**: the same folder
+contract, the same engine, the same `pasco` commands. Each one states its own difference of
+capabilities up front, and each is discovered on a surface that does not assume the reader is
+standing in this repository.
+
+| On-ramp | Discovered at | What it sets up | Automation | History | Account + repo |
+|---|---|---|---|---|---|
+| **A — template repo** *(recommended)* | the template repo's own `README`; this repo's README + quickstart; GitHub **Use this template** | the full commented example, operational docs, licence, a ready `.pascorc` | yes, in your repo — GitHub Actions on push/PR (offline YAML + link checks today; the `pasco` build workflow is owed in the satellite, `profile-data-template#11`) | yes — hosted git history from the first commit | **required** (account + repo) |
+| **B — local, `pasco init`** | the npm package page (`@profile-as-code/cli`); `pasco --help`; [`USER-GUIDE.md`](USER-GUIDE.md) §3 | a minimal, `pasco validate`-clean folder in seconds | **no** — nothing runs on a change and no workflow is created | **no** — no repo is created; `git init` is yours to run | **none** |
+| **C — bring your own storage** | the npm package page (`@profile-as-code/cli`); this section; [`USER-GUIDE.md`](USER-GUIDE.md) §3 | the same `pasco init` scaffold, written at a path you choose (local disk, a synced folder, another git host) | same as B | same as B, plus whatever your storage provides | **none** |
+
+Capability differences, said plainly:
+
+- **Common to all three** (the engine's capabilities, not the on-ramp's): the whole `pasco`
+  command set except `pasco diff`, which needs a git history — plus deploy by pasting the
+  generated texts.
+- **B loses automation and history.** There is no repo and no workflow, so nothing runs on a
+  change and nothing versions the folder for you. It keeps every other capability.
+- **C has the same capabilities as B.** The only difference is where the folder lives: the same
+  `pasco init` scaffold is written at the path you give it, so the workspace sits in storage
+  you already use. No account, no repo, no host.
+- **A adds content and plumbing, not capability:** the full example, `CHANGELOG.md` /
+  `CHECKLIST.md` wired for the workflow, the licence, and repo automation. `pasco init` stays
+  **minimal by design** — the complete package lives in the template, and content parity
+  between the on-ramps is explicitly not a goal (issue #200).
+- **Discoverability today:** A's surface (the satellite repo) is private until the family
+  flip (`docs/STANDARDS.md`, community item 10), so today it reaches insiders only; B and C
+  are reachable now from the public npm package, with no repo access at all.
+- **`pasco init` behavior does not change with this section** — what it scaffolds today *is*
+  the local on-ramp.
 
 ```
 profile-data/
-├── README.md            # instructions: fork/clone, install pasco, first build
+├── README.md            # instructions: pick your on-ramp, install pasco, first build
 ├── content/             # identity.yaml, positioning.yaml, bios.yaml, skills.yaml,
 │                        # experience.yaml, projects.yaml, publications.yaml, keywords.yaml
 ├── profiles/            # generated outputs (committed: they ARE the deploy artifacts)
@@ -382,8 +435,8 @@ Two different "templates" (previous confusion):
 
 - `templates/playbooks/` — per-platform **deploy playbooks** (copy-paste steps, verification) that the
   product ships; referenced by `manual` renderers.
-- `templates/profile-data/` — **pointer** to the per-user workspace skeleton repo (§9). Fork/clone,
-  not built-in.
+- `templates/profile-data/` — **pointer** to the per-user workspace skeleton repo (§9). It is
+  on-ramp A (template), not built-in; the local on-ramp B is `pasco init`.
 
 ## 11. i18n strategy
 
@@ -419,7 +472,8 @@ Two different "templates" (previous confusion):
   have different intents per platform; facts warn (visibility), schema violations fail (integrity).
 - **Q3 → D13 (RESOLVED):** model-agnostic by default — uses the executing agent's model. When `sah`
   (sovereign-agentic-hub) matures, revisit as default path.
-- **Q4 → D14 (RESOLVED):** **separate repo** `profile-data`; integration by **configured path**
+- **Q4 → D14 (RESOLVED):** **separate workspace** `profile-data` (a folder; a repo is the
+  recommended home, not a requirement — §9, amended by #200); integration by **configured path**
   (`.pascorc → workspace`), no symlink in the normal flow; symlink mount only as engine-CI option.
 - **Q9 → D19 (RESOLVED, M8):** the deploy bundle is **one `assets/` dir per platform output**
   (`profiles/<platform>/assets/`), not a shared content-addressed store. Deploy surfaces are

@@ -12,26 +12,36 @@ updated, and stay in sync as the engine evolves.
 > The [CLI's command/status table](../packages/cli/README.md) is authoritative
 > on which commands are still partial; SPEC §12 holds the milestone roadmap.
 
-> **Before you start — what you actually need.** This is a **developer-tool
-> path** today. Only two things are non-negotiable: a terminal and **Node.js
-> ≥ 22**. Everything else depends on the path you take:
+> **Before you start — what you actually need.** Only two things are non-negotiable:
+> a terminal and **Node.js ≥ 22**. Everything else depends on the on-ramp you take.
+> Your workspace is **a folder** — a repo is the **recommended** place to keep it, not a
+> requirement ([SPEC §9](SPEC.md)). Pick the on-ramp that fits what you have:
 >
-> | If you have… | Your path today |
-> |---|---|
-> | a **GitHub account with access to the engine repo** (private today) **and** to the template repo | the whole guide — install (§2 Option A, npm; Option B builds from source), template workspace (§3 Option A), GitHub deploy targets (§7) |
-> | a GitHub account with access to the engine repo but **not** the template repo | partial — `pasco init` scaffolds a **local** workspace (§3 Option B) and you paste the generated texts into the platforms you do have, by hand (§7). The template path is unavailable while the satellite stays private (STANDARDS item 10) |
-> | **no GitHub account, or no access to the engine repo** | **npm only** — §2 Option A installs `pasco` from the public registry; `pasco init` scaffolds a **local** workspace (§3 Option B) and you paste the generated texts into your platforms by hand (§7). The template workspace (§3 Option A) and the GitHub deploy targets (§7) still need a GitHub account. The guided, no-terminal path is M5 (SPEC §12), tracked as a product decision in [#122](https://github.com/ChristianLuciani/profile-as-code/issues/122) |
+> | On-ramp | What it sets up | Automation + history | Account + repo |
+> |---|---|---|---|
+> | **A — template repo** *(recommended)* | the complete example workspace (§3 Option A) | yes — GitHub Actions + hosted history | **required** |
+> | **B — local, `pasco init`** | a minimal, validating folder in seconds (§3 Option B) | **no** — nothing runs on a change and nothing versions it for you | **none** |
+> | **C — bring your own storage** | the same `pasco init` scaffold, at a path you choose — disk, a synced folder, another git host (§3 Option C) | same as B | **none** |
+>
+> B and C are **peers** and keep the whole `pasco` command set except `diff`
+> (which needs a git history); what they lose is the template's automation and its
+> history. The npm package `@profile-as-code/cli` is **public**, so B and C need
+> **no repo access at all** — that is the path this guide documents for a reader
+> who has, or wants, no GitHub repo. The template repo is private today, so on-ramp
+> A reaches insiders only until the family flip ([STANDARDS](STANDARDS.md),
+> community item 10). The guided, no-terminal path is M5 (SPEC §12), tracked in
+> [#122](https://github.com/ChristianLuciani/profile-as-code/issues/122).
 
 ---
 
 ## 0. Mental model (30 seconds)
 
-Two repos, two roles. You never mix them.
+One product, one workspace folder. You never put your data in the product.
 
-| Repo | What it is | Who owns it | You touch it? |
+| Thing | What it is | Who owns it | You touch it? |
 |---|---|---|---|
 | `profile-as-code` (this repo) | The **engine**: schema, core, CLI `pasco`, renderers, platform skills | Product (public) | Install it, update it — never put your data here |
-| `profile-data-<username>` | **Your** workspace: facts as YAML, generated outputs, changelog | You (private by default) | Yes — this is where you edit everything |
+| `profile-data-<username>` | **Your** workspace: facts as YAML, generated outputs, changelog — a **folder**; a repo is the recommended place to keep it, not a requirement | You (private by default) | Yes — this is where you edit everything |
 
 Core principles (SPEC D1–D18, abbreviated):
 
@@ -53,12 +63,12 @@ Core principles (SPEC D1–D18, abbreviated):
 
 ## 1. Prerequisites
 
-Scope the tools to the path you are taking — only the first row is needed by
-**every** path:
+Scope the tools to the on-ramp you are taking — only the first row is needed by
+**every** on-ramp:
 
 | Tool | Version | Check | Needed for |
 |---|---|---|---|
-| Node.js | >= 22 | `node -v` | **every path** |
+| Node.js | >= 22 | `node -v` | **every on-ramp** |
 | git | any recent | `git --version` | §2 Option B (source install) · §3 Option A (clone your workspace) · `pasco diff` · §7 git/API deploys |
 | pnpm | >= 9 | `pnpm -v` | §2 Option B (source install) only |
 | GitHub CLI (`gh`) | any recent, authenticated | `gh auth status` | §3 Option A only — creating the workspace from the template |
@@ -66,13 +76,16 @@ Scope the tools to the path you are taking — only the first row is needed by
 `pasco` is a Node CLI built from TypeScript — no database, no server, no
 accounts. §3 Option A uses `gh` to create the workspace from the template and
 `git` to clone it, with SSH or HTTPS credentials configured for your account.
-§3 Option B (`pasco init`) needs neither `gh` nor a GitHub account.
+§3 Option B (`pasco init`) needs neither `gh` nor a GitHub account, and **§3
+Option C needs nothing beyond Node ≥ 22** — it is the same `pasco init`
+scaffold, written into the storage you already use.
 
 Repo access is a prerequisite of the source and template paths, not of npm: §2
 Option B clones a **private** engine repo and §3 Option A clones a **private**
 template — a third party without access fails there (STANDARDS item 10; see the
 table under "Before you start"). §2 Option A installs from the public npm
-registry.
+registry, and **§3 Options B/C work end-to-end from it**: no repo, no account,
+nothing to clone.
 
 ---
 
@@ -152,9 +165,21 @@ is stated in the [CLI's command table](../packages/cli/README.md).
 
 ## 3. Create your workspace (`profile-data-<username>`)
 
-You need a place for your facts. Two ways:
+You need a place for your facts. It is **a folder** — a repo is the recommended
+place to keep it, not a requirement (SPEC §9). Three on-ramps, three capability
+profiles:
+
+| On-ramp | Sets up | Automation + history | Account + repo |
+|---|---|---|---|
+| **A — template repo** *(recommended)* | the full example workspace | yes — GitHub Actions + hosted history | **required** |
+| **B — `pasco init`** | a minimal validating folder in seconds | **no** — nothing runs on a change; nothing versions it | **none** |
+| **C — bring your own storage** | nothing — the folder lives where you already work | same as B | **none** |
 
 ### Option A — the template repo (recommended)
+
+This is the on-ramp with the complete package: full commented example, operational
+docs, licence, and repo automation. It requires a GitHub account and a repo — if you
+have neither and do not want one, skip to Option B or C.
 
 [`ChristianLuciani/profile-data-template`](https://github.com/ChristianLuciani/profile-data-template)
 is a GitHub template repository with a complete, documented example (a fictional
@@ -189,7 +214,7 @@ person) plus `CHANGELOG.md` and `CHECKLIST.md` already wired for the workflow.
 The template ships every content file as a commented example — replace the
 fiction with your own facts (see §4).
 
-### Option B — `pasco init` (minimal local scaffold)
+### Option B — `pasco init` (minimal local scaffold, no account)
 
 ```sh
 pasco init ~/profile-data-<username>              # person flavor (default)
@@ -205,8 +230,32 @@ overwrite** anything that exists:
 | `brand` | `content/{identity,socialHandles,newsletter,podcast,press,audiences,flavor}.yaml` + `README.md` + `.pascorc` |
 
 Option B starts you nearly empty — you add the other blocks yourself as you
-need them (they are optional; see §4). The template repo (Option A) gives you
-the full example to learn from; most users should start there.
+need them (they are optional; see §4). It is **minimal on purpose** (SPEC §9.2):
+the complete package — licence, operational docs, automation — lives in the
+template repo (Option A). The trade-off is explicit: **no automation and no
+history** come with this on-ramp; everything else works the same. If you want
+history, `git init` in the folder yourself; nothing sets it up for you.
+
+### Option C — bring your own storage
+
+The workspace is just files, so it can live wherever you already work: a local
+folder, a synced cloud folder, or a git host other than GitHub. There is no
+separate mechanism — you run the same scaffold at your own path:
+
+```sh
+pasco init /path/to/where-you-already-work/profile-data
+```
+
+Point `pasco init` at the folder you want (it refuses to overwrite an existing
+`content/`), or move a folder you already have to its new home. **Same
+capabilities as Option B by construction** (validate / build / refine / check),
+same absence of automation and history unless your storage provides them.
+
+> **Which later sections assume a repo?** §7 (git/API deploys) and §8 (update loop)
+> assume on-ramp A: they commit, tag and push. On on-ramps B/C the same loop works
+> with the git steps replaced by your storage's own versioning — or dropped.
+> The whole `pasco` command set is unaffected except `diff`, the one command that
+> needs a git history of its own.
 
 ### Configure `.pascorc` (optional but useful)
 
