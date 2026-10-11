@@ -9,10 +9,6 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
-### Added
-
-### Changed
-
 ### Planned (roadmap)
 
 - Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
