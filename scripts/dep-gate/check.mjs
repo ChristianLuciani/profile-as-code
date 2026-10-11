@@ -52,6 +52,11 @@ const ALL_CLASSES = [...RUNTIME_CLASSES, "devDependencies"];
 /** Configuration/shape error: the gate cannot verify what it was asked to verify. */
 class GateError extends Error {}
 
+/** Render an observed JSON value for a refusal message (`undefined` → "absent"). */
+function describe(value) {
+  return value === undefined ? "absent" : JSON.stringify(value);
+}
+
 async function exists(target) {
   try {
     await stat(target);
@@ -195,6 +200,17 @@ async function collectWorkspace(root) {
     } catch (error) {
       throw new GateError(`unreadable package.json at ${dir}: ${error.message}`);
     }
+    const relDir = path.relative(path.resolve(root), dir).split(path.sep).join("/");
+    // A manifest that PARSES as JSON but is not an object (`null` is the
+    // pathological case — `JSON.parse` accepts it) has no `.name` to read:
+    // refuse it in the gate's own E-GATE vocabulary instead of crashing on the
+    // property access (#198; the same guard `publishable-gate` carries).
+    if (manifest === null || typeof manifest !== "object" || Array.isArray(manifest)) {
+      throw new GateError(
+        `'${relDir}/package.json' is not a JSON object (found: ${describe(manifest)}) — ` +
+          "the gate cannot read a manifest of this shape",
+      );
+    }
     const name = manifest.name;
     if (typeof name !== "string" || name.length === 0) {
       throw new GateError(`package at ${dir} has no name`);
@@ -202,7 +218,6 @@ async function collectWorkspace(root) {
     if (packages.has(name)) {
       throw new GateError(`duplicate workspace package name: ${name}`);
     }
-    const relDir = path.relative(path.resolve(root), dir).split(path.sep).join("/");
     packages.set(name, { name, dir, relDir, manifest });
   }
   // Range resolution guard. Name-keyed rules (A and B) only see dependency

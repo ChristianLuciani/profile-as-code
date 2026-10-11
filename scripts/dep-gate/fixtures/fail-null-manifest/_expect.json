@@ -1,0 +1,5 @@
+{
+  "status": "fail",
+  "note": "a manifest that parses as the JSON literal null must refuse E-GATE, not crash on manifest.name (#198)",
+  "rule": "E-GATE"
+}

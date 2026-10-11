@@ -149,6 +149,16 @@ const CASES = {
     },
     expect: { status: "fail", marker: "E-GATE: unparseable" },
   },
+  "fail-null-manifest": {
+    build(root) {
+      write(root, "pnpm-workspace.yaml", WORKSPACE);
+      write(root, "packages/alpha/package.json", "null\n");
+    },
+    // A manifest that PARSES as the JSON literal `null` has no `.name`/`.scripts`
+    // to read — the gate must refuse it in its E-GATE vocabulary instead of
+    // crashing on the property access (#198).
+    expect: { status: "fail", marker: "is not a JSON object (found: null)" },
+  },
   "fail-empty-workspace": {
     build(root) {
       write(root, "pnpm-workspace.yaml", "packages:\n  - packages/*\n");

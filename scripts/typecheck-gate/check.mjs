@@ -35,6 +35,11 @@ import { expandGlob, parseWorkspaceGlobs } from "../dep-gate/check.mjs";
 /** Configuration/shape error: the gate cannot verify what it was asked to verify. */
 class GateError extends Error {}
 
+/** Render an observed JSON value for a refusal message (`undefined` → "absent"). */
+function describe(value) {
+  return value === undefined ? "absent" : JSON.stringify(value);
+}
+
 const CONFIG_NAME = "tsconfig.test.json";
 
 async function exists(target) {
@@ -69,7 +74,7 @@ function excludesTests(entry) {
   return typeof entry === "string" && (entry === "tests" || entry.startsWith("tests/"));
 }
 
-async function readManifest(dir) {
+async function readManifest(dir, relDir) {
   const manifestPath = path.join(dir, "package.json");
   let raw;
   try {
@@ -77,17 +82,29 @@ async function readManifest(dir) {
   } catch (error) {
     throw new GateError(`unreadable ${manifestPath}: ${error.message}`);
   }
+  let manifest;
   try {
-    return JSON.parse(raw);
+    manifest = JSON.parse(raw);
   } catch (error) {
     throw new GateError(`unparseable ${manifestPath}: ${error.message}`);
   }
+  // A manifest that PARSES as JSON but is not an object (`null` is the
+  // pathological case — `JSON.parse` accepts it) has no `.scripts`/`.name` to
+  // read: refuse it in the gate's own E-GATE vocabulary instead of crashing on
+  // the property access (#198; the same guard `publishable-gate` carries).
+  if (manifest === null || typeof manifest !== "object" || Array.isArray(manifest)) {
+    throw new GateError(
+      `'${relDir}/package.json' is not a JSON object (found: ${describe(manifest)}) — ` +
+        "the gate cannot read a manifest of this shape",
+    );
+  }
+  return manifest;
 }
 
 /** Validate one package; returns the violations for it. */
 async function checkPackage(dir, relDir) {
   const violations = [];
-  const manifest = await readManifest(dir);
+  const manifest = await readManifest(dir, relDir);
   const name =
     typeof manifest.name === "string" && manifest.name.length > 0 ? manifest.name : relDir;
 
