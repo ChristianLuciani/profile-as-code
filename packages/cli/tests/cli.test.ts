@@ -76,12 +76,16 @@ function makeGitWorkspace(): string {
   return dir;
 }
 
-/** A git repo whose only tag does NOT match `diff.tagPattern: "release-*"` (#197). */
+/**
+ * A git repo whose only tag does NOT match its `.pascorc` `diff.tagPattern`
+ * (#197). The pattern is deliberately NOT the `release-*` default: a fixture
+ * equal to the default passes even when `.pascorc` is never read.
+ */
 function makeGitWorkspaceWithNonMatchingTag(): string {
   const dir = tempDir();
   mkdirSync(join(dir, "content"));
   writeFileSync(join(dir, "content", "identity.yaml"), "name: Elena Vasquez\n");
-  writeFileSync(join(dir, ".pascorc"), '{ "diff": { "tagPattern": "release-*" } }\n');
+  writeFileSync(join(dir, ".pascorc"), '{ "diff": { "tagPattern": "rel-*" } }\n');
   git(dir, ["init", "-q", "-b", "main"]);
   git(dir, ["config", "user.email", "test@test.test"]);
   git(dir, ["config", "user.name", "test"]);
@@ -396,13 +400,18 @@ describe("pasco diff (git-based, release tags)", () => {
   it("picks up the tag once one matches diff.tagPattern", () => {
     const ws = makeGitWorkspaceWithNonMatchingTag();
     const releaseSha = gitOut(ws, ["rev-parse", "HEAD"]);
-    git(ws, ["tag", "release-1"]);
+    git(ws, ["tag", "rel-1"]);
     const r = run(["diff", "--json", "--workspace", ws]);
     expect(r.code).toBe(0);
     const data = JSON.parse(r.stdout) as {
-      data: { tag: string | null; base: string; commits: unknown[]; hasChanges: boolean };
+      data: {
+        tag: string | null;
+        base: string;
+        commits: { subject: string }[];
+        hasChanges: boolean;
+      };
     };
-    expect(data.data.tag).toBe("release-1");
+    expect(data.data.tag).toBe("rel-1");
     expect(data.data.base).toBe(releaseSha);
     expect(data.data.commits).toEqual([]);
     expect(data.data.hasChanges).toBe(false);
