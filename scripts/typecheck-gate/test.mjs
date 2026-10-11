@@ -159,6 +159,30 @@ const CASES = {
     // crashing on the property access (#198).
     expect: { status: "fail", marker: "is not a JSON object (found: null)" },
   },
+  "fail-null-config": {
+    build(root) {
+      write(root, "pnpm-workspace.yaml", WORKSPACE);
+      packageJson(root, "alpha", "tsc -p tsconfig.test.json");
+      write(root, "packages/alpha/tsconfig.test.json", "null\n");
+    },
+    // Same class as `fail-null-manifest`, on the other JSON document the gate
+    // parses: `null` has no `.include`/`.compilerOptions` (#198b).
+    expect: {
+      status: "fail",
+      marker: "tsconfig.test.json' is not a JSON object (found: null)",
+    },
+  },
+  "fail-workspace-glob-shape": {
+    build(root) {
+      write(root, "pnpm-workspace.yaml", 'packages:\n  - "packages/*"\n');
+    },
+    // `parseWorkspaceGlobs` is dep-gate's module: it throws dep-gate's
+    // `GateError`, which this gate's `catch (error instanceof GateError)` does
+    // not match — so without an explicit translation the refusal escapes as an
+    // uncaught exception instead of E-GATE (the translation publishable-gate
+    // added in #199; #198b).
+    expect: { status: "fail", marker: "E-GATE: pnpm-workspace.yaml" },
+  },
   "fail-empty-workspace": {
     build(root) {
       write(root, "pnpm-workspace.yaml", "packages:\n  - packages/*\n");

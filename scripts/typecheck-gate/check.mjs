@@ -40,6 +40,23 @@ function describe(value) {
   return value === undefined ? "absent" : JSON.stringify(value);
 }
 
+/**
+ * Refuse a document that PARSES as JSON but is not a plain object — `null` is
+ * the pathological case, because `JSON.parse` accepts it. Reading `.name`,
+ * `.scripts` or `.include` off such a value throws a raw `TypeError` and escapes
+ * this gate's E-GATE vocabulary, so every JSON document the gate parses goes
+ * through here (#198; the same shape guard `publishable-gate` carries).
+ */
+function assertJsonObject(value, where, what) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new GateError(
+      `${where} is not a JSON object (found: ${describe(value)}) — ` +
+        `the gate cannot read ${what} of this shape`,
+    );
+  }
+  return value;
+}
+
 const CONFIG_NAME = "tsconfig.test.json";
 
 async function exists(target) {
@@ -57,7 +74,17 @@ async function collectPackageDirs(root) {
   if (!(await exists(workspaceFile))) {
     throw new GateError(`no pnpm-workspace.yaml at ${path.resolve(root)}`);
   }
-  const globs = parseWorkspaceGlobs(await readFile(workspaceFile, "utf8"));
+  let globs;
+  try {
+    globs = parseWorkspaceGlobs(await readFile(workspaceFile, "utf8"));
+  } catch (error) {
+    // The parser is dep-gate's (reused, self-tested there): by its contract any
+    // throw is a shape it refuses to read. Its `GateError` is a DIFFERENT class
+    // from this gate's, so `check()`'s `instanceof` catch would not match it —
+    // translate the class so this gate's refusals stay one vocabulary (E-GATE).
+    // The same translation `publishable-gate` carries (its #199 follow-up).
+    throw new GateError(`pnpm-workspace.yaml: ${error.message}`);
+  }
   const entries = await Promise.all(globs.map((glob) => expandGlob(root, glob)));
   const dirs = [...new Set(entries.flat())].sort();
   if (dirs.length === 0) {
@@ -88,17 +115,7 @@ async function readManifest(dir, relDir) {
   } catch (error) {
     throw new GateError(`unparseable ${manifestPath}: ${error.message}`);
   }
-  // A manifest that PARSES as JSON but is not an object (`null` is the
-  // pathological case — `JSON.parse` accepts it) has no `.scripts`/`.name` to
-  // read: refuse it in the gate's own E-GATE vocabulary instead of crashing on
-  // the property access (#198; the same guard `publishable-gate` carries).
-  if (manifest === null || typeof manifest !== "object" || Array.isArray(manifest)) {
-    throw new GateError(
-      `'${relDir}/package.json' is not a JSON object (found: ${describe(manifest)}) — ` +
-        "the gate cannot read a manifest of this shape",
-    );
-  }
-  return manifest;
+  return assertJsonObject(manifest, `'${relDir}/package.json'`, "a manifest");
 }
 
 /** Validate one package; returns the violations for it. */
@@ -138,6 +155,10 @@ async function checkPackage(dir, relDir) {
   } catch (error) {
     throw new GateError(`unparseable ${path.join(relDir, CONFIG_NAME)}: ${error.message}`);
   }
+  // The config is the second JSON document this gate parses, and `null` is just
+  // as readable as a tsconfig to `JSON.parse`: `.include` off it would crash the
+  // same way the manifest did (#198b).
+  assertJsonObject(config, `'${relDir}/${CONFIG_NAME}'`, "a config");
 
   const include = config.include;
   if (!Array.isArray(include) || include.length === 0) {
