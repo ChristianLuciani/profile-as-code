@@ -26,7 +26,7 @@ import { EXIT } from "../exit.js";
 import { RENDERERS } from "../generated/renderers.gen.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import type { Pascorc } from "../workspace.js";
-import { defaultsLang } from "../workspace.js";
+import { defaultsLang, sanitizeCompletenessPolicy } from "../workspace.js";
 
 /** Which renderer serves which platform is NOT decided here any more (#165):
  *  the map is generated from each renderer's own `pasco.platform` manifest field
@@ -67,7 +67,15 @@ export function runBuild(args: BuildArgs): number {
     args.platformArg !== undefined ? [parsePlatform(args.platformArg)] : [...PLATFORMS];
   const lang = parseLang(defaultsLang(args.pascorc, args.langArg));
 
-  const slices: PlatformProfile[] = platforms.map((p) => compile(profile, p, lang));
+  // Issue #102: compile WITH the workspace completeness policy, so the rendered
+  // artifact carries the same number `pasco status --completeness` reports
+  // (review of #205, finding 3 — the default policy silently won before), and
+  // through the SAME sanitizer (F5), so a malformed weight cannot reach the
+  // artifact as `NaN%` while the status path is clean.
+  const completenessPolicy = sanitizeCompletenessPolicy(args.pascorc.completeness);
+  const slices: PlatformProfile[] = platforms.map((p) =>
+    compile(profile, p, lang, completenessPolicy),
+  );
 
   // Renderer platforms: write the deploy artifact (SPEC §15.5 — profiles/ ARE the deploy artifacts).
   // github-org is a brand surface (D15/§17) — only rendered for brand workspaces.

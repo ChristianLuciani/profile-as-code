@@ -1,0 +1,18 @@
+- id: nimbus
+  role: Senior AI Engineer
+  org: Nimbus Labs
+  start: 2022-03-01
+  end: present
+  highlights:
+    en: Lead the sovereign inference stack; route 100k+ LLM requests per month.
+    es: Lidero el stack de inferencia soberana; enruto más de 100k peticiones LLM al mes.
+    fr: Je dirige la pile d'inférence souveraine ; je route plus de 100k requêtes LLM par mois.
+- id: dataforge
+  role: ML Engineer
+  org: Dataforge
+  start: 2019-06-01
+  end: 2022-02-01
+  highlights:
+    en: Built real-time model serving pipelines for 3 production products.
+    es: Construí pipelines de servicio de modelos en tiempo real para 3 productos.
+    fr: J'ai construit des pipelines de service de modèles en temps réel pour 3 produits.

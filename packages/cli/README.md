@@ -106,9 +106,24 @@ file) > current directory.
 {
   "workspace": ".",
   "defaults": { "lang": "en", "variants": 3 },
-  "diff": { "tagPattern": "release-*" }
+  "diff": { "tagPattern": "release-*" },
+  "completeness": {
+    "target": "github-milestone",
+    "langs": ["en", "es"],
+    "items": [
+      { "id": "deployment", "weight": 0 },
+      { "id": "geoAnchors", "weight": 0.4 }
+    ]
+  }
 }
 ```
+
+The `completeness` block is the policy for `pasco status --completeness` (issue
+#102): `target` names the milestone; `langs` sets which languages text coverage is
+measured in; `items` overrides the shipped weights per catalog id (a weight of `0`
+drops the item from the percentage). Every field is optional — omitted fields use
+`DEFAULT_COMPLETENESS_POLICY`. The percentage itself is **derived** and never
+written to the workspace; only this policy is stored.
 
 ## Exit codes
 

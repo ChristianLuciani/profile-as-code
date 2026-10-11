@@ -1,0 +1,14 @@
+name: Elena Vasquez
+location: Madrid, Spain
+email: elena@example.com
+photo: https://example.com/elena-vasquez.jpg
+links:
+  - platform: github
+    label: GitHub
+    url: https://github.com/elenavasquez
+  - platform: linkedin
+    label: LinkedIn
+    url: https://linkedin.com/in/elenavasquez
+  - platform: orcid
+    label: ORCID
+    url: https://orcid.org/0000-0001-2345-6789

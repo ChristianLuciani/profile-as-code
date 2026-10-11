@@ -10,6 +10,8 @@
  * the schema enum) — never duplicated here.
  */
 
+import { type CompletenessPolicy, completeness } from "./completeness.js";
+import { normalizeProfile } from "./load.js";
 import { structuredData } from "./structured-data.js";
 import type { Lang, Platform, PlatformProfile, Profile } from "./types.js";
 import { PLATFORMS } from "./types.js";
@@ -19,10 +21,18 @@ const LANG_IDS: readonly string[] = ["en", "es", "fr"] as const;
 /**
  * Compile a PlatformProfile for one platform and language.
  *
+ * @param policy the workspace completeness policy (issue #102). The CLI passes
+ *   `.pascorc`'s policy so the artifact carries the SAME number the workspace
+ *   reports; omitted ⇒ the shipped default (direct callers, tests).
  * @throws TypeError — `platform`/`lang` not in the contract enum (a renderer bug,
  *   not a user-data problem).
  */
-export function compile(profile: Profile, platform: Platform, lang: Lang = "en"): PlatformProfile {
+export function compile(
+  profile: Profile,
+  platform: Platform,
+  lang: Lang = "en",
+  policy?: CompletenessPolicy,
+): PlatformProfile {
   if (!(PLATFORMS as readonly string[]).includes(platform)) {
     throw new TypeError(
       `compile: unknown platform "${String(platform)}" (allowed: ${PLATFORMS.join(", ")})`,
@@ -106,6 +116,12 @@ export function compile(profile: Profile, platform: Platform, lang: Lang = "en")
     // v1.6 (#103): entity structured-data identity — assembled ONCE here, so no
     // renderer re-derives `@id`/`sameAs` (SPEC §15.4, the §18.9 precedent).
     structuredData: structuredData(profile, lang),
+    // Issue #102: the completeness report travels WITH the slice (like
+    // structuredData) so a renderer emits the number verbatim and never
+    // recomputes it. `policy` is the workspace's `.pascorc` policy when the CLI
+    // passes it, so the artifact and `pasco status --completeness` agree
+    // (review of #205, finding 3); omitted ⇒ the shipped default.
+    completeness: completeness(normalizeProfile(profile), policy),
     fallbacks,
   };
 }

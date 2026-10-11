@@ -17,6 +17,9 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  type CompletenessReport,
+  completeness,
+  completenessLine,
   deployStatus,
   type LedgerReport,
   LoadError,
@@ -29,6 +32,7 @@ import {
 import { parseDocument, stringify } from "yaml";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
+import { type CompletenessPolicyConfig, sanitizeCompletenessPolicy } from "../workspace.js";
 
 export interface StatusArgs {
   workspace: string;
@@ -40,6 +44,10 @@ export interface StatusArgs {
   markAt?: string;
   /** --write-checklist: regenerate CHECKLIST.md from the ledger. */
   writeChecklist?: boolean;
+  /** --completeness: report the profile-completeness checklist (issue #102). */
+  completeness?: boolean;
+  /** The workspace policy from `.pascorc` (issue #102) — defaults to the shipped policy. */
+  completenessPolicy?: CompletenessPolicyConfig;
 }
 
 const CHECKLIST_HEADER = `# CHECKLIST — deploy status
@@ -146,7 +154,7 @@ function markDeployed(args: StatusArgs, profile: LoadedProfile): number {
   return EXIT.OK;
 }
 
-function checklistBody(reportData: LedgerReport): string {
+function checklistBody(reportData: LedgerReport, completion: CompletenessReport): string {
   const fmt = (surfaces: Record<string, string>) =>
     Object.entries(surfaces)
       .sort()
@@ -155,7 +163,14 @@ function checklistBody(reportData: LedgerReport): string {
   const stale = reportData.units.filter((u) => u.state === "stale");
   const inSync = reportData.units.filter((u) => u.state === "in-sync");
   const never = reportData.units.filter((u) => u.state === "never");
-  const lines: string[] = [CHECKLIST_HEADER, ""];
+  const lines: string[] = [
+    CHECKLIST_HEADER,
+    "",
+    // Issue #102: the completeness number rides the SAME generated view — it is
+    // derived state (never stored) and the checklist is where the user looks.
+    `Profile completeness: ${completenessLine(completion)}`,
+    "",
+  ];
 
   lines.push("## Pending — stale (SSOT changed after the last deploy)");
   if (stale.length === 0) lines.push("_None._");
@@ -178,6 +193,34 @@ function checklistBody(reportData: LedgerReport): string {
   return lines.join("\n");
 }
 
+function completenessOf(args: StatusArgs, profile: LoadedProfile): CompletenessReport {
+  return completeness(profile, sanitizeCompletenessPolicy(args.completenessPolicy));
+}
+
+/** `pasco status --completeness` — the checklist + percentage (issue #102). */
+function runCompleteness(args: StatusArgs, profile: LoadedProfile): number {
+  const result = completenessOf(args, profile);
+  if (isJsonMode()) {
+    return report("status", true, EXIT.OK, {
+      data: {
+        mode: "completeness",
+        workspace: args.workspace,
+        percent: result.percent,
+        satisfied: result.satisfied,
+        total: result.total,
+        target: result.target,
+        items: result.items,
+      },
+    });
+  }
+  section(`profile completeness — ${completenessLine(result)} (target: ${result.target})`);
+  for (const item of result.items) {
+    line(`  ${item.satisfied ? "[x]" : "[ ]"} ${item.label} — ${item.detail}`);
+  }
+  line("  → pasco status --write-checklist folds the number into CHECKLIST.md");
+  return EXIT.OK;
+}
+
 export function runStatus(args: StatusArgs): number {
   if (args.markKey !== undefined && args.writeChecklist === true) {
     return report("status", false, EXIT.USAGE, {
@@ -185,6 +228,25 @@ export function runStatus(args: StatusArgs): number {
         kind: "usage",
         message:
           "usage: --mark and --write-checklist are mutually exclusive — run them sequentially",
+      },
+    });
+  }
+  if (args.completeness === true && args.markKey !== undefined) {
+    return report("status", false, EXIT.USAGE, {
+      error: {
+        kind: "usage",
+        message: "usage: --completeness and --mark are mutually exclusive — run them sequentially",
+      },
+    });
+  }
+  // Review of #205, F6: both flags are documented as alternatives, so accepting
+  // them together and silently writing nothing was a lie. Reject explicitly.
+  if (args.completeness === true && args.writeChecklist === true) {
+    return report("status", false, EXIT.USAGE, {
+      error: {
+        kind: "usage",
+        message:
+          "usage: --completeness is a read-only report and --write-checklist writes CHECKLIST.md — run them separately (the generated view includes the completeness line)",
       },
     });
   }
@@ -196,15 +258,33 @@ export function runStatus(args: StatusArgs): number {
   if (args.markKey !== undefined) return markDeployed(args, profile);
 
   const reportData = deployStatus(profile);
+  const completion = completenessOf(args, profile);
+
+  // Completeness report (issue #102): a standalone view of the same profile.
+  if (args.completeness === true) return runCompleteness(args, profile);
 
   if (args.writeChecklist === true) {
-    writeFileSync(join(args.workspace, "CHECKLIST.md"), checklistBody(reportData), "utf8");
+    writeFileSync(
+      join(args.workspace, "CHECKLIST.md"),
+      checklistBody(reportData, completion),
+      "utf8",
+    );
     if (isJsonMode()) {
       return report("status", true, EXIT.OK, {
-        data: { mode: "checklist-written", path: "CHECKLIST.md", ...summaryOf(reportData) },
+        data: {
+          mode: "checklist-written",
+          path: "CHECKLIST.md",
+          ...summaryOf(reportData),
+          completeness: {
+            percent: completion.percent,
+            satisfied: completion.satisfied,
+            total: completion.total,
+          },
+        },
       });
     }
     line("CHECKLIST.md regenerated from content/deployments.yaml (AUTO-GENERATED view)");
+    line(`  Profile completeness: ${completenessLine(completion)}`);
   }
 
   const filtered: LedgerReport =

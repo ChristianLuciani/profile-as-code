@@ -774,6 +774,144 @@ describe("pasco status (D18 deploy ledger)", () => {
     expect(help.stdout).toContain("--mark");
     expect(run(["status", "--mark", "identity", "--workspace", mkws()]).code).toBe(2);
   });
+
+  it("--completeness reports the weighted checklist plus the percentage (issue #102)", () => {
+    const ws = mkws();
+    const res = run(["status", "--completeness", "--json", "--workspace", ws]);
+    expect(res.code).toBe(0);
+    const data = json(res.stdout).data as {
+      mode: string;
+      percent: number;
+      satisfied: number;
+      total: number;
+      target: string;
+      items: { id: string; score: number }[];
+    };
+    expect(data.mode).toBe("completeness");
+    expect(data.percent).toBeGreaterThan(0);
+    expect(data.percent).toBeLessThan(100);
+    expect(data.items.length).toBe(5);
+    expect(data.total).toBe(data.items.length);
+    expect(data.target).toBe("profile-complete"); // shipped default
+  });
+
+  it("--completeness honours the .pascorc policy (dropped item leaves the score)", () => {
+    const ws = mkws();
+    // en/es/fr expected by default; a single-lang policy raises coverage, and
+    // dropping the ledger item removes it from the denominator entirely.
+    writeFileSync(
+      join(ws, ".pascorc"),
+      JSON.stringify({
+        workspace: ".",
+        completeness: {
+          target: "github-milestone",
+          langs: ["en"],
+          items: [{ id: "deployment", weight: 0 }],
+        },
+      }),
+      "utf8",
+    );
+    const res = run(["status", "--completeness", "--json", "--workspace", ws]);
+    expect(res.code).toBe(0);
+    const data = json(res.stdout).data as {
+      target: string;
+      total: number;
+      items: { id: string }[];
+    };
+    expect(data.target).toBe("github-milestone");
+    expect(data.total).toBe(4);
+    expect(data.items.some((i) => i.id === "deployment")).toBe(false);
+  });
+
+  it("--write-checklist folds the completeness line into the generated view", () => {
+    const ws = mkws();
+    expect(run(["status", "--write-checklist", "--workspace", ws]).code).toBe(0);
+    const body = readFileSync(join(ws, "CHECKLIST.md"), "utf8");
+    expect(body).toContain("Profile completeness:");
+    expect(body).toContain("% — ");
+    // still the generated view, never hand-edited (D18)
+    expect(body).toContain("AUTO-GENERATED");
+  });
+
+  it("--completeness + --mark is rejected, not silently ignored", () => {
+    const res = run([
+      "status",
+      "--mark",
+      "identity",
+      "linkedin",
+      "--completeness",
+      "--workspace",
+      mkws(),
+    ]);
+    expect(res.code).toBe(2);
+    expect(res.stderr).toContain("mutually exclusive");
+  });
+
+  // Review of #205, F5: a malformed weight must not reach the arithmetic.
+  it("a malformed .pascorc weight is dropped, never rendered as NaN", () => {
+    const ws = mkws();
+    writeFileSync(
+      join(ws, ".pascorc"),
+      // "heavy" is not a number, "" is empty, "geoanchor" is not a catalog id.
+      '{"workspace":".","completeness":{"items":[{"id":"presence","weight":"heavy"},{"id":"evidence","weight":0.5},{"id":"geoAnchors","weight":""},{"id":"nope","weight":1}]}}',
+      "utf8",
+    );
+    const res = run(["status", "--completeness", "--json", "--workspace", ws]);
+    expect(res.code).toBe(0);
+    const data = json(res.stdout).data as {
+      percent: number;
+      items: { id: string; weight: number }[];
+    };
+    expect(Number.isFinite(data.percent)).toBe(true);
+    expect(res.stdout).not.toContain("NaN");
+    // the valid override survives; the malformed ones fall back / drop out
+    expect(data.items.find((i) => i.id === "evidence")?.weight).toBe(0.5);
+    expect(data.items.map((i) => i.id)).not.toContain("nope");
+    expect(Number.isFinite(data.items.find((i) => i.id === "presence")?.weight)).toBe(true);
+  });
+
+  it("--completeness + --write-checklist is rejected instead of silently dropping the write", () => {
+    const ws = mkws();
+    const res = run(["status", "--completeness", "--write-checklist", "--workspace", ws]);
+    expect(res.code).toBe(2);
+    expect(res.stderr).toContain("run them separately");
+    expect(existsSync(join(ws, "CHECKLIST.md"))).toBe(false); // nothing half-written
+  });
+
+  // Review of #205, finding 3: `pasco build` compiles with the WORKSPACE policy,
+  // so the rendered artifact and `status --completeness` report one number.
+  it("build renders the workspace policy's number, matching status --completeness", () => {
+    const ws = mkws();
+    // observe the DEFAULT number first (no .pascorc yet)
+    const defaultPercent = (
+      json(run(["status", "--completeness", "--json", "--workspace", ws]).stdout).data as {
+        percent: number;
+      }
+    ).percent;
+
+    writeFileSync(
+      join(ws, ".pascorc"),
+      JSON.stringify({
+        workspace: ".",
+        completeness: {
+          target: "github-milestone",
+          langs: ["en"],
+          items: [{ id: "deployment", weight: 0 }],
+        },
+      }),
+      "utf8",
+    );
+    const percent = (
+      json(run(["status", "--completeness", "--json", "--workspace", ws]).stdout).data as {
+        percent: number;
+      }
+    ).percent;
+    expect(percent).not.toBe(defaultPercent); // the policy is observable
+
+    expect(run(["build", "github-readme", "--workspace", ws]).code).toBe(0);
+    const readme = readFileSync(join(ws, "profiles", "github-readme", "README.md"), "utf8");
+    expect(readme).toContain(`Profile completeness: ${percent}%`);
+  });
 });
 
 /** Recursive copy of a fixture workspace into a temp dir (tests mutate it). */

@@ -26,11 +26,52 @@ export interface PascorcDefaults {
   variants?: number;
 }
 
+/**
+ * Issue #102: the completeness policy — what the workspace is measured
+ * against. Config, not code (dev-methodology §3): the engine owns the catalog,
+ * the workspace owns the target/weights/langs. This is a STRUCTURAL mirror of
+ * core's `CompletenessPolicy` (the CLI package must not reach into core types
+ * at config-parse time); `status.ts` passes it straight to `completeness()`.
+ */
+export interface CompletenessPolicyConfig {
+  target?: string;
+  langs?: readonly string[];
+  items?: readonly { id: string; weight: number }[];
+}
+
 export interface Pascorc {
   /** Workspace path relative to the .pascorc file location. */
   workspace?: string;
   defaults?: PascorcDefaults;
   diff?: { tagPattern?: string };
+  /** Issue #102: completeness policy (weights/target/langs) — optional. */
+  completeness?: CompletenessPolicyConfig;
+}
+
+/**
+ * Normalize a `.pascorc` completeness policy before it reaches core (review of
+ * #205, F5): a non-finite weight is a config typo that would otherwise flow into
+ * the arithmetic and render `NaN%` on a green-looking run. A malformed weight is
+ * DROPPED — the item falls back to the shipped default — never coerced to 0/NaN.
+ * Both `status --completeness` and `build` (which compiles the artifact with the
+ * same policy) go through here, so the two surfaces cannot diverge.
+ */
+export function sanitizeCompletenessPolicy(raw: CompletenessPolicyConfig | undefined): {
+  target?: string;
+  langs?: readonly string[];
+  items?: readonly { id: string; weight: number }[];
+} {
+  if (raw === undefined) return {};
+  const items = (raw.items ?? []).filter(
+    (i): i is { id: string; weight: number } =>
+      typeof i?.id === "string" && i.id !== "" && Number.isFinite(i.weight),
+  );
+  const langs = (raw.langs ?? []).filter((l): l is string => typeof l === "string" && l !== "");
+  return {
+    ...(typeof raw.target === "string" ? { target: raw.target } : {}),
+    ...(langs.length > 0 ? { langs } : {}),
+    ...(items.length > 0 ? { items } : {}),
+  };
 }
 
 export class ConfigError extends Error {
