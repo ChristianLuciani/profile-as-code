@@ -40,6 +40,11 @@ function git(dir: string, args: string[]): void {
   execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", stdio: "pipe" });
 }
 
+/** `git`, capturing trimmed stdout (sync) — for SHAs a test must assert against. */
+function gitOut(dir: string, args: string[]): string {
+  return execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" }).trim();
+}
+
 const tempDirs: string[] = [];
 function tempDir(): string {
   const dir = mkdtempSync(join(tmpdir(), "pasco-test-"));
@@ -68,6 +73,27 @@ function makeGitWorkspace(): string {
   );
   git(dir, ["add", "-A"]);
   git(dir, ["commit", "-qm", "update identity + x headline"]);
+  return dir;
+}
+
+/** A git repo whose only tag does NOT match `diff.tagPattern: "release-*"` (#197). */
+function makeGitWorkspaceWithNonMatchingTag(): string {
+  const dir = tempDir();
+  mkdirSync(join(dir, "content"));
+  writeFileSync(join(dir, "content", "identity.yaml"), "name: Elena Vasquez\n");
+  writeFileSync(join(dir, ".pascorc"), '{ "diff": { "tagPattern": "release-*" } }\n');
+  git(dir, ["init", "-q", "-b", "main"]);
+  git(dir, ["config", "user.email", "test@test.test"]);
+  git(dir, ["config", "user.name", "test"]);
+  git(dir, ["add", "-A"]);
+  git(dir, ["commit", "-qm", "initial commit"]);
+  writeFileSync(
+    join(dir, "content", "headlines.yaml"),
+    "- platform: x\n  lang: en\n  text: New headline\n",
+  );
+  git(dir, ["add", "-A"]);
+  git(dir, ["commit", "-qm", "second: edit"]);
+  git(dir, ["tag", "v0.2.0"]);
   return dir;
 }
 
@@ -342,6 +368,44 @@ describe("pasco diff (git-based, release tags)", () => {
     const r = run(["diff", "--workspace", dir]);
     expect(r.code).toBe(1);
     expect(r.stderr).toContain("git");
+  });
+
+  // #197: a tag that exists but does NOT match diff.tagPattern must be ignored —
+  // the documented fallback is `tag: null` + base = the root commit (USER-GUIDE §5).
+  it("ignores a tag that does not match diff.tagPattern and bases on the root commit", () => {
+    const ws = makeGitWorkspaceWithNonMatchingTag();
+    const root = gitOut(ws, ["rev-list", "--max-parents=0", "HEAD"]);
+    const head = gitOut(ws, ["rev-parse", "HEAD"]);
+    const r = run(["diff", "--json", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as {
+      data: {
+        tag: string | null;
+        base: string;
+        commits: { subject: string }[];
+        hasChanges: boolean;
+      };
+    };
+    expect(data.data.tag).toBeNull();
+    expect(data.data.base).toBe(root);
+    expect(data.data.base).not.toBe(head);
+    expect(data.data.commits.map((c) => c.subject)).toEqual(["second: edit"]);
+    expect(data.data.hasChanges).toBe(true);
+  });
+
+  it("picks up the tag once one matches diff.tagPattern", () => {
+    const ws = makeGitWorkspaceWithNonMatchingTag();
+    const releaseSha = gitOut(ws, ["rev-parse", "HEAD"]);
+    git(ws, ["tag", "release-1"]);
+    const r = run(["diff", "--json", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as {
+      data: { tag: string | null; base: string; commits: unknown[]; hasChanges: boolean };
+    };
+    expect(data.data.tag).toBe("release-1");
+    expect(data.data.base).toBe(releaseSha);
+    expect(data.data.commits).toEqual([]);
+    expect(data.data.hasChanges).toBe(false);
   });
 });
 
