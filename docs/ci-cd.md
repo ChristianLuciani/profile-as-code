@@ -202,6 +202,10 @@ approval gate on publish.
 
 ## Release — `.github/workflows/release.yml`
 
+**Which trigger publishes: the manual dispatch, not the tag** — the full path and the reasoning
+are in [§Releasing — the primary path](#releasing--the-primary-path-issue-208). What follows here
+is the guard and the invariant it enforces, which are the same on both entry points.
+
 The publish path is guarded by `packages/cli/scripts/release-guard.mjs`, which runs
 before the build and asserts three things (issue #81):
 
@@ -209,9 +213,9 @@ before the build and asserts three things (issue #81):
 2. that version is tagged on origin (so `workflow_dispatch` cannot publish an
    untagged version — the tag|publish invariant has no exception);
 3. the **tagged commit** is the right one. On a **tag push** it must BE the
-   current default-branch tip; on **`workflow_dispatch`** (the retry path) it must
-   be an ancestor, because a retry legitimately republishes a tag pushed when the
-   branch was at that commit.
+   current default-branch tip; on **`workflow_dispatch`** (now the primary path,
+   and the retry path in the #81 sense) it must be an ancestor, because a retry
+   legitimately republishes a tag pushed when the branch was at that commit.
 
 The guard then emits that commit, and the workflow **checks it out before building**
 (`${{ steps.guard.outputs.commit }}`). Verifying a commit is not the same as
@@ -265,7 +269,20 @@ tool), and the typed packages are **ESM-only by design**, hence the `esm-only`
 profile — the default strict profile counts CJS-resolves-to-ESM as a problem,
 which is exactly the state the engine intends.
 
-### npm publish auth — trusted publishing (OIDC, issue #80)
+### npm publish auth — trusted publishing (OIDC, issue #80) — **configured and validated**
+
+**State as of the 0.3.0 publish (verified 2026-10-11, re-verified 2026-10-12):**
+
+| Fact | Evidence |
+|---|---|
+| The publish went out over **OIDC**, with **no token present** | `workflow_dispatch` run `38109158435` (2026-10-11T03:40:45Z, `main`) — `success` |
+| `NPM_TOKEN` is **deleted** in npm **and** in GitHub | the failing tag run (`38108069946`) logged `NODE_AUTH_TOKEN:` **empty** and `npm error code ENEEDAUTH` — npm obtained **no** credential, so OIDC was the only path available ([OFICIAL] `gh run view --log-failed`, #208) |
+| The trusted publisher is **configured and exercised** | the run above is the proof: the exchange succeeded where no fallback existed |
+| `0.3.0` is `latest` on npm | `registry.npmjs.org`, published **2026-10-11T03:43:27Z** ([OFICIAL] registry `time` field, re-checked 2026-10-12) |
+
+The migration is therefore **complete**: the trusted publisher is configured and has been
+exercised, and the token is gone. The `#### Migration history` block below is the record of the
+sequencing that got here — read it as history, not as instructions.
 
 The publish step authenticates with **trusted publishing (OIDC)**: `id-token: write` is
 granted to the `publish` job, and the npm CLI exchanges that short-lived OIDC token for a
@@ -284,48 +301,94 @@ next person debugging a publish does not have to rediscover them:
 - **OIDC takes precedence, and its failure is silent by design.** npm prefers the OIDC environment
   over a token, and `lib/utils/oidc.js` (npm 11.6.1) is written to *never throw*: a failed exchange
   (no trusted publisher, wrong workflow filename, …) returns `undefined` and leaves the token the
-  config already had. That is what makes `NPM_TOKEN` a **true fallback** rather than a conflict — no
-  sequencing of edits is required: configure the trusted publisher, and OIDC starts winning on its
-  own.
+  config already had. **This is the trap as of 0.3.0**: the fallback is now *gone* (secret deleted
+  in npm and GitHub), so a failed exchange degrades straight to `ENEEDAUTH` with no earlier warning
+  — which is exactly what the tag run reported (#208). The old mitigation of keeping `NPM_TOKEN`
+  as a safety net no longer exists and is not coming back: the credential is what #80 removes.
+  Diagnose an `ENEEDAUTH` here first.
+
+#### The `workflow_dispatch` path publishes; a tag push does not (issue #208)
+
+Measured, not inferred — this is the same shape for both published versions:
+
+| Trigger | Result | Evidence |
+|---|---|---|
+| `push` of tag `v0.2.0` | **failed** (`E403`, token without 2FA bypass) | run `37990886285` |
+| `push` of tag `v0.3.0` | **failed** (`ENEEDAUTH`) | run `38108069946` |
+| `workflow_dispatch` from `main` (v0.2.0) | **success** — published | run `38004121038` |
+| `workflow_dispatch` from `main` (v0.3.0) | **success** — published | run `38109158435` |
+| `workflow_dispatch` repeat (v0.3.0) | **failed**, benign (`cannot publish over the previously published versions: 0.3.0`) | run `38109376245` |
+
+The first thing to inspect is the `job_workflow_ref` OIDC claim, which differs between the
+two runs (`…/release.yml@refs/tags/v0.3.0` vs `…@refs/heads/main`): if npm validates that ref
+against the default branch, the tag path cannot publish by design. **The definitive statement
+of the current primary path, and of what a tag push does and does not do, is
+[§"Releasing — the primary path"](#releasing--the-primary-path-issue-208) below.** This section
+only records why the auth layer behaves the way it does.
+
 - **No `--provenance` flag — npm decides.** npm attests only when all three hold: the OIDC
   exchange **succeeded**, the **source repo is public**, and the **package is public**
   ([WEB] docs.npmjs.com/trusted-publishers, "Automatic provenance generation"; the code reads
   `repository_visibility` from the OIDC token and re-queries the package's visibility via
-  `libaccess.getVisibility`). **Consequence to keep in mind:** while publishing still uses the token
-  fallback — step 1 below, before the trusted publisher exists — **no attestation is generated even
-  if the repo is public**. That window closes at step 3; it is accepted here because the alternative
-  (keep the conditional flag) re-encodes npm's own decision by hand, which is what #80 removes.
+  `libaccess.getVisibility`). **The first condition now holds and the second still does not**:
+  the 0.3.0 publish ran on a successful OIDC exchange, but the source repo is private, so
+  `dist.attestations` is **absent** from the published manifest ([OFICIAL] registry
+  `@profile-as-code/cli@0.3.0`, re-checked 2026-10-12). This is a documented limitation of the
+  private repo — **not a pending task of this migration**, and not something a workflow change
+  can fix. It clears at the visibility flip.
+
 - **`repository.url` must match the GitHub repo.** npm validates
   `packages/cli/package.json` → `repository.url` against the repository the workflow runs in
   and fails the publish on a mismatch. The field is the canonical
   `git+https://github.com/ChristianLuciani/profile-as-code.git` (plus `directory: packages/cli`),
   which is correct for a monorepo package — re-check it if the repo is ever renamed or forked.
 
-#### One-time setup (human — npmjs.com)
+#### Migration history (complete — do not re-run)
 
-Trusted publishing is configured **per package**, so it requires the package to already exist:
-v0.2.0 (the first publish) still goes out with the `NPM_TOKEN` fallback. From the next version
-on, OIDC is used automatically. To complete the migration:
+The migration is **done and validated**. This is the record of what happened, kept because
+the sequencing had a real trap in it (the trusted publisher requires the package to already
+exist, so the first publish necessarily ran on the token). **Not instructions.**
 
-1. Publish v0.2.0 with the existing token (operator action: push the tag — the publish is what
-   claims the `pasco` bin name; issue #44 is closed, its reservation task void by construction: a
-   name cannot be reserved without publishing it, [WEB: docs.npmjs.com, 2026-09-07]).
-2. On npmjs.com → the package's settings → **Trusted Publisher** → GitHub Actions, set:
-   - **Organization or user:** `ChristianLuciani`
-   - **Repository:** `profile-as-code`
-   - **Workflow filename:** `release.yml` (the filename with its extension, not a path)
-   - **Environment name:** leave empty (this workflow uses no GitHub environment)
-   - **Allowed actions:** allow `npm publish` (staged publishing is always allowed)
-3. Cut the next version and confirm the publish log shows the OIDC exchange (a
-   `repository.url` mismatch would surface here).
-4. **Then** delete the `NPM_TOKEN` repository secret *and* the `NODE_AUTH_TOKEN` env from the
-   publish step — the long-lived credential is exactly what #80 removes.
+1. **v0.2.0 (2026-10-09) went out with the `NPM_TOKEN` fallback** — the first publish, and
+   the only one that could. The tag push failed (`E403`: the granular token had no 2FA
+   bypass) and the version was published by the `workflow_dispatch` retry. The publish is
+   what claims the `pasco` bin name; issue #44 is closed, its reservation task void by
+   construction, because a name cannot be reserved without publishing it
+   ([WEB: docs.npmjs.com, 2026-09-07]).
+2. **The trusted publisher was configured** on npmjs.com → the package's settings →
+   **Trusted Publisher** → GitHub Actions: Organization or user `ChristianLuciani`;
+   Repository `profile-as-code`; Workflow filename `release.yml` (the filename with its
+   extension, not a path); Environment name empty (this workflow uses no GitHub environment);
+   Allowed actions: `npm publish` (staged publishing is always allowed).
+   npm does **not** validate these fields when you save them: a typo surfaces only as
+   `ENEEDAUTH` at publish time, and every field is case-sensitive.
+3. **v0.3.0 (2026-10-11) confirmed the exchange** — published via `workflow_dispatch` from
+   `main`, `success`, with the tag run failing `ENEEDAUTH` (see the table above). A
+   `repository.url` mismatch would have surfaced here; it did not.
+4. **`NPM_TOKEN` was deleted in npm *and* in GitHub** — the repository secret. Be precise
+   about what that did and did not touch: the `NODE_AUTH_TOKEN` **env declaration is still
+   on the publish step** (`release.yml:155`, `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}`)
+   and resolves to the empty string now that the secret is gone — that empty value is what
+   the tag run's log shows. Removing the env line is possible but was not done, and is not
+   needed: with no secret it can never carry a credential. **Do not re-add the secret** —
+   the long-lived credential is exactly what #80 removes.
 
-npm does **not** validate the trusted-publisher fields when you save them: a typo surfaces only
-as `ENEEDAUTH` at publish time, and every field is case-sensitive.
+Scheduled deprecation this removed: the granular access token with 2FA bypass used for publish
+loses direct publishing ~January 2027 ([WEB] github.blog changelog 2026-07-08). The repo no
+longer depends on it.
 
-Scheduled deprecation this removes: the granular access token with 2FA bypass used for publish
-loses direct publishing ~January 2027 ([WEB] github.blog changelog 2026-07-08).
+> **Known divergence — the workflow's own prose is stale (issue #208, open).** Nothing above
+> is wrong, but `.github/workflows/release.yml:3–6` still reads *"The FIRST tag push (v0.2.0)
+> is the operator's publish action — pushing the tag IS publishing…; workflow_dispatch is for
+> retries"*, and the `Publish` step comment (`:139–147`) still describes `NPM_TOKEN` as a
+> **live fallback** and says to *"delete the secret only after the trusted publisher is
+> configured and a publish through it is verified"* — a step that has already happened.
+> Both statements are false today. They are **comments only**: no executable behaviour depends
+> on them, so this is not a change to the mechanism that decision 5 of the #113 handover
+> froze — but it is also not corrected here, because editing the workflow file needs the
+> operator's explicit go-ahead. Until it is corrected, **a maintainer who reads the workflow
+> gets the opposite of the truth**, which is why #208's criterion ("el runbook diciendo lo
+> mismo que el workflow") is **not yet satisfied** even though this runbook is.
 
 After a successful publish, the `release` job creates the matching **GitHub
 Release** (issue #58): it checks out the same verified commit, extracts that
@@ -342,6 +405,75 @@ untouched). `contents: write` is granted to that job only, not to the publish jo
 Attaching the packed tarball is intentionally out of scope: the issue marks it
 optional and `verify:pack` already asserts the tarball's bin before any publish.
 
+### Releasing — the primary path (issue #208)
+
+**The primary publishing path is the manual `workflow_dispatch` from `main`.** The tag push is
+kept as the **announcement and the version marker** — it names the version and records the
+commit — but it does **not** publish, and, read the next paragraph, it does **not** create the
+GitHub Release either. This is decision 5 of the #113 handover (operator, 2026-10-12): the
+manual button is the official path and the tag announces. The mechanism in `release.yml` was
+deliberately **not** changed by that decision (see "The mechanism question" below).
+
+Do this in order:
+
+1. Land the release preparation on `main` (bump `packages/cli/package.json`, add the
+   `## [<version>] - <date>` section to `CHANGELOG.md`) — see
+   ["Preparing a release"](#preparing-a-release-do-this-before-tagging).
+2. **Push the tag** — `git tag v<version> && git push origin v<version>`. The tag now exists on
+   origin, which is what `release-guard.mjs` requires (an untagged version cannot be published
+   by dispatch — the tag|publish invariant has no exception).
+3. **Run the publish from `main`:**
+
+   ```bash
+   gh workflow run release.yml --ref main
+   ```
+
+   This is the step that publishes. It runs the guard, builds and tests the tagged commit,
+   verifies the tarball, and publishes over OIDC.
+4. **Verify** — the post-publish checks in
+   ["Post-publish verification"](#post-publish-verification-issue-142), plus that the GitHub
+   Release for the tag now exists (step 3 creates it; see below).
+
+**What a tag push alone does — stated plainly, not hidden.** The tag-triggered run goes
+**red**. Two failures compound, and both are expected today:
+
+- the `publish` job fails at the publish step with `ENEEDAUTH` (no token exists and the OIDC
+  exchange does not succeed from a tag ref — the table in
+  [§npm publish auth](#npm-publish-auth--trusted-publishing-oidc-issue-80--configured-and-validated)
+  has the measurements);
+- because it failed, the downstream `release` job **does not run at all** — its gate is
+  `release.yml:167`, `if: needs.publish.outputs.tag != ''`, and in GitHub Actions a job whose
+  `needs` failed is skipped. So **a tag push today creates no GitHub Release and leaves the tag
+  page empty.**
+
+Both published versions (`v0.2.0`, `v0.3.0`) got their Release page from the *successful
+dispatch* run, never from the tag — e.g. the `v0.3.0` Release at 2026-10-11T03:42:42Z sits
+between the successful dispatch (03:40:45Z) and the npm publish (03:43:27Z). So step 3 above is
+what produces both the npm version and the Release page; that is why it is the primary path.
+
+**The mechanism question (operator decision — deliberately left open).** "The tag announces" is
+not yet mechanically true: the tag currently produces a *red* run and no Release, not a clean
+announcement. Three ways to make the statement exact, with their cost — **the session that wrote
+this runbook did not choose; the choice is the operator's**:
+
+- **(a) Make the tag publish.** Diagnose the OIDC exchange on a tag ref (the `job_workflow_ref`
+  claim vs npm's matching rules). Cost: an investigation with **no evidence it is possible** —
+  and the private source repo already blocks attestation regardless, so making the tag publish
+  would not buy provenance.
+- **(b) Make the tag an announcement only.** The tag push creates the Release and does **not**
+  publish; the dispatch publishes. Cost: a **mechanism change in `release.yml`** — inverting the
+  `release` job's dependency so it no longer waits on a successful `publish` (today's `needs:
+  publish` is what makes a failed tag run silent), while keeping the tag|publish invariant intact.
+- **(c) Leave the workflow alone.** Declare honestly that the tag run is red and creates no
+  Release, and that the Release always comes from the dispatch. Cost: **zero mechanism risk**,
+  and a permanently red tag run that a future reader must be told not to "fix".
+
+Until the operator picks one, **read this runbook as (c)**: the workflow is unchanged, so a tag
+push is red and creates no Release; the dispatch publishes and creates the Release. Under (b),
+step 2 would also create the Release, and the paragraph above would need rewriting; under (a),
+steps 2 and 3 would collapse into one. **The runbook and the workflow agree today only in the
+sense that both say "the dispatch publishes"** — the tag half is the part still owed.
+
 ### Preparing a release (do this before tagging)
 
 The Release page's notes are the `## [<version>]` section of `CHANGELOG.md`. The
@@ -353,7 +485,9 @@ know whether it is *complete*, so this preparation is a human step:
 2. Move the release-worthy `[Unreleased]` entries under a new
    `## [<version>] - <date>` heading; keep forward-looking `### Planned` items under
    `[Unreleased]`.
-3. Commit that preparation to `main`, then `git tag v<version> && git push --tags`.
+3. Commit that preparation to `main`, then `git tag v<version> && git push --tags` — the tag is
+   the version marker; **the publish itself is the dispatch**
+   ([§Releasing — the primary path](#releasing--the-primary-path-issue-208)).
 
 Tagging with a stale `[Unreleased]` still produces a page — just one that omits what
 shipped. A mechanical "fail if `[Unreleased]` is non-empty" gate was considered and

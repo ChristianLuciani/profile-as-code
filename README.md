@@ -22,9 +22,10 @@ requisito (SPEC §9). Tres on-ramps, cada uno con su diferencia de capacidades a
 | **`pasco init`** local | carpeta mínima y válida en segundos | **no** | **ninguno** |
 | **Traé tu almacenamiento** | el mismo `pasco init`, escrito en la ruta que elijas (disco, nube, otro host git) | igual que `pasco init` | **ninguno** |
 
-El paquete `@profile-as-code/cli` está **publicado en npm** (0.2.0), así que los dos caminos
-sin cuenta funcionan hoy sin acceso a ningún repo. El template repo (on-ramp A) sigue privado
-y llega solo a quien ya tiene acceso, hasta el flip de familia (STANDARDS community item 10).
+El paquete `@profile-as-code/cli` está **publicado en npm** (0.3.0, 2026-10-11), así que los dos
+caminos sin cuenta funcionan hoy sin acceso a ningún repo. El template repo (on-ramp A) sigue
+privado y llega solo a quien ya tiene acceso, hasta el flip de familia (STANDARDS community
+item 10).
 
 El camino guiado y sin terminal es el hito M5 y **todavía no existe** — diseñarlo es una
 decisión de producto, trackeada como
