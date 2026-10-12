@@ -23,18 +23,26 @@ import type { Profile } from "@profile-as-code/core";
  */
 export const fetchHosts: readonly string[] = ["raw.githubusercontent.com"];
 
-/** GitHub owner slug shape (org or user) — also the guard that keeps a crafted
- *  URL path segment from steering the derived URL. */
-const OWNER = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
+/** GitHub owner slug shape (org or user): alphanumerics joined by SINGLE hyphens,
+ *  never leading or trailing — GitHub's own rule — and at most 39 characters. The
+ *  charset check is also the guard that keeps a crafted URL path segment from
+ *  steering the derived URL. */
+const OWNER = /^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/;
+const OWNER_MAX = 39;
+
+/** The one place a candidate becomes an owner, or is refused. */
+function ownerSlug(value: string): string | null {
+  return value.length <= OWNER_MAX && OWNER.test(value) ? value : null;
+}
 
 /** A declared handle is a slug: `@org` and `org` name the same owner. */
 function ownerFromHandle(handle: string | undefined): string | null {
   if (handle === undefined) return null;
-  const slug = handle.startsWith("@") ? handle.slice(1) : handle;
-  return OWNER.test(slug) ? slug : null;
+  return ownerSlug(handle.startsWith("@") ? handle.slice(1) : handle);
 }
 
-/** The owner of a `github.com` page URL — its first path segment — or `null`. */
+/** The owner of a `github.com` page URL — or `null` when the URL is not an
+ *  http(s) GitHub page URL. */
 function ownerFromUrl(url: string): string | null {
   let parsed: URL;
   try {
@@ -42,16 +50,21 @@ function ownerFromUrl(url: string): string | null {
   } catch {
     return null;
   }
+  // §19.5 derives the URL from the URL SSOT, and the SSOT's own `url` rule is
+  // http(s): anything else is not the declared surface.
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
   if (parsed.hostname !== "github.com" && parsed.hostname !== "www.github.com") return null;
-  const segment = parsed.pathname.split("/").find((part) => part !== "");
+  const segments = parsed.pathname.split("/").filter((part) => part !== "");
+  // `github.com/orgs/<org>` is GitHub's own org landing route: the owner is the
+  // segment AFTER the reserved prefix. Reading the prefix itself as an owner
+  // derived `orgs/.github/…` — a URL for someone else's page (review F2).
+  const segment = segments[0] === "orgs" ? segments[1] : segments[0];
   if (segment === undefined) return null;
-  let decoded: string;
   try {
-    decoded = decodeURIComponent(segment);
+    return ownerSlug(decodeURIComponent(segment));
   } catch {
     return null;
   }
-  return OWNER.test(decoded) ? decoded : null;
 }
 
 /** The link platforms that can name THIS surface. `identity.links[].platform` is
@@ -62,10 +75,18 @@ function ownerFromUrl(url: string): string | null {
  *  certainly wrong (a permanent `unverifiable` recorded as evidence). */
 const GITHUB_LINK_PLATFORMS = new Set(["github", "github-org"]);
 
-/** Resolve the org from the URL SSOT (§15.4/§18.4): the declared handle matrix
- *  first (for a brand, `socialHandles` IS the canonical surface set — §17.1),
- *  then `identity.links`. Never a new hand-maintained field. */
+/** Resolve the org from the URL SSOT (§15.4/§18.4) — never from a new
+ *  hand-maintained field. `identity.links` comes FIRST because §15.4 makes it the
+ *  canonical URL set ("renderers and skills read URLs ONLY from here"); the handle
+ *  matrix §17.1 declares is the canonical SURFACE set (which rows exist), not a
+ *  URL precedence. Both sibling adapters resolve in this order so one workspace
+ *  cannot name two different owners (review F3). */
 function githubOrg(profile: Profile): string | null {
+  for (const link of profile.identity.links ?? []) {
+    if (link.platform !== undefined && !GITHUB_LINK_PLATFORMS.has(link.platform)) continue;
+    const owner = ownerFromUrl(link.url);
+    if (owner !== null) return owner;
+  }
   // The handle matrix keys on the SURFACE slug (`$defs/platform`), and this
   // surface's slug is its own name. Only CLAIMED rows count, matching the
   // renderer itself (`socialHandles` badges are `claimed` only, §17.1): a pending
@@ -76,11 +97,6 @@ function githubOrg(profile: Profile): string | null {
     const owner =
       (handle.url !== undefined ? ownerFromUrl(handle.url) : null) ??
       ownerFromHandle(handle.handle);
-    if (owner !== null) return owner;
-  }
-  for (const link of profile.identity.links ?? []) {
-    if (link.platform !== undefined && !GITHUB_LINK_PLATFORMS.has(link.platform)) continue;
-    const owner = ownerFromUrl(link.url);
     if (owner !== null) return owner;
   }
   return null;
@@ -112,8 +128,9 @@ const H1 = /^# /;
 /**
  * §19.5: the canonical projection of the artifact this surface publishes — the
  * engine-owned region, platform/transport chrome stripped. See the `github-readme`
- * sibling for the shared rationale; the rules are identical because the two
- * adapters declare the same artifact shape (§15.3):
+ * sibling for the shared rationale; the rules are identical because the §17 org
+ * README carries the same header → generated-footer boundary the §15.3 README
+ * declares (both renderers emit `# <name>` first and the footer last):
  *
  *   1. a BOM and CRLF/CR line endings are transport, not content;
  *   2. the artifact OPENS at the last header above its terminus and CLOSES at its

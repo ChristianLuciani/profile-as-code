@@ -132,6 +132,28 @@ describe("artifactUrl — derived from the URL SSOT (§15.4/§18.4)", () => {
     expect(artifactUrl(profile)).toBe(ORG_URL);
   });
 
+  it("reads the segment after GitHub's reserved `orgs/` route (regression: review F2)", () => {
+    expect(
+      artifactUrl(
+        brandWorkspace({
+          "socialHandles.yaml":
+            "- platform: github-org\n  handle: topiapress\n  status: claimed\n  url: https://github.com/orgs/topiapress\n",
+        }),
+      ),
+    ).toBe(ORG_URL);
+  });
+
+  it("prefers identity.links over the handle matrix — the same order as its sibling (review F3)", () => {
+    // The reviewer's cross-surface case: a founder's personal GitHub in links plus
+    // the org handle in the matrix. Both surfaces must name the SAME owner.
+    const profile = brandWorkspace({
+      "identity.yaml":
+        "name: Topia Press\nlinks:\n  - platform: github-org\n    url: https://github.com/topiapress\n",
+      "socialHandles.yaml": "- platform: github-org\n  handle: otherbrand\n  status: claimed\n",
+    });
+    expect(artifactUrl(profile)).toBe(ORG_URL);
+  });
+
   it("accepts a bare handle with no url, and prefers a claimed row", () => {
     expect(
       artifactUrl(
@@ -191,9 +213,26 @@ describe("artifactUrl — derived from the URL SSOT (§15.4/§18.4)", () => {
       "- platform: github-org\n  handle: 'evil.com'\n  status: claimed\n  url: https://notgithub.com/topiapress\n",
       "- platform: github-org\n  handle: '..'\n  status: claimed\n",
       "- platform: github-org\n  handle: 'a/b'\n  status: claimed\n",
+      // Review F5: GitHub handles never end in a hyphen and never double one.
+      "- platform: github-org\n  handle: 'trail-'\n  status: claimed\n",
+      "- platform: github-org\n  handle: 'double--hyphen'\n  status: claimed\n",
     ]) {
       expect(artifactUrl(brandWorkspace({ "socialHandles.yaml": row }))).toBeNull();
     }
+  });
+
+  it("guards a non-http(s) URL on the hand-built-slice seam (review F5)", () => {
+    // `load()` already refuses it (D12: every declared `url` must match
+    // `^https?://`), so this guard is defense-in-depth for the public API's
+    // documented hand-built slice. The link path has no handle fallback, which
+    // isolates the scheme check from the slug check.
+    const handBuilt = {
+      identity: {
+        name: "x",
+        links: [{ platform: "github-org", url: "ftp://github.com/topiapress" }],
+      },
+    } as unknown as Profile;
+    expect(artifactUrl(handBuilt)).toBeNull();
   });
 
   it("only ever derives a URL inside the declared fetch allowlist", () => {

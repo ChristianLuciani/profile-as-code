@@ -38,18 +38,21 @@ claimed handles. No `role: identity` link → no `@id` — it is never invented.
 
 ## Live-verification capability (§19.5, issue #212)
 
-Same class as `github-readme` (same artifact shape, §15.3): the adapter declares
+Same class as `github-readme`: the §17 org README carries the same header →
+generated-footer boundary (§15.3's shape, for this surface) and the adapter
+declares
 `extractArtifact` (the canonical projection — the engine-owned region bounded by
 the last header above the LAST generated footer, chrome stripped; pure, offline,
 idempotent; the caller hashes), `fetchHosts` (`["raw.githubusercontent.com"]`)
-and `artifactUrl`, derived from the URL SSOT (§15.4/§18.4) — the **claimed**
-handle matrix first, then `identity.links`:
+and `artifactUrl`, derived from the URL SSOT (§15.4/§18.4) — `identity.links`
+first (the canonical URL set), then the **claimed** handle matrix:
 `https://raw.githubusercontent.com/<org>/.github/HEAD/profile/README.md`
 (`HEAD` resolves the default branch; measured 2026-10-12,
 `raw.githubusercontent.com/nodejs/.github/HEAD/profile/README.md` → 200
-`[BENCHMARK]`). `null` when the brand declares no GitHub org surface
-(`no-artifact-url`) — a pending handle, or a `github-readme` link (the personal
-sibling surface), declares nothing.
+`[BENCHMARK]`). Both sibling surfaces resolve in that same order, so one
+workspace cannot name two different owners. `null` when the brand declares no
+GitHub org surface (`no-artifact-url`) — a pending handle, or a `github-readme`
+link (the personal sibling surface), declares nothing.
 
 ## Dependencies
 

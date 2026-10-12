@@ -65,7 +65,7 @@ one home (the artifact's producer owns both directions of it — D5):
 |---|---|
 | `extractArtifact(text)` | The canonical projection: the engine-owned region (§15.3, opening header → **last** generated footer), with platform/transport chrome (BOM, CRLF, a preamble above, an appendix below) stripped. Both bounds take the **last** match, so an H1 inside a chrome preamble cannot open the artifact and a copy of the footer literal inside it cannot close it early. Pure, offline, idempotent. The **caller** hashes it (SHA-256); the renderer never hashes. |
 | `fetchHosts` | The fetch allowlist `["raw.githubusercontent.com"]`. `--verify` validates the derived URL's host against it **before** any request (the workspace is untrusted input). |
-| `artifactUrl(profile)` | The live URL, derived from the URL SSOT alone (`identity.links` / the declared **claimed** handle matrix): `https://raw.githubusercontent.com/<owner>/<owner>/HEAD/README.md`. `null` when nothing here names this surface (`no-artifact-url`) — a pending handle, or a sibling surface's link, declares nothing. |
+| `artifactUrl(profile)` | The live URL, derived from the URL SSOT alone — `identity.links` first (the canonical URL set, §15.4), then the declared **claimed** handle matrix — in the same order as its sibling, so one workspace cannot name two different owners: `https://raw.githubusercontent.com/<owner>/<owner>/HEAD/README.md`. `null` when nothing here names this surface (`no-artifact-url`) — a pending handle, or a sibling surface's link, declares nothing. |
 
 `HEAD` resolves the owner's default branch, so no branch is hand-maintained.
 Declared v1 limit: content a human adds **outside** the engine's region (above

@@ -197,6 +197,27 @@ describe("artifactUrl — derived from the URL SSOT (§15.4/§18.4)", () => {
     expect(artifactUrl(pending)).toBeNull();
   });
 
+  it("reads the segment after GitHub's reserved `orgs/` route (regression: review F2)", () => {
+    const profile = profileFrom({
+      "identity.yaml": IDENTITY(
+        "  - platform: github\n    url: https://github.com/orgs/topiapress\n",
+      ),
+    });
+    expect(artifactUrl(profile)).toBe(
+      "https://raw.githubusercontent.com/topiapress/topiapress/HEAD/README.md",
+    );
+  });
+
+  it("prefers identity.links over the handle matrix — the same order as its sibling (review F3)", () => {
+    const profile = profileFrom({
+      "identity.yaml": IDENTITY("  - platform: github\n    url: https://github.com/elenavasquez\n"),
+      "socialHandles.yaml": "- platform: github-readme\n  handle: otherbrand\n  status: claimed\n",
+    });
+    expect(artifactUrl(profile)).toBe(
+      "https://raw.githubusercontent.com/elenavasquez/elenavasquez/HEAD/README.md",
+    );
+  });
+
   it("is null when the workspace declares no GitHub surface (no-artifact-url)", () => {
     const profile = profileFrom({
       "identity.yaml": IDENTITY("  - platform: x\n    url: https://x.com/elenavasquez\n"),
@@ -204,17 +225,35 @@ describe("artifactUrl — derived from the URL SSOT (§15.4/§18.4)", () => {
     expect(artifactUrl(profile)).toBeNull();
   });
 
-  it("refuses a link that declares another platform, a foreign host or a non-slug owner", () => {
+  it("refuses another platform, a foreign host or a non-slug owner", () => {
     const cases = [
       "  - platform: linkedin\n    url: https://github.com/elenavasquez\n",
       "  - platform: github\n    url: https://notgithub.com/elenavasquez\n",
       "  - platform: github\n    url: https://github.com/evil.com/x\n",
       "  - platform: github\n    url: https://github.com/%2e%2e\n",
       "  - platform: github\n    url: https://github.com/\n",
+      // Review F5: a trailing or doubled hyphen is not a GitHub handle.
+      "  - platform: github\n    url: https://github.com/trail-\n",
+      "  - platform: github\n    url: https://github.com/double--hyphen\n",
+      "  - platform: github\n    url: https://github.com/-lead\n",
+      `  - platform: github\n    url: https://github.com/${"a".repeat(40)}\n`,
     ];
     for (const links of cases) {
       expect(artifactUrl(profileFrom({ "identity.yaml": IDENTITY(links) }))).toBeNull();
     }
+  });
+
+  it("guards a non-http(s) URL on the hand-built-slice seam (review F5)", () => {
+    // `load()` already refuses it (D12: `identity.links[].url` must match
+    // `^https?://`), so this guard is defense-in-depth for the public API's
+    // documented hand-built slice.
+    const handBuilt = {
+      identity: {
+        name: "x",
+        links: [{ platform: "github", url: "ftp://github.com/elenavasquez" }],
+      },
+    } as unknown as Profile;
+    expect(artifactUrl(handBuilt)).toBeNull();
   });
 
   it("only ever derives a URL inside the declared fetch allowlist", () => {
