@@ -1117,7 +1117,7 @@ describe("pasco status --verify (D18/§19.5 certification)", () => {
         surfaces: Record<string, string>;
         certification: null | {
           state: string;
-          surfaces: Record<string, { state: string; reason?: string }>;
+          surfaces: Record<string, { state: string; reason?: string; artifactHash?: string }>;
         };
       }[];
     };
@@ -1125,11 +1125,15 @@ describe("pasco status --verify (D18/§19.5 certification)", () => {
     expect(identity?.state).toBe("in-sync");
     expect(identity?.surfaces).toEqual({ "github-readme": "in-sync" });
     // §19.5 read rule: the stored block IS the answer. `--mark` recorded
-    // `attested` (the human's assertion); no extractor exists yet, so no machine
-    // check has replaced it. `pasco status --verify` is where the current
-    // no-extractor reason is stated.
+    // `attested` (the human's assertion) PLUS the anchor — this workspace declares
+    // a GitHub surface, so the extractor renders and digests the artifact (#215).
+    // The anchor is what lets a later `--verify` JUDGE the record, not just
+    // observe it.
     expect(identity?.certification?.state).toBe("attested");
-    expect(identity?.certification?.surfaces["github-readme"]).toEqual({ state: "attested" });
+    expect(identity?.certification?.surfaces["github-readme"]?.state).toBe("attested");
+    expect(identity?.certification?.surfaces["github-readme"]?.artifactHash).toMatch(
+      /^[a-f0-9]{64}$/,
+    );
     // A unit with no ledger record has no certification at all (absence, not never).
     expect(data.units.find((u) => u.key === "skills:Model routing")?.certification).toBeNull();
 

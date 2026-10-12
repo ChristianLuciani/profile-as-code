@@ -43,6 +43,7 @@ import {
   type UnitStatus,
 } from "@profile-as-code/core";
 import { parseDocument, stringify } from "yaml";
+import { capabilitiesOf } from "./capabilities.js";
 import { certToken, type StatusArgs } from "./commands/status.js";
 import { EXIT } from "./exit.js";
 import { isJsonMode, line, report, section } from "./output.js";
@@ -57,15 +58,19 @@ import { filterReport, reportDataOf } from "./report-shape.js";
 export type FetchText = (url: string) => Promise<{ status: number; text?: string }>;
 
 /** Dependencies the write paths need beyond `StatusArgs`. Production passes the
- *  real capability registry + the HTTP driver (`index.ts`); tests inject a stub
- *  extractor and a scripted fetch. */
+ *  HTTP driver (`index.ts`) and resolves the surface capabilities PER WORKSPACE
+ *  from the loaded profile (§19.5 — `artifactUrl` reads the URL SSOT, so it can
+ *  never be a static map); tests inject a stub registry and a scripted fetch. */
 export interface StatusDeps {
   capabilities: Readonly<Record<string, SurfaceCapability>>;
   fetchText: FetchText;
 }
 
-export const depsOf = (args: StatusArgs): StatusDeps => ({
-  capabilities: args.deps?.capabilities ?? {},
+/** The capability registry for a workspace: an injected one wins (the test
+ *  seam), otherwise the per-workspace declaration `capabilitiesOf` derives from
+ *  the URL SSOT. A surface with no declaration yields `no-extractor` in `core`. */
+export const depsOf = (args: StatusArgs, profile: LoadedProfile): StatusDeps => ({
+  capabilities: args.deps?.capabilities ?? capabilitiesOf(profile),
   fetchText: args.deps?.fetchText ?? (async () => ({ status: 0 })),
 });
 
@@ -127,7 +132,7 @@ interface SurfaceVerdict {
 }
 
 export async function verifyStatus(args: StatusArgs, profile: LoadedProfile): Promise<number> {
-  const deps = depsOf(args);
+  const deps = depsOf(args, profile);
   if (args.platformArg !== undefined && !PLATFORMS.includes(args.platformArg as never)) {
     return report("status", false, EXIT.USAGE, {
       error: {
