@@ -54,24 +54,25 @@ function ownerFromUrl(url: string): string | null {
   return OWNER.test(decoded) ? decoded : null;
 }
 
-/** The GitHub link platforms a workspace may declare. `identity.links[].platform`
- *  is a free string (the schema does not tie it to `$defs/platform`), so the
- *  GitHub family is matched by name and the URL's host decides anyway. */
-const GITHUB_LINK_PLATFORMS = new Set(["github", "github-readme", "github-org"]);
+/** The link platforms that can name THIS surface. `identity.links[].platform` is
+ *  a free string (the schema does not tie it to `$defs/platform`), so the
+ *  fixture convention `github` plus this surface's own slug are matched by name —
+ *  and a SIBLING surface's slug is not: a `github-readme` page link names the
+ *  personal profile README repo, and accepting it would derive an org URL that is
+ *  certainly wrong (a permanent `unverifiable` recorded as evidence). */
+const GITHUB_LINK_PLATFORMS = new Set(["github", "github-org"]);
 
 /** Resolve the org from the URL SSOT (§15.4/§18.4): the declared handle matrix
  *  first (for a brand, `socialHandles` IS the canonical surface set — §17.1),
  *  then `identity.links`. Never a new hand-maintained field. */
 function githubOrg(profile: Profile): string | null {
-  const handles = profile.socialHandles ?? [];
-  // Claimed handles first: an unclaimed row is not a deployed surface yet. The
-  // handle matrix keys on the SURFACE slug (`$defs/platform`), and this surface's
-  // slug is its own name.
-  const ordered = [
-    ...handles.filter((h) => h.platform === "github-org" && h.status === "claimed"),
-    ...handles.filter((h) => h.platform === "github-org" && h.status !== "claimed"),
-  ];
-  for (const handle of ordered) {
+  // The handle matrix keys on the SURFACE slug (`$defs/platform`), and this
+  // surface's slug is its own name. Only CLAIMED rows count, matching the
+  // renderer itself (`socialHandles` badges are `claimed` only, §17.1): a pending
+  // row is not a deployed surface, and guessing its URL would record a wrong
+  // `evidenceUrl` instead of the honest `no-artifact-url`.
+  for (const handle of profile.socialHandles ?? []) {
+    if (handle.platform !== "github-org" || handle.status !== "claimed") continue;
     const owner =
       (handle.url !== undefined ? ownerFromUrl(handle.url) : null) ??
       ownerFromHandle(handle.handle);
@@ -110,27 +111,40 @@ const H1 = /^# /;
 
 /**
  * §19.5: the canonical projection of the artifact this surface publishes — the
- * engine-owned region, platform/transport chrome stripped. See the `github-org`
- * sibling in `github-readme` for the shared rationale; the rules are identical
- * because the two adapters declare the same artifact shape (§15.3):
+ * engine-owned region, platform/transport chrome stripped. See the `github-readme`
+ * sibling for the shared rationale; the rules are identical because the two
+ * adapters declare the same artifact shape (§15.3):
  *
- *   1. a leading BOM and CRLF/CR line endings are transport, not content;
- *   2. the artifact opens at the renderer's H1 header and closes at its generated
- *      footer — a preamble above or an appendix below is outside the engine's
- *      region (DECLARED v1 limit: content a human adds outside those markers is
- *      not judged; content inside them is, and an edit there is drift);
+ *   1. a BOM and CRLF/CR line endings are transport, not content;
+ *   2. the artifact OPENS at the last header above its terminus and CLOSES at its
+ *      LAST generated footer — a preamble above or an appendix below is outside
+ *      the engine's region. Both bounds take the LAST match on purpose: an H1
+ *      inside a chrome preamble must not become the opening (that would report
+ *      FALSE drift), and a copy of the footer literal INSIDE the artifact must not
+ *      become the terminus (that would hide a real edit — a false `verified`).
+ *      DECLARED v1 limit: content a human adds outside the region is not judged;
+ *      content inside it is, and an edit there is drift;
  *   3. blank padding is not content.
  *
  * Pure and idempotent: `extractArtifact(extractArtifact(t)) === extractArtifact(t)`.
  */
 export function extractArtifact(text: string): string {
-  const normalized = text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
-  const lines = normalized.split("\n");
+  const lines = text
+    .replace(/\r\n?/g, "\n")
+    // A BOM is transport wherever an editor parked it — not just at byte 0, where
+    // stripping it only once would make the projection non-idempotent.
+    .split("\n")
+    .map((line) => line.replace(/^\uFEFF+/, ""));
 
-  const h1 = lines.findIndex((line) => H1.test(line));
-  const footer = lines.findIndex((line) => FOOTER.test(line));
-  const from = h1 === -1 ? 0 : h1;
-  const to = footer === -1 || footer < from ? lines.length - 1 : footer;
+  const footer = lines.findLastIndex((line) => FOOTER.test(line));
+  const limit = footer === -1 ? lines.length - 1 : footer;
+  const header = lines.findLastIndex((line, index) => index <= limit && H1.test(line));
+
+  // A terminus with no header above it cannot bound a region: the markers
+  // disagree, so the whole text is the projection rather than an empty slice.
+  const bounded = header !== -1;
+  const from = bounded ? header : 0;
+  const to = bounded || footer === -1 ? limit : lines.length - 1;
 
   const artifact = lines.slice(from, to + 1);
   let first = 0;
