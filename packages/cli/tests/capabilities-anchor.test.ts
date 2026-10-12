@@ -71,11 +71,13 @@ function workspace(withGithubLink = true): string {
 }
 
 /** `pasco build` for one surface — writes `profiles/<surface>/README.md`, the
- *  exact bytes the operator pastes and `--mark` anchors (§15.5). */
-function build(ws: string): string {
+ *  exact bytes the operator pastes and `--mark` anchors (§15.5). `pascorc` keeps
+ *  `defaults.lang: en`, so `lang` models a `--lang` override (review F1). */
+function build(ws: string, lang = "en"): string {
   const code = runBuild({
     workspace: ws,
     platformArg: "github-readme",
+    langArg: lang,
     pascorc: { defaults: { lang: "en" } },
   });
   expect(code).toBe(0);
@@ -157,14 +159,17 @@ describe("#215 capabilitiesOf — per workspace, derived from the URL SSOT", () 
     // a host the SAME declaration allows (§19.5 — validated before the socket).
     expect(readme?.fetchHosts).toContain(new URL(readme?.artifactUrl as string).host);
     expect(typeof readme?.extractor).toBe("function");
+    // Review F2: `github-org` is the BRAND surface — a person workspace must not
+    // declare it fetchable, because `pasco build` never writes it there.
+    expect(caps["github-org"]).toBeUndefined();
   });
 
   it("declares no-artifact-url (artifactUrl null) when the workspace names no GitHub surface", () => {
     const caps = capabilitiesOf(load(workspace(false)));
     // The extractor still exists — the honest rung is `no-artifact-url`, NOT the
-    // lie `no-extractor`. `github-org` cannot derive one either.
+    // lie `no-extractor`. `github-org` is absent entirely (person flavor, F2).
     expect(caps["github-readme"]?.artifactUrl).toBeNull();
-    expect(caps["github-org"]?.artifactUrl).toBeNull();
+    expect(caps["github-org"]).toBeUndefined();
     expect(typeof caps["github-readme"]?.extractor).toBe("function");
   });
 });
@@ -191,6 +196,37 @@ describe("#215 --mark — the anchor is the digest of what `pasco build` wrote",
     expect(ledgerOf(ws)).toContain("state: attested");
   });
 
+  it("review F1: the anchor is the BUILT artifact, so `pasco build --lang` is honoured", async () => {
+    const ws = workspace();
+    // The operator built (and pasted) the `en` artifact while `.pascorc`
+    // defaults.lang is `en`… then `--mark` is told `es`. The built file must win:
+    // re-rendering at `es` would anchor bytes nobody pasted, and the next
+    // `--verify` on an UNTOUCHED surface would read out-of-band-drift.
+    const built = build(ws, "en");
+    const { data } = await capture({
+      workspace: ws,
+      markKey: "identity",
+      platformArg: "github-readme",
+      lang: "es",
+    });
+    expect(markedAnchor(data)).toBe(digest(extractArtifact(built)));
+  });
+
+  it("falls back to the workspace-lang render only when no built artifact exists", async () => {
+    const ws = workspace();
+    const built = build(ws, "en");
+    rmSync(join(ws, "profiles"), { recursive: true, force: true }); // no artifact on disk
+    const { data } = await capture({
+      workspace: ws,
+      markKey: "identity",
+      platformArg: "github-readme",
+      lang: "en",
+    });
+    // Deterministic rebuild: the fallback render of the same inputs equals the
+    // bytes `build` produced, so the fallback is still not a guess.
+    expect(markedAnchor(data)).toBe(digest(extractArtifact(built)));
+  });
+
   it("records attested with NO anchor on a surface with no extractor (declared forward-only limit)", async () => {
     const ws = workspace();
     const { data } = await capture({
@@ -200,6 +236,8 @@ describe("#215 --mark — the anchor is the digest of what `pasco build` wrote",
       lang: "en",
     });
     expect(markedAnchor(data)).toBeUndefined();
+    // Review F3: the reason reaches the JSON payload, not just the printed line.
+    expect(data.anchorReason).toBe("no-extractor");
     // `linkedin` is absent from the registry → no-extractor. Nothing is guessed.
     expect(ledgerOf(ws)).not.toContain("artifactHash:");
   });

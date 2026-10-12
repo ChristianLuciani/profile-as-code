@@ -33,9 +33,16 @@ import {
   fetchHosts as readmeFetchHosts,
 } from "@profile-as-code/renderers-github-readme";
 
-/** The two surfaces whose producer declares the §19.5 capability today. Each is
- *  registered under its platform slug (D16) — the same key the ledger, the
- *  generated renderer map and `PLATFORMS` use. */
+/** The surfaces whose producer declares the §19.5 capability today, registered
+ *  under their platform slug (D16) — the same key the ledger, the generated
+ *  renderer map and `PLATFORMS` use.
+ *
+ *  `github-org` is the BRAND surface (D15/§17): `pasco build` renders it only for
+ *  `flavor: brand`. A `person` workspace therefore declares NOTHING for it —
+ *  absence, i.e. `no-extractor` — because declaring it fetchable would let
+ *  `--verify` request a surface the engine never produced (premerge review F2).
+ *  One home: `--mark` and `--verify` both read this map, so neither needs its own
+ *  flavor guard. */
 export function capabilitiesOf(profile: Profile): SurfaceCapabilities {
   return {
     "github-readme": {
@@ -43,11 +50,15 @@ export function capabilitiesOf(profile: Profile): SurfaceCapabilities {
       fetchHosts: readmeFetchHosts,
       artifactUrl: readmeArtifactUrl(profile),
     },
-    "github-org": {
-      extractor: orgExtractArtifact,
-      fetchHosts: orgFetchHosts,
-      artifactUrl: orgArtifactUrl(profile),
-    },
+    ...(profile.flavor === "brand"
+      ? {
+          "github-org": {
+            extractor: orgExtractArtifact,
+            fetchHosts: orgFetchHosts,
+            artifactUrl: orgArtifactUrl(profile),
+          },
+        }
+      : {}),
   };
 }
 

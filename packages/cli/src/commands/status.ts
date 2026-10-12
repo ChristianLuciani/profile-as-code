@@ -21,7 +21,7 @@
  * Exit codes: 0 report/mark/verify ok · 1 load or mark failure · 2 usage.
  */
 
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   attestedRecord,
@@ -76,9 +76,9 @@ export interface StatusArgs {
   verify?: boolean;
   /** The workspace policy from `.pascorc` (issue #102) — defaults to the shipped policy. */
   completenessPolicy?: CompletenessPolicyConfig;
-  /** `.pascorc` `defaults.lang` — the lang the `--mark` anchor renders at, so the
-   *  anchor matches what `pasco build` wrote (§19.5). NOTE: `pasco build --lang X`
-   *  can persist an artifact at a non-default lang; see the `--mark` help text. */
+  /** `.pascorc` `defaults.lang` — the lang the `--mark` anchor FALLS BACK to when
+   *  the workspace has no built artifact on disk. When `profiles/<surface>/README.md`
+   *  exists it is the anchor source, so `pasco build --lang X` is honoured. */
   lang?: Lang;
   /** Fetch + the surface capabilities DECLARED for live checks (§19.5) — injected
    *  by tests; production resolves them per workspace (`verify.ts`). */
@@ -111,45 +111,82 @@ function loadOrReport(args: StatusArgs): { profile: LoadedProfile } | { fail: nu
 }
 
 /**
+ * The outcome of resolving the `--mark` anchor: the digest, or — when no digest
+ * can be justified — the honest reason, so the text report AND the `--json`
+ * payload state the same thing (review F3: a bare `undefined` hid the cause).
+ */
+interface ArtifactAnchor {
+  anchor?: string;
+  reason?: string;
+}
+
+/**
  * §19.5: the ANCHOR a `--mark` records — the SHA-256 of the canonical
- * `extractArtifact` projection of the artifact the engine would publish for
- * `surface`. It is rendered EXACTLY as `pasco build` renders it (same lang from
- * `.pascorc` `defaults.lang`, same `sanitizeCompletenessPolicy` completeness
- * policy, same `collectMedia` bundle), because the anchor must be the digest of
- * what the operator actually pasted — an approximation would read as permanent
- * out-of-band drift. The CALLER hashes; the renderer never does.
+ * `extractArtifact` projection of the artifact the operator pasted. The CALLER
+ * hashes; the renderer never does.
  *
- * Returns `undefined` — `attested` with NO anchor, the declared forward-only v1
- * limit — when the surface cannot be judged today. The capability is the ONE
- * authority on that (§19.5): no declaration (`no-extractor`), no derivable URL
- * (`no-artifact-url`) or a walled rung all mean `--verify` could never use an
- * anchor, so recording one would make `--mark` claim a judgeability it does not
- * have. No renderer, an empty render (`build` un-writes those) or a render that
- * throws are the same non-answer. NEVER a guessed digest.
+ * The bytes are taken from `profiles/<surface>/README.md` when it exists: that
+ * file IS what `pasco build` wrote and what the operator copied (§15.5), so
+ * anchoring it is exact. Re-rendering is only the fallback — it is a
+ * RECONSTRUCTION, and reconstruction drifts: `pasco build --lang X` persists an
+ * artifact the default-lang render does not reproduce, which would make an
+ * untouched live surface read as permanent `out-of-band-drift` (premerge review
+ * F1). Same class of risk for the media bundle. Preferring the built artifact
+ * removes the reconstruction rather than trying to keep two render call sites in
+ * step.
+ *
+ * Returns a reason instead of an anchor — `attested` with NO anchor, the declared
+ * forward-only v1 limit — when the surface cannot be judged today. The capability
+ * is the ONE authority on that (§19.5): no declaration (`no-extractor`), no
+ * derivable URL (`no-artifact-url`) or a walled rung all mean `--verify` could
+ * never use an anchor, so recording one would claim a judgeability that does not
+ * exist. No renderer, an empty artifact, or a render that throws are the same
+ * non-answer. NEVER a guessed digest.
  */
 function artifactAnchor(
   args: StatusArgs,
   profile: LoadedProfile,
   surface: string,
   capability: SurfaceCapability | undefined,
-): string | undefined {
-  if (declaredReason(capability) !== undefined) return undefined;
+): ArtifactAnchor {
+  const declared = declaredReason(capability);
+  if (declared !== undefined) return { reason: declared };
   const extractor = capability?.extractor;
-  const renderer = RENDERERS[surface];
-  if (extractor === undefined || renderer === undefined) return undefined;
-  // `pasco build` renders github-org only for a brand workspace: anchoring an
-  // artifact the build never wrote would attest to a surface that does not exist.
-  if (surface === "github-org" && profile.flavor !== "brand") return undefined;
+  // `declaredReason` already implies a defined extractor; this only satisfies the type.
+  if (extractor === undefined) return { reason: "no-extractor" };
   try {
-    const policy = sanitizeCompletenessPolicy(args.completenessPolicy);
-    const lang = args.lang ?? "en";
-    const slice = compile(profile, surface as Platform, lang, policy);
-    const result = renderer(slice, collectMedia(profile, args.workspace).assets);
-    if (result.text === "") return undefined;
-    return digestOf(extractor(result.text));
-  } catch {
-    return undefined;
+    const artifact =
+      builtArtifact(args.workspace, surface) ?? renderArtifact(args, profile, surface);
+    if (artifact === undefined) return { reason: "no-renderer" };
+    if (artifact === "") return { reason: "empty-render" };
+    return { anchor: digestOf(extractor(artifact)) };
+  } catch (err) {
+    // Surfaced, never swallowed: the reason reaches both the text report and the
+    // JSON payload, so a render that genuinely broke is debuggable.
+    return { reason: `render-failed (${err instanceof Error ? err.message : String(err)})` };
   }
+}
+
+/** `profiles/<surface>/README.md` — the bytes `pasco build` wrote (§15.5), or
+ *  `undefined` when this workspace has not built that surface. */
+function builtArtifact(workspace: string, surface: string): string | undefined {
+  const path = join(workspace, "profiles", surface, "README.md");
+  return existsSync(path) ? readFileSync(path, "utf8") : undefined;
+}
+
+/** The fallback: render the artifact exactly as `pasco build` WOULD, at the
+ *  workspace lang + completeness policy + media bundle. `undefined` when the
+ *  surface has no renderer. */
+function renderArtifact(
+  args: StatusArgs,
+  profile: LoadedProfile,
+  surface: string,
+): string | undefined {
+  const renderer = RENDERERS[surface];
+  if (renderer === undefined) return undefined;
+  const policy = sanitizeCompletenessPolicy(args.completenessPolicy);
+  const slice = compile(profile, surface as Platform, args.lang ?? "en", policy);
+  return renderer(slice, collectMedia(profile, args.workspace).assets).text;
 }
 
 function markDeployed(args: StatusArgs, profile: LoadedProfile): number {
@@ -204,13 +241,12 @@ function markDeployed(args: StatusArgs, profile: LoadedProfile): number {
 
   // §19.5: the confirmation records the second dimension too — `attested` (the
   // human's assertion) PLUS the anchor (`artifactHash`) when the surface can
-  // produce one. The anchor is rendered and extracted HERE, at confirmation
-  // time: that is the only moment the engine can render the artifact it is
-  // attesting to (§19.5 "the digest of what is being attested"). A surface that
-  // cannot be judged today records `attested` with NO anchor — the declared
-  // forward-only v1 limit — rather than a guessed digest.
+  // produce one. The anchor is the digest of the artifact being attested: the
+  // built artifact on disk when it exists, otherwise a render at the workspace
+  // lang. A surface that cannot be judged today records `attested` with NO anchor
+  // — the declared forward-only v1 limit — rather than a guessed digest.
   const capability = depsOf(args, profile).capabilities[surface];
-  const anchor = artifactAnchor(args, profile, surface, capability);
+  const { anchor, reason: anchorReason } = artifactAnchor(args, profile, surface, capability);
   const certification = attestedRecord(anchor);
   const record = { deployedAt, contentHash: unit.hash, source: "manual", certification };
   ledger[key] = { ...(ledger[key] ?? {}), [surface]: record };
@@ -218,7 +254,14 @@ function markDeployed(args: StatusArgs, profile: LoadedProfile): number {
 
   if (isJsonMode()) {
     return report("status", true, EXIT.OK, {
-      data: { mode: "marked", key, surface, ...record, workspace: args.workspace },
+      data: {
+        mode: "marked",
+        key,
+        surface,
+        ...record,
+        ...(anchorReason !== undefined ? { anchorReason } : {}),
+        workspace: args.workspace,
+      },
     });
   }
   section("marked");
@@ -226,7 +269,7 @@ function markDeployed(args: StatusArgs, profile: LoadedProfile): number {
   line(
     certification.artifactHash !== undefined
       ? `  certification: attested (anchor ${certification.artifactHash.slice(0, 12)}… — --verify can judge this record)`
-      : `  certification: attested (no anchor — ${declaredReason(capability) ?? "the artifact could not be rendered at confirmation"}; --verify will observe this record but cannot judge it)`,
+      : `  certification: attested (no anchor — ${anchorReason}; --verify will observe this record but cannot judge it)`,
   );
   line(
     "  confirm the paste is live on the surface before running this (the ledger records the claim)",
