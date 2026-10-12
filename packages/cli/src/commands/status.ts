@@ -57,11 +57,7 @@ import {
   type StatusDeps,
   verifyStatus,
 } from "../verify.js";
-import {
-  type CompletenessPolicyConfig,
-  defaultsLang,
-  sanitizeCompletenessPolicy,
-} from "../workspace.js";
+import { type CompletenessPolicyConfig, sanitizeCompletenessPolicy } from "../workspace.js";
 
 export interface StatusArgs {
   workspace: string;
@@ -80,9 +76,10 @@ export interface StatusArgs {
   verify?: boolean;
   /** The workspace policy from `.pascorc` (issue #102) — defaults to the shipped policy. */
   completenessPolicy?: CompletenessPolicyConfig;
-  /** `.pascorc` `defaults.lang` (or an override) — the lang the `--mark` anchor
-   *  renders at, so the anchor matches what `pasco build` wrote (§19.5). */
-  lang?: string;
+  /** `.pascorc` `defaults.lang` — the lang the `--mark` anchor renders at, so the
+   *  anchor matches what `pasco build` wrote (§19.5). NOTE: `pasco build --lang X`
+   *  can persist an artifact at a non-default lang; see the `--mark` help text. */
+  lang?: Lang;
   /** Fetch + the surface capabilities DECLARED for live checks (§19.5) — injected
    *  by tests; production resolves them per workspace (`verify.ts`). */
   deps?: Partial<StatusDeps>;
@@ -145,7 +142,7 @@ function artifactAnchor(
   if (surface === "github-org" && profile.flavor !== "brand") return undefined;
   try {
     const policy = sanitizeCompletenessPolicy(args.completenessPolicy);
-    const lang = (args.lang ?? defaultsLang({})) as Lang;
+    const lang = args.lang ?? "en";
     const slice = compile(profile, surface as Platform, lang, policy);
     const result = renderer(slice, collectMedia(profile, args.workspace).assets);
     if (result.text === "") return undefined;

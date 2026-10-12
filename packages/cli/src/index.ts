@@ -158,7 +158,10 @@ rows (add an id to track) and removed keys (ledger keeps the audit trail).
   --mark <ledgerKey> <surface>  confirm a manual paste: records deployedAt + the
         CURRENT contentHash in content/deployments.yaml (only pasco writes it,
         D14) plus certification.state attested — and the artifactHash ANCHOR when
-        the surface can produce one. --at overrides the timestamp.
+        the surface can produce one. --at overrides the timestamp. The anchor is
+        rendered at .pascorc defaults.lang: an artifact persisted with
+        \`pasco build --lang X\` (X != defaults.lang) is NOT what --mark anchors, so
+        re-mark at the build lang or --verify will report out-of-band-drift.
   --verify [platform]           §19.5 C1: the opt-in live check — the engine's ONE
         network-touching path. Resolves each recorded surface's artifact URL from
         the URL SSOT, validates its host against the surface's declared allowlist

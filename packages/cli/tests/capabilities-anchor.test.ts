@@ -136,6 +136,18 @@ const deps = (fetch: FetchText): Partial<StatusDeps> => ({ fetchText: fetch });
 const markedAnchor = (data: Record<string, unknown>): string | undefined =>
   (data.certification as { artifactHash?: string } | undefined)?.artifactHash;
 
+/** One unit's certification from a `--verify --json` payload — the shape every
+ *  row of the table below reads (one cast, one place). */
+interface JsonUnit {
+  key: string;
+  certification: {
+    state: string;
+    surfaces: Record<string, { state: string; reason?: string; liveHash?: string }>;
+  };
+}
+const unitOf = (data: Record<string, unknown>, key: string): JsonUnit | undefined =>
+  (data.units as unknown as JsonUnit[]).find((u) => u.key === key);
+
 describe("#215 capabilitiesOf — per workspace, derived from the URL SSOT", () => {
   it("resolves artifactUrl for the workspace's own owner, and the host is in the declared allowlist", () => {
     const caps = capabilitiesOf(load(workspace()));
@@ -214,14 +226,7 @@ describe("#215 --verify — the §19.5 table, from a real anchor, with the fetch
 
     expect(code).toBe(0);
     expect(calls).toEqual([ARTIFACT_URL]); // one request, on the derived URL
-    const certification = data.units as unknown as {
-      key: string;
-      certification: {
-        state: string;
-        surfaces: Record<string, { state: string; liveHash?: string }>;
-      };
-    }[];
-    const unit = certification.find((u) => u.key === "identity");
+    const unit = unitOf(data, "identity");
     expect(unit?.certification.state).toBe("verified");
     expect(unit?.certification.surfaces["github-readme"]?.state).toBe("verified");
     expect(unit?.certification.surfaces["github-readme"]?.liveHash).toBe(anchor);
@@ -244,15 +249,7 @@ describe("#215 --verify — the §19.5 table, from a real anchor, with the fetch
     const { fetch } = scriptedFetch({ [ARTIFACT_URL]: { status: 200, text: edited } });
 
     const { data } = await capture({ workspace: ws, verify: true, deps: deps(fetch) });
-    const unit = (
-      data.units as unknown as {
-        key: string;
-        certification: {
-          state: string;
-          surfaces: Record<string, { state: string; reason?: string }>;
-        };
-      }[]
-    ).find((u) => u.key === "identity");
+    const unit = unitOf(data, "identity");
 
     expect(unit?.certification.state).toBe("out-of-band-drift");
     expect(unit?.certification.surfaces["github-readme"]).toMatchObject({
@@ -281,15 +278,7 @@ describe("#215 --verify — the §19.5 table, from a real anchor, with the fetch
     const { fetch, calls } = scriptedFetch({ [ARTIFACT_URL]: { status: 200, text: built } });
 
     const { data } = await capture({ workspace: ws, verify: true, deps: deps(fetch) });
-    const unit = (
-      data.units as unknown as {
-        key: string;
-        certification: {
-          state: string;
-          surfaces: Record<string, { state: string; reason?: string }>;
-        };
-      }[]
-    ).find((u) => u.key === "identity");
+    const unit = unitOf(data, "identity");
 
     expect(calls).toEqual([ARTIFACT_URL]); // it WAS observed
     expect(unit?.certification.state).toBe("unverifiable");
@@ -324,12 +313,7 @@ describe("#215 --verify — the §19.5 table, from a real anchor, with the fetch
     });
 
     expect(calls).toEqual([]); // the SSRF primitive is refused before the socket
-    const unit = (
-      data.units as unknown as {
-        key: string;
-        certification: { surfaces: Record<string, { state: string; reason?: string }> };
-      }[]
-    ).find((u) => u.key === "identity");
+    const unit = unitOf(data, "identity");
     expect(unit?.certification.surfaces["github-readme"]).toMatchObject({
       state: "unverifiable",
       reason: "host-not-allowed",
@@ -350,16 +334,13 @@ describe("#215 --verify — a workspace that names no GitHub surface", () => {
     });
     const { fetch, calls } = scriptedFetch({});
     const { data } = await capture({ workspace: ws, verify: true, deps: deps(fetch) });
-    const unit = (
-      data.units as unknown as {
-        key: string;
-        certification: { surfaces: Record<string, { state: string; reason?: string }> };
-      }[]
-    ).find((u) => u.key === "identity");
+    const unit = unitOf(data, "identity");
 
     expect(calls).toEqual([]);
-    // No anchor was recorded (the surface is not checkable), so the pass reads the
-    // DECLARED rung — the honest floor for a workspace with no GitHub surface.
+    // No anchor was recorded: the URL gate (`declaredReason`) refuses to attest a
+    // surface `--verify` could never judge, so the pass reads the DECLARED rung —
+    // the honest floor for a workspace with no GitHub surface.
+    expect(ledgerOf(ws)).not.toContain("artifactHash:");
     expect(unit?.certification.surfaces["github-readme"]).toMatchObject({
       state: "unverifiable",
       reason: "no-artifact-url",
