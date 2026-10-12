@@ -95,7 +95,7 @@ skills + deploy playbooks**.
 | D15 | **Brand flavor** (`flavor: brand`): the same engine models commercial/brand identities — org schema, `socialHandles` matrix, brand surfaces. Workspace flavor is a **contract field**, not a separate product | The Topia brand needs the same SSOT→validate→refine→check→deploy machinery; one engine, one schema, one CLI — flavor only changes which blocks/checks apply (Q8→RESOLVED). |
 | D16 | **Platform set = Postiz parity + operator extras** (union, 49 — v1.9 adds `hotmart` (operator extra #15, issue #137 — storefront + memberships for the Spanish/Portuguese-speaking markets, EC payout `[?]` carried per the #133 precedent) to the `creator-monetization` family; v1.8 added `buymeacoffee`, `liberapay`, `gumroad`, `payhip` as operator extras #11–#14, issue #133; v1.7 added `kofi` as #10, issue #130; issue #138 declares the remaining families docs-first — `freelance` covers the pre-existing v1 `upwork`, `job-boards` stays backlog-only — no enum change): ONE shared enum for person + brand flavors; new slugs Postiz verbatim (`linkedin-page`, `instagram-standalone`, `devto`, `gmb`, `warpcast`, `moltbook`, `mewe`, `tumblr`); single-source discipline enforced by contract self-tests (schema-check asserts `check.platform == ['all', ...platform]`; vitest asserts core `PLATFORMS` == schema enum) | The operator's surfaces must cover every network a cross-posting tool can reach (Postiz's 34 — [OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02; the API intro page's own "32" header undercounts its tables); `ghost` is an operator extra Postiz lacks; the family completes the creator monetization platforms slice (canonical industry term — see the issue #133 naming note): memberships, tips, donations, storefronts; the v1.8 members and `hotmart` are paste platforms (D9) and the family is declared docs-first, not as a hard schema field; issue #138 adds the families `freelance` (covers the v1 `upwork`, retroactive) and backlog-only `job-boards` under the same docs-first discipline. Schema parity ≠ skill coverage — per-platform skills are separate follow-ups (issue #30). |
 | D17 | **Evidence registry is pointer-first** (§18): two typed root blocks — `credentials[]` (third-party attestations) and `artifacts[]` (works/media) — with a **locator-capability matrix**; in-workspace `media/` reaches public surfaces only via renderer `assets/` output; external paths resolve via per-machine `PASCO_EVIDENCE_ROOT` (env/gitignored override, never committed); symlink/stow = documented power-user convenience only | A claim is not an artifact, and neither duplicates `publications[]`/`press[]` (naming discipline §9.1/§18.1); a private workspace is not a public media host (D14) — the capability matrix protects byte-stability (§15.1) and the URL SSOT (§15.4/§18.4). Direction ratified by the operator (issue #48) |
-| D18 | **Per-entry deploy ledger as data** (schema-additive v1.3): `deployments` map (`content/deployments.yaml`) + optional stable entry `id`s + `origin: template` provenance flag + `pasco status`; deploy state is `pasco`-owned data and `CHECKLIST.md` becomes a generated view (issue #37, §19) | The per-entry question — *mine vs template? published where? in-sync or stale?* — is unanswerable from platform-granularity state (`active`, D11, answers *which variant is live* only); staleness = `contentHash` compare, exact and release-tag-independent (`pasco diff` stays the CHANGELOG hint); only `pasco` mutates the ledger — same write rule as `refine --choose` (D14) |
+| D18 | **Per-entry deploy ledger as data** (schema-additive v1.3): `deployments` map (`content/deployments.yaml`) + optional stable entry `id`s + `origin: template` provenance flag + `pasco status`; deploy state is `pasco`-owned data and `CHECKLIST.md` becomes a generated view (issue #37, §19) | The per-entry question — *mine vs template? published where? in-sync or stale?* — is unanswerable from platform-granularity state (`active`, D11, answers *which variant is live* only); staleness = `contentHash` compare, exact and release-tag-independent (`pasco diff` stays the CHANGELOG hint); only `pasco` mutates the ledger — same write rule as `refine --choose` (D14). **v1.10 (issue #132) adds a second, orthogonal dimension — certification strength (`verified` \| `attested` \| `unverifiable`) over the live artifact, with `out-of-band-drift` as its negative outcome (§19.5); staleness and the `contentHash` basis are untouched** |
 | D20 | **`pasco serve` is a minimal reference adapter over `Core`** (§7), exposed as a **local HTTP contract**. It is minimal **by construction**: no access control, no multi-tenancy, no billing, no persistent storage, no hosting orchestration. Dependency rule: `server` depends on `core`, and only the CLI's `serve` subcommand depends on `server` | Keeps the published surface **small, auditable and dependency-light** — the engine's job is the contract, not the deployment. The **contract is the integration point**, so any consumer (a UI, an editor, a script, a service) may implement its own adapter against it instead of adopting ours. Alternatives: a **feature-rich bundled server** (rejected — bloats the published package and couples the engine to deployment concerns it does not own); **no server at all** (rejected — leaves the engine drivable only from the CLI, so every consumer re-invents the boundary, and there is no reference implementation to test the contract against) |
 | D21 | **Contributions are accepted under the Developer's Certificate of Origin 1.1 — no CLA** (issue #95, 2026-10-03): every non-bot, non-merge commit in a PR must carry a `Signed-off-by:` trailer whose email matches the commit author; the canonical text is the root `DCO` file, and the gate is `scripts/dco-check/` (self-test first, `dep-gate` shape) wired as the `dco` workflow | The licence stays **MIT** (`packages/*/package.json`), and with a permissive licence there is nothing left to relicense — so a CLA's only real value (an express sublicense/relicensing grant) would buy permanent contributor friction, a third-party signature-collection app and a legal document to maintain, in exchange for optionality the project has decided not to exercise. The DCO certifies *provenance* of the contribution at zero infrastructure and zero data beyond the git trailer. Alternatives: **CLA** (rejected — friction and upkeep for optionality we don't want); **DCO + relicensing grant** (deferred — cheaper than a CLA and keeps the option open, but a sign-off is weaker evidence of assent than a signature; revisit only if the licence question reopens, and never retroactively for an already-published version). Bot authors are exempt by design: Dependabot cannot sign off, and blocking it would block every dependency PR |
 
@@ -951,6 +951,13 @@ deployments:
       deployedAt: 2026-09-08T10:00:00Z   # ISO 8601 — when the deploy was confirmed
       contentHash: <sha256-hex>          # hash of the trackable unit AT deploy time
       source: manual | git | api        # how it landed (paste confirm vs deploy script)
+      certification:                     # v1.10 ADDITIVE (§19.5) — absent = attested
+        state: verified | attested | unverifiable | out-of-band-drift
+        reason: <string>                 # required for unverifiable / out-of-band-drift
+        method: fetch                    # only when a live check ran (v1: fetch)
+        fetchedAt: 2026-10-12T10:00:00Z  # only when a live check ran
+        liveHash: <sha256-hex>           # only when a live check produced a digest
+        evidenceUrl: <url>               # only when a live check ran — what was fetched
 ```
 
 - **ledgerKey** — stable, prefixed identity of a *trackable unit* (§19.2).
@@ -965,6 +972,14 @@ deployments:
   release-tag-scoped; gating staleness on it would hide true staleness whenever release
   tags lag behind real deploys — the common solo case). `pasco diff` stays what it is —
   the release/CHANGELOG view.
+- **certification** — the second, ADDITIVE dimension (v1.10, §19.5, issue #132): *how the
+  deploy was confirmed* — a deterministic live check (`verified`), the human `--mark`
+  (`attested`), or an honest `unverifiable` / `out-of-band-drift`. It is optional so every
+  pre-v1.10 workspace keeps validating; a record without it reads as `attested`, which is
+  exactly what every record written before v1.10 was (the only writer was `--mark`, verified
+  by grep). When the block is present, `state` is required; the other fields are required by
+  state (§19.5). Semantics, evidence fields and the rollup live in §19.5 — this block only
+  fixes the shape.
 - The ledger is **append/update-only state**: removing a row from `content/` does not
   remove its ledger key (audit trail); `pasco status` reports the dangling key as
   `removed`.
@@ -1007,10 +1022,11 @@ copied template example keeps the provenance (still true — it *is* template-de
 
 | Invocation | Behavior |
 |---|---|
-| `pasco status [platform]` | per-unit report: ledger key · origin (template/user) · surfaces published · sync state per surface: `in-sync` \| `stale` (hash mismatch) \| `never` |
-| `pasco status --mark <ledgerKey> <surface> [--at <iso8601>]` | confirm a (manual) paste — records `deployedAt` + the **current** `contentHash` and (when relevant) `source: manual`; **only `pasco` mutates the ledger** (same rule as `refine --choose`, D14) |
-| `pasco status --write-checklist` | regenerates `CHECKLIST.md` from the ledger (AUTO-GENERATED header) — the checklist becomes a *view*, not a second source of truth |
-| `--json` | machine-readable report, consistent with the other commands |
+| `pasco status [platform]` | per-unit report: ledger key · origin (template/user) · surfaces published · sync state per surface: `in-sync` \| `stale` (hash mismatch) \| `never` · **certification per surface** (§19.5: `verified` \| `attested` \| `unverifiable` \| `out-of-band-drift`, with the reason). Offline and deterministic — the report never fetches |
+| `pasco status --mark <ledgerKey> <surface> [--at <iso8601>]` | confirm a (manual) paste — records `deployedAt` + the **current** `contentHash`, `source: manual`, and explicitly `certification.state: attested` (v1.10: the human assertion is now visible as such); **only `pasco` mutates the ledger** (same rule as `refine --choose`, D14) |
+| `pasco status --verify [platform]` | v1.10 (§19.5): the C1 live check — fetches the fetchable surfaces' published artifacts, records the evidence, and updates `certification` in place; **the one network-touching path in the engine, opt-in by construction** (never implicit in `status`/`build`, §15.1) |
+| `pasco status --write-checklist` | regenerates `CHECKLIST.md` from the ledger (AUTO-GENERATED header) — the checklist becomes a *view*, not a second source of truth; each surface carries its **certification token**, so an `attested` surface is never rendered as a bare `in-sync` (§19.5) |
+| `--json` | machine-readable report, consistent with the other commands; `units[].surfaces` (staleness) is unchanged, and `units[].certification` (per-surface + rollup) is ADDITIVE (§19.5 — existing consumers keep working) |
 
 Fresh-workspace guarantee: an empty ledger reports `never` everywhere and `stale`
 nowhere — zero false positives (acceptance, issue #37).
@@ -1033,6 +1049,165 @@ remain *views* of state `pasco` owns.
 CHANGELOG.md stays hand-written (the dated *narrative* of what changed); CHECKLIST.md
 becomes generated (the *state* of what is deployed) — one less thing to maintain by hand,
 one less chance of prose drifting from truth.
+
+### 19.5 Dual certification — deterministic verify + human attestation (v1.10, issue #132)
+
+§19.1's `contentHash` compares the SSOT **to itself**: it answers "did the source move after
+the deploy", never "does the live surface still carry what was deployed". `--mark` records a
+human assertion — `in-sync` has always meant *the operator said so*, never *the machine
+checked* — so an out-of-band edit on a live account is invisible today. §19.5 adds that
+dimension without touching the existing one, and the ko-fi measurement below proves
+fetchability is not uniform across platforms.
+
+**Two dimensions, orthogonal by construction.**
+
+| Dimension | Question | Values | Basis |
+|---|---|---|---|
+| **staleness** (§19.1, UNCHANGED) | did the SSOT move after the deploy was confirmed? | `in-sync` \| `stale` \| `never` | `contentHash` vs the current unit hash — offline, deterministic |
+| **certification** (new) | how was the deploy confirmed, and does the live surface still match? | `verified` \| `attested` \| `unverifiable` \| `out-of-band-drift` | a C1 fetch pass, the C2 `--mark`, or the surface's declared fetch capability |
+
+`stale` + `verified` is a legal, meaningful pair — the deployed artifact was confirmed live
+*and* the SSOT has since moved. The dimensions compose; neither overrides the other.
+
+**Certification states — three confirmation strengths, plus the one negative outcome.**
+The ratified decision names three *strengths of confirmation*. The SPEC adds a fourth value
+because a completed check that finds a contradiction is not a strength: it is positive
+contrary evidence, and folding it into any of the three would make the report lie.
+
+- **`verified`** (C1) — a deterministic pass fetched the live artifact, applied the surface's
+  canonical extractor, and the comparison succeeded (the two-hash conjunction below).
+- **`attested`** (C2) — the human `--mark`. Certified, but explicitly by assertion: the text
+  report and CHECKLIST always print the token `attested`, never a bare `in-sync`.
+- **`unverifiable`** — no deterministic check is possible, or one was attempted and did not
+  complete. Always carries a `reason`: `walled` · `walled-con-api` · `http-403` ·
+  `http-<code>` · `network-error` · `no-artifact-url` · `no-extractor`.
+- **`out-of-band-drift`** — a C1 check COMPLETED and contradicts the ledger: the live artifact
+  differs from what the engine deployed or last verified (`reason: live-mismatch`). Never
+  rendered as `in-sync`, never counted as certified.
+
+**Rollup.** *Fully certified* ⇔ every recorded surface of the unit is `verified` or
+`attested`. Per unit: `verified` when every surface is `verified`; otherwise `attested` when
+all surfaces are in {`verified`, `attested`} with at least one `attested`; otherwise the most
+severe non-confirmed state present, ordered `out-of-band-drift` before `unverifiable`. A unit
+with no ledger record has no certification (`null`) — absence is not `never`, which belongs
+to staleness.
+
+**Relevant machine surface (`pasco status --json`), additive.** Staleness keeps its exact
+shape and keys, so existing consumers are untouched; certification is a new sibling:
+
+```jsonc
+units: [{
+  // …key, kind, block, label, origin, hash — unchanged…
+  "surfaces":   { "<surface>": "in-sync" | "stale" },          // UNCHANGED (staleness)
+  "state":      "never" | "in-sync" | "stale",                 // UNCHANGED (rollup)
+  "certification": {                                           // NEW
+    "state":    "verified" | "attested" | "unverifiable" | "out-of-band-drift" | null,
+    "surfaces": { "<surface>": { "state": "…", "reason": "…", "method": "fetch",
+                                 "fetchedAt": "…", "liveHash": "…", "evidenceUrl": "…" } }
+  }
+}]
+```
+
+**Recorded vs derived `unverifiable`.** An `unverifiable` produced by an *attempt* (the pass
+fetched and got a non-2xx, or the transport failed) is **recorded** with `fetchedAt`,
+`evidenceUrl` and `reason` — the honest degradation is durable evidence, not a transient
+print. An `unverifiable` produced by a *declaration* (`walled`, `walled-con-api`,
+`no-extractor`, `no-artifact-url`) is **derived at read time** for every record on that
+surface, so a workspace never needs a ledger row per walled platform, and the verdict cannot
+be lost by a stale write.
+
+**Two hashes, one conjunction.** `contentHash` (the SSOT revision) is already stored. A C1
+pass adds one measured digest and computes one expected digest:
+
+- `liveHash` — SHA-256 of the **canonical extractor output over the LIVE artifact**, observed
+  at `fetchedAt` and recorded with `evidenceUrl` and `method: fetch`. It is the anchor that
+  lets a later pass say *the live content changed* independently of the SSOT.
+- `expectedHash` — the SAME extractor applied to the locally rendered artifact of the current
+  SSOT. It is a pure function of the workspace (§15.1) and is **computed in-pass, never
+  stored** (storing a derived value would let it drift).
+
+The extractor is **artifact-scoped, canonical and offline-testable**: it maps published text
+to the artifact projection the engine owns, with platform chrome stripped. v1 deliberately
+does NOT build a per-unit reverse renderer — that would be a second renderer beside
+`github-readme`, and the one-home rule (D5, AGENTS.md rule 7) forbids two renderers for one
+artifact. The honest consequence, declared: C1 certifies the **artifact the surface
+publishes**, and each record inherits the verdict only in conjunction with its own
+`contentHash`. The extractor ships with the surface's renderer adapter — the artifact's
+producer owns both directions of it — while the record semantics and hashing stay in core,
+offline and platform-agnostic.
+
+**The verdict, per `(ledgerKey, surface)` record, when the fetch succeeds:**
+
+1. `record.liveHash` exists and ≠ the freshly observed `liveHash` → **`out-of-band-drift`**.
+   The live artifact changed and the engine did not deploy it — independent of staleness
+   (this fires whether or not the SSOT also moved).
+2. otherwise, if `record.contentHash == unit.hash` (the record is `in-sync` by SSOT — the
+   SSOT has not moved since the deploy was confirmed):
+   - `liveHash == expectedHash` → **`verified`** — the live artifact is exactly the engine's
+     render of the recorded SSOT revision (this is the first-pass promotion path);
+   - else → **`out-of-band-drift`** — same SSOT, different live content.
+3. otherwise (the record is `stale` and carries no prior `liveHash`) the pass **cannot
+   attribute** the difference: the SSOT moved and there is no recorded digest to compare
+   against. Staleness reports `stale`; the certification is left unchanged. It never upgrades
+   to `verified` and never claims a drift it cannot evidence.
+
+Promotion `attested → verified` **updates the same `(ledgerKey, surface)` record in place**,
+leaving `deployedAt`, `contentHash` and `source` untouched — the staleness basis is preserved
+byte-for-byte, which is what "a mechanical pass lifts the same key from attested to verified
+without touching staleness" means concretely.
+
+**Fetch policy and the honest ladder (v1).** The engine never reads a platform to *source*
+data — §2's "no scrapers" non-goal is about that direction. C1 reads back the engine's **own
+deployed artifact** to verify it landed, which is why it can be honest and bounded:
+
+1. **fetchable (C1 runs) — GitHub raw only.** The artifact URL is *derived* from the
+   workspace (surface + the user's own declared GitHub identity), never hand-maintained in
+   the ledger, and the exact URL fetched is recorded as `evidenceUrl` so the claim is
+   auditable. `github-readme` is the first surface; `github-org` is the same class.
+2. **walled-con-API** — a platform whose raw page is not fetchable but that exposes a
+   management API. v1 declares the rung and reports `unverifiable` with reason
+   `walled-con-api`; a future pass that uses an API records `method: api`. Not implemented.
+3. **unverifiable (walled)** — no honest machine check: reason `walled`. The engine must not
+   pretend; `unverifiable` is a first-class, reportable outcome, not an error.
+
+Fetchability is **not uniform, and that is measured rather than assumed**: the live fetch of
+`https://ko-fi.com/christianluciani` returned **HTTP 403** (Cloudflare challenge) from outside
+— `[MI]` measurement in the operator session, 2026-10, carried by issue #130, `[BENCHMARK]`
+tier (a measured datum: one observation, one surface). Re-measured from the engine session on
+**2026-10-12** in one run, so both rungs are dated against the same instant:
+`curl -o /dev/null -w '%{http_code}' https://ko-fi.com/christianluciani` → **403**, while
+`curl -o /dev/null -w '%{http_code}' https://raw.githubusercontent.com/ChristianLuciani/ChristianLuciani/main/README.md`
+→ **200**. Non-goals enforced by this ladder: no
+Cloudflare/TOS circumvention, no browser automation, no credentials or cookies, no
+user-agent games, no retry through a bypass. A non-2xx is recorded as the honest reason and
+the pass moves on.
+
+**Determinism.** The pass is opt-in (`pasco status --verify [platform]`) and never runs
+inside `pasco build`, `pasco validate`, `pasco check` or a plain `pasco status`: byte-parity
+(§15.1) and offline determinism (§20's `completeness()`) must not acquire a network
+dependency. The **view** is deterministic — reading the ledger never fetches. Tests never
+touch the network: fetch is injected/mocked, and a committed `403` fixture pins the honest
+degradation (issue #132's acceptance criterion). Network failures are data (`unverifiable` +
+reason), never exceptions that break the report. A report of the surface is not a
+reachability check: `pasco check`'s planned `url-live` rule asks "does the link resolve",
+C1 asks "does the live artifact match the ledger" — different questions, different owners.
+
+**What does NOT change.** Staleness (`in-sync`/`stale`/`never`) and its `contentHash` basis;
+the `pasco`-only write rule (the C1 pass IS `pasco`); exactly one record per
+`(ledgerKey, surface)`; `deployments.yaml` stays *current state*, with history in the
+workspace's own git (each `--verify` write is a commit, D2). §20's completeness is untouched
+— its `deployment` item stays **coverage-only**, so certification must never move the `%`
+(letting a walled platform lower a score would penalize a fact outside the user's control).
+No new required schema field: the addition is optional and semver-minor.
+
+**Alternatives considered.** (a) A **ledger sidecar** — rejected in the issue's ADR-lite: two
+homes for one deploy's state guarantees drift. (b) **Overloading `contentHash`** to mean the
+live hash — rejected: it would destroy staleness's exactness by conflating two orthogonal
+facts on one field. (c) A **separate top-level `pasco verify` command** — rejected in favour
+of `status --verify`: it would duplicate the reporting surface and split the one write path
+across two commands (the §19.4 one-owner rationale). (d) **Storing `expectedHash`** —
+rejected: a derived value that must be recomputed to stay honest is a value that can drift.
+(e) **Per-unit reverse renderers** — rejected above: two renderers for one artifact.
 
 ## 20. Profile completeness — checklist + percentage (issue #102)
 
