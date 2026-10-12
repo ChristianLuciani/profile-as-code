@@ -105,9 +105,11 @@ One global install: no clone, no build, nothing written outside the npm prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
 > **Status** [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-12]: `@profile-as-code/cli@0.3.0`
-> is **public** and tagged `latest` (published 2026-10-11T03:43:27Z; tag `v0.3.0` → `21e4cde`),
-> and the bin was verified running (`node packages/cli/dist/index.js --version` → `pasco 0.3.0`
-> on `main`, 2026-10-12).
+> is **public** and tagged `latest` (published 2026-10-11T03:43:27Z; tag `v0.3.0` → `21e4cde`;
+> check with `npm view @profile-as-code/cli version`).
+> Separately, and **not** registry-sourced: the built bin on `main` reports the matching
+> version (`node packages/cli/dist/index.js --version` → `pasco 0.3.0`, 2026-10-12) — a
+> local-build check, not a run of the published tarball.
 > Caveat: while the engine repo stays private the package's `repository.url` points at a repo
 > outsiders cannot read, and **no published version carries a provenance attestation** — npm
 > emits it only with a public source repo, and the 0.3.0 publish ran on a successful OIDC

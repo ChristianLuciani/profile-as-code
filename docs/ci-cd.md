@@ -365,15 +365,30 @@ exist, so the first publish necessarily ran on the token). **Not instructions.**
 3. **v0.3.0 (2026-10-11) confirmed the exchange** — published via `workflow_dispatch` from
    `main`, `success`, with the tag run failing `ENEEDAUTH` (see the table above). A
    `repository.url` mismatch would have surfaced here; it did not.
-4. **`NPM_TOKEN` was deleted in npm *and* in GitHub** (the repository secret, plus the
-   `NODE_AUTH_TOKEN` env from the publish step). The empty `NODE_AUTH_TOKEN:` in the tag
-   run's log is the post-deletion state, and the `success` in the same configuration is the
-   proof the deletion is safe. **Do not re-add it** — the long-lived credential is exactly
-   what #80 removes.
+4. **`NPM_TOKEN` was deleted in npm *and* in GitHub** — the repository secret. Be precise
+   about what that did and did not touch: the `NODE_AUTH_TOKEN` **env declaration is still
+   on the publish step** (`release.yml:155`, `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}`)
+   and resolves to the empty string now that the secret is gone — that empty value is what
+   the tag run's log shows. Removing the env line is possible but was not done, and is not
+   needed: with no secret it can never carry a credential. **Do not re-add the secret** —
+   the long-lived credential is exactly what #80 removes.
 
 Scheduled deprecation this removed: the granular access token with 2FA bypass used for publish
 loses direct publishing ~January 2027 ([WEB] github.blog changelog 2026-07-08). The repo no
 longer depends on it.
+
+> **Known divergence — the workflow's own prose is stale (issue #208, open).** Nothing above
+> is wrong, but `.github/workflows/release.yml:3–6` still reads *"The FIRST tag push (v0.2.0)
+> is the operator's publish action — pushing the tag IS publishing…; workflow_dispatch is for
+> retries"*, and the `Publish` step comment (`:139–147`) still describes `NPM_TOKEN` as a
+> **live fallback** and says to *"delete the secret only after the trusted publisher is
+> configured and a publish through it is verified"* — a step that has already happened.
+> Both statements are false today. They are **comments only**: no executable behaviour depends
+> on them, so this is not a change to the mechanism that decision 5 of the #113 handover
+> froze — but it is also not corrected here, because editing the workflow file needs the
+> operator's explicit go-ahead. Until it is corrected, **a maintainer who reads the workflow
+> gets the opposite of the truth**, which is why #208's criterion ("el runbook diciendo lo
+> mismo que el workflow") is **not yet satisfied** even though this runbook is.
 
 After a successful publish, the `release` job creates the matching **GitHub
 Release** (issue #58): it checks out the same verified commit, extracts that

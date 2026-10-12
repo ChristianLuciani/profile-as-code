@@ -20,7 +20,8 @@ server, no account.
 > (`npm view @profile-as-code/cli version`). The current release is `0.3.0`
 > (published 2026-10-11T03:43:27Z, dist-tag `latest`; tag `v0.3.0` → `21e4cde`)
 > and the bin was verified running (`node packages/cli/dist/index.js --version`
-> → `pasco 0.3.0` on `main`, 2026-10-12). No published version carries a
+> → `pasco 0.3.0` on `main`, 2026-10-12) — a **local-build** check, not a run of the
+> published tarball. No published version carries a
 > provenance attestation while the source repo is private — documented, not pending.
 > Source install: [User Guide §2](../../docs/USER-GUIDE.md#2-install-the-pasco-cli).
 
