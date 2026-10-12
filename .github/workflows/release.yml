@@ -1,15 +1,29 @@
 name: release
 
-# Publishes @profile-as-code/cli to npm on a version tag (issue #42) and creates the
-# matching GitHub Release from CHANGELOG.md (issue #58). The FIRST tag push (v0.2.0)
-# is the operator's publish action — pushing the tag IS publishing (issue #113 —
-# #44 closed without the tag); workflow_dispatch is for retries.
+# Publishes @profile-as-code/cli to npm and creates the matching GitHub Release from
+# CHANGELOG.md (issues #42/#58). See docs/ci-cd.md §"Releasing — the primary path".
+#
+# WHICH TRIGGER PUBLISHES: workflow_dispatch from `main`. A `push` of a version tag
+# does NOT publish. Measured on both published versions — the tag run fails at the
+# publish step (v0.2.0: E403; v0.3.0: ENEEDAUTH) and the dispatch run publishes. The
+# tag is the ANNOUNCEMENT and the version marker: it is what makes the version tagged
+# on origin, which release-guard.mjs requires. It is not the publish action.
+# (Issue #208. This reverses the pre-0.3.0 model, where pushing the tag WAS publishing.)
+#
+# A tag push is therefore expected to show a RED run, and it creates NO GitHub Release:
+# the `release` job below waits on `needs: publish`, and a job whose `needs` failed is
+# skipped. Both existing Release pages came from the successful dispatch run.
 #
 # Publish auth is trusted publishing (OIDC, issue #80). The npm CLI detects the OIDC
-# environment and uses it BEFORE falling back to a traditional token
-# ([WEB] docs.npmjs.com/trusted-publishers, checked 2026-09-19), so NPM_TOKEN is kept
-# only as the fallback for the first publish — the one that runs before the package
-# exists on npmjs.com and a trusted publisher can therefore be configured.
+# environment and uses it BEFORE a traditional token ([WEB]
+# docs.npmjs.com/trusted-publishers, checked 2026-09-19).
+#
+# There is NO token fallback any more. The OIDC exchange is written never to throw — a
+# failed exchange returns undefined and leaves whatever token the config had — and that
+# token is now gone: the `NPM_TOKEN` secret was deleted in npm and in GitHub after the
+# v0.3.0 publish ran on OIDC with it already deleted. A failed exchange therefore no
+# longer degrades to a credential; it degrades straight to ENEEDAUTH. That is what the
+# tag run reports, and it is the first thing to diagnose when a publish fails.
 #
 # Provenance is no longer a flag we set: under OIDC npm generates the attestation on
 # its own, and omits it when the SOURCE repo is private (documented limitation, not a
@@ -136,15 +150,17 @@ jobs:
 
       # Auth is OIDC-first: the npm CLI prefers the OIDC environment over
       # NODE_AUTH_TOKEN, and the OIDC path is written to NEVER throw — a failed exchange
-      # returns undefined and leaves the configured token in place (lib/utils/oidc.js, npm
-      # 11.6.1). That is what makes NPM_TOKEN a true fallback for the first publish (v0.2.0),
-      # which runs before a trusted publisher can exist. Delete the secret only after the
-      # trusted publisher is configured and a publish through it is verified (issue #80;
-      # runbook in docs/ci-cd.md).
+      # returns undefined and leaves whatever token the config had (lib/utils/oidc.js, npm
+      # 11.6.1). That token no longer exists: NPM_TOKEN was deleted in npm and in GitHub
+      # after the v0.3.0 publish ran on OIDC. So there is no fallback left — an OIDC
+      # failure now ends in ENEEDAUTH, which is exactly what a tag-triggered run reports
+      # (#208). The env line below is kept but resolves to the empty string; do not
+      # re-add the secret (issue #80; runbook in docs/ci-cd.md).
       #
       # No --provenance: npm decides. It attests only when the OIDC exchange succeeded, the
-      # source repo is public and the package is public — so while the token fallback is in
-      # use there is no attestation even on a public repo. See docs/ci-cd.md.
+      # source repo is public and the package is public — so no attestation is generated
+      # while the repo stays private, even though the exchange succeeds (the v0.3.0 case).
+      # See docs/ci-cd.md.
       - name: Publish
         run: |
           ARGS="--access public"
@@ -161,9 +177,9 @@ jobs:
   release:
     needs: publish
     # Gate on the guard's output, not on `inputs`: on a dry run the guard emits
-    # no tag, so there is nothing to announce. Avoids depending on the `inputs`
-    # context in a `push` run (an assumption the fresh-context review flagged as
-    # never exercised — there is no `v*` tag yet).
+    # no tag, so there is nothing to announce. This is also what makes a tag push
+    # create no Release — the tag run's `publish` job fails, so its outputs are
+    # empty and this job is skipped (a job whose `needs` failed never runs).
     if: needs.publish.outputs.tag != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 15
