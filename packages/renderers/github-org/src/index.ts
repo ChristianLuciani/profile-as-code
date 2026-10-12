@@ -19,6 +19,15 @@ import { mdHref, mdText } from "@profile-as-code/markdown";
 
 export const deploySpec = "git" as const;
 
+/**
+ * §19.5 live-verification capability (issue #212) — the ONE integration point
+ * with the CLI: `pasco status --verify` consumes the renderer's declaration and
+ * nothing else crosses the seam (`extractArtifact` · `fetchHosts` ·
+ * `artifactUrl`). Living with the artifact's producer keeps one home for both
+ * directions of the artifact (D5, AGENTS.md rule 7).
+ */
+export { artifactUrl, extractArtifact, fetchHosts } from "./artifact.js";
+
 export interface RenderResult {
   text: string;
   assets?: string[];
