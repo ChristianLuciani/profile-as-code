@@ -456,8 +456,12 @@ dispatch* run, never from the tag — e.g. the `v0.3.0` Release at 2026-10-11T03
 between the successful dispatch (03:40:45Z) and the npm publish (03:43:27Z). So step 3 above is
 what produces both the npm version and the Release page; that is why it is the primary path.
 
-**The mechanism question — decided: option (c), 2026-10-12.** The operator took the explicit
-choice the earlier revision of this section left open. The three options were:
+**The mechanism question — decided: option (c), 2026-10-12.** The operator chose option (c) and
+separately authorized this comments-only correction of the workflow's prose. The ratification is
+recorded in the [#208 ratification comment](https://github.com/ChristianLuciani/profile-as-code/issues/208#issuecomment-6134905019)
+(2026-10-12T23:57:07Z) — transcribed by the session because the authorization itself was given
+off-repo, and attributed there as the operator's decision, not the session's. That supersedes the
+earlier reconciliation comment, which still recorded the question as open. The three options were:
 
 - **(a) Make the tag publish.** Diagnose the OIDC exchange on a tag ref (the `job_workflow_ref`
   claim vs npm's matching rules). **Rejected:** an investigation with **no evidence it is

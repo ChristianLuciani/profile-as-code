@@ -4,10 +4,12 @@ name: release
 # CHANGELOG.md (issues #42/#58). See docs/ci-cd.md §"Releasing — the primary path".
 #
 # WHICH TRIGGER PUBLISHES: workflow_dispatch from `main`. A `push` of a version tag
-# does NOT publish. Measured on both published versions — the tag run fails at the
-# publish step (v0.2.0: E403; v0.3.0: ENEEDAUTH) and the dispatch run publishes. The
-# tag is the ANNOUNCEMENT and the version marker: it is what makes the version tagged
-# on origin, which release-guard.mjs requires. It is not the publish action.
+# does NOT publish. The tag run fails at the publish step — v0.3.0 with ENEEDAUTH after
+# the token was deleted — while the dispatch run publishes. (v0.2.0 also failed on its
+# tag run, but with E403 from the granular token's missing 2FA bypass: a different
+# failure class, which cannot recur now the token is gone, so it is NOT evidence about
+# the tag ref.) The tag is the ANNOUNCEMENT and the version marker: it is what makes the
+# version tagged on origin, which release-guard.mjs requires. Not the publish action.
 # (Issue #208. This reverses the pre-0.3.0 model, where pushing the tag WAS publishing.)
 #
 # A tag push is therefore expected to show a RED run, and it creates NO GitHub Release:
@@ -176,10 +178,17 @@ jobs:
   # announcing a version that never reached npm would be worse than a late page.
   release:
     needs: publish
-    # Gate on the guard's output, not on `inputs`: on a dry run the guard emits
-    # no tag, so there is nothing to announce. This is also what makes a tag push
-    # create no Release — the tag run's `publish` job fails, so its outputs are
-    # empty and this job is skipped (a job whose `needs` failed never runs).
+    # Gate on the guard's output, not on `inputs`: reading `inputs` here would be an
+    # assumption about the `inputs` context in a `push` run (flagged by the #58
+    # fresh-context review as never exercised) — the guard's output works on both
+    # entry points. On a dry run the guard emits no tag, so there is nothing to announce.
+    #
+    # This is also what makes a tag push create no Release: a job whose `needs` failed
+    # never runs, and the tag run's `publish` job fails (observed in the v0.3.0 tag run
+    # `38108069946` — `publish: failure`, `release: skipped`). NOTE: in that run the
+    # guard DID run and emit the tag; the skip is GitHub's `needs` rule, not an empty
+    # output. Do not "fix" this by moving the gate — the ordering is what keeps a
+    # Release from announcing a version that never reached npm.
     if: needs.publish.outputs.tag != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 15
