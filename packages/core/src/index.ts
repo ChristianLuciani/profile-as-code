@@ -25,18 +25,32 @@ export { driftCheck } from "./drift.js";
 export { PASTE_PLATFORMS } from "./generated/platforms.gen.js";
 export { geoCheck } from "./geo.js";
 export type {
+  CertificationRollup,
+  CertificationState,
+  DeclaredUnverifiable,
   LedgerIssue,
   LedgerReport,
   Origin,
+  SurfaceCapabilities,
+  SurfaceCapability,
+  SurfaceCertification,
   SyncState,
   TrackableUnit,
   UnitKind,
   UnitStatus,
 } from "./ledger.js";
 export {
+  attemptRecord,
+  attestedRecord,
   canonicalJson,
+  certificationRollup,
+  certificationVerdict,
+  certifiedSurface,
+  certifySurfaces,
   checkLedgerIntegrity,
+  declaredReason,
   deployStatus,
+  fetchFailureReason,
   hashUnit,
   LEDGER_KEY_PATTERN,
   trackableUnits,

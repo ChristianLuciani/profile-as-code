@@ -1058,3 +1058,141 @@ ${extra}  visibility: public
     expect(data.data.media.map((f) => f.code)).toContain("check/media-checksum-mismatch");
   });
 });
+
+/**
+ * `pasco status --verify` through the BUILT binary (SPEC §19.5, issue #132).
+ *
+ * The injected-fetch ladder lives in `tests/status-verify.test.ts` (module-level,
+ * no network). This block asserts the end-to-end contract of the REAL binary:
+ * with no renderer yet declaring an extractor (Lane B, #212), `--verify` must
+ * degrade honestly instead of pretending — and the write path must be a write
+ * path (exit codes, ledger round-trip, the certification token in the generated
+ * checklist).
+ */
+describe("pasco status --verify (D18/§19.5 certification)", () => {
+  function verifyWorkspace(): string {
+    const ws = tempDir();
+    execFileSync("cp", ["-R", `${MINIMAL}/.`, ws]);
+    return ws;
+  }
+
+  it("--mark records certification.state attested (and no anchor while no extractor exists)", () => {
+    const ws = verifyWorkspace();
+    expect(run(["status", "--mark", "identity", "linkedin", "--workspace", ws]).code).toBe(0);
+    const ledger = readFileSync(join(ws, "content", "deployments.yaml"), "utf8");
+    expect(ledger).toContain("certification:");
+    expect(ledger).toContain("state: attested");
+    expect(ledger).not.toContain("artifactHash:"); // forward-only: no extractor yet
+  });
+
+  it("--verify reports no-extractor per surface WITHOUT pinning the declared reason in the ledger", () => {
+    const ws = verifyWorkspace();
+    expect(run(["status", "--mark", "identity", "linkedin", "--workspace", ws]).code).toBe(0);
+    const res = run(["status", "--verify", "--workspace", ws]);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain("no-extractor");
+    const ledger = readFileSync(join(ws, "content", "deployments.yaml"), "utf8");
+    // §19.5: a DECLARED reason is derived at read time, never stored — writing it
+    // would pin a derived verdict into the file.
+    expect(ledger).not.toContain("unverifiable");
+    expect(ledger).not.toContain("no-extractor");
+    // The human's confirmation stands, and staleness is untouched.
+    expect(ledger).toContain("state: attested");
+    expect(ledger).toContain("contentHash:");
+    expect(ledger).toContain("deployedAt:");
+  });
+
+  it("--json is ADDITIVE: surfaces/state keep their old shape, certification rides beside them", () => {
+    const ws = verifyWorkspace();
+    // §19.5: the human `--mark` IS a confirmation — `attested` is the honest state
+    // right after it, and it survives a read (a stored state is never overridden by
+    // the derived `no-extractor`, which describes the ABSENCE of a confirmation).
+    run(["status", "--mark", "identity", "github-readme", "--workspace", ws]);
+    const res = run(["status", "--json", "--workspace", ws]);
+    expect(res.code).toBe(0);
+    const data = JSON.parse(res.stdout).data as {
+      units: {
+        key: string;
+        state: string;
+        surfaces: Record<string, string>;
+        certification: null | {
+          state: string;
+          surfaces: Record<string, { state: string; reason?: string }>;
+        };
+      }[];
+    };
+    const identity = data.units.find((u) => u.key === "identity");
+    expect(identity?.state).toBe("in-sync");
+    expect(identity?.surfaces).toEqual({ "github-readme": "in-sync" });
+    // §19.5: with no extractor on this surface, the DECLARED reason is what the
+    // report derives — NOT the `attested` the ledger stored (confirmation strength
+    // requires the ability to check).
+    expect(identity?.certification?.state).toBe("unverifiable");
+    expect(identity?.certification?.surfaces["github-readme"]).toEqual({
+      state: "unverifiable",
+      reason: "no-extractor",
+    });
+    // A unit with no ledger record has no certification at all (absence, not never).
+    expect(data.units.find((u) => u.key === "skills:Model routing")?.certification).toBeNull();
+
+    // …and an UNCONFIRMED record (pre-v1.10: no certification block) is the case
+    // the derived rule exists for: nothing was declared, so it reads no-extractor.
+    const legacy = verifyWorkspace();
+    writeFileSync(
+      join(legacy, "content", "deployments.yaml"),
+      [
+        "identity:",
+        "  linkedin:",
+        "    deployedAt: 2026-09-08T10:00:00Z",
+        `    contentHash: ${"a".repeat(64)}`,
+        "    source: manual",
+      ].join("\n"),
+      "utf8",
+    );
+    const legacyRes = run(["status", "--json", "--workspace", legacy]);
+    const legacyIdentity = (
+      JSON.parse(legacyRes.stdout).data as {
+        units: {
+          key: string;
+          certification: null | { state: string; surfaces: Record<string, { reason?: string }> };
+        }[];
+      }
+    ).units.find((u) => u.key === "identity");
+    expect(legacyIdentity?.certification?.state).toBe("unverifiable");
+    expect(legacyIdentity?.certification?.surfaces.linkedin?.reason).toBe("no-extractor");
+  });
+
+  it("--write-checklist carries the certification token: an attested surface is never a bare in-sync", () => {
+    const ws = verifyWorkspace();
+    run(["status", "--mark", "identity", "linkedin", "--workspace", ws]);
+    expect(run(["status", "--write-checklist", "--workspace", ws]).code).toBe(0);
+    const checklist = readFileSync(join(ws, "CHECKLIST.md"), "utf8");
+    // The token is the DERIVED certification (no extractor → unverifiable), never a
+    // bare `in-sync` masquerading as a machine check.
+    expect(checklist).toContain("linkedin (in-sync/unverifiable: no-extractor)");
+  });
+
+  it("--verify conflicts with the other modes (exit 2), never silently ignored", () => {
+    const ws = verifyWorkspace();
+    expect(
+      run(["status", "--verify", "--mark", "identity", "linkedin", "--workspace", ws]).code,
+    ).toBe(2);
+    expect(run(["status", "--verify", "--write-checklist", "--workspace", ws]).code).toBe(2);
+    expect(run(["status", "--verify", "--completeness", "--workspace", ws]).code).toBe(2);
+  });
+
+  it("--verify help documents the network path and the forward-only anchor limit", () => {
+    const help = run(["status", "--help"]);
+    expect(help.code).toBe(0);
+    expect(help.stdout).toContain("--verify");
+    expect(help.stdout).toContain("forward-only");
+  });
+
+  it("--verify leaves a workspace with no ledger record untouched (no file created)", () => {
+    const ws = verifyWorkspace();
+    const res = run(["status", "--verify", "--workspace", ws]);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain("nothing to verify");
+    expect(existsSync(join(ws, "content", "deployments.yaml"))).toBe(false);
+  });
+});

@@ -12,6 +12,7 @@
 
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { SURFACE_CAPABILITIES } from "./capabilities.js";
 import { runBuild } from "./commands/build.js";
 import { runCheck } from "./commands/check.js";
 import { runDiff } from "./commands/diff.js";
@@ -22,6 +23,7 @@ import { runStatus } from "./commands/status.js";
 import { runValidate } from "./commands/validate.js";
 import { parseFlavor, UsageError } from "./contract.js";
 import { EXIT } from "./exit.js";
+import { httpFetchText } from "./fetch-http.js";
 import { setJsonMode } from "./output.js";
 import {
   ConfigError,
@@ -55,7 +57,9 @@ Commands:
                                 brand flavor), registry checks (M7/§18.8) and
                                 media-transport rules (M8/§18.6); content/checks.yaml
                                 rows are listed as not executed (M3/M4)
-  status [platform] [--mark …]   Per-entry deploy report — origin · surfaces · in-sync/stale/never (D18)
+  status [platform] [--verify]   Per-entry deploy report — origin · surfaces · in-sync/stale/never
+                                 + certification (D18/§19.5); --verify runs the opt-in C1
+                                 live check (the engine's ONE network path, §19.5)
   skills:install <agent>        Prints the skills-studio projection command (AGOS);
                                 projecting stays the studio's job, not the CLI's
 
@@ -82,6 +86,7 @@ interface FlagOptions {
   at?: string;
   "write-checklist"?: boolean;
   completeness?: boolean;
+  verify?: boolean;
 }
 
 function parseCommandFlags(
@@ -145,21 +150,32 @@ owner line (src/commands/check.ts).`,
   "skills:install": `pasco skills:install <agent>
 Prints the skills-studio projection command for <agent> (pi|claude|aionui|opencode).
 Projection is the skills-studio job (AGOS), not the CLI's.`,
-  status: `pasco status [platform] [--mark <ledgerKey> <surface>] [--at <iso8601>] [--write-checklist] [--completeness] [--json] [--workspace <path>]
+  status: `pasco status [platform] [--mark <ledgerKey> <surface>] [--at <iso8601>] [--verify] [--write-checklist] [--completeness] [--json] [--workspace <path>]
 Per-entry deploy-status report (D18, §19): ledger key · origin (template/user) ·
-surfaces published · sync state (in-sync / stale / never) — plus untracked rows
-(add an id to track) and removed keys (ledger keeps the audit trail).
+surfaces published · sync state (in-sync / stale / never) · certification
+(verified / attested / unverifiable / out-of-band-drift, §19.5) — plus untracked
+rows (add an id to track) and removed keys (ledger keeps the audit trail).
   --mark <ledgerKey> <surface>  confirm a manual paste: records deployedAt + the
         CURRENT contentHash in content/deployments.yaml (only pasco writes it,
-        D14). --at overrides the timestamp.
+        D14) plus certification.state attested — and the artifactHash ANCHOR when
+        the surface can produce one. --at overrides the timestamp.
+  --verify [platform]           §19.5 C1: the opt-in live check — the engine's ONE
+        network-touching path. Resolves each recorded surface's artifact URL from
+        the URL SSOT, validates its host against the surface's declared allowlist
+        BEFORE any request, fetches sequentially without retries (one request per
+        surface), and updates certification in place. v1: GitHub raw only; an
+        unavailable check is unverifiable WITH the honest reason, never an error.
+        A record with no anchor reads unverifiable: unattributed (anchors are
+        forward-only in v1 — re-confirm with --mark to record one).
   --write-checklist             regenerate CHECKLIST.md from the ledger + the
-        completeness line (AUTO-GENERATED view — do not edit by hand).
+        completeness line (AUTO-GENERATED view — do not edit by hand). Each
+        surface carries its certification token.
   --completeness                profile-completeness checklist + percentage
         (issue #102). Policy (target/weights/langs) from .pascorc "completeness";
         the percentage is DERIVED — only the policy is ever stored.`,
 };
 
-function runMain(): number {
+async function runMain(): Promise<number> {
   const argv = process.argv.slice(2);
   if (argv.length === 0) {
     process.stderr.write(`${GLOBAL_HELP}\n`);
@@ -282,6 +298,7 @@ function runMain(): number {
         at: { type: "string" },
         "write-checklist": { type: "boolean" },
         completeness: { type: "boolean" },
+        verify: { type: "boolean" },
       });
       if (flags.help === true) {
         process.stdout.write(`${COMMAND_HELP.status}\n`);
@@ -295,16 +312,35 @@ function runMain(): number {
           "usage: pasco status [platform] [--write-checklist | --completeness] [--json]",
         );
       }
+      if (flags.verify === true && flags.mark !== undefined) {
+        throw new UsageError(
+          "usage: --verify and --mark are both ledger write paths — run them separately",
+        );
+      }
+      if (flags.verify === true && flags["write-checklist"] === true) {
+        throw new UsageError(
+          "usage: --verify writes the ledger and --write-checklist writes CHECKLIST.md — run them separately",
+        );
+      }
+      if (flags.verify === true && flags.completeness === true) {
+        throw new UsageError(
+          "usage: --verify is a live check and --completeness is a read-only report — run them separately",
+        );
+      }
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
-      return runStatus({
+      return await runStatus({
         workspace,
         platformArg: positionals[0],
         markKey: flags.mark,
         markAt: flags.at,
         writeChecklist: flags["write-checklist"],
         completeness: flags.completeness,
+        verify: flags.verify,
         completenessPolicy: readWorkspacePascorc(workspace).completeness,
+        // §19.5: the surface capabilities (empty until Lane B, #212) + the HTTP
+        // driver are the production deps; tests inject both.
+        deps: { capabilities: SURFACE_CAPABILITIES, fetchText: httpFetchText },
       });
     }
     case "skills:install": {
@@ -326,7 +362,7 @@ function runMain(): number {
 
 let exitCode: number;
 try {
-  exitCode = runMain();
+  exitCode = await runMain();
 } catch (err) {
   if (err instanceof UsageError) {
     process.stderr.write(`usage: ${err.message}\n`);

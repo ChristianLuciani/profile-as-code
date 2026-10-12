@@ -6,18 +6,27 @@
  * --mark <ledgerKey> <surface> [--at <iso>]: confirm a manual paste — the ONLY
  *   hand-triggered write to content/deployments.yaml (D14 write rule: only
  *   `pasco` mutates the ledger). Records the CURRENT contentHash → the unit goes
- *   in-sync until the SSOT changes again.
+ *   in-sync until the SSOT changes again — plus the §19.5 certification
+ *   (`attested`, and the `artifactHash` ANCHOR when the surface has an extractor).
+ * --verify [platform] (§19.5, v1.10, issue #132): the opt-in C1 live check — the
+ *   engine's ONE network-touching path, and `pasco`'s second ledger write trigger.
+ *   Resolves each fetchable surface's artifact URL from the URL SSOT, validates its
+ *   host against the surface's declared allowlist BEFORE any request, fetches
+ *   sequentially without retries, and updates `certification` in place.
  * --write-checklist: regenerate CHECKLIST.md from the ledger (AUTO-GENERATED
  *   header) — the checklist is a VIEW of state pasco owns, not a second source
- *   of truth.
+ *   of truth. Each surface carries its certification token (§19.5): an `attested`
+ *   surface is never rendered as a bare `in-sync`.
  *
- * Exit codes: 0 report/mark ok · 1 load or mark failure · 2 usage.
+ * Exit codes: 0 report/mark/verify ok · 1 load or mark failure · 2 usage.
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  attestedRecord,
   type CompletenessReport,
+  certifySurfaces,
   completeness,
   completenessLine,
   deployStatus,
@@ -27,11 +36,15 @@ import {
   load,
   PLATFORMS,
   SchemaValidationError,
+  type SurfaceCapabilities,
+  type SurfaceCertification,
   trackableUnits,
+  type UnitStatus,
 } from "@profile-as-code/core";
-import { parseDocument, stringify } from "yaml";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
+import { filterReport, reportDataOf, summaryOf } from "../report-shape.js";
+import { depsOf, persistLedger, readLedger, type StatusDeps, verifyStatus } from "../verify.js";
 import { type CompletenessPolicyConfig, sanitizeCompletenessPolicy } from "../workspace.js";
 
 export interface StatusArgs {
@@ -46,8 +59,13 @@ export interface StatusArgs {
   writeChecklist?: boolean;
   /** --completeness: report the profile-completeness checklist (issue #102). */
   completeness?: boolean;
+  /** --verify (§19.5, v1.10, issue #132): run the opt-in C1 live check AND write
+   *  the ledger — `pasco`'s second ledger write trigger, after `--mark`. */
+  verify?: boolean;
   /** The workspace policy from `.pascorc` (issue #102) — defaults to the shipped policy. */
   completenessPolicy?: CompletenessPolicyConfig;
+  /** Capabilities + fetch: production defaults; injected by tests (§19.5). */
+  deps?: Partial<StatusDeps>;
 }
 
 const CHECKLIST_HEADER = `# CHECKLIST — deploy status
@@ -78,6 +96,7 @@ function loadOrReport(args: StatusArgs): { profile: LoadedProfile } | { fail: nu
 function markDeployed(args: StatusArgs, profile: LoadedProfile): number {
   const key = args.markKey as string;
   const surface = args.platformArg as string;
+  const deps = depsOf(args);
 
   if (!PLATFORMS.includes(surface as (typeof PLATFORMS)[number])) {
     return report("status", false, EXIT.USAGE, {
@@ -121,25 +140,21 @@ function markDeployed(args: StatusArgs, profile: LoadedProfile): number {
     deployedAt = at.toISOString();
   }
 
-  const ledgerPath = join(args.workspace, "content", "deployments.yaml");
-  let ledger: Record<string, Record<string, unknown>> = {};
-  if (existsSync(ledgerPath)) {
-    const doc = parseDocument(readFileSync(ledgerPath, "utf8"));
-    if (doc.errors.length > 0) {
-      return report("status", false, EXIT.FAIL, {
-        error: {
-          kind: "mark",
-          message: `content/deployments.yaml: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
-        },
-      });
-    }
-    const node = doc.toJS({ maxAliasCount: 100 });
-    if (node !== null && typeof node === "object")
-      ledger = node as Record<string, Record<string, unknown>>;
-  }
-  const record = { deployedAt, contentHash: unit.hash, source: "manual" };
+  const read = readLedger(args, "mark");
+  if ("fail" in read) return read.fail;
+  const { ledger } = read;
+
+  // §19.5: the confirmation records the second dimension too — `attested` (the
+  // human's assertion). The ANCHOR (`artifactHash`) needs the artifact RENDERED
+  // and extracted at confirmation time; that seam belongs to the renderer adapter
+  // (Lane B, #212) and is not exposed to the CLI yet, so no anchor is recorded
+  // rather than a guessed one. One `--mark` after the seam lands closes the gap
+  // (declared forward-only v1 limit, §19.5).
+  void deps;
+  const certification = attestedRecord(undefined);
+  const record = { deployedAt, contentHash: unit.hash, source: "manual", certification };
   ledger[key] = { ...(ledger[key] ?? {}), [surface]: record };
-  writeFileSync(ledgerPath, stringify(ledger), "utf8");
+  persistLedger(args, ledger);
 
   if (isJsonMode()) {
     return report("status", true, EXIT.OK, {
@@ -149,17 +164,59 @@ function markDeployed(args: StatusArgs, profile: LoadedProfile): number {
   section("marked");
   line(`  ${key} → ${surface}: deployedAt ${deployedAt} · contentHash ${unit.hash.slice(0, 12)}…`);
   line(
+    certification.artifactHash !== undefined
+      ? `  certification: attested (anchor ${certification.artifactHash.slice(0, 12)}… — --verify can judge this record)`
+      : "  certification: attested (no anchor — this surface has no extractor; --verify will report it unverifiable: unattributed)",
+  );
+  line(
     "  confirm the paste is live on the surface before running this (the ledger records the claim)",
   );
   return EXIT.OK;
 }
 
-function checklistBody(reportData: LedgerReport, completion: CompletenessReport): string {
-  const fmt = (surfaces: Record<string, string>) =>
-    Object.entries(surfaces)
-      .sort()
-      .map(([s, state]) => `${s} (${state})`)
-      .join(", ");
+/** §19.5: the certification token a surface carries IN TEXT — never a bare
+ *  `in-sync`, which would present a human assertion as a machine check.
+ *  Exported because the `--verify` report prints the same token. */
+export function certToken(certification: SurfaceCertification): string {
+  return certification.reason === undefined
+    ? certification.state
+    : `${certification.state}: ${certification.reason}`;
+}
+
+/** §19.5: the per-surface token from a unit's certification rollup (or `—` when
+ *  the unit has no record on that surface). */
+function certOf(certification: UnitStatusCert, surface: string): string {
+  const surfaceCert = certification?.surfaces[surface];
+  return surfaceCert === undefined ? "—" : certToken(surfaceCert);
+}
+
+type UnitStatusCert = UnitStatus["certification"];
+
+/** §19.5: surfaces of a unit, each carrying BOTH dimensions — staleness (the
+ *  existing answer) and its certification token. */
+function formatSurfacePairs(
+  surfaces: Record<string, string>,
+  certification: UnitStatusCert,
+): string {
+  const keys = Object.keys(surfaces).sort();
+  if (keys.length === 0) return "—";
+  return keys
+    .map((surface) => `${surface} (${surfaces[surface]}/${certOf(certification, surface)})`)
+    .join(", ");
+}
+
+function checklistBody(
+  reportData: LedgerReport,
+  completion: CompletenessReport,
+  profile: LoadedProfile,
+  capabilities: SurfaceCapabilities,
+): string {
+  // §19.5: the checklist is a VIEW of state pasco owns, so it carries the
+  // certification dimension too — derived (never stored) from the same profile
+  // and the same read-time rules the report uses.
+  const certification = certifySurfaces(profile, capabilities);
+  const fmt = (u: LedgerReport["units"][number]): string =>
+    formatSurfacePairs(u.surfaces, certification[u.key] ?? null);
   const stale = reportData.units.filter((u) => u.state === "stale");
   const inSync = reportData.units.filter((u) => u.state === "in-sync");
   const never = reportData.units.filter((u) => u.state === "never");
@@ -174,13 +231,13 @@ function checklistBody(reportData: LedgerReport, completion: CompletenessReport)
 
   lines.push("## Pending — stale (SSOT changed after the last deploy)");
   if (stale.length === 0) lines.push("_None._");
-  for (const u of stale) lines.push(`- [ ] \`${u.key}\` (${u.label}) — ${fmt(u.surfaces)}`);
+  for (const u of stale) lines.push(`- [ ] \`${u.key}\` (${u.label}) — ${fmt(u)}`);
   lines.push("", "## Never deployed");
   if (never.length === 0) lines.push("_None._");
   for (const u of never) lines.push(`- [ ] \`${u.key}\` (${u.label})`);
   lines.push("", "## In sync");
   if (inSync.length === 0) lines.push("_None._");
-  for (const u of inSync) lines.push(`- [x] \`${u.key}\` (${u.label}) — ${fmt(u.surfaces)}`);
+  for (const u of inSync) lines.push(`- [x] \`${u.key}\` (${u.label}) — ${fmt(u)}`);
   lines.push("", "## Untracked (add an `id` to track)");
   if (reportData.untracked.length === 0) lines.push("_None._");
   for (const u of reportData.untracked) lines.push(`- ${u.block} — ${u.label}`);
@@ -191,6 +248,16 @@ function checklistBody(reportData: LedgerReport, completion: CompletenessReport)
   }
   lines.push("");
   return lines.join("\n");
+}
+
+/** The rollup's own view of "who is fully certified" — the per-unit certificate,
+ *  never derived from staleness (§19.5: the dimensions never borrow evidence). */
+function certificationLineOf(reportData: LedgerReport): string {
+  const withRecord = reportData.units.filter((u) => u.certification !== null);
+  const certified = withRecord.filter(
+    (u) => u.certification?.state === "verified" || u.certification?.state === "attested",
+  );
+  return `${certified.length}/${withRecord.length} recorded unit(s) certified`;
 }
 
 function completenessOf(args: StatusArgs, profile: LoadedProfile): CompletenessReport {
@@ -221,13 +288,48 @@ function runCompleteness(args: StatusArgs, profile: LoadedProfile): number {
   return EXIT.OK;
 }
 
-export function runStatus(args: StatusArgs): number {
+/**
+ * `pasco status` — synchronous for every mode EXCEPT `--verify`, which is async
+ * because it performs the C1 live check (§19.5). Callers must await the result
+ * (the CLI entry point does); every other path resolves immediately.
+ */
+export async function runStatus(args: StatusArgs): Promise<number> {
   if (args.markKey !== undefined && args.writeChecklist === true) {
     return report("status", false, EXIT.USAGE, {
       error: {
         kind: "usage",
         message:
           "usage: --mark and --write-checklist are mutually exclusive — run them sequentially",
+      },
+    });
+  }
+  // §19.5: `--verify` is a WRITE path (it records the evidence in the ledger) and
+  // it fetches. Accepting it beside another write, or beside a pure read, would
+  // mean one of the two was silently ignored — reject, like the existing pairs.
+  if (args.verify === true && args.markKey !== undefined) {
+    return report("status", false, EXIT.USAGE, {
+      error: {
+        kind: "usage",
+        message:
+          "usage: --verify and --mark are both ledger write paths — run them separately (--mark confirms a paste; --verify checks a live surface)",
+      },
+    });
+  }
+  if (args.verify === true && args.writeChecklist === true) {
+    return report("status", false, EXIT.USAGE, {
+      error: {
+        kind: "usage",
+        message:
+          "usage: --verify writes the ledger and --write-checklist writes CHECKLIST.md — run them separately (regenerate the checklist after verifying)",
+      },
+    });
+  }
+  if (args.verify === true && args.completeness === true) {
+    return report("status", false, EXIT.USAGE, {
+      error: {
+        kind: "usage",
+        message:
+          "usage: --verify is a live check and --completeness is a read-only report — run them separately",
       },
     });
   }
@@ -257,7 +359,10 @@ export function runStatus(args: StatusArgs): number {
   // Ledger write path (D14): --mark <key> <surface>.
   if (args.markKey !== undefined) return markDeployed(args, profile);
 
-  const reportData = deployStatus(profile);
+  // Ledger write path #2 (§19.5, v1.10): --verify [platform] — the C1 live check.
+  if (args.verify === true) return await verifyStatus(args, profile);
+
+  const reportData = deployStatus(profile, depsOf(args).capabilities);
   const completion = completenessOf(args, profile);
 
   // Completeness report (issue #102): a standalone view of the same profile.
@@ -266,7 +371,7 @@ export function runStatus(args: StatusArgs): number {
   if (args.writeChecklist === true) {
     writeFileSync(
       join(args.workspace, "CHECKLIST.md"),
-      checklistBody(reportData, completion),
+      checklistBody(reportData, completion, profile, depsOf(args).capabilities),
       "utf8",
     );
     if (isJsonMode()) {
@@ -285,32 +390,12 @@ export function runStatus(args: StatusArgs): number {
     }
     line("CHECKLIST.md regenerated from content/deployments.yaml (AUTO-GENERATED view)");
     line(`  Profile completeness: ${completenessLine(completion)}`);
+    line(`  Certification: ${certificationLineOf(reportData)}`);
   }
 
-  const filtered: LedgerReport =
-    args.platformArg !== undefined
-      ? {
-          ...reportData,
-          units: reportData.units.map((u) => {
-            const onSurface = u.surfaces[args.platformArg as string];
-            const state = onSurface === "in-sync" || onSurface === "stale" ? onSurface : "never";
-            return {
-              ...u,
-              surfaces: onSurface === undefined ? {} : { [args.platformArg as string]: onSurface },
-              state,
-            };
-          }),
-        }
-      : reportData;
+  const filtered = filterReport(reportData, args.platformArg);
 
-  const data = {
-    workspace: args.workspace,
-    platform: args.platformArg ?? null,
-    ...summaryOf(filtered),
-    units: filtered.units,
-    untracked: filtered.untracked,
-    removed: filtered.removed,
-  };
+  const data = reportDataOf(filtered, args);
   if (isJsonMode()) return report("status", true, EXIT.OK, { data });
 
   const s = summaryOf(filtered);
@@ -322,13 +407,7 @@ export function runStatus(args: StatusArgs): number {
     return rank[a.state] - rank[b.state] || a.key.localeCompare(b.key);
   });
   for (const u of ordered) {
-    const surfaces =
-      Object.keys(u.surfaces).length === 0
-        ? "—"
-        : Object.entries(u.surfaces)
-            .sort()
-            .map(([sf, st]) => `${sf} (${st})`)
-            .join(", ");
+    const surfaces = formatSurfacePairs(u.surfaces, u.certification);
     const origin = u.origin === "template" ? " [template]" : "";
     line(`  ${u.state.padEnd(8)} ${u.key.padEnd(36)} ${surfaces}${origin}`);
   }
@@ -341,21 +420,10 @@ export function runStatus(args: StatusArgs): number {
     for (const r of filtered.removed) line(`    ${r.key} — was on: ${r.surfaces.join(", ")}`);
   }
   line(
-    "  → pasco status --mark <ledgerKey> <surface> confirms a paste; --write-checklist regenerates CHECKLIST.md",
+    `  certification: ${certificationLineOf(filtered)} (surfaces carry staleness/certification)`,
+  );
+  line(
+    "  → pasco status --mark <ledgerKey> <surface> confirms a paste; --verify [platform] runs the opt-in C1 live check; --write-checklist regenerates CHECKLIST.md",
   );
   return EXIT.OK;
-}
-
-function summaryOf(data: LedgerReport): {
-  total: number;
-  inSync: number;
-  stale: number;
-  never: number;
-} {
-  return {
-    total: data.units.length,
-    inSync: data.units.filter((u) => u.state === "in-sync").length,
-    stale: data.units.filter((u) => u.state === "stale").length,
-    never: data.units.filter((u) => u.state === "never").length,
-  };
 }

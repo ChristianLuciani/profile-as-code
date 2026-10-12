@@ -621,9 +621,107 @@
       "properties": {
         "deployedAt": { "type": "string", "format": "date-time" },
         "contentHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-        "source": { "type": "string", "enum": ["manual", "git", "api"] }
+        "source": { "type": "string", "enum": ["manual", "git", "api"] },
+        "certification": {
+          "$ref": "#/$defs/certification",
+          "description": "v1.10 (issue #132, §19.5): the certification dimension over the live artifact — how the deploy was confirmed, and whether the live surface still matches. ORTHOGONAL to staleness: `stale` + `verified` is legal and meaningful. Optional (additive, semver minor): absent reads as `attested`, which is exactly what every record written before v1.10 was. The shape is not uniform — `state` selects the required fields (§19.5 fixes the shape; the verdict table and the rollup fix the semantics)."
+        }
       },
-      "description": "v1.3 (D18, §19.1): one confirmed deploy of a trackable unit on one surface. contentHash = SHA-256 of the canonical serialization (sorted keys, sans id/origin) of the unit AT deploy time — staleness is exact and release-tag-independent."
+      "description": "v1.3 (D18, §19.1): one confirmed deploy of a trackable unit on one surface. contentHash = SHA-256 of the canonical serialization (sorted keys, sans id/origin) of the unit AT deploy time — staleness is exact and release-tag-independent. v1.10 (issue #132, §19.5): the optional `certification` block adds the second, orthogonal dimension."
+    },
+
+    "certification": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "artifactHash", "method", "fetchedAt", "liveHash"],
+          "properties": {
+            "state": { "const": "verified" },
+            "artifactHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "method": { "const": "fetch" },
+            "fetchedAt": { "type": "string", "format": "date-time" },
+            "liveHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "evidenceUrl": {
+              "type": "string",
+              "format": "uri",
+              "pattern": "^https?://",
+              "minLength": 7
+            }
+          },
+          "description": "§19.5 C1: a deterministic pass fetched the live artifact, applied the surface's extractor, and the live digest EQUALS the stored anchor. The fetch evidence is required — a `verified` with no fetch behind it is not evidence."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state"],
+          "properties": {
+            "state": { "const": "attested" },
+            "artifactHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+          },
+          "description": "§19.5 C2: the human `--mark`. Certified by ASSERTION, never rendered as a bare `in-sync`. `artifactHash` is the anchor written at confirmation when the surface has an extractor; a mark on a surface without one records no anchor (the declared forward-only v1 limit, §19.5)."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "reason"],
+          "properties": {
+            "state": { "const": "unverifiable" },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "walled",
+                "walled-con-api",
+                "host-not-allowed",
+                "http-403",
+                "http-429",
+                "http-<code>",
+                "network-error",
+                "no-artifact-url",
+                "no-extractor",
+                "unattributed"
+              ]
+            },
+            "method": { "const": "fetch" },
+            "fetchedAt": { "type": "string", "format": "date-time" },
+            "evidenceUrl": {
+              "type": "string",
+              "format": "uri",
+              "pattern": "^https?://",
+              "minLength": 7
+            }
+          },
+          "description": "§19.5: no deterministic check is possible, or one was attempted and did not complete. DECLARED reasons (walled · walled-con-api · no-extractor · no-artifact-url) are derived at read time from the surface's capability and need no ledger row; ATTEMPTED ones (http-<code> · network-error · unattributed) are RECORDED with the fetch evidence. `artifactHash`/`liveHash` are impossible here — recording a comparison would make the state lie."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "reason",
+            "artifactHash",
+            "liveHash",
+            "method",
+            "fetchedAt",
+            "evidenceUrl"
+          ],
+          "properties": {
+            "state": { "const": "out-of-band-drift" },
+            "reason": { "const": "live-mismatch" },
+            "artifactHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "liveHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "method": { "const": "fetch" },
+            "fetchedAt": { "type": "string", "format": "date-time" },
+            "evidenceUrl": {
+              "type": "string",
+              "format": "uri",
+              "pattern": "^https?://",
+              "minLength": 7
+            }
+          },
+          "description": "§19.5: a C1 check COMPLETED and contradicts the ledger — the live digest differs from the anchor. Positive contrary evidence, never a strength of confirmation: the report must not fold it into a green state. Both digests and the fetch evidence are required so the contradiction is auditable."
+        }
+      ]
     },
 
     "deploymentSurfaces": {

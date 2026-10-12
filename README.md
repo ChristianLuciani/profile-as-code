@@ -73,7 +73,10 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 - **Multilingüe:** contenido por idioma (`EN` esencial para reclutadores internacionales, `ES` nativo,
   `FR` deseable). Docs del repo en inglés (D8).
 - **Deploy como checklist:** las plataformas sin API (LinkedIn, Upwork) se marcan como "pegar + verificar";
-  las con API (GitHub) se actualizan por git/API.
+  las con API (GitHub) se actualizan por git/API. `pasco status --mark` confirma el deploy
+  (`attested`, §19.5) y `pasco status --verify` —opt-in, el único camino con red— comprueba que la
+  página viva siga coincidiendo con el ancla, o lo reporta honestamente (`unverifiable`,
+  `out-of-band-drift`).
 
 ## Estado
 
