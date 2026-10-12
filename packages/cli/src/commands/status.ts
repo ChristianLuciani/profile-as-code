@@ -26,24 +26,42 @@ import { join } from "node:path";
 import {
   attestedRecord,
   type CompletenessReport,
+  collectMedia,
+  compile,
   completeness,
   completenessLine,
+  declaredReason,
   deployStatus,
+  type Lang,
   type LedgerReport,
   LoadError,
   type LoadedProfile,
   load,
   PLATFORMS,
+  type Platform,
   SchemaValidationError,
+  type SurfaceCapability,
   type SurfaceCertification,
   trackableUnits,
   type UnitStatus,
 } from "@profile-as-code/core";
 import { EXIT } from "../exit.js";
+import { RENDERERS } from "../generated/renderers.gen.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import { certificationMap, filterReport, reportDataOf, summaryOf } from "../report-shape.js";
-import { persistLedger, readLedger, type StatusDeps, verifyStatus } from "../verify.js";
-import { type CompletenessPolicyConfig, sanitizeCompletenessPolicy } from "../workspace.js";
+import {
+  depsOf,
+  digestOf,
+  persistLedger,
+  readLedger,
+  type StatusDeps,
+  verifyStatus,
+} from "../verify.js";
+import {
+  type CompletenessPolicyConfig,
+  defaultsLang,
+  sanitizeCompletenessPolicy,
+} from "../workspace.js";
 
 export interface StatusArgs {
   workspace: string;
@@ -62,8 +80,11 @@ export interface StatusArgs {
   verify?: boolean;
   /** The workspace policy from `.pascorc` (issue #102) — defaults to the shipped policy. */
   completenessPolicy?: CompletenessPolicyConfig;
+  /** `.pascorc` `defaults.lang` (or an override) — the lang the `--mark` anchor
+   *  renders at, so the anchor matches what `pasco build` wrote (§19.5). */
+  lang?: string;
   /** Fetch + the surface capabilities DECLARED for live checks (§19.5) — injected
-   *  by tests; production defaults live in `verify.ts` / `index.ts`. */
+   *  by tests; production resolves them per workspace (`verify.ts`). */
   deps?: Partial<StatusDeps>;
 }
 
@@ -89,6 +110,48 @@ function loadOrReport(args: StatusArgs): { profile: LoadedProfile } | { fail: nu
       };
     }
     throw err;
+  }
+}
+
+/**
+ * §19.5: the ANCHOR a `--mark` records — the SHA-256 of the canonical
+ * `extractArtifact` projection of the artifact the engine would publish for
+ * `surface`. It is rendered EXACTLY as `pasco build` renders it (same lang from
+ * `.pascorc` `defaults.lang`, same `sanitizeCompletenessPolicy` completeness
+ * policy, same `collectMedia` bundle), because the anchor must be the digest of
+ * what the operator actually pasted — an approximation would read as permanent
+ * out-of-band drift. The CALLER hashes; the renderer never does.
+ *
+ * Returns `undefined` — `attested` with NO anchor, the declared forward-only v1
+ * limit — when the surface cannot be judged today. The capability is the ONE
+ * authority on that (§19.5): no declaration (`no-extractor`), no derivable URL
+ * (`no-artifact-url`) or a walled rung all mean `--verify` could never use an
+ * anchor, so recording one would make `--mark` claim a judgeability it does not
+ * have. No renderer, an empty render (`build` un-writes those) or a render that
+ * throws are the same non-answer. NEVER a guessed digest.
+ */
+function artifactAnchor(
+  args: StatusArgs,
+  profile: LoadedProfile,
+  surface: string,
+  capability: SurfaceCapability | undefined,
+): string | undefined {
+  if (declaredReason(capability) !== undefined) return undefined;
+  const extractor = capability?.extractor;
+  const renderer = RENDERERS[surface];
+  if (extractor === undefined || renderer === undefined) return undefined;
+  // `pasco build` renders github-org only for a brand workspace: anchoring an
+  // artifact the build never wrote would attest to a surface that does not exist.
+  if (surface === "github-org" && profile.flavor !== "brand") return undefined;
+  try {
+    const policy = sanitizeCompletenessPolicy(args.completenessPolicy);
+    const lang = (args.lang ?? defaultsLang({})) as Lang;
+    const slice = compile(profile, surface as Platform, lang, policy);
+    const result = renderer(slice, collectMedia(profile, args.workspace).assets);
+    if (result.text === "") return undefined;
+    return digestOf(extractor(result.text));
+  } catch {
+    return undefined;
   }
 }
 
@@ -143,15 +206,15 @@ function markDeployed(args: StatusArgs, profile: LoadedProfile): number {
   const { ledger } = read;
 
   // §19.5: the confirmation records the second dimension too — `attested` (the
-  // human's assertion), the same block-less read `attestedRecord(undefined)`
-  // yields, so a `--mark` on a surface that cannot produce an anchor writes a
-  // record indistinguishable from a pre-v1.10 one (which IS what it is). The
-  // ANCHOR (`artifactHash`) needs the artifact RENDERED and extracted at
-  // confirmation time; that seam belongs to the renderer adapter (Lane B, #212)
-  // and is not exposed to the CLI yet, so no anchor is recorded rather than a
-  // guessed one — one `--mark` after the seam lands closes the gap (declared
-  // forward-only v1 limit, §19.5).
-  const certification = attestedRecord(undefined);
+  // human's assertion) PLUS the anchor (`artifactHash`) when the surface can
+  // produce one. The anchor is rendered and extracted HERE, at confirmation
+  // time: that is the only moment the engine can render the artifact it is
+  // attesting to (§19.5 "the digest of what is being attested"). A surface that
+  // cannot be judged today records `attested` with NO anchor — the declared
+  // forward-only v1 limit — rather than a guessed digest.
+  const capability = depsOf(args, profile).capabilities[surface];
+  const anchor = artifactAnchor(args, profile, surface, capability);
+  const certification = attestedRecord(anchor);
   const record = { deployedAt, contentHash: unit.hash, source: "manual", certification };
   ledger[key] = { ...(ledger[key] ?? {}), [surface]: record };
   persistLedger(args, ledger);
@@ -166,7 +229,7 @@ function markDeployed(args: StatusArgs, profile: LoadedProfile): number {
   line(
     certification.artifactHash !== undefined
       ? `  certification: attested (anchor ${certification.artifactHash.slice(0, 12)}… — --verify can judge this record)`
-      : "  certification: attested (no anchor — this surface has no extractor; --verify will report it unverifiable: unattributed)",
+      : `  certification: attested (no anchor — ${declaredReason(capability) ?? "the artifact could not be rendered at confirmation"}; --verify will observe this record but cannot judge it)`,
   );
   line(
     "  confirm the paste is live on the surface before running this (the ledger records the claim)",

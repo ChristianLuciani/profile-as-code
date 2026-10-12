@@ -12,7 +12,6 @@
 
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { SURFACE_CAPABILITIES } from "./capabilities.js";
 import { runBuild } from "./commands/build.js";
 import { runCheck } from "./commands/check.js";
 import { runDiff } from "./commands/diff.js";
@@ -27,6 +26,7 @@ import { httpFetchText } from "./fetch-http.js";
 import { setJsonMode } from "./output.js";
 import {
   ConfigError,
+  defaultsLang,
   readWorkspacePascorc,
   resolveWorkspace,
   WORKSPACE_NAME,
@@ -329,6 +329,7 @@ async function runMain(): Promise<number> {
       }
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      const pascorc = readWorkspacePascorc(workspace);
       return await runStatus({
         workspace,
         platformArg: positionals[0],
@@ -337,10 +338,15 @@ async function runMain(): Promise<number> {
         writeChecklist: flags["write-checklist"],
         completeness: flags.completeness,
         verify: flags.verify,
-        completenessPolicy: readWorkspacePascorc(workspace).completeness,
-        // §19.5: the surface capabilities (empty until Lane B, #212) + the HTTP
-        // driver are the production deps; tests inject both.
-        deps: { capabilities: SURFACE_CAPABILITIES, fetchText: httpFetchText },
+        completenessPolicy: pascorc.completeness,
+        // §19.5: the `--mark` anchor renders at the same lang `pasco build` wrote,
+        // so the digest is of the pasted artifact, not an approximation.
+        lang: defaultsLang(pascorc),
+        // §19.5: the HTTP driver is the production dep; the surface capabilities
+        // are resolved PER WORKSPACE from the loaded profile (`verify.ts`), not
+        // passed here — `artifactUrl` reads this workspace's URL SSOT. Tests
+        // inject both through `deps`.
+        deps: { fetchText: httpFetchText },
       });
     }
     case "skills:install": {
