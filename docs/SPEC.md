@@ -34,7 +34,9 @@ skills + deploy playbooks**.
 
 - No SaaS/multi-tenant backend (may become `identikit` microSaaS later, on top of the engine).
 - No CV/PDF renderer (delegate to yamlresume/JSON Resume as a renderer if ever needed).
-- No scrapers — we never read platforms; we write (or paste).
+- No scrapers — we never read platforms **to source data**; we write (or paste). The single
+  read-back is the opt-in live-drift check of the engine's **own** deployed artifact (§19.5,
+  v1.10) — never a platform's account data, and never by defeating anti-bot defences.
 - No auto-publishing to LinkedIn/Upwork (no API exists); GitHub/web are git/API-driven.
 
 ## 3. Success criteria (v1)
@@ -982,13 +984,20 @@ deployments:
   state. `artifactHash` is the **anchor** the C1 check compares against, recorded by the write
   that confirms the deploy (v1: `--mark`); without it a fetch can observe but not judge
   (§19.5). Semantics, evidence fields and the rollup live in §19.5 — this block fixes the shape.
+  **Schema status — target, not shipped.** This shape is the v1.10 target and is **not in
+  `schema/profile.schema.json` yet**: `$defs.deploymentRecord` still declares
+  `additionalProperties: false` with only `deployedAt`/`contentHash`/`source`, so a record
+  carrying `certification` **fails `pasco validate`** today (D12 fail class). The additive
+  schema change (a new optional `certification` property) lands in the implementation PR on
+  this branch; until then, no workspace should write the field. The contract is stated first
+  on purpose (SPEC-first, D3) — the schema is the source, and it follows this section.
 - The ledger is **append/update-only state**: removing a row from `content/` does not
   remove its ledger key (audit trail); `pasco status` reports the dangling key as
   `removed`.
 - Exactly **one record per `(ledgerKey, surface)` pair** — the ledger holds *current
   deploy state*. Deploy **history** is not a growing in-file event log: it is the
-  workspace's own git history (every `--mark` is a commit in the user's repo, D2
-  text-first) — no duplicated event store to drift.
+  workspace's own git history (`--mark` writes the ledger file; the operator commits it in
+  the workspace's repo, D2 text-first) — no duplicated event store to drift.
 
 ### 19.2 Entry identity (`id`) and provenance (`origin`)
 
@@ -1102,8 +1111,8 @@ units: [{
   // …key, kind, block, label, origin, hash — unchanged…
   "surfaces":   { "<surface>": "in-sync" | "stale" },          // UNCHANGED (staleness)
   "state":      "never" | "in-sync" | "stale",                 // UNCHANGED (rollup)
-  "certification": {                                           // NEW
-    "state":    "verified" | "attested" | "unverifiable" | "out-of-band-drift" | null,
+  "certification": null | {                                    // NEW — null ⇔ no ledger record
+    "state":    "verified" | "attested" | "unverifiable" | "out-of-band-drift",
     "surfaces": { "<surface>": { "state": "…", "reason": "…", "artifactHash": "…",
                                  "method": "fetch", "fetchedAt": "…", "liveHash": "…",
                                  "evidenceUrl": "…" } }
@@ -1115,9 +1124,9 @@ units: [{
 fetched and got a non-2xx, the transport failed, or the record carries no anchor) is
 **recorded** with `fetchedAt`, `evidenceUrl` and `reason` — the honest degradation is durable
 evidence, not a transient print. An `unverifiable` produced by a *declaration* (`walled`,
-`walled-con-api`, `no-extractor`, `no-artifact-url`) is **derived at read time** for every
-record on that surface, so a workspace never needs a ledger row per walled platform, and the
-verdict cannot be lost by a stale write.
+`walled-con-api`, `no-extractor`, `no-artifact-url`) is **derived at read time from the
+surface's declared capability**, so a workspace never needs a ledger row per walled platform,
+and the verdict cannot be lost by a stale write.
 
 **Three digests, one comparison.** Three SHA-256 values, each with exactly one meaning, so the
 two dimensions never borrow each other's evidence:
@@ -1167,6 +1176,15 @@ Row 4 is the point of the anchor: it fires whether or not the SSOT also moved, s
 read off the other's comparison. Row 5 is the honest alternative to guessing: an anchor-less
 record is *observable but not judgeable*, and the contract says so instead of inferring a
 verdict from a render it cannot trust.
+
+**Declared v1 limit — anchors are forward-only.** A record confirmed **before** v1.10 (or on a
+surface whose artifact the engine cannot render) carries no `artifactHash`, so row 5 applies:
+the pass observes the live digest and **cannot judge** it, and the record reads `unverifiable`
+— never `attested`-and-quietly-green. Closing the gap for an existing ledger is one `--mark`
+per record, which records the anchor. So the failure mode this dimension exists to close (an
+out-of-band edit that staleness cannot see) is covered for **every record confirmed with an
+anchor**, and for an anchor-less one it is *reported as unknown* rather than assumed clean —
+which is the honest reading, not a silent pass.
 
 Promotion `attested → verified` **updates the same `(ledgerKey, surface)` record in place**,
 leaving `deployedAt`, `contentHash`, `source` and `artifactHash` untouched — the staleness
@@ -1226,7 +1244,8 @@ C1 asks "does the live artifact match the ledger" — different questions, diffe
 **What does NOT change.** Staleness (`in-sync`/`stale`/`never`) and its `contentHash` basis;
 the `pasco`-only write rule (the C1 pass IS `pasco`); exactly one record per
 `(ledgerKey, surface)`; `deployments.yaml` stays *current state*, with history in the
-workspace's own git (each `--verify` write is a commit, D2). §20's completeness is untouched
+workspace's own git (the pass writes the ledger file; **committing it is the operator's**, the
+same division of labour as `--mark` — D2). §20's completeness is untouched
 — its `deployment` item stays **coverage-only**, so certification must never move the `%`
 (letting a walled platform lower a score would penalize a fact outside the user's control).
 No new required schema field: the addition is optional and semver-minor.
