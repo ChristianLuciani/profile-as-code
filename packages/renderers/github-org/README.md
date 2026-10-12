@@ -36,6 +36,19 @@ claimed handles. No `role: identity` link → no `@id` — it is never invented.
 
 `deploySpec: "git"` (D9) — the output lands in a git-tracked file.
 
+## Live-verification capability (§19.5, issue #212)
+
+Same class as `github-readme` (same artifact shape, §15.3): the adapter declares
+`extractArtifact` (the canonical projection — the engine-owned region, chrome
+stripped; pure, offline, idempotent; the caller hashes), `fetchHosts`
+(`["raw.githubusercontent.com"]`) and `artifactUrl`, derived from the URL SSOT
+(§15.4/§18.4) — the declared handle matrix first, then `identity.links`:
+`https://raw.githubusercontent.com/<org>/.github/HEAD/profile/README.md`
+(`HEAD` resolves the default branch; measured 2026-10-12,
+`raw.githubusercontent.com/nodejs/.github/HEAD/profile/README.md` → 200
+`[BENCHMARK]`). `null` when the brand declares no GitHub org surface
+(`no-artifact-url`).
+
 ## Dependencies
 
 `@profile-as-code/core` · `@profile-as-code/markdown` (CommonMark escaping for

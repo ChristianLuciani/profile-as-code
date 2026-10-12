@@ -55,6 +55,23 @@ escaping rule is never re-implemented here.
 
 `deploySpec: "git"` (D9) — the output lands in a git-tracked file.
 
+## Live-verification capability (§19.5, issue #212)
+
+The adapter also declares how `pasco status --verify` can judge the **live**
+artifact, so the ledger anchors a value that can be compared back. Three exports,
+one home (the artifact's producer owns both directions of it — D5):
+
+| Export | Meaning |
+|---|---|
+| `extractArtifact(text)` | The canonical projection: the engine-owned region (§15.3, opening H1 → generated footer), with platform/transport chrome (BOM, CRLF, a preamble above, an appendix below) stripped. Pure, offline, idempotent. The **caller** hashes it (SHA-256); the renderer never hashes. |
+| `fetchHosts` | The fetch allowlist `["raw.githubusercontent.com"]`. `--verify` validates the derived URL's host against it **before** any request (the workspace is untrusted input). |
+| `artifactUrl(profile)` | The live URL, derived from the URL SSOT alone (`identity.links` / the declared handle matrix): `https://raw.githubusercontent.com/<owner>/<owner>/HEAD/README.md`. `null` when no GitHub surface is declared (`no-artifact-url`). |
+
+`HEAD` resolves the owner's default branch, so no branch is hand-maintained.
+Declared v1 limit: content a human adds **outside** the engine's region (above
+the H1 or below the footer) is not part of the artifact, so it is not judged;
+content inside it is, and an edit there reads `out-of-band-drift`.
+
 ## Dependencies
 
 `@profile-as-code/core` · `@profile-as-code/markdown`.
