@@ -20,7 +20,11 @@ import type { FetchText } from "./verify.js";
 export const httpFetchText: FetchText = async (url) => {
   try {
     const response = await fetch(url, {
-      redirect: "follow",
+      // F7: following a redirect would let the FINAL hop leave the declared
+      // allowlist the caller validated BEFORE this request — `raw.githubusercontent`
+      // serving a redirect is also a signal something is off. A 3xx then lands in
+      // the pass's honest `http-<code>` bucket like any other non-2xx.
+      redirect: "error",
       headers: {
         "user-agent": "pasco-verify (+https://github.com/ChristianLuciani/profile-as-code)",
       },

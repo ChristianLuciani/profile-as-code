@@ -669,19 +669,10 @@
             "state": { "const": "unverifiable" },
             "reason": {
               "type": "string",
-              "enum": [
-                "walled",
-                "walled-con-api",
-                "host-not-allowed",
-                "http-403",
-                "http-429",
-                "http-<code>",
-                "network-error",
-                "no-artifact-url",
-                "no-extractor",
-                "unattributed"
-              ]
+              "pattern": "^(walled|walled-con-api|host-not-allowed|network-error|no-artifact-url|no-extractor|unattributed|http-[0-9]{3})$",
+              "description": "§19.5: the declared reasons, the attempt reasons, and `http-<code>` for the ACTUAL status the pass observed. `http-` accepts ANY 3-digit code — an enum of just http-403/http-429 made a routine 404/500 write a ledger the next `load()` rejects (review F1). One alternation rather than `enum ∪ pattern`: the Zod generator cannot express that union (it degrades to an untyped schema, which its safety net refuses), so the alternatives are pinned by the pattern and by fixtures instead."
             },
+            "artifactHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
             "method": { "const": "fetch" },
             "fetchedAt": { "type": "string", "format": "date-time" },
             "evidenceUrl": {
@@ -691,7 +682,7 @@
               "minLength": 7
             }
           },
-          "description": "§19.5: no deterministic check is possible, or one was attempted and did not complete. DECLARED reasons (walled · walled-con-api · no-extractor · no-artifact-url) are derived at read time from the surface's capability and need no ledger row; ATTEMPTED ones (http-<code> · network-error · unattributed) are RECORDED with the fetch evidence. `artifactHash`/`liveHash` are impossible here — recording a comparison would make the state lie."
+          "description": "§19.5: no deterministic check is possible, or one was attempted and did not complete. DECLARED reasons (walled · walled-con-api · no-extractor · no-artifact-url) are the PASS's knowledge — it states them for its own output and writes nothing, so a workspace needs no ledger row per walled platform and the file keeps only durable evidence; ATTEMPTED ones (http-<code> · network-error · unattributed · host-not-allowed) are RECORDED with the fetch evidence. `liveHash` is impossible here — a comparison would make the state lie; `artifactHash` is allowed because it is the deploy ANCHOR, not a comparison, and a failed check must not destroy it (§19.5: the anchor is left unchanged)."
         },
         {
           "type": "object",

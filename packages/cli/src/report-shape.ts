@@ -7,7 +7,13 @@
  * the new sibling — is asserted in one place rather than two.
  */
 
-import type { LedgerReport, UnitStatus } from "@profile-as-code/core";
+import type {
+  CertificationRollup,
+  LedgerReport,
+  LoadedProfile,
+  UnitStatus,
+} from "@profile-as-code/core";
+import { deployStatus } from "@profile-as-code/core";
 import type { StatusArgs } from "./commands/status.js";
 
 export function summaryOf(data: LedgerReport): {
@@ -33,6 +39,17 @@ export function reportDataOf(data: LedgerReport, args: StatusArgs): Record<strin
     untracked: data.untracked,
     removed: data.removed,
   };
+}
+
+/** The certification rollup of each trackable unit, keyed by ledger key — the
+ *  ONE generated view (CHECKLIST.md) needs this shape, and it is a projection of
+ *  the same read rule the report uses (`deployStatus`). */
+export function certificationMap(
+  profile: LoadedProfile,
+): Record<string, CertificationRollup | null> {
+  const map: Record<string, CertificationRollup | null> = {};
+  for (const unit of deployStatus(profile).units) map[unit.key] = unit.certification;
+  return map;
 }
 
 /** Filter the report to ONE surface (§19.3), carrying the §19.5 certification

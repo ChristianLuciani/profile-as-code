@@ -121,16 +121,24 @@ export interface SurfaceCapability {
   /** The artifact URL, derived from the URL SSOT (§15.4/§18.4) — never a new
    *  hand-maintained field. `null` when the surface cannot derive one. */
   artifactUrl?: string | null;
+  /** §19.5's declared ladder rung. Absent = `fetchable`, the engine's own
+   *  deployed artifact (GitHub raw only in v1). `walled-con-api` is a platform
+   *  whose raw page is not fetchable but that exposes a management API (the rung
+   *  is declared and reported; a future pass records `method: api`).
+   *  `walled` is no honest machine check at all — the reason ko-fi's measured
+   *  403 needs: the page exists, it just cannot be read back. */
+  rung?: "fetchable" | "walled-con-api" | "walled";
 }
 
 /** surface → declared capability. A surface absent from the map declares nothing
  *  (§19.5 fifth row). */
 export type SurfaceCapabilities = Readonly<Record<string, SurfaceCapability>>;
 
-/** §19.5: the two non-fetchable reasons `core` derives from a declaration. The
- *  fetch-time reasons (`host-not-allowed`, `http-*`, `network-error`,
- *  `unattributed`) are produced by the pass, which owns the request. */
-export type DeclaredUnverifiable = "no-extractor" | "no-artifact-url";
+/** §19.5: the reasons `core` derives from a surface DECLARATION — the ladder
+ *  rungs plus the two missing pieces. The fetch-time reasons (`host-not-allowed`,
+ *  `http-*`, `network-error`, `unattributed`) are produced by the pass, which owns
+ *  the request. */
+export type DeclaredUnverifiable = "walled" | "walled-con-api" | "no-extractor" | "no-artifact-url";
 
 function reasonField(reason: string | undefined): { reason?: string } {
   return reason === undefined ? {} : { reason };
@@ -140,10 +148,12 @@ function reasonField(reason: string | undefined): { reason?: string } {
  *  surface can be checked today. One home for the ladder, shared by the read rule
  *  (`certifiedSurface`) and the pass (`attemptRecord`), so the two can never
  *  disagree about which surface is fetchable. */
-export function declaredReason(
-  capability: SurfaceCapability | undefined,
-): DeclaredUnverifiable | undefined {
+export function declaredReason(capability: SurfaceCapability | undefined): string | undefined {
   if (capability === undefined || capability.extractor === undefined) return "no-extractor";
+  // The ladder rung is a declaration of NO HONEST CHECK, so it outranks the URL
+  // question: a walled surface cannot be read back however well-formed its URL is.
+  if (capability.rung === "walled") return "walled";
+  if (capability.rung === "walled-con-api") return "walled-con-api";
   if (capability.artifactUrl === null || capability.artifactUrl === undefined) {
     return "no-artifact-url";
   }
@@ -151,38 +161,21 @@ export function declaredReason(
 }
 
 /**
- * §19.5 — THE read rule: certification as it stands NOW for one
- * `(ledgerKey, surface)`, from the record and the surface's declared capability.
+ * §19.5 — THE read rule: certification as it stands for one
+ * `(ledgerKey, surface)`. A stored block IS the answer — an attempt reason
+ * (`http-403`, `network-error`, …) is durable evidence, not a transient print, so
+ * it is returned verbatim rather than re-derived into a different story about the
+ * same event (§19.5: "the honest degradation is durable evidence"). A record with
+ * NO block has never been judged and is not a strength of confirmation: it reads
+ * `attested`, the human `--mark` that was the ONLY ledger writer before v1.10
+ * (and the shape `--mark` still writes when the surface cannot produce an anchor).
  *
- * The order is the whole point: the DECLARED ladder is judged first, then the
- * record, then the anchor. A stored `unverifiable` is not an answer — it is a
- * snapshot of a check that did not complete, so a surface that cannot be checked
- * today reads its current declared reason no matter what it recorded earlier
- * (§19.5: "the verdict cannot be lost by a stale write" — and, symmetrically, a
- * stale write cannot pin a derived verdict either). Confirmed states
- * (`attested`/`verified`/`out-of-band-drift`) ARE answers and are returned
- * verbatim; a `--mark` never becomes `verified`, only the C1 pass does that.
- *
- * A record with no block is NOT confirmation strength: with a capable surface it
- * has no anchor, so the honest reading is row 5 (`unattributed` — observable, not
- * judgeable), not `attested`. That is also the pre-v1.10 legacy record's true
- * state, and the declared v1 forward-only limit closes it with one `--mark`.
+ * The DECLARED ladder is judged by the caller that can still perform a check
+ * (`verifySurface`), not here: a read must never rewrite evidence it did not
+ * collect.
  */
-export function certifiedSurface(
-  record: SurfaceCertification | undefined,
-  capability: SurfaceCapability | undefined,
-): SurfaceCertification {
-  const declared = declaredReason(capability);
-  if (declared !== undefined) return { state: "unverifiable", reason: declared };
-
-  // Fetchable today: a confirmed verdict stands; a snapshot does not.
-  if (record?.state === "attested" || record?.state === "verified") return { ...record };
-  if (record?.state === "out-of-band-drift") return { ...record };
-
-  // §19.5 row 5 — a completed check whose record carries no anchor cannot judge;
-  // neither can an attempt that did not complete. Either way the reason is
-  // `unattributed`, derived here rather than pinned in the ledger.
-  return { state: "unverifiable", reason: "unattributed" };
+export function certifiedSurface(record: SurfaceCertification | undefined): SurfaceCertification {
+  return record === undefined ? { state: "attested" } : { ...record };
 }
 
 /** §19.5 rollup. *Fully certified* ⇔ every recorded surface is `verified` or
@@ -292,13 +285,16 @@ export function attemptRecord(
     };
   }
   // `unverifiable` (or `attested`, which a pass never produces): honest
-  // degradation — only the fields the attempt actually produced. The anchor is
-  // NEVER part of this shape: an `unverifiable` with a comparison would lie.
-  // DECLARED reasons do not belong here at all — they are derived at read time by
-  // `certifiedSurface` from the surface's capability, never pinned into the file.
+  // degradation — only the fields the attempt actually produced. The ANCHOR is
+  // carried through when one exists: it is what the DEPLOY confirmed, not part of
+  // this check's comparison, and §19.5 says it is left unchanged — dropping it
+  // would silently degrade a judgeable record to row 5 forever. `liveHash` is
+  // impossible here (there is no comparison), and a DECLARED reason never reaches
+  // this function at all.
   return {
     state: "unverifiable",
     reason: verdict.reason ?? "network-error",
+    ...(evidence.artifactHash !== undefined ? { artifactHash: evidence.artifactHash } : {}),
     ...(evidence.fetchedAt !== undefined || evidence.evidenceUrl !== undefined
       ? { method: "fetch" as const }
       : {}),
@@ -322,29 +318,18 @@ export function fetchFailureReason(status: number): string {
 }
 
 /**
- * §19.5 — per-surface certification derived at READ time, from the ledger record
- * plus the surface's declared capability. The READ half of the dimension, and the
- * single home of the derivation rules `deployStatus` and `certifySurfaces` share:
- *
- *   - the record carries an `attested`/`verified`/durable-`unverifiable`/drift
- *     block → that block is the answer (an ATTEMPT is durable evidence);
- *   - a record with NO block reads `attested` when the surface can be checked
- *     live (every pre-v1.10 record was the human `--mark`);
- *   - otherwise the DECLARED reason (`no-extractor` / `no-artifact-url`) is
- *     derived here, so a workspace needs no ledger row per walled platform and a
- *     stale write cannot lose the verdict. A 403 from the platform's WAF is an
- *     ATTEMPT outcome (recorded, row 1 of the table) — not a declaration.
- */
+ * §19.5 — the certification rollup of every trackable unit, keyed by ledger key.
+ *  A projection of `deployStatus`'s own certification field, for callers that
+ *  look units up by key (the generated CHECKLIST). One read rule, one home. */
 export function certifySurfaces(
   profile: LoadedProfile,
-  capabilities?: SurfaceCapabilities,
 ): Record<string, CertificationRollup | null> {
   const out: Record<string, CertificationRollup | null> = {};
   for (const unit of trackableUnits(profile)) {
     const records = profile.deployments?.[unit.key] ?? {};
     const surfaces: Record<string, SurfaceCertification> = {};
     for (const [surface, record] of Object.entries(records)) {
-      surfaces[surface] = certifiedSurface(record.certification, capabilities?.[surface]);
+      surfaces[surface] = certifiedSurface(record.certification);
     }
     const rollup = certificationRollup(surfaces);
     out[unit.key] =
@@ -482,14 +467,11 @@ export function untrackedRows(profile: LoadedProfile): { block: string; label: s
  *
  *  §19.5 (v1.10, issue #132): each unit ALSO carries the certification rollup of
  *  its recorded surfaces. Staleness is untouched — `stale` + `verified` stays a
- *  legal pair. `capabilities` declares which surfaces CAN be checked live; when
- *  omitted, no surface can (the derived `unverifiable: no-extractor` default),
- *  which is exactly the honest read for a caller that knows nothing about
- *  renderers. A record with no `certification` block reads `attested`. */
-export function deployStatus(
-  profile: LoadedProfile,
-  capabilities?: SurfaceCapabilities,
-): LedgerReport {
+ *  legal pair. The read is RECORD-ONLY: a stored block is the answer and a record
+ *  with no block reads `attested`. Which surfaces CAN be checked today is the
+ *  pass's knowledge (`pasco status --verify`), never a read-time re-judgement —
+ *  a read must not rewrite evidence it did not collect. */
+export function deployStatus(profile: LoadedProfile): LedgerReport {
   const units = trackableUnits(profile);
   const ledger = profile.deployments ?? {};
   const byKey = new Set(units.map((u) => u.key));
@@ -512,7 +494,7 @@ export function deployStatus(
       const inSync = record.contentHash === unit.hash;
       surfaces[surface] = inSync ? "in-sync" : "stale";
       if (!inSync) stale = true;
-      certification[surface] = certifiedSurface(record.certification, capabilities?.[surface]);
+      certification[surface] = certifiedSurface(record.certification);
     }
     const rollup = certificationRollup(certification);
     return {

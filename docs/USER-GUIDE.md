@@ -551,22 +551,25 @@ Non-negotiables:
   A non-2xx or a network failure is reported honestly (`unverifiable` + the
   reason) and never breaks the report; `--verify` records that evidence in the
   ledger, and committing that file is yours (D2).
-- **Derived vs. recorded.** A reason that comes from a *declaration* — the
-  platform has no extractor (`no-extractor`), or the surface cannot derive its
-  URL (`no-artifact-url`) — is computed every time you read the ledger, never
-  stored: this is why a walled platform needs no ledger row, and why a verdict can
-  never be pinned by a stale write. A reason that comes from an *attempt*
-  (`http-403`, `network-error`, `host-not-allowed`) is durable evidence in the
-  ledger, but the certification shown is always the honest reading **now**.
-- **v1 limit — anchors are forward-only.** A record confirmed before v1.10 (or on
-  a platform whose artifact the engine cannot render) has no anchor, so a live
-  check can *observe* the page but not *judge* it: it reads
-  `unverifiable: unattributed`, never a quietly-green `in-sync`. Re-run
-  `pasco status --mark …` once an anchor can be recorded to close the gap.
+- **Declared vs. recorded.** A reason that comes from a *declaration* — the
+  platform has no extractor (`no-extractor`), no derivable URL
+  (`no-artifact-url`), or is walled (`walled`, `walled-con-api`) — is *stated* by
+  the `--verify` run and never written: a declaration is not an event, so a walled
+  platform needs no ledger row. A reason that comes from an *attempt*
+  (`http-403`, `network-error`) **is** recorded with its evidence and read back
+  as-is — that evidence is the audit trail, and a later `status` shows it. A
+  record with no certification block at all reads `attested`: never machine-checked,
+  only confirmed by you.
+- **v1 limit — anchors are forward-only.** A record with no anchor cannot be
+  judged: a live check *observes* the page and records
+  `unverifiable: unattributed` — never a quietly-green `in-sync`. (With no
+  extractor available yet, that check cannot run at all and the surface is
+  reported `no-extractor` instead.) Re-run `pasco status --mark …` once an anchor
+  can be recorded to close the gap.
 - `CHECKLIST.md` is a **generated view** of the ledger:
   `pasco status --write-checklist` regenerates it — do not edit it by hand. Each
-  surface carries its certification token, so a surface that is not machine-checked
-  is never presented as a bare `in-sync`.
+  surface carries its certification token (e.g. `linkedin (in-sync/attested)`), so
+  a surface that is not machine-checked is never presented as a bare `in-sync`.
 - Deploy steps and post-deploy verification for `manual` platforms live in each platform
   skill's `playbook.md` (`skills/<platform>/`); a shared `templates/playbooks/` directory is
   planned for M4/M5 (SPEC §12).

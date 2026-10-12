@@ -26,7 +26,6 @@ import { join } from "node:path";
 import {
   attestedRecord,
   type CompletenessReport,
-  certifySurfaces,
   completeness,
   completenessLine,
   deployStatus,
@@ -36,15 +35,14 @@ import {
   load,
   PLATFORMS,
   SchemaValidationError,
-  type SurfaceCapabilities,
   type SurfaceCertification,
   trackableUnits,
   type UnitStatus,
 } from "@profile-as-code/core";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
-import { filterReport, reportDataOf, summaryOf } from "../report-shape.js";
-import { depsOf, persistLedger, readLedger, type StatusDeps, verifyStatus } from "../verify.js";
+import { certificationMap, filterReport, reportDataOf, summaryOf } from "../report-shape.js";
+import { persistLedger, readLedger, type StatusDeps, verifyStatus } from "../verify.js";
 import { type CompletenessPolicyConfig, sanitizeCompletenessPolicy } from "../workspace.js";
 
 export interface StatusArgs {
@@ -64,7 +62,8 @@ export interface StatusArgs {
   verify?: boolean;
   /** The workspace policy from `.pascorc` (issue #102) — defaults to the shipped policy. */
   completenessPolicy?: CompletenessPolicyConfig;
-  /** Capabilities + fetch: production defaults; injected by tests (§19.5). */
+  /** Fetch + the surface capabilities DECLARED for live checks (§19.5) — injected
+   *  by tests; production defaults live in `verify.ts` / `index.ts`. */
   deps?: Partial<StatusDeps>;
 }
 
@@ -96,7 +95,6 @@ function loadOrReport(args: StatusArgs): { profile: LoadedProfile } | { fail: nu
 function markDeployed(args: StatusArgs, profile: LoadedProfile): number {
   const key = args.markKey as string;
   const surface = args.platformArg as string;
-  const deps = depsOf(args);
 
   if (!PLATFORMS.includes(surface as (typeof PLATFORMS)[number])) {
     return report("status", false, EXIT.USAGE, {
@@ -145,12 +143,14 @@ function markDeployed(args: StatusArgs, profile: LoadedProfile): number {
   const { ledger } = read;
 
   // §19.5: the confirmation records the second dimension too — `attested` (the
-  // human's assertion). The ANCHOR (`artifactHash`) needs the artifact RENDERED
-  // and extracted at confirmation time; that seam belongs to the renderer adapter
-  // (Lane B, #212) and is not exposed to the CLI yet, so no anchor is recorded
-  // rather than a guessed one. One `--mark` after the seam lands closes the gap
-  // (declared forward-only v1 limit, §19.5).
-  void deps;
+  // human's assertion), the same block-less read `attestedRecord(undefined)`
+  // yields, so a `--mark` on a surface that cannot produce an anchor writes a
+  // record indistinguishable from a pre-v1.10 one (which IS what it is). The
+  // ANCHOR (`artifactHash`) needs the artifact RENDERED and extracted at
+  // confirmation time; that seam belongs to the renderer adapter (Lane B, #212)
+  // and is not exposed to the CLI yet, so no anchor is recorded rather than a
+  // guessed one — one `--mark` after the seam lands closes the gap (declared
+  // forward-only v1 limit, §19.5).
   const certification = attestedRecord(undefined);
   const record = { deployedAt, contentHash: unit.hash, source: "manual", certification };
   ledger[key] = { ...(ledger[key] ?? {}), [surface]: record };
@@ -209,12 +209,10 @@ function checklistBody(
   reportData: LedgerReport,
   completion: CompletenessReport,
   profile: LoadedProfile,
-  capabilities: SurfaceCapabilities,
 ): string {
   // §19.5: the checklist is a VIEW of state pasco owns, so it carries the
-  // certification dimension too — derived (never stored) from the same profile
-  // and the same read-time rules the report uses.
-  const certification = certifySurfaces(profile, capabilities);
+  // certification dimension too — projected from the same read rule as the report.
+  const certification = certificationMap(profile);
   const fmt = (u: LedgerReport["units"][number]): string =>
     formatSurfacePairs(u.surfaces, certification[u.key] ?? null);
   const stale = reportData.units.filter((u) => u.state === "stale");
@@ -362,7 +360,7 @@ export async function runStatus(args: StatusArgs): Promise<number> {
   // Ledger write path #2 (§19.5, v1.10): --verify [platform] — the C1 live check.
   if (args.verify === true) return await verifyStatus(args, profile);
 
-  const reportData = deployStatus(profile, depsOf(args).capabilities);
+  const reportData = deployStatus(profile);
   const completion = completenessOf(args, profile);
 
   // Completeness report (issue #102): a standalone view of the same profile.
@@ -371,7 +369,7 @@ export async function runStatus(args: StatusArgs): Promise<number> {
   if (args.writeChecklist === true) {
     writeFileSync(
       join(args.workspace, "CHECKLIST.md"),
-      checklistBody(reportData, completion, profile, depsOf(args).capabilities),
+      checklistBody(reportData, completion, profile),
       "utf8",
     );
     if (isJsonMode()) {

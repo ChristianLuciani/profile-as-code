@@ -1124,19 +1124,17 @@ describe("pasco status --verify (D18/§19.5 certification)", () => {
     const identity = data.units.find((u) => u.key === "identity");
     expect(identity?.state).toBe("in-sync");
     expect(identity?.surfaces).toEqual({ "github-readme": "in-sync" });
-    // §19.5: with no extractor on this surface, the DECLARED reason is what the
-    // report derives — NOT the `attested` the ledger stored (confirmation strength
-    // requires the ability to check).
-    expect(identity?.certification?.state).toBe("unverifiable");
-    expect(identity?.certification?.surfaces["github-readme"]).toEqual({
-      state: "unverifiable",
-      reason: "no-extractor",
-    });
+    // §19.5 read rule: the stored block IS the answer. `--mark` recorded
+    // `attested` (the human's assertion); no extractor exists yet, so no machine
+    // check has replaced it. `pasco status --verify` is where the current
+    // no-extractor reason is stated.
+    expect(identity?.certification?.state).toBe("attested");
+    expect(identity?.certification?.surfaces["github-readme"]).toEqual({ state: "attested" });
     // A unit with no ledger record has no certification at all (absence, not never).
     expect(data.units.find((u) => u.key === "skills:Model routing")?.certification).toBeNull();
 
-    // …and an UNCONFIRMED record (pre-v1.10: no certification block) is the case
-    // the derived rule exists for: nothing was declared, so it reads no-extractor.
+    // …and a pre-v1.10 record (no certification block) reads `attested` — the
+    // human `--mark` it was, the ONLY ledger writer before v1.10.
     const legacy = verifyWorkspace();
     writeFileSync(
       join(legacy, "content", "deployments.yaml"),
@@ -1158,8 +1156,8 @@ describe("pasco status --verify (D18/§19.5 certification)", () => {
         }[];
       }
     ).units.find((u) => u.key === "identity");
-    expect(legacyIdentity?.certification?.state).toBe("unverifiable");
-    expect(legacyIdentity?.certification?.surfaces.linkedin?.reason).toBe("no-extractor");
+    expect(legacyIdentity?.certification?.state).toBe("attested");
+    expect(legacyIdentity?.certification?.surfaces.linkedin).toEqual({ state: "attested" });
   });
 
   it("--write-checklist carries the certification token: an attested surface is never a bare in-sync", () => {
@@ -1167,9 +1165,9 @@ describe("pasco status --verify (D18/§19.5 certification)", () => {
     run(["status", "--mark", "identity", "linkedin", "--workspace", ws]);
     expect(run(["status", "--write-checklist", "--workspace", ws]).code).toBe(0);
     const checklist = readFileSync(join(ws, "CHECKLIST.md"), "utf8");
-    // The token is the DERIVED certification (no extractor → unverifiable), never a
-    // bare `in-sync` masquerading as a machine check.
-    expect(checklist).toContain("linkedin (in-sync/unverifiable: no-extractor)");
+    // The token carries the certification dimension, so an `attested` surface is
+    // never a bare `in-sync` masquerading as a machine check.
+    expect(checklist).toContain("linkedin (in-sync/attested)");
   });
 
   it("--verify conflicts with the other modes (exit 2), never silently ignored", () => {

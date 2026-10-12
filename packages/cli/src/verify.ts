@@ -29,15 +29,18 @@ import { join } from "node:path";
 import {
   attemptRecord,
   type CertificationState,
+  certificationRollup,
   certificationVerdict,
   declaredReason,
   deployStatus,
   fetchFailureReason,
+  type LedgerReport,
   type LoadedProfile,
   PLATFORMS,
   type SurfaceCapability,
   type SurfaceCertification,
   trackableUnits,
+  type UnitStatus,
 } from "@profile-as-code/core";
 import { parseDocument, stringify } from "yaml";
 import { certToken, type StatusArgs } from "./commands/status.js";
@@ -185,11 +188,13 @@ export async function verifyStatus(args: StatusArgs, profile: LoadedProfile): Pr
     verdicts.push({ key: subject.key, verdict });
   }
 
-  // A pass with nothing to ATTEMPT writes nothing: creating an empty
-  // `deployments.yaml` as a side effect of a read would be a surprise, and the
-  // ledger file means "data pasco owns", not "a file that exists".
+  // Only an ATTEMPT changes the ledger. A declared rung and a refused host leave
+  // it untouched: neither produced evidence, and writing their reason would pin a
+  // read-time derivation into the file. Creating an empty `deployments.yaml` as a
+  // side effect of a read would also be a surprise — the ledger file means "data
+  // pasco owns", not "a file that exists".
   if (verdicts.some((v) => v.verdict.write)) persistLedger(args, ledger);
-  return finishVerify(args, profile, deps, verdicts, requests);
+  return finishVerify(args, profile, verdicts, requests);
 }
 
 /** The report half of `--verify`, run once the (already written) ledger is the
@@ -198,14 +203,45 @@ export async function verifyStatus(args: StatusArgs, profile: LoadedProfile): Pr
 function finishVerify(
   args: StatusArgs,
   profile: LoadedProfile,
-  deps: StatusDeps,
   verdicts: { key: string; verdict: SurfaceVerdict }[],
   requests: number,
 ): number {
-  const filtered = filterReport(deployStatus(profile, deps.capabilities), args.platformArg);
+  const filtered = filterReport(deployStatus(profile), args.platformArg);
+
+  // DECLARED and REFUSED outcomes are not written to the ledger (neither is an
+  // event), so the read above would report the record's previous state and hide
+  // what this pass just established. Overlay them for THIS output: the pass states
+  // its own conclusion, and the file keeps only durable evidence.
+  const derived = new Map<string, Map<string, SurfaceCertification>>();
+  for (const { key, verdict } of verdicts) {
+    if (verdict.write) continue;
+    const surfaces = derived.get(key) ?? new Map<string, SurfaceCertification>();
+    surfaces.set(verdict.surface, verdict.certification);
+    derived.set(key, surfaces);
+  }
+  const withDerived: LedgerReport = {
+    ...filtered,
+    units: filtered.units.map((unit): UnitStatus => {
+      const overlay = derived.get(unit.key);
+      if (overlay === undefined) return unit;
+      const surfaces = {
+        ...(unit.certification?.surfaces ?? {}),
+        ...Object.fromEntries(overlay),
+      };
+      const rollup = certificationRollup(surfaces);
+      return {
+        ...unit,
+        certification: {
+          state: rollup.state,
+          surfaces,
+          ...(rollup.reason !== undefined ? { reason: rollup.reason } : {}),
+        },
+      };
+    }),
+  };
 
   if (isJsonMode()) {
-    return report("status", true, EXIT.OK, { data: reportDataOf(filtered, args) });
+    return report("status", true, EXIT.OK, { data: reportDataOf(withDerived, args) });
   }
 
   section(
@@ -218,7 +254,7 @@ function finishVerify(
     line("  nothing to verify — no ledger record on the requested surface(s)");
   }
   line(
-    "  certification compares the LIVE digest against the stored anchor; a record with no anchor reads unverifiable: unattributed",
+    "  certification compares the LIVE digest against the stored anchor; a record with no anchor is unverifiable: unattributed",
   );
   line(
     "  the ledger file was written — committing content/deployments.yaml is the operator's (D2)",
@@ -241,7 +277,8 @@ async function verifySurface(
   const stored = existing.certification as SurfaceCertification | undefined;
 
   // §19.5 declared absence: no honest check is possible. NOT written — a walled
-  // surface needs no ledger row, and the reason is derived at read time.
+  // surface needs no ledger row, and a declaration is not an event: the pass
+  // states it in its own output and the ledger keeps only durable evidence.
   const declared = declaredReason(capability);
   if (declared !== undefined) {
     return {
@@ -268,16 +305,15 @@ async function verifySurface(
     };
   }
   if (!(capability?.fetchHosts ?? []).includes(host)) {
-    // `evidenceUrl` records what WOULD have been fetched, so the refusal is
-    // auditable even though no socket was opened.
+    // NO request left the process, so the record carries NO fetch evidence: a
+    // `method: fetch` + `fetchedAt` here would be durable false evidence. The
+    // reason alone is the honest, complete statement (the refused URL is in the
+    // session log and in the surface's declared allowlist).
     return {
       surface,
-      certification: attemptRecord(
-        { state: "unverifiable", reason: "host-not-allowed" },
-        { fetchedAt: new Date().toISOString(), evidenceUrl: url },
-      ),
+      certification: { state: "unverifiable", reason: "host-not-allowed" },
       fetched: false,
-      write: true,
+      write: false,
     };
   }
 

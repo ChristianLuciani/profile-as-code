@@ -91,7 +91,7 @@ pasco status linkedin                 # filter one surface
 pasco status --mark identity linkedin # confirm a paste (records the current contentHash + attested)
 pasco status --verify                 # §19.5 C1: does the live page still match? (the only network path)
                                       #   a surface with no extractor reports unverifiable: no-extractor
-                                      #   (a DECLARED reason is derived at read time, never stored)
+                                      #   (a DECLARED reason is stated, never written: only an attempt is recorded)
 pasco status --write-checklist        # regenerate CHECKLIST.md from the ledger
 pasco refine linkedin --variants 3            # emits the agent task template (full flow M3)
 pasco refine linkedin --choose li-en-2        # records the chosen variant in content/active.yaml

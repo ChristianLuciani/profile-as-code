@@ -15,7 +15,7 @@
  *       contentHash fails (Zod).
  */
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -27,6 +27,7 @@ import {
   certificationVerdict,
   certifiedSurface,
   certifySurfaces,
+  declaredReason,
   deployStatus,
   fetchFailureReason,
   hashUnit,
@@ -433,57 +434,48 @@ describe("§19.5 certificationRollup — the SPEC ordering", () => {
 });
 
 describe("§19.5 certifiedSurface / certifySurfaces — declared vs recorded vs attested", () => {
-  it("judges the DECLARATION before the record: a walled surface reads its reason, never a stale one", () => {
-    expect(certifiedSurface(undefined, undefined)).toEqual({
+  it("a stored block IS the answer: an attempt reason survives the read (durable evidence)", () => {
+    expect(certifiedSurface({ state: "unverifiable", reason: "http-403" })).toEqual({
       state: "unverifiable",
-      reason: "no-extractor",
+      reason: "http-403",
     });
-    expect(certifiedSurface(undefined, { extractor: (t) => t, artifactUrl: null })).toEqual({
+    // A record is read-only here: the store is the story of the event it observed.
+    expect(certifiedSurface({ state: "unverifiable", reason: "http-500" })).toEqual({
       state: "unverifiable",
-      reason: "no-artifact-url",
-    });
-    // §19.5: the declared reason is derived at read time, so a block that pinned
-    // a DIFFERENT unverifiable verdict does not mask the current declaration.
-    expect(certifiedSurface({ state: "unverifiable", reason: "http-403" }, undefined)).toEqual({
-      state: "unverifiable",
-      reason: "no-extractor",
-    });
-    expect(
-      certifiedSurface(
-        { state: "unverifiable", reason: "unattributed" },
-        { extractor: (t) => t, artifactUrl: null },
-      ),
-    ).toEqual({ state: "unverifiable", reason: "no-artifact-url" });
-  });
-
-  it("a fetchable surface with no anchor is row 5 (unattributed), NOT attested", () => {
-    // Confirmation strength requires evidence; an anchor-less record is
-    // observable but not judgeable (§19.5 row 5 — a fresh `--mark` included).
-    const capable = { extractor: (t: string) => t, artifactUrl: "https://x/y" };
-    expect(certifiedSurface(undefined, capable)).toEqual({
-      state: "unverifiable",
-      reason: "unattributed",
-    });
-    expect(certifiedSurface({ state: "unverifiable", reason: "network-error" }, capable)).toEqual({
-      state: "unverifiable",
-      reason: "unattributed",
+      reason: "http-500",
     });
   });
 
-  it("confirmed states ARE answers: attested / verified / drift are returned verbatim", () => {
-    const capable = { extractor: (t: string) => t, artifactUrl: "https://x/y" };
+  it("a record with NO block reads attested — the human --mark, never judged", () => {
+    expect(certifiedSurface(undefined)).toEqual({ state: "attested" });
+  });
+
+  it("confirmed states pass through verbatim", () => {
     const anchor = "a".repeat(64);
-    expect(certifiedSurface({ state: "attested", artifactHash: anchor }, capable)).toEqual({
+    expect(certifiedSurface({ state: "attested", artifactHash: anchor })).toEqual({
       state: "attested",
       artifactHash: anchor,
     });
-    expect(certifiedSurface({ state: "verified", artifactHash: anchor }, capable)).toEqual({
+    expect(certifiedSurface({ state: "verified", artifactHash: anchor })).toEqual({
       state: "verified",
       artifactHash: anchor,
     });
-    expect(
-      certifiedSurface({ state: "out-of-band-drift", reason: "live-mismatch" }, capable),
-    ).toEqual({ state: "out-of-band-drift", reason: "live-mismatch" });
+    expect(certifiedSurface({ state: "out-of-band-drift", reason: "live-mismatch" })).toEqual({
+      state: "out-of-band-drift",
+      reason: "live-mismatch",
+    });
+  });
+
+  it("declaredReason: the ladder rungs outrank the URL question (review F4)", () => {
+    const base = { extractor: (t: string) => t, artifactUrl: "https://x/y" as string | null };
+    expect(declaredReason(undefined)).toBe("no-extractor");
+    expect(declaredReason({ artifactUrl: "https://x/y" })).toBe("no-extractor");
+    expect(declaredReason({ ...base, artifactUrl: null })).toBe("no-artifact-url");
+    // §19.5 rungs 2 and 3 are expressible — ko-fi's measured 403 needs `walled`.
+    expect(declaredReason({ ...base, rung: "walled" })).toBe("walled");
+    expect(declaredReason({ ...base, rung: "walled-con-api" })).toBe("walled-con-api");
+    expect(declaredReason({ ...base, rung: "fetchable" })).toBeUndefined();
+    expect(declaredReason(base)).toBeUndefined();
   });
 
   it("certifySurfaces: units with no ledger record have null certification", () => {
@@ -499,7 +491,7 @@ describe("§19.5 deployStatus — additive certification, staleness untouched", 
     expect(report.units.every((u) => u.certification === null)).toBe(true);
   });
 
-  it("a block-less record is row 5 (unattributed) on a capable surface, no-extractor on a walled one", () => {
+  it("a block-less record reads attested (the --mark), whether or not the surface is capable", () => {
     const hash = hashUnit({ name: "Elena Vasquez", location: "Madrid, Spain" });
     const dir = makeWorkspace({
       "identity.yaml": IDENTITY,
@@ -512,25 +504,9 @@ describe("§19.5 deployStatus — additive certification, staleness untouched", 
       ].join("\n"),
     });
     try {
-      // Probe 1: a 403 the pass recorded is superseded by the DECLARATION, and
-      // the derived reason is never pinned in the file (no row per walled surface).
-      const capable = deployStatus(load(dir), {
-        linkedin: { extractor: (t) => t, artifactUrl: "https://raw.githubusercontent.com/x/y" },
-      }).units.find((u) => u.key === "identity")?.certification;
-      expect(capable).toEqual({
-        state: "unverifiable",
-        reason: "unattributed",
-        surfaces: { linkedin: { state: "unverifiable", reason: "unattributed" } },
-      });
-
-      const declared = deployStatus(load(dir)).units.find(
-        (u) => u.key === "identity",
-      )?.certification;
-      expect(declared?.state).toBe("unverifiable");
-      expect(declared?.surfaces.linkedin).toEqual({
-        state: "unverifiable",
-        reason: "no-extractor",
-      });
+      expect(
+        deployStatus(load(dir)).units.find((u) => u.key === "identity")?.certification,
+      ).toEqual({ state: "attested", surfaces: { linkedin: { state: "attested" } } });
     } finally {
       clean(dir);
     }
@@ -548,13 +524,6 @@ describe("§19.5 deployStatus — additive certification, staleness untouched", 
         "    source: manual",
         ...certification,
       ].join("\n");
-    const capability = {
-      "github-readme": {
-        extractor: (t: string) => t,
-        artifactUrl: "https://raw.githubusercontent.com/x/y",
-      },
-    };
-
     const verifiedDir = makeWorkspace({
       "identity.yaml": IDENTITY,
       "deployments.yaml": mk([
@@ -581,11 +550,11 @@ describe("§19.5 deployStatus — additive certification, staleness untouched", 
       ]),
     });
     try {
-      const a = deployStatus(load(verifiedDir), capability).units.find((u) => u.key === "identity");
+      const a = deployStatus(load(verifiedDir)).units.find((u) => u.key === "identity");
       expect(a?.state).toBe("stale");
       expect(a?.certification?.state).toBe("verified");
 
-      const b = deployStatus(load(driftDir), capability).units.find((u) => u.key === "identity");
+      const b = deployStatus(load(driftDir)).units.find((u) => u.key === "identity");
       expect(b?.state).toBe("stale");
       expect(b?.certification?.state).toBe("out-of-band-drift");
     } finally {
@@ -594,74 +563,39 @@ describe("§19.5 deployStatus — additive certification, staleness untouched", 
     }
   });
 
-  it("a stored attempt is durable EVIDENCE but not a durable verdict: the declaration wins at read time", () => {
+  it("an attempt reason is durable: it is read back, evidence and all (no re-derivation)", () => {
     const hash = hashUnit({ name: "Elena Vasquez", location: "Madrid, Spain" });
+    const anchor = "b".repeat(64);
     const dir = makeWorkspace({
       "identity.yaml": IDENTITY,
       "deployments.yaml": [
         "identity:",
-        "  kofi:",
+        "  github-readme:",
         "    deployedAt: 2026-09-08T10:00:00Z",
         `    contentHash: ${hash}`,
         "    source: manual",
         "    certification:",
         "      state: unverifiable",
-        "      reason: http-403",
-        "      method: fetch",
-        "      fetchedAt: 2026-10-12T10:00:00Z",
-        "      evidenceUrl: https://ko-fi.com/christianluciani",
-      ].join("\n"),
-    });
-    try {
-      const unit = deployStatus(load(dir)).units.find((u) => u.key === "identity");
-      expect(unit?.surfaces.kofi).toBe("in-sync"); // staleness untouched
-      // The DECLARATION is judged first (kofi declares no extractor), so the stale
-      // 403 does not keep answering; the evidence stays in the ledger as audit.
-      expect(unit?.certification?.surfaces.kofi).toEqual({
-        state: "unverifiable",
-        reason: "no-extractor",
-      });
-      // …and the header shape: certification is REQUIRED to be nullable/optional.
-      expect(unit?.certification?.state).toBe("unverifiable");
-      expect(unit?.certification?.reason).toBe("no-extractor");
-    } finally {
-      clean(dir);
-    }
-  });
-
-  it("a fetchable surface re-derives row 5 over a stored non-2xx snapshot (never pinned)", () => {
-    const hash = hashUnit({ name: "Elena Vasquez", location: "Madrid, Spain" });
-    const dir = makeWorkspace({
-      "identity.yaml": IDENTITY,
-      "deployments.yaml": [
-        "identity:",
-        `  github-readme:`,
-        "    deployedAt: 2026-09-08T10:00:00Z",
-        `    contentHash: ${hash}`,
-        "    source: manual",
-        "    certification:",
-        "      state: unverifiable",
-        "      reason: http-403",
+        "      reason: http-500",
+        `      artifactHash: ${anchor}`,
         "      method: fetch",
         "      fetchedAt: 2026-10-12T10:00:00Z",
         "      evidenceUrl: https://raw.githubusercontent.com/x/y",
       ].join("\n"),
     });
     try {
-      const capability = {
-        "github-readme": {
-          extractor: (t: string) => t,
-          artifactUrl: "https://raw.githubusercontent.com/x/y",
-        },
-      };
-      const surface = deployStatus(load(dir), capability).units.find((u) => u.key === "identity")
-        ?.certification?.surfaces["github-readme"];
-      expect(surface).toEqual({ state: "unverifiable", reason: "unattributed" });
-
-      // The audit trail is untouched: the file still carries the recorded evidence.
-      const onDisk = readFileSync(join(dir, "content", "deployments.yaml"), "utf8");
-      expect(onDisk).toContain("reason: http-403");
-      expect(onDisk).toContain("evidenceUrl: https://raw.githubusercontent.com/x/y");
+      const surface = deployStatus(load(dir)).units.find((u) => u.key === "identity")?.certification
+        ?.surfaces["github-readme"];
+      // F3: row 1 stays row 1 — an unrelated later capability must not turn the
+      // record's event into `unattributed`.
+      expect(surface).toEqual({
+        state: "unverifiable",
+        reason: "http-500",
+        artifactHash: anchor,
+        method: "fetch",
+        fetchedAt: "2026-10-12T10:00:00Z",
+        evidenceUrl: "https://raw.githubusercontent.com/x/y",
+      });
     } finally {
       clean(dir);
     }

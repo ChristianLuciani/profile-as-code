@@ -221,7 +221,7 @@ describe("§19.5 pasco status --verify — the fetch ladder (no network: fetch i
     expect(ledgerOf(ws)).toContain(`evidenceUrl: ${FETCH_URL}`);
   });
 
-  it("403 (the measured ko-fi degradation): recorded as evidence, re-derived as row 5, never an exception", async () => {
+  it("403 (the measured ko-fi degradation): recorded AND reported as http-403, never an exception", async () => {
     const ws = workspace();
     const { fetch } = scriptedFetch({ [FETCH_URL]: { status: 403 } });
 
@@ -234,8 +234,7 @@ describe("§19.5 pasco status --verify — the fetch ladder (no network: fetch i
     expect(code).toBe(0); // network failures are DATA, never a broken report
     expect(
       data.units.find((u) => u.key === "identity")?.certification?.surfaces["github-readme"],
-    ).toMatchObject({ state: "unverifiable", reason: "unattributed" });
-    // …while the ledger keeps the ATTEMPT as durable evidence.
+    ).toMatchObject({ state: "unverifiable", reason: "http-403" });
     expect(ledgerOf(ws)).toContain("reason: http-403");
   });
 
@@ -252,7 +251,7 @@ describe("§19.5 pasco status --verify — the fetch ladder (no network: fetch i
     expect(calls).toEqual([FETCH_URL]); // exactly one — a retry would be a second
     expect(
       data.units.find((u) => u.key === "identity")?.certification?.surfaces["github-readme"],
-    ).toMatchObject({ state: "unverifiable", reason: "unattributed" });
+    ).toMatchObject({ state: "unverifiable", reason: "http-429" });
     expect(ledgerOf(ws)).toContain("reason: http-429");
   });
 
@@ -268,7 +267,7 @@ describe("§19.5 pasco status --verify — the fetch ladder (no network: fetch i
 
     expect(
       data.units.find((u) => u.key === "identity")?.certification?.surfaces["github-readme"],
-    ).toMatchObject({ state: "unverifiable", reason: "unattributed" });
+    ).toMatchObject({ state: "unverifiable", reason: "network-error" });
     expect(ledgerOf(ws)).toContain("reason: network-error");
   });
 });
@@ -293,11 +292,14 @@ describe("§19.5 --verify — the allowlist is checked BEFORE any request", () =
     expect(calls).toEqual([]); // the SSRF primitive is refused before the socket
     expect(
       data.units.find((u) => u.key === "identity")?.certification?.surfaces["github-readme"],
-    ).toMatchObject({ state: "unverifiable", reason: "unattributed" });
-    // The refusal is what the ledger records (auditable), with the URL that WOULD
-    // have been fetched.
-    expect(ledgerOf(ws)).toContain("reason: host-not-allowed");
-    expect(ledgerOf(ws)).toContain("evidenceUrl: http://169.254.169.254/latest/meta-data/");
+    ).toMatchObject({ state: "unverifiable", reason: "host-not-allowed" });
+    // Nothing was fetched, so nothing is RECORDED: no `method: fetch`, no
+    // `fetchedAt`, no `evidenceUrl` for a request that never happened. The
+    // pre-existing record is left exactly as it was.
+    const ledger = ledgerOf(ws);
+    expect(ledger).not.toContain("host-not-allowed");
+    expect(ledger).not.toContain("method: fetch");
+    expect(ledger).toContain("state: attested");
   });
 
   it("an extractor with no derivable URL → unverifiable: no-artifact-url, no request", async () => {
@@ -314,8 +316,12 @@ describe("§19.5 --verify — the allowlist is checked BEFORE any request", () =
     expect(
       data.units.find((u) => u.key === "identity")?.certification?.surfaces["github-readme"],
     ).toMatchObject({ state: "unverifiable", reason: "no-artifact-url" });
-    // Declared reasons are never pinned either.
+    // A declaration is not an event: nothing is written, so nothing is pinned —
+    // the ledger keeps the record it had.
+    // The fixture has no certification block at all, and this pass added none.
     expect(ledgerOf(ws)).not.toContain("no-artifact-url");
+    expect(ledgerOf(ws)).not.toContain("certification:");
+    expect(ledgerOf(ws)).toContain("source: manual");
   });
 
   it("a surface with no extractor → unverifiable: no-extractor, no request", async () => {
@@ -332,6 +338,7 @@ describe("§19.5 --verify — the allowlist is checked BEFORE any request", () =
     expect(
       data.units.find((u) => u.key === "identity")?.certification?.surfaces["github-readme"],
     ).toMatchObject({ state: "unverifiable", reason: "no-extractor" });
+    expect(ledgerOf(ws)).not.toContain("no-extractor");
   });
 });
 
@@ -405,30 +412,57 @@ describe("§19.5 --verify — write-path conflicts and the JSON contract", () =>
     expect(unit.certification).toBeTruthy();
   });
 
-  it("a stored attempt does NOT pin the verdict: re-reading derives the current answer", async () => {
+  it("a 500 (any non-2xx) writes a ledger the NEXT load() still accepts (review F1 blocker)", async () => {
     const ws = workspace([
       "    certification:",
-      "      state: unverifiable",
-      "      reason: http-403",
-      "      method: fetch",
-      "      fetchedAt: 2026-10-12T10:00:00Z",
-      `      evidenceUrl: ${FETCH_URL}`,
+      "      state: attested",
+      `      artifactHash: ${"a".repeat(64)}`,
     ]);
-    // A capability can APPEAR later (Lane B lands the extractor): the file still
-    // says http-403, but the honest answer for a fetchable, anchor-less record is
-    // row 5 — the declaration/ability is judged at read time, not the snapshot.
-    const { fetch } = scriptedFetch({ [FETCH_URL]: { status: 403 } });
-    const { data } = await verifyJson({
+    const { fetch } = scriptedFetch({ [FETCH_URL]: { status: 500 } });
+    const first = await verifyJson({
       workspace: ws,
       verify: true,
       deps: deps({ "github-readme": capability() }, fetch),
     });
-    const surface = data.units.find((u) => u.key === "identity")?.certification?.surfaces[
-      "github-readme"
-    ];
-    // Still no anchor → row 5, not the stored 403 and not a silent `verified`.
-    expect(surface).toMatchObject({ state: "unverifiable", reason: "unattributed" });
-    expect(ledgerOf(ws)).toContain("reason: http-403"); // the fresh attempt
+    expect(first.code).toBe(0);
+    expect(ledgerOf(ws)).toContain("reason: http-500");
+
+    // The tool must never brick the workspace it just wrote: the next plain read
+    // goes through load() (Zod) and must succeed.
+    const second = await verifyJson({
+      workspace: ws,
+      deps: deps({ "github-readme": capability() }, fetch),
+    });
+    expect(second.code).toBe(0);
+    expect(
+      second.data.units.find((u) => u.key === "identity")?.certification?.surfaces["github-readme"],
+    ).toMatchObject({ state: "unverifiable", reason: "http-500" });
+  });
+
+  it("a failed check preserves the deploy ANCHOR (review F2: never degrade to row 5)", async () => {
+    const anchor = "b".repeat(64);
+    const ws = workspace([
+      "    certification:",
+      "      state: verified",
+      `      artifactHash: ${anchor}`,
+      "      method: fetch",
+      "      fetchedAt: 2026-10-01T10:00:00Z",
+      `      liveHash: ${anchor}`,
+      `      evidenceUrl: ${FETCH_URL}`,
+    ]);
+    const { fetch } = scriptedFetch({ [FETCH_URL]: { status: 0 } }); // transport failure
+    await verifyJson({
+      workspace: ws,
+      verify: true,
+      deps: deps({ "github-readme": capability() }, fetch),
+    });
+
+    const ledger = ledgerOf(ws);
+    expect(ledger).toContain("reason: network-error");
+    // The anchor is what the DEPLOY confirmed — a failed check must not drop it,
+    // or the record could never be judged again.
+    expect(ledger).toContain(`artifactHash: ${anchor}`);
+    expect(ledger).not.toContain("unattributed");
   });
 
   it("a `never` surface is not verified: nothing is deployed, so no request is made", async () => {
