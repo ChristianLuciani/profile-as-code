@@ -309,7 +309,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
 | `pasco check [platform]` | run skill-declared checks before deploy |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
-| `pasco status [platform] [--mark <ledgerKey> <surface>] [--write-checklist] [--completeness]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste (ledger write path); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both into the generated `CHECKLIST.md` |
+| `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md` |
 | `pasco skills:install <agent>` | project repo skills → agent skill studio (zhiweio pattern) |
 | `pasco serve` | run the **minimal reference adapter** (D20) — exposes `Core` over a **local HTTP contract** so any consumer (UI, editor, script, service) drives the engine without re-implementing it. Minimal **by construction**; a deployment that needs more ships its own server against the same contract |
 
@@ -954,6 +954,7 @@ deployments:
       certification:                     # v1.10 ADDITIVE (§19.5) — absent = attested
         state: verified | attested | unverifiable | out-of-band-drift
         reason: <string>                 # required for unverifiable / out-of-band-drift
+        artifactHash: <sha256-hex>       # v1.10 — THE ANCHOR: artifact digest at confirm time
         method: fetch                    # only when a live check ran (v1: fetch)
         fetchedAt: 2026-10-12T10:00:00Z  # only when a live check ran
         liveHash: <sha256-hex>           # only when a live check produced a digest
@@ -976,10 +977,11 @@ deployments:
   deploy was confirmed* — a deterministic live check (`verified`), the human `--mark`
   (`attested`), or an honest `unverifiable` / `out-of-band-drift`. It is optional so every
   pre-v1.10 workspace keeps validating; a record without it reads as `attested`, which is
-  exactly what every record written before v1.10 was (the only writer was `--mark`, verified
-  by grep). When the block is present, `state` is required; the other fields are required by
-  state (§19.5). Semantics, evidence fields and the rollup live in §19.5 — this block only
-  fixes the shape.
+  exactly what every record written before v1.10 was (the only ledger writer today is
+  `--mark`). When the block is present, `state` is required; the other fields are required by
+  state. `artifactHash` is the **anchor** the C1 check compares against, recorded by the write
+  that confirms the deploy (v1: `--mark`); without it a fetch can observe but not judge
+  (§19.5). Semantics, evidence fields and the rollup live in §19.5 — this block fixes the shape.
 - The ledger is **append/update-only state**: removing a row from `content/` does not
   remove its ledger key (audit trail); `pasco status` reports the dangling key as
   `removed`.
@@ -1023,8 +1025,8 @@ copied template example keeps the provenance (still true — it *is* template-de
 | Invocation | Behavior |
 |---|---|
 | `pasco status [platform]` | per-unit report: ledger key · origin (template/user) · surfaces published · sync state per surface: `in-sync` \| `stale` (hash mismatch) \| `never` · **certification per surface** (§19.5: `verified` \| `attested` \| `unverifiable` \| `out-of-band-drift`, with the reason). Offline and deterministic — the report never fetches |
-| `pasco status --mark <ledgerKey> <surface> [--at <iso8601>]` | confirm a (manual) paste — records `deployedAt` + the **current** `contentHash`, `source: manual`, and explicitly `certification.state: attested` (v1.10: the human assertion is now visible as such); **only `pasco` mutates the ledger** (same rule as `refine --choose`, D14) |
-| `pasco status --verify [platform]` | v1.10 (§19.5): the C1 live check — fetches the fetchable surfaces' published artifacts, records the evidence, and updates `certification` in place; **the one network-touching path in the engine, opt-in by construction** (never implicit in `status`/`build`, §15.1) |
+| `pasco status --mark <ledgerKey> <surface> [--at <iso8601>]` | confirm a (manual) paste — records `deployedAt` + the **current** `contentHash`, `source: manual`, `certification.state: attested`, and — where the surface has a canonical extractor — the **anchor** `certification.artifactHash` (the extractor's digest of the locally rendered artifact at this moment, i.e. what is being attested), so a later `--verify` can judge rather than only observe (v1.10, §19.5); **`pasco` is the one writer** (same rule as `refine --choose`, D14) with **two triggers**: `--mark` and `--verify` |
+| `pasco status --verify [platform]` | v1.10 (§19.5): the C1 live check — resolves each fetchable surface's artifact URL, **validates its host against the surface's declared fetch allowlist**, fetches sequentially and without retries, records the evidence, and updates `certification` in place by comparing the live digest against the stored `artifactHash`. **The one network-touching path in the engine, opt-in by construction** (never implicit in `status`/`build`, §15.1) |
 | `pasco status --write-checklist` | regenerates `CHECKLIST.md` from the ledger (AUTO-GENERATED header) — the checklist becomes a *view*, not a second source of truth; each surface carries its **certification token**, so an `attested` surface is never rendered as a bare `in-sync` (§19.5) |
 | `--json` | machine-readable report, consistent with the other commands; `units[].surfaces` (staleness) is unchanged, and `units[].certification` (per-surface + rollup) is ADDITIVE (§19.5 — existing consumers keep working) |
 
@@ -1102,73 +1104,102 @@ units: [{
   "state":      "never" | "in-sync" | "stale",                 // UNCHANGED (rollup)
   "certification": {                                           // NEW
     "state":    "verified" | "attested" | "unverifiable" | "out-of-band-drift" | null,
-    "surfaces": { "<surface>": { "state": "…", "reason": "…", "method": "fetch",
-                                 "fetchedAt": "…", "liveHash": "…", "evidenceUrl": "…" } }
+    "surfaces": { "<surface>": { "state": "…", "reason": "…", "artifactHash": "…",
+                                 "method": "fetch", "fetchedAt": "…", "liveHash": "…",
+                                 "evidenceUrl": "…" } }
   }
 }]
 ```
 
 **Recorded vs derived `unverifiable`.** An `unverifiable` produced by an *attempt* (the pass
-fetched and got a non-2xx, or the transport failed) is **recorded** with `fetchedAt`,
-`evidenceUrl` and `reason` — the honest degradation is durable evidence, not a transient
-print. An `unverifiable` produced by a *declaration* (`walled`, `walled-con-api`,
-`no-extractor`, `no-artifact-url`) is **derived at read time** for every record on that
-surface, so a workspace never needs a ledger row per walled platform, and the verdict cannot
-be lost by a stale write.
+fetched and got a non-2xx, the transport failed, or the record carries no anchor) is
+**recorded** with `fetchedAt`, `evidenceUrl` and `reason` — the honest degradation is durable
+evidence, not a transient print. An `unverifiable` produced by a *declaration* (`walled`,
+`walled-con-api`, `no-extractor`, `no-artifact-url`) is **derived at read time** for every
+record on that surface, so a workspace never needs a ledger row per walled platform, and the
+verdict cannot be lost by a stale write.
 
-**Two hashes, one conjunction.** `contentHash` (the SSOT revision) is already stored. A C1
-pass adds one measured digest and computes one expected digest:
+**Three digests, one comparison.** Three SHA-256 values, each with exactly one meaning, so the
+two dimensions never borrow each other's evidence:
 
-- `liveHash` — SHA-256 of the **canonical extractor output over the LIVE artifact**, observed
-  at `fetchedAt` and recorded with `evidenceUrl` and `method: fetch`. It is the anchor that
-  lets a later pass say *the live content changed* independently of the SSOT.
-- `expectedHash` — the SAME extractor applied to the locally rendered artifact of the current
-  SSOT. It is a pure function of the workspace (§15.1) and is **computed in-pass, never
-  stored** (storing a derived value would let it drift).
+- `contentHash` (STORED) — the SSOT revision of the unit at confirmation. Drives **staleness**
+  only (§19.1).
+- `artifactHash` (STORED, **the anchor**) — the canonical extractor's digest of the surface's
+  artifact **as confirmed at deploy time**. It is written by the confirming write (§19.3
+  `--mark`; a future deploy command writes it too), because that is the only moment the engine
+  can render the artifact it is attesting to. Drives **certification** only.
+- `liveHash` (STORED, fetch evidence) — the same extractor's digest of the **LIVE** artifact,
+  observed at `fetchedAt` and recorded with `evidenceUrl` and `method: fetch`.
+
+The C1 comparison is `liveHash` ↔ `artifactHash` — **never against a freshly re-rendered
+artifact**. That is deliberate: re-rendering the *current* SSOT mixes two questions into one
+number ("did the live page change?" and "did the source move?"), which is precisely the
+conflation §19.5 exists to remove. Anchoring at confirmation also **removes** the earlier
+draft's `expectedHash` entirely — there is no derived value to recompute and no per-record
+attribution problem: every record on a surface compares the same live artifact against the
+same anchor, and a difference can only mean the live page no longer carries what was deployed.
 
 The extractor is **artifact-scoped, canonical and offline-testable**: it maps published text
 to the artifact projection the engine owns, with platform chrome stripped. v1 deliberately
 does NOT build a per-unit reverse renderer — that would be a second renderer beside
 `github-readme`, and the one-home rule (D5, AGENTS.md rule 7) forbids two renderers for one
-artifact. The honest consequence, declared: C1 certifies the **artifact the surface
-publishes**, and each record inherits the verdict only in conjunction with its own
-`contentHash`. The extractor ships with the surface's renderer adapter — the artifact's
-producer owns both directions of it — while the record semantics and hashing stay in core,
-offline and platform-agnostic.
+artifact. The declared consequence: C1 certifies the **artifact the surface publishes**. The
+extractor ships with the surface's renderer adapter — the artifact's producer owns both
+directions of it. **The record semantics, the anchor and the staleness hash live in `core`,
+offline and platform-agnostic; the fetch and the verdict are CLI orchestration** over those
+primitives plus the renderer's extractor, and the fetch is **not** part of `Core` — so
+`pasco serve` (D20) does not acquire a network capability.
 
-**The verdict, per `(ledgerKey, surface)` record, when the fetch succeeds:**
+**The verdict — a total function of (fetch outcome, anchor presence, comparison), per
+`(ledgerKey, surface)` record.** Every combination lands somewhere explicit; nothing is
+silently inherited:
 
-1. `record.liveHash` exists and ≠ the freshly observed `liveHash` → **`out-of-band-drift`**.
-   The live artifact changed and the engine did not deploy it — independent of staleness
-   (this fires whether or not the SSOT also moved).
-2. otherwise, if `record.contentHash == unit.hash` (the record is `in-sync` by SSOT — the
-   SSOT has not moved since the deploy was confirmed):
-   - `liveHash == expectedHash` → **`verified`** — the live artifact is exactly the engine's
-     render of the recorded SSOT revision (this is the first-pass promotion path);
-   - else → **`out-of-band-drift`** — same SSOT, different live content.
-3. otherwise (the record is `stale` and carries no prior `liveHash`) the pass **cannot
-   attribute** the difference: the SSOT moved and there is no recorded digest to compare
-   against. Staleness reports `stale`; the certification is left unchanged. It never upgrades
-   to `verified` and never claims a drift it cannot evidence.
+| Fetch | `record.artifactHash` | `liveHash` vs `artifactHash` | Verdict |
+|---|---|---|---|
+| fails / non-2xx | — | not computed | **`unverifiable`** + reason (`http-403` · `http-429` · `http-<code>` · `network-error`), **recorded** with `fetchedAt` + `evidenceUrl` |
+| not fetchable (declared) | — | — | **`unverifiable`** with the declared reason (`walled` · `walled-con-api` · `no-artifact-url` · `no-extractor`), derived at read time |
+| ok | present | equal | **`verified`** — refresh `fetchedAt` / `evidenceUrl`; the anchor is left unchanged (it is the deploy's digest, not a moving cache) |
+| ok | present | different | **`out-of-band-drift`** (`reason: live-mismatch`) — independent of staleness |
+| ok | absent | not judged | **`unverifiable`** (`reason: unattributed`), recorded with the fetch evidence — an anchor-less record (pre-v1.10, or a confirmation that could not render the artifact); re-confirm with `--mark` to record the anchor, after which `--verify` judges |
+
+Row 4 is the point of the anchor: it fires whether or not the SSOT also moved, so `stale` +
+`verified` **and** `stale` + `out-of-band-drift` are both expressible, and neither dimension is
+read off the other's comparison. Row 5 is the honest alternative to guessing: an anchor-less
+record is *observable but not judgeable*, and the contract says so instead of inferring a
+verdict from a render it cannot trust.
 
 Promotion `attested → verified` **updates the same `(ledgerKey, surface)` record in place**,
-leaving `deployedAt`, `contentHash` and `source` untouched — the staleness basis is preserved
-byte-for-byte, which is what "a mechanical pass lifts the same key from attested to verified
-without touching staleness" means concretely.
+leaving `deployedAt`, `contentHash`, `source` and `artifactHash` untouched — the staleness
+basis **and** the deploy anchor are preserved byte-for-byte, which is what "a mechanical pass
+lifts the same key from attested to verified without touching staleness" means concretely.
 
 **Fetch policy and the honest ladder (v1).** The engine never reads a platform to *source*
 data — §2's "no scrapers" non-goal is about that direction. C1 reads back the engine's **own
 deployed artifact** to verify it landed, which is why it can be honest and bounded:
 
 1. **fetchable (C1 runs) — GitHub raw only.** The artifact URL is *derived* from the
-   workspace (surface + the user's own declared GitHub identity), never hand-maintained in
-   the ledger, and the exact URL fetched is recorded as `evidenceUrl` so the claim is
-   auditable. `github-readme` is the first surface; `github-org` is the same class.
+   workspace's **URL SSOT** (§15.4/§18.4 — `identity.links` / declared handles, plus the
+   surface), never a new hand-maintained field, and the exact URL fetched is recorded as
+   `evidenceUrl` so the claim is auditable. `github-readme` is the first surface;
+   `github-org` is the same class.
+   **The derived URL is validated against the surface's declared fetch host(s)** (v1:
+   `raw.githubusercontent.com`) **before any request**; a URL outside them is refused with
+   `unverifiable` + reason `host-not-allowed`, with no request made. This is not ceremony: the
+   workspace is untrusted input (templates are cloned from strangers), so without the allowlist
+   a crafted `identity.links` entry could aim an opt-in `--verify` at an arbitrary or internal
+   host. The allowlist is a declared capability of the surface, beside its extractor — one
+   home, not a second platform list.
 2. **walled-con-API** — a platform whose raw page is not fetchable but that exposes a
    management API. v1 declares the rung and reports `unverifiable` with reason
    `walled-con-api`; a future pass that uses an API records `method: api`. Not implemented.
 3. **unverifiable (walled)** — no honest machine check: reason `walled`. The engine must not
    pretend; `unverifiable` is a first-class, reportable outcome, not an error.
+
+**Rate limits and request discipline.** One request per surface per pass, sequential, with no
+retries and no backoff games: `--verify` is a verification, not a crawler, and the pass must
+never amplify into traffic a platform can read as abuse. A rate-limited or transient failure
+is recorded as the honest reason (`http-429`, `network-error`) and the pass moves on;
+re-running `--verify` is the retry, and it is the operator's decision.
 
 Fetchability is **not uniform, and that is measured rather than assumed**: the live fetch of
 `https://ko-fi.com/christianluciani` returned **HTTP 403** (Cloudflare challenge) from outside
@@ -1205,9 +1236,13 @@ homes for one deploy's state guarantees drift. (b) **Overloading `contentHash`**
 live hash — rejected: it would destroy staleness's exactness by conflating two orthogonal
 facts on one field. (c) A **separate top-level `pasco verify` command** — rejected in favour
 of `status --verify`: it would duplicate the reporting surface and split the one write path
-across two commands (the §19.4 one-owner rationale). (d) **Storing `expectedHash`** —
-rejected: a derived value that must be recomputed to stay honest is a value that can drift.
-(e) **Per-unit reverse renderers** — rejected above: two renderers for one artifact.
+across two commands (the §19.4 one-owner rationale). (d) **Comparing against a freshly
+re-rendered artifact** (an earlier draft's `expectedHash`) — rejected: it conflates "the live
+page changed" with "the source moved", and it lets an unrelated unit's staleness decide this
+record's verdict (an in-sync record on a surface where a *different* unit is stale would be
+reported as `out-of-band-drift` — a false accusation). Recording the anchor at confirmation
+deletes that branch instead of guarding it. (e) **Per-unit reverse renderers** — rejected
+above: two renderers for one artifact.
 
 ## 20. Profile completeness — checklist + percentage (issue #102)
 
