@@ -15,11 +15,13 @@ pasco --version                 # the bin — prints the installed version
 The install adds one global bin and nothing else: no post-install script, no
 server, no account.
 
-> **Published** [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-09]:
+> **Published** [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-12]:
 > `@profile-as-code/cli` is public on npm — the registry is the source of truth
-> (`npm view @profile-as-code/cli version`). The `0.2.0` release (published
-> 2026-10-09T23:25:23Z; tag `v0.2.0` → `c1ca30c`) was verified running
-> (`npx @profile-as-code/cli@0.2.0 --version` → `pasco 0.2.0`).
+> (`npm view @profile-as-code/cli version`). The current release is `0.3.0`
+> (published 2026-10-11T03:43:27Z, dist-tag `latest`; tag `v0.3.0` → `21e4cde`)
+> and the bin was verified running (`node packages/cli/dist/index.js --version`
+> → `pasco 0.3.0` on `main`, 2026-10-12). No published version carries a
+> provenance attestation while the source repo is private — documented, not pending.
 > Source install: [User Guide §2](../../docs/USER-GUIDE.md#2-install-the-pasco-cli).
 
 ## Get a workspace

@@ -7,8 +7,8 @@ updated, and stay in sync as the engine evolves.
 > Audience: a **user** of the engine (not an engine contributor). Contributor
 > docs live in [CONTRIBUTING.md](../CONTRIBUTING.md); the product contract is
 > [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli`
-> version **0.2.0** — tagged `v0.2.0` and published to npm (`latest`) on
-> 2026-10-09 (#113).
+> version **0.3.0** — tagged `v0.3.0` and published to npm (`latest`) on
+> 2026-10-11 (#113, #207).
 > The [CLI's command/status table](../packages/cli/README.md) is authoritative
 > on which commands are still partial; SPEC §12 holds the milestone roadmap.
 
@@ -98,25 +98,29 @@ Two paths. **Option A is the intended path for users** (published on npm);
 
 ```sh
 npm i -g @profile-as-code/cli    # the package
-pasco --version                  # the bin — expect 0.2.0
+pasco --version                  # the bin — expect 0.3.0
 ```
 
 One global install: no clone, no build, nothing written outside the npm prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
-> **Status** [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-09]: `@profile-as-code/cli@0.2.0`
-> is **public** and tagged `latest` (published 2026-10-09T23:25:23Z; tag `v0.2.0` → `c1ca30c`),
-> and the bin was verified running (`npx @profile-as-code/cli@0.2.0 --version` → `pasco 0.2.0`).
+> **Status** [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-12]: `@profile-as-code/cli@0.3.0`
+> is **public** and tagged `latest` (published 2026-10-11T03:43:27Z; tag `v0.3.0` → `21e4cde`),
+> and the bin was verified running (`node packages/cli/dist/index.js --version` → `pasco 0.3.0`
+> on `main`, 2026-10-12).
 > Caveat: while the engine repo stays private the package's `repository.url` points at a repo
-> outsiders cannot read, and this first version carries **no provenance attestation**
-> (STANDARDS §Order ratified 2026-10-03; the OIDC migration is
-> [#80](https://github.com/ChristianLuciani/profile-as-code/issues/80)).
+> outsiders cannot read, and **no published version carries a provenance attestation** — npm
+> emits it only with a public source repo, and the 0.3.0 publish ran on a successful OIDC
+> exchange with the source still private (STANDARDS §Order ratified 2026-10-03;
+> `dist.attestations` absent, re-checked 2026-10-12). The key migration itself is **done**
+> ([#80](https://github.com/ChristianLuciani/profile-as-code/issues/80) closed; token deleted
+> in npm and GitHub).
 >
 > Why the names (the names were checked 2026-09-30): the bin was renamed `pac` → `pasco`
 > (issue #38) because an unrelated npm package named `pac` already ships a `pac`
 > binary (`pac@1.0.0`, published 2015-04-26, still latest), while `pasco` itself
 > was unclaimed (`404` at the time) — so there is no global-install bin conflict.
-> `pasco` is now claimed by the real `v0.2.0` publish (2026-10-09), so no
+> `pasco` is now claimed by the real `v0.3.0` publish (2026-10-11), so no
 > placeholder reservation is needed.
 
 ### Option B — from source
@@ -150,7 +154,7 @@ alias pasco='node /absolute/path/to/profile-as-code/packages/cli/dist/index.js'
 ### Verify
 
 ```sh
-pasco --version   # what you installed — 0.2.0 today
+pasco --version   # what you installed — 0.3.0 today
 pasco --help      # command list + exit-code contract
 ```
 
@@ -388,7 +392,7 @@ pasco diff [--json]                  # what changed since the last release tag
   latest git tag matching `.pascorc → diff.tagPattern` (default `release-*`) and
   hints what belongs in `CHANGELOG.md`; when no tag matches the pattern it falls
   back to the first commit. Uncommitted edits do not appear — commit first.
-  **Verified 2026-10-09:** the engine repo's release tag is `v0.2.0`, which does
+  **Verified 2026-10-12:** the engine repo's release tag is `v0.3.0`, which does
   **not** match the default `release-*` pattern (`git tag -l 'release-*'` →
   empty; `packages/cli/src/commands/diff.ts`), so with the default config
   `pasco diff` still diffs against the first commit there — set
