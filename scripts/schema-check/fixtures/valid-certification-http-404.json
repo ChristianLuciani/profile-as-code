@@ -1,0 +1,21 @@
+{
+  "identity": {
+    "name": "Ada Example"
+  },
+  "deployments": {
+    "identity": {
+      "linkedin": {
+        "deployedAt": "2026-09-08T10:00:00Z",
+        "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source": "manual",
+        "certification": {
+          "state": "unverifiable",
+          "reason": "http-404",
+          "method": "fetch",
+          "fetchedAt": "2026-10-12T10:00:00Z",
+          "evidenceUrl": "https://raw.githubusercontent.com/x/y"
+        }
+      }
+    }
+  }
+}

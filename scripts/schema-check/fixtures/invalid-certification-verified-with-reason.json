@@ -1,0 +1,20 @@
+{
+  "identity": { "name": "Ada Example" },
+  "deployments": {
+    "identity": {
+      "linkedin": {
+        "deployedAt": "2026-09-08T10:00:00Z",
+        "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "source": "manual",
+        "certification": {
+          "state": "verified",
+          "artifactHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "method": "fetch",
+          "fetchedAt": "2026-10-12T10:00:00Z",
+          "liveHash": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "reason": "live-mismatch"
+        }
+      }
+    }
+  }
+}

@@ -156,8 +156,10 @@ pasco --help      # command list + exit-code contract
 
 `--help` prints `init`, `validate`, `build`, `diff`, `refine`, `check`, `status`
 and `skills:install`, plus the exit-code contract: `0` ok · `1` schema or
-workspace failure · `2` usage error. Which of those commands are still partial
-is stated in the [CLI's command table](../packages/cli/README.md).
+workspace failure · `2` usage error. `pasco status --help` covers the deploy
+ledger and its opt-in live check (`--mark`, `--verify`, `--write-checklist`,
+`--completeness`). Which of those commands are still partial is stated in the
+[CLI's command table](../packages/cli/README.md).
 
 > Updating the engine later? See [§8.2](#82-update-the-engine).
 
@@ -522,12 +524,52 @@ Non-negotiables:
 - After pasting, verify facts — cross-platform factual consistency is the whole
   point (GEO). Then confirm the deploy in the ledger:
   `pasco status --mark <block>:<id> <platform>` records `deployedAt` + the current
-  `contentHash` — only `pasco` writes `content/deployments.yaml` (D14).
+  `contentHash` — only `pasco` writes `content/deployments.yaml` (D14). It also
+  records the **certification** of the deploy (`attested`: *you* said so).
 - `pasco status` is the per-entry answer to "what is published where, and what's
   out of date": every unit shows `in-sync` / `stale` / `never` per surface, plus
   template-origin flags and untracked rows (add an `id` to track them).
+- **Certification is a second, independent dimension** (§19.5, v1.10). Staleness
+  answers *"did my source change after the deploy?"*; certification answers *"how
+  was the deploy confirmed, and does the live page still carry it?"* — a
+  `stale` + `verified` pair is normal and meaningful:
+
+  | Certification | Means |
+  |---|---|
+  | `verified` | a live check fetched the page and it still matches the anchor |
+  | `attested` | the human `--mark` said so; never actually fetched |
+  | `unverifiable` | no check was possible or it did not complete (`no-extractor`, `no-artifact-url`, `http-403`, `network-error`, `host-not-allowed`, `unattributed`…) |
+  | `out-of-band-drift` | a live check ran and the page no longer matches — never green |
+
+  Only `verified` and `attested` are *confirmation strengths* — a surface is
+  "fully certified" only when every one of its surfaces is one of those two.
+- **`pasco status --verify`** (opt-in) runs that live check: it derives each
+  recorded surface's artifact URL from your `identity.links` URL SSOT, refuses
+  any host outside the surface's declared allowlist **before** making a request,
+  then fetches once per surface, sequentially, with no retries — the engine's only
+  network path, and never implicit in `status`, `build`, `validate` or `check`.
+  A non-2xx or a network failure is reported honestly (`unverifiable` + the
+  reason) and never breaks the report; `--verify` records that evidence in the
+  ledger, and committing that file is yours (D2).
+- **Declared vs. recorded.** A reason that comes from a *declaration* — the
+  platform has no extractor (`no-extractor`), no derivable URL
+  (`no-artifact-url`), or is walled (`walled`, `walled-con-api`) — is *stated* by
+  the `--verify` run and never written: a declaration is not an event, so a walled
+  platform needs no ledger row. A reason that comes from an *attempt*
+  (`http-403`, `network-error`) **is** recorded with its evidence and read back
+  as-is — that evidence is the audit trail, and a later `status` shows it. A
+  record with no certification block at all reads `attested`: never machine-checked,
+  only confirmed by you.
+- **v1 limit — anchors are forward-only.** A record with no anchor cannot be
+  judged: a live check *observes* the page and records
+  `unverifiable: unattributed` — never a quietly-green `in-sync`. (With no
+  extractor available yet, that check cannot run at all and the surface is
+  reported `no-extractor` instead.) Re-run `pasco status --mark …` once an anchor
+  can be recorded to close the gap.
 - `CHECKLIST.md` is a **generated view** of the ledger:
-  `pasco status --write-checklist` regenerates it — do not edit it by hand.
+  `pasco status --write-checklist` regenerates it — do not edit it by hand. Each
+  surface carries its certification token (e.g. `linkedin (in-sync/attested)`), so
+  a surface that is not machine-checked is never presented as a bare `in-sync`.
 - Deploy steps and post-deploy verification for `manual` platforms live in each platform
   skill's `playbook.md` (`skills/<platform>/`); a shared `templates/playbooks/` directory is
   planned for M4/M5 (SPEC §12).
@@ -551,6 +593,7 @@ git add -A && git commit -m "feat: <what>"
 git push
 # deploy (paste / PR per §7) → pasco status --mark <block>:<id> <platform>
 pasco status                         # what's stale per surface (D18 deploy ledger)
+pasco status --verify                # optional: does the live page still match? (§19.5)
 pasco status --write-checklist       # regenerate CHECKLIST.md from the ledger
 git add -A && git commit -m "chore: deploy ledger + checklist view"
 git tag release-YYYY-MM && git push --tags   # baseline for the next pasco diff

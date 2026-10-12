@@ -58,7 +58,7 @@ commands above are the standalone path.
 | `pasco validate [--json]` | Schema **fail** (exit 1) + drift/geo **warn** (exit 0) — D12 | ✅ |
 | `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (github-readme, github-org, kofi) also write `profiles/<platform>/README.md` + bundled media in `profiles/<platform>/assets/` with `assets/manifest.json` (M8/§18.6 — public path-locator artifacts, sha256 at compile; see `docs/media-pipeline.md`). Empty render = no-trace unbuild of that platform's output (pure profiles/, §15.1 — v1.7) | ✅ |
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
-| `pasco status [platform] [--mark <ledgerKey> <surface>] [--write-checklist]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never + ledger write path (D18, §19) | ✅ |
+| `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never · **certification** (verified/attested/unverifiable/out-of-band-drift, §19.5) + ledger write paths (D18, §19) | ✅ |
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13) | 🚧 template + `--choose` (full flow M3) |
 | `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) | 🚧 offline rules today (catalog M3/M4) |
 | `pasco skills:install <agent>` | Skills-studio projection command (AGOS) | 🚧 prints the projection command |
@@ -88,7 +88,10 @@ pasco build github-readme --lang en
 pasco diff
 pasco status                          # what's published where — per entry
 pasco status linkedin                 # filter one surface
-pasco status --mark identity linkedin # confirm a paste (records the current contentHash)
+pasco status --mark identity linkedin # confirm a paste (records the current contentHash + attested)
+pasco status --verify                 # §19.5 C1: does the live page still match? (the only network path)
+                                      #   a surface with no extractor reports unverifiable: no-extractor
+                                      #   (a DECLARED reason is stated, never written: only an attempt is recorded)
 pasco status --write-checklist        # regenerate CHECKLIST.md from the ledger
 pasco refine linkedin --variants 3            # emits the agent task template (full flow M3)
 pasco refine linkedin --choose li-en-2        # records the chosen variant in content/active.yaml
