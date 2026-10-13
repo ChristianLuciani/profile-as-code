@@ -377,18 +377,15 @@ Scheduled deprecation this removed: the granular access token with 2FA bypass us
 loses direct publishing ~January 2027 ([WEB] github.blog changelog 2026-07-08). The repo no
 longer depends on it.
 
-> **Known divergence — the workflow's own prose is stale (issue #208, open).** Nothing above
-> is wrong, but `.github/workflows/release.yml:3–6` still reads *"The FIRST tag push (v0.2.0)
-> is the operator's publish action — pushing the tag IS publishing…; workflow_dispatch is for
-> retries"*, and the `Publish` step comment (`:139–147`) still describes `NPM_TOKEN` as a
-> **live fallback** and says to *"delete the secret only after the trusted publisher is
-> configured and a publish through it is verified"* — a step that has already happened.
-> Both statements are false today. They are **comments only**: no executable behaviour depends
-> on them, so this is not a change to the mechanism that decision 5 of the #113 handover
-> froze — but it is also not corrected here, because editing the workflow file needs the
-> operator's explicit go-ahead. Until it is corrected, **a maintainer who reads the workflow
-> gets the opposite of the truth**, which is why #208's criterion ("el runbook diciendo lo
-> mismo que el workflow") is **not yet satisfied** even though this runbook is.
+> **Divergence closed (issue #208).** An earlier revision of this runbook carried a "Known
+> divergence" note here: `.github/workflows/release.yml:3–6` used to claim that pushing the tag
+> *was* publishing, and the `Publish` step comment described `NPM_TOKEN` as a live fallback. Both
+> were stale prose in a file a maintainer reads first. They have been **corrected in the
+> workflow** — the header now states that the dispatch publishes and the tag announces, that a
+> tag push shows a red run and creates no Release, and that there is no token fallback left.
+> Comments only: no executable behaviour changed, so the guard, the trigger set, the
+> tag|publish invariant and the `release` job's ordering are all untouched. **The runbook and the
+> workflow now say the same thing.**
 
 After a successful publish, the `release` job creates the matching **GitHub
 Release** (issue #58): it checks out the same verified commit, extracts that
@@ -412,7 +409,7 @@ kept as the **announcement and the version marker** — it names the version and
 commit — but it does **not** publish, and, read the next paragraph, it does **not** create the
 GitHub Release either. This is decision 5 of the #113 handover (operator, 2026-10-12): the
 manual button is the official path and the tag announces. The mechanism in `release.yml` was
-deliberately **not** changed by that decision (see "The mechanism question" below).
+deliberately **not** changed by that decision — option (c) of "The mechanism question" below.
 
 Do this in order:
 
@@ -430,6 +427,14 @@ Do this in order:
 
    This is the step that publishes. It runs the guard, builds and tests the tagged commit,
    verifies the tarball, and publishes over OIDC.
+
+   > **Do not add `-f dry_run=true` when you mean to publish.** That input is the harmless
+   > smoke — it adds `--dry-run` to `npm publish` — but it also makes `release-guard.mjs`
+   > return early, so the tag=publish, commit-identity and tagged-manifest invariants are
+   > **NOT enforced** (the guard says so in its own log: *"the tag=publish, commit-identity
+   > and tagged-manifest invariants are NOT enforced"*). A smoke run proves the pipeline
+   > runs; it proves **nothing** about the release invariants. A real publish is
+   > `gh workflow run release.yml --ref main` with **no** input.
 4. **Verify** — the post-publish checks in
    ["Post-publish verification"](#post-publish-verification-issue-142), plus that the GitHub
    Release for the tag now exists (step 3 creates it; see below).
@@ -451,28 +456,32 @@ dispatch* run, never from the tag — e.g. the `v0.3.0` Release at 2026-10-11T03
 between the successful dispatch (03:40:45Z) and the npm publish (03:43:27Z). So step 3 above is
 what produces both the npm version and the Release page; that is why it is the primary path.
 
-**The mechanism question (operator decision — deliberately left open).** "The tag announces" is
-not yet mechanically true: the tag currently produces a *red* run and no Release, not a clean
-announcement. Three ways to make the statement exact, with their cost — **the session that wrote
-this runbook did not choose; the choice is the operator's**:
+**The mechanism question — decided: option (c), 2026-10-12.** The operator chose option (c) and
+separately authorized this comments-only correction of the workflow's prose. The ratification is
+recorded in the [#208 ratification comment](https://github.com/ChristianLuciani/profile-as-code/issues/208#issuecomment-6134905019)
+(2026-10-12T23:57:07Z) — transcribed by the session because the authorization itself was given
+off-repo, and attributed there as the operator's decision, not the session's. It supersedes the
+earlier reconciliation comment, which had recorded the question as open. The three options were:
 
 - **(a) Make the tag publish.** Diagnose the OIDC exchange on a tag ref (the `job_workflow_ref`
-  claim vs npm's matching rules). Cost: an investigation with **no evidence it is possible** —
-  and the private source repo already blocks attestation regardless, so making the tag publish
-  would not buy provenance.
+  claim vs npm's matching rules). **Rejected:** an investigation with **no evidence it is
+  possible**, and the private source repo blocks attestation regardless, so it would not buy
+  provenance.
 - **(b) Make the tag an announcement only.** The tag push creates the Release and does **not**
-  publish; the dispatch publishes. Cost: a **mechanism change in `release.yml`** — inverting the
-  `release` job's dependency so it no longer waits on a successful `publish` (today's `needs:
-  publish` is what makes a failed tag run silent), while keeping the tag|publish invariant intact.
-- **(c) Leave the workflow alone.** Declare honestly that the tag run is red and creates no
-  Release, and that the Release always comes from the dispatch. Cost: **zero mechanism risk**,
-  and a permanently red tag run that a future reader must be told not to "fix".
+  publish; the dispatch publishes. **Rejected on inspection:** it inverts the `release` job's
+  dependency, and since `CHANGELOG.md` already carries the section at tag time, the tag push
+  would publish a Release page **before the artifact exists on npm** — it trades a red run for a
+  premature announcement, which is worse.
+- **(c) Leave the workflow alone — CHOSEN.** The tag run stays red and creates no Release; the
+  dispatch publishes and creates the Release. **Zero mechanism risk.** The cost is accepted
+  deliberately: a tag push is a red run, and a future reader must be told not to "fix" it —
+  which is why the workflow header now states it explicitly.
 
-Until the operator picks one, **read this runbook as (c)**: the workflow is unchanged, so a tag
-push is red and creates no Release; the dispatch publishes and creates the Release. Under (b),
-step 2 would also create the Release, and the paragraph above would need rewriting; under (a),
-steps 2 and 3 would collapse into one. **The runbook and the workflow agree today only in the
-sense that both say "the dispatch publishes"** — the tag half is the part still owed.
+So "the tag announces" means: the tag **marks the version on origin** (the precondition
+`release-guard.mjs` enforces) and its run is expected to fail; it does not publish and does not
+create the Release. Step 2 above is a version marker, step 3 is the release. **The runbook and
+the workflow now say the same thing** — the workflow's header comments were corrected to this
+model in the same change, comments only.
 
 ### Preparing a release (do this before tagging)
 
