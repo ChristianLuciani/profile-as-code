@@ -26,6 +26,18 @@ importers:
         specifier: ^2.9.1
         version: 2.9.1
 
+  packages/artifact:
+    devDependencies:
+      '@types/node':
+        specifier: ^26.6.4
+        version: 26.6.4
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: ^5.0.3
+        version: 5.0.3(@types/node@26.6.4)(vite@7.3.6(@types/node@26.6.4)(yaml@2.9.1))
+
   packages/cli:
     dependencies:
       yaml:
@@ -35,6 +47,9 @@ importers:
         specifier: ^4.6.5
         version: 4.6.5
     devDependencies:
+      '@profile-as-code/artifact':
+        specifier: workspace:*
+        version: link:../artifact
       '@profile-as-code/core':
         specifier: workspace:*
         version: link:../core
@@ -146,6 +161,9 @@ importers:
 
   packages/renderers/github-org:
     dependencies:
+      '@profile-as-code/artifact':
+        specifier: workspace:*
+        version: link:../../artifact
       '@profile-as-code/core':
         specifier: workspace:*
         version: link:../../core
@@ -165,6 +183,9 @@ importers:
 
   packages/renderers/github-readme:
     dependencies:
+      '@profile-as-code/artifact':
+        specifier: workspace:*
+        version: link:../../artifact
       '@profile-as-code/core':
         specifier: workspace:*
         version: link:../../core
