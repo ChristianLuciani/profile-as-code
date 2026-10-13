@@ -33,6 +33,15 @@ skills + deploy playbooks**.
 ### Non-goals (v1)
 
 - No SaaS/multi-tenant backend (may become `identikit` microSaaS later, on top of the engine).
+- **No hosted on-ramp in v1** (issue #122). None of §9.2's three on-ramps reaches a visitor who has
+  **neither an account nor a terminal** — a profile hosted by us — and the SPEC has no milestone for
+  the service it would need: that is a **multi-tenant service** (accounts, storage, secrets, privacy,
+  cost) and it inverts the model the product is built on — the user *has* a folder where their data
+  lives, which the engine reads by configured path (§9, D14). **M5 is a consumption renderer, not a
+  hosted onboarding** (§12 M5). **Reopening trigger, on the *first* of either:** the **first hosted
+  use case** (a real user who cannot take on-ramp A, B or C), or **M5 + web consumption live** (the
+  web renderer exists and generated profiles are consumed on the web). Reopening means scoping a
+  **milestone of its own** — auth, storage, secrets, privacy, cost — not extending M5.
 - No CV/PDF renderer (delegate to yamlresume/JSON Resume as a renderer if ever needed).
 - No scrapers — we never read platforms **to source data**; we write (or paste). The single
   read-back is the opt-in live-drift check of the engine's **own** deployed artifact (§19.5,
@@ -460,7 +469,7 @@ Two different "templates" (previous confusion):
 2. **M2**: renderer `github-readme` + CI + dogfood (Christian's real GitHub README) — detailed in §15.
 3. **M3**: SOTA research per platform (GitHub→LinkedIn→Upwork→X→ResearchGate→Substack) → skills v1 + `pasco refine`.
 4. **M4**: renderers linkedin/upwork/x/researchgate/substack + playbooks + `pasco check` + checks.yaml per skill + per-entry deploy ledger (D18 — `deployments` + `pasco status`: deploy state becomes data, CHECKLIST becomes a generated view) + profile-completeness checklist and `%` (§20, issue #102 — `completeness()` in core, `pasco status --completeness`, the `github-readme` progress line).
-5. **M5**: web renderer (cv-cluciani consumes generated profiles), template release, CONTRIBUTING.
+5. **M5**: web renderer (cv-cluciani consumes generated profiles), template release, CONTRIBUTING. **Scope boundary:** M5 is a **consumption** renderer — it renders profiles that already live in a workspace (§9); it is **not** a hosted onboarding. The hosted on-ramp stays a **v1 non-goal** with an explicit reopening trigger (§2, issue #122).
 6. **M6 (brand flavor)**: schema v1.1 brand additions (§17) + `pasco init --flavor brand` + renderer `github-org` + handle-matrix checks + `skills/github-org/` + dogfood `profile-data-topia` (private).
 7. **M7 (evidence core)**: schema v1.4 — `credentials[]`/`artifacts[]` + cross-refs (§18) · `pasco check`: `credential-expiry`, registry live-links, `no-private-in-public-output` · JSON-LD `hasCredential` · compact registry section in `github-readme` · template: `media/` scaffold + `docs/evidence-packs.md` + power-user symlink/stow doc (issue #48).
 8. **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable, checksummed bundling — Q9 resolved as D19: one `assets/` dir per platform output) · deploy playbooks publish media to the public surface · git-lfs guidance · portfolio-site consumption lands **with M5** (the web renderer does not exist yet — engine-side contract ships first).
