@@ -32,7 +32,8 @@ skills + deploy playbooks**.
 
 ### Non-goals (v1)
 
-- No SaaS/multi-tenant backend (may become `identikit` microSaaS later, on top of the engine).
+- No SaaS/multi-tenant backend (may become `identikit` microSaaS later, on top of the engine) — the
+  **hosted on-ramp** included: declared a v1 non-goal, with its reopening trigger, in §14 (issue #122).
 - No CV/PDF renderer (delegate to yamlresume/JSON Resume as a renderer if ever needed).
 - No scrapers — we never read platforms **to source data**; we write (or paste). The single
   read-back is the opt-in live-drift check of the engine's **own** deployed artifact (§19.5,
@@ -505,13 +506,12 @@ applies regardless of the resolution.)
 
 ### Declared non-goal — the hosted on-ramp (issue #122)
 
-Of the entry combinations (account × terminal), the one that needs **neither** — a profile **hosted**
-by us, reached with no account and no terminal — is the **only quadrant with no on-ramp** (§9.2), and
-it is a **v1 non-goal** (the entry-map consequence of §2's SaaS/multi-tenant non-goal). Reason: it is
-a **multi-tenant service** — accounts, storage, secrets, privacy, cost — and it inverts the model the
-product is built on: the user *has* a folder where their data lives, which the engine reads by
-configured path (§9, D14). The SPEC has no milestone for that service; **M5 is a consumption
-renderer, not a hosted onboarding** (§12 M5).
+None of §9.2's three on-ramps reaches a visitor who has **neither an account nor a terminal** — a
+profile **hosted** by us. That path is a **v1 non-goal** (the entry-map consequence of §2's
+SaaS/multi-tenant non-goal), and the SPEC has no milestone for the service it would need. Reason: it
+is a **multi-tenant service** — accounts, storage, secrets, privacy, cost — and it inverts the model
+the product is built on: the user *has* a folder where their data lives, which the engine reads by
+configured path (§9, D14). **M5 is a consumption renderer, not a hosted onboarding** (§12 M5).
 
 **Reopening trigger — revisit on the *first* of either:**
 
@@ -519,7 +519,7 @@ renderer, not a hosted onboarding** (§12 M5).
 2. **M5 + web consumption live** — the web renderer exists and generated profiles are consumed on
    the web.
 
-Until one of those fires the quadrant stays out of v1, and the ways in remain §9.2's A, B and C.
+Until one of those fires the path stays out of v1, and the ways in remain §9.2's A, B and C.
 Reopening means scoping a **milestone of its own** (auth, storage, secrets, privacy, cost) — not
 extending M5.
 
