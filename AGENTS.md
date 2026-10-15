@@ -25,6 +25,7 @@ per-user private repo (`profile-data`), scaffolded from the template
 | `packages/markdown/` | CommonMark escaping (`mdHref` destinations · `mdText` labels) | shared by every markdown renderer — never re-implement in an adapter |
 | `packages/paste/` | Shared paste-renderer core (`pasteSource`) + conformance body | one home for the paste invariant — every paste adapter delegates, never re-implements (#150/#157) |
 | `packages/artifact/` | Shared §19.5 artifact projection (`createArtifactExtractor`) + conformance body | one home for the bound + transport normalization — every verifying adapter delegates, never re-implements (#216) |
+| `packages/github/` | Shared GitHub owner resolution (`createGithubOwnerResolver`) + conformance body | one home for the owner rule — every GitHub adapter delegates, never re-implements (#224) |
 | `packages/renderers/` | One adapter per platform | the contribution seam |
 | `skills/<platform>/` | Living knowledge per platform (D5) | follows `skills/README.md` |
 | `docs/research/` | Prior-art + SOTA, sourced + dated | |

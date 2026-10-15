@@ -1,0 +1,68 @@
+{
+  "name": "@profile-as-code/github",
+  "private": true,
+  "version": "0.1.0",
+  "description": "The shared GitHub surface knowledge of SPEC §19.5 — the ONE home of the owner resolution every GitHub adapter delegates to, plus its conformance body (issue #224, residual of #216; D5).",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChristianLuciani/profile-as-code.git",
+    "directory": "packages/github"
+  },
+  "bugs": {
+    "url": "https://github.com/ChristianLuciani/profile-as-code/issues"
+  },
+  "homepage": "https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/github#readme",
+  "sideEffects": false,
+  "keywords": [
+    "profile-as-code",
+    "github",
+    "owner",
+    "resolution",
+    "artifact",
+    "certification",
+    "conformance",
+    "shared"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./conformance": {
+      "types": "./dist/conformance.d.ts",
+      "import": "./dist/conformance.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "pnpm build && vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "peerDependencies": {
+    "vitest": "^5.0.3"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@profile-as-code/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}

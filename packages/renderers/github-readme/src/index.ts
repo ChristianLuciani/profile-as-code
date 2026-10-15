@@ -31,12 +31,15 @@ export const deploySpec = "git" as const;
 /**
  * §19.5 live-verification capability (issue #212) — the ONE integration point
  * with the CLI: `pasco status --verify` consumes the renderer's declaration and
- * nothing else crosses the seam (`extractArtifact` · `fetchHosts` ·
- * `artifactUrl`). Declared with the artifact's producer (D5, AGENTS.md rule 7);
- * the projection itself is the shared `@profile-as-code/artifact` bound here to
- * this surface's footer (#216).
+ * nothing else crosses the seam (`extractArtifact` · `fetchHosts` · `artifactUrl` ·
+ * `githubOwner`). Declared with the artifact's producer (D5, AGENTS.md rule 7);
+ * the projection is
+ * the shared `@profile-as-code/artifact` bound here to this surface's footer
+ * (#216), and the owner resolution the shared `@profile-as-code/github` bound to
+ * this surface's platform set (#224) — `githubOwner` is exported so the shared
+ * conformance body can prove that binding, the `extractArtifact` precedent.
  */
-export { artifactUrl, extractArtifact, fetchHosts } from "./artifact.js";
+export { artifactUrl, extractArtifact, fetchHosts, githubOwner } from "./artifact.js";
 
 /** True: this renderer consumes the media bundle. `renderer-map.test.ts` asserts
  *  it agrees with the manifest's `pasco.assets`, so a wrong flag fails CI instead

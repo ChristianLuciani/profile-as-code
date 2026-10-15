@@ -58,14 +58,18 @@ escaping rule is never re-implemented here.
 ## Live-verification capability (§19.5, issue #212)
 
 The adapter also declares how `pasco status --verify` can judge the **live**
-artifact, so the ledger anchors a value that can be compared back. Three exports,
-one home (the artifact's producer owns both directions of it — D5):
+artifact, so the ledger anchors a value that can be compared back. Four exports,
+two shared homes (the artifact's producer owns both directions of it — D5): the
+projection rule in `@profile-as-code/artifact` (#216) and the owner rule in
+`@profile-as-code/github` (#224). What stays here is this surface's own DATA — its
+platform set, its URL template and its allowlist.
 
 | Export | Meaning |
 |---|---|
 | `extractArtifact(text)` | The canonical projection: the engine-owned region (§15.3, opening header → **last** generated footer), with platform/transport chrome (BOM, CRLF, a preamble above, an appendix below) stripped. Both bounds take the **last** match, so an H1 inside a chrome preamble cannot open the artifact and a copy of the footer literal inside it cannot close it early. Pure, offline, idempotent. The **caller** hashes it (SHA-256); the renderer never hashes. |
 | `fetchHosts` | The fetch allowlist `["raw.githubusercontent.com"]`. `--verify` validates the derived URL's host against it **before** any request (the workspace is untrusted input). |
-| `artifactUrl(profile)` | The live URL, derived from the URL SSOT alone — `identity.links` first (the canonical URL set, §15.4), then the declared **claimed** handle matrix — in the same order as its sibling, so one workspace cannot name two different owners: `https://raw.githubusercontent.com/<owner>/<owner>/HEAD/README.md`. `null` when nothing here names this surface (`no-artifact-url`) — a pending handle, or a sibling surface's link, declares nothing. |
+| `githubOwner(profile)` | The owner this surface publishes under, resolved by the shared rule (#224): `identity.links` first (the canonical URL set, §15.4), then the declared **claimed** handle matrix — in the same order as its sibling, so one workspace cannot name two different owners. `null` when nothing here names this surface: the honest `no-artifact-url` rung, and the reason a workspace with no GitHub is never fetched. Exported so the shared conformance body can prove the binding. |
+| `artifactUrl(profile)` | The live URL, built from `githubOwner`'s answer: `https://raw.githubusercontent.com/<owner>/<owner>/HEAD/README.md`. `null` exactly when the owner is `null` (`no-artifact-url`) — a pending handle, or a sibling surface's link, declares nothing. |
 
 `HEAD` resolves the owner's default branch, so no branch is hand-maintained.
 Declared v1 limit: content a human adds **outside** the engine's region (above
@@ -74,6 +78,6 @@ content inside it is, and an edit there reads `out-of-band-drift`.
 
 ## Dependencies
 
-`@profile-as-code/core` · `@profile-as-code/markdown`.
+`@profile-as-code/core` · `@profile-as-code/markdown` · `@profile-as-code/artifact` · `@profile-as-code/github`.
 
 See [SPEC §15](../../../docs/SPEC.md) · [skills/github-readme](../../../skills/github-readme/).
