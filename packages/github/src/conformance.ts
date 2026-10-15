@@ -17,12 +17,14 @@
  *      every corpus workspace — so the shared home and the adapter cannot drift
  *      apart even while both import the same factory;
  *   3. the shared corpus — the positive rungs, the F3 ordering, the F2/F5
- *      refusals, and the NEGATIVE family that matters most: a workspace that names
- *      no GitHub at all must resolve `null`. That is not a corner case — it is
- *      every user who has no GitHub — and getting it wrong aims a `--verify`
- *      request at a surface the workspace never declared and writes durable
- *      `http-404` evidence into their ledger, where today there is no request and
- *      no row (§19.5: `no-artifact-url` is derived, never recorded);
+ *      refusals, the reserved ROUTE grammar of #227 (both kinds of route row, the
+ *      ownerless prefix, the encoded and case-variant spellings), and the NEGATIVE
+ *      family that matters most: a workspace that names no GitHub at all must
+ *      resolve `null`. That is not a corner case — it is every user who has no
+ *      GitHub — and getting it wrong aims a `--verify` request at a surface the
+ *      workspace never declared and writes durable `http-404` evidence into their
+ *      ledger, where today there is no request and no row (§19.5:
+ *      `no-artifact-url` is derived, never recorded);
  *   4. the `null` rung is coherent with the public `artifactUrl` seam: a surface
  *      derives a URL exactly when it resolves an owner, and the URL names that
  *      owner — never a URL without an owner, never an owner the URL ignores.
@@ -383,6 +385,113 @@ export function githubOwnerCorpus(surface: string): readonly GithubOwnerCase[] {
       sharedAcrossSurfaces: false,
       family: "refusal",
       owner: null,
+    },
+
+    // --- the reserved ROUTE grammar (#227) -----------------------------------
+    // The F2 harm class of #212/#224, closed for every reserved route instead of
+    // only `orgs/`: a prefix read as an owner derives
+    // `raw.githubusercontent.com/<prefix>/<prefix>/…` — a URL for someone else's
+    // path — and `--verify` records that wrong `evidenceUrl` with durable
+    // `http-404` evidence. The corpora below pin the two KINDS of row (an account
+    // page one segment later vs. GitHub's own page, which names no account), the
+    // absence of a second segment, and the two readings the table deliberately
+    // does NOT take.
+    //
+    // These are pinning REPRESENTATIVES, not one case per table row: the route
+    // table is data and grows by a row, so the corpus pins the rule per kind and
+    // the package's own suite pins the table's shape. A route added later is
+    // covered by the rule the moment its row lands; a route whose KIND is wrong
+    // still fails here through the representative of that kind.
+    {
+      why: "reads the segment after GitHub's reserved `sponsors/` route — the issue's own repro, where `sponsors` used to become the owner (#227)",
+      workspace: { links: [link(`https://github.com/sponsors/${OWNER}`, "github")] },
+      sharedAcrossSurfaces: true,
+      family: "positive",
+      owner: OWNER,
+    },
+    {
+      why: "percent-encoded, a reserved prefix is still the route, not an owner: GitHub routes the DECODED segment (#227, review F5 in a new place)",
+      workspace: { links: [link(`https://github.com/%73ponsors/${OWNER}`, "github")] },
+      sharedAcrossSurfaces: true,
+      family: "positive",
+      owner: OWNER,
+    },
+    {
+      why: "a case variant of a reserved prefix is not an account either: GitHub's account NAMESPACE is case-insensitive, so the name is unavailable in every spelling (#227)",
+      workspace: { links: [link(`https://github.com/SPONSORS/${OWNER}`, "github")] },
+      sharedAcrossSurfaces: true,
+      family: "positive",
+      owner: OWNER,
+    },
+    {
+      why: "the reserved `sponsors/` prefix alone (the issue's exact URL, ownerless) names no owner",
+      workspace: { links: [link("https://github.com/sponsors/", "github")] },
+      sharedAcrossSurfaces: true,
+      family: "refusal",
+      owner: null,
+    },
+    {
+      why: "the bare reserved `sponsors` prefix, with no second segment at all, names no owner",
+      workspace: { links: [link("https://github.com/sponsors", "github")] },
+      sharedAcrossSurfaces: true,
+      family: "refusal",
+      owner: null,
+    },
+    {
+      why: "a `topics/<topic>` hub is GitHub's page, not an account: the prefix never becomes the owner (#227, the issue's case)",
+      workspace: { links: [link("https://github.com/topics/typescript", "github")] },
+      sharedAcrossSurfaces: true,
+      family: "refusal",
+      owner: null,
+    },
+    {
+      why: "a `settings/profile` URL is the viewer's settings form, not an account named `settings` (#227, the issue's case)",
+      workspace: { links: [link("https://github.com/settings/profile", "github")] },
+      sharedAcrossSurfaces: true,
+      family: "refusal",
+      owner: null,
+    },
+    {
+      why: "an `apps/<slug>` page belongs to a GitHub App, which is not a user or an org (#227, the issue's case)",
+      workspace: { links: [link("https://github.com/apps/someapp", "github")] },
+      sharedAcrossSurfaces: true,
+      family: "refusal",
+      owner: null,
+    },
+    {
+      why: "a `collections/<slug>` list is GitHub's curation, not an account (#227)",
+      workspace: { links: [link("https://github.com/collections/clean-code", "github")] },
+      sharedAcrossSurfaces: true,
+      family: "refusal",
+      owner: null,
+    },
+    {
+      why: "a `marketplace/<listing>` page belongs to a listing, not to an account (#227)",
+      workspace: { links: [link("https://github.com/marketplace/actions/checkout", "github")] },
+      sharedAcrossSurfaces: true,
+      family: "refusal",
+      owner: null,
+    },
+    {
+      why: "a case variant of a reserved route is refused too — `TOPICS/typescript` is not the account `TOPICS` (#227)",
+      workspace: { links: [link("https://github.com/TOPICS/typescript", "github")] },
+      sharedAcrossSurfaces: true,
+      family: "refusal",
+      owner: null,
+    },
+    {
+      why: "`stars` is the DELIBERATE `no-owner` row: `/stars/<account>` names that account, but #227 reads it as no owner, and the conservative answer is the honest null, never a wrong URL",
+      workspace: { links: [link(`https://github.com/stars/${OWNER}`, "github")] },
+      sharedAcrossSurfaces: true,
+      family: "refusal",
+      owner: null,
+    },
+    {
+      why: "`profile` is NOT a reserved row: `github.com/profile` is a live account, and `settings/` already covers the settings URL (#227, deviation declared)",
+      workspace: { links: [link("https://github.com/profile", "github")] },
+      sharedAcrossSurfaces: true,
+      family: "positive",
+      owner: "profile",
     },
 
     // --- the NEGATIVE family: a workspace with no GitHub at all ---------------

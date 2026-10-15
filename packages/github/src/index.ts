@@ -13,6 +13,10 @@
  * a different URL. #216 gave the §19.5 projection one home and left this; #224 is
  * that debt paid.
  *
+ * #227 completes F2. #224 shipped the rule with only the `orgs/` route handled and
+ * DECLARED the rest as its limit; this file now carries the whole route grammar as
+ * a sourced table (`RESERVED_ROUTES`), so no reserved prefix is read as an owner.
+ *
  * What is SHARED is the algorithm: the one place a candidate becomes an owner, or
  * is refused. What stays per-surface is genuine per-surface DATA — the set of link
  * platforms that can name the surface, the URL template and `fetchHosts` (§19.5:
@@ -120,8 +124,302 @@ function ownerFromHandle(handle: string | undefined): string | null {
   return ownerSlug(handle.startsWith("@") ? handle.slice(1) : handle);
 }
 
+/**
+ * What a reserved first path segment means for the segment AFTER it (#227).
+ *
+ * `owner-after-prefix` — the next segment IS the account's own page, so it is the
+ * owner. `no-owner` — the page belongs to GitHub, not to a single account, so
+ * there is no owner and the honest answer is `null` (§19.5 row 2).
+ */
+type ReservedRouteKind = "owner-after-prefix" | "no-owner";
+
+/** One row of GitHub's reserved first-segment route table (#227). */
+export interface ReservedRoute {
+  /**
+   * The reserved first path segment, lowercase. Matched case-insensitively
+   * against the DECODED segment (see `ownerFromUrl`: GitHub's account namespace
+   * is case-insensitive, and so is the refusal it implies).
+   */
+  readonly prefix: string;
+  readonly kind: ReservedRouteKind;
+  /** What the route is, and why the owner rule follows from it. */
+  readonly why: string;
+  /**
+   * What GitHub ITSELF served for this prefix — the per-row source, not an
+   * assertion about one. Probed [OFICIAL] 2026-10-15 with
+   * `curl -sL -A 'Mozilla/5.0' -w '%{http_code} %{url_effective}' https://github.com/<prefix>`
+   * (the same command with the second segment where the row claims one); the
+   * command is re-runnable, so a route GitHub retires shows up as a stale row
+   * instead of staying a silent mis-derivation.
+   */
+  readonly observed: string;
+}
+
+/** Freeze a row: this table is a module constant, and a caller that reached it
+ *  through the public type must not be able to rewrite the grammar. */
+const route = (
+  prefix: string,
+  kind: ReservedRouteKind,
+  why: string,
+  observed: string,
+): ReservedRoute => Object.freeze({ prefix, kind, why, observed });
+
+/**
+ * GitHub's reserved first path segments — the ONE place the route grammar is
+ * written down (#227), replacing the single `segments[0] === "orgs"` ternary that
+ * #212 shipped.
+ *
+ * WHY A TABLE. The bug is one harm class, not one route (the F2 finding of #212):
+ * `github.com/sponsors/elenavasquez` read `sponsors` as the owner and derived
+ * `raw.githubusercontent.com/sponsors/sponsors/HEAD/README.md`, so `--verify`
+ * fetched a stranger's path and wrote durable `http-404` evidence — and that wrong
+ * `evidenceUrl` — into the user's ledger. A `||` would have closed `sponsors` and
+ * left the class open for `topics`, `apps`, `settings`, … : the fix is the RULE
+ * ("a reserved route prefix never becomes an owner"), and a rule needs the set of
+ * prefixes it quantifies over, each argued and sourced on its own row.
+ *
+ * DECIDING A ROW. Two questions, in order:
+ *
+ *   1. Is the first segment a ROUTE at all? A segment GitHub serves as its own page
+ *      cannot also be an account — GitHub reserves the name — so no workspace URL
+ *      can mean an account by it, and reading it as an owner is always a mis-read.
+ *   2. If it is a route, does its page belong to ONE account? `/orgs/<org>` and
+ *      `/sponsors/<account>` resolve to that account's own page, so the owner is
+ *      the segment after the prefix; `/topics/<topic>`, `/marketplace/<listing>`,
+ *      `/apps/<slug>` and the viewer's own hubs are GitHub's pages, whose second
+ *      segment is a topic/listing/app slug — not an account — so there is no owner.
+ *
+ * Two rows are deliberate calls, recorded because they deviate from the candidate
+ * list in #227. Both come from the same probe, and both point away from inventing
+ * an owner:
+ *
+ *   - `stars` is `no-owner` even though `/stars/<account>` IS that account's
+ *     starred list (probed: 200, titled with the account). Reading the second
+ *     segment there is a defensible owner-after reading, but #227 decides `null`
+ *     and this row follows it: a lost verification is recoverable, a wrong URL is
+ *     durable wrong evidence. Flipping the kind is one word of data plus a corpus
+ *     case, not a code change.
+ *   - `profile` is NOT a row at all. #227 listed it beside `settings` because
+ *     `github.com/settings/profile` exists — but `settings` already covers that
+ *     URL, and `github.com/profile` is a LIVE ACCOUNT (probed: 200, `og:type`
+ *     `profile`). A row here would refuse a real owner and read `no-artifact-url`
+ *     for a workspace that does publish. The list is decided route by route, not
+ *     copied.
+ *
+ * DECLARED LIMIT. This is the route grammar argued and sourced row by row, not
+ * GitHub's full reserved-NAME list (a few hundred names, community-maintained, of
+ * which only some are first-segment routes). A first segment that is neither here
+ * nor an account cannot be told apart from an account offline, so it still reads as
+ * an owner — the residual F2 class, now one data row away instead of one branch
+ * away. #227 scoped the routes; widening this to the name list is its own decision,
+ * with its own source.
+ */
+export const RESERVED_ROUTES: readonly ReservedRoute[] = Object.freeze([
+  // --- the route's next segment IS the account's own page ---------------------
+  route(
+    "orgs",
+    "owner-after-prefix",
+    "GitHub's organization landing route: the page at /orgs/<org> IS the org's own page, so the owner is the segment after the prefix (the shipped F2 fix of #212).",
+    "/orgs/vercel → 200 → github.com/vercel; bare /orgs → 404 (no index page)",
+  ),
+  route(
+    "sponsors",
+    "owner-after-prefix",
+    "GitHub Sponsors: /sponsors/<account> is that account's sponsored profile and GitHub resolves it to the account's own page, so the owner is the segment after the prefix.",
+    "/sponsors/<account> → 200 → github.com/<account>; bare /sponsors → 200 (the Sponsors landing at /open-source/sponsors)",
+  ),
+
+  // --- GitHub's own discovery, marketplace and marketing pages ---------------
+  route(
+    "topics",
+    "no-owner",
+    "GitHub Topics: /topics/<topic> is a hub aggregating many repositories, not an account's page.",
+    "/topics/typescript → 200 (a topic hub)",
+  ),
+  route(
+    "collections",
+    "no-owner",
+    "GitHub Collections: /collections/<slug> is a curated list of repositories, not an account.",
+    "/collections → 200 (the collections index)",
+  ),
+  route(
+    "marketplace",
+    "no-owner",
+    "GitHub Marketplace: /marketplace/<listing> is an App/Action listing page; a listing is not an account.",
+    "/marketplace/actions/checkout → 200 (an Action listing)",
+  ),
+  route(
+    "apps",
+    "no-owner",
+    "GitHub Apps: /apps/<slug> is an App's public page; an App is not a user or an org, so no owner artifact exists for it.",
+    "/apps → 302 github.com/marketplace",
+  ),
+  route(
+    "trending",
+    "no-owner",
+    "GitHub Trending: GitHub's own leaderboard page.",
+    "/trending → 200",
+  ),
+  route("explore", "no-owner", "GitHub Explore: GitHub's own discovery hub.", "/explore → 200"),
+  route(
+    "discover",
+    "no-owner",
+    "A GitHub discovery alias that resolves to Explore, not to an account.",
+    "/discover → 200 → github.com/explore",
+  ),
+  route(
+    "search",
+    "no-owner",
+    "GitHub Search: a query page over the whole site, owned by no account.",
+    "/search → 200",
+  ),
+  route(
+    "events",
+    "no-owner",
+    "GitHub's events/webinars index (a marketing page), not an account.",
+    "/events → 200 → github.com/resources/events",
+  ),
+  route(
+    "education",
+    "no-owner",
+    "GitHub Education: GitHub's own program page.",
+    "/education → 200",
+  ),
+  route(
+    "partners",
+    "no-owner",
+    "GitHub Partner Program: GitHub's own program page.",
+    "/partners → 200",
+  ),
+  route(
+    "customers",
+    "no-owner",
+    "GitHub's customer-stories page, an alias of GitHub's own marketing surface.",
+    "/customers → 200 → github.com/customer-stories",
+  ),
+  route(
+    "business",
+    "no-owner",
+    "GitHub's business/Enterprise marketing alias, not an account.",
+    "/business → 200 → github.com/enterprise",
+  ),
+  route(
+    "enterprise",
+    "no-owner",
+    "GitHub Enterprise: GitHub's own product page.",
+    "/enterprise → 200",
+  ),
+  route(
+    "enterprises",
+    "no-owner",
+    "GitHub Enterprise Cloud accounts live at /enterprises/<slug>: an enterprise account is not a user or org owner, and the route itself is GitHub's.",
+    "bare /enterprises → 404 signed out (the per-slug page is GitHub-gated)",
+  ),
+  route("security", "no-owner", "GitHub Security: GitHub's own security hub.", "/security → 200"),
+  route("about", "no-owner", "GitHub About: GitHub's own page.", "/about → 200"),
+  route("pricing", "no-owner", "GitHub Pricing: GitHub's own plans page.", "/pricing → 200"),
+  route("features", "no-owner", "GitHub Features: GitHub's own product tour.", "/features → 200"),
+  route(
+    "contact",
+    "no-owner",
+    "GitHub Support: GitHub's own contact page.",
+    "/contact → 200 → help.github.com",
+  ),
+  route("home", "no-owner", "GitHub's signed-in home page.", "/home → 200"),
+  route("copilot", "no-owner", "GitHub Copilot: GitHub's own product page.", "/copilot → 200"),
+
+  // --- account and session routes -------------------------------------------
+  route(
+    "settings",
+    "no-owner",
+    "Account settings are per-viewer, not a page belonging to a named account (/settings/profile is the canonical example from #227).",
+    "/settings → 200 → github.com/login?return_to=/settings",
+  ),
+  route(
+    "account",
+    "no-owner",
+    "GitHub's own account entry point, an alias of settings.",
+    "/account → 200 → github.com/login?return_to=/account",
+  ),
+  route("login", "no-owner", "GitHub's sign-in form.", "/login → 200"),
+  route("logout", "no-owner", "GitHub's sign-out action.", "/logout → 200 → github.com/"),
+  route("join", "no-owner", "GitHub's sign-up funnel.", "/join → 403 → github.com/signup"),
+  route("signup", "no-owner", "GitHub's sign-up form.", "/signup → 403 (bot-gated)"),
+  route(
+    "new",
+    "no-owner",
+    "GitHub's new-repository entry point for the viewer.",
+    "/new → 200 → github.com/login?return_to=/new",
+  ),
+  route(
+    "notifications",
+    "no-owner",
+    "The viewer's notification inbox, not an account's page.",
+    "/notifications → 200 → github.com/login?return_to=/notifications",
+  ),
+  route(
+    "dashboard",
+    "no-owner",
+    "The viewer's dashboard, not an account's page.",
+    "/dashboard → 200 → github.com/login?return_to=/dashboard",
+  ),
+  route(
+    "stars",
+    "no-owner",
+    "DELIBERATE, and the one row whose evidence would also support owner-after: /stars/<account> IS that account's starred list. #227 decides null and this row follows it — the conservative direction (an honest no-artifact-url, never a wrong URL). Flipping the kind is one word of data plus a corpus case.",
+    "/stars/<account> → 200 (titled with the account); bare /stars → 200 → github.com/login?return_to=/stars",
+  ),
+  route(
+    "pulls",
+    "no-owner",
+    "The viewer's cross-repository pull-request inbox.",
+    "/pulls → 200 → github.com/login?return_to=/pulls",
+  ),
+  route(
+    "issues",
+    "no-owner",
+    "The viewer's cross-repository issue inbox.",
+    "bare /issues → 404 signed out (the signed-in global list)",
+  ),
+  route(
+    "codespaces",
+    "no-owner",
+    "The viewer's Codespaces hub.",
+    "/codespaces → 200 → github.com/login?return_to=/codespaces",
+  ),
+  route(
+    "organizations",
+    "no-owner",
+    "GitHub's organization management routes (/organizations/<org>/settings/…); the bare segment is not an account page.",
+    "bare /organizations → 404 signed out",
+  ),
+  route(
+    "gists",
+    "no-owner",
+    "Gists live on a separate host; /gists is a GitHub redirect, not an account.",
+    "/gists → 200 → gist.github.com/starred",
+  ),
+]);
+
+/** The route grammar, keyed for the one lookup `ownerFromUrl` performs. Built once
+ *  at module load: pure data, no clock, no network. */
+const RESERVED_BY_PREFIX: ReadonlyMap<string, ReservedRoute> = new Map(
+  RESERVED_ROUTES.map((row) => [row.prefix, row]),
+);
+
+/** Percent-decode one path segment — `null` for malformed escapes, so a crafted
+ *  URL is refused instead of steering the derived URL (review F5). */
+function decodeSegment(segment: string): string | null {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return null;
+  }
+}
+
 /** The owner of a `github.com` page URL — or `null` when the URL is not an
- *  http(s) GitHub page URL. A display name never becomes a slug here. */
+ *  http(s) GitHub page URL, or names no single account. A display name never
+ *  becomes a slug here. */
 function ownerFromUrl(url: string): string | null {
   let parsed: URL;
   try {
@@ -134,19 +432,36 @@ function ownerFromUrl(url: string): string | null {
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
   if (parsed.hostname !== "github.com" && parsed.hostname !== "www.github.com") return null;
   const segments = parsed.pathname.split("/").filter((part) => part !== "");
-  // `github.com/orgs/<org>` is GitHub's own org landing route: the owner is the
-  // segment AFTER the reserved prefix. Reading the prefix itself as an owner
-  // derived a URL for someone else's page (review F2). It is also the ONLY
-  // reserved route handled — the rest are the declared limit of #227, so the
-  // example here stays surface-neutral on purpose (fresh-review F6: the template
-  // shape differs per surface, and this module is generic over it).
-  const segment = segments[0] === "orgs" ? segments[1] : segments[0];
-  if (segment === undefined) return null;
-  try {
-    return ownerSlug(decodeURIComponent(segment));
-  } catch {
-    return null;
+  const first = segments[0];
+  if (first === undefined) return null;
+  // WHAT GITHUB NAMES, in two steps that are both load-bearing:
+  //
+  //   1. DECODE FIRST. GitHub routes the decoded segment — probed 2026-10-15,
+  //      `github.com/%73ponsors/<account>` returns 200 and resolves to the
+  //      account's page exactly like `/sponsors/<account>`. Matching the table on
+  //      the raw segment would let a percent-encoded reserved prefix through as an
+  //      owner: the F5 bypass, in a new place.
+  //   2. MATCH CASE-INSENSITIVELY. GitHub's account NAMESPACE is case-insensitive
+  //      (`/Elenavasquez` and `/ELENAVASQUEZ` both serve the same account, probed
+  //      2026-10-15), so a reserved route's name is unavailable as an account in
+  //      ANY case: `/SPONSORS` and `/Sponsors` are 404, not profiles. Reserving
+  //      the name case-insensitively is therefore the reading that cannot cost a
+  //      real owner, and it closes the `Sponsors/…` one-keystroke bypass of this
+  //      fix — the invariant has to hold for every spelling of the prefix.
+  const decodedFirst = decodeSegment(first);
+  if (decodedFirst === null) return null;
+  const reserved = RESERVED_BY_PREFIX.get(decodedFirst.toLowerCase());
+  if (reserved !== undefined) {
+    // GitHub's own page: the path names no single account (#227).
+    if (reserved.kind === "no-owner") return null;
+    // The account's own page one segment later; no second segment means no owner
+    // (the corpus pins it for `orgs/` and `sponsors/`).
+    const ownerSegment = segments[1];
+    if (ownerSegment === undefined) return null;
+    const decodedOwner = decodeSegment(ownerSegment);
+    return decodedOwner === null ? null : ownerSlug(decodedOwner);
   }
+  return ownerSlug(decodedFirst);
 }
 
 /**

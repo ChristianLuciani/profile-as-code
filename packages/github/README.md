@@ -1,10 +1,10 @@
 # `@profile-as-code/github`
 
 The **shared GitHub owner resolution** of [SPEC §19.5](../../docs/SPEC.md) (issue
-#224, the residual #216 declared): the one place a workspace candidate — a URL or
-a declared handle — becomes a GitHub owner, or is refused. A renderer support
-package, the `packages/paste` / `packages/artifact` precedent, so the engine stays
-an engine (AGENTS.md rule 7).
+#224, the residual #216 declared; the route grammar of #227): the one place a
+workspace candidate — a URL or a declared handle — becomes a GitHub owner, or is
+refused. A renderer support package, the `packages/paste` / `packages/artifact`
+precedent, so the engine stays an engine (AGENTS.md rule 7).
 
 `github-readme` and `github-org` derive the owner of the artifact they publish
 from the workspace's URL SSOT, and the two copies were byte-identical. They had
@@ -52,7 +52,7 @@ export function artifactUrl(profile: Profile): string | null {
 }
 ```
 
-Three values and two types, no more:
+Three values, one table, and three types:
 
 - `createGithubOwnerResolver(binding)` — bind the resolution to ONE surface's
   declaration. The returned function carries a **non-writable** `surface` property
@@ -69,7 +69,12 @@ Three values and two types, no more:
 - `isGithubOwnerResolver(value)` — true **only** for a function this package
   produced: the mechanical form of "the adapter delegates, it does not
   re-implement it", which is what makes a one-file divergence fail CI.
-- the `GithubOwnerResolver` / `GithubSurfaceBinding` types.
+- `RESERVED_ROUTES` — GitHub's reserved first-segment route table (#227): the data
+  the rule quantifies over, one row per prefix with its `kind`, its rationale and
+  the route GitHub itself served on the probe date. Exported so a consumer can read
+  the grammar instead of re-typing it, and so this package's own suite can pin its
+  shape (duplicate, non-lowercase or unsourced rows all fail).
+- the `GithubOwnerResolver` / `GithubSurfaceBinding` / `ReservedRoute` types.
 
 A binding must be coherent: `linkPlatforms` has to contain `surface` itself.
 Anything else **throws** — that guard is deliberate, because the shape it refuses
@@ -124,24 +129,73 @@ instead, the test could re-type it and a divergence would only fail at a distanc
 
 The body asserts that declaration, the delegation (identity), agreement with the
 canonical rule and with `resolveGithubOwner` on every corpus workspace, the expected
-owner for each case — the positive rungs, the F3 ordering, the F2/F5 refusals and
-the no-GitHub negatives, whose family is itself guarded against erosion — and that
-the `null` rung stays coherent with the public `artifactUrl` seam.
+owner for each case — the positive rungs, the F3 ordering, the F2/F5 refusals, the
+reserved route grammar of #227 (both kinds of route row, the ownerless prefix, the
+encoded and case-variant spellings) and the no-GitHub negatives, whose family is
+itself guarded against erosion — and that the `null` rung stays coherent with the
+public `artifactUrl` seam.
 
 `./conformance` is a test-only subpath (it imports vitest); the runtime entry
 (`@profile-as-code/github`) stays free of the test tool.
 
-## Declared limit — reserved GitHub routes (#227)
+## The reserved route grammar (#227)
 
-The resolution special-cases exactly ONE of GitHub's reserved first segments
-(`orgs/`), so the others are still read as owners: a workspace whose only GitHub
-entry is a Sponsors page derives `raw.githubusercontent.com/sponsors/sponsors/…`,
-which `--verify` would fetch and record as durable evidence for a stranger's path.
-That is inherited from #212 (the same class as the F2 fix) and deliberately **not**
-changed by #224, whose acceptance criterion is "no behavior change for a valid
-workspace" — the route table is its own decision, argued route by route with a
-source: **#227**. Until it lands, such a workspace reads a wrong URL instead of the
-honest `no-artifact-url`.
+`github.com/<first segment>` is not always `<owner>`. GitHub resolves a set of
+**reserved first segments** to its own pages, and reading one of them as the owner
+derived `raw.githubusercontent.com/<prefix>/<prefix>/…` — a URL for someone else's
+path — which `--verify` fetched and recorded as durable `http-404` evidence, **with
+that wrong `evidenceUrl`**, in the user's ledger. That is the F2 harm class of #212,
+which #224 shipped closed for `orgs/` only; #227 closes the class. Before:
+
+```console
+$ node --input-type=module -e '…resolveGithubOwner(link, binding)…'
+https://github.com/sponsors/elenavasquez     -> "sponsors"     ← a stranger's path
+https://github.com/topics/typescript         -> "topics"
+https://github.com/settings/profile          -> "settings"
+https://github.com/apps/someapp              -> "apps"
+https://github.com/orgs/elenavasquez         -> "elenavasquez"  ← the ONE route #212 handled
+```
+
+After: `sponsors/…` → `elenavasquez`; every route that belongs to GitHub rather
+than to an account → `null`, i.e. the honest `no-artifact-url` rung (no request,
+no ledger row).
+
+The grammar is ONE table, `RESERVED_ROUTES`, and each row answers two questions in
+order: is the first segment a route at all, and if so does its page belong to ONE
+account? `owner-after-prefix` means the next segment IS that account's own page
+(`/orgs/<org>` and `/sponsors/<account>` both resolve to the account's page);
+`no-owner` means the page is GitHub's (`/topics/<topic>`, `/marketplace/<listing>`,
+`/apps/<slug>`, the viewer's own hubs), so there is no owner. The bug is one harm
+class, not one route: a `||` would have closed `sponsors` and left the class open
+for `topics`, `apps`, `settings`, … — so the fix is the rule, plus the sourced data
+it quantifies over.
+
+Three decisions the table records rather than hides:
+
+- **Decode first, match case-insensitively.** GitHub routes the *decoded* segment
+  (`/%73ponsors/<account>` → the account's page) and its account *namespace* is
+  case-insensitive (`/Elenavasquez` serves the same account), so a reserved name is
+  unavailable as an account in every spelling. Matching the raw segment would leave
+  a percent-encoded bypass; matching the exact case would leave a one-keystroke
+  bypass (`/SPONSORS/<account>`, probed 404, would read `SPONSORS` as an owner).
+- **`stars` is `no-owner`, deliberately.** `/stars/<account>` does name that account
+  (probed), so `owner-after-prefix` is defensible — but #227 decides `null`, and the
+  conservative direction is the honest one: a lost verification is recoverable, a
+  wrong URL is durable wrong evidence. Flipping the kind is one word of data.
+- **`profile` is NOT a row.** #227 listed it beside `settings`, but `settings/`
+  already covers `github.com/settings/profile`, and `github.com/profile` is a
+  **live account** (probed: 200, `og:type` `profile`). A row here would refuse a real
+  owner and read `no-artifact-url` for a workspace that does publish. The list is
+  decided route by route, not copied.
+
+**Declared limit.** The table is the route grammar argued and sourced row by row —
+each row carries what GitHub itself served on 2026-10-15, re-runnable with
+`curl -sL -A 'Mozilla/5.0' -w '%{http_code} %{url_effective}' https://github.com/<prefix>` —
+not GitHub's full reserved-*name* list (a few hundred names, community-maintained,
+of which only some are first-segment routes). A first segment that is neither a row
+nor an account cannot be told apart from an account offline, so it still reads as an
+owner: the residual F2 class, now one data row away instead of one branch away.
+Widening this to the name list is its own decision, with its own source.
 
 ## Dependencies
 

@@ -23,6 +23,7 @@ import {
   createGithubOwnerResolver,
   type GithubOwnerResolver,
   isGithubOwnerResolver,
+  RESERVED_ROUTES,
   resolveGithubOwner,
 } from "../src/index.js";
 
@@ -126,5 +127,36 @@ describe("the shared owner resolution binds one surface and proves it (#224)", (
     const silent = profileWith({ links: [{ platform: "x", url: "https://x.com/someone" }] });
     expect(githubOwner(silent)).toBeNull();
     expect(githubOwner(profileWith({}))).toBeNull();
+  });
+
+  it("keeps the reserved route table well formed, so a row cannot be a silent no-op (#227)", () => {
+    // The table is DATA, and the corpus pins the RULE by kind rather than one case
+    // per row — so the shape of the data is what this suite has to hold. A
+    // duplicate prefix would shadow a row in the Map; a non-lowercase prefix would
+    // never match the case-insensitive lookup; an empty `why`/`observed` would
+    // detach a row from its argument and its source; and a table that lost the
+    // owner-after rows would silently refuse every org and Sponsors workspace.
+    const seen = new Set<string>();
+    for (const { prefix, kind, why, observed } of RESERVED_ROUTES) {
+      expect(prefix, `not lowercase: ${prefix}`).toBe(prefix.toLowerCase());
+      expect(prefix, `not a single slug segment: ${prefix}`).toMatch(/^[a-z0-9-]+$/);
+      expect(seen.has(prefix), `duplicate prefix: ${prefix}`).toBe(false);
+      seen.add(prefix);
+      expect(kind === "owner-after-prefix" || kind === "no-owner", kind).toBe(true);
+      expect(why.length, `no rationale: ${prefix}`).toBeGreaterThan(0);
+      expect(observed.length, `no source: ${prefix}`).toBeGreaterThan(0);
+    }
+    // The two rows whose KIND is load-bearing beyond the table: they are the only
+    // ones that read a second segment, and #227 names both.
+    expect(
+      RESERVED_ROUTES.filter(({ kind }) => kind === "owner-after-prefix").map((r) => r.prefix),
+    ).toEqual(["orgs", "sponsors"]);
+    // `profile` is the row #227 proposed and this table deliberately refuses:
+    // `github.com/profile` is a live account, so a row here would un-verify a
+    // workspace that does publish.
+    expect(seen.has("profile")).toBe(false);
+    expect(githubOwner(profileWith({ links: [{ url: "https://github.com/profile" }] }))).toBe(
+      "profile",
+    );
   });
 });
