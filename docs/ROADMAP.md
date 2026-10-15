@@ -75,10 +75,6 @@ Cierra el pipeline de media: hoy el engine bundlea assets, pero publicarlos es M
 **8 · #95 licence + CLA** — time-sensitive, antes de la primera contribución externa
 **9 · #100 refresh de la status table** — housekeeping
 
-**Hosted path (no account, no terminal) — declared v1 non-goal, outside the sequence.**
-None of §9.2's three on-ramps reaches a visitor who has neither an account nor a terminal; the
-reopening trigger lives in `docs/SPEC.md` §2 (`#122`, closed as a non-goal). Not work to design.
-
 ### Transversal — no milestone
 
 **10 · #98 dependency gate de `packages/server`** — scope rule del D20, cuando ese paquete exista
@@ -86,6 +82,10 @@ reopening trigger lives in `docs/SPEC.md` §2 (`#122`, closed as a non-goal). No
 ---
 
 ## Lo que este roadmap NO incluye (deliberadamente)
+
+**Hosted path (no account, no terminal) — declared v1 non-goal.** None of §9.2's three
+on-ramps reaches a visitor who has neither an account nor a terminal; the reopening trigger
+lives in `docs/SPEC.md` §2 (`#122`, closed as a non-goal).
 
 Del análisis de identidad de esta sesión (corpus en `identeco-cifereca`):
 
