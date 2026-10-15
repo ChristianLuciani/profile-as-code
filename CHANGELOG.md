@@ -16,6 +16,19 @@ minor versions may contain breaking contract changes.
 - Per-platform skills v1 from SOTA research (M3)
 - `profile-data` template repo + web renderer (M5)
 
+### Changed
+
+- **The hosted on-ramp is a declared v1 non-goal (#221), and the surfaces that still called it
+  a plan are reconciled (#222)** — §9.2's three on-ramps (A template repo · B `pasco init` ·
+  C bring your own storage) all require a terminal, and A also an account, so a visitor with
+  **neither** has no path; in particular **none** reaches a profile **hosted by us**.
+  `docs/SPEC.md` §2 declares that path a **v1 non-goal**: the service it would need is
+  multi-tenant (accounts, storage, secrets, privacy, cost) and inverts the folder-first model
+  (D14), so it reopens only on its trigger — the first hosted use case, or M5 + web consumption
+  live — and as a **milestone of its own**, not an extension of M5 (§12 keeps M5 a consumption
+  renderer). `docs/USER-GUIDE.md`, `README.md` and `docs/ROADMAP.md` are reconciled to that
+  state; the `#122` tracker is closed and is no longer a deliverable.
+
 ## [0.3.0] - 2026-10-11
 
 ### Added
