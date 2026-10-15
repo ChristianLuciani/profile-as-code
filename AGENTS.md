@@ -46,9 +46,20 @@ per-user private repo (`profile-data`), scaffolded from the template
    it projects the core host maps + slug list, the SPEC §6 family table/counts and
    the README status counts; never hand-edit those projections. The schema enum
    stays hand-authored (the reviewed contract).
-3. **Runtime figures are cited, never typed (#226).** A number derived from the
-   runtime (test counts, corpus size) moves with every commit, so it cannot be
-   asserted as current state — it is a **reading of one run**: quote it as
+3. **Evidence rule.** Quantitative claims need source + date
+   (`[OFICIAL]`/`[EXPERTO]`/`[BENCHMARK]`/`[?]`). Use epistemic notation
+   `[MI]`/`[WEB]`/`[INF]`/`[?]` for inference vs. source.
+4. **Docs in English (D8).** Code comments too.
+5. **Tests with behavior.** New core behavior → vitest, fixtures committed.
+6. **Never push to main.** Branch + PR; the human merges. Agent-harness branch
+   names (`aionui/pi/…`) are the author's convention, not a project one.
+7. **Scope.** The engine stays an engine: platform-specific behavior lives in
+   skills/renderers, not core. (Cited by rule number from beyond this file —
+   `docs/SPEC.md` §15, every shared package README — so it stays 7.)
+8. **Runtime figures are cited, never typed (#226).** The companion to rule 2, for
+   the figures whose source is the **runtime** instead of a committed file. A number
+   derived from the runtime (test counts, corpus size) moves with every commit, so it
+   cannot be asserted as current state — it is a **reading of one run**: quote it as
    `command` at `<sha>` (`<date>`) → reading, or read it from its generated block.
    The documentation link census lives in the `<!-- gen:doc-links -->` block of
    `docs/ci-cd.md` (`pnpm gen:doc-links`; `node scripts/link-check/check.mjs --check`
@@ -63,15 +74,6 @@ per-user private repo (`profile-data`), scaffolded from the template
    staleness computable: `stale` only WARNS (re-measure, or mark it `kind=record`
    if it is history), `unreachable` FAILS (a rebased-away sha is a claim without a
    source).
-4. **Evidence rule.** Quantitative claims need source + date
-   (`[OFICIAL]`/`[EXPERTO]`/`[BENCHMARK]`/`[?]`). Use epistemic notation
-   `[MI]`/`[WEB]`/`[INF]`/`[?]` for inference vs. source.
-5. **Docs in English (D8).** Code comments too.
-6. **Tests with behavior.** New core behavior → vitest, fixtures committed.
-7. **Never push to main.** Branch + PR; the human merges. Agent-harness branch
-   names (`aionui/pi/…`) are the author's convention, not a project one.
-8. **Scope.** The engine stays an engine: platform-specific behavior lives in
-   skills/renderers, not core.
 
 ## Commands
 

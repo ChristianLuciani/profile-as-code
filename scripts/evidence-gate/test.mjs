@@ -17,7 +17,7 @@
  * Exit:  0 all cases pass · 1 any case fails
  */
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -291,6 +291,178 @@ try {
     check(
       "an absent main falls back to HEAD and says so",
       res.code === 0 && res.out.includes("reading the present from HEAD"),
+      res.out.trim(),
+    );
+  }
+
+  // ── review F3 on #230: detection must be derived from the GRAMMAR ─────────
+  {
+    // The grammar accepts `<!--evidence:` (no space) and any case. A literal
+    // fast path skipped both, so a `kind=current` claim went unresolved — the
+    // one thing a fail-closed gate must never do.
+    const { root } = repo((r) => ({ root: r, anchor: commit(r, "base") }));
+    write(
+      root,
+      "docs/STANDARDS.md",
+      `# S\n\n<!--evidence: tests as_of=${git(root, ["rev-parse", "HEAD"])} kind=current -->\n`,
+    );
+    const res = run(root);
+    check(
+      "F3: a zero-space `<!--evidence:` marker is RESOLVED, never silently skipped",
+      res.code === 0 &&
+        /tests@[0-9a-f]{7,}=/.test(res.out) &&
+        !res.out.includes("no claim to check"),
+      res.out.trim(),
+    );
+  }
+  {
+    const { root } = repo((r) => ({ root: r, anchor: commit(r, "base") }));
+    write(
+      root,
+      "docs/STANDARDS.md",
+      `# S\n\n<!-- Evidence: tests as_of=${"a".repeat(7)} kind=current -->\n`,
+    );
+    const res = run(root);
+    check(
+      "F3: an upper-case marker is resolved too (non-silent either way)",
+      res.code === 1 &&
+        res.out.includes("E-EVIDENCE-UNREACHABLE") &&
+        !res.out.includes("no claim to check"),
+      res.out.trim(),
+    );
+  }
+
+  // ── review F4 on #230: the reference must not be the lagging local branch ──
+  {
+    // local `main` one commit behind `origin/main`. Preferring `main` turned the
+    // same live claims from `stale` into `fresh` — the gate answering "fine" to
+    // the exact question it exists to answer.
+    const { root, anchor } = repo((r) => {
+      const a = commit(r, "base");
+      write(r, "docs/STANDARDS.md", annotation({ asOf: a, kind: "current" }));
+      commit(r, "annotate");
+      write(r, "packages/core/src/index.ts", "export const x = 9;\n");
+      commit(r, "a package moved after the anchor");
+      // Refs only: `origin/main` is the tip, `main` lags at the anchor.
+      git(r, ["update-ref", "refs/remotes/origin/main", git(r, ["rev-parse", "HEAD"])]);
+      git(r, ["update-ref", "refs/heads/main", a]);
+      return { root: r, anchor: a };
+    });
+    check(
+      "F4 precondition: local main lags origin/main",
+      git(root, ["rev-parse", "main"]) === anchor &&
+        git(root, ["rev-parse", "origin/main"]) !== anchor,
+      `main=${git(root, ["rev-parse", "main"])} origin/main=${git(root, ["rev-parse", "origin/main"])}`,
+    );
+    const res = run(root);
+    check(
+      "F4: with a lagging local main the claim is STALE, not fresh",
+      res.code === 0 && res.out.includes("=stale") && res.out.includes("ref=origin/main"),
+      res.out.trim(),
+    );
+  }
+  {
+    // The mirror case: an anchor that IS origin/main's tip must not become a
+    // FATAL just because the local branch is behind (the false `unreachable`).
+    const { root, anchor } = repo((r) => {
+      const a = commit(r, "base");
+      write(r, "docs/STANDARDS.md", annotation({ asOf: a, kind: "record" }));
+      commit(r, "annotate");
+      git(r, ["update-ref", "refs/remotes/origin/main", a]);
+      git(r, ["update-ref", "refs/heads/main", git(r, ["rev-parse", "HEAD~0"])]);
+      return { root: r, anchor: a };
+    });
+    git(root, ["update-ref", "refs/heads/main", anchor]);
+    const res = run(root);
+    check(
+      "F4: a valid anchor on origin/main is not a fatal when local main lags",
+      res.code === 0 && !res.out.includes("E-EVIDENCE-UNREACHABLE"),
+      res.out.trim(),
+    );
+  }
+  {
+    // A reference OLDER than the anchor: the anchor is not ON the ref, but the
+    // ref IS an ancestor of the anchor — so nothing was rewritten, the clone
+    // simply has not fetched. Warn, never fail. Unit-level via the exported
+    // `classify`, because the CLI cannot express "the ref is behind" without
+    // inventing an older ref than the annotation can name.
+    const { classify } = await import("./check.mjs");
+    const root = repo((r) => {
+      commit(r, "base");
+      write(r, "packages/core/src/index.ts", "export const x = 9;\n");
+      return r;
+    });
+    const older = git(root, ["rev-parse", "HEAD~0"]);
+    write(root, "packages/core/src/index.ts", "export const x = 10;\n");
+    const newer = commit(root, "the anchor is ahead of the reference");
+    const verdict = classify(
+      root,
+      { where: "x", file: "docs/STANDARDS.md", type: "tests", asOf: newer, kind: "record" },
+      { name: "main", sha: older },
+    );
+    check(
+      "F4: a reference older than the anchor WARNS, it does not fail",
+      verdict.state === "stale" && verdict.state !== "unreachable",
+      JSON.stringify(verdict),
+    );
+    check(
+      "F4: and the warning names the real cause (fetch, not rebase)",
+      verdict.reason.includes("OLDER than the anchor"),
+      verdict.reason,
+    );
+  }
+
+  // ── review F6 on #230: an unreadable corpus is a clean refusal ─────────────
+  {
+    const root = repo((r) => {
+      commit(r, "base");
+      mkdirSync(join(r, "docs", "secret"), { recursive: true });
+      writeFileSync(join(r, "docs", "secret", "x.md"), "# x\n");
+      return r;
+    });
+    const locked = join(root, "docs", "secret");
+    chmodSync(locked, 0o000);
+    let res;
+    try {
+      res = run(root);
+    } finally {
+      chmodSync(locked, 0o755);
+    }
+    // Running as a user who can read anything (root) makes the case vacuous —
+    // then the gate legitimately passes and there is nothing to assert.
+    if (res.out.includes("E-GATE")) {
+      check(
+        "F6: an unreadable corpus refuses in one vocabulary (no raw stack)",
+        res.code === 1 &&
+          res.out.includes("evidence-gate: FAIL") &&
+          !res.out.includes("at walkMarkdown"),
+        res.out.trim(),
+      );
+    } else {
+      check("F6: skipped — this user can read a 000 directory (not root-only)", true);
+    }
+  }
+
+  // ── review F7 on #230: a package README cannot move a test count ───────────
+  {
+    const { root } = repo(anchored({ kind: "current" }));
+    write(root, "packages/core/README.md", "# core\n");
+    commit(root, "a package README changed only");
+    const res = run(root);
+    check(
+      "F7: a package README edit does NOT mark a tests claim stale",
+      res.code === 0 && res.out.includes("=fresh") && !res.out.includes("W-EVIDENCE-STALE"),
+      res.out.trim(),
+    );
+  }
+  {
+    const { root } = repo(anchored({ kind: "current" }));
+    write(root, "pnpm-lock.yaml", "lockfileVersion: '9.0'\n");
+    commit(root, "the lockfile moved");
+    const res = run(root);
+    check(
+      "F7: the lockfile IS in the tests relevant set",
+      res.code === 0 && res.out.includes("=stale"),
       res.out.trim(),
     );
   }

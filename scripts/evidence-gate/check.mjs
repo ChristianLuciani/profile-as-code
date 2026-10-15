@@ -42,9 +42,19 @@ import { spawnSync } from "node:child_process";
  *   - the citation's OWN file is excluded from the relevant diff: annotating a
  *     document is not evidence that its subject moved. Without that, a `links`
  *     claim would go stale the moment its own annotation landed;
+ *   - the relevant paths are an APPROXIMATION of what can move the number, and
+ *     both directions are declared in `CLAIM_TYPES`: package READMEs are
+ *     excluded (a doc cannot move a test count) and root `package.json` is
+ *     excluded (it holds the command the citation already states verbatim), which
+ *     trades a possible missed warning for the noise that gets warn-only gates
+ *     switched off;
  *   - a clone without the anchor's history (a shallow checkout) reaches the same
  *     `unreachable` verdict as a rebase. CI checks out with `fetch-depth: 0`
- *     precisely so the two cannot be confused.
+ *     precisely so the two cannot be confused;
+ *   - the reference is `origin/main` (then `main`, then `HEAD`) and is NAMED in
+ *     the verdict. A reference OLDER than the anchor is reported as a warning,
+ *     never as `unreachable`: the anchor was not rewritten, the clone simply has
+ *     not fetched.
  *
  * The corpus is link-check's, REUSED not re-walked: `listMarkdown` is exported
  * by `scripts/link-check/check.mjs`, so the two gates can never disagree on
@@ -62,8 +72,8 @@ import { listMarkdown, maskCode } from "../link-check/check.mjs";
 /** Configuration/shape error: the gate cannot verify what it was asked to verify. */
 export class GateError extends Error {}
 
-const ANNOTATION = /<!--\s*evidence:\s*(\S+)\s+as_of=(\S+)\s+kind=(\S+)\s*-->/g;
-const MARKER = "<!-- evidence:";
+const MARKER_RE = /<!--\s*evidence:/gi;
+const ANNOTATION = /<!--\s*evidence:\s*(\S+)\s+as_of=(\S+)\s+kind=(\S+)\s*-->/gi;
 const SHA = /^[0-9a-f]{7,40}$/;
 const KINDS = ["record", "current"];
 
@@ -71,9 +81,21 @@ const KINDS = ["record", "current"];
  * The claim-type registry: what a claim of this type is a function of. A change
  * to any of these paths can move the number, so they are the relevant set —
  * bound per type, exactly as #226 requires (otherwise the gate is red forever).
+ *
+ * Boundaries, declared (review F7 on #230):
+ *   - `:(exclude)*.md` keeps package READMEs OUT of `tests`: a doc edit cannot
+ *     move a test count, and counting it produced noise on a warn-only gate.
+ *   - root `pnpm-lock.yaml` / `pnpm-workspace.yaml` are IN: a dependency or
+ *     workspace-membership change can move the suite, and nothing else at the
+ *     root can. Root `package.json` is deliberately OUT — it holds the test
+ *     COMMAND, which the citation states verbatim, not the reading; including it
+ *     would mark these claims stale from any chore that adds a script.
  */
 const CLAIM_TYPES = {
-  tests: { paths: ["packages"], what: "the test suite counts" },
+  tests: {
+    paths: ["packages", ":(exclude)*.md", "pnpm-lock.yaml", "pnpm-workspace.yaml"],
+    what: "the test suite counts",
+  },
   links: { paths: ["*.md"], what: "the documentation link census" },
 };
 
@@ -91,9 +113,18 @@ function git(root, args) {
   return { code: res.status, out: `${res.stdout ?? ""}`.trim(), err: `${res.stderr ?? ""}`.trim() };
 }
 
-/** The reference the present is read from: `--ref`, else main, else origin/main, else HEAD. */
+/**
+ * The reference the present is read from: `--ref`, else `origin/main`, else
+ * `main`, else `HEAD`.
+ *
+ * `origin/main` comes FIRST deliberately (review F4 on #230). A local branch is
+ * a working copy that lags between fetches, and preferring it inverted the gate:
+ * with a one-commit-behind `main` the same `kind=current` claims reported
+ * `fresh` instead of `stale` — a staleness gate silently answering "fine" to the
+ * exact question it exists to answer, depending on unrelated local state.
+ */
 function reference(root, requested) {
-  const candidates = requested === undefined ? ["main", "origin/main", "HEAD"] : [requested];
+  const candidates = requested === undefined ? ["origin/main", "main", "HEAD"] : [requested];
   for (const candidate of candidates) {
     const res = git(root, ["rev-parse", "--verify", "--quiet", `${candidate}^{commit}`]);
     if (res.code === 0 && res.out.length > 0) return { name: candidate, sha: res.out };
@@ -109,13 +140,34 @@ function reference(root, requested) {
  * reused): a doc may legitimately DOCUMENT this syntax in backticks — as this
  * repo's own `AGENTS.md`/`docs/STANDARDS.md` do — and prose describing a marker
  * must never be mistaken for the marker (or the document could not describe it).
+ *
+ * Detection is derived from the GRAMMAR, never a literal fast path (review F3 on
+ * #230): a `text.includes("<!-- evidence:")` guard silently skipped the shapes
+ * the grammar accepts (`<!--evidence:` with no space) and case variants, so a
+ * `kind=current` claim could go unresolved, undiffed and forever uncatchable —
+ * the one thing a fail-closed gate must not do. Every file is scanned, so there
+ * is no shape that can be skipped by a cheaper check that disagrees with the
+ * expensive one.
  */
 export function collectClaims(root) {
   const claims = [];
-  for (const file of listMarkdown(root)) {
+  let files;
+  try {
+    files = listMarkdown(root);
+  } catch (error) {
+    // link-check's walker throws its own class; translate so this gate's
+    // refusals stay one vocabulary (review F6 on #230) — a raw stack is not an
+    // E-GATE, and the repo's other gates translate this exact error.
+    throw new GateError(`cannot read the documentation corpus: ${error.message}`);
+  }
+  for (const file of files) {
     const rel = path.relative(path.resolve(root), file).split(path.sep).join("/");
-    const text = readFileSync(file, "utf8");
-    if (!text.includes(MARKER)) continue;
+    let text;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch (error) {
+      throw new GateError(`${rel}: cannot read (${error.message})`);
+    }
     const masked = maskCode(text);
     const consumed = [];
     for (const match of masked.matchAll(ANNOTATION)) {
@@ -136,11 +188,14 @@ export function collectClaims(root) {
       claims.push({ where: `${rel}:${line}`, file: rel, type, asOf, kind });
     }
     // Fail-closed: a marker the grammar did not consume is a shape this gate
-    // cannot read — never a silent skip (the rule every other gate here follows).
-    const leftovers = masked.split(MARKER).length - 1 - consumed.length;
-    if (leftovers > 0) {
+    // cannot read — never a silent skip. Counted with the SAME flexible pattern
+    // the grammar uses, so "the guard accepts it" and "the parser accepts it"
+    // cannot drift apart again.
+    const markers = [...masked.matchAll(MARKER_RE)].length;
+    if (markers - consumed.length > 0) {
       throw new GateError(
-        `${rel}: ${leftovers} "${MARKER}" annotation(s) do not match \`${MARKER} <type> as_of=<sha> kind=<record|current> -->\``,
+        `${rel}: ${markers - consumed.length} \`<!-- evidence: … -->\` annotation(s) do not match ` +
+          "`<!-- evidence: <type> as_of=<sha> kind=<record|current> -->`",
       );
     }
   }
@@ -148,19 +203,36 @@ export function collectClaims(root) {
 }
 
 /**
- * Classify one claim. Returns `{state, reason, paths}`.
- * `paths` lists the relevant files that moved (for a stale verdict).
+ * Classify one claim against a resolved reference. Returns
+ * `{state, reason, paths}`; `paths` lists the relevant files that moved.
+ *
+ * `ref` is the reference OBJECT, not a bare sha, so every message can name the
+ * present it actually read — a verdict that hides which ref produced it is
+ * unreproducible (review F4 on #230).
  */
-export function classify(root, claim, refSha) {
+export function classify(root, claim, ref) {
   const resolved = git(root, ["rev-parse", "--verify", "--quiet", `${claim.asOf}^{commit}`]);
   if (resolved.code !== 0 || resolved.out.length === 0) {
     return { state: "unreachable", reason: `"${claim.asOf}" is not a commit in this clone` };
   }
-  const ancestor = git(root, ["merge-base", "--is-ancestor", resolved.out, refSha]);
+  const ancestor = git(root, ["merge-base", "--is-ancestor", resolved.out, ref.sha]);
   if (ancestor.code !== 0) {
+    // Two different causes, and conflating them produced a false FATAL: the
+    // anchor may have been rewritten (a real `unreachable`), or the REFERENCE
+    // may simply be older than the anchor — a clone that has not fetched, where
+    // the citation is perfectly verifiable. Only the first is a claim without a
+    // source; the second is a stale local view and must never fail the gate.
+    const refBehind = git(root, ["merge-base", "--is-ancestor", ref.sha, resolved.out]);
+    if (refBehind.code === 0) {
+      return {
+        state: "stale",
+        reason: `the reference \`${ref.name}\` (${ref.sha.slice(0, 7)}) is OLDER than the anchor — the anchor is not on this ref, so nothing was rewritten: \`git fetch\` and re-run`,
+        paths: [],
+      };
+    }
     return {
       state: "unreachable",
-      reason: `"${claim.asOf}" is no longer an ancestor of the reference (rebase or force-squash?)`,
+      reason: `"${claim.asOf}" is no longer an ancestor of \`${ref.name}\` (${ref.sha.slice(0, 7)}) — rebase or force-squash?`,
     };
   }
   if (claim.kind === "record") {
@@ -172,20 +244,24 @@ export function classify(root, claim, refSha) {
   const changed = git(root, [
     "diff",
     "--name-only",
-    `${resolved.out}..${refSha}`,
+    `${resolved.out}..${ref.sha}`,
     "--",
     ...CLAIM_TYPES[claim.type].paths,
     `:(exclude)${claim.file}`,
   ]);
   if (changed.code !== 0) {
-    throw new GateError(`cannot diff ${claim.asOf}..${refSha}: ${changed.err || changed.code}`);
+    throw new GateError(`cannot diff ${claim.asOf}..${ref.name}: ${changed.err || changed.code}`);
   }
   const paths = changed.out.length === 0 ? [] : changed.out.split("\n");
   return paths.length === 0
-    ? { state: "fresh", reason: `no relevant path changed since ${claim.asOf}`, paths: [] }
+    ? {
+        state: "fresh",
+        reason: `no relevant path changed in ${claim.asOf}..${ref.name}`,
+        paths: [],
+      }
     : {
         state: "stale",
-        reason: `${paths.length} relevant path(s) changed since ${claim.asOf} (${CLAIM_TYPES[claim.type].what}); re-measure, or annotate it \`kind=record\` if it is a historical citation`,
+        reason: `${paths.length} relevant path(s) changed in ${claim.asOf}..${ref.name} (${CLAIM_TYPES[claim.type].what}); re-measure, or annotate it \`kind=record\` if it is a historical citation`,
         paths,
       };
 }
@@ -204,7 +280,7 @@ async function main() {
     const ref = reference(root, requestedRef);
     if (requestedRef === undefined && ref.name === "HEAD") {
       console.log(
-        "note: neither `main` nor `origin/main` resolves here — reading the present from HEAD",
+        "note: neither `origin/main` nor `main` resolves here — reading the present from HEAD",
       );
     }
     const claims = collectClaims(root);
@@ -215,7 +291,7 @@ async function main() {
     const messages = [];
     const states = [];
     for (const claim of claims) {
-      const verdict = classify(root, claim, ref.sha);
+      const verdict = classify(root, claim, ref);
       states.push(
         `${claim.type}@${claim.asOf}${claim.kind === "record" ? "[record]" : ""}=${verdict.state}`,
       );
@@ -227,7 +303,11 @@ async function main() {
     }
     for (const message of messages) console.log(message);
     const fatal = messages.filter(isError);
-    console.log(`evidence-gate: ${fatal.length > 0 ? "FAIL" : "in sync"} (${states.join(", ")})`);
+    // The ref is named in EVERY verdict line, not just the fallback: a result
+    // that hides the present it read cannot be reproduced or argued with.
+    console.log(
+      `evidence-gate: ${fatal.length > 0 ? "FAIL" : "in sync"} (ref=${ref.name}@${ref.sha.slice(0, 7)}; ${states.join(", ")})`,
+    );
     process.exit(fatal.length > 0 ? 1 : 0);
   } catch (error) {
     if (error instanceof GateError) {
