@@ -32,8 +32,9 @@ export const deploySpec = "git" as const;
  * §19.5 live-verification capability (issue #212) — the ONE integration point
  * with the CLI: `pasco status --verify` consumes the renderer's declaration and
  * nothing else crosses the seam (`extractArtifact` · `fetchHosts` ·
- * `artifactUrl`). Living with the artifact's producer keeps one home for both
- * directions of the artifact (D5, AGENTS.md rule 7).
+ * `artifactUrl`). Declared with the artifact's producer (D5, AGENTS.md rule 7);
+ * the projection itself is the shared `@profile-as-code/artifact` bound here to
+ * this surface's footer (#216).
  */
 export { artifactUrl, extractArtifact, fetchHosts } from "./artifact.js";
 
