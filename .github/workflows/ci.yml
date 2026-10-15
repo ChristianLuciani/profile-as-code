@@ -21,9 +21,17 @@ jobs:
     steps:
       # persist-credentials: false — nothing later needs the checkout token in
       # git config, so a compromised dependency cannot read it (#audit).
+      #
+      # fetch-depth: 0 — the evidence-staleness gate (#226) resolves the sha a
+      # run-citation is anchored to and diffs `sha..ref` to decide fresh/stale.
+      # On a shallow clone a valid main commit is UNKNOWN locally, which the gate
+      # would report as `unreachable` — the same verdict as a real rebase, and a
+      # permanent false failure. Full history is what makes the two
+      # distinguishable, so the checkout fetches it.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       # Contract self-test (D3): schema/profile.schema.json must stay valid and
       # keep rejecting/accepting its fixtures. Also asserts the platform registry
@@ -61,10 +69,32 @@ jobs:
       # unconditional: it must run even if `package.json` is absent). The
       # fixture self-test runs first and proves the gate refuses a deliberately
       # broken relative link.
+      #
+      # Issue #226: the corpus CENSUS is a runtime figure — a number that moves
+      # with every commit — so it is a generated block, not prose. `--check`
+      # asserts `<!-- gen:doc-links -->` in `docs/ci-cd.md` equals this run's
+      # computation (stale → E-GATE, refuse). Same mold as the gen-* gates: the
+      # committed projection must be fresh.
       - name: Documentation link gate (offline, self-tested)
         run: |
           node scripts/link-check/test.mjs
-          node scripts/link-check/check.mjs
+          node scripts/link-check/check.mjs --check
+
+      # Issue #226 (R2): a status row still rests on a RUN — "… at `<sha>`
+      # (`<date>`) → 553 tests, 33 files". The staleness of that citation is
+      # computable, not opinionable: the gate resolves the anchored sha, checks
+      # it is still an ancestor of the reference, and diffs the CLAIM TYPE's
+      # relevant paths (tests → `packages/**`; links → the doc corpus).
+      # `stale` WARNS (exit 0) — failing CI for a stale prose figure pushes
+      # people to delete the figure instead of re-measuring it. `unreachable`
+      # FAILS: a citation nobody can resolve is a claim without a source, and the
+      # evidence rule is a contract. A historical `kind=record` citation is never
+      # stale (correct forever) — pinned by the self-test. Zero deps; needs the
+      # full history the checkout step above was configured to fetch.
+      - name: Evidence anchors are reachable (#226)
+        run: |
+          node scripts/evidence-gate/test.mjs
+          node scripts/evidence-gate/check.mjs
 
       # Issue #98: dependency gate (D20 scope rule). The D3 drift-check shape
       # applied to the workspace graph — `packages/server` may depend on core
@@ -95,6 +125,20 @@ jobs:
         run: |
           node scripts/renderer-map/test.mjs
           node scripts/renderer-map/gen.mjs --check
+
+      # Issue #226: the workspace package INVENTORY has one source — the
+      # `pnpm-workspace.yaml` globs, walked (not hardcoded). The `## Map` table in
+      # `AGENTS.md` must cover every package those globs match and list no
+      # `packages/…` path that is not one: #216 had to add `packages/artifact` by
+      # hand and nothing would have failed had it been forgotten. The self-test
+      # first proves the gate refuses every class it claims (omitted package,
+      # phantom row, manifest-less directory, the degenerate root row, unreadable
+      # Map); `--check` then asserts the Map. Zero deps, runs before install.
+      - name: Workspace package inventory in sync with the AGENTS.md Map (#226)
+        if: hashFiles('package.json') != ''
+        run: |
+          node scripts/gen-packages/test.mjs
+          node scripts/gen-packages/gen.mjs --check
 
       # Issue #181: the per-package `tsconfig.test.json` wiring is a convention
       # until it has a gate — `pnpm -r typecheck` SKIPS a package that does not

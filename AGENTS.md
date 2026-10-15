@@ -45,14 +45,31 @@ per-user private repo (`profile-data`), scaffolded from the template
    it projects the core host maps + slug list, the SPEC §6 family table/counts and
    the README status counts; never hand-edit those projections. The schema enum
    stays hand-authored (the reviewed contract).
-3. **Evidence rule.** Quantitative claims need source + date
+3. **Runtime figures are cited, never typed (#226).** A number derived from the
+   runtime (test counts, corpus size) moves with every commit, so it cannot be
+   asserted as current state — it is a **reading of one run**: quote it as
+   `command` at `<sha>` (`<date>`) → reading, or read it from its generated block.
+   The documentation link census lives in the `<!-- gen:doc-links -->` block of
+   `docs/ci-cd.md` (`pnpm gen:doc-links`; `node scripts/link-check/check.mjs --check`
+   asserts it in CI) — cite that block instead of re-typing the number. The package
+   inventory in the Map above is derived from the `pnpm-workspace.yaml` globs, and
+   `pnpm gen:packages` (`node scripts/gen-packages/gen.mjs --check` in CI) fails
+   when the Map omits a workspace package or lists one that does not exist — add the
+   row, never let the inventory drift. A **dated citation of a past run is correct
+   forever**: leave historical records alone. A run-citation a status row rests on
+   carries its anchor inline — `<!-- evidence: <type> as_of=<sha> kind=record|current -->`
+   — and `node scripts/evidence-gate/check.mjs` (CI, needs full history) makes its
+   staleness computable: `stale` only WARNS (re-measure, or mark it `kind=record`
+   if it is history), `unreachable` FAILS (a rebased-away sha is a claim without a
+   source).
+4. **Evidence rule.** Quantitative claims need source + date
    (`[OFICIAL]`/`[EXPERTO]`/`[BENCHMARK]`/`[?]`). Use epistemic notation
    `[MI]`/`[WEB]`/`[INF]`/`[?]` for inference vs. source.
-4. **Docs in English (D8).** Code comments too.
-5. **Tests with behavior.** New core behavior → vitest, fixtures committed.
-6. **Never push to main.** Branch + PR; the human merges. Agent-harness branch
+5. **Docs in English (D8).** Code comments too.
+6. **Tests with behavior.** New core behavior → vitest, fixtures committed.
+7. **Never push to main.** Branch + PR; the human merges. Agent-harness branch
    names (`aionui/pi/…`) are the author's convention, not a project one.
-7. **Scope.** The engine stays an engine: platform-specific behavior lives in
+8. **Scope.** The engine stays an engine: platform-specific behavior lives in
    skills/renderers, not core.
 
 ## Commands
@@ -62,7 +79,11 @@ pnpm install && pnpm test && pnpm build && pnpm typecheck && pnpm lint
 pnpm gen:zod                      # after schema changes
 pnpm gen:renderers                # after changing a renderer's pasco block
 pnpm gen:platforms                # after editing platforms/registry.yaml
+pnpm gen:doc-links                # after the doc corpus changes (link census block)
+pnpm gen:packages                 # list/verify the workspace package inventory
 node scripts/gen-platforms/gen.mjs --check   # assert the projections are fresh
+node scripts/gen-packages/gen.mjs --check    # assert the Map covers every package
+node scripts/evidence-gate/check.mjs         # assert run-citations are anchored reachably
 python3 -m venv /tmp/schema-venv && /tmp/schema-venv/bin/pip install jsonschema pyyaml
 /tmp/schema-venv/bin/python scripts/schema-check/check.py
 ```
