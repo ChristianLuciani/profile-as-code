@@ -27,9 +27,10 @@ caminos sin cuenta funcionan hoy sin acceso a ningún repo. El template repo (on
 privado y llega solo a quien ya tiene acceso, hasta el flip de familia (STANDARDS community
 item 10).
 
-El camino guiado y sin terminal es el hito M5 y **todavía no existe** — diseñarlo es una
-decisión de producto, trackeada como
-[#122](https://github.com/ChristianLuciani/profile-as-code/issues/122).
+El camino **hosted** — un perfil publicado por nosotros, sin cuenta y sin terminal — es un
+**no-goal declarado de v1**: ninguno de estos on-ramps llega ahí, y su trigger de reapertura
+vive en el [SPEC §2](docs/SPEC.md). M5 es un renderer de consumo, no un onboarding hosted
+(SPEC §12).
 
 Instalación, verificación y el paso a paso de cada on-ramp: [**User Guide**](docs/USER-GUIDE.md) (EN).
 Acá abajo, el qué y el por qué.
