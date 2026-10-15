@@ -51,6 +51,7 @@
   "dependencies": {
     "@profile-as-code/artifact": "workspace:*",
     "@profile-as-code/core": "workspace:*",
+    "@profile-as-code/github": "workspace:*",
     "@profile-as-code/markdown": "workspace:*"
   },
   "devDependencies": {

@@ -44,19 +44,24 @@ declares
 `extractArtifact` (the canonical projection — the engine-owned region bounded by
 the last header above the LAST generated footer, chrome stripped; pure, offline,
 idempotent; the caller hashes), `fetchHosts` (`["raw.githubusercontent.com"]`)
-and `artifactUrl`, derived from the URL SSOT (§15.4/§18.4) — `identity.links`
-first (the canonical URL set), then the **claimed** handle matrix:
+and `githubOwner`/`artifactUrl`, derived from the URL SSOT (§15.4/§18.4) —
+`identity.links` first (the canonical URL set), then the **claimed** handle
+matrix:
 `https://raw.githubusercontent.com/<org>/.github/HEAD/profile/README.md`
 (`HEAD` resolves the default branch; measured 2026-10-12,
 `raw.githubusercontent.com/nodejs/.github/HEAD/profile/README.md` → 200
 `[BENCHMARK]`). Both sibling surfaces resolve in that same order, so one
-workspace cannot name two different owners. `null` when the brand declares no
-GitHub org surface (`no-artifact-url`) — a pending handle, or a `github-readme`
-link (the personal sibling surface), declares nothing.
+workspace cannot name two different owners — the rule itself lives once, in
+`@profile-as-code/github` (#224), and `githubOwner` is exported so the shared
+conformance body can prove this adapter delegates it. `null` when the brand
+declares no GitHub org surface (`no-artifact-url`) — a pending handle, or a
+`github-readme` link (the personal sibling surface), declares nothing, and no
+request is made.
 
 ## Dependencies
 
 `@profile-as-code/core` · `@profile-as-code/markdown` (CommonMark escaping for
-destinations and labels — never re-implemented in an adapter, §15.2).
+destinations and labels — never re-implemented in an adapter, §15.2) ·
+`@profile-as-code/artifact` · `@profile-as-code/github`.
 
 See [SPEC §17](../../../docs/SPEC.md) · [skills/github-org](../../../skills/github-org/).

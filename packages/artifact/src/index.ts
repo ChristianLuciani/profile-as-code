@@ -16,9 +16,10 @@
  * region opens at the last header above its terminus and closes at the last
  * generated footer", §15.3) is identical for every markdown artifact the engine
  * renders; the only surface input is which generated footer is THIS surface's
- * terminus. Everything GitHub-specific — `fetchHosts`, the owner resolution and
- * the URL template — stays with the surface, in its adapter (surface knowledge,
- * not transport).
+ * terminus. Nothing GitHub-specific belongs here — the URL template and
+ * `fetchHosts` stay with the surface and the shared owner resolution lives in its
+ * own home, `@profile-as-code/github` (#224); this package is transport, not
+ * surface.
  *
  * Pure, offline, deterministic: no network, no clock, no randomness, no AI. The
  * CALLER hashes — the digest is SHA-256 of the projection's bytes and this module

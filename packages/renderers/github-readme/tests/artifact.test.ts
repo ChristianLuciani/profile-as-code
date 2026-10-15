@@ -1,18 +1,26 @@
 /**
  * Live-verification capability of the `github-readme` surface (SPEC §19.5,
- * issue #132 Lane B / #212; one home #216).
+ * issue #132 Lane B / #212; one home #216/#224).
  *
  * The capability is what lets `pasco status --verify` JUDGE this surface instead
  * of only observing it, so these tests pin its three promises:
  *
  *   - `extractArtifact` is the canonical projection of the engine-owned region —
- *     the rule itself lives once in `@profile-as-code/artifact` (#216), so this
- *     suite runs the SHARED conformance body and hands it this adapter's own
- *     committed fixtures (real published bytes project to the goldens); what
- *     stays local is only the render → digest golden, which needs this renderer;
- *   - `artifactUrl` derives the live URL from the URL SSOT alone and refuses
- *     anything a crafted workspace could use to steer the request;
+ *     the rule lives once in `@profile-as-code/artifact` (#216), so this suite
+ *     runs the SHARED conformance body and hands it this adapter's own committed
+ *     fixtures;
+ *   - `githubOwner`/`artifactUrl` resolve this surface's owner from the URL SSOT
+ *     alone — the rule lives once in `@profile-as-code/github` (#224), so this
+ *     suite runs the SHARED owner corpus through a REAL loaded workspace: the
+ *     positive rungs, the ordering rule, the F2/F5 refusals and the no-GitHub
+ *     negatives are pinned on this surface by the shared body, not by a copy;
  *   - `fetchHosts` is the one-host allowlist the derived URL must stay inside.
+ *
+ * Both bodies assert the adapter DELEGATES (identity, not shape), so an adapter
+ * that stopped delegating — a copied bound or a copied owner rule — fails CI
+ * instead of certifying under rules its sibling does not share. What stays local
+ * is what genuinely needs this renderer or this surface: the render → digest
+ * golden, the allowlist itself, and the hand-built-slice guard.
  *
  * Golden fixtures (committed, byte-exact):
  *   bare.md        the artifact as published
@@ -29,8 +37,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describeArtifactConformance } from "@profile-as-code/artifact/conformance";
 import { compile, load, type Profile } from "@profile-as-code/core";
+import {
+  describeGithubOwnerConformance,
+  type GithubOwnerHandle,
+  type GithubOwnerLink,
+  type GithubOwnerWorkspace,
+} from "@profile-as-code/github/conformance";
 import { afterAll, describe, expect, it } from "vitest";
-import { artifactUrl, extractArtifact, fetchHosts, render } from "../src/index.js";
+import { artifactUrl, extractArtifact, fetchHosts, githubOwner, render } from "../src/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = join(__dirname, "fixtures", "artifact");
@@ -57,7 +71,34 @@ function profileFrom(files: Record<string, string>): Profile {
   return load(dir);
 }
 
-const IDENTITY = (links: string): string => `name: Elena Vasquez\nlinks:\n${links}`;
+/** One `identity.links[]` row of a shared-corpus workspace, as YAML. */
+function linkYaml(link: GithubOwnerLink): string {
+  return link.platform === undefined
+    ? `  - url: '${link.url}'\n`
+    : `  - platform: '${link.platform}'\n    url: '${link.url}'\n`;
+}
+
+/** One `socialHandles[]` row of a shared-corpus workspace, as YAML. */
+function handleYaml(handle: GithubOwnerHandle): string {
+  const url = handle.url === undefined ? "" : `  url: '${handle.url}'\n`;
+  return `- platform: '${handle.platform}'\n  handle: '${handle.handle}'\n  status: ${handle.status}\n${url}`;
+}
+
+/** The shared corpus is DATA; this is this adapter's bridge to a workspace the
+ *  engine actually accepts — a `person` profile needs only `identity` (§9), and
+ *  going through `load()` proves every corpus case is constructible in a real
+ *  workspace, not only in a hand-built object. */
+function profileWith({ links, handles }: GithubOwnerWorkspace): Profile {
+  const files: Record<string, string> = {
+    "identity.yaml":
+      `name: Elena Vasquez\n` +
+      (links === undefined || links.length === 0 ? "" : `links:\n${links.map(linkYaml).join("")}`),
+  };
+  if (handles !== undefined && handles.length > 0) {
+    files["socialHandles.yaml"] = handles.map(handleYaml).join("");
+  }
+  return profileFrom(files);
+}
 
 // The bound/transport regression set AND the fixture integration run ONCE,
 // against the shared home (#216); this suite runs the shared body against THIS
@@ -75,6 +116,18 @@ describeArtifactConformance({
   },
 });
 
+// The owner corpus (#224) runs here too: the resolution lives once in
+// `@profile-as-code/github`, and this suite proves THIS surface binds it — the
+// declaration is read back from the resolver and asserted against the contract, so
+// a widened platform set fails HERE, in the file that changed (fresh-review F1) —
+// and derives the corpus owner for every workspace, no-GitHub ones included.
+describeGithubOwnerConformance({
+  surface: "github-readme",
+  githubOwner,
+  artifactUrl,
+  profileWith,
+});
+
 describe("github-readme golden digest — the artifact the CLI anchors (§19.5)", () => {
   it("render → extract → digest is byte-stable (golden digest fixture)", () => {
     const slice = compile(load(MINIMAL), "github-readme", "en");
@@ -83,102 +136,7 @@ describe("github-readme golden digest — the artifact the CLI anchors (§19.5)"
   });
 });
 
-describe("artifactUrl — derived from the URL SSOT (§15.4/§18.4)", () => {
-  it("derives the profile-README raw URL from the declared GitHub link", () => {
-    const profile = profileFrom({
-      "identity.yaml": IDENTITY("  - platform: github\n    url: https://github.com/elenavasquez\n"),
-    });
-    expect(artifactUrl(profile)).toBe(
-      "https://raw.githubusercontent.com/elenavasquez/elenavasquez/HEAD/README.md",
-    );
-  });
-
-  it("accepts a link named for this surface, unlabelled or with a sub-path — not a sibling's", () => {
-    for (const links of [
-      "  - url: https://www.github.com/elenavasquez/repo\n",
-      "  - platform: github-readme\n    url: https://github.com/elenavasquez\n",
-    ]) {
-      expect(artifactUrl(profileFrom({ "identity.yaml": IDENTITY(links) }))).toBe(
-        "https://raw.githubusercontent.com/elenavasquez/elenavasquez/HEAD/README.md",
-      );
-    }
-    // A `github-org` link names the ORG surface: it cannot name the personal
-    // profile README repo, so deriving from it would be a guess (and a wrong URL).
-    expect(
-      artifactUrl(
-        profileFrom({
-          "identity.yaml": IDENTITY(
-            "  - platform: github-org\n    url: https://github.com/elenavasquez\n",
-          ),
-        }),
-      ),
-    ).toBeNull();
-  });
-
-  it("falls back to a CLAIMED handle-matrix row (§17) and ignores a pending one", () => {
-    const claimed = profileFrom({
-      "identity.yaml": "name: Topia Press\n",
-      "socialHandles.yaml":
-        "- platform: github-readme\n  handle: '@topiapress'\n  status: claimed\n",
-    });
-    expect(artifactUrl(claimed)).toBe(
-      "https://raw.githubusercontent.com/topiapress/topiapress/HEAD/README.md",
-    );
-    // `pending` is the renderer's own non-deployed marker (claimed-only badges):
-    // guessing its URL would record a wrong artifactUrl, so it declares nothing.
-    const pending = profileFrom({
-      "identity.yaml": "name: Topia Press\n",
-      "socialHandles.yaml": "- platform: github-readme\n  handle: topiapress\n  status: pending\n",
-    });
-    expect(artifactUrl(pending)).toBeNull();
-  });
-
-  it("reads the segment after GitHub's reserved `orgs/` route (regression: review F2)", () => {
-    const profile = profileFrom({
-      "identity.yaml": IDENTITY(
-        "  - platform: github\n    url: https://github.com/orgs/topiapress\n",
-      ),
-    });
-    expect(artifactUrl(profile)).toBe(
-      "https://raw.githubusercontent.com/topiapress/topiapress/HEAD/README.md",
-    );
-  });
-
-  it("prefers identity.links over the handle matrix — the same order as its sibling (review F3)", () => {
-    const profile = profileFrom({
-      "identity.yaml": IDENTITY("  - platform: github\n    url: https://github.com/elenavasquez\n"),
-      "socialHandles.yaml": "- platform: github-readme\n  handle: otherbrand\n  status: claimed\n",
-    });
-    expect(artifactUrl(profile)).toBe(
-      "https://raw.githubusercontent.com/elenavasquez/elenavasquez/HEAD/README.md",
-    );
-  });
-
-  it("is null when the workspace declares no GitHub surface (no-artifact-url)", () => {
-    const profile = profileFrom({
-      "identity.yaml": IDENTITY("  - platform: x\n    url: https://x.com/elenavasquez\n"),
-    });
-    expect(artifactUrl(profile)).toBeNull();
-  });
-
-  it("refuses another platform, a foreign host or a non-slug owner", () => {
-    const cases = [
-      "  - platform: linkedin\n    url: https://github.com/elenavasquez\n",
-      "  - platform: github\n    url: https://notgithub.com/elenavasquez\n",
-      "  - platform: github\n    url: https://github.com/evil.com/x\n",
-      "  - platform: github\n    url: https://github.com/%2e%2e\n",
-      "  - platform: github\n    url: https://github.com/\n",
-      // Review F5: a trailing or doubled hyphen is not a GitHub handle.
-      "  - platform: github\n    url: https://github.com/trail-\n",
-      "  - platform: github\n    url: https://github.com/double--hyphen\n",
-      "  - platform: github\n    url: https://github.com/-lead\n",
-      `  - platform: github\n    url: https://github.com/${"a".repeat(40)}\n`,
-    ];
-    for (const links of cases) {
-      expect(artifactUrl(profileFrom({ "identity.yaml": IDENTITY(links) }))).toBeNull();
-    }
-  });
-
+describe("artifactUrl — the surface's own declarations (§15.4/§18.4)", () => {
   it("guards a non-http(s) URL on the hand-built-slice seam (review F5)", () => {
     // `load()` already refuses it (D12: `identity.links[].url` must match
     // `^https?://`), so this guard is defense-in-depth for the public API's
@@ -193,11 +151,11 @@ describe("artifactUrl — derived from the URL SSOT (§15.4/§18.4)", () => {
   });
 
   it("only ever derives a URL inside the declared fetch allowlist", () => {
-    const profile = profileFrom({
-      "identity.yaml": IDENTITY("  - platform: github\n    url: https://github.com/elenavasquez\n"),
+    const profile = profileWith({
+      links: [{ platform: "github", url: "https://github.com/elenavasquez" }],
     });
     const url = artifactUrl(profile);
-    expect(url).not.toBeNull();
+    expect(url).toBe("https://raw.githubusercontent.com/elenavasquez/elenavasquez/HEAD/README.md");
     expect(fetchHosts).toContain(new URL(url as string).hostname);
   });
 
