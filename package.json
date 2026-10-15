@@ -18,7 +18,9 @@
     "format": "biome format --write .",
     "gen:zod": "pnpm -F @profile-as-code/core gen:zod",
     "gen:renderers": "node scripts/renderer-map/gen.mjs",
-    "gen:platforms": "node scripts/gen-platforms/gen.mjs"
+    "gen:platforms": "node scripts/gen-platforms/gen.mjs",
+    "gen:doc-links": "node scripts/link-check/check.mjs",
+    "gen:packages": "node scripts/gen-packages/gen.mjs"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
