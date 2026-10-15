@@ -12,9 +12,11 @@ The projection decides whether a live artifact reads `verified` or
 (`createArtifactExtractor`), never re-implements — a boundary fix applied to one
 file must not leave the other surface certifying under different rules.
 
-Everything GitHub-specific — `fetchHosts`, the owner resolution, the URL template
-— stays with the surface, in its adapter. The only surface input the projection
-takes is **which generated footer is this surface's terminus**.
+Nothing GitHub-specific belongs here: the URL template and `fetchHosts` stay with
+the surface, and the owner resolution shared by the GitHub adapters lives in its
+own home, `@profile-as-code/github` (#224) — this package is transport, not
+surface. The only surface input the projection takes is **which generated footer
+is this surface's terminus**.
 
 ## Usage
 
@@ -29,8 +31,8 @@ Three exports, no more:
 
 - `createArtifactExtractor(surface)` — bind the projection to ONE surface's
   generated footer. The returned function is the frozen `(text: string) => string`
-  seam plus a **frozen** `surface` property; it is registered with this module,
-  which is what `isArtifactExtractor` checks.
+  seam plus a **non-writable** `surface` property; it is registered with this
+  module, which is what `isArtifactExtractor` checks.
 - `projectArtifact(text, surface)` — the same projection, unbound (one-shot
   consumer or test).
 - `isArtifactExtractor(value)` — true **only** for a function this package
@@ -49,8 +51,9 @@ both pairs exist in `$defs.platform.enum`) and hide every edit below it. The
 transport normalizer is intentionally **not** exported: a consumer that normalized
 transport separately could bound a different region than `projectArtifact`.
 
-The adapter still owns its surface facts (`fetchHosts`, `artifactUrl` derived from
-the URL SSOT, §15.4/§18.4) and re-exports the three §19.5 exports unchanged.
+The adapter still owns its surface facts (`fetchHosts`, `githubOwner`, `artifactUrl`
+derived from the URL SSOT, §15.4/§18.4) and re-exports the four §19.5 exports
+unchanged.
 
 ## How §19.5's "ships with the renderer adapter" is read here
 

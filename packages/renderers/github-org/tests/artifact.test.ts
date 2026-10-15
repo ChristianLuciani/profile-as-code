@@ -1,14 +1,17 @@
 /**
  * Live-verification capability of the `github-org` surface (SPEC §19.5, issue
- * #132 Lane B / #212; one home #216) — the brand sibling of `github-readme`,
- * declaring the same three things: the canonical projection, the fetch allowlist
- * and the URL of the live org README derived from the URL SSOT.
+ * #132 Lane B / #212; one home #216/#224) — the brand sibling of `github-readme`,
+ * declaring the same four exports: the canonical projection, the fetch allowlist,
+ * the owner resolution and the URL of the live org README derived from the URL
+ * SSOT.
  *
- * The projection RULE lives once in `@profile-as-code/artifact` (#216): this
- * suite runs the shared conformance body — which also proves the adapter delegates
- * instead of re-implementing the bound, and takes this adapter's committed
- * fixtures — and keeps locally only the render → digest golden (it needs this
- * renderer) and the sibling-footer regression.
+ * Neither rule is re-implemented here. The projection RULE lives once in
+ * `@profile-as-code/artifact` (#216) and the owner RESOLUTION once in
+ * `@profile-as-code/github` (#224); this suite runs BOTH shared bodies against
+ * this adapter's exports — which is what proves the delegation and pins the F2/F5
+ * refusals and the no-GitHub negatives on THIS surface too — and keeps locally
+ * only what needs this renderer or this surface: the render → digest golden, the
+ * sibling-footer regression, the allowlist and the hand-built-slice guard.
  *
  * Golden fixtures (committed, byte-exact): see the `github-readme` sibling for
  * the fixture contract — bare / chrome / edited / projection / digest.
@@ -21,8 +24,14 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describeArtifactConformance } from "@profile-as-code/artifact/conformance";
 import { compile, load, type Profile } from "@profile-as-code/core";
+import {
+  describeGithubOwnerConformance,
+  type GithubOwnerHandle,
+  type GithubOwnerLink,
+  type GithubOwnerWorkspace,
+} from "@profile-as-code/github/conformance";
 import { afterAll, describe, expect, it } from "vitest";
-import { artifactUrl, extractArtifact, fetchHosts, render } from "../src/index.js";
+import { artifactUrl, extractArtifact, fetchHosts, githubOwner, render } from "../src/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = join(__dirname, "fixtures", "artifact");
@@ -52,6 +61,33 @@ function brandWorkspace(extra: Record<string, string> = {}): Profile {
   return load(dir);
 }
 
+/** One `identity.links[]` row of a shared-corpus workspace, as YAML. */
+function linkYaml(link: GithubOwnerLink): string {
+  return link.platform === undefined
+    ? `  - url: '${link.url}'\n`
+    : `  - platform: '${link.platform}'\n    url: '${link.url}'\n`;
+}
+
+/** One `socialHandles[]` row of a shared-corpus workspace, as YAML. */
+function handleYaml(handle: GithubOwnerHandle): string {
+  const url = handle.url === undefined ? "" : `  url: '${handle.url}'\n`;
+  return `- platform: '${handle.platform}'\n  handle: '${handle.handle}'\n  status: ${handle.status}\n${url}`;
+}
+
+/** The shared corpus is DATA; this is this adapter's bridge to a workspace the
+ *  engine actually accepts — a `brand` workspace (D15), loaded through `load()`
+ *  so every corpus case is provably constructible, not only hand-buildable. */
+function profileWith({ links, handles }: GithubOwnerWorkspace): Profile {
+  return brandWorkspace({
+    "identity.yaml":
+      `name: Topia Press\n` +
+      (links === undefined || links.length === 0 ? "" : `links:\n${links.map(linkYaml).join("")}`),
+    ...(handles !== undefined && handles.length > 0
+      ? { "socialHandles.yaml": handles.map(handleYaml).join("") }
+      : {}),
+  });
+}
+
 // The bound + transport regression set AND the fixture integration run ONCE,
 // against the shared home (#216); the body also proves THIS adapter delegates
 // instead of re-implementing it, and that neither the sibling's footer nor an
@@ -65,6 +101,18 @@ describeArtifactConformance({
     projection: fixture("projection.md"),
     edited: fixture("edited.md"),
   },
+});
+
+// The owner corpus (#224) runs here too: the resolution lives once in
+// `@profile-as-code/github`, and this suite proves THIS surface binds it — the
+// declaration is read back from the resolver and asserted against the contract, so
+// a widened platform set fails HERE, in the file that changed (fresh-review F1) —
+// and derives the corpus owner for every workspace, no-GitHub ones included.
+describeGithubOwnerConformance({
+  surface: "github-org",
+  githubOwner,
+  artifactUrl,
+  profileWith,
 });
 
 describe("github-org golden digest — the artifact the CLI anchors (§19.5)", () => {
@@ -86,104 +134,14 @@ describe("github-org golden digest — the artifact the CLI anchors (§19.5)", (
   });
 });
 
-describe("artifactUrl — derived from the URL SSOT (§15.4/§18.4)", () => {
+describe("artifactUrl — the surface's own declarations (§15.4/§18.4)", () => {
   const ORG_URL = "https://raw.githubusercontent.com/topiapress/.github/HEAD/profile/README.md";
 
   it("derives the org profile-README raw URL from the claimed github-org handle", () => {
-    const profile = brandWorkspace({
-      "socialHandles.yaml":
-        "- platform: github-org\n  handle: topiapress\n  status: claimed\n  url: https://github.com/topiapress\n",
+    const profile = profileWith({
+      handles: [{ platform: "github-org", handle: "topiapress", status: "claimed" }],
     });
     expect(artifactUrl(profile)).toBe(ORG_URL);
-  });
-
-  it("reads the segment after GitHub's reserved `orgs/` route (regression: review F2)", () => {
-    expect(
-      artifactUrl(
-        brandWorkspace({
-          "socialHandles.yaml":
-            "- platform: github-org\n  handle: topiapress\n  status: claimed\n  url: https://github.com/orgs/topiapress\n",
-        }),
-      ),
-    ).toBe(ORG_URL);
-  });
-
-  it("prefers identity.links over the handle matrix — the same order as its sibling (review F3)", () => {
-    // The reviewer's cross-surface case: a founder's personal GitHub in links plus
-    // the org handle in the matrix. Both surfaces must name the SAME owner.
-    const profile = brandWorkspace({
-      "identity.yaml":
-        "name: Topia Press\nlinks:\n  - platform: github-org\n    url: https://github.com/topiapress\n",
-      "socialHandles.yaml": "- platform: github-org\n  handle: otherbrand\n  status: claimed\n",
-    });
-    expect(artifactUrl(profile)).toBe(ORG_URL);
-  });
-
-  it("accepts a bare handle with no url, and prefers a claimed row", () => {
-    expect(
-      artifactUrl(
-        brandWorkspace({
-          "socialHandles.yaml": "- platform: github-org\n  handle: topiapress\n  status: claimed\n",
-        }),
-      ),
-    ).toBe(ORG_URL);
-    expect(
-      artifactUrl(
-        brandWorkspace({
-          "socialHandles.yaml":
-            "- platform: github-org\n  handle: pendingone\n  status: pending\n- platform: github-org\n  handle: topiapress\n  status: claimed\n",
-        }),
-      ),
-    ).toBe(ORG_URL);
-  });
-
-  it("ignores a PENDING handle row: it is not a deployed surface yet", () => {
-    expect(
-      artifactUrl(
-        brandWorkspace({
-          "socialHandles.yaml": "- platform: github-org\n  handle: topiapress\n  status: pending\n",
-        }),
-      ),
-    ).toBeNull();
-  });
-
-  it("is null when the brand declares no GitHub org surface (no-artifact-url)", () => {
-    expect(artifactUrl(brandWorkspace())).toBeNull();
-  });
-
-  it("derives from a declared github-org identity link too", () => {
-    expect(
-      artifactUrl(
-        brandWorkspace({
-          "identity.yaml":
-            "name: Topia Press\nlinks:\n  - platform: github-org\n    url: https://github.com/topiapress\n",
-        }),
-      ),
-    ).toBe(ORG_URL);
-  });
-
-  it("refuses a github-readme link: a sibling surface cannot name this one", () => {
-    expect(
-      artifactUrl(
-        brandWorkspace({
-          "identity.yaml":
-            "name: Topia Press\nlinks:\n  - platform: github-readme\n    url: https://github.com/topiapress\n",
-        }),
-      ),
-    ).toBeNull();
-  });
-
-  it("refuses a non-slug owner — a foreign URL never becomes an owner", () => {
-    for (const row of [
-      "- platform: github-org\n  handle: 'evil.com'\n  status: claimed\n  url: https://notgithub.com/topiapress\n",
-      "- platform: github-org\n  handle: '..'\n  status: claimed\n",
-      "- platform: github-org\n  handle: 'a/b'\n  status: claimed\n",
-      // Review F5: GitHub handles never end in a hyphen and never double one.
-      "- platform: github-org\n  handle: 'trail-'\n  status: claimed\n",
-      "- platform: github-org\n  handle: 'double--hyphen'\n  status: claimed\n",
-    ]) {
-      expect(artifactUrl(brandWorkspace({ "socialHandles.yaml": row }))).toBeNull();
-    }
   });
 
   it("guards a non-http(s) URL on the hand-built-slice seam (review F5)", () => {
@@ -201,12 +159,18 @@ describe("artifactUrl — derived from the URL SSOT (§15.4/§18.4)", () => {
   });
 
   it("only ever derives a URL inside the declared fetch allowlist", () => {
-    const profile = brandWorkspace({
-      "socialHandles.yaml":
-        "- platform: github-org\n  handle: topiapress\n  status: claimed\n  url: https://github.com/topiapress\n",
+    const profile = profileWith({
+      handles: [
+        {
+          platform: "github-org",
+          handle: "topiapress",
+          status: "claimed",
+          url: "https://github.com/topiapress",
+        },
+      ],
     });
     const url = artifactUrl(profile);
-    expect(url).not.toBeNull();
+    expect(url).toBe(ORG_URL);
     expect(fetchHosts).toContain(new URL(url as string).hostname);
   });
 
