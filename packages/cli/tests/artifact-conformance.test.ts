@@ -19,6 +19,12 @@
  *     (`isArtifactExtractor`), so a hand-rolled bound fails CI;
  *   - both answer exactly `projectArtifact(text, surface)` on the shared corpus;
  *   - the CLI wires the same function objects the adapters export.
+ *
+ * The subject set is ENUMERATED from `capabilitiesOf`, not written down here: a
+ * surface that declares an extractor tomorrow joins the assertions by existing,
+ * instead of being silently uncovered because nobody remembered to list it
+ * (review F4). A guard test fails if the registry ever stops declaring the two
+ * GitHub surfaces, so the enumeration cannot go vacuous.
  */
 import {
   type ArtifactExtractor,
@@ -30,28 +36,41 @@ import type { Profile } from "@profile-as-code/core";
 import { extractArtifact as orgExtractArtifact } from "@profile-as-code/renderers-github-org";
 import { extractArtifact as readmeExtractArtifact } from "@profile-as-code/renderers-github-readme";
 import { describe, expect, it } from "vitest";
-import { capabilityOf } from "../src/capabilities.js";
+import { capabilitiesOf, capabilityOf } from "../src/capabilities.js";
 
 /** A brand workspace declares both GitHub surfaces; `artifactUrl` needs only
  *  `identity`/`socialHandles` to answer (here: neither, so `null` — irrelevant
  *  to the extractor this suite pins). */
 const BRAND = { flavor: "brand", identity: { name: "Topia Press" } } as unknown as Profile;
 
-const SURFACES: ReadonlyArray<[string, ArtifactExtractor]> = [
-  ["github-readme", readmeExtractArtifact],
-  ["github-org", orgExtractArtifact],
-];
+/** The REGISTERED verifying surfaces — enumerated from the registry the CLI
+ *  actually uses, never a hand-written list: a surface that declares an extractor
+ *  tomorrow joins this suite by existing, instead of passing because nobody
+ *  remembered to add it here (review F4). A capability that declares no extractor
+ *  (the honest `no-extractor` rung) is not a verifying surface and is skipped. */
+const REGISTERED: ReadonlyArray<[string, ArtifactExtractor]> = Object.entries(
+  capabilitiesOf(BRAND),
+).flatMap(([surface, capability]) =>
+  capability.extractor === undefined
+    ? []
+    : [[surface, capability.extractor as ArtifactExtractor] as const],
+);
 
-describe("artifact capability — one implementation, two surfaces (#216)", () => {
-  it("both surfaces export a function the shared factory produced (never a copy)", () => {
-    for (const [surface, extract] of SURFACES) {
+describe("artifact capability — one implementation per surface (#216)", () => {
+  it("the registry declares at least the two GitHub surfaces (guards the enumeration itself)", () => {
+    // Without this, an empty/renamed registry would make every loop below vacuous.
+    expect(REGISTERED.map(([surface]) => surface).sort()).toEqual(["github-org", "github-readme"]);
+  });
+
+  it("every registered surface holds a function the shared factory produced (never a copy)", () => {
+    for (const [surface, extract] of REGISTERED) {
       expect(isArtifactExtractor(extract)).toBe(true);
       expect(extract.surface).toBe(surface);
     }
   });
 
-  it("each surface answers exactly the shared projection, on the shared corpus", () => {
-    for (const [surface, extract] of SURFACES) {
+  it("every registered surface answers exactly the shared projection, on the shared corpus", () => {
+    for (const [surface, extract] of REGISTERED) {
       const corpus = Object.values(artifactConformanceCorpus(surface));
       expect(corpus.length).toBeGreaterThan(0);
       for (const text of corpus) {

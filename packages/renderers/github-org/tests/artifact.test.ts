@@ -5,9 +5,10 @@
  * and the URL of the live org README derived from the URL SSOT.
  *
  * The projection RULE lives once in `@profile-as-code/artifact` (#216): this
- * suite runs the shared conformance body (which also proves the adapter delegates
- * instead of re-implementing the bound) and adds only what this adapter's own
- * fixtures can prove — real published bytes project to the committed goldens.
+ * suite runs the shared conformance body — which also proves the adapter delegates
+ * instead of re-implementing the bound, and takes this adapter's committed
+ * fixtures — and keeps locally only the render → digest golden (it needs this
+ * renderer) and the sibling-footer regression.
  *
  * Golden fixtures (committed, byte-exact): see the `github-readme` sibling for
  * the fixture contract — bare / chrome / edited / projection / digest.
@@ -51,26 +52,22 @@ function brandWorkspace(extra: Record<string, string> = {}): Profile {
   return load(dir);
 }
 
-// The bound + transport regression set runs ONCE, against the shared home
-// (#216); the body also proves THIS adapter delegates instead of re-implementing
-// it, and that the sibling's footer is not this surface's terminus.
-describeArtifactConformance({ surface: "github-org", extractArtifact });
+// The bound + transport regression set AND the fixture integration run ONCE,
+// against the shared home (#216); the body also proves THIS adapter delegates
+// instead of re-implementing it, and that neither the sibling's footer nor an
+// extended slug's footer is this surface's terminus.
+describeArtifactConformance({
+  surface: "github-org",
+  extractArtifact,
+  fixtures: {
+    bare: fixture("bare.md"),
+    chrome: fixture("chrome.md"),
+    projection: fixture("projection.md"),
+    edited: fixture("edited.md"),
+  },
+});
 
-describe("github-org fixtures — the published artifact projects to its golden (§19.5)", () => {
-  it("projects the published artifact to the byte-golden projection", () => {
-    expect(extractArtifact(fixture("bare.md"))).toBe(fixture("projection.md"));
-  });
-
-  it("is chrome-invariant over the committed preamble/appendix fixture", () => {
-    expect(extractArtifact(fixture("chrome.md"))).toBe(fixture("projection.md"));
-    expect(digestOf(fixture("chrome.md"))).toBe(digestOf(fixture("bare.md")));
-  });
-
-  it("reports an edit INSIDE the artifact as a different digest (drift)", () => {
-    expect(digestOf(fixture("edited.md"))).not.toBe(digestOf(fixture("bare.md")));
-    expect(extractArtifact(fixture("edited.md"))).not.toBe(fixture("projection.md"));
-  });
-
+describe("github-org golden digest — the artifact the CLI anchors (§19.5)", () => {
   it("does not confuse the sibling surface's footer for its own terminus", () => {
     // The `github-readme` footer is NOT this renderer's marker: with no own
     // terminus in the text, the projection must not truncate at it.

@@ -7,9 +7,9 @@
  *
  *   - `extractArtifact` is the canonical projection of the engine-owned region —
  *     the rule itself lives once in `@profile-as-code/artifact` (#216), so this
- *     suite runs the SHARED conformance body instead of copying it, and adds only
- *     what this adapter's own fixtures can prove: real published bytes project to
- *     the committed goldens;
+ *     suite runs the SHARED conformance body and hands it this adapter's own
+ *     committed fixtures (real published bytes project to the goldens); what
+ *     stays local is only the render → digest golden, which needs this renderer;
  *   - `artifactUrl` derives the live URL from the URL SSOT alone and refuses
  *     anything a crafted workspace could use to steer the request;
  *   - `fetchHosts` is the one-host allowlist the derived URL must stay inside.
@@ -59,27 +59,23 @@ function profileFrom(files: Record<string, string>): Profile {
 
 const IDENTITY = (links: string): string => `name: Elena Vasquez\nlinks:\n${links}`;
 
-// The border/transport regression set runs ONCE, against the shared home (#216);
-// this suite runs the shared body against THIS adapter's export, so an adapter
-// that stopped delegating — a copied bound — fails CI instead of certifying
-// under rules its sibling does not share.
-describeArtifactConformance({ surface: "github-readme", extractArtifact });
+// The bound/transport regression set AND the fixture integration run ONCE,
+// against the shared home (#216); this suite runs the shared body against THIS
+// adapter's export and its own committed bytes, so an adapter that stopped
+// delegating — a copied bound — fails CI instead of certifying under rules its
+// sibling does not share.
+describeArtifactConformance({
+  surface: "github-readme",
+  extractArtifact,
+  fixtures: {
+    bare: fixture("bare.md"),
+    chrome: fixture("chrome.md"),
+    projection: fixture("projection.md"),
+    edited: fixture("edited.md"),
+  },
+});
 
-describe("github-readme fixtures — the published artifact projects to its golden (§19.5)", () => {
-  it("projects the published artifact to the byte-golden projection", () => {
-    expect(extractArtifact(fixture("bare.md"))).toBe(fixture("projection.md"));
-  });
-
-  it("is chrome-invariant over the committed preamble/appendix fixture", () => {
-    expect(extractArtifact(fixture("chrome.md"))).toBe(fixture("projection.md"));
-    expect(digestOf(fixture("chrome.md"))).toBe(digestOf(fixture("bare.md")));
-  });
-
-  it("reports an edit INSIDE the artifact as a different digest (drift)", () => {
-    expect(digestOf(fixture("edited.md"))).not.toBe(digestOf(fixture("bare.md")));
-    expect(extractArtifact(fixture("edited.md"))).not.toBe(fixture("projection.md"));
-  });
-
+describe("github-readme golden digest — the artifact the CLI anchors (§19.5)", () => {
   it("render → extract → digest is byte-stable (golden digest fixture)", () => {
     const slice = compile(load(MINIMAL), "github-readme", "en");
     const digest = digestOf(render(slice).text);
