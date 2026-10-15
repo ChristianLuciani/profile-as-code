@@ -13,9 +13,12 @@
  * a different URL. #216 gave the §19.5 projection one home and left this; #224 is
  * that debt paid.
  *
- * #227 completes F2. #224 shipped the rule with only the `orgs/` route handled and
- * DECLARED the rest as its limit; this file now carries the whole route grammar as
- * a sourced table (`RESERVED_ROUTES`), so no reserved prefix is read as an owner.
+ * #227 completes F2 for the routes ADMITTED by the test below. #224 shipped the
+ * rule with only the `orgs/` route handled and DECLARED the rest as its limit; this
+ * file now carries the route grammar as a sourced table (`RESERVED_ROUTES`), so no
+ * prefix admitted here is read as an owner. The first revision of this fix drew the
+ * boundary by hand and missed 26 routes a fresh review + the admission sweep found
+ * (#232 review, F1) — the boundary is now a mechanical test, not a judgement.
  *
  * What is SHARED is the algorithm: the one place a candidate becomes an owner, or
  * is refused. What stays per-surface is genuine per-surface DATA — the set of link
@@ -166,8 +169,13 @@ export interface ReservedRoute {
    * documented command, first number included. A bot-gated 4xx is not by itself
    * evidence of a route: for `/apps` the 302 — measured without `-L`, since the
    * gate only appears once the redirect is followed — is the evidence.
-   * The command is re-runnable, so a route GitHub retires shows up as a stale row
-   * instead of staying a silent mis-derivation.
+   *
+   * This is HALF the admission test: the other half is
+   * `gh api /users/<prefix>` → 404 (the login is free, so no account is shadowed).
+   * Rows the case-variant sweep found (#232 review, F1) record that signature here
+   * too; both commands are in the package README. Re-runnable by design: a route
+   * GitHub retires, or a name it later assigns, shows up as a stale row instead of
+   * staying a silent mis-derivation.
    */
   readonly observed: string;
 }
@@ -197,9 +205,20 @@ const route = (
  *
  * DECIDING A ROW. Two questions, in order:
  *
- *   1. Is the first segment a ROUTE at all? A segment GitHub serves as its own page
- *      cannot also be an account — GitHub reserves the name — so no workspace URL
- *      can mean an account by it, and reading it as an owner is always a mis-read.
+ *   1. Is the first segment a ROUTE, or an account? The ADMISSION TEST, both halves
+ *      re-run for every row on 2026-10-15:
+ *        `gh api /users/<prefix>` → 404 — the login is FREE, so no account holds the
+ *        name and refusing it can never cost a real owner; and
+ *        `curl -sL -A 'Mozilla/5.0' https://github.com/<prefix>` → a page GitHub
+ *        serves itself (the rows record what each one is).
+ *      The web-side corroboration is the case variant: a route's all-caps spelling
+ *      is a 404 (`/README`, `/SPARK`), while an ACCOUNT answers in every casing
+ *      (`/WWW`, `/Profile`/`/PROFILE` — probed). A name a live account holds is NOT
+ *      a row whatever its lowercase page looks like: `profile`, `www`,
+ *      `customer-stories`, `careers`, `actions`, `docs`, `dependabot`, … are all
+ *      `200` from `/users/<name>`, and `customer-stories` is exactly the trap — its
+ *      lowercase spelling is GitHub's marketing page while `/CUSTOMER-STORIES` is a
+ *      live profile, so a row would un-verify a real workspace.
  *   2. If it is a route, does its page belong to ONE account? `/orgs/<org>` and
  *      `/sponsors/<account>` resolve to that account's own page, so the owner is
  *      the segment after the prefix; `/topics/<topic>`, `/marketplace/<listing>`,
@@ -230,13 +249,19 @@ const route = (
  *     for a workspace that does publish. The list is decided route by route, not
  *     copied.
  *
- * DECLARED LIMIT. This is the route grammar argued and sourced row by row, not
- * GitHub's full reserved-NAME list (a few hundred names, community-maintained, of
- * which only some are first-segment routes). A first segment that is neither here
- * nor an account cannot be told apart from an account offline, so it still reads as
- * an owner — the residual F2 class, now one data row away instead of one branch
- * away. #227 scoped the routes; widening this to the name list is its own decision,
- * with its own source.
+ * DECLARED LIMIT, now precise. Every row passed the admission test, and the table's
+ * own suite pins the full kind partition as a literal oracle plus a behavioural
+ * sweep, so a row is either admitted with evidence or absent on purpose. What is
+ * still NOT covered is narrower and named:
+ *
+ *   - names GitHub reserves but never serves as a first-segment page (the admission
+ *     test's page half is unobservable signed-out, e.g. `api`, `legal`, `packages`),
+ *     and the long tail of reserved NAMEs that are not routes at all (a few hundred,
+ *     community-maintained). A first segment that is neither a row nor an account
+ *     still reads as an owner — the residual F2 class, now one admission test away.
+ *   - the table cannot be verified in CI: half the test needs the network
+ *     (`gh api`), so the evidence is recorded per row and re-runnable by hand. A
+ *     name GitHub retires or claims later shows up as a stale row, not as a gate.
  */
 export const RESERVED_ROUTES: readonly ReservedRoute[] = Object.freeze([
   // --- the route's next segment IS the account's own page ---------------------
@@ -351,6 +376,172 @@ export const RESERVED_ROUTES: readonly ReservedRoute[] = Object.freeze([
   ),
   route("home", "no-owner", "GitHub's signed-in home page.", "/home → 200"),
   route("copilot", "no-owner", "GitHub Copilot: GitHub's own product page.", "/copilot → 200"),
+
+  // --- the marketing, program and doc-hosted pages (review of PR #232, F1) ----
+  // Admitted by the case-variant SIGNATURE, not by guessing: GitHub serves a
+  // lowercase page whose `og:type` is not `profile`, while the all-caps spelling is
+  // a 404 — a route, because an ACCOUNT answers in every casing (`/WWW` and
+  // `/WWW`==`/www`, `/Profile`/`/PROFILE`, probed). The fresh review named 8 of
+  // these; the same sweep found 18 more, and it is what keeps the live accounts it
+  // touched (`www`, `actions`, `desktop`, `docs`, `dependabot`, `students`, …) OUT:
+  // their uppercase spelling returns a profile. `observed` records both halves of
+  // the signature for these rows; the sweep command is in the README.
+  route(
+    "open-source",
+    "no-owner",
+    "GitHub's open-source program landing — also where the bare `/sponsors` redirect lands, which is why `/sponsors` alone is not an owner either.",
+    "bare /open-source → 200 (object) · /OPEN-SOURCE → 404",
+  ),
+  route(
+    "readme",
+    "no-owner",
+    "The README Project: GitHub's own editorial hub about maintainers.",
+    "bare /readme → 200 (object) · /README → 404",
+  ),
+  route(
+    "team",
+    "no-owner",
+    "GitHub for Teams: GitHub's own marketing page.",
+    "bare /team → 200 (object) · /TEAM → 404",
+  ),
+  route(
+    "solutions",
+    "no-owner",
+    "GitHub Solutions: GitHub's own by-industry landing page.",
+    "bare /solutions → 200 (object) · /SOLUTIONS → 404",
+  ),
+  route(
+    "why-github",
+    "no-owner",
+    "GitHub's 'why GitHub' marketing page.",
+    "bare /why-github → 200 (object) · /WHY-GITHUB → 404",
+  ),
+  route(
+    "trust-center",
+    "no-owner",
+    "GitHub Trust Center: GitHub's own compliance and assurance page.",
+    "bare /trust-center → 200 (object) · /TRUST-CENTER → 404",
+  ),
+  route(
+    "repositories",
+    "no-owner",
+    "A GitHub alias that resolves to the Trending leaderboard, not a repository index an owner could be read from.",
+    "bare /repositories → 200 → /trending · /REPOSITORIES → 404",
+  ),
+  route(
+    "users",
+    "no-owner",
+    "A GitHub alias to the signed-in home; there is no user index at the bare segment to read an owner from.",
+    "bare /users → 200 (object) · /USERS → 404",
+  ),
+  route(
+    "mobile",
+    "no-owner",
+    "GitHub Mobile: GitHub's own product page.",
+    "bare /mobile → 200 (object) · /MOBILE → 404",
+  ),
+  route(
+    "pages",
+    "no-owner",
+    "GitHub Pages: GitHub's own product site (pages.github.com).",
+    "bare /pages → 200 → pages.github.com · /PAGES → 404",
+  ),
+  route(
+    "wiki",
+    "no-owner",
+    "GitHub Wikis: GitHub's own feature page.",
+    "bare /wiki → 200 (object) · /WIKI → 404",
+  ),
+  route(
+    "discussions",
+    "no-owner",
+    "GitHub Discussions: the viewer's cross-repository discussions hub.",
+    "bare /discussions → 200 → login?return_to=/discussions · /DISCUSSIONS → 404",
+  ),
+  route(
+    "site-policy",
+    "no-owner",
+    "GitHub's site-policy corpus, served from docs.github.com.",
+    "bare /site-policy → 200 → docs.github.com/en/site-policy · /SITE-POLICY → 404",
+  ),
+  route(
+    "resources",
+    "no-owner",
+    "GitHub Resources: GitHub's own content hub.",
+    "bare /resources → 200 (object) · /RESOURCES → 404",
+  ),
+  route(
+    "guides",
+    "no-owner",
+    "GitHub Guides, served from docs.github.com.",
+    "bare /guides → 200 → docs.github.com · /GUIDES → 404",
+  ),
+  route(
+    "support",
+    "no-owner",
+    "GitHub Support, served from help.github.com.",
+    "bare /support → 200 → help.github.com · /SUPPORT → 404",
+  ),
+  route(
+    "status",
+    "no-owner",
+    "GitHub Status: GitHub's own availability page.",
+    "bare /status → 200 · /STATUS → 404",
+  ),
+  route(
+    "blog",
+    "no-owner",
+    "The GitHub Blog (github.blog).",
+    "bare /blog → 200 → github.blog · /BLOG → 404",
+  ),
+  route(
+    "nonprofit",
+    "no-owner",
+    "GitHub for Nonprofits, served from socialimpact.github.com.",
+    "bare /nonprofit → 200 → socialimpact.github.com · /NONPROFIT → 404",
+  ),
+  route(
+    "advisories",
+    "no-owner",
+    "The GitHub Advisory Database: GitHub's own security-advisories index.",
+    "bare /advisories → 200 (object) · /ADVISORIES → 404",
+  ),
+  route(
+    "spark",
+    "no-owner",
+    "GitHub Spark: GitHub's own product page.",
+    "bare /spark → 200 (object) · /SPARK → 404",
+  ),
+  route(
+    "press",
+    "no-owner",
+    "GitHub Press, served under /about/press.",
+    "bare /press → 200 → /about/press · /PRESS → 404",
+  ),
+  route(
+    "social-impact",
+    "no-owner",
+    "GitHub Social Impact: GitHub's own program page.",
+    "bare /social-impact → 200 (object) · /SOCIAL-IMPACT → 404",
+  ),
+  route(
+    "universe",
+    "no-owner",
+    "GitHub Universe: GitHub's own conference site (githubuniverse.com).",
+    "bare /universe → 200 → githubuniverse.com · /UNIVERSE → 404",
+  ),
+  route(
+    "sitemap",
+    "no-owner",
+    "GitHub's own sitemap index.",
+    "bare /sitemap → 200 · /SITEMAP → 404",
+  ),
+  route(
+    "terms",
+    "no-owner",
+    "GitHub's Terms of Service, served from docs.github.com.",
+    "bare /terms → 200 → docs.github.com/en/site-policy/github-terms/… · /TERMS → 404",
+  ),
 
   // --- account and session routes -------------------------------------------
   route(

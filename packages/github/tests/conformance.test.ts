@@ -146,11 +146,41 @@ describe("the shared owner resolution binds one surface and proves it (#224)", (
       expect(why.length, `no rationale: ${prefix}`).toBeGreaterThan(0);
       expect(observed.length, `no source: ${prefix}`).toBeGreaterThan(0);
     }
-    // The two rows whose KIND is load-bearing beyond the table: they are the only
-    // ones that read a second segment, and #227 names both.
+    // The KIND partition, as a LITERAL oracle (#232 review, F3): `kind` is the
+    // field that decides whether a prefix is read as a route or as the owner, and a
+    // derived loop cannot falsify it — the expectation would come from the data it
+    // is meant to check. Typed out here, a kind flip (or a new row) is a diff
+    // somebody has to write twice and a reviewer sees. The order-insensitive form
+    // keeps row reordering free.
+    //
+    // The ADMISSION evidence for every prefix in these lists, re-run 2026-10-15:
+    // `gh api /users/<prefix>` → 404 (the login is FREE, so no account is shadowed)
+    // and `https://github.com/<prefix>` → 200 with GitHub's own page. A name a live
+    // account holds is NOT a row, whatever the lowercase page looks like — that is
+    // why `profile`, `www`, `customer-stories`, `careers`, `actions`, `docs`, … are
+    // absent (`/users/<name>` → 200 for each).
+    const EXPECTED_OWNER_AFTER = ["orgs", "sponsors"];
+    const EXPECTED_NO_OWNER =
+      `about account advisories apps blog business codespaces collections contact copilot
+      customers dashboard discover discussions education enterprise enterprises events
+      explore features gists guides home issues join login logout marketplace mobile new
+      nonprofit notifications open-source organizations pages partners press pricing pulls
+      readme repositories resources search security settings signup site-policy sitemap
+      social-impact solutions spark stars status support team terms topics trending
+      trust-center universe users why-github wiki`
+        .split(/\s+/)
+        .filter((p) => p !== "");
     expect(
-      RESERVED_ROUTES.filter(({ kind }) => kind === "owner-after-prefix").map((r) => r.prefix),
-    ).toEqual(["orgs", "sponsors"]);
+      RESERVED_ROUTES.filter(({ kind }) => kind === "owner-after-prefix")
+        .map((r) => r.prefix)
+        .sort(),
+    ).toEqual(EXPECTED_OWNER_AFTER);
+    expect(
+      RESERVED_ROUTES.filter(({ kind }) => kind === "no-owner")
+        .map((r) => r.prefix)
+        .sort(),
+    ).toEqual([...EXPECTED_NO_OWNER].sort());
+    expect(EXPECTED_OWNER_AFTER.length + EXPECTED_NO_OWNER.length).toBe(RESERVED_ROUTES.length);
     // `profile` is the row #227 proposed and this table deliberately refuses:
     // `github.com/profile` is a live account, so a row here would un-verify a
     // workspace that does publish.
@@ -158,6 +188,22 @@ describe("the shared owner resolution binds one surface and proves it (#224)", (
     expect(githubOwner(profileWith({ links: [{ url: "https://github.com/profile" }] }))).toBe(
       "profile",
     );
+  });
+
+  it("exercises EVERY row's behaviour, so a row the code ignores cannot pass (#232 review, F3)", () => {
+    // The corpus pins representatives; this loop is the other half — each row must
+    // actually change an answer. A row that the resolution never consults (a typo'd
+    // prefix, a row added to data but not to the lookup) would leave 31 of the rows
+    // unproven, and `kind` is what decides the owner: `no-owner` must refuse the
+    // segment after the prefix, `owner-after-prefix` must read it.
+    for (const { prefix, kind } of RESERVED_ROUTES) {
+      const bare = `https://github.com/${prefix}`;
+      expect(githubOwner(profileWith({ links: [{ url: bare }] })), bare).toBeNull();
+      const withOwner = `https://github.com/${prefix}/elenavasquez`;
+      expect(githubOwner(profileWith({ links: [{ url: withOwner }] })), withOwner).toBe(
+        kind === "owner-after-prefix" ? "elenavasquez" : null,
+      );
+    }
   });
 
   it("refuses a reserved name proposed as an OWNER, not only as a first segment (#227, review F1)", () => {

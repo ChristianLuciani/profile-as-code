@@ -145,7 +145,10 @@ public `artifactUrl` seam.
 derived `raw.githubusercontent.com/<prefix>/<prefix>/…` — a URL for someone else's
 path — which `--verify` fetched and recorded as durable `http-404` evidence, **with
 that wrong `evidenceUrl`**, in the user's ledger. That is the F2 harm class of #212,
-which #224 shipped closed for `orgs/` only; #227 closes the class. Before:
+which #224 shipped closed for `orgs/` only; #227 closes it for **every prefix
+admitted by the test below** — 65 rows, and the boundary is mechanical rather than a
+judgement call (the first revision drew it by hand and a fresh review found 26 more
+routes, #232 review F1). Before:
 
 ```console
 $ node --input-type=module -e '…resolveGithubOwner(link, binding)…'
@@ -165,10 +168,31 @@ order: is the first segment a route at all, and if so does its page belong to ON
 account? `owner-after-prefix` means the next segment IS that account's own page
 (`/orgs/<org>` and `/sponsors/<account>` both resolve to the account's page);
 `no-owner` means the page is GitHub's (`/topics/<topic>`, `/marketplace/<listing>`,
-`/apps/<slug>`, the viewer's own hubs), so there is no owner. The bug is one harm
-class, not one route: a `||` would have closed `sponsors` and left the class open
-for `topics`, `apps`, `settings`, … — so the fix is the rule, plus the sourced data
-it quantifies over.
+`/apps/<slug>`, the marketing and program pages, the viewer's own hubs), so there is
+no owner. The bug is one harm class, not one route: a `||` would have closed
+`sponsors` and left the class open for `topics`, `apps`, `settings`, … — so the fix
+is the rule, plus the sourced data it quantifies over.
+
+### The admission test (how a prefix becomes a row)
+
+Both halves, re-run for every row on 2026-10-15 — this is what a new row must show,
+and what a stale row fails:
+
+```console
+$ gh api /users/<prefix> -q .login          # → 404 (error): the login is FREE,
+                                            #   so refusing it cannot cost a real owner
+$ curl -sL -A 'Mozilla/5.0' -w '%{http_code} %{url_effective}' https://github.com/<prefix>
+                                            # → 200 and GitHub's own page
+```
+
+The web-side corroboration is the case variant: a route's all-caps spelling is a
+404 (`/README`, `/SPARK`, `/OPEN-SOURCE`), while an ACCOUNT answers in every casing
+(`/WWW`, `/Profile`/`/PROFILE`). **A name a live account holds is never a row**,
+whatever its lowercase page looks like: `profile`, `www`, `customer-stories`,
+`careers`, `actions`, `docs`, `dependabot`, … are all `200` from `/users/<name>`.
+`customer-stories` is the trap that makes the check load-bearing — its lowercase
+spelling is GitHub's marketing page while `/CUSTOMER-STORIES` is a live profile, so
+a row there would read `no-artifact-url` for a workspace that does publish.
 
 Three decisions the table records rather than hides:
 
@@ -184,17 +208,29 @@ Three decisions the table records rather than hides:
   wrong URL is durable wrong evidence. Flipping the kind is one word of data.
 - **`profile` is NOT a row.** #227 listed it beside `settings`, but `settings/`
   already covers `github.com/settings/profile`, and `github.com/profile` is a
-  **live account** (probed: 200, `og:type` `profile`). A row here would refuse a real
-  owner and read `no-artifact-url` for a workspace that does publish. The list is
-  decided route by route, not copied.
+  **live account** (probed: 200, `og:type` `profile`, `/users/profile` → `Profile`).
+  A row here would refuse a real owner and read `no-artifact-url` for a workspace
+  that does publish. The list is decided by the test, not copied.
 
-**Declared limit.** The table is the route grammar argued and sourced row by row —
-each row carries what GitHub itself served on 2026-10-15, re-runnable with
-`curl -sL -A 'Mozilla/5.0' -w '%{http_code} %{url_effective}' https://github.com/<prefix>` —
-not GitHub's full reserved-*name* list (a few hundred names, community-maintained,
-of which only some are first-segment routes). A first segment that is neither a row
-nor an account cannot be told apart from an account offline, so it still reads as an
-owner: the residual F2 class, now one data row away instead of one branch away.
+**Declared limit, now precise.** Every row passed the admission test, and the
+suite pins the full kind partition as a literal oracle plus a behavioural sweep, so
+a row is either admitted with evidence or absent on purpose. What is still **not**
+covered is narrower and named:
+
+- names GitHub reserves but never serves as a first-segment page (`api`, `legal`,
+  `packages`, … — the test's page half is unobservable signed-out), and the long tail
+  of reserved *names* that are not routes at all (a few hundred, community-maintained,
+  not enumerable offline). A first segment that is neither a row nor an account still
+  reads as an owner: the residual F2 class, now one admission test away.
+- the admission test needs the network (`gh api`), so it cannot be a CI gate: the
+  evidence is recorded per row and re-runnable by hand. A name GitHub retires, or
+  assigns later, shows up as a stale row — not as a red suite.
+
+**Declared cost, measured.** `pnpm build` at `d0e6039` → this branch's head
+(2026-10-15): `packages/github/dist/index.js` 8,421 → 26,284 bytes, and the CLI
+bundle (tsup) 198.65 → 210.69 KB (`packages/cli/dist/index.js` 203,453 → 215,795
+bytes). The rows' `why`/`observed` are shipped string fields (~10.1 KB of the
+package's growth); the documentation comments are stripped by the bundler.
 Widening this to the name list is its own decision, with its own source.
 
 ## Dependencies
