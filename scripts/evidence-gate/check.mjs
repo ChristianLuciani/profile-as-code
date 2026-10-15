@@ -97,6 +97,11 @@ const CLAIM_TYPES = {
     what: "the test suite counts",
   },
   links: { paths: ["*.md"], what: "the documentation link census" },
+  // #228: the CLI command inventory is a runtime figure of the same class as the
+  // others — the enumeration is a reading, not a fact. It is a function of the
+  // CLI package's code and manifest; the package's own README is a doc and
+  // cannot add a command.
+  cli: { paths: ["packages/cli", ":(exclude)*.md"], what: "the CLI command inventory" },
 };
 
 const RULES = {

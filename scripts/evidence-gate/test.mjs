@@ -466,6 +466,30 @@ try {
       res.out.trim(),
     );
   }
+
+  // ── #228: the CLI command inventory is a claim of the same class ───────────
+  {
+    const { root } = repo(anchored({ type: "cli", kind: "current" }));
+    write(root, "packages/cli/src/index.ts", "// a ninth command moved in\n");
+    commit(root, "the CLI changed");
+    const res = run(root);
+    check(
+      "#228: a CLI source change marks the command inventory stale",
+      res.code === 0 && res.out.includes("=stale") && res.out.includes("cli@"),
+      res.out.trim(),
+    );
+  }
+  {
+    const { root } = repo(anchored({ type: "cli", kind: "current" }));
+    write(root, "packages/cli/README.md", "# cli\n");
+    commit(root, "only the CLI README changed");
+    const res = run(root);
+    check(
+      "#228: a CLI README edit does NOT mark the inventory stale (a doc adds no command)",
+      res.code === 0 && res.out.includes("=fresh") && !res.out.includes("W-EVIDENCE-STALE"),
+      res.out.trim(),
+    );
+  }
 } finally {
   for (const root of roots) rmSync(root, { recursive: true, force: true });
 }
