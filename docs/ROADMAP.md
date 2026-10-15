@@ -73,16 +73,19 @@ Cierra el pipeline de media: hoy el engine bundlea assets, pero publicarlos es M
 
 **7 · `profile-data-template` release + CONTRIBUTING completo** → M5
 **8 · #95 licence + CLA** — time-sensitive, antes de la primera contribución externa
-**9 · #122 vía no técnica del on-ramp** — diseñar la ruta sin cuenta de GitHub (la capa de docs, #101, ya declaró el requisito)
-**10 · #100 refresh de la status table** — housekeeping
+**9 · #100 refresh de la status table** — housekeeping
 
 ### Transversal — no milestone
 
-**11 · #98 dependency gate de `packages/server`** — scope rule del D20, cuando ese paquete exista
+**10 · #98 dependency gate de `packages/server`** — scope rule del D20, cuando ese paquete exista
 
 ---
 
 ## Lo que este roadmap NO incluye (deliberadamente)
+
+**Hosted path (no account, no terminal) — declared v1 non-goal.** None of §9.2's three
+on-ramps reaches a visitor who has neither an account nor a terminal; the reopening trigger
+lives in [SPEC §2](SPEC.md) (`#122`, closed as a non-goal).
 
 Del análisis de identidad de esta sesión (corpus en `identeco-cifereca`):
 
@@ -108,8 +111,6 @@ M4 renderers ───► M4 check ─┘
                      │
 M5 web ──────────────┴──► M8 deploy playbooks
      └──► consume #103 (@id/sameAs/roles)
-
-M5 template release ──► #122 (on-ramp sin cuenta) ──► #95 (CLA, antes de contribución externa)
 ```
 
 **Camino crítico:** `M3 refine` → `M4 renderers` → `M4 check`.
