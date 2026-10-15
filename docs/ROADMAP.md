@@ -85,7 +85,7 @@ Cierra el pipeline de media: hoy el engine bundlea assets, pero publicarlos es M
 
 **Hosted path (no account, no terminal) — declared v1 non-goal.** None of §9.2's three
 on-ramps reaches a visitor who has neither an account nor a terminal; the reopening trigger
-lives in `docs/SPEC.md` §2 (`#122`, closed as a non-goal).
+lives in [SPEC §2](SPEC.md) (`#122`, closed as a non-goal).
 
 Del análisis de identidad de esta sesión (corpus en `identeco-cifereca`):
 
