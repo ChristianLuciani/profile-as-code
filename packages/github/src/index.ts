@@ -112,8 +112,21 @@ function assertBinding(binding: GithubSurfaceBinding): void {
 const OWNER = /^[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*$/;
 const OWNER_MAX = 39;
 
-/** The one place a candidate becomes an owner, or is refused. */
+/** The one place a candidate becomes an owner, or is refused.
+ *
+ *  A name GitHub RESERVES is refused here whatever proposed it, so the rule holds
+ *  for every candidate and not only for a URL's first segment (#227, review F1):
+ *  the owner slot of an `owner-after-prefix` route (`/sponsors/settings` and
+ *  `/orgs/topics` are 404s, not the accounts `settings`/`topics`) and a declared
+ *  handle (`settings` cannot be a username) both reach this line. GitHub reserves
+ *  the name, so no account can hold it in any casing, and the only URL it could
+ *  derive is a 404 — a durable wrong `evidenceUrl`, which is the harm class #227
+ *  exists to remove. A reserved FIRST segment never reaches here: the route lookup
+ *  in `ownerFromUrl` refuses it first (see `RESERVED_BY_PREFIX`, declared below —
+ *  nothing calls this during module evaluation, so the reference is initialized by
+ *  the time any workspace can reach it). */
 function ownerSlug(value: string): string | null {
+  if (RESERVED_BY_PREFIX.has(value.toLowerCase())) return null;
   return value.length <= OWNER_MAX && OWNER.test(value) ? value : null;
 }
 
@@ -147,9 +160,13 @@ export interface ReservedRoute {
   /**
    * What GitHub ITSELF served for this prefix — the per-row source, not an
    * assertion about one. Probed [OFICIAL] 2026-10-15 with
-   * `curl -sL -A 'Mozilla/5.0' -w '%{http_code} %{url_effective}' https://github.com/<prefix>`
-   * (the same command with the second segment where the row claims one); the
-   * command is re-runnable, so a route GitHub retires shows up as a stale row
+   * `curl -sL -A 'Mozilla/5.0' -w '%{http_code} %{url_effective}' https://github.com/<prefix>`;
+   * where a row's claim needs a second segment, the row records that probe
+   * separately AND the bare-prefix result first, so every row reproduces with the
+   * documented command, first number included. A bot-gated 4xx is not by itself
+   * evidence of a route: for `/apps` the 302 — measured without `-L`, since the
+   * gate only appears once the redirect is followed — is the evidence.
+   * The command is re-runnable, so a route GitHub retires shows up as a stale row
    * instead of staying a silent mis-derivation.
    */
   readonly observed: string;
@@ -189,6 +206,13 @@ const route = (
  *      `/apps/<slug>` and the viewer's own hubs are GitHub's pages, whose second
  *      segment is a topic/listing/app slug — not an account — so there is no owner.
  *
+ * WHERE THE REFUSAL LIVES. This table answers "is this FIRST segment a route".
+ * The reservation itself is enforced on every candidate, in `ownerSlug`: a
+ * reserved name proposing itself as the owner of an owner-after route
+ * (`/sponsors/settings`, `/orgs/topics`) or as a declared handle is refused there
+ * too, because GitHub reserves the name and no account can hold it in any casing
+ * (review F1 — the hole the first revision left one segment to the right).
+ *
  * Two rows are deliberate calls, recorded because they deviate from the candidate
  * list in #227. Both come from the same probe, and both point away from inventing
  * an owner:
@@ -220,7 +244,7 @@ export const RESERVED_ROUTES: readonly ReservedRoute[] = Object.freeze([
     "orgs",
     "owner-after-prefix",
     "GitHub's organization landing route: the page at /orgs/<org> IS the org's own page, so the owner is the segment after the prefix (the shipped F2 fix of #212).",
-    "/orgs/vercel → 200 → github.com/vercel; bare /orgs → 404 (no index page)",
+    "bare /orgs → 404 (no index page) · /orgs/vercel → 200 → github.com/vercel",
   ),
   route(
     "sponsors",
@@ -246,13 +270,13 @@ export const RESERVED_ROUTES: readonly ReservedRoute[] = Object.freeze([
     "marketplace",
     "no-owner",
     "GitHub Marketplace: /marketplace/<listing> is an App/Action listing page; a listing is not an account.",
-    "/marketplace/actions/checkout → 200 (an Action listing)",
+    "bare /marketplace → 400 (bot-gated) · /marketplace/actions/checkout → 200 (an Action listing)",
   ),
   route(
     "apps",
     "no-owner",
     "GitHub Apps: /apps/<slug> is an App's public page; an App is not a user or an org, so no owner artifact exists for it.",
-    "/apps → 302 github.com/marketplace",
+    "bare /apps → 400 followed (bot-gated at /marketplace) · without `-L`: 302 → github.com/marketplace, which IS the route evidence",
   ),
   route(
     "trending",

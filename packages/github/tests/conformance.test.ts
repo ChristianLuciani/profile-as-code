@@ -159,4 +159,28 @@ describe("the shared owner resolution binds one surface and proves it (#224)", (
       "profile",
     );
   });
+
+  it("refuses a reserved name proposed as an OWNER, not only as a first segment (#227, review F1)", () => {
+    // DERIVED over the table, not two hand-picked cases: the first revision
+    // consulted the table only for `segments[0]`, so `/sponsors/settings` and
+    // `/orgs/topics` still derived the owner `settings`/`topics` and aimed
+    // `--verify` at `raw.githubusercontent.com/settings/settings/…`. Raising the
+    // check into `ownerSlug` makes it candidate-level, and this loop holds it for
+    // every owner-after row against every reserved name at once — a new row cannot
+    // reopen the hole silently.
+    const reserved = RESERVED_ROUTES.map(({ prefix }) => prefix);
+    const ownerAfter = RESERVED_ROUTES.filter(({ kind }) => kind === "owner-after-prefix");
+    expect(ownerAfter.length).toBeGreaterThan(0);
+    for (const { prefix } of ownerAfter) {
+      for (const name of reserved) {
+        const url = `https://github.com/${prefix}/${name}`;
+        expect(githubOwner(profileWith({ links: [{ url }] })), url).toBeNull();
+      }
+    }
+    // The complementary half, so the refusal is not vacuous: a real owner in the
+    // same slot still resolves.
+    expect(
+      githubOwner(profileWith({ links: [{ url: "https://github.com/sponsors/elenavasquez" }] })),
+    ).toBe("elenavasquez");
+  });
 });

@@ -97,7 +97,11 @@ export interface GithubOwnerCase {
   readonly owner: string | null;
 }
 
-/** The owner the corpus derives. Never a real account — a fixture name. */
+/** The owner the corpus derives. A fixture NAME, not a contacted account — the
+ *  resolution is offline, so no case needs one to exist. The single exception is
+ *  the `profile` deviation (#227), whose whole point is that GitHub DOES serve an
+ *  account there; it is named as the deviation it is, not smuggled in as a
+ *  fixture. */
 const OWNER = "elenavasquez";
 /** A second, valid owner: a wrong pick is visible instead of coincidentally right. */
 const OTHER = "topiapress";
@@ -476,6 +480,27 @@ export function githubOwnerCorpus(surface: string): readonly GithubOwnerCase[] {
       why: "a case variant of a reserved route is refused too — `TOPICS/typescript` is not the account `TOPICS` (#227)",
       workspace: { links: [link("https://github.com/TOPICS/typescript", "github")] },
       sharedAcrossSurfaces: true,
+      family: "refusal",
+      owner: null,
+    },
+    {
+      why: "a reserved name in the OWNER slot of an owner-after route is refused too: `/sponsors/settings` is a 404, not the account `settings` (review F1)",
+      workspace: { links: [link("https://github.com/sponsors/settings", "github")] },
+      sharedAcrossSurfaces: true,
+      family: "refusal",
+      owner: null,
+    },
+    {
+      why: "the same refusal one route over: `/orgs/topics` names no account (review F1)",
+      workspace: { links: [link("https://github.com/orgs/topics", "github")] },
+      sharedAcrossSurfaces: true,
+      family: "refusal",
+      owner: null,
+    },
+    {
+      why: "a declared handle that is a reserved name is not an owner either — `settings` cannot be a GitHub username, in any casing (review F1: the same refusal, at the candidate)",
+      workspace: { handles: [handle({ handle: "settings" })] },
+      sharedAcrossSurfaces: false,
       family: "refusal",
       owner: null,
     },
