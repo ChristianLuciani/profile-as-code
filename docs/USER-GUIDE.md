@@ -29,8 +29,10 @@ updated, and stay in sync as the engine evolves.
 > **no repo access at all** — that is the path this guide documents for a reader
 > who has, or wants, no GitHub repo. The template repo is private today, so on-ramp
 > A reaches insiders only until the family flip ([STANDARDS](STANDARDS.md),
-> community item 10). The guided, no-terminal path is M5 (SPEC §12), tracked in
-> [#122](https://github.com/ChristianLuciani/profile-as-code/issues/122).
+> community item 10). The **hosted** path — a profile published by us, reached
+> with no account and no terminal — is a declared **v1 non-goal**: none of these
+> on-ramps reaches it, and its reopening trigger lives in [SPEC §2](SPEC.md).
+> M5 is a consumption renderer, not a hosted onboarding (SPEC §12).
 
 ---
 
