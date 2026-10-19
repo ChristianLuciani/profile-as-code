@@ -4,9 +4,10 @@
  * slices; no AI. Platforms WITH a renderer also write the rendered artifact to
  * profiles/<platform>/README.md (deploy spec comes from the renderer's own
  * manifest — `pasco.deploySpec`, §7/#165: git for the GitHub surfaces, manual
- * for the paste platforms, whose artifact IS the paste source, D9); platforms
- * without a renderer print their slices (renderers land in M4). Empty renders
- * unbuild their platform output (v1.7: profiles/ is a pure function, §15.1).
+ * for the paste platforms, whose artifact IS the paste source, D9). A platform
+ * without a renderer writes `profiles/<platform>.md` when it has a bio row
+ * (#239). Empty renders unbuild their platform output (v1.7: profiles/ is a pure
+ * function, §15.1).
  */
 
 import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -22,6 +23,7 @@ import {
   SchemaValidationError,
   type SelectionPolicy,
 } from "@profile-as-code/core";
+import { pasteSource } from "@profile-as-code/paste";
 import { parseLang, parsePlatform } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { RENDERERS } from "../generated/renderers.gen.js";
@@ -157,9 +159,29 @@ export function runBuild(args: BuildArgs): number {
   const written: { platform: string; path: string; assets?: number }[] = [];
   const skipped: { platform: string; reason: string }[] = [];
   for (const s of slices) {
-    const renderer = RENDERERS[s.platform];
-    if (renderer === undefined) continue;
     if (s.platform === "github-org" && profile.flavor !== "brand") continue;
+    const renderer = RENDERERS[s.platform];
+    if (renderer === undefined) {
+      // #239: a manual-paste surface with a bio row gets a file on disk too —
+      // one row verbatim, via the shared paste core. Empty = unbuild (§15.1).
+      const path = join(args.workspace, "profiles", `${s.platform}.md`);
+      const text = pasteSource(s);
+      if (text === "") {
+        skipped.push({
+          platform: s.platform,
+          reason: "empty paste source — no bio row for this platform+lang; platform output removed",
+        });
+        rmSync(path, { force: true });
+        continue;
+      }
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, text);
+      written.push({ platform: s.platform, path });
+      continue;
+    }
+    // A renderer owns this platform now: remove any pre-renderer flat paste
+    // file so profiles/ stays a pure function (#245 premerge F2).
+    rmSync(join(args.workspace, "profiles", `${s.platform}.md`), { force: true });
     const result = renderer(s, bundle.assets);
     const dir = join(args.workspace, "profiles", s.platform);
     // v1.7 (#130): an empty artifact is not a deploy artifact — a paste

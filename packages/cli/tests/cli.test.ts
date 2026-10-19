@@ -232,11 +232,55 @@ describe("pasco build (compile slices)", () => {
       data: { platforms: { platform: string }[]; written: { platform: string; path: string }[] };
     };
     expect(data.data.platforms.map((p) => p.platform)).toEqual([...PLATFORMS]);
-    // only renderer platforms write artifacts; github-org is brand-only (D15) so a person workspace writes only github-readme
-    expect(data.data.written.map((w) => w.platform)).toEqual(["github-readme"]);
+    // renderer platforms write their deploy artifact; manual surfaces with a bio
+    // row write profiles/<platform>.md (#239). github-org is brand-only (D15).
+    expect(data.data.written.map((w) => w.platform)).toEqual([
+      "github-readme",
+      "linkedin",
+      "upwork",
+      "x",
+    ]);
     // v1.7 (#130): an EMPTY render must leave no trace — not even the profiles/<platform>/ dir
     // (a regression here litters every pre-existing workspace with empty dirs per new renderer).
     expect(existsSync(join(ws, "profiles", "kofi"))).toBe(false);
+  });
+
+  it("writes a paste artifact for a manual surface without a renderer (#239)", () => {
+    const ws = tempDir();
+    copyFixture(MINIMAL, ws);
+    const r = run(["build", "--workspace", ws]);
+    expect(r.code).toBe(0);
+
+    const linkedin = join(ws, "profiles", "linkedin.md");
+    const upwork = join(ws, "profiles", "upwork.md");
+    const x = join(ws, "profiles", "x.md");
+    expect(existsSync(linkedin)).toBe(true);
+    expect(existsSync(upwork)).toBe(true);
+    expect(existsSync(x)).toBe(true);
+    const linkedinText = readFileSync(linkedin, "utf8");
+    expect(linkedinText).toContain("Senior AI engineer");
+    expect(linkedinText.split("\n").filter((l) => l !== "")).toHaveLength(1);
+    expect(linkedinText.endsWith("\n")).toBe(true);
+    expect(readFileSync(upwork, "utf8")).toContain("I architect sovereign AI stacks");
+    // A headline-only surface has no bio row: no paste file is invented.
+    expect(existsSync(join(ws, "profiles", "substack.md"))).toBe(false);
+  });
+
+  it("unbuilds a stale manual paste artifact and reports it (#239)", () => {
+    const ws = tempDir();
+    copyFixture(MINIMAL, ws);
+    const first = run(["build", "upwork", "--workspace", ws]);
+    expect(first.code).toBe(0);
+    expect(existsSync(join(ws, "profiles", "upwork.md"))).toBe(true);
+    rmSync(join(ws, "content", "bios.yaml"));
+    const second = run(["build", "upwork", "--json", "--workspace", ws]);
+    expect(second.code).toBe(0);
+    const data = JSON.parse(second.stdout) as {
+      data: { written: unknown[]; skipped: { platform: string; reason: string }[] };
+    };
+    expect(data.data.written).toEqual([]);
+    expect(data.data.skipped.some((s) => s.platform === "upwork")).toBe(true);
+    expect(existsSync(join(ws, "profiles", "upwork.md"))).toBe(false);
   });
 
   it("writes the kofi paste artifact for a kofi workspace (v1.7, #130)", () => {
@@ -317,10 +361,14 @@ describe("pasco build (compile slices)", () => {
     const data = JSON.parse(r.stdout) as {
       data: { written: { platform: string; path: string }[] };
     };
-    // github-readme (git) + the 5 family paste platforms; kofi has no bios row
-    // in this fixture → empty render → not written (§15.1 pure profiles/).
+    // github-readme (git) + the 5 family paste platforms + the manual paste
+    // surfaces with a bio row (#239); kofi has no bios row in this fixture →
+    // empty render → not written (§15.1 pure profiles/).
     expect(data.data.written.map((w) => w.platform)).toEqual([
       "github-readme",
+      "linkedin",
+      "upwork",
+      "x",
       ...PASTE_PLATFORMS.map((entry) => entry.platform),
     ]);
     expect(existsSync(join(ws, "profiles", "kofi"))).toBe(false);

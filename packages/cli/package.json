@@ -48,6 +48,7 @@
     "@profile-as-code/artifact": "workspace:*",
     "@profile-as-code/core": "workspace:*",
     "@profile-as-code/github": "workspace:*",
+    "@profile-as-code/paste": "workspace:*",
     "@profile-as-code/renderers-buymeacoffee": "workspace:*",
     "@profile-as-code/renderers-github-org": "workspace:*",
     "@profile-as-code/renderers-github-readme": "workspace:*",
