@@ -55,6 +55,27 @@ describe("geoCheck(profile)", () => {
     expect(readiness.jsonLd?.jobTitle).toBe("Senior AI Engineer");
   });
 
+  it("names the missing canonical @id in the structured-data detail (#241)", () => {
+    const report = geoCheck(load(fixture("minimal")));
+    const entity = report.checks.find((c) => c.code === "geo/entity-id");
+    const points = Math.round((entity?.weight ?? 0.05) * 100);
+
+    expect(report.sections.structuredData.readiness.fields.id).toBeUndefined();
+    expect(report.sections.structuredData.detail).toContain("role: identity");
+    expect(report.sections.structuredData.detail).toContain(`+${points} overall`);
+  });
+
+  it("omits the @id gap when a role: identity link exists (#241)", () => {
+    const profile = load(fixture("minimal"));
+    const link = profile.identity.links?.[0];
+    if (link === undefined) throw new Error("minimal fixture must declare an identity link");
+    profile.identity.links = [{ ...link, role: "identity" }];
+    const report = geoCheck(profile);
+
+    expect(report.sections.structuredData.readiness.fields.id).toBeDefined();
+    expect(report.sections.structuredData.detail).not.toContain("Missing canonical @id");
+  });
+
   it("emits schema.org email on Person JSON-LD (v1.5, issue #71) and counts it toward completeness", () => {
     const profile = load(fixture("minimal"));
     profile.identity.email = "elena@example.com";

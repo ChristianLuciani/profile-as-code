@@ -337,7 +337,13 @@ export function geoCheck(profile: Profile): GeoReport {
         // Mirrors `ready = Boolean(name)` exactly (structured-data.ts). The old string still
         // claimed "need name + ≥1 sameAs link" — the predicate it no longer uses, i.e. the
         // same contradiction as the `ready` bug, one line away from its own fix.
-        `schema.org ${sd.entityType} JSON-LD ${sd.ready ? "ready for the web renderer" : "not ready (need a name)"}.`,
+        // #241: the @id gap is a user-facing fact, not a JSON-only field — name the missing
+        // anchor and its weight in the same line the score prints.
+        `schema.org ${sd.entityType} JSON-LD ${sd.ready ? "ready for the web renderer" : "not ready (need a name)"}.${
+          sd.fields.id === undefined
+            ? ` Missing canonical @id: declare a role: identity link on a page or profile (+${Math.round((checks.find((c) => c.code === "geo/entity-id")?.weight ?? 0.05) * 100)} overall).`
+            : ""
+        }`,
         checks.filter(
           (c) =>
             c.code.startsWith("geo/sameas") ||
