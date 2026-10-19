@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>profile-as-code — your professional identity, as code</title>
+  <meta name="description" content="A versioned source of truth for your professional identity. One YAML workspace, platform-specific texts for GitHub, LinkedIn, Upwork, X, and more. CLI-first, open source, MIT.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="canonical" href="https://christianluciani.github.io/profile-as-code/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="profile-as-code — your professional identity, as code">
+  <meta property="og:description" content="One YAML workspace, platform-specific texts for GitHub, LinkedIn, Upwork, X, and more. CLI-first, open source, MIT.">
+  <meta property="og:url" content="https://christianluciani.github.io/profile-as-code/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="profile-as-code — your professional identity, as code">
+  <meta name="twitter:description" content="One YAML workspace, platform-specific texts. CLI-first, open source, MIT.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="./" aria-label="profile-as-code — home">
+        <svg class="mark" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+          <rect x="1" y="1" width="26" height="26" rx="8" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".35"/>
+          <path d="M8 9.5h7M8 14h12M8 18.5h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <circle cx="18.5" cy="9.5" r="1.7" fill="currentColor"/>
+          <circle cx="18.5" cy="18.5" r="1.7" fill="currentColor"/>
+        </svg>
+        <span>profile-as-code</span>
+      </a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="#what">What it does</a>
+        <a href="#on-ramps">On-ramps</a>
+        <a href="#status">Status</a>
+        <a class="nav-github" href="https://github.com/ChristianLuciani/profile-as-code">GitHub <span aria-hidden="true">↗</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="wrap hero">
+      <div class="hero-copy">
+        <p class="eyebrow">CLI-first · TypeScript · MIT</p>
+        <h1>Your professional identity, <em>as code.</em></h1>
+        <p class="lede">
+          profile-as-code is a versioned source of truth for your professional identity: your facts
+          live once in YAML, and the engine renders consistent, platform-specific texts for GitHub,
+          LinkedIn, Upwork, X, and other surfaces. It is for technical people who would rather
+          maintain one folder than eight profiles by hand. Install the CLI, run <code>pasco init</code>,
+          and keep every profile in sync from one place.
+        </p>
+        <div class="actions">
+          <a class="button primary" href="https://www.npmjs.com/package/@profile-as-code/cli">Install from npm</a>
+          <a class="button" href="https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/USER-GUIDE.md">Read the user guide</a>
+        </div>
+        <p class="fineprint">Node.js ≥ 22. No account and no repo are required for on-ramps B and C.</p>
+      </div>
+
+      <figure class="terminal">
+        <figcaption class="sr-only">Quick start: install the CLI, scaffold a workspace, validate it.</figcaption>
+        <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
+        <pre><code><span class="t-prompt">$</span> npm i -g @profile-as-code/cli
+<span class="t-prompt">$</span> pasco init my-profile
+<span class="t-comment"># minimal, validating workspace</span>
+<span class="t-prompt">$</span> cd my-profile
+<span class="t-prompt">$</span> pasco validate
+<span class="t-comment"># the schema is the judge</span></code></pre>
+      </figure>
+    </section>
+
+    <section class="wrap section" id="what">
+      <div class="section-head">
+        <p class="kicker">Why</p>
+        <h2>One source of truth. Every surface.</h2>
+        <p class="section-intro">
+          The same profile lives across many platforms, each with its own rules, limits, and audience.
+          Edited by hand, the copies drift, and the facts (dates, roles, publications) start to
+          contradict each other. profile-as-code gives those facts a versioned home and makes the
+          rendered texts a deterministic output of it.
+        </p>
+      </div>
+
+      <div class="grid-3">
+        <article class="card">
+          <p class="card-index" aria-hidden="true">01</p>
+          <h3>Facts stay facts</h3>
+          <p>
+            Dates, roles, projects, and publications are structured data validated against a JSON
+            Schema. Drift checks warn when a fact disagrees across platforms; schema violations fail.
+          </p>
+        </article>
+        <article class="card">
+          <p class="card-index" aria-hidden="true">02</p>
+          <h3>Texts are angles, not copies</h3>
+          <p>
+            Bios and headlines are authored per platform and language, and rendered as deterministic base texts.
+            The engine does not invent facts: it renders the ones you declared; the variant picker is still partial.
+          </p>
+        </article>
+        <article class="card">
+          <p class="card-index" aria-hidden="true">03</p>
+          <h3>Consistency is citability</h3>
+          <p>
+            Search engines and language models read and cite profiles. Identical facts across
+            surfaces, semantic anchors, and structured data are what make a profile quotable.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="wrap section" id="on-ramps">
+      <div class="section-head">
+        <p class="kicker">Start</p>
+        <h2>Three on-ramps. The same engine.</h2>
+        <p class="section-intro">
+          Your workspace is <strong>a folder</strong>; a repository is the recommended place to keep
+          it, not a requirement. Pick the one that matches what you already have. The three paths
+          share the same folder contract and the same <code>pasco</code> commands — they differ in
+          automation, history, and whether an account is involved.
+        </p>
+      </div>
+
+      <div class="ramps">
+        <article class="ramp featured">
+          <p class="tag">Recommended</p>
+          <h3><span class="ramp-letter">A</span> Template repo</h3>
+          <p class="ramp-copy">
+            The complete example workspace, operational docs, licence, and a ready
+            <code>.pascorc</code> — with automation and hosted git history from the first commit.
+          </p>
+          <ul class="checks">
+            <li>Full example and repository automation</li>
+            <li>History for every change</li>
+            <li>Requires an account and a repo</li>
+          </ul>
+          <a class="text-link" href="https://github.com/ChristianLuciani/profile-data-template">Open the template <span aria-hidden="true">→</span></a>
+          <p class="ramp-note">
+            If the template repository is private for you today, use B or C — they work from the
+            public npm package with no repo access.
+          </p>
+        </article>
+
+        <article class="ramp">
+          <p class="tag tag-quiet">No account</p>
+          <h3><span class="ramp-letter">B</span> Local, <code>pasco init</code></h3>
+          <p class="ramp-copy">
+            A minimal, <code>pasco validate</code>-clean folder in seconds, written to a path you
+            choose. Nothing runs on a change and nothing versions it for you.
+          </p>
+          <ul class="checks">
+            <li>Whole command set except <code>diff</code> (needs git history)</li>
+            <li>No workflow, no repo, no account</li>
+            <li><code>git init</code> is yours to run</li>
+          </ul>
+          <a class="text-link" href="https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/USER-GUIDE.md">Read option B <span aria-hidden="true">→</span></a>
+        </article>
+
+        <article class="ramp">
+          <p class="tag tag-quiet">No account</p>
+          <h3><span class="ramp-letter">C</span> Bring your own storage</h3>
+          <p class="ramp-copy">
+            The same <code>pasco init</code> scaffold, written where your storage already lives — a
+            local disk, a synced folder, or another git host.
+          </p>
+          <ul class="checks">
+            <li>Same capabilities as B</li>
+            <li>Your storage, your backup and sync</li>
+            <li>No host, no account</li>
+          </ul>
+          <a class="text-link" href="https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/USER-GUIDE.md">Read option C <span aria-hidden="true">→</span></a>
+        </article>
+      </div>
+    </section>
+
+    <section class="wrap section" id="status">
+      <div class="section-head">
+        <p class="kicker">Status</p>
+        <h2>Pre-1.0. Published. Honest.</h2>
+        <p class="section-intro">
+          The engine is usable today, and it is still growing. This page states what works and what
+          does not, so you can decide before you invest time.
+        </p>
+      </div>
+
+      <div class="status-grid">
+        <div class="status-item">
+          <h3 class="status-label">Package</h3>
+          <p><code>@profile-as-code/cli@0.3.0</code> is published on npm (2026-10-11) and installs with <code>npm i -g @profile-as-code/cli</code>.</p>
+        </div>
+        <div class="status-item">
+          <h3 class="status-label">Works</h3>
+          <p><code>init</code>, <code>validate</code>, <code>build</code>, <code>diff</code>, <code>status</code>, and the offline rules of <code>check</code>. Renderers: GitHub profile and organization, plus the paste family.</p>
+        </div>
+        <div class="status-item">
+          <h3 class="status-label">Partial</h3>
+          <p><code>refine</code> emits the agent task and records the chosen variant; the full variant flow is still on the roadmap. The platform rule catalogue continues to grow.</p>
+        </div>
+        <div class="status-item">
+          <h3 class="status-label">Not in v1</h3>
+          <p>A hosted profile with no account and no terminal is a declared non-goal, with an explicit reopening trigger in the specification.</p>
+        </div>
+      </div>
+
+      <p class="status-foot">
+        The authoritative command table lives in the
+        <a href="https://github.com/ChristianLuciani/profile-as-code/blob/main/packages/cli/README.md">CLI README</a>;
+        the milestone plan lives in the
+        <a href="https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/ROADMAP.md">roadmap</a>.
+      </p>
+    </section>
+
+    <section class="wrap section" id="docs">
+      <div class="section-head">
+        <p class="kicker">Read next</p>
+        <h2>Everything is in the open.</h2>
+      </div>
+      <ul class="doc-links">
+        <li><a href="https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/USER-GUIDE.md"><span>User guide</span><small>Install, scaffold, load your facts, keep them updated.</small></a></li>
+        <li><a href="https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md"><span>Specification</span><small>The contract: decisions, data model, interfaces, roadmap.</small></a></li>
+        <li><a href="https://github.com/ChristianLuciani/profile-as-code/blob/main/CONTRIBUTING.md"><span>Contributing</span><small>Direction, hygiene, and the measured latency table.</small></a></li>
+        <li><a href="https://github.com/ChristianLuciani/profile-as-code/blob/main/LICENSE"><span>Licence</span><small>MIT. Use it, fork it, build on it.</small></a></li>
+        <li><a href="https://github.com/ChristianLuciani/profile-as-code/discussions"><span>Discussions</span><small>Questions, ideas, and the occasional design argument.</small></a></li>
+        <li><a href="https://github.com/ChristianLuciani/profile-as-code"><span>Source</span><small>The engine, the schema, the renderers, and the skills.</small></a></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <p><strong>profile-as-code</strong> — your professional identity, as code.</p>
+      <p class="footer-meta">MIT · pre-1.0 · <a href="https://github.com/ChristianLuciani/profile-as-code">GitHub</a></p>
+    </div>
+  </footer>
+</body>
+</html>

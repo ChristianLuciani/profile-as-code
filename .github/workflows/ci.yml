@@ -96,6 +96,13 @@ jobs:
           node scripts/evidence-gate/test.mjs
           node scripts/evidence-gate/check.mjs
 
+      # Issue #201: the project page is static HTML, outside the Markdown link
+      # corpus. This gate checks its ids, in-page anchors and local paths,
+      # refuses <script> and http://, and self-tests first. Offline,
+      # zero-dependency — same shape as the docs link gate above.
+      - name: Project page gate (offline, self-tested)
+        run: node scripts/site-check/check.mjs
+
       # Issue #98: dependency gate (D20 scope rule). The D3 drift-check shape
       # applied to the workspace graph — `packages/server` may depend on core
       # only among its runtime dependencies, and nothing in core's dependency
