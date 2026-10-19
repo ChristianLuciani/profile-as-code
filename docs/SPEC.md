@@ -109,6 +109,7 @@ skills + deploy playbooks**.
 | D18 | **Per-entry deploy ledger as data** (schema-additive v1.3): `deployments` map (`content/deployments.yaml`) + optional stable entry `id`s + `origin: template` provenance flag + `pasco status`; deploy state is `pasco`-owned data and `CHECKLIST.md` becomes a generated view (issue #37, §19) | The per-entry question — *mine vs template? published where? in-sync or stale?* — is unanswerable from platform-granularity state (`active`, D11, answers *which variant is live* only); staleness = `contentHash` compare, exact and release-tag-independent (`pasco diff` stays the CHANGELOG hint); only `pasco` mutates the ledger — same write rule as `refine --choose` (D14). **v1.10 (issue #132) adds a second, orthogonal dimension — certification strength (`verified` \| `attested` \| `unverifiable`) over the live artifact, with `out-of-band-drift` as its negative outcome (§19.5); staleness and the `contentHash` basis are untouched** |
 | D20 | **`pasco serve` is a minimal reference adapter over `Core`** (§7), exposed as a **local HTTP contract**. It is minimal **by construction**: no access control, no multi-tenancy, no billing, no persistent storage, no hosting orchestration. Dependency rule: `server` depends on `core`, and only the CLI's `serve` subcommand depends on `server` | Keeps the published surface **small, auditable and dependency-light** — the engine's job is the contract, not the deployment. The **contract is the integration point**, so any consumer (a UI, an editor, a script, a service) may implement its own adapter against it instead of adopting ours. Alternatives: a **feature-rich bundled server** (rejected — bloats the published package and couples the engine to deployment concerns it does not own); **no server at all** (rejected — leaves the engine drivable only from the CLI, so every consumer re-invents the boundary, and there is no reference implementation to test the contract against) |
 | D21 | **Contributions are accepted under the Developer's Certificate of Origin 1.1 — no CLA** (issue #95, 2026-10-03): every non-bot, non-merge commit in a PR must carry a `Signed-off-by:` trailer whose email matches the commit author; the canonical text is the root `DCO` file, and the gate is `scripts/dco-check/` (self-test first, `dep-gate` shape) wired as the `dco` workflow | The licence stays **MIT** (`packages/*/package.json`), and with a permissive licence there is nothing left to relicense — so a CLA's only real value (an express sublicense/relicensing grant) would buy permanent contributor friction, a third-party signature-collection app and a legal document to maintain, in exchange for optionality the project has decided not to exercise. The DCO certifies *provenance* of the contribution at zero infrastructure and zero data beyond the git trailer. Alternatives: **CLA** (rejected — friction and upkeep for optionality we don't want); **DCO + relicensing grant** (deferred — cheaper than a CLA and keeps the option open, but a sign-off is weaker evidence of assent than a signature; revisit only if the licence question reopens, and never retroactively for an already-published version). Bot authors are exempt by design: Dependabot cannot sign off, and blocking it would block every dependency PR |
+| D22 | **Fact selection is a workspace policy, and it is subset-only** (issue #235, 2026-10-19): a named **view** selects which SSOT entries a rendered profile emits — `.pascorc` → `selection.views` (`mode: all\|tags`, `tags`, `excludeTags`, `excludeKeys`); **exclusion always wins**; **no policy ⇒ byte-identical output**. A view **removes entries and never edits one**, so the GEO invariant (Goal 2/3, §15.4) is untouched: it constrains what a fact *says* when it appears, not that it appear everywhere, and `geo.ts:21` already scores absence as neutral. **Every view that omits entries WARNS** (operator's G1 amendment, §21.4) and `pasco status --selection` names each omission and its reason | Selection is the one per-surface adaptation the engine was missing beside `lang` (text) and `refine` (storytelling); §18.9 had already *declared* tag selection with no implementation. One identity, several faces — without duplicating facts. Alternatives: **per-entry `platforms[]` in the SSOT** (rejected — couples the platform-agnostic data to the platform enum, turns it into an N×M matrix, and forces every new platform to edit every entry); **renderer-side filtering** (rejected — every adapter re-implements it, and `check`/`status` would see a different slice than `build`, against the `markdown`/`paste`/`artifact` one-home rule); **overlay files** (rejected — a second source of truth for the same fact, so drift becomes "which overlay won?"); **a workspace per audience** (correct for *separate identities* — §18.9/D15 keeps that — wrong for subsets of one identity, where it recreates cross-repo drift) |
 
 ### D20 — the `serve` scope rule (binding)
 
@@ -316,11 +317,11 @@ declared renderer or an explicit "not implemented yet").
 |---|---|
 | `pasco init` | scaffold a profile-data workspace from the template |
 | `pasco validate` | schema (fail) + drift/geo checks (facts warn) |
-| `pasco build [platform] [--lang]` | render deterministic base texts |
+| `pasco build [platform] [--view <name>] [--lang]` | render deterministic base texts; `--view` resolves a declared view's platform/lang + fact selection (D22, §21) |
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
 | `pasco check [platform]` | run skill-declared checks before deploy |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
-| `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md` |
+| `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22) |
 | `pasco skills:install <agent>` | project repo skills → agent skill studio (zhiweio pattern) |
 | `pasco serve` | run the **minimal reference adapter** (D20) — exposes `Core` over a **local HTTP contract** so any consumer (UI, editor, script, service) drives the engine without re-implementing it. Minimal **by construction**; a deployment that needs more ships its own server against the same contract |
 
@@ -474,6 +475,7 @@ Two different "templates" (previous confusion):
 7. **M7 (evidence core)**: schema v1.4 — `credentials[]`/`artifacts[]` + cross-refs (§18) · `pasco check`: `credential-expiry`, registry live-links, `no-private-in-public-output` · JSON-LD `hasCredential` · compact registry section in `github-readme` · template: `media/` scaffold + `docs/evidence-packs.md` + power-user symlink/stow doc (issue #48).
 8. **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable, checksummed bundling — Q9 resolved as D19: one `assets/` dir per platform output) · deploy playbooks publish media to the public surface · git-lfs guidance · portfolio-site consumption lands **with M5** (the web renderer does not exist yet — engine-side contract ships first).
 9. **M9 (training-time corpus presence — deferred, Q10)**: outputs are designed not only for inference-time citation (GEO, layer 2) but — for owners who explicitly consent — for entry into future model training corpora (layer 3). Inputs + documented levers: `docs/research/03-training-time-visibility.md` (sourced + dated). Floor regardless of the Q10 resolution — **private-first default**: `robots.txt` on published surfaces **blocks** AI-training crawlers (CCBot / vendor AI crawlers) and user data ships **without** an open license; entering corpora or open-licensing data requires the profile owner's explicit opt-in (consent field — schema work deferred with Q10). The operator's own profiles may opt in: that consent is theirs to give. Decision (Q10): a `huggingface-dataset` renderer/exporter vs contributing to existing open datasets vs both — decided when the M3 platform SOTA research closes.
+10. **M10 (fact selection, D22/§21 — issue #235)**: `.pascorc` → `selection.views` + `selectFacts()` in core + `build --view` + `status --selection` + the five selection findings; Phase 1 is **schema-free** (selection by §19.2 key, and `artifacts[].tags` finally read as §18.9 declared). Phase 2 adds optional `tags[]` to six entry blocks (not `skills`); **Phase 3** (several views per platform, `profiles/<view>/`) needs a D19 amendment and stays out of scope until asked for.
 
 ## 13. Resolved decisions (former open questions)
 
@@ -492,6 +494,10 @@ Two different "templates" (previous confusion):
   separate repos (D9/D14) — a shared store has no home; each renderer output is self-contained
   (README + its assets travel and verify together); targets are human-reviewable in deploy diffs
   (`assets/<id>/<basename>`); `assets/manifest.json` records the compile-time sha256 per asset.
+- **Q11 → D22 (RESOLVED, 2026-10-19, issue #235):** **fact selection per rendered profile** — the
+  operator ratified **subset-only** with a mandatory **warn on every omission** (G1, as amended);
+  G2–G6 at their recommended values: policy in `.pascorc`, vocabulary `views`, Phase-2 tags on six
+  entry blocks, Phase 3 deferred, unknown key/view = error. Contract: §21. Trace: the issue comment.
 
 ## 14. Open questions (remaining)
 
@@ -506,21 +512,10 @@ Two different "templates" (previous confusion):
   Levers + evidence: `docs/research/03-training-time-visibility.md`; decide when the M3 platform
   SOTA research closes. **Consent-first**: any corpus publication or open-license grant is an
   explicit owner opt-in (private-first default — M9 floor).
-- Q11 (**proposal, not a decision**): **fact selection per rendered profile** — the engine adapts
-  *text* per platform today (`lang`, `refine` variants), but the SSOT's facts pass through
-  untouched (`compile.ts:90-95`) and §18.9's declared "renderers select by platform + lang + tags"
-  is unimplemented (no renderer reads `tags`; `artifacts[].tags[]` is validated then ignored).
-  Proposal: a **workspace policy** (`.pascorc` → `selection.views`) plus optional `tags[]` on the
-  fact blocks — subset-only (a view removes entries, never edits one), exclusion wins over
-  inclusion, and **no policy ⇒ byte-identical output**. Design, options, phased plan and the six
-  decision gates: `docs/fact-selection.md`.
 
 (Q10 — training-time corpus presence — OPEN, deferred post-M3; the §12 M9 private-first floor
 applies regardless of the resolution.)
 
-(Q11 — fact selection per rendered profile — PROPOSED, awaiting the operator's decision on the
-§10 gates of `docs/fact-selection.md`; on blessing it becomes D22 and the design folds into a
-SPEC detail section.)
 
 (Q9 — deploy-bundle format — RESOLVED as D19, §13: one `assets/` dir per platform output.)
 
@@ -926,8 +921,8 @@ strings; no schema change):
   `VideoObject`, `Dataset`) — emitted by the renderer from SSOT fields, curated by the
   platform skill (D5).
 - **Multi-area** (one person, several fields — the operator's case): `tags[]` on
-  artifacts; renderers select by platform + lang + tags. One workspace, many areas;
-  separate identities remain separate workspaces (D15).
+  artifacts; a **view** selects by platform + lang + tags — contract in §21 (D22).
+  One workspace, many areas; separate identities remain separate workspaces (D15).
 
 ### 18.10 Domain packs — knowledge, not engine code
 
@@ -1341,3 +1336,138 @@ applies; `pasco build` compiles with the workspace policy, so the rendered artif
 schema fields** — completeness is advisory and must never turn optional blocks into
 validation failures (D12: schema = structure, product signals = advisory). Relations:
 D18 (the generated-view pattern) · D19 (byte-parity) · §12 M4/M5.
+
+## 21. Fact selection per rendered profile (D22 detail, issue #235)
+
+The engine adapts three things per surface, and they are orthogonal: `lang` adapts
+**text**, `refine` adapts **storytelling**, and a **view** selects **which facts**.
+The first two never change what a fact says; selection must not either. That single
+constraint is the whole contract.
+
+**Why selection is admissible.** Goal 2/3 and §15.4 constrain what a fact *says* when
+it appears, not that it must appear on every surface. A rendered profile is a
+**sub-conjunction** of the SSOT's facts, and removing a conjunct cannot introduce a
+contradiction between the ones that remain. The engine already scores absence as
+neutral (`geo.ts:21`), so selection is the policy expression of a stance the GEO
+scorer holds. What it costs is **coverage**, never consistency — and that cost is
+reported, not hidden (§21.4).
+
+### 21.1 Why a policy and not a field
+
+The decision lives in **workspace config** (`.pascorc`), never in the SSOT data. The
+SSOT stays platform-agnostic (§9/D14) and a new platform never forces an edit to every
+entry. This is §20's pattern applied to a second axis: *compute in the engine, store
+only the policy*.
+
+### 21.2 A view and its rule
+
+A **view** is a named projection: a target platform, a language, and a selection.
+`pasco build linkedin` is the implicit view named `linkedin`; a declared view may
+override platform/lang so `--view <name>` alone is enough.
+
+```jsonc
+{
+  "selection": {
+    "default": { "mode": "all" },              // rule for any view not named below
+    "views": {
+      "linkedin": { "excludeKeys": ["projects:acme-internal"], "excludeTags": ["nda"] },
+      "film": { "platform": "github-readme", "lang": "en", "mode": "tags", "tags": ["film"] }
+    }
+  }
+}
+```
+
+A **view rule** has these fields:
+
+| Field | Type | Default | Meaning |
+|---|---|---|---|
+| `mode` | `"all"` \| `"tags"` | `"all"` | the *basis*: every entry, or only those carrying one of `tags` |
+| `tags` | `string[]` | `[]` | allowlist; meaningful with `mode: "tags"` |
+| `excludeTags` | `string[]` | `[]` | deny by tag, applied in **every** mode |
+| `excludeKeys` | `string[]` | `[]` | deny by §19.2 key (`experience:<id>`, `projects:<id>`, …) |
+| `platform` / `lang` | `string` | — | optional target, so `--view` alone resolves |
+
+`selection.default` is a **sibling of `views`**, not a field: it is the rule applied to
+any view that `views` does not name (including the implicit view of a positional
+`pasco build <platform>`). Absent ⇒ `{}` ⇒ no filtering.
+
+### 21.3 Resolution rules
+
+1. **View resolution order**: `views[<name>]` → `selection.default` → `{}`.
+2. **An unknown view is an error**: if `--view <name>` names neither a `views` entry
+   nor is covered by `default`, the build fails (`selection/unknown-view`, exit 1). A
+   typo must not silently build a different surface.
+3. **Precedence, stated once**: a positional `[platform]` that conflicts with the
+   view's `platform` is an **error** (never a silent winner); a view with no
+   `platform` and no positional platform is an **error**; `--lang` (CLI) wins over the
+   view's `lang`, which wins over `.pascorc.defaults.lang`, which wins over `en`.
+4. **Exclusion wins** over inclusion, in every mode.
+5. **No policy ⇒ no filtering ⇒ byte-identical output**, asserted by a golden test
+   (§15.1/D19).
+6. **Only these eight entry arrays participate**: `experience`, `projects`,
+   `publications`, `education`, `press`, `credentials`, `artifacts`, `skills`.
+   Singleton blocks (`identity`, `positioning`, `keywords`) and the text-bearing
+   `bios`/`headlines`/`socialHandles` are **never** selectable — text adapts through
+   `lang`/`refine`, not through selection.
+7. **Tags apply only to tag-capable blocks.** `tags` exists on `artifacts` today
+   (schema:913) and Phase 2 adds it to `experience`, `projects`, `publications`,
+   `education`, `press`, `credentials` — **not** to `skills`, which is addressed by its
+   natural key. Consequence: in Phase 1 `mode: "tags"` filters `artifacts` only; the
+   other seven blocks pass through and are addressed by `excludeKeys`.
+8. **`mode: "tags"` is an explicit allowlist for tag-capable blocks**: an untagged
+   artifact is not selected.
+9. **Iteration order is SSOT declaration order**, never a map's order.
+
+### 21.4 Every omission WARNS (operator's G1 amendment)
+
+A view that omits one or more entries emits `selection/omits-facts` — a **warn**
+naming each omission and its reason — and `pasco status --selection` prints the full
+resolved report. Silent omission is the one failure mode this feature must not have:
+the default direction of a profile is *publish*, so anything that removes a fact owes
+the user a statement.
+
+### 21.5 Engine seam and checks
+
+`selectFacts(profile, view, platform, lang, policy?)` lives in
+`packages/core/src/selection.ts` beside `completeness()` and `geoCheck()` — pure,
+deterministic, offline. `compile()`'s parameter becomes a **new alias**,
+`CompilePolicy = CompletenessPolicy & { selection?: SelectionPolicy; view?: string }`;
+every field it adds is optional, so existing callers (including `packages/paste`) keep
+compiling unchanged.
+
+The split that keeps the feature honest:
+
+- **`structuredData` is built from the filtered profile** — the JSON-LD cannot claim
+  entities the render never shows.
+- **`completeness` is built from the unfiltered profile** — §20 scores the *workspace*,
+  not a view. Hiding half the SSOT must not lower the number.
+
+Codes follow the `<ns>/<slug>` convention of `drift/*`, `geo/*`, `check/*`:
+
+| Check | Class | Why |
+|---|---|---|
+| `selection/unknown-key` | **error** | an addressed key that resolves to nothing is an unsatisfied instruction (§19.2: addressed ⇒ resolvable) |
+| `selection/unknown-tag` | warn | a tag matching no entry — likely a typo |
+| `selection/empty-facts` | warn | a view selected nothing while the SSOT had candidates |
+| `selection/anchor-omitted` | warn | a `positioning.geo.semanticAssociations` anchor is reinforced only by omitted entries |
+| `selection/omits-facts` | **warn** | **any** omission, named with its reason (§21.4) |
+
+`selection/unknown-view` is the sixth code but **not** a finding: it fires before the
+profile is read, as a config error (exit 1).
+
+### 21.6 CLI
+
+`pasco build [platform] [--view <name>] [--lang]` ·
+`pasco status [platform] --selection [--view <name>]`. `--selection` is a
+**boolean** and the view is named with `--view`, so it can never be confused with the
+`[platform]` positional. The positional platform remains the implicit view of the same
+name, so a workspace with no policy behaves exactly as before.
+
+### 21.7 Scope boundary
+
+Phase 1 is **schema-free**: selection covers the eight entry arrays by §19.2 key, and
+`artifacts[].tags` — declared in §18.9 and unimplemented until now — is finally read.
+Phase 2 adds optional `tags[]` to six entry blocks (additive; `pnpm gen:zod`).
+**Phase 3** (several views on one platform, `profiles/<view>/`) needs a D19 amendment
+and is **not** implied by this section. View-aware `geoCheck`/`driftCheck` scoring is
+out of scope: both keep reading the SSOT.
