@@ -506,9 +506,21 @@ Two different "templates" (previous confusion):
   Levers + evidence: `docs/research/03-training-time-visibility.md`; decide when the M3 platform
   SOTA research closes. **Consent-first**: any corpus publication or open-license grant is an
   explicit owner opt-in (private-first default — M9 floor).
+- Q11 (**proposal, not a decision**): **fact selection per rendered profile** — the engine adapts
+  *text* per platform today (`lang`, `refine` variants), but the SSOT's facts pass through
+  untouched (`compile.ts:90-95`) and §18.9's declared "renderers select by platform + lang + tags"
+  is unimplemented (no renderer reads `tags`; `artifacts[].tags[]` is validated then ignored).
+  Proposal: a **workspace policy** (`.pascorc` → `selection.views`) plus optional `tags[]` on the
+  fact blocks — subset-only (a view removes entries, never edits one), exclusion wins over
+  inclusion, and **no policy ⇒ byte-identical output**. Design, options, phased plan and the six
+  decision gates: `docs/fact-selection.md`.
 
 (Q10 — training-time corpus presence — OPEN, deferred post-M3; the §12 M9 private-first floor
 applies regardless of the resolution.)
+
+(Q11 — fact selection per rendered profile — PROPOSED, awaiting the operator's decision on the
+§10 gates of `docs/fact-selection.md`; on blessing it becomes D22 and the design folds into a
+SPEC detail section.)
 
 (Q9 — deploy-bundle format — RESOLVED as D19, §13: one `assets/` dir per platform output.)
 
