@@ -254,7 +254,7 @@ publications:  [ { id?, origin?, title, venue, year, doi, orcidId } ]
 credentials:   [ { id, kind, title, issuer, credentialId?, verifyUrl, issued, expires?, visibility } ]
 artifacts:     [ { id, kind, title, description{lang}?, locator, checksum?, license?, tags[], visibility } ]
 keywords:      { seo: { platform: [] }, geo: { associations: [], claims: [] } }
-checks:        [ { platform, rule, value } ]                  # declarative; executed by `pasco check`
+checks:        [ { platform, rule, value, surface? } ]         # declarative; surface = headline|bio|both (#240)
 active:        { platform: { lang, variantId, chosenAt } }    # which variant is live
 deployments:   { <ledgerKey>: { <surface>: { deployedAt, contentHash, source } } }   # per-entry deploy ledger (D18, §19)
 ```
@@ -319,7 +319,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco validate` | schema (fail) + drift/geo checks (facts warn) |
 | `pasco build [platform] [--view <name>] [--lang]` | render deterministic base texts; `--view` resolves a declared view's platform/lang + fact selection (D22, §21) |
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
-| `pasco check [platform]` | run skill-declared checks before deploy |
+| `pasco check [platform]` | run skill-declared checks before deploy; char limits accept an optional `surface` (`headline`/`bio`/`both`) so a title cap does not flag the bio (#240) |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22) |
 | `pasco skills:install <agent>` | project repo skills → agent skill studio (zhiweio pattern) |

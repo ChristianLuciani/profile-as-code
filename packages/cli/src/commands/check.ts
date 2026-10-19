@@ -14,7 +14,7 @@
  * github-org skill's `url-live` check (network, not drift).
  */
 
-import type { LoadedProfile } from "@profile-as-code/core";
+import type { LoadedProfile, Platform } from "@profile-as-code/core";
 import {
   collectMedia,
   driftCheck,
@@ -24,6 +24,7 @@ import {
   SchemaValidationError,
 } from "@profile-as-code/core";
 import { parsePlatform } from "../contract.js";
+import { DEFAULT_CHECKS } from "../default-checks.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
 
@@ -40,20 +41,27 @@ export interface LimitFinding {
 
 /**
  * Execute the `max-chars` / `min-chars` rows of the (already platform-filtered)
- * check catalog over the rows that exist today: headlines and bios. No network,
- * no schema change; a non-numeric value is a warn, never a crash (#240).
+ * check catalog over the rows that exist today: headlines and bios. No network;
+ * an optional `surface` selector keeps a title cap off the bio; a non-numeric
+ * value is a warn, never a crash (#240).
  */
-function limitFindings(profile: LoadedProfile, checks: LoadedProfile["checks"]): LimitFinding[] {
+function limitFindings(
+  profile: LoadedProfile,
+  checks: LoadedProfile["checks"],
+  platform?: Platform,
+): LimitFinding[] {
   const rows = [
     ...(profile.headlines ?? []).map((h) => ({
       label: `headline ${h.platform}/${h.lang}`,
       platform: h.platform,
+      surface: "headline" as const,
       text: h.text,
       path: `headlines:${h.platform}:${h.lang}`,
     })),
     ...(profile.bios ?? []).map((b) => ({
       label: `bio ${b.platform}/${b.lang}/${b.length}`,
       platform: b.platform,
+      surface: "bio" as const,
       text: b.text,
       path: `bios:${b.platform}:${b.lang}:${b.length}`,
     })),
@@ -72,6 +80,11 @@ function limitFindings(profile: LoadedProfile, checks: LoadedProfile["checks"]):
     }
     for (const row of rows) {
       if (check.platform !== "all" && check.platform !== row.platform) continue;
+      // `all` means every surface in the workspace, but a scoped command must
+      // not report another platform's rows under a "for <platform>" header.
+      if (check.platform === "all" && platform !== undefined && row.platform !== platform) continue;
+      const surface = check.surface ?? "both";
+      if (surface !== "both" && surface !== row.surface) continue;
       const length = [...row.text].length;
       const over = check.rule === "max-chars" && length > check.value;
       const under = check.rule === "min-chars" && length < check.value;
@@ -79,7 +92,9 @@ function limitFindings(profile: LoadedProfile, checks: LoadedProfile["checks"]):
       findings.push({
         severity: "warn",
         code: check.rule,
-        message: `${row.label} has ${length} chars, ${over ? "over max" : "under min"} ${check.value}`,
+        message: `${row.label} has ${length} chars, ${over ? "over max" : "under min"} ${check.value}${
+          check.note === undefined ? "" : ` — ${check.note}`
+        }`,
         path: row.path,
       });
     }
@@ -121,7 +136,10 @@ export function runCheck(args: CheckArgs): number {
     throw err;
   }
 
-  const checks = profile.checks.filter(
+  // A workspace that predates the catalog (or deliberately has no file) still
+  // gets the conservative defaults; the dogfood case must not stay silent.
+  const baseChecks = profile.checks.length > 0 ? profile.checks : DEFAULT_CHECKS;
+  const checks = baseChecks.filter(
     (c) => platform === undefined || c.platform === "all" || c.platform === platform,
   );
 
@@ -145,7 +163,7 @@ export function runCheck(args: CheckArgs): number {
   // SSOT (missing/unsafe file, declared-checksum mismatch) is an error; per-
   // machine external state (no evidence root, symlink escape, oversize) warns.
   const media = collectMedia(profile, args.workspace).findings;
-  const limits = limitFindings(profile, checks);
+  const limits = limitFindings(profile, checks, platform);
   const failErrors = [...registry, ...media].filter((f) => f.severity === "error");
 
   if (isJsonMode()) {

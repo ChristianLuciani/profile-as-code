@@ -14,6 +14,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Flavor } from "@profile-as-code/core";
+import { DEFAULT_CHECKS_YAML } from "../default-checks.js";
 import { EXIT } from "../exit.js";
 import { line, report, section } from "../output.js";
 import { WORKSPACE_NAME } from "../workspace.js";
@@ -189,7 +190,9 @@ export function runInit(args: InitArgs): number {
     });
   }
 
-  const files = brand ? BRAND_FILES : { "identity.yaml": IDENTITY_TEMPLATE };
+  const files = brand
+    ? { ...BRAND_FILES, "checks.yaml": DEFAULT_CHECKS_YAML }
+    : { "identity.yaml": IDENTITY_TEMPLATE, "checks.yaml": DEFAULT_CHECKS_YAML };
 
   const targets: { path: string; content: string }[] = [
     ...Object.entries(files).map(([name, content]) => ({ path: join(contentDir, name), content })),

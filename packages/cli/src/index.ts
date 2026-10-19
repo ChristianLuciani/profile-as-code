@@ -55,8 +55,8 @@ Commands:
                                 full variant flow M3)
   check [platform]              Executes offline rules: brand handle matrix (M6/§17,
                                 brand flavor), registry checks (M7/§18.8) and
-                                media-transport rules (M8/§18.6); content/checks.yaml
-                                rows are listed as not executed (M3/M4)
+                                media-transport rules (M8/§18.6) and max-chars/min-chars
+                                over headlines/bios (offline, #240); remaining rows M3/M4
   status [platform] [--verify]   Per-entry deploy report — origin · surfaces · in-sync/stale/never
                                  + certification (D18/§19.5); --verify runs the opt-in C1
                                  live check (the engine's ONE network path, §19.5)
@@ -149,10 +149,10 @@ content/active.yaml. No LLM call, no hub. Full variant flow: M3.`,
   check: `pasco check [platform] [--json] [--workspace <path>]
 Executes the offline rules that exist today: the brand handle matrix (brand
 flavor, D15/§17), registry checks (M7/§18.8) and media-transport rules
-(M8/§18.6). Rows declared in content/checks.yaml (schema-validated catalog)
-are listed and reported as not executed — rule execution for those ships with
-the skills checks.yaml union (M3) and the full pasco check (M4). Prints its
-owner line (src/commands/check.ts).`,
+(M8/§18.6), plus max-chars/min-chars over the headline/bio rows that exist
+(offline, #240; optional surface selector). Remaining rows in
+content/checks.yaml ship with the skills checks.yaml union (M3) and the full
+pasco check (M4). Prints its owner line (src/commands/check.ts).`,
   "skills:install": `pasco skills:install <agent>
 Prints the skills-studio projection command for <agent> (pi|claude|aionui|opencode).
 Projection is the skills-studio job (AGOS), not the CLI's.`,
