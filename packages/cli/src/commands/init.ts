@@ -117,7 +117,8 @@ private by default and never leaves your control (D14: integration by configured
 ## Files
 
 - \`content/*.yaml\` — the profile (file name = root property, see schema/README.md)
-- \`profiles/\` — generated outputs (created by renderers; committed: they ARE the deploy artifacts)
+- \`profiles/\` — generated outputs (created by pasco build; committed: they ARE the deploy artifacts)
+- \`profiles/<platform>/variants/\` — chosen variant bodies (INPUT, #238; preserved by build)
 - \`.pascorc\` — workspace config (defaults)
 
 ## Workflow
@@ -141,7 +142,8 @@ checks drift and renders brand surfaces. Private by default (D14: configured pat
 ## Files
 
 - \`content/*.yaml\` — the brand profile (file name = root property, see schema/README.md)
-- \`profiles/\` — generated outputs (github-org README is the first deploy artifact)
+- \`profiles/\` — generated outputs (github-org README is the first deploy artifact; pasco build also writes manual-paste files)
+- \`profiles/<platform>/variants/\` — chosen variant bodies (INPUT, #238; preserved by build)
 - \`.pascorc\` — workspace config (defaults)
 
 ## Workflow
