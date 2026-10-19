@@ -3,9 +3,10 @@
  *
  * Runs the deterministic, offline rules NOW (brand handle matrix, v1.1/§17) and
  * reports the user's declarative checks from content/checks.yaml (the
- * schema-validated catalog) per platform. Rule EXECUTION for the remaining
- * catalog (limits, live links, fact presence) ships with the skills checks.yaml
- * union (M3) + the full `pasco check` (M4, SPEC §7).
+ * schema-validated catalog) per platform. The offline limit slice (#240) now
+ * executes `max-chars` / `min-chars` over the headline/bio rows that exist;
+ * the remaining catalog (live links, fact presence) ships with the skills
+ * checks.yaml union (M3) + the full `pasco check` (M4, SPEC §7).
  *
  * Brand flavor (D15/§17): `handle-claimed` and `handle-consistent` are executed
  * here — drift's handle codes (duplicate-handle, handle-claimed-not-linked,
@@ -27,7 +28,64 @@ import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
 
 export const CHECK_OWNER =
-  "M6: handle-matrix rules (brand, offline) executed; M7 (D17/§18.8): registry checks (credential-expiry, no-private-in-public-output) executed; M8 (§18.6): media-transport rules executed; remaining catalog ships with M3/M4 (SPEC §7)";
+  "M6: handle-matrix rules (brand, offline) executed; M7 (D17/§18.8): registry checks (credential-expiry, no-private-in-public-output) executed; M8 (§18.6): media-transport rules executed; limits: max-chars/min-chars over existing rows executed (offline); remaining catalog ships with M3/M4 (SPEC §7)";
+
+/** A text-limit finding is WARN by contract (D12: facts warn, schema fails). */
+export interface LimitFinding {
+  severity: "warn";
+  code: "max-chars" | "min-chars";
+  message: string;
+  path: string;
+}
+
+/**
+ * Execute the `max-chars` / `min-chars` rows of the (already platform-filtered)
+ * check catalog over the rows that exist today: headlines and bios. No network,
+ * no schema change; a non-numeric value is a warn, never a crash (#240).
+ */
+function limitFindings(profile: LoadedProfile, checks: LoadedProfile["checks"]): LimitFinding[] {
+  const rows = [
+    ...(profile.headlines ?? []).map((h) => ({
+      label: `headline ${h.platform}/${h.lang}`,
+      platform: h.platform,
+      text: h.text,
+      path: `headlines:${h.platform}:${h.lang}`,
+    })),
+    ...(profile.bios ?? []).map((b) => ({
+      label: `bio ${b.platform}/${b.lang}/${b.length}`,
+      platform: b.platform,
+      text: b.text,
+      path: `bios:${b.platform}:${b.lang}:${b.length}`,
+    })),
+  ];
+  const findings: LimitFinding[] = [];
+  for (const check of checks) {
+    if (check.rule !== "max-chars" && check.rule !== "min-chars") continue;
+    if (typeof check.value !== "number" || !Number.isFinite(check.value)) {
+      findings.push({
+        severity: "warn",
+        code: check.rule,
+        message: `check ${check.id ?? "(no id)"} has a non-numeric ${check.rule} value — skipped`,
+        path: `checks:${check.id ?? "?"}`,
+      });
+      continue;
+    }
+    for (const row of rows) {
+      if (check.platform !== "all" && check.platform !== row.platform) continue;
+      const length = [...row.text].length;
+      const over = check.rule === "max-chars" && length > check.value;
+      const under = check.rule === "min-chars" && length < check.value;
+      if (!over && !under) continue;
+      findings.push({
+        severity: "warn",
+        code: check.rule,
+        message: `${row.label} has ${length} chars, ${over ? "over max" : "under min"} ${check.value}`,
+        path: row.path,
+      });
+    }
+  }
+  return findings;
+}
 
 /** Handle drift codes the offline handle-matrix execution reports. */
 const HANDLE_CODES = new Set([
@@ -87,6 +145,7 @@ export function runCheck(args: CheckArgs): number {
   // SSOT (missing/unsafe file, declared-checksum mismatch) is an error; per-
   // machine external state (no evidence root, symlink escape, oversize) warns.
   const media = collectMedia(profile, args.workspace).findings;
+  const limits = limitFindings(profile, checks);
   const failErrors = [...registry, ...media].filter((f) => f.severity === "error");
 
   if (isJsonMode()) {
@@ -98,12 +157,18 @@ export function runCheck(args: CheckArgs): number {
         // Per-rule, machine-readable: handle rules exist for brand only (D15/§17),
         // registry rules run for every flavor (D17/§18.8). A single boolean would
         // overload two different facts.
-        implemented: { handleMatrix: profile.flavor === "brand", registry: true, media: true },
+        implemented: {
+          handleMatrix: profile.flavor === "brand",
+          registry: true,
+          media: true,
+          limits: true,
+        },
         checks,
         handleMatrix,
         handleIssues,
         registry,
         media,
+        limits,
         ownedBy: CHECK_OWNER,
       },
     });
@@ -131,6 +196,16 @@ export function runCheck(args: CheckArgs): number {
   }
   if (media.length === 0) {
     line("  media transport: OK (no findings)");
+  }
+
+  section(
+    `text limits (max-chars/min-chars, offline)${platform !== undefined ? ` for ${platform}` : ""}: ${limits.length} finding(s)`,
+  );
+  for (const finding of limits) {
+    line(`  warn: [${finding.code}] ${finding.message} (${finding.path})`);
+  }
+  if (limits.length === 0) {
+    line("  text limits: OK (no findings)");
   }
 
   if (profile.flavor === "brand") {
@@ -164,12 +239,13 @@ export function runCheck(args: CheckArgs): number {
   );
   for (const c of checks) {
     const note = c.note !== undefined ? ` note="${c.note}"` : "";
+    const executed = c.rule === "max-chars" || c.rule === "min-chars";
     line(
-      `  [${c.id ?? "?"}] platform=${c.platform} rule=${c.rule} value=${JSON.stringify(c.value)}${note}`,
+      `  [${c.id ?? "?"}] platform=${c.platform} rule=${c.rule} value=${JSON.stringify(c.value)}${note} — ${executed ? "executed" : "not executed"}`,
     );
   }
   line(
-    "  not executed — rule execution ships with the skills checks.yaml union (M3) and pasco check (M4)",
+    "  max-chars/min-chars executed above; the remaining rules ship with the skills checks.yaml union (M3) and pasco check (M4)",
   );
   line(`  owner: ${CHECK_OWNER}`);
 

@@ -63,7 +63,7 @@ commands above are the standalone path.
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never · **certification** (verified/attested/unverifiable/out-of-band-drift, §19.5) + ledger write paths (D18, §19) | ✅ |
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13) | 🚧 template + `--choose` (full flow M3) |
-| `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) | 🚧 offline rules today (catalog M3/M4) |
+| `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) + offline `max-chars`/`min-chars` over headlines/bios (#240) | 🚧 offline rules today (limits + registry + media; remaining catalog M3/M4) |
 | `pasco skills:install <agent>` | Skills-studio projection command (AGOS) | 🚧 prints the projection command |
 
 The partial commands are explicit, and each one says what still owns the rest:
@@ -73,11 +73,12 @@ The partial commands are explicit, and each one says what still owns the rest:
   `--choose` records the pick in `content/active.yaml`. The full variant flow is
   M3 (`src/commands/refine.ts`).
 - **`check`** — executes the offline rules that exist today: the brand handle
-  matrix (brand flavor only, D15/§17), the evidence-registry checks (M7/§18.8)
-  and the media-transport rules (M8/§18.6). The per-platform rows declared in
-  `content/checks.yaml` are listed and reported as *not executed* — rule
-  execution for those ships with the skills `checks.yaml` union (M3) and the full
-  `pasco check` (M4). It prints its `owner` line (`src/commands/check.ts`).
+  matrix (brand flavor only, D15/§17), the evidence-registry checks (M7/§18.8),
+  the media-transport rules (M8/§18.6), and the `max-chars` / `min-chars` rows
+  declared in `content/checks.yaml` over the headline/bio rows that exist
+  (offline, warn-class, #240). The remaining per-platform rules in the catalog
+  ship with the skills `checks.yaml` union (M3) and the full `pasco check` (M4).
+  It prints its `owner` line (`src/commands/check.ts`).
 - **`skills:install`** — prints the skills-studio projection command; projecting
   is the studio's job (AGOS), not the CLI's (`src/commands/skills-install.ts`).
 
