@@ -206,12 +206,15 @@ Codes follow the repo's `<ns>/<slug>` convention (`drift/date-range-inverted`,
 
 | Check | Class | Why |
 |---|---|---|
-| `selection/unknown-view` | **error** | `--view` names neither a declared view nor a default — a typo must not build a different surface. |
 | `selection/unknown-key` | **error** | an addressed key that resolves to nothing is an unsatisfied instruction (§19.2: addressed ⇒ resolvable). |
 | `selection/unknown-tag` | warn | a tag matching no entry — likely a typo, not an instruction. |
 | `selection/empty-facts` | warn | a view selected zero entries while the SSOT has some. |
 | `selection/anchor-omitted` | warn | a `positioning.geo.semanticAssociations` anchor is reinforced only by omitted entries — the coverage cost from §2, named. |
 | `selection/omits-facts` | **warn** | **any** view that omits one or more entries, naming each omission and its reason — the operator's G1 amendment: the default direction of a profile is *publish*, so anything that removes a fact owes the user a statement. |
+
+`selection/unknown-view` is the fifth code but **not** a profile finding: it fires
+before the profile is read, as a config error (exit 1) — the view name cannot be
+resolved, so there is nothing to select from (§4.3 rule 2).
 
 ### 4.6 CLI
 
