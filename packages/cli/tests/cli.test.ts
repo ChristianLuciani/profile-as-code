@@ -517,6 +517,40 @@ describe("pasco check (offline rules) + pasco skills:install (projection pointer
     expect(r.stdout).toContain("platform=all"); // union semantics: all applies to every platform
   });
 
+  it("executes max-chars/min-chars over headlines and bios as warnings (#240)", () => {
+    const ws = tempDir();
+    execFileSync("cp", ["-R", `${MINIMAL}/.`, ws]);
+    writeFileSync(
+      join(ws, "content", "checks.yaml"),
+      "- id: upwork-title-max\n  platform: upwork\n  rule: max-chars\n  value: 20\n- id: upwork-title-min\n  platform: upwork\n  rule: min-chars\n  value: 100\n",
+    );
+    const r = run(["check", "--json", "--workspace", ws]);
+    expect(r.code).toBe(0); // warn, not fail (D12)
+    const data = JSON.parse(r.stdout) as {
+      data: {
+        implemented: { limits: boolean };
+        limits: { code: string; severity: string; message: string }[];
+      };
+    };
+    expect(data.data.implemented.limits).toBe(true);
+    expect(
+      data.data.limits.some(
+        (f) => f.code === "max-chars" && f.severity === "warn" && f.message.includes("over max 20"),
+      ),
+    ).toBe(true);
+    expect(
+      data.data.limits.some(
+        (f) =>
+          f.code === "min-chars" && f.severity === "warn" && f.message.includes("under min 100"),
+      ),
+    ).toBe(true);
+
+    const text = run(["check", "--workspace", ws]);
+    expect(text.code).toBe(0);
+    expect(text.stdout).toContain("text limits");
+    expect(text.stdout).toContain("over max 20");
+  });
+
   it("check --json reports implemented:true (registry checks, M7) + owner", () => {
     const r = run(["check", "--json", "--workspace", MINIMAL]);
     expect(r.code).toBe(0);
