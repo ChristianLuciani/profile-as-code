@@ -22,7 +22,8 @@ minor versions may contain breaking contract changes.
   nowhere (§20's own rule), folded into `--completeness` as **coverage of publication**
   (the weighted percentage never moves because a surface drifted) and into the generated
   `CHECKLIST.md`. Additive in `--json` (`publication`), and the one cap executor moved to
-  `packages/cli/src/limits.ts` so `check`, `edit` (#251) and `status` share it.
+  `packages/cli/src/limits.ts` so `check` and `status` share it — and the planned
+  `edit` slices (#248–#252) consume it instead of a second cap table.
 
 ### Planned (roadmap)
 

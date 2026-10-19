@@ -55,6 +55,7 @@ import { DEFAULT_CHECKS } from "../default-checks.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import {
+  type ArtifactReason,
   createArtifactResolver,
   type PublicationTruth,
   publicationCoverageLine,
@@ -394,6 +395,35 @@ function publicationOf(
   return publicationOfCaller(args, profile, reportData, DEFAULT_CHECKS);
 }
 
+/** The same derivation WITHOUT the `--platform` report filter — the generated
+ *  CHECKLIST is a whole-workspace view, so a platform-scoped run must not write
+ *  one surface's coverage into it (premerge #256, N5). */
+function publicationAllOf(
+  args: StatusArgs,
+  profile: LoadedProfile,
+  reportData: LedgerReport,
+): PublicationTruth[] {
+  return publicationOfCaller(
+    { ...args, platformArg: undefined },
+    profile,
+    reportData,
+    DEFAULT_CHECKS,
+  );
+}
+
+/** The human sentence under a non-matching artifact axis, naming WHICH
+ *  comparison produced it (local bytes vs live page, §19.5). */
+function artifactDetail(reason: ArtifactReason): string {
+  switch (reason) {
+    case "local-mismatch":
+      return "the artifact on disk differs from the SSOT render — run pasco build";
+    case "live-drift":
+      return "§19.5 recorded out-of-band drift: the live surface no longer matches what was deployed — re-publish, then re-confirm";
+    case "no-artifact":
+      return "no artifact on disk for this surface — run pasco build";
+  }
+}
+
 /** `pasco status --completeness` — the checklist + percentage (issue #102). */
 function runCompleteness(
   args: StatusArgs,
@@ -576,7 +606,7 @@ export async function runStatus(args: StatusArgs): Promise<number> {
   if (args.writeChecklist === true) {
     writeFileSync(
       join(args.workspace, "CHECKLIST.md"),
-      checklistBody(reportData, completion, profile, publication),
+      checklistBody(reportData, completion, profile, publicationAllOf(args, profile, reportData)),
       "utf8",
     );
     if (isJsonMode()) {
@@ -590,7 +620,7 @@ export async function runStatus(args: StatusArgs): Promise<number> {
             satisfied: completion.satisfied,
             total: completion.total,
           },
-          publication,
+          publication: publicationAllOf(args, profile, reportData),
         },
       });
     }
@@ -636,6 +666,9 @@ export async function runStatus(args: StatusArgs): Promise<number> {
     section("publication truth — derived, never stored (SPEC §20.1)");
     for (const truth of publication) {
       line(`  ${publicationLine(truth)}`);
+      if (truth.artifactReason !== undefined) {
+        line(`    artifact: ${artifactDetail(truth.artifactReason)}`);
+      }
       for (const finding of truth.findings) {
         line(`    warn: [${finding.code}] ${finding.message} (${finding.path})`);
       }

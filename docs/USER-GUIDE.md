@@ -624,8 +624,10 @@ github-readme: in-sync · artifact: matches-SSOT · limits: ok
 It answers the three questions a "score" cannot: is the artifact on disk the one
 your SSOT produces **today** (`artifact`), does the ledger still agree
 (`sync`), and does any text exceed the platform's declared cap (`limits`)? It is
-derived on every run and stored nowhere — `pasco build` is what repairs a
-`diverges`, and the cap warning names its source.
+derived on every run and stored nowhere. A `diverges` with reason
+`local-mismatch` is repaired by `pasco build`; a `live-drift` means the live page
+no longer matches what was deployed — re-publish it and re-confirm, a rebuild
+cannot fix the remote side. The cap warning always names its source.
 
 ### 8.2 Update the engine
 

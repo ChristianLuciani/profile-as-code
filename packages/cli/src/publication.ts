@@ -18,7 +18,12 @@
  *             output resolution (variant body → renderer/paste source). A §19.5
  *             `out-of-band-drift` record on the surface is contrary evidence and
  *             forces `diverges` — the one live fact this offline report may cite.
- *   limits    the offline cap catalog (#240, `limits.ts`) — `ok` | `over(cap)`.
+ *   limits    the offline MAX cap (#240, `limits.ts`) — `ok` | `over(cap)`. The
+ *             token is literal: `min-chars` is a floor, so it stays `pasco
+ *             check`'s finding. A cap whose declared value is not a number is a
+ *             CATALOG warning carried in `findings` — `ok` about the text, never
+ *             silent about the cap. The media bundle under `assets/` is out of
+ *             scope (`pasco check`'s M8 surface); declared in SPEC §20.1.
  *
  * Deliberate v1 limits, declared rather than silently absent:
  *   - the artifact axis compares against a render at every lang the CONTRACT
@@ -65,8 +70,12 @@ export type SyncTruth = "in-sync" | "stale" | "never";
 /** Does the artifact on disk match what the SSOT produces TODAY? */
 export type ArtifactTruth = "matches-SSOT" | "diverges" | "absent";
 
-/** Is any text on this surface over a declared cap? (`limits.ts`, #240) */
+/** Is any text on this surface over a declared maximum? (`limits.ts`, #240) */
 export type LimitTruth = "ok" | "over(cap)";
+
+/** Which comparison produced a non-matching `artifact`, so one token never
+ *  conflates "my local bytes differ" with "the live page differs" (§19.5). */
+export type ArtifactReason = "local-mismatch" | "live-drift" | "no-artifact";
 
 /** One derived line. Never persisted; printed by `status` and folded into
  *  `--completeness` as COVERAGE (never as a new score). */
@@ -74,8 +83,14 @@ export interface PublicationTruth {
   surface: string;
   sync: SyncTruth;
   artifact: ArtifactTruth;
+  /** Present iff `artifact !== "matches-SSOT"`. */
+  artifactReason?: ArtifactReason;
   limits: LimitTruth;
-  /** The over-cap rows, verbatim from the one limit executor — empty when `ok`. */
+  /** The rollup behind `sync`: how many units are recorded on this surface, and
+   *  how many of those are stale. A consumer reads coverage instead of inferring
+   *  it; `sync` alone cannot say how many units were never confirmed. */
+  units: { recorded: number; stale: number };
+  /** The `max-chars` rows plus any un-evaluable catalog row — empty when clean. */
   findings: LimitFinding[];
 }
 
@@ -148,6 +163,9 @@ export function createArtifactResolver(args: {
   return {
     built: (surface) => builtArtifact(args.workspace, surface),
     render: (surface, lang) => {
+      // `build` renders `github-org` for BRAND workspaces only (D15/§17). A person
+      // workspace must never "match" bytes the engine would not produce.
+      if (surface === "github-org" && args.profile.flavor !== "brand") return undefined;
       const renderer = RENDERERS[surface];
       // The implicit view is the platform itself — what a plain `pasco build`
       // resolves (#238 makes the variant body part of the artifact).
@@ -218,23 +236,42 @@ function driftingSurfaces(reportData: LedgerReport): Set<string> {
   return drifting;
 }
 
-/** Per-surface staleness rollup from the §19 report: any stale unit → `stale`.
- *  A surface absent from the ledger is `never` — absence is not `stale`. */
-function ledgerSurfaces(reportData: LedgerReport): Record<string, "in-sync" | "stale"> {
-  const out: Record<string, "in-sync" | "stale"> = {};
+/** Per-surface staleness rollup from the §19 report: any stale RECORDED unit →
+ *  `stale`, plus the coverage behind it (`recorded`/`stale`). A surface absent
+ *  from the ledger is `never` — absence is not `stale`; units with no record are
+ *  not `in-sync` either, and are listed `never` by the unit table. */
+function ledgerSurfaces(
+  reportData: LedgerReport,
+): Record<string, { state: "in-sync" | "stale"; recorded: number; stale: number }> {
+  const out: Record<string, { state: "in-sync" | "stale"; recorded: number; stale: number }> = {};
   for (const unit of reportData.units) {
     for (const [surface, state] of Object.entries(unit.surfaces)) {
-      out[surface] = out[surface] === "stale" || state === "stale" ? "stale" : "in-sync";
+      const entry = out[surface] ?? { state: "in-sync" as const, recorded: 0, stale: 0 };
+      entry.recorded += 1;
+      if (state === "stale") {
+        entry.state = "stale";
+        entry.stale += 1;
+      }
+      out[surface] = entry;
     }
   }
   return out;
 }
 
-/** The cap findings that are a ROW over/under a limit. A malformed catalog entry
- *  is `pasco check`'s finding about the CHECK, not a statement about this text,
- *  so it must not flip the surface to `over(cap)`. */
-function rowFindings(findings: readonly LimitFinding[]): LimitFinding[] {
-  return findings.filter((f) => f.path.startsWith("headlines:") || f.path.startsWith("bios:"));
+/** True for a finding about a ROW (a text over its cap), false for a finding
+ *  about the CATALOG (a cap that could not be evaluated). */
+function isRowFinding(finding: LimitFinding): boolean {
+  return finding.path.startsWith("headlines:") || finding.path.startsWith("bios:");
+}
+
+/**
+ * Split the executor's output for this axis: only `max-chars` row findings can
+ * mean `over(cap)` (a cap is an upper bound; `min-chars` is a floor and stays
+ * `pasco check`'s), while a CATALOG warning is kept in `findings` so an
+ * un-evaluable cap is never a silent `ok` — the exact pass §20.1 forbids.
+ */
+function axisFindings(findings: readonly LimitFinding[]): LimitFinding[] {
+  return findings.filter((finding) => !isRowFinding(finding) || finding.code === "max-chars");
 }
 
 /**
@@ -267,12 +304,30 @@ export function publicationTruth(args: {
   const langs = candidateLangs(args.lang);
 
   return surfaces.map((surface) => {
-    const findings = rowFindings(limitFindings(args.profile, args.checks, surface as Platform));
+    const ledgerEntry = ledger[surface];
+    const findings = axisFindings(limitFindings(args.profile, args.checks, surface as Platform));
+    // The artifact axis: local bytes vs the SSOT, with §19.5 contrary evidence
+    // outranking `absent` — the live page contradicts the ledger, and that is the
+    // stronger fact. `artifactReason` says which comparison produced it.
+    const local = artifactTruth(resolver, surface, langs);
+    const drifted = drifting.has(surface);
+    const artifact: ArtifactTruth =
+      drifted || local === "diverges" ? "diverges" : local === "absent" ? "absent" : "matches-SSOT";
+    const artifactReason: ArtifactReason | undefined =
+      artifact === "matches-SSOT"
+        ? undefined
+        : drifted
+          ? "live-drift"
+          : local === "absent"
+            ? "no-artifact"
+            : "local-mismatch";
     return {
       surface,
-      sync: ledger[surface] ?? "never",
-      artifact: drifting.has(surface) ? "diverges" : artifactTruth(resolver, surface, langs),
-      limits: findings.length > 0 ? "over(cap)" : "ok",
+      sync: ledgerEntry?.state ?? "never",
+      artifact,
+      ...(artifactReason === undefined ? {} : { artifactReason }),
+      limits: findings.some((f) => isRowFinding(f)) ? "over(cap)" : "ok",
+      units: { recorded: ledgerEntry?.recorded ?? 0, stale: ledgerEntry?.stale ?? 0 },
       findings,
     };
   });

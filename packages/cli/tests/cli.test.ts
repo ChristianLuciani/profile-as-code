@@ -217,7 +217,12 @@ describe("pasco build (compile slices)", () => {
   });
 
   it("filters by lang", () => {
-    const r = run(["build", "linkedin", "--lang", "es", "--workspace", MINIMAL]);
+    // Build into a COPY: building inside `fixtures/minimal` dirtied the tracked
+    // fixture directory (premerge #256, N3 — `profiles/linkedin.md` appeared as an
+    // untracked artifact of the test run).
+    const ws = tempDir();
+    copyFixture(MINIMAL, ws);
+    const r = run(["build", "linkedin", "--lang", "es", "--workspace", ws]);
     expect(r.code).toBe(0);
     expect(r.stdout).toContain("Ingeniera Senior de IA · Infraestructura Soberana de IA"); // es headline
     expect(r.stdout).not.toContain("Senior AI Engineer · Sovereign AI Infrastructure"); // en headline

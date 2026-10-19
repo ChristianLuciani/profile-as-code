@@ -54,7 +54,9 @@ interface Truth {
   surface: string;
   sync: "in-sync" | "stale" | "never";
   artifact: "matches-SSOT" | "diverges" | "absent";
+  artifactReason?: "local-mismatch" | "live-drift" | "no-artifact";
   limits: "ok" | "over(cap)";
+  units: { recorded: number; stale: number };
   findings: { code: string; message: string; path: string }[];
 }
 
@@ -110,6 +112,9 @@ describe("pasco status — derived publication truth (#242)", () => {
       // `pasco build` just wrote it from the SSOT at the workspace lang.
       artifact: "matches-SSOT",
       limits: "ok",
+      // `sync` alone cannot say how many units were never confirmed — the
+      // coverage behind it is explicit (premerge #256, F4).
+      units: { recorded: 0, stale: 0 },
       findings: [],
     });
   });
@@ -163,6 +168,8 @@ describe("pasco status — derived publication truth (#242)", () => {
       sync: "stale",
       // The artifact on disk is now a different artifact than the SSOT produces.
       artifact: "diverges",
+      artifactReason: "local-mismatch",
+      units: { recorded: 1, stale: 1 },
     });
   });
 
@@ -190,6 +197,7 @@ describe("pasco status — derived publication truth (#242)", () => {
     expect(truth.find((t) => t.surface === "github-readme")).toMatchObject({
       sync: "in-sync",
       artifact: "absent",
+      artifactReason: "no-artifact",
     });
   });
 
@@ -230,6 +238,79 @@ describe("pasco status — derived publication truth (#242)", () => {
     expect(upwork?.findings[0]?.message).toContain("over max 50");
   });
 
+  it("a min-chars floor is NOT the cap axis — the token stays literal", () => {
+    // `min-chars` is a floor: it must not print `over(cap)`. It stays
+    // `pasco check`'s finding (premerge #256, F2).
+    const ws = initWorkspace();
+    writeFileSync(
+      join(ws, "content", "headlines.yaml"),
+      '- platform: upwork\n  lang: en\n  text: "short"\n',
+    );
+    // A paste surface needs a bio row to have an artifact on disk at all.
+    writeFileSync(
+      join(ws, "content", "bios.yaml"),
+      '- platform: upwork\n  lang: en\n  length: long\n  text: "A bio for upwork"\n',
+    );
+    writeFileSync(
+      join(ws, "content", "checks.yaml"),
+      "- id: upwork-title-min\n  platform: upwork\n  rule: min-chars\n  value: 50\n  surface: headline\n",
+    );
+    expect(run(["build"], ws).code).toBe(0);
+
+    const upwork = publicationOf(run(["status", "--json", "--workspace", ws]).stdout).find(
+      (t) => t.surface === "upwork",
+    );
+    expect(upwork).toMatchObject({ limits: "ok", findings: [] });
+    // …and `pasco check` still reports the floor it owns.
+    const check = JSON.parse(run(["check", "upwork", "--json", "--workspace", ws]).stdout) as {
+      data: { limits: { code: string; path: string }[] };
+    };
+    expect(check.data.limits.some((f) => f.code === "min-chars")).toBe(true);
+  });
+
+  it("a cap that cannot be evaluated is a WARNING, never a silent ok", () => {
+    // The schema admits a non-numeric `value`; silently reading `ok` is the
+    // passing-gate failure this line exists to end (premerge #256, F3).
+    const ws = initWorkspace();
+    writeFileSync(
+      join(ws, "content", "checks.yaml"),
+      '- id: upwork-title-max\n  platform: upwork\n  rule: max-chars\n  value: "50"\n  surface: headline\n',
+    );
+    writeFileSync(
+      join(ws, "content", "headlines.yaml"),
+      `- platform: upwork\n  lang: en\n  text: "${"x".repeat(80)}"\n`,
+    );
+    writeFileSync(
+      join(ws, "content", "bios.yaml"),
+      `- platform: upwork\n  lang: en\n  length: long\n  text: "${"y".repeat(132)}"\n`,
+    );
+    expect(run(["build"], ws).code).toBe(0);
+
+    const upwork = publicationOf(run(["status", "--json", "--workspace", ws]).stdout).find(
+      (t) => t.surface === "upwork",
+    );
+    // `ok` about the TEXT (the cap could not be applied) — but not silent.
+    expect(upwork?.limits).toBe("ok");
+    expect(upwork?.findings).toHaveLength(1);
+    expect(upwork?.findings[0]?.path).toBe("checks:upwork-title-max");
+    expect(upwork?.findings[0]?.message).toContain("non-numeric");
+  });
+
+  it("--platform filters the publication report too", () => {
+    const ws = initWorkspace();
+    writeFileSync(
+      join(ws, "content", "bios.yaml"),
+      `- platform: upwork\n  lang: en\n  length: long\n  text: "A bio for upwork"\n`,
+    );
+    expect(run(["build"], ws).code).toBe(0);
+
+    const all = publicationOf(run(["status", "--json", "--workspace", ws]).stdout);
+    expect(all.map((t) => t.surface).sort()).toEqual(["github-readme", "upwork"]);
+
+    const filtered = publicationOf(run(["status", "upwork", "--json", "--workspace", ws]).stdout);
+    expect(filtered.map((t) => t.surface)).toEqual(["upwork"]);
+  });
+
   it("a surface with no cap exceeded and no artifact is not invented", () => {
     const ws = initWorkspace();
     // No build, no mark: no surface is in play, so the section states the fact.
@@ -259,11 +340,21 @@ describe("pasco status — derived publication truth (#242)", () => {
       run(["status", "--completeness", "--json", "--workspace", ws]).stdout,
     ) as { data: { percent: number; total: number; publication: Truth[] } };
 
-    // The percentage is a function of the profile alone — the derived publication
-    // state must never move it (SPEC §20: no new score, no stored number).
+    // `build` does not touch the ledger, so the percentage is unchanged — it is
+    // §20's number, and this derivation only ADDS a coverage line beside it.
     expect(after.data.percent).toBe(before.data.percent);
     expect(after.data.total).toBe(before.data.total);
     expect(after.data.publication.map((t) => t.surface)).toContain("github-readme");
+
+    // The percentage's one ledger input is §20's `deployment` item (coverage of
+    // already-deployed units) — a `--mark` raises it. Stated here so the SPEC's
+    // claim is tested for what it says: THIS derivation never moves the number,
+    // the ledger item does (premerge #256, F1/N2).
+    expect(run(["status", "--mark", "identity", "github-readme", "--workspace", ws]).code).toBe(0);
+    const marked = JSON.parse(
+      run(["status", "--completeness", "--json", "--workspace", ws]).stdout,
+    ) as { data: { percent: number } };
+    expect(marked.data.percent).toBeGreaterThan(after.data.percent);
 
     const text = run(["status", "--completeness", "--workspace", ws]).stdout;
     expect(text).toMatch(/publication coverage — 1\/1 surface matches the SSOT/);
@@ -307,6 +398,23 @@ describe("pasco status — derived publication truth (#242)", () => {
     expect(truth.find((t) => t.surface === "github-readme")).toMatchObject({
       sync: "in-sync",
       artifact: "diverges",
+      // The live comparison is named, so `diverges` never conflates the two
+      // sources (premerge #256, F5).
+      artifactReason: "live-drift",
+    });
+    // §19.5 contrary evidence outranks `absent`: with NO artifact on disk a
+    // recorded live mismatch still reads `diverges`, and says why.
+    const bare = initWorkspace();
+    const absentDrift = publicationTruth({
+      workspace: bare,
+      profile: loadFor(bare),
+      reportData: report,
+      checks: [],
+      lang: "en",
+    }).find((t) => t.surface === "github-readme");
+    expect(absentDrift).toMatchObject({
+      artifact: "diverges",
+      artifactReason: "live-drift",
     });
     // And the clean report read above is genuinely clean — the rule is not
     // `diverges` for everyone.

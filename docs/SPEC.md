@@ -1360,48 +1360,62 @@ surface**, three orthogonal axes, each with one owner:
 
 | Axis | Question | Owner / source |
 |---|---|---|
-| `sync` | did the SSOT move after the confirmed deploy? | §19 staleness — the ledger, unchanged; a surface with no record is `never` (absence is not `stale`) |
-| `artifact` | is the artifact on disk the one the SSOT produces **today**? | `builtArtifact` vs `render` at the workspace lang, then the langs the profile declares; `absent` when nothing is on disk; a §19.5 `out-of-band-drift` record forces `diverges` (contrary evidence is never a match) |
-| `limits` | does any text on this surface exceed a declared cap? | §18.8/#240 offline `max-chars`/`min-chars` over headlines/bios, one executor (`packages/cli/src/limits.ts`) |
+| `sync` | did any unit **confirmed on this surface** move after its deploy? | §19 staleness — the ledger, unchanged. A rollup over the units **recorded** on that surface (any stale → `stale`); a surface with no record at all is `never`. Units with no record are NOT `in-sync`: the unit table above lists them `never`, the completeness `deployment` item counts them, and the `--json` payload carries `units.recorded` so coverage is read, never inferred. |
+| `artifact` | is the artifact on disk the one the SSOT produces **today**? | the bytes `pasco build` wrote vs a render of the current SSOT (variant body → renderer/paste source), at the workspace lang first then the rest of the §11 language enum; `absent` when nothing is on disk; a §19.5 `out-of-band-drift` record forces `diverges` **and wins over `absent`** (live contrary evidence is the stronger fact). `artifactReason` names which source produced a non-match — `local-mismatch` · `live-drift` · `no-artifact` — so one token never conflates the two comparisons. |
+| `limits` | does any text on this surface **exceed** a declared maximum? | §18.8/#240 offline `max-chars` over headlines/bios, one executor (`packages/cli/src/limits.ts`). The token is literal: `min-chars` is a **floor**, not a cap, so it stays `pasco check`'s finding and does not feed this axis. A `max-chars` row whose declared value is not a number (the schema admits a string) produces a **catalog warning in `findings`** — the axis reads `ok` about the TEXT, but the un-evaluable cap is never silent. |
 
 **Derived, never stored** (§20's own rule): the line is recomputed on every read and writes
-nothing. It is **coverage of publication, not a new score** — `percent` stays a function of
-the profile alone, so the number **can go down only when the published surface drifts**, and
-never merely because the user published more. Surfaces "in play" are the ones with a ledger
-record or an artifact on disk; a workspace with neither says so instead of printing twenty
-empty platforms.
+nothing. It is **coverage of publication, not a score**: `percent` stays exactly what §20
+defines — a function of the profile and the policy, whose `deployment` item is ledger
+coverage. This derivation never moves it, and §19.5's invariant (certification never moves
+the `%`) is preserved. The non-goal of #242 ("the number must be able to go down when the
+surface drifts") is therefore met by the **axis**, not by the percentage: `artifact` goes from
+`matches-SSOT` to `diverges` the moment the published artifact stops being the SSOT's output.
+Surfaces "in play" are the ones with a ledger record or an artifact on disk; a workspace with
+neither says so instead of printing twenty empty platforms.
 
-**Machine surface (`pasco status --json`, additive).** The existing keys (`units`,
-`surfaces`, `state`, `certification`) are untouched; publication truth is a new sibling:
+**Machine surface (`pasco status --json`, additive).** The unit-level keys (`units`,
+`units[].surfaces`, `units[].state`, `units[].certification`) are untouched; publication truth
+is a new top-level sibling:
 
 ```jsonc
 "publication": [{
   "surface": "github-readme",
   "sync": "in-sync" | "stale" | "never",
   "artifact": "matches-SSOT" | "diverges" | "absent",
+  "artifactReason": "local-mismatch" | "live-drift" | "no-artifact",  // present iff not matches-SSOT
   "limits": "ok" | "over(cap)",
+  "units": { "recorded": 1, "stale": 0 },   // the rollup behind `sync`
   "findings": [{ "severity": "warn", "code": "max-chars", "message": "…", "path": "…" }]
 }]
 ```
 
 `pasco status --completeness` carries the same array and prints
 `publication coverage — <matching>/<total> surfaces match the SSOT · <n> over cap`;
-`--write-checklist` folds that phrase into the generated `CHECKLIST.md` (D18).
+`--write-checklist` folds that phrase into the generated `CHECKLIST.md` (D18) — from the
+**unfiltered** derivation, because the checklist is a whole-workspace view even when the
+command was called with a platform argument.
 
 **Declared v1 limits** (each an honest absence, not a silent pass):
 
-- the comparison is **offline**: live drift stays §19.5's `out-of-band-drift`, surfaced only
-  by the opt-in `--verify` — `status` never fetches (D20);
-- the artifact is compared to a render at the workspace lang first, then every lang the
-  contract allows (§11: `en`/`es`/`fr`) — `--lang` is validated against the same enum, so
-  an artifact built for another legal lang still matches. A build made with
-  `--view <name>` reads `diverges` (the comparison resolves the implicit per-platform
-  view);
+- the comparison is **offline**: live drift is only known when §19.5's `--verify` has
+  recorded it, and the opt-in pass is the only fetch (D20). A live mismatch nobody checked
+  reads `matches-SSOT` if the local bytes match — the axis compares what is on disk against
+  the SSOT, never against the internet;
+- the artifact is compared at the workspace lang first, then every lang the contract allows
+  (§11: `en`/`es`/`fr`) — `--lang` is validated against the same enum, so an artifact built
+  for another legal lang still matches. A build made with `--view <name>` reads `diverges`
+  (the comparison resolves the implicit per-platform view);
 - the comparison ignores the one generated token whose input is the ledger itself —
   `Profile completeness: <pct> — <n>/<m>` (§20: a derived view). Otherwise recording a
   confirmation would change the embedded number and every confirmed surface would read
   `diverges` forever: noise about a label, not drift of a fact. Consequence: a stale
-  displayed percentage alone is not reported as divergence.
+  displayed percentage alone is not reported as divergence;
+- **the media bundle is out of scope**: the comparison covers the primary artifact file
+  (`profiles/<s>/README.md`, or the paste source `profiles/<s>.md` for a manual surface),
+  not `profiles/<s>/assets/`. Media transport is `pasco check`'s M8 surface (§18.6), and
+  reconstructing the expected bundle would need the render's own asset references —
+  deferred, declared, and never silently green in `check`.
 
 **Non-goals (v1).** No new schema field, no new required block (`pasco validate` is
 unchanged), no gamification, no remote score, and no promise that a higher number is a

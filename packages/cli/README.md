@@ -84,8 +84,9 @@ The partial commands are explicit, and each one says what still owns the rest:
 
 ### Publication truth (derived — SPEC §20.1, #242)
 
-Every `pasco status` ends with one line per surface that has a ledger record or an
-artifact on disk:
+The `status` report ends with one line per surface that has a ledger record or an
+artifact on disk (`--completeness` prints the coverage phrase only; `--selection`
+is a different view, and `--mark`/`--verify` are the write paths):
 
 ```
 github-readme: in-sync · artifact: matches-SSOT · limits: ok
