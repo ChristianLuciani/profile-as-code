@@ -13,6 +13,7 @@ import {
 } from "@profile-as-code/core";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
+import { hasVariantBody } from "../variant-store.js";
 
 export interface ValidateArgs {
   workspace: string;
@@ -40,7 +41,16 @@ export function runValidate(args: ValidateArgs): number {
     throw err;
   }
 
-  const drift = driftCheck(profile);
+  // #238: a variant-only surface is backed by the chosen body in the store; the
+  // core drift check cannot see the workspace file, so reconcile it here.
+  const drift = driftCheck(profile).filter((issue) => {
+    if (issue.code !== "drift/active-variant-missing") return true;
+    const platform = issue.surfaces?.[0];
+    if (platform === undefined) return true;
+    const active = profile.active?.[platform];
+    if (active === undefined) return true;
+    return !hasVariantBody(args.workspace, platform, active.variantId);
+  });
   const geo = geoCheck(profile);
 
   if (isJsonMode()) {

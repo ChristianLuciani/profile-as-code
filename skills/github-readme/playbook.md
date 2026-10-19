@@ -9,12 +9,13 @@ Sin pegar a mano, sin API.
 1. **Refine**: `pasco refine github-readme --variants 3` → el agente (esta skill)
    produce 3 variantes en prosa. Elegí una:
    `pasco refine github-readme --choose gh-en-2`.
-2. **Build determinista** (control de verdad): `pasco build github-readme` → regenera
-   `profiles/github-readme/README.md` (snapshot byte-stable del SSOT).
-3. **Deploy**: copiá la variante elegida al repo-perfil y commit:
+2. **Build**: `pasco build github-readme` → si hay una variante activa con cuerpo,
+   escribe ese README completo VERBATIM en `profiles/github-readme/README.md`;
+   sin variante, regenera el snapshot determinista del SSOT (control de verdad).
+3. **Deploy**: copiá el artefacto al repo-perfil y commit:
    ```sh
-   cp profiles/github-readme/variants/gh-en-2.md ../<usuario>/README.md
-   cd ../<usuario> && git commit -am "docs: profile README (variante gh-en-2, desde profile-data)"
+   cp profiles/github-readme/README.md ../<usuario>/README.md
+   cd ../<usuario> && git commit -am "docs: profile README (variante activa, desde profile-data)"
    ```
 4. **Verificar en GitHub**: perfil → se ve el README en dark/light, links clicables,
    facts consistentes con el CV.
