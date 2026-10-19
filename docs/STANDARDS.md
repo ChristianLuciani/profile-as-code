@@ -53,10 +53,11 @@ before it is presented publicly — the first real end-to-end test is a hard req
 the OIDC migration is **complete and validated**, `docs/ci-cd.md` §npm publish auth).
 What remains: dogfood re-run on HEAD recorded and refreshed on the v1.8 chain (item 1, #112 —
 2026-10-05; artifact refresh in `profile-data` + platform deploy remain the operator's human-gated
-loop), maintainer sign-off (item 8), flip visibility, **then
-immediately re-apply branch protection** (`docs/ci-cd.md` has the exact calls — protection exists
-only once the repo is public on GitHub Free; items 6/10 may carry tracked issues only if they
-don't contradict the flip).
+loop), maintainer sign-off (item 8), flip visibility, **immediately re-apply branch protection**
+(`docs/ci-cd.md` has the exact calls — protection exists only once the repo is public on GitHub
+Free), **then enable Pages once and publish the project page** (community item 11 — the Pages
+workflow is gated on a public repo; items 6/10 may carry tracked issues only if they don't
+contradict the flip).
 
 **Order ratified 2026-10-03 (#123), with an accepted cost.** The sequence above is deliberate and
 is not to be reordered. The published versions carry **no provenance attestation**, and the reason
@@ -95,6 +96,7 @@ community" (source: prompt-studio `registry/specs/community-first.md`).
 | 8 | AGENTS.md (repo >1/3 agent context window) | ✅ | present, with map + context-discipline rule |
 | 9 | Issue triage with intention (≤48h close-or-label) | ✅ | all open issues labeled at triage (9/9; 2 with a priority label, 2026-09-28 — snapshot, re-census before every flip decision); `good first issue` + `help wanted` labels exist |
 | 10 | Family mapped + cross-links + "try it" path e2e | ⚠️ | family: `profile-as-code` (hub) + `profile-data-template` (satellite, private) + `profile-data` (operator data, private — dogfood only, never linked publicly); template also lives in-repo (`templates/profile-data*`). Cross-links verified + USER-GUIDE "try it" path executed end-to-end up to the deploy boundary (#54, 2026-09-21; scoping in item 4). **Reframed by #200 (2026-10-10):** the workspace is a folder, not a required repo, and there are three on-ramps (SPEC §9.2). A newcomer now **can** create and validate a workspace from the public npm package with no repo access and no account (`npm i -g @profile-as-code/cli` → `pasco init` → `pasco validate`; USER-GUIDE §1/§3 Options B/C) — so the satellite is required for the **recommended** on-ramp A (full example + automation + history), not for the ability to start. Remaining: with the satellite private, on-ramp A reaches insiders only, and its `pasco` build workflow is still owed (`profile-data-template#11`) — publish the satellite with the hub (community-first §9), or keep directing outsiders to on-ramps B/C |
+| 11 | Public entry surface (project page) | ⚠️ | `site/` + `.github/workflows/pages.yml` (#201): a single static page, versioned here, with the three on-ramps and an honest pre-1.0 status. The stable URL is `https://christianluciani.github.io/profile-as-code/`; Pages is not available while this repo is private on GitHub Free, so the workflow is skipped. After the flip, enable Pages once (`gh api -X POST repos/ChristianLuciani/profile-as-code/pages -f build_type=workflow`) and run the workflow (or push a `site/**` change). The page is the entry surface for readers who do not arrive through the repository (community-first §9; SPEC §9.2). |
 
 ## Publication by families (community-first §9)
 

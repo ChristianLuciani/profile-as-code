@@ -29,7 +29,9 @@ per-user private repo (`profile-data`), scaffolded from the template
 | `packages/renderers/` | One adapter per platform | the contribution seam |
 | `skills/<platform>/` | Living knowledge per platform (D5) | follows `skills/README.md` |
 | `docs/research/` | Prior-art + SOTA, sourced + dated | |
+| `site/` | Static project page (#201) → GitHub Pages | no build step; keep the on-ramps synced with SPEC §9.2 |
 | `scripts/schema-check/` | Contract self-test (CI) | |
+| `scripts/site-check/` | Project-page gate (CI): ids, anchors, local paths, no scripts | issue #201 |
 | `scripts/dep-gate/` | D20 scope self-test (CI): server→core only, core never reaches server | issue #98 |
 
 ## Rules for agents (in addition to CONTRIBUTING.md)
@@ -87,6 +89,7 @@ pnpm gen:packages                 # list/verify the workspace package inventory
 node scripts/gen-platforms/gen.mjs --check   # assert the projections are fresh
 node scripts/gen-packages/gen.mjs --check    # assert the Map covers every package
 node scripts/evidence-gate/check.mjs         # assert run-citations are anchored reachably
+node scripts/site-check/check.mjs            # assert the project page's ids/anchors/local paths
 python3 -m venv /tmp/schema-venv && /tmp/schema-venv/bin/pip install jsonschema pyyaml
 /tmp/schema-venv/bin/python scripts/schema-check/check.py
 ```

@@ -1,0 +1,57 @@
+name: pages
+
+# Publishes the minimal project page (#201) to GitHub Pages.
+#
+# While the repository is private on GitHub Free, Pages is not available, so the
+# job is skipped: `main` stays green and no failing run is created. After the
+# visibility flip, enable Pages once (the default GITHUB_TOKEN cannot create the
+# site), then the next change under `site/` (or a manual dispatch) deploys. The
+# page is the entry surface for readers who do not arrive through the repository;
+# its content is versioned here so it cannot drift from the SPEC.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a queued run is not cancelled, so a merge never
+# loses the latest site state.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # The default GITHUB_TOKEN cannot CREATE the Pages site; `enablement:
+      # true` would need a PAT/App token. Enable Pages once after the visibility
+      # flip, then run this workflow (or push a site change):
+      #   gh api -X POST repos/ChristianLuciani/profile-as-code/pages -f build_type=workflow
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
+        with:
+          path: site
+
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5

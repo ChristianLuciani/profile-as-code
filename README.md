@@ -10,6 +10,9 @@ conocimiento SOTA de cada red.
 ![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
 [![Discussions](https://img.shields.io/badge/discussions-comunidad-blue.svg)](https://github.com/ChristianLuciani/profile-as-code/discussions)
 
+**Project page:** [christianluciani.github.io/profile-as-code](https://christianluciani.github.io/profile-as-code/) —
+la misma entrada, para quien no llega por el repositorio.
+
 ## Para quién es (y qué necesitás)
 
 **Es una herramienta para gente técnica**: lo mínimo es una terminal y **Node.js ≥ 22**.
