@@ -317,7 +317,7 @@ declared renderer or an explicit "not implemented yet").
 |---|---|
 | `pasco init` | scaffold a profile-data workspace from the template |
 | `pasco validate` | schema (fail) + drift/geo checks (facts warn) |
-| `pasco build [platform] [--view <name>] [--lang]` | render deterministic base texts; `--view` resolves a declared view's platform/lang + fact selection (D22, §21) |
+| `pasco build [platform] [--view <name>] [--lang]` | render deterministic base texts; `--view` resolves a declared view's platform/lang + fact selection (D22, §21); a manual-paste surface without a renderer writes `profiles/<platform>.md` via the shared paste core (#239); an active variant body is written verbatim as the platform artifact (#238) |
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
 | `pasco check [platform]` | run skill-declared checks before deploy |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
@@ -428,7 +428,8 @@ profile-data/
 ├── README.md            # instructions: pick your on-ramp, install pasco, first build
 ├── content/             # identity.yaml, positioning.yaml, bios.yaml, skills.yaml,
 │                        # experience.yaml, projects.yaml, publications.yaml, keywords.yaml
-├── profiles/            # generated outputs (committed: they ARE the deploy artifacts)
+├── profiles/            # generated outputs (committed: they ARE the deploy artifacts) +
+│                        # <platform>/variants/ — chosen variant bodies (INPUT, #238)
 ├── CHANGELOG.md         # every change: date + which platforms need re-paste
 ├── CHECKLIST.md         # per-platform verification after pasting
 └── .pascorc             # workspace path, defaults (D11–D14)
@@ -490,7 +491,9 @@ Two different "templates" (previous confusion):
   recommended home, not a requirement — §9, amended by #200); integration by **configured path**
   (`.pascorc → workspace`), no symlink in the normal flow; symlink mount only as engine-CI option.
 - **Q9 → D19 (RESOLVED, M8):** the deploy bundle is **one `assets/` dir per platform output**
-  (`profiles/<platform>/assets/`), not a shared content-addressed store. Deploy surfaces are
+  (`profiles/<platform>/assets/`), not a shared content-addressed store. The
+  `profiles/<platform>/variants/` subtree is the exception: it is the chosen-variant
+  INPUT (#238), preserved by build, never generated. Deploy surfaces are
   separate repos (D9/D14) — a shared store has no home; each renderer output is self-contained
   (README + its assets travel and verify together); targets are human-reviewable in deploy diffs
   (`assets/<id>/<basename>`); `assets/manifest.json` records the compile-time sha256 per asset.
@@ -700,7 +703,12 @@ First platform: **`github-readme`** — the only 100% git/API-deployable surface
 2. The executing agent (AionUi, OpenHands, Claude Code, Cursor, pi…) reads the skill
    and produces N variants in prose — the human picks one.
 3. `pasco refine <platform> --choose <variantId>` records the choice in `content/active.yaml`
-   (the LIVE variant per platform, D11).
+   (the LIVE variant per platform, D11). The chosen body lives at
+   `profiles/<platform>/variants/<variantId>.md` as a **complete platform artifact**
+   (for github-readme, a full README). `pasco build` writes it verbatim as the
+   platform artifact for that lang, records the variant in the build report, and
+   falls back to the deterministic render with a warning when the file is missing,
+   empty or for another lang (#238).
 
 ### 16.3 github-readme skill — strategy (summary)
 
