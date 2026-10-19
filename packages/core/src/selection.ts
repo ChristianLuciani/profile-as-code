@@ -85,11 +85,11 @@ export interface SelectionOmission {
 }
 
 export type SelectionFindingCode =
-  | "selection-unknown-key"
-  | "selection-unknown-tag"
-  | "selection-empty-facts"
-  | "selection-anchor-omitted"
-  | "selection-omits-facts";
+  | "selection/unknown-key"
+  | "selection/unknown-tag"
+  | "selection/empty-facts"
+  | "selection/anchor-omitted"
+  | "selection/omits-facts";
 
 export interface SelectionFinding {
   code: SelectionFindingCode;
@@ -262,7 +262,7 @@ export function selectFacts(
   for (const key of excludeKeys) {
     if (!allKeys.has(key)) {
       findings.push({
-        code: "selection-unknown-key",
+        code: "selection/unknown-key",
         severity: "error",
         message: `view "${view}" excludes "${key}", which addresses no entry — check the §19.2 key (an entry needs an "id" to be addressable)`,
       });
@@ -271,7 +271,7 @@ export function selectFacts(
   for (const tag of new Set([...includeTags, ...excludeTags])) {
     if (!allTags.has(tag)) {
       findings.push({
-        code: "selection-unknown-tag",
+        code: "selection/unknown-tag",
         severity: "warn",
         message: `view "${view}" names tag "${tag}", which no ${[...TAG_CAPABLE].join("/")} entry carries`,
       });
@@ -289,7 +289,7 @@ export function selectFacts(
       .join(", ");
     const more = omitted.length > 5 ? ` and ${omitted.length - 5} more` : "";
     findings.push({
-      code: "selection-omits-facts",
+      code: "selection/omits-facts",
       severity: "warn",
       message: `view "${view}" omits ${omitted.length} entr${omitted.length === 1 ? "y" : "ies"}: ${shown}${more} — subset-only by design (D22); run \`pasco status --selection ${view}\` for the full report`,
     });
@@ -297,7 +297,7 @@ export function selectFacts(
 
   if (totalEntries > 0 && keptRefs.length === 0) {
     findings.push({
-      code: "selection-empty-facts",
+      code: "selection/empty-facts",
       severity: "warn",
       message: `view "${view}" selects ZERO entries while the workspace has ${totalEntries} — check its mode/tags`,
     });
@@ -312,7 +312,7 @@ export function selectFacts(
       refs.some((r) => JSON.stringify(r.entry).toLowerCase().includes(needle));
     if (!haystack(keptRefs) && haystack(omittedRefs)) {
       findings.push({
-        code: "selection-anchor-omitted",
+        code: "selection/anchor-omitted",
         severity: "warn",
         message: `GEO anchor "${anchor}" is reinforced only by entries view "${view}" omits — it does not reach this surface`,
       });

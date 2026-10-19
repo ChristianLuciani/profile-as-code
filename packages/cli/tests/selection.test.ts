@@ -108,7 +108,7 @@ describe("pasco build --view (D22/§21)", () => {
     const data = JSON.parse(r.stdout) as {
       data: { selection: { code: string; severity: string; message: string }[] };
     };
-    const warn = data.data.selection.find((f) => f.code === "selection-omits-facts");
+    const warn = data.data.selection.find((f) => f.code === "selection/omits-facts");
     expect(warn?.severity).toBe("warn");
     expect(warn?.message).toContain("projects:p-secret");
   });
@@ -127,7 +127,7 @@ describe("pasco build --view (D22/§21)", () => {
     expect(readme).not.toContain("AI Repository");
     expect(readme).not.toContain("Untagged Document");
     // Never silent (§21.4): the omission is printed.
-    expect(r.stdout).toContain("selection-omits-facts");
+    expect(r.stdout).toContain("selection/omits-facts");
   });
 
   it("--view with no platform and no declared target is a config error (exit 1)", () => {
@@ -157,7 +157,7 @@ describe("pasco build --view (D22/§21)", () => {
     const ws = workspace({ selection: { views: { v: { excludeKeys: ["projects:ghost"] } } } });
     const r = run(["build", "github-readme", "--view", "v"], ws);
     expect(r.code).toBe(1);
-    expect(r.stdout + r.stderr).toMatch(/selection-unknown-key|selection error/);
+    expect(r.stdout + r.stderr).toMatch(/selection\/unknown-key|selection error/);
   });
 
   it("no selection policy ⇒ byte-identical artifact (the compatibility guarantee)", () => {

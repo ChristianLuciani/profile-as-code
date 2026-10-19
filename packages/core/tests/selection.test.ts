@@ -214,38 +214,38 @@ describe("selectFacts — mode semantics (§21.3 rule 5, Phase-1 boundary §21.7
 });
 
 describe("selectFacts — checks (§21.5)", () => {
-  it("selection-unknown-key is an ERROR (G6: addressed ⇒ resolvable)", () => {
+  it("selection/unknown-key is an ERROR (G6: addressed ⇒ resolvable)", () => {
     const { report } = omit(workspace(), "v", policy({ v: { excludeKeys: ["projects:nope"] } }));
-    const f = report.findings.find((x) => x.code === "selection-unknown-key");
+    const f = report.findings.find((x) => x.code === "selection/unknown-key");
     expect(f?.severity).toBe("error");
   });
 
-  it("selection-unknown-tag warns", () => {
+  it("selection/unknown-tag warns", () => {
     const { report } = omit(workspace(), "v", policy({ v: { mode: "tags", tags: ["ghost"] } }));
-    expect(report.findings.find((x) => x.code === "selection-unknown-tag")?.severity).toBe("warn");
+    expect(report.findings.find((x) => x.code === "selection/unknown-tag")?.severity).toBe("warn");
   });
 
-  it("selection-omits-facts warns on ANY omission (G1 amendment, §21.4)", () => {
+  it("selection/omits-facts warns on ANY omission (G1 amendment, §21.4)", () => {
     const { report } = omit(workspace(), "v", policy({ v: { excludeKeys: ["projects:p-ai"] } }));
-    const warn = report.findings.find((x) => x.code === "selection-omits-facts");
+    const warn = report.findings.find((x) => x.code === "selection/omits-facts");
     expect(warn?.severity).toBe("warn");
     expect(warn?.message).toContain("projects:p-ai");
   });
 
-  it("selection-empty-facts warns when a view selects nothing", () => {
+  it("selection/empty-facts warns when a view selects nothing", () => {
     // Artifacts-only: non-tag-capable blocks pass through (§21.7), so they would
     // keep the view non-empty and hide the case this check exists for.
     const { report } = omit(artifactsOnly(), "v", policy({ v: { mode: "tags", tags: ["ghost"] } }));
-    expect(report.findings.some((x) => x.code === "selection-empty-facts")).toBe(true);
+    expect(report.findings.some((x) => x.code === "selection/empty-facts")).toBe(true);
   });
 
-  it("selection-anchor-omitted names a GEO anchor that only the dropped entries reinforce", () => {
+  it("selection/anchor-omitted names a GEO anchor that only the dropped entries reinforce", () => {
     const p = Object.assign(artifactsOnly(), {
       positioning: { geo: { semanticAssociations: ["film"] } },
     }) as Profile;
     const { report } = omit(p, "v", policy({ v: { mode: "tags", tags: ["ai"] } }));
     // "film" appears in the omitted artifact, not in the kept one.
-    expect(report.findings.some((x) => x.code === "selection-anchor-omitted")).toBe(true);
+    expect(report.findings.some((x) => x.code === "selection/anchor-omitted")).toBe(true);
   });
 });
 
