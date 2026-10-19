@@ -579,6 +579,7 @@ gh api repos/ChristianLuciani/profile-as-code/branches/main/protection
 gh api -X PUT repos/ChristianLuciani/profile-as-code/branches/main/protection \
   -F "required_status_checks[strict]=true" \
   -F "required_status_checks[contexts][]=ci" \
+  -F "required_status_checks[contexts][]=sign-off" \
   -F "enforce_admins=true" \
   -F "required_pull_request_reviews[required_approving_review_count]=0" \
   -F "required_conversation_resolution=true" \
