@@ -43,6 +43,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+
+      # Defense-in-depth: CI already runs this gate on every PR; the deploy
+      # path refuses to upload a page whose local links/anchors are broken.
+      - name: Project page gate (offline, self-tested)
+        run: node scripts/site-check/check.mjs
+
       # The default GITHUB_TOKEN cannot CREATE the Pages site; `enablement:
       # true` would need a PAT/App token. Enable Pages once after the visibility
       # flip, then run this workflow (or push a site change):

@@ -627,12 +627,18 @@ h3 {
 }
 
 @media (max-width: 680px) {
-  .site-nav {
-    gap: 14px;
+  .header-inner {
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    min-height: 60px;
+    padding-block: 10px;
   }
 
-  .site-nav a:not(.nav-github) {
-    display: none;
+  .site-nav {
+    width: 100%;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.82rem;
   }
 
   .status-grid,
@@ -640,8 +646,8 @@ h3 {
     grid-template-columns: 1fr;
   }
 
-  .header-inner {
-    min-height: 60px;
+  .section {
+    scroll-margin-top: 126px;
   }
 
   .footer-inner {
