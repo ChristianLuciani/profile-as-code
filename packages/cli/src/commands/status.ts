@@ -18,16 +18,19 @@
  *   of truth. Each surface carries its certification token (§19.5): an `attested`
  *   surface is never rendered as a bare `in-sync`.
  *
+ * Every read report ends with the DERIVED publication truth per surface (§20.1,
+ * issue #242): the ledger axis above, the artifact-on-disk-vs-SSOT axis, and the
+ * declared-cap axis. Derived on every run and stored nowhere. `publication.ts`
+ * owns the derivation; this module only prints it.
+ *
  * Exit codes: 0 report/mark/verify ok · 1 load or mark failure · 2 usage.
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   attestedRecord,
   type CompletenessReport,
-  collectMedia,
-  compile,
   completeness,
   completenessLine,
   declaredReason,
@@ -38,7 +41,6 @@ import {
   type LoadedProfile,
   load,
   PLATFORMS,
-  type Platform,
   SchemaValidationError,
   type SelectionPolicy,
   type SelectionReport,
@@ -49,11 +51,18 @@ import {
   type UnitStatus,
 } from "@profile-as-code/core";
 import { parsePlatform } from "../contract.js";
+import { DEFAULT_CHECKS } from "../default-checks.js";
 import { EXIT } from "../exit.js";
-import { RENDERERS } from "../generated/renderers.gen.js";
 import { isJsonMode, line, report, section } from "../output.js";
+import {
+  createArtifactResolver,
+  type PublicationTruth,
+  publicationCoverageLine,
+  publicationCoverageOrNone,
+  publicationLine,
+  publicationOfCaller,
+} from "../publication.js";
 import { certificationMap, filterReport, reportDataOf, summaryOf } from "../report-shape.js";
-import { resolveVariantBody } from "../variant-store.js";
 import {
   depsOf,
   digestOf,
@@ -172,8 +181,13 @@ function artifactAnchor(
   // `declaredReason` already implies a defined extractor; this only satisfies the type.
   if (extractor === undefined) return { reason: "no-extractor" };
   try {
-    const artifact =
-      builtArtifact(args.workspace, surface) ?? renderArtifact(args, profile, surface);
+    const resolver = createArtifactResolver({
+      workspace: args.workspace,
+      profile,
+      completenessPolicy: args.completenessPolicy,
+      selectionPolicy: args.selectionPolicy,
+    });
+    const artifact = resolver.built(surface) ?? resolver.render(surface, args.lang ?? "en");
     if (artifact === undefined) return { reason: "no-renderer" };
     if (artifact === "") return { reason: "empty-render" };
     return { anchor: digestOf(extractor(artifact)) };
@@ -182,32 +196,6 @@ function artifactAnchor(
     // JSON payload, so a render that genuinely broke is debuggable.
     return { reason: `render-failed (${err instanceof Error ? err.message : String(err)})` };
   }
-}
-
-/** `profiles/<surface>/README.md` — the bytes `pasco build` wrote (§15.5), or
- *  `undefined` when this workspace has not built that surface. */
-function builtArtifact(workspace: string, surface: string): string | undefined {
-  const path = join(workspace, "profiles", surface, "README.md");
-  return existsSync(path) ? readFileSync(path, "utf8") : undefined;
-}
-
-/** The fallback: render the artifact exactly as `pasco build` WOULD, at the
- *  workspace lang + completeness policy + media bundle. `undefined` when the
- *  surface has no renderer. */
-function renderArtifact(
-  args: StatusArgs,
-  profile: LoadedProfile,
-  surface: string,
-): string | undefined {
-  const renderer = RENDERERS[surface];
-  if (renderer === undefined) return undefined;
-  const policy = sanitizeCompletenessPolicy(args.completenessPolicy);
-  const slice = compile(profile, surface as Platform, args.lang ?? "en", policy);
-  // Judge the same bytes `pasco build` would write: the chosen body is a
-  // complete artifact and replaces the deterministic render (#238).
-  const variant = resolveVariantBody(args.workspace, slice);
-  if (variant.text !== undefined) return variant.text;
-  return renderer(slice, collectMedia(profile, args.workspace).assets).text;
 }
 
 function markDeployed(args: StatusArgs, profile: LoadedProfile): number {
@@ -333,6 +321,7 @@ function checklistBody(
   reportData: LedgerReport,
   completion: CompletenessReport,
   profile: LoadedProfile,
+  publication: readonly PublicationTruth[],
 ): string {
   // §19.5: the checklist is a VIEW of state pasco owns, so it carries the
   // certification dimension too — projected from the same read rule as the report.
@@ -348,6 +337,9 @@ function checklistBody(
     // Issue #102: the completeness number rides the SAME generated view — it is
     // derived state (never stored) and the checklist is where the user looks.
     `Profile completeness: ${completenessLine(completion)}`,
+    // #242: the derived publication truth rides the SAME generated view — it is
+    // coverage of publication, never a new score (SPEC §20).
+    `Publication truth: ${publicationCoverageOrNone(publication)}`,
     "",
   ];
 
@@ -386,9 +378,33 @@ function completenessOf(args: StatusArgs, profile: LoadedProfile): CompletenessR
   return completeness(profile, sanitizeCompletenessPolicy(args.completenessPolicy));
 }
 
+/**
+ * #242: the derived publication truth for this workspace. Derived means exactly
+ * that — nothing here writes; `status` stays a read (SPEC §20).
+ *
+ * The check catalog falls back to the shipped defaults when the workspace has no
+ * `checks.yaml` (the dogfood workspace predates the catalog, #255) so a
+ * pre-catalog workspace still gets the cap axis.
+ */
+function publicationOf(
+  args: StatusArgs,
+  profile: LoadedProfile,
+  reportData: LedgerReport,
+): PublicationTruth[] {
+  return publicationOfCaller(args, profile, reportData, DEFAULT_CHECKS);
+}
+
 /** `pasco status --completeness` — the checklist + percentage (issue #102). */
-function runCompleteness(args: StatusArgs, profile: LoadedProfile): number {
+function runCompleteness(
+  args: StatusArgs,
+  profile: LoadedProfile,
+  reportData: LedgerReport,
+): number {
   const result = completenessOf(args, profile);
+  // #242: publication COVERAGE, never a new score — the weighted percent below is
+  // a function of the profile alone, so it can never move because a surface
+  // drifted (SPEC §20).
+  const publication = publicationOf(args, profile, reportData);
   if (isJsonMode()) {
     return report("status", true, EXIT.OK, {
       data: {
@@ -399,6 +415,7 @@ function runCompleteness(args: StatusArgs, profile: LoadedProfile): number {
         total: result.total,
         target: result.target,
         items: result.items,
+        publication,
       },
     });
   }
@@ -406,6 +423,7 @@ function runCompleteness(args: StatusArgs, profile: LoadedProfile): number {
   for (const item of result.items) {
     line(`  ${item.satisfied ? "[x]" : "[ ]"} ${item.label} — ${item.detail}`);
   }
+  line(`  publication coverage — ${publicationCoverageOrNone(publication)}`);
   line("  → pasco status --write-checklist folds the number into CHECKLIST.md");
   return EXIT.OK;
 }
@@ -545,9 +563,12 @@ export async function runStatus(args: StatusArgs): Promise<number> {
 
   const reportData = deployStatus(profile);
   const completion = completenessOf(args, profile);
+  // #242: derived ONCE for the read path — the checklist view and the report are
+  // two projections of the same derivation, never two renders.
+  const publication = publicationOf(args, profile, reportData);
 
   // Completeness report (issue #102): a standalone view of the same profile.
-  if (args.completeness === true) return runCompleteness(args, profile);
+  if (args.completeness === true) return runCompleteness(args, profile, reportData);
 
   // Fact selection report (D22/§21): the same shape of view, one axis over.
   if (args.selection === true) return runSelection(args, profile);
@@ -555,7 +576,7 @@ export async function runStatus(args: StatusArgs): Promise<number> {
   if (args.writeChecklist === true) {
     writeFileSync(
       join(args.workspace, "CHECKLIST.md"),
-      checklistBody(reportData, completion, profile),
+      checklistBody(reportData, completion, profile, publication),
       "utf8",
     );
     if (isJsonMode()) {
@@ -569,6 +590,7 @@ export async function runStatus(args: StatusArgs): Promise<number> {
             satisfied: completion.satisfied,
             total: completion.total,
           },
+          publication,
         },
       });
     }
@@ -579,7 +601,7 @@ export async function runStatus(args: StatusArgs): Promise<number> {
 
   const filtered = filterReport(reportData, args.platformArg);
 
-  const data = reportDataOf(filtered, args);
+  const data = reportDataOf(filtered, args, publication);
   if (isJsonMode()) return report("status", true, EXIT.OK, { data });
 
   const s = summaryOf(filtered);
@@ -606,6 +628,20 @@ export async function runStatus(args: StatusArgs): Promise<number> {
   line(
     `  certification: ${certificationLineOf(filtered)} (surfaces carry staleness/certification)`,
   );
+  // #242 — the three axes that make "optimized" measurable: ledger · artifact vs
+  // SSOT · declared cap. Derived on every run, stored nowhere.
+  if (publication.length === 0) {
+    line("  no surface published yet — run pasco build, or confirm a paste with --mark");
+  } else {
+    section("publication truth — derived, never stored (SPEC §20.1)");
+    for (const truth of publication) {
+      line(`  ${publicationLine(truth)}`);
+      for (const finding of truth.findings) {
+        line(`    warn: [${finding.code}] ${finding.message} (${finding.path})`);
+      }
+    }
+    line(`  coverage: ${publicationCoverageLine(publication)}`);
+  }
   line(
     "  → pasco status --mark <ledgerKey> <surface> confirms a paste; --verify [platform] runs the opt-in C1 live check; --write-checklist regenerates CHECKLIST.md",
   );

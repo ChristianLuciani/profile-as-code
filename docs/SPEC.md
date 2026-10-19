@@ -1345,6 +1345,69 @@ schema fields** — completeness is advisory and must never turn optional blocks
 validation failures (D12: schema = structure, product signals = advisory). Relations:
 D18 (the generated-view pattern) · D19 (byte-parity) · §12 M4/M5.
 
+### 20.1 Publication truth — the invariant "optimized" was missing (#242)
+
+Coverage (`§20`'s five items) scores **whether the profile has content**, never **whether
+the thing the user publishes is the thing the SSOT produces**. The 2026-10-19 dogfood found
+every gate green over a profile a user had not verified: a green score over an unpublished
+artifact, a green `check` over a field the platform truncates, and a declared-but-ignored
+variant. Completeness therefore gained its missing companion as a **derived line per
+surface**, three orthogonal axes, each with one owner:
+
+```
+<surface>: <in-sync|stale|never> · artifact: <matches-SSOT|diverges|absent> · limits: <ok|over(cap)>
+```
+
+| Axis | Question | Owner / source |
+|---|---|---|
+| `sync` | did the SSOT move after the confirmed deploy? | §19 staleness — the ledger, unchanged; a surface with no record is `never` (absence is not `stale`) |
+| `artifact` | is the artifact on disk the one the SSOT produces **today**? | `builtArtifact` vs `render` at the workspace lang, then the langs the profile declares; `absent` when nothing is on disk; a §19.5 `out-of-band-drift` record forces `diverges` (contrary evidence is never a match) |
+| `limits` | does any text on this surface exceed a declared cap? | §18.8/#240 offline `max-chars`/`min-chars` over headlines/bios, one executor (`packages/cli/src/limits.ts`) |
+
+**Derived, never stored** (§20's own rule): the line is recomputed on every read and writes
+nothing. It is **coverage of publication, not a new score** — `percent` stays a function of
+the profile alone, so the number **can go down only when the published surface drifts**, and
+never merely because the user published more. Surfaces "in play" are the ones with a ledger
+record or an artifact on disk; a workspace with neither says so instead of printing twenty
+empty platforms.
+
+**Machine surface (`pasco status --json`, additive).** The existing keys (`units`,
+`surfaces`, `state`, `certification`) are untouched; publication truth is a new sibling:
+
+```jsonc
+"publication": [{
+  "surface": "github-readme",
+  "sync": "in-sync" | "stale" | "never",
+  "artifact": "matches-SSOT" | "diverges" | "absent",
+  "limits": "ok" | "over(cap)",
+  "findings": [{ "severity": "warn", "code": "max-chars", "message": "…", "path": "…" }]
+}]
+```
+
+`pasco status --completeness` carries the same array and prints
+`publication coverage — <matching>/<total> surfaces match the SSOT · <n> over cap`;
+`--write-checklist` folds that phrase into the generated `CHECKLIST.md` (D18).
+
+**Declared v1 limits** (each an honest absence, not a silent pass):
+
+- the comparison is **offline**: live drift stays §19.5's `out-of-band-drift`, surfaced only
+  by the opt-in `--verify` — `status` never fetches (D20);
+- the artifact is compared to a render at the workspace lang first, then every lang the
+  contract allows (§11: `en`/`es`/`fr`) — `--lang` is validated against the same enum, so
+  an artifact built for another legal lang still matches. A build made with
+  `--view <name>` reads `diverges` (the comparison resolves the implicit per-platform
+  view);
+- the comparison ignores the one generated token whose input is the ledger itself —
+  `Profile completeness: <pct> — <n>/<m>` (§20: a derived view). Otherwise recording a
+  confirmation would change the embedded number and every confirmed surface would read
+  `diverges` forever: noise about a label, not drift of a fact. Consequence: a stale
+  displayed percentage alone is not reported as divergence.
+
+**Non-goals (v1).** No new schema field, no new required block (`pasco validate` is
+unchanged), no gamification, no remote score, and no promise that a higher number is a
+better profile. Relations: §19/§19.5 (the ledger and certification this reads) · §20 (the
+pattern) · D12 (advisory, never a validation failure) · D18 (generated view).
+
 ## 21. Fact selection per rendered profile (D22 detail, issue #235)
 
 The engine adapts three things per surface, and they are orthogonal: `lang` adapts

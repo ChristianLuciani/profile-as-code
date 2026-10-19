@@ -9,6 +9,21 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Added
+
+- **Derived publication truth — `pasco status` now says whether the artifact is the one
+  the SSOT produces (SPEC §20.1, #242)** — the 2026-10-19 dogfood found every gate green
+  while the published profile was not verified in the terms a user cares about: a green
+  score over an unpublished artifact, a green `check` over a field the platform truncates,
+  and a declared-but-ignored variant. Each surface with a ledger record or an artifact on
+  disk now gets three orthogonal axes — `sync` (§19, unchanged), `artifact`
+  (`matches-SSOT` / `diverges` / `absent`, offline, against the SSOT's current render),
+  and `limits` (`ok` / `over(cap)`, the #240 catalog). Derived on every read and stored
+  nowhere (§20's own rule), folded into `--completeness` as **coverage of publication**
+  (the weighted percentage never moves because a surface drifted) and into the generated
+  `CHECKLIST.md`. Additive in `--json` (`publication`), and the one cap executor moved to
+  `packages/cli/src/limits.ts` so `check`, `edit` (#251) and `status` share it.
+
 ### Planned (roadmap)
 
 - Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)

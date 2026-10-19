@@ -614,6 +614,19 @@ facts so you know which platforms need attention. `pasco status` is the
 **per-entry follow-through**: it tells you which of those re-pastes are done
 (`in-sync`) and which are still owed (`stale` / `never`) — see §7.
 
+`pasco status` ends with the **publication truth** line for each surface you have
+built or confirmed (SPEC §20.1):
+
+```
+github-readme: in-sync · artifact: matches-SSOT · limits: ok
+```
+
+It answers the three questions a "score" cannot: is the artifact on disk the one
+your SSOT produces **today** (`artifact`), does the ledger still agree
+(`sync`), and does any text exceed the platform's declared cap (`limits`)? It is
+derived on every run and stored nowhere — `pasco build` is what repairs a
+`diverges`, and the cap warning names its source.
+
 ### 8.2 Update the engine
 
 Match the line to how you installed it in [§2](#2-install-the-pasco-cli):
