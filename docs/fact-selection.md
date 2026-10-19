@@ -1,21 +1,20 @@
-# Fact selection per rendered profile — the decision record (Q11 → D22)
+# Fact selection per rendered profile — SPEC proposal (Q11)
 
-**Status: RATIFIED as D22 on 2026-10-19** (issue #235). The contract now lives in
-`docs/SPEC.md` §5 (D22) and §21 (detail); **that is the source of truth**. This
-document is the *why* behind it — the gap it closes, the options discarded and the
-reasoning behind the invariant ruling — and is not restated as contract.
+**Status: PROPOSED — deferred by the operator.** Nothing here is contract until the
+six gates in §10 are answered explicitly (dev-methodology §1: SPEC first, then
+code). The open question is recorded as **Q11** in `docs/SPEC.md` §14; on blessing it
+becomes **D22** and §4–§6 fold into a SPEC detail section.
 
-**Operator decision (G1, as amended):** subset-only is admissible, **but every
-omission must warn the user** — carried into §21.4 and enforced by
-`selection-anchor-omitted` / `selection-empty-facts` and the omission finding itself.
-G2–G6 were taken at their recommended values (policy in `.pascorc`, `views`, Phase-2
-tags on the six entry blocks, Phase 3 deferred, unknown key = error); the operator's
-"dale" blessed the direction, so any of them can be reopened without touching the
-invariant ruling.
+**Decision trace (2026-10-19).** The operator deferred all six gates in
+[#235](https://github.com/ChristianLuciani/profile-as-code/issues/235#issuecomment-6270727058)
+(comment 15:19:25Z): *"las seis gates (G1–G6) no están confirmadas todavía"*. An
+earlier ratification of D22 on this branch was **reverted** for exactly that reason:
+the tree must not record as resolved what the recorded decision defers. §10 lists
+**recommendations**, not decisions.
 
 Cubre: la brecha entre §18.9 (selección declarada) y el código (sin selección), el
 diseño de una política de selección por vista, y el plan por fases con sus gates ·
-No cubre: la implementación (vive en §21 y en su fase 1), renderers nuevos, cambio de
+No cubre: implementación (no hay código en este PR), renderers nuevos, cambio de
 identidad por workspace (sigue siendo un workspace separado, §18.9/D15), ni el
 scoring GEO por vista · as_of: 2026-10-19
 
@@ -102,7 +101,7 @@ declared view may override platform/lang and add selection. The noun is proposed
 ```jsonc
 {
   "selection": {
-    "default": { "mode": "all" },            // absent ⇒ this ⇒ today's behavior
+    "default": { "mode": "all" },            // rule for any view not named below
     "views": {
       "linkedin": {
         "mode": "all",
@@ -120,31 +119,51 @@ declared view may override platform/lang and add selection. The noun is proposed
 }
 ```
 
-Grammar, deliberately small:
+A **view rule** has these fields:
 
 | Field | Type | Default | Meaning |
 |---|---|---|---|
-| `mode` | `"all"` \| `"tags"` | `"all"` | the *basis*: everything, or only entries carrying one of `tags` |
+| `mode` | `"all"` \| `"tags"` | `"all"` | the *basis*: every entry, or only entries carrying one of `tags` |
 | `tags` | `string[]` | `[]` | allowlist, only meaningful with `mode: "tags"` |
 | `excludeTags` | `string[]` | `[]` | deny list by tag, applies in **every** mode |
 | `excludeKeys` | `string[]` | `[]` | deny list by §19.2 key (`experience:<id>`, `projects:<id>`, …) |
 | `platform`, `lang` | `string` | — | optional target, so `--view <name>` alone is enough |
 
+`selection.default` is a **sibling of `views`**, not a field: it is the rule applied
+to any view that `views` does not name (including the implicit view of a positional
+`pasco build <platform>`). Absent ⇒ `{}` ⇒ no filtering.
+
 ### 4.3 Resolution rules
 
-1. **Exclusion always wins** over inclusion (fail-safe direction: a deny is never
+1. **View resolution order**: `views[<name>]` → `selection.default` → `{}`.
+2. **An unknown view is an error**, not a fall-through: if `--view <name>` names
+   neither a `views` entry nor is covered by `default`, the build fails
+   (`selection/unknown-view`). A misspelled view that silently built everything
+   would be the same class of bug as an unresolvable `excludeKeys` entry.
+3. **Precedence, stated once**: a view may carry `platform`/`lang`.
+   - positional `[platform]` vs the view's `platform`: equal → fine; different →
+     **error** (ambiguous target, never a silent winner);
+   - a view with no `platform` and no positional platform → **error** (there is
+     nothing to build);
+   - `--lang` on the command line **wins** over the view's `lang`, which wins over
+     `.pascorc.defaults.lang`, which wins over `en`.
+4. **Exclusion always wins** over inclusion (fail-safe direction: a deny is never
    silently overridden by a tag match).
-2. **No policy ⇒ no filtering ⇒ byte-identical output.** The compatibility
+5. **No policy ⇒ no filtering ⇒ byte-identical output.** The compatibility
    guarantee; asserted by a golden test, not by inspection (D19/§15.1).
-3. **Only entry arrays participate**: `experience`, `projects`, `publications`,
-   `education`, `press`, `credentials`, `artifacts`, `skills`. Singleton blocks
-   (`identity`, `positioning`, `keywords`) are never selectable in v1 (§6).
-4. **Addressing reuses §19.2.** Keys are the ledger keys already validated for
-   uniqueness; an entry without an `id` is not key-addressable (the same rule
-   `pasco status` already applies — "rows without an id are untracked"). Tags are
-   the fallback label for unaddressed entries, which is why §5 phases them.
-5. **`mode: "tags"` is an explicit allowlist**: an untagged entry is *not* selected.
-   This is the surprising case, so the report in §4.6 must name what it dropped.
+6. **Participating blocks are exactly these eight entry arrays**: `experience`,
+   `projects`, `publications`, `education`, `press`, `credentials`, `artifacts`,
+   `skills`. Singleton blocks (`identity`, `positioning`, `keywords`) and the
+   text-bearing `bios`/`headlines`/`socialHandles` are **never** selectable in v1
+   (§6) — text adapts through `lang`/`refine`, not through selection.
+7. **Tags apply only to tag-capable blocks.** `tags` exists on `artifacts` today
+   (schema:913) and Phase 2 adds it to `experience`, `projects`, `publications`,
+   `education`, `press`, `credentials` — **not** to `skills`. A skill is addressed
+   by its natural key (`skills:<name>`), never by tag. Consequence, stated because
+   it is the surprising part: **in Phase 1 `mode: "tags"` filters `artifacts` only**;
+   the other seven blocks pass through untouched and are addressed by `excludeKeys`.
+8. **`mode: "tags"` is an explicit allowlist for tag-capable blocks**: an untagged
+   artifact is *not* selected. This is the case the report in §4.6 must name.
 
 ### 4.4 Engine seam
 
@@ -156,16 +175,19 @@ interface ViewRule { mode?: "all" | "tags"; tags?: string[]; excludeTags?: strin
                      excludeKeys?: string[]; platform?: Platform; lang?: Lang }
 interface SelectionPolicy { default?: ViewRule; views?: Record<string, ViewRule> }
 
-selectFacts(profile, view, policy): { profile: Profile; report: SelectionReport }
-//   SelectionReport = { view, platform, lang,
-//                       selected: Record<Block, string[]>,
-//                       omitted:  Record<Block, { key: string; reason: string }[]>,
-//                       findings: Issue[] }
+selectFacts(profile, view, platform, lang, policy?): { profile: Profile; report: SelectionReport }
+//   SelectionReport = { view, platform, lang, mode,
+//                       selected: Record<Block, number>,
+//                       omitted:  { block, key, label, reason }[],
+//                       findings: SelectionFinding[] }
 ```
 
-`compile(profile, platform, lang, policy?)` gains `policy.selection` — **additive**
-(`CompilePolicy = CompletenessPolicy & { selection?: SelectionPolicy }`), so every
-existing caller and `packages/paste` keep compiling unchanged.
+`compile()` currently takes `policy?: CompletenessPolicy` (`compile.ts:34`). Phase 1
+changes that parameter to a **new alias** — `CompilePolicy = CompletenessPolicy &
+{ selection?: SelectionPolicy; view?: string }` — which is additive at the type
+level (every existing caller still type-checks, since all new fields are optional)
+but **is** a signature change worth calling out: the old symbol is not renamed, and
+`packages/paste` keeps calling it with a completeness policy.
 
 **The split that must be explicit**, because it decides whether the feature is
 honest:
@@ -179,22 +201,29 @@ honest:
 
 ### 4.5 Checks
 
+Codes follow the repo's `<ns>/<slug>` convention (`drift/date-range-inverted`,
+`geo/entity-id`, `check/private-in-public-output`).
+
 | Check | Class | Why |
 |---|---|---|
-| `selection-unknown-key` | **error** | an addressed key that resolves to nothing is an unsatisfied instruction. Matches §19.2's rule that an addressed key must resolve; a typo must fail loudly rather than silently omit a fact. |
-| `selection-unknown-tag` | warn | a tag matching no entry — likely a typo, not an instruction. |
-| `selection-empty-facts` | warn | a view selected zero entries while the SSOT has some. |
-| `selection-anchor-omitted` | warn | a `positioning.geo.semanticAssociations` anchor is reinforced only by omitted entries — the coverage cost from §2, named. |
-| `selection-omits-facts` | **warn** | **any** view that omits one or more entries, naming each omission and its reason — the operator's G1 amendment: the default direction of a profile is *publish*, so anything that removes a fact owes the user a statement. |
+| `selection/unknown-view` | **error** | `--view` names neither a declared view nor a default — a typo must not build a different surface. |
+| `selection/unknown-key` | **error** | an addressed key that resolves to nothing is an unsatisfied instruction (§19.2: addressed ⇒ resolvable). |
+| `selection/unknown-tag` | warn | a tag matching no entry — likely a typo, not an instruction. |
+| `selection/empty-facts` | warn | a view selected zero entries while the SSOT has some. |
+| `selection/anchor-omitted` | warn | a `positioning.geo.semanticAssociations` anchor is reinforced only by omitted entries — the coverage cost from §2, named. |
+| `selection/omits-facts` | **warn** | **any** view that omits one or more entries, naming each omission and its reason — the operator's G1 amendment: the default direction of a profile is *publish*, so anything that removes a fact owes the user a statement. |
 
 ### 4.6 CLI
 
+One arity for both commands, no positional collision:
+
 - `pasco build [platform] [--view <name>] [--lang]` — `--view` is additive; the
-  positional platform keeps working and is the implicit view of the same name.
-- `pasco status --selection [view]` — the resolved report: what was selected, what
-  was omitted, and the reason for each. Without this, `mode: "tags"` is a footgun;
-  with it, the surprise is caught before deploy. (Precedent: `--completeness` and
-  `--write-checklist` already extend `status`, §20/D18.)
+  positional platform stays and is the implicit view of the same name.
+- `pasco status [platform] --selection [--view <name>]` — `--selection` is a
+  **boolean**; the view is named with `--view` so it can never be confused with the
+  `[platform]` positional. It prints what each surface emits, every omission and
+  its reason. Without this, `mode: "tags"` is a footgun; with it, the surprise is
+  caught before deploy (§20/`--completeness` is the precedent).
 - `pasco check` runs §4.5.
 
 ### 4.7 Byte-stability
@@ -211,8 +240,9 @@ plus **implementing `artifacts[].tags`**, which the schema already carries
 the operator's request and closes the declared-vs-implemented breach.
 
 **Phase 2 — optional `tags[]` on the fact blocks** (`experienceItem`, `project`,
-`publication`, `educationItem`, `pressItem`, `credential`), shaped like the artifact
-field, plus a shared `$defs/tag` (slug pattern). Additive, optional ⇒ semver minor,
+`publication`, `educationItem`, `pressItem`, `credential` — **not** `skill`, which
+keeps its natural key), shaped like the artifact field, plus a shared `$defs/tag`
+(slug pattern). Additive, optional ⇒ semver minor,
 no workspace breaks; `pnpm gen:zod` + a schema-check fixture each way. The artifact
 `tags` field then adopts the same `$defs/tag` — a tightening to declare explicitly,
 since the field is free-form today and unread by any renderer (so no output can
@@ -239,7 +269,7 @@ D19**, not a silent extension. Gated by §10, G5.
 | Phase | Work | Gate |
 |---|---|---|
 | 0 | Bless §10 → Q11 becomes D22; §4–§6 fold into a SPEC detail section | operator decision |
-| 1 | `selection.ts` + `CompilePolicy` + `.pascorc` parsing + `status --selection` + §4.5 checks; tests first: default byte-parity golden, exclude-wins, unknown-key error, determinism, subset property (output facts ⊆ SSOT facts), JSON-LD↔rendered-credentials consistency | `pnpm test && pnpm build && pnpm typecheck && pnpm lint` |
+| 1 | `selection.ts` + the `CompilePolicy` alias + `.pascorc` parsing + `build --view` + `status --selection` + the six §4.5 checks; tests first: default byte-parity golden, exclude-wins, unknown-key error, determinism, subset property (output facts ⊆ SSOT facts), JSON-LD↔rendered-credentials consistency | `pnpm test && pnpm build && pnpm typecheck && pnpm lint` |
 | 2 | `tags[]` on the fact blocks + `$defs/tag` + `pnpm gen:zod` + schema-check fixtures (valid/invalid tag) | `gen:zod` freshness + `scripts/schema-check` |
 | 3 | Views with their own output dir (if G5 says yes) | D19 amendment + `renderer-map`/deploy-spec parity |
 
@@ -273,18 +303,23 @@ committed fixture workspace (tagged entries + a policy), per AGENTS.md rule 5. P
 
 ## 10. Decision gates for the operator
 
-| # | Question | Decision (2026-10-19) |
+| # | Question | Recommendation |
 |---|---|---|
-| G1 | Is subset-only admissible under Goal 2/3 and §15.4? | **YES, with a mandatory warning on omission** (operator amendment — §21.4). The invariant ruling stands: it constrains content, not coverage. |
-| G2 | Policy home: `.pascorc` (config) vs the SSOT (per-entry)? | `.pascorc` (recommended value taken). |
-| G3 | Vocabulary: `views`, `faces`, `profiles`, `selections`? | `views` (recommended value taken). |
-| G4 | Phase 2 tags on which blocks? | `experience`, `projects`, `publications`, `education`, `press`, `credentials` (recommended value taken). |
-| G5 | Is Phase 3 (two views on one platform, new output dir) in scope now? | Deferred; needs a D19 amendment (recommended value taken). |
-| G6 | Unknown key: error or warn? | Error (recommended value taken). |
+| G1 | Is subset-only admissible under Goal 2/3 and §15.4? | **Yes** — see §2: the invariant constrains content, not coverage; `geo.ts:21` already scores absence as neutral. |
+| G2 | Policy home: `.pascorc` (config) vs the SSOT (per-entry)? | **`.pascorc`** — the §20 pattern ("store only the policy"), and it keeps the data platform-free. |
+| G3 | Vocabulary: `views`, `faces`, `profiles`, `selections`? | **`views`** — `profile` is already overloaded here. |
+| G4 | Phase 2 tags on which blocks? | `experience`, `projects`, `publications`, `education`, `press`, `credentials`. |
+| G5 | Is Phase 3 (two views on one platform, new output dir) in scope now? | **Defer** — Phase 1 already answers the request; Phase 3 needs a D19 amendment. |
+| G6 | Unknown key (and unknown view): error or warn? | **Error** — matches §19.2's "an addressed key must resolve". |
+
+None of the six is answered yet; the table is a recommendation set, not a record.
 
 ## 11. Evidence
 
-| Claim | Anchor |
+Anchors below are `file:line` **at `30555c1`**, the base of this branch; they move
+when a section above them is inserted, so cite the sha with the line.
+
+| Claim | Anchor at `30555c1` |
 |---|---|
 | §18.9 declares tag-based selection | `docs/SPEC.md:916-918` |
 | `artifact.tags` exists, shape `string[]` | `schema/profile.schema.json:913`, `$defs.artifact` |
@@ -299,12 +334,13 @@ committed fixture workspace (tagged entries + a policy), per AGENTS.md rule 5. P
 
 ---
 
-## Appendix — where this landed
+## Appendix — the SPEC entry this proposal adds (Q11, `docs/SPEC.md` §14)
 
-- **D22** — `docs/SPEC.md` §5: subset-only, policy in `.pascorc`, omission warns.
-- **§21** — `docs/SPEC.md`: the contract (view + rule grammar, resolution rules, the
-  filter/unfiltered split, the four checks, the CLI surface, the phase boundary).
-- **§18.9** — now points at §21 rather than restating the rule (single source).
-- **M10** — `docs/SPEC.md` §12: the milestone, Phase 1 schema-free first.
-- **Implementation** — Phase 1 in `packages/core/src/selection.ts` + `.pascorc`
-  parsing + `build --view` / `status --selection`, tests first (TDD).
+> - Q11 (**proposal, not a decision**): **fact selection per rendered profile** — the
+>   engine can only adapt *text* per platform today (`lang`, `refine` variants); the
+>   SSOT's facts pass through untouched (`compile.ts:90-95`) and §18.9's declared
+>   "renderers select by platform + lang + tags" is unimplemented (no renderer reads
+>   `tags`). Proposal: a workspace policy in `.pascorc` (`selection.views`) plus
+>   optional `tags[]` on the fact blocks — subset-only, exclusion wins, no policy ⇒
+>   byte-identical output. Design, options, plan and the six decision gates:
+>   `docs/fact-selection.md`.
