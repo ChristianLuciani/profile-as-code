@@ -585,7 +585,12 @@
             { "type": "array", "items": { "type": "string" } }
           ]
         },
-        "note": { "type": "string" }
+        "note": { "type": "string" },
+        "surface": {
+          "type": "string",
+          "enum": ["headline", "bio", "both"],
+          "description": "Additive (#240): which text rows a char-limit rule applies to. Absent = both. A title cap can target `headline` without flagging the bio."
+        }
       }
     },
 

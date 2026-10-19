@@ -657,6 +657,7 @@ describe("pasco init (scaffold)", () => {
     const r = run(["init", dir]);
     expect(r.code).toBe(0);
     expect(existsSync(join(dir, "content", "identity.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "content", "checks.yaml"))).toBe(true);
     expect(existsSync(join(dir, "README.md"))).toBe(true);
     expect(existsSync(join(dir, ".pascorc"))).toBe(true);
     const v = run(["validate", "--workspace", dir]);
@@ -748,6 +749,69 @@ describe("pasco check (offline rules) + pasco skills:install (projection pointer
     expect(r.stdout).toContain("gh-bio-max");
     expect(r.stdout).toContain("geo-consistent");
     expect(r.stdout).toContain("platform=all"); // union semantics: all applies to every platform
+  });
+
+  it("ships a default cap catalog that fires on the #240 repro (surface-scoped)", () => {
+    const dir = join(tempDir(), "ws-caps");
+    expect(run(["init", dir]).code).toBe(0);
+    writeFileSync(
+      join(dir, "content", "headlines.yaml"),
+      `- platform: upwork\n  lang: en\n  text: "${"x".repeat(80)}"\n`,
+    );
+    writeFileSync(
+      join(dir, "content", "bios.yaml"),
+      `- platform: upwork\n  lang: en\n  length: long\n  text: "${"y".repeat(132)}"\n`,
+    );
+
+    const r = run(["check", "upwork", "--json", "--workspace", dir]);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as {
+      data: { limits: { code: string; message: string; path: string }[] };
+    };
+    expect(
+      data.data.limits.some(
+        (f) =>
+          f.code === "max-chars" &&
+          f.path === "headlines:upwork:en" &&
+          f.message.includes("over max 50") &&
+          f.message.includes("third-party guidance"),
+      ),
+    ).toBe(true);
+    // The title cap is `surface: headline`; it must not flag the 132-char bio.
+    expect(data.data.limits.some((f) => f.path.startsWith("bios:upwork"))).toBe(false);
+  });
+
+  it("falls back to the default catalog when the workspace has no checks.yaml (#240 premerge)", () => {
+    const ws = tempDir();
+    copyFixture(MINIMAL, ws);
+    rmSync(join(ws, "content", "checks.yaml"));
+    writeFileSync(
+      join(ws, "content", "headlines.yaml"),
+      `- platform: upwork\n  lang: en\n  text: "${"x".repeat(80)}"\n`,
+    );
+    const r = run(["check", "upwork", "--json", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as {
+      data: { checks: unknown[]; limits: { path: string; message: string }[] };
+    };
+    expect(data.data.limits.some((f) => f.path === "headlines:upwork:en")).toBe(true);
+  });
+
+  it("scopes a platform: all cap to the requested platform (#240 premerge)", () => {
+    const dir = join(tempDir(), "ws-all");
+    expect(run(["init", dir]).code).toBe(0);
+    writeFileSync(
+      join(dir, "content", "bios.yaml"),
+      `- platform: upwork\n  lang: en\n  length: long\n  text: "${"y".repeat(132)}"\n`,
+    );
+    writeFileSync(
+      join(dir, "content", "checks.yaml"),
+      "- id: all-bio\n  platform: all\n  rule: max-chars\n  value: 5\n  surface: bio\n",
+    );
+    const r = run(["check", "github-readme", "--json", "--workspace", dir]);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as { data: { limits: { path: string }[] } };
+    expect(data.data.limits.some((f) => f.path === "bios:upwork:en:long")).toBe(false);
   });
 
   it("executes max-chars/min-chars over headlines and bios as warnings (#240)", () => {
