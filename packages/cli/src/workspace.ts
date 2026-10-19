@@ -39,6 +39,27 @@ export interface CompletenessPolicyConfig {
   items?: readonly { id: string; weight: number }[];
 }
 
+/**
+ * D22/§21: the fact-selection policy — what each VIEW emits. A structural mirror
+ * of core's `SelectionPolicy` (same reason as the completeness config above: the
+ * CLI validates config before it reaches the engine). Strings are kept raw here;
+ * `build`/`status` validate `platform`/`lang` against the contract enums, because
+ * a typo there must fail as a config error, not silently resolve to nothing.
+ */
+export interface SelectionRuleConfig {
+  mode?: "all" | "tags";
+  tags?: readonly string[];
+  excludeTags?: readonly string[];
+  excludeKeys?: readonly string[];
+  platform?: string;
+  lang?: string;
+}
+
+export interface SelectionPolicyConfig {
+  default?: SelectionRuleConfig;
+  views?: Readonly<Record<string, SelectionRuleConfig>>;
+}
+
 export interface Pascorc {
   /** Workspace path relative to the .pascorc file location. */
   workspace?: string;
@@ -46,6 +67,8 @@ export interface Pascorc {
   diff?: { tagPattern?: string };
   /** Issue #102: completeness policy (weights/target/langs) — optional. */
   completeness?: CompletenessPolicyConfig;
+  /** D22/§21: fact selection per view — optional; absent ⇒ byte-identical output. */
+  selection?: SelectionPolicyConfig;
 }
 
 /**
@@ -71,6 +94,66 @@ export function sanitizeCompletenessPolicy(raw: CompletenessPolicyConfig | undef
     ...(typeof raw.target === "string" ? { target: raw.target } : {}),
     ...(langs.length > 0 ? { langs } : {}),
     ...(items.length > 0 ? { items } : {}),
+  };
+}
+
+/**
+ * Normalize `.pascorc` `selection` before it reaches core (same discipline as
+ * `sanitizeCompletenessPolicy`, review of #205 F5): every malformed piece is
+ * DROPPED rather than coerced, so a typo cannot become "omit everything" or
+ * "omit nothing" by accident. Returns `undefined` when nothing survives — which
+ * keeps the no-policy ⇒ byte-identical guarantee intact for a broken config that
+ * happened to contain no usable rule.
+ */
+export function sanitizeSelectionPolicy(raw: SelectionPolicyConfig | undefined):
+  | {
+      default?: SelectionRuleConfig;
+      views?: Record<string, SelectionRuleConfig>;
+    }
+  | undefined {
+  if (raw === undefined) return undefined;
+  const strings = (v: unknown): readonly string[] | undefined => {
+    if (!Array.isArray(v)) return undefined;
+    const kept = v.filter((x): x is string => typeof x === "string" && x !== "");
+    return kept.length > 0 ? kept : undefined;
+  };
+  const rule = (r: SelectionRuleConfig | undefined): SelectionRuleConfig | undefined => {
+    if (r === undefined) return undefined;
+    const mode = r.mode === "all" || r.mode === "tags" ? r.mode : undefined;
+    const tags = strings(r.tags);
+    const excludeTags = strings(r.excludeTags);
+    const excludeKeys = strings(r.excludeKeys);
+    const platform = typeof r.platform === "string" && r.platform !== "" ? r.platform : undefined;
+    const lang = typeof r.lang === "string" && r.lang !== "" ? r.lang : undefined;
+    if (
+      mode === undefined &&
+      tags === undefined &&
+      excludeTags === undefined &&
+      excludeKeys === undefined &&
+      platform === undefined &&
+      lang === undefined
+    ) {
+      return undefined;
+    }
+    return {
+      ...(mode === undefined ? {} : { mode }),
+      ...(tags === undefined ? {} : { tags }),
+      ...(excludeTags === undefined ? {} : { excludeTags }),
+      ...(excludeKeys === undefined ? {} : { excludeKeys }),
+      ...(platform === undefined ? {} : { platform }),
+      ...(lang === undefined ? {} : { lang }),
+    };
+  };
+  const views: Record<string, SelectionRuleConfig> = {};
+  for (const [name, r] of Object.entries(raw.views ?? {})) {
+    const clean = rule(r);
+    if (clean !== undefined) views[name] = clean;
+  }
+  const def = rule(raw.default);
+  if (def === undefined && Object.keys(views).length === 0) return undefined;
+  return {
+    ...(def === undefined ? {} : { default: def }),
+    ...(Object.keys(views).length > 0 ? { views } : {}),
   };
 }
 

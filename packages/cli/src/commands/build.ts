@@ -20,13 +20,19 @@ import {
   mediaManifest,
   PLATFORMS,
   SchemaValidationError,
+  type SelectionPolicy,
 } from "@profile-as-code/core";
 import { parseLang, parsePlatform } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { RENDERERS } from "../generated/renderers.gen.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import type { Pascorc } from "../workspace.js";
-import { defaultsLang, sanitizeCompletenessPolicy } from "../workspace.js";
+import {
+  ConfigError,
+  defaultsLang,
+  sanitizeCompletenessPolicy,
+  sanitizeSelectionPolicy,
+} from "../workspace.js";
 
 /** Which renderer serves which platform is NOT decided here any more (#165):
  *  the map is generated from each renderer's own `pasco.platform` manifest field
@@ -39,6 +45,8 @@ import { defaultsLang, sanitizeCompletenessPolicy } from "../workspace.js";
 export interface BuildArgs {
   workspace: string;
   platformArg?: string;
+  /** D22/§21: `--view <name>` — a declared view may target its own platform. */
+  viewArg?: string;
   langArg?: string;
   pascorc: Pascorc;
 }
@@ -63,9 +71,46 @@ export function runBuild(args: BuildArgs): number {
     throw err;
   }
 
-  const platforms =
-    args.platformArg !== undefined ? [parsePlatform(args.platformArg)] : [...PLATFORMS];
-  const lang = parseLang(defaultsLang(args.pascorc, args.langArg));
+  // D22/§21: resolve the VIEW before anything else — its rule may carry the
+  // platform and the lang, so `--view film` alone is enough.
+  const selectionPolicy = sanitizeSelectionPolicy(args.pascorc.selection);
+  const viewName = args.viewArg;
+  let viewRule: { platform?: string; lang?: string } | undefined;
+  if (viewName !== undefined) {
+    viewRule = selectionPolicy?.views?.[viewName] ?? selectionPolicy?.default;
+    if (viewRule === undefined) {
+      throw new ConfigError(
+        `unknown view "${viewName}" — declare it in .pascorc "selection.views" (D22/§21), or build the platform positionally: pasco build <platform>`,
+      );
+    }
+  }
+
+  const positionalPlatform =
+    args.platformArg !== undefined ? parsePlatform(args.platformArg) : undefined;
+  let platform = positionalPlatform;
+  if (viewRule?.platform !== undefined) {
+    const declared = viewRule.platform;
+    if (!(PLATFORMS as readonly string[]).includes(declared)) {
+      throw new ConfigError(
+        `view "${viewName}" declares unknown platform "${declared}" (allowed: ${PLATFORMS.join(", ")})`,
+      );
+    }
+    const viewPlatform = declared as (typeof PLATFORMS)[number];
+    if (positionalPlatform !== undefined && positionalPlatform !== viewPlatform) {
+      throw new ConfigError(
+        `view "${viewName}" targets "${viewPlatform}" but the command names "${positionalPlatform}" — drop one`,
+      );
+    }
+    platform = viewPlatform;
+  }
+  if (viewName !== undefined && platform === undefined) {
+    throw new ConfigError(
+      `view "${viewName}" declares no platform — add "platform" to its rule or name one: pasco build <platform> --view ${viewName}`,
+    );
+  }
+
+  const platforms = platform !== undefined ? [platform] : [...PLATFORMS];
+  const lang = parseLang(defaultsLang(args.pascorc, args.langArg ?? viewRule?.lang));
 
   // Issue #102: compile WITH the workspace completeness policy, so the rendered
   // artifact carries the same number `pasco status --completeness` reports
@@ -73,9 +118,32 @@ export function runBuild(args: BuildArgs): number {
   // through the SAME sanitizer (F5), so a malformed weight cannot reach the
   // artifact as `NaN%` while the status path is clean.
   const completenessPolicy = sanitizeCompletenessPolicy(args.pascorc.completeness);
+  // The cast is safe: `sanitizeSelectionPolicy` has already constrained `mode`
+  // to its literal union, and the platform/lang strings are validated above.
+  const selection = selectionPolicy as SelectionPolicy | undefined;
   const slices: PlatformProfile[] = platforms.map((p) =>
-    compile(profile, p, lang, completenessPolicy),
+    compile(profile, p, lang, {
+      ...completenessPolicy,
+      ...(selection === undefined ? {} : { selection, view: viewName ?? p }),
+    }),
   );
+
+  // D22/§21.4 + G1: an omission is a WARN the user must see, and an unsatisfied
+  // instruction (unknown key, G6) is an ERROR — the build fails rather than
+  // silently omitting the wrong facts.
+  const selFindings = slices.flatMap((s) =>
+    (s.selection?.findings ?? []).map((f) => ({ platform: s.platform, ...f })),
+  );
+  const selErrors = selFindings.filter((f) => f.severity === "error");
+  if (selErrors.length > 0) {
+    return report("build", false, EXIT.FAIL, {
+      error: {
+        kind: "selection",
+        message: `${selErrors.length} selection error(s) — ${selErrors[0]?.message}`,
+      },
+      data: { selection: selFindings },
+    });
+  }
 
   // Renderer platforms: write the deploy artifact (SPEC §15.5 — profiles/ ARE the deploy artifacts).
   // github-org is a brand surface (D15/§17) — only rendered for brand workspaces.
@@ -163,6 +231,7 @@ export function runBuild(args: BuildArgs): number {
         written,
         skipped,
         media: bundle.findings,
+        selection: selFindings,
       },
     });
   }
@@ -191,6 +260,12 @@ export function runBuild(args: BuildArgs): number {
   if (bundle.findings.length > 0) {
     section(`media pipeline (M8/§18.6): ${bundle.findings.length} finding(s)`);
     for (const f of bundle.findings) line(`  ${f.severity}: [${f.code}] ${f.message} (${f.path})`);
+  }
+  if (selFindings.length > 0) {
+    // Never silent (§21.4): the whole point of the warn is that the user learns
+    // what did NOT reach a surface before deploying it.
+    section(`fact selection (D22/§21): ${selFindings.length} finding(s)`);
+    for (const f of selFindings) line(`  ${f.severity}: [${f.code}] [${f.platform}] ${f.message}`);
   }
 
   return EXIT.OK;
