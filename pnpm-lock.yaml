@@ -56,6 +56,9 @@ importers:
       '@profile-as-code/github':
         specifier: workspace:*
         version: link:../github
+      '@profile-as-code/paste':
+        specifier: workspace:*
+        version: link:../paste
       '@profile-as-code/renderers-buymeacoffee':
         specifier: workspace:*
         version: link:../renderers/buymeacoffee
