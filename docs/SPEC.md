@@ -398,7 +398,7 @@ standing in this repository.
 
 | On-ramp | Discovered at | What it sets up | Automation | History | Account + repo |
 |---|---|---|---|---|---|
-| **A — template repo** *(recommended)* | the template repo's own `README`; this repo's README + quickstart; GitHub **Use this template** | the full commented example, operational docs, licence, a ready `.pascorc` | yes, in your repo — GitHub Actions on push/PR (offline YAML + link checks today; the `pasco` build workflow is owed in the satellite, `profile-data-template#11`) | yes — hosted git history from the first commit | **required** (account + repo) |
+| **A — template repo** *(recommended)* | the template repo's own `README`; this repo's README + quickstart; GitHub **Use this template** | the full commented example, operational docs, licence, a ready `.pascorc` | yes, in your repo — GitHub Actions on push/PR (offline YAML + link checks; the `pasco` build workflow landed in the satellite, `profile-data-template#11`, closed 2026-10-12) | yes — hosted git history from the first commit | **required** (account + repo) |
 | **B — local, `pasco init`** | the npm package page (`@profile-as-code/cli`); `pasco --help`; [`USER-GUIDE.md`](USER-GUIDE.md) §3 | a minimal, `pasco validate`-clean folder in seconds | **no** — nothing runs on a change and no workflow is created | **no** — no repo is created; `git init` is yours to run | **none** |
 | **C — bring your own storage** | the npm package page (`@profile-as-code/cli`); this section; [`USER-GUIDE.md`](USER-GUIDE.md) §3 | the same `pasco init` scaffold, written at a path you choose (local disk, a synced folder, another git host) | same as B | same as B, plus whatever your storage provides | **none** |
 
