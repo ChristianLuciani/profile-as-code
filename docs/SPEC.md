@@ -321,7 +321,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
 | `pasco check [platform]` | run skill-declared checks before deploy; char limits accept an optional `surface` (`headline`/`bio`/`both`) so a title cap does not flag the bio (#240) |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
-| `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22) |
+| `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22). **The read report also ends with the derived publication truth per surface (§20.1, #242): ledger · artifact-vs-SSOT · declared cap — computed on every read, stored nowhere** |
 | `pasco skills:install <agent>` | project repo skills → agent skill studio (zhiweio pattern) |
 | `pasco serve` | run the **minimal reference adapter** (D20) — exposes `Core` over a **local HTTP contract** so any consumer (UI, editor, script, service) drives the engine without re-implementing it. Minimal **by construction**; a deployment that needs more ships its own server against the same contract |
 
@@ -1057,7 +1057,7 @@ copied template example keeps the provenance (still true — it *is* template-de
 
 | Invocation | Behavior |
 |---|---|
-| `pasco status [platform]` | per-unit report: ledger key · origin (template/user) · surfaces published · sync state per surface: `in-sync` \| `stale` (hash mismatch) \| `never` · **certification per surface** (§19.5: `verified` \| `attested` \| `unverifiable` \| `out-of-band-drift`, with the reason). Offline and deterministic — the report never fetches |
+| `pasco status [platform]` | per-unit report: ledger key · origin (template/user) · surfaces published · sync state per surface: `in-sync` \| `stale` (hash mismatch) \| `never` · **certification per surface** (§19.5: `verified` \| `attested` \| `unverifiable` \| `out-of-band-drift`, with the reason), plus the **derived publication truth per surface** (§20.1). Offline and deterministic — the report never fetches |
 | `pasco status --mark <ledgerKey> <surface> [--at <iso8601>]` | confirm a (manual) paste — records `deployedAt` + the **current** `contentHash`, `source: manual`, `certification.state: attested`, and — where the surface has a canonical extractor — the **anchor** `certification.artifactHash` (the extractor's digest of the locally rendered artifact at this moment, i.e. what is being attested), so a later `--verify` can judge rather than only observe (v1.10, §19.5); **`pasco` is the one writer** (same rule as `refine --choose`, D14) with **two triggers**: `--mark` and `--verify` |
 | `pasco status --verify [platform]` | v1.10 (§19.5): the C1 live check — resolves each fetchable surface's artifact URL, **validates its host against the surface's declared fetch allowlist**, fetches sequentially and without retries, records the evidence, and updates `certification` in place by comparing the live digest against the stored `artifactHash`. **The one network-touching path in the engine, opt-in by construction** (never implicit in `status`/`build`, §15.1) |
 | `pasco status --write-checklist` | regenerates `CHECKLIST.md` from the ledger (AUTO-GENERATED header) — the checklist becomes a *view*, not a second source of truth; each surface carries its **certification token**, so an `attested` surface is never rendered as a bare `in-sync` (§19.5) |
@@ -1355,8 +1355,12 @@ variant. Completeness therefore gained its missing companion as a **derived line
 surface**, three orthogonal axes, each with one owner:
 
 ```
-<surface>: <in-sync|stale|never> · artifact: <matches-SSOT|diverges|absent> · limits: <ok|over(cap)>
+<surface>: <in-sync|stale|never> · artifact: <matches-SSOT|diverges|absent> · limits: <ok|over(cap)> · units: <n> recorded
 ```
+
+The trailing `units` count is the coverage behind `sync` — the human line must not overstate
+it either, so it says how many units are recorded on that surface rather than letting one
+confirmation speak for the whole surface.
 
 | Axis | Question | Owner / source |
 |---|---|---|
@@ -1404,8 +1408,11 @@ command was called with a platform argument.
   the SSOT, never against the internet;
 - the artifact is compared at the workspace lang first, then every lang the contract allows
   (§11: `en`/`es`/`fr`) — `--lang` is validated against the same enum, so an artifact built
-  for another legal lang still matches. A build made with `--view <name>` reads `diverges`
-  (the comparison resolves the implicit per-platform view);
+  for another legal lang still matches. **Equality with ANY legal render is accepted on
+  purpose**: byte-identical bytes cannot carry a stale fact, and `status` was never told which
+  lang was intended; the axis answers "is this an artifact the SSOT produces today?", not
+  "did the operator build the lang they meant". A build made with `--view <name>` reads
+  `diverges` (the comparison resolves the implicit per-platform view);
 - the comparison ignores the one generated token whose input is the ledger itself —
   `Profile completeness: <pct> — <n>/<m>` (§20: a derived view). Otherwise recording a
   confirmation would change the embedded number and every confirmed surface would read

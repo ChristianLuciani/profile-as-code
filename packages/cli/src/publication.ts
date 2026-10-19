@@ -196,10 +196,12 @@ function candidateLangs(primary: Lang): Lang[] {
  * raw bytes would report every confirmed surface as `diverges` for the rest of
  * its life.
  */
+const GENERATED_COMPLETENESS = /^Profile completeness: -?\d+(?:\.\d+)?% — \d+\/\d+$/;
+
 function factIdentity(text: string): string {
   return text
     .split("\n")
-    .filter((line) => !line.startsWith("Profile completeness: "))
+    .filter((line) => !GENERATED_COMPLETENESS.test(line))
     .join("\n");
 }
 
@@ -389,7 +391,9 @@ export function publicationCoverageOrNone(publication: readonly PublicationTruth
     : publicationCoverageLine(publication);
 }
 
-/** The three-axis line, exactly as the contract prints it. */
+/** The three-axis line, exactly as the contract prints it, plus the coverage
+ *  behind `sync` — the human line must not overstate it either (premerge #256
+ *  round 2, M4). */
 export function publicationLine(truth: PublicationTruth): string {
-  return `${truth.surface}: ${truth.sync} · artifact: ${truth.artifact} · limits: ${truth.limits}`;
+  return `${truth.surface}: ${truth.sync} · artifact: ${truth.artifact} · limits: ${truth.limits} · units: ${truth.units.recorded} recorded${truth.units.stale > 0 ? ` (${truth.units.stale} stale)` : ""}`;
 }

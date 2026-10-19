@@ -434,7 +434,9 @@ function runCompleteness(
   // #242: publication COVERAGE, never a new score — the weighted percent below is
   // a function of the profile alone, so it can never move because a surface
   // drifted (SPEC §20).
-  const publication = publicationOf(args, profile, reportData);
+  // Coverage of the WORKSPACE: `--completeness` is not a per-surface report, and a
+  // `--platform` there must not turn an empty filter into "nothing published".
+  const publication = publicationAllOf(args, profile, reportData);
   if (isJsonMode()) {
     return report("status", true, EXIT.OK, {
       data: {
@@ -593,9 +595,6 @@ export async function runStatus(args: StatusArgs): Promise<number> {
 
   const reportData = deployStatus(profile);
   const completion = completenessOf(args, profile);
-  // #242: derived ONCE for the read path — the checklist view and the report are
-  // two projections of the same derivation, never two renders.
-  const publication = publicationOf(args, profile, reportData);
 
   // Completeness report (issue #102): a standalone view of the same profile.
   if (args.completeness === true) return runCompleteness(args, profile, reportData);
@@ -603,10 +602,17 @@ export async function runStatus(args: StatusArgs): Promise<number> {
   // Fact selection report (D22/§21): the same shape of view, one axis over.
   if (args.selection === true) return runSelection(args, profile);
 
+  // #242: derived ONCE for the report path — the checklist view and the report
+  // are two projections of one derivation, never two renders. `publicationAll` is
+  // the whole workspace (the generated CHECKLIST is a global view); `publication`
+  // honours the `--platform` report filter.
+  const publicationAll = publicationAllOf(args, profile, reportData);
+  const publication = publicationOf(args, profile, reportData);
+
   if (args.writeChecklist === true) {
     writeFileSync(
       join(args.workspace, "CHECKLIST.md"),
-      checklistBody(reportData, completion, profile, publicationAllOf(args, profile, reportData)),
+      checklistBody(reportData, completion, profile, publicationAll),
       "utf8",
     );
     if (isJsonMode()) {
@@ -620,7 +626,7 @@ export async function runStatus(args: StatusArgs): Promise<number> {
             satisfied: completion.satisfied,
             total: completion.total,
           },
-          publication: publicationAllOf(args, profile, reportData),
+          publication: publicationAll,
         },
       });
     }
@@ -661,7 +667,11 @@ export async function runStatus(args: StatusArgs): Promise<number> {
   // #242 — the three axes that make "optimized" measurable: ledger · artifact vs
   // SSOT · declared cap. Derived on every run, stored nowhere.
   if (publication.length === 0) {
-    line("  no surface published yet — run pasco build, or confirm a paste with --mark");
+    line(
+      publicationAll.length === 0
+        ? "  no surface published yet — run pasco build, or confirm a paste with --mark"
+        : `  no surface published on ${args.platformArg} — ${publicationAll.length} surface(s) elsewhere; drop the platform filter to see them`,
+    );
   } else {
     section("publication truth — derived, never stored (SPEC §20.1)");
     for (const truth of publication) {

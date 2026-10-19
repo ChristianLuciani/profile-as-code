@@ -67,6 +67,10 @@ export function limitFindings(
   const findings: LimitFinding[] = [];
   for (const check of checks) {
     if (check.rule !== "max-chars" && check.rule !== "min-chars") continue;
+    // Scope the CHECK before anything else — including the catalog warning: a
+    // malformed cap declared for another platform is not this surface's finding
+    // (premerge #256 round 2, M1).
+    if (platform !== undefined && check.platform !== "all" && check.platform !== platform) continue;
     if (typeof check.value !== "number" || !Number.isFinite(check.value)) {
       findings.push({
         severity: "warn",

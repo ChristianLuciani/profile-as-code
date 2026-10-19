@@ -266,7 +266,12 @@ function finishVerify(
   }
   if (publication.length > 0) {
     section("publication truth — derived, never stored (SPEC §20.1)");
-    for (const truth of publication) line(`  ${publicationLine(truth)}`);
+    for (const truth of publication) {
+      line(`  ${publicationLine(truth)}`);
+      for (const finding of truth.findings) {
+        line(`    warn: [${finding.code}] ${finding.message} (${finding.path})`);
+      }
+    }
     line(`  coverage: ${publicationCoverageLine(publication)}`);
   }
   if (verdicts.length === 0) {

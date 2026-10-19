@@ -294,6 +294,13 @@ describe("pasco status — derived publication truth (#242)", () => {
     expect(upwork?.findings).toHaveLength(1);
     expect(upwork?.findings[0]?.path).toBe("checks:upwork-title-max");
     expect(upwork?.findings[0]?.message).toContain("non-numeric");
+    // …and the upwork catalog warning does NOT leak onto another surface
+    // (premerge #256 round 2, M1).
+    expect(
+      publicationOf(run(["status", "--json", "--workspace", ws]).stdout).find(
+        (t) => t.surface === "github-readme",
+      ),
+    ).toMatchObject({ limits: "ok", findings: [] });
   });
 
   it("--platform filters the publication report too", () => {
