@@ -86,6 +86,8 @@ interface FlagOptions {
   at?: string;
   "write-checklist"?: boolean;
   completeness?: boolean;
+  selection?: boolean;
+  view?: string;
   verify?: boolean;
 }
 
@@ -130,9 +132,13 @@ README.md, .pascorc. Minimal but pasco validate-clean. Refuses to overwrite.
   validate: `pasco validate [--json] [--workspace <path>]
 Load + validate the workspace (D12): schema violations FAIL (exit 1); drift and
 GEO are warnings (exit 0). See schema/README.md "Validation semantics".`,
-  build: `pasco build [platform] [--lang <l>] [--json] [--workspace <path>]
+  build: `pasco build [platform] [--view <name>] [--lang <l>] [--json] [--workspace <path>]
 Deterministic base texts per platform+lang (compile() slices). No platform =
-all platforms. lang defaults to .pascorc defaults.lang or 'en'.`,
+all platforms. lang defaults to .pascorc defaults.lang or 'en'.
+--view resolves a declared view (D22/§21): its rule may carry the platform, the
+lang and the fact selection, so the surface shows a SUBSET of the SSOT. Every
+omission is reported as a warning; an addressed key that resolves to nothing is
+an error. No selection policy = byte-identical output.`,
   diff: `pasco diff [--json] [--workspace <path>]
 Git-based: what changed since the last tag matching release-* (.pascorc
 diff.tagPattern) — commits + changed content files → CHANGELOG hint.`,
@@ -175,7 +181,11 @@ rows (add an id to track) and removed keys (ledger keeps the audit trail).
         surface carries its certification token.
   --completeness                profile-completeness checklist + percentage
         (issue #102). Policy (target/weights/langs) from .pascorc "completeness";
-        the percentage is DERIVED — only the policy is ever stored.`,
+        the percentage is DERIVED — only the policy is ever stored.
+  --selection [--view <name>]   the resolved VIEW (D22/§21): what the surface
+        emits, every entry it omits and WHY. Read-only. Policy from .pascorc
+        "selection". Subset-only by design — the report exists so an omission is
+        never silent.`,
 };
 
 async function runMain(): Promise<number> {
@@ -227,19 +237,23 @@ async function runMain(): Promise<number> {
       return runValidate({ workspace });
     }
     case "build": {
-      const { flags, positionals } = parseCommandFlags(rest, { lang: { type: "string" } });
+      const { flags, positionals } = parseCommandFlags(rest, {
+        lang: { type: "string" },
+        view: { type: "string" },
+      });
       if (flags.help === true) {
         process.stdout.write(`${COMMAND_HELP.build}\n`);
         return EXIT.OK;
       }
       if (positionals.length > 1)
-        throw new UsageError("usage: pasco build [platform] [--lang <l>] [--json]");
+        throw new UsageError("usage: pasco build [platform] [--view <name>] [--lang <l>] [--json]");
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       const pascorc = readWorkspacePascorc(workspace);
       return runBuild({
         workspace,
         platformArg: positionals[0],
+        viewArg: flags.view,
         langArg: flags.lang,
         pascorc,
       });
@@ -301,6 +315,8 @@ async function runMain(): Promise<number> {
         at: { type: "string" },
         "write-checklist": { type: "boolean" },
         completeness: { type: "boolean" },
+        selection: { type: "boolean" },
+        view: { type: "string" },
         verify: { type: "boolean" },
       });
       if (flags.help === true) {
@@ -340,8 +356,11 @@ async function runMain(): Promise<number> {
         markAt: flags.at,
         writeChecklist: flags["write-checklist"],
         completeness: flags.completeness,
+        selection: flags.selection,
+        viewArg: flags.view,
         verify: flags.verify,
         completenessPolicy: pascorc.completeness,
+        selectionPolicy: pascorc.selection,
         // §19.5: the `--mark` anchor renders at the same lang `pasco build` wrote,
         // so the digest is of the pasted artifact, not an approximation.
         lang: defaultsLang(pascorc),

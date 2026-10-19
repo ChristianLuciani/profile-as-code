@@ -40,11 +40,15 @@ import {
   PLATFORMS,
   type Platform,
   SchemaValidationError,
+  type SelectionPolicy,
+  type SelectionReport,
   type SurfaceCapability,
   type SurfaceCertification,
+  selectFacts,
   trackableUnits,
   type UnitStatus,
 } from "@profile-as-code/core";
+import { parsePlatform } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { RENDERERS } from "../generated/renderers.gen.js";
 import { isJsonMode, line, report, section } from "../output.js";
@@ -57,7 +61,12 @@ import {
   type StatusDeps,
   verifyStatus,
 } from "../verify.js";
-import { type CompletenessPolicyConfig, sanitizeCompletenessPolicy } from "../workspace.js";
+import {
+  type CompletenessPolicyConfig,
+  type SelectionPolicyConfig,
+  sanitizeCompletenessPolicy,
+  sanitizeSelectionPolicy,
+} from "../workspace.js";
 
 export interface StatusArgs {
   workspace: string;
@@ -71,6 +80,13 @@ export interface StatusArgs {
   writeChecklist?: boolean;
   /** --completeness: report the profile-completeness checklist (issue #102). */
   completeness?: boolean;
+  /** --selection: report the resolved VIEW — what it emits, what it omits and
+   *  why (D22/§21.4). Read-only, like --completeness. */
+  selection?: boolean;
+  /** --view <name>: the view `--selection` resolves (defaults to the platform). */
+  viewArg?: string;
+  /** `.pascorc` `selection` policy (D22/§21) — absent ⇒ no filtering. */
+  selectionPolicy?: SelectionPolicyConfig;
   /** --verify (§19.5, v1.10, issue #132): run the opt-in C1 live check AND write
    *  the ledger — `pasco`'s second ledger write trigger, after `--mark`. */
   verify?: boolean;
@@ -390,6 +406,53 @@ function runCompleteness(args: StatusArgs, profile: LoadedProfile): number {
 }
 
 /**
+ * `pasco status --selection [platform] [--view <name>]` — the resolved view
+ * (D22/§21.4). Read-only, and the honest surface for the operator's G1
+ * amendment: every omission is listed with its reason, so a `mode: "tags"` view
+ * cannot quietly keep a new untagged entry off a platform.
+ */
+function runSelection(args: StatusArgs, profile: LoadedProfile): number {
+  const policy = sanitizeSelectionPolicy(args.selectionPolicy) as SelectionPolicy | undefined;
+  const viewName = args.viewArg ?? args.platformArg;
+  const rule = viewName === undefined ? undefined : (policy?.views?.[viewName] ?? policy?.default);
+  const platform =
+    args.platformArg !== undefined
+      ? parsePlatform(args.platformArg)
+      : rule?.platform !== undefined
+        ? parsePlatform(rule.platform)
+        : undefined;
+  const platforms = platform !== undefined ? [platform] : [...PLATFORMS];
+  const lang: Lang = args.lang ?? "en";
+
+  const reports: SelectionReport[] = platforms.map(
+    (p) => selectFacts(profile, viewName ?? p, p, lang, policy).report,
+  );
+  const withOmissions = reports.filter((r) => r.omitted.length > 0);
+
+  if (isJsonMode()) {
+    return report("status", true, EXIT.OK, {
+      data: { mode: "selection", workspace: args.workspace, view: viewName ?? null, reports },
+    });
+  }
+  section(
+    `fact selection (D22/§21) — ${viewName ?? "implicit platform view"}${withOmissions.length === 0 ? " · nothing omitted" : ""}`,
+  );
+  for (const r of reports) {
+    const emitted = Object.entries(r.selected)
+      .filter(([, n]) => n > 0)
+      .map(([block, n]) => `${block} ${n}`)
+      .join(" · ");
+    line(
+      `\n[${r.platform}]${r.mode === "tags" ? " (mode: tags)" : ""} — ${emitted || "no entries"}`,
+    );
+    for (const o of r.omitted) line(`  omitted ${o.block}:${o.label} — ${o.reason}`);
+    for (const f of r.findings) line(`  ${f.severity}: [${f.code}] ${f.message}`);
+  }
+  if (withOmissions.length === 0) line("  subset-only by design (D22): nothing was removed");
+  return EXIT.OK;
+}
+
+/**
  * `pasco status` — synchronous for every mode EXCEPT `--verify`, which is async
  * because it performs the C1 live check (§19.5). Callers must await the result
  * (the CLI entry point does); every other path resolves immediately.
@@ -444,6 +507,18 @@ export async function runStatus(args: StatusArgs): Promise<number> {
   }
   // Review of #205, F6: both flags are documented as alternatives, so accepting
   // them together and silently writing nothing was a lie. Reject explicitly.
+  if (
+    args.selection === true &&
+    (args.markKey !== undefined || args.verify === true || args.writeChecklist === true)
+  ) {
+    return report("status", false, EXIT.USAGE, {
+      error: {
+        kind: "usage",
+        message:
+          "usage: --selection is a read-only report — run it separately from the ledger write paths (--mark / --verify / --write-checklist)",
+      },
+    });
+  }
   if (args.completeness === true && args.writeChecklist === true) {
     return report("status", false, EXIT.USAGE, {
       error: {
@@ -468,6 +543,9 @@ export async function runStatus(args: StatusArgs): Promise<number> {
 
   // Completeness report (issue #102): a standalone view of the same profile.
   if (args.completeness === true) return runCompleteness(args, profile);
+
+  // Fact selection report (D22/§21): the same shape of view, one axis over.
+  if (args.selection === true) return runSelection(args, profile);
 
   if (args.writeChecklist === true) {
     writeFileSync(

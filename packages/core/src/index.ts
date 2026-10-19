@@ -5,6 +5,7 @@
  * from it (packages/core/scripts/gen-zod.ts) and committed.
  */
 
+export type { CompilePolicy } from "./compile.js";
 export { compile } from "./compile.js";
 export type {
   CompletenessCatalogItem,
@@ -72,6 +73,23 @@ export {
   isPublicEntry,
   registryCheck,
 } from "./registry.js";
+export type {
+  OmissionReason,
+  SelectionBlock,
+  SelectionFinding,
+  SelectionFindingCode,
+  SelectionMode,
+  SelectionOmission,
+  SelectionPolicy,
+  SelectionReport,
+  SelectionResult,
+  ViewRule,
+} from "./selection.js";
+export {
+  resolveView,
+  SELECTION_BLOCKS,
+  selectFacts,
+} from "./selection.js";
 export {
   DEFAULT_LINK_ROLE,
   entityId,

@@ -13,6 +13,7 @@
 
 import { PLATFORM_SLUGS } from "./generated/platforms.gen.js";
 import type { profileSchema } from "./generated/schema.zod.js";
+import type { SelectionReport } from "./selection.js";
 
 /** The profile as defined by the contract (schema/profile.schema.json). */
 export type Profile = import("zod").z.infer<typeof profileSchema>;
@@ -290,6 +291,13 @@ export interface PlatformProfile {
    *  must degrade (no structured data) rather than throw. Renderers therefore guard the
    *  whole chain — a required field guarded with `?.` would be a contract that lies. */
   structuredData?: StructuredDataReadiness;
+  /** D22/§21: the resolved view — what this slice emits and what it omitted, with
+   *  the reason for each omission. Present ONLY when the caller passed a selection
+   *  policy; a policy-less compile stays byte-identical (no report key is added).
+   *
+   *  OPTIONAL for the same reason as `structuredData`: hand-built slices are a
+   *  documented seam. */
+  selection?: SelectionReport;
   /** Dot-paths of langMaps that fell back to `en` because `lang` was absent. */
   fallbacks: string[];
   /** Issue #102: the profile-completeness report for this slice, computed by

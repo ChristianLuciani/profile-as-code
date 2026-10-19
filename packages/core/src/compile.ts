@@ -12,6 +12,7 @@
 
 import { type CompletenessPolicy, completeness } from "./completeness.js";
 import { normalizeProfile } from "./load.js";
+import { type SelectionPolicy, selectFacts } from "./selection.js";
 import { structuredData } from "./structured-data.js";
 import type { Lang, Platform, PlatformProfile, Profile } from "./types.js";
 import { PLATFORMS } from "./types.js";
@@ -19,11 +20,27 @@ import { PLATFORMS } from "./types.js";
 const LANG_IDS: readonly string[] = ["en", "es", "fr"] as const;
 
 /**
+ * D22/§21: the compile policy — the completeness policy it always took, plus the
+ * optional selection policy. ADDITIVE: `CompletenessPolicy` callers keep
+ * compiling unchanged, and a policy without `selection` produces a slice
+ * byte-identical to before this feature existed (the compatibility guarantee,
+ * asserted by a golden test).
+ */
+export type CompilePolicy = CompletenessPolicy & {
+  selection?: SelectionPolicy;
+  /** D22/§21: the view NAME to resolve (a declared view may target a platform
+   *  other than its own name, e.g. `--view film` → `github-readme`). Defaults to
+   *  the platform, which is the implicit view (`pasco build linkedin`). */
+  view?: string;
+};
+
+/**
  * Compile a PlatformProfile for one platform and language.
  *
- * @param policy the workspace completeness policy (issue #102). The CLI passes
- *   `.pascorc`'s policy so the artifact carries the SAME number the workspace
- *   reports; omitted ⇒ the shipped default (direct callers, tests).
+ * @param policy the workspace compile policy (issue #102 + D22): the completeness
+ *   policy, and optionally the fact-selection policy. The CLI passes `.pascorc`'s
+ *   so the artifact carries the SAME number the workspace reports and the SAME
+ *   view it resolved; omitted ⇒ no selection, shipped completeness default.
  * @throws TypeError — `platform`/`lang` not in the contract enum (a renderer bug,
  *   not a user-data problem).
  */
@@ -31,7 +48,7 @@ export function compile(
   profile: Profile,
   platform: Platform,
   lang: Lang = "en",
-  policy?: CompletenessPolicy,
+  policy?: CompilePolicy,
 ): PlatformProfile {
   if (!(PLATFORMS as readonly string[]).includes(platform)) {
     throw new TypeError(
@@ -83,16 +100,28 @@ export function compile(
     (c) => c.platform === "all" || c.platform === platform,
   );
 
+  // D22/§21 — the view. `facts` is what renderers may see; `profile` (unfiltered)
+  // is what completeness scores. The split is the contract, not an accident:
+  //   - structuredData is built from the FILTERED profile, or the JSON-LD would
+  //     claim entities the render never shows;
+  //   - completeness stays on the UNFILTERED profile, because §20 scores the
+  //     WORKSPACE, not a view (hiding half the SSOT must not lower the number).
+  const selection =
+    policy?.selection === undefined
+      ? undefined
+      : selectFacts(profile, policy.view ?? platform, platform, lang, policy.selection);
+  const facts = selection?.profile ?? profile;
+
   return {
     platform,
     lang,
     flavor: profile.flavor ?? "person",
     // facts — untouched
-    identity: profile.identity,
-    experience: profile.experience ?? [],
-    projects: profile.projects ?? [],
-    publications: profile.publications ?? [],
-    skills: profile.skills ?? [],
+    identity: facts.identity,
+    experience: facts.experience ?? [],
+    projects: facts.projects ?? [],
+    publications: facts.publications ?? [],
+    skills: facts.skills ?? [],
     socialHandles: profile.socialHandles ?? [],
     newsletter: profile.newsletter,
     podcast: profile.podcast,
@@ -110,18 +139,19 @@ export function compile(
     },
     checks: platformChecks,
     // Evidence registry (v1.4/D17, §18) — facts, pass through untouched.
-    credentials: profile.credentials ?? [],
-    artifacts: profile.artifacts ?? [],
+    credentials: facts.credentials ?? [],
+    artifacts: facts.artifacts ?? [],
     ...(profile.active?.[platform] ? { active: profile.active[platform] } : {}),
     // v1.6 (#103): entity structured-data identity — assembled ONCE here, so no
     // renderer re-derives `@id`/`sameAs` (SPEC §15.4, the §18.9 precedent).
-    structuredData: structuredData(profile, lang),
+    structuredData: structuredData(facts, lang),
     // Issue #102: the completeness report travels WITH the slice (like
     // structuredData) so a renderer emits the number verbatim and never
     // recomputes it. `policy` is the workspace's `.pascorc` policy when the CLI
     // passes it, so the artifact and `pasco status --completeness` agree
     // (review of #205, finding 3); omitted ⇒ the shipped default.
     completeness: completeness(normalizeProfile(profile), policy),
+    ...(selection === undefined ? {} : { selection: selection.report }),
     fallbacks,
   };
 }
