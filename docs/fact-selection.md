@@ -1,13 +1,21 @@
-# Fact selection per rendered profile — SPEC proposal (Q11)
+# Fact selection per rendered profile — the decision record (Q11 → D22)
 
-**Status: PROPOSED — not ratified.** Nothing here is contract until the operator
-blesses the decision gates in §10 (dev-methodology §1: SPEC first, then code). The
-open question is recorded as **Q11** in `docs/SPEC.md` §14; on blessing it becomes
-**D22** and this document's §4–§6 fold into a SPEC detail section.
+**Status: RATIFIED as D22 on 2026-10-19** (issue #235). The contract now lives in
+`docs/SPEC.md` §5 (D22) and §21 (detail); **that is the source of truth**. This
+document is the *why* behind it — the gap it closes, the options discarded and the
+reasoning behind the invariant ruling — and is not restated as contract.
+
+**Operator decision (G1, as amended):** subset-only is admissible, **but every
+omission must warn the user** — carried into §21.4 and enforced by
+`selection-anchor-omitted` / `selection-empty-facts` and the omission finding itself.
+G2–G6 were taken at their recommended values (policy in `.pascorc`, `views`, Phase-2
+tags on the six entry blocks, Phase 3 deferred, unknown key = error); the operator's
+"dale" blessed the direction, so any of them can be reopened without touching the
+invariant ruling.
 
 Cubre: la brecha entre §18.9 (selección declarada) y el código (sin selección), el
 diseño de una política de selección por vista, y el plan por fases con sus gates ·
-No cubre: implementación (no hay código en este PR), renderers nuevos, cambio de
+No cubre: la implementación (vive en §21 y en su fase 1), renderers nuevos, cambio de
 identidad por workspace (sigue siendo un workspace separado, §18.9/D15), ni el
 scoring GEO por vista · as_of: 2026-10-19
 
@@ -177,6 +185,7 @@ honest:
 | `selection-unknown-tag` | warn | a tag matching no entry — likely a typo, not an instruction. |
 | `selection-empty-facts` | warn | a view selected zero entries while the SSOT has some. |
 | `selection-anchor-omitted` | warn | a `positioning.geo.semanticAssociations` anchor is reinforced only by omitted entries — the coverage cost from §2, named. |
+| `selection-omits-facts` | **warn** | **any** view that omits one or more entries, naming each omission and its reason — the operator's G1 amendment: the default direction of a profile is *publish*, so anything that removes a fact owes the user a statement. |
 
 ### 4.6 CLI
 
@@ -264,14 +273,14 @@ committed fixture workspace (tagged entries + a policy), per AGENTS.md rule 5. P
 
 ## 10. Decision gates for the operator
 
-| # | Question | Recommendation |
+| # | Question | Decision (2026-10-19) |
 |---|---|---|
-| G1 | Is subset-only admissible under Goal 2/3 and §15.4? | **Yes** — see §2: the invariant constrains content, not coverage; `geo.ts:21` already scores absence as neutral. |
-| G2 | Policy home: `.pascorc` (config) vs the SSOT (per-entry)? | **`.pascorc`** — the §20 pattern ("store only the policy"), and it keeps the data platform-free. |
-| G3 | Vocabulary: `views`, `faces`, `profiles`, `selections`? | **`views`** — `profile` is already overloaded here. |
-| G4 | Phase 2 tags on which blocks? | `experience`, `projects`, `publications`, `education`, `press`, `credentials`. |
-| G5 | Is Phase 3 (two views on one platform, new output dir) in scope now? | **Defer** — Phase 1 already answers the request; Phase 3 needs a D19 amendment. |
-| G6 | Unknown key: error or warn? | **Error** — matches §19.2's "an addressed key must resolve". |
+| G1 | Is subset-only admissible under Goal 2/3 and §15.4? | **YES, with a mandatory warning on omission** (operator amendment — §21.4). The invariant ruling stands: it constrains content, not coverage. |
+| G2 | Policy home: `.pascorc` (config) vs the SSOT (per-entry)? | `.pascorc` (recommended value taken). |
+| G3 | Vocabulary: `views`, `faces`, `profiles`, `selections`? | `views` (recommended value taken). |
+| G4 | Phase 2 tags on which blocks? | `experience`, `projects`, `publications`, `education`, `press`, `credentials` (recommended value taken). |
+| G5 | Is Phase 3 (two views on one platform, new output dir) in scope now? | Deferred; needs a D19 amendment (recommended value taken). |
+| G6 | Unknown key: error or warn? | Error (recommended value taken). |
 
 ## 11. Evidence
 
@@ -290,13 +299,12 @@ committed fixture workspace (tagged entries + a policy), per AGENTS.md rule 5. P
 
 ---
 
-## Appendix — the SPEC entry this proposal adds (Q11, `docs/SPEC.md` §14)
+## Appendix — where this landed
 
-> - Q11 (**proposal, not a decision**): **fact selection per rendered profile** — the
->   engine can only adapt *text* per platform today (`lang`, `refine` variants); the
->   SSOT's facts pass through untouched (`compile.ts:90-95`) and §18.9's declared
->   "renderers select by platform + lang + tags" is unimplemented (no renderer reads
->   `tags`). Proposal: a workspace policy in `.pascorc` (`selection.views`) plus
->   optional `tags[]` on the fact blocks — subset-only, exclusion wins, no policy ⇒
->   byte-identical output. Design, options, plan and the six decision gates:
->   `docs/fact-selection.md`.
+- **D22** — `docs/SPEC.md` §5: subset-only, policy in `.pascorc`, omission warns.
+- **§21** — `docs/SPEC.md`: the contract (view + rule grammar, resolution rules, the
+  filter/unfiltered split, the four checks, the CLI surface, the phase boundary).
+- **§18.9** — now points at §21 rather than restating the rule (single source).
+- **M10** — `docs/SPEC.md` §12: the milestone, Phase 1 schema-free first.
+- **Implementation** — Phase 1 in `packages/core/src/selection.ts` + `.pascorc`
+  parsing + `build --view` / `status --selection`, tests first (TDD).
