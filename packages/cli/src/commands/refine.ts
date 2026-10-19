@@ -17,6 +17,7 @@ import { parseDocument, stringify } from "yaml";
 import { parseLang, parsePlatform, parseVariants, UsageError } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report } from "../output.js";
+import { hasVariantBody, isSafeVariantId, variantBodyPath } from "../variant-store.js";
 import type { Pascorc } from "../workspace.js";
 import { defaultsLang } from "../workspace.js";
 
@@ -103,6 +104,11 @@ export function runRefine(args: RefineArgs): number {
   const platform = parsePlatform(args.platformArg);
   const lang = parseLang(defaultsLang(args.pascorc, args.langArg));
   const variants = parseVariants(args.variantsArg, args.pascorc.defaults?.variants ?? 3);
+  if (args.choose !== undefined && !isSafeVariantId(args.choose)) {
+    throw new UsageError(
+      "--choose <variantId> must be a safe id (letters, digits, dot, underscore, dash; no slash or '..')",
+    );
+  }
 
   const loaded = loadProfile(args.workspace);
   if (typeof loaded === "number") return loaded;
@@ -117,6 +123,8 @@ export function runRefine(args: RefineArgs): number {
         error: { kind: "load", message: (err as Error).message },
       });
     }
+    const variantFile = variantBodyPath(args.workspace, platform, args.choose);
+    const hasBody = hasVariantBody(args.workspace, platform, args.choose);
     if (isJsonMode()) {
       return report("refine", true, EXIT.OK, {
         data: {
@@ -126,12 +134,19 @@ export function runRefine(args: RefineArgs): number {
           variantId: args.choose,
           chosenAt,
           workspace: args.workspace,
+          variantFile,
+          hasBody,
         },
       });
     }
     line(
       `recorded active[${platform}] = { lang: ${lang}, variantId: ${args.choose}, chosenAt: ${chosenAt} } (content/active.yaml)`,
     );
+    if (!hasBody) {
+      line(
+        `  warning: no variant body at ${variantFile} — pasco build will render the deterministic text until it exists`,
+      );
+    }
     return EXIT.OK;
   }
 
@@ -177,7 +192,8 @@ export function runRefine(args: RefineArgs): number {
     `  - Never invent URLs, DOIs or numbers — evidence claims stay untouched.`,
     `  - Platform-specific limits come from the platform skill (SPEC §16) + checks.yaml.`,
     ``,
-    `Workflow: read the skill → produce the ${variants} variant(s) → the user picks one → record it:`,
+    `Workflow: read the skill → produce the ${variants} variant(s) → the user picks one → save its body to`,
+    `  profiles/${platform}/variants/<variantId>.md (one text block), then record it:`,
     `  pasco refine ${platform} --lang ${lang} --choose <variantId>`,
     ``,
   ].join("\n");

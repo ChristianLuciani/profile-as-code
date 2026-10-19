@@ -10,7 +10,7 @@
  * function, §15.1).
  */
 
-import { copyFileSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { LoadedProfile, PlatformProfile } from "@profile-as-code/core";
 import {
@@ -28,6 +28,7 @@ import { parseLang, parsePlatform } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { RENDERERS } from "../generated/renderers.gen.js";
 import { isJsonMode, line, report, section } from "../output.js";
+import { resolveVariantBody } from "../variant-store.js";
 import type { Pascorc } from "../workspace.js";
 import {
   ConfigError,
@@ -156,10 +157,38 @@ export function runBuild(args: BuildArgs): number {
   // are machine-state facts — build proceeds, `pasco check` is the gate.
   const bundle = collectMedia(profile, args.workspace);
 
-  const written: { platform: string; path: string; assets?: number }[] = [];
+  const written: { platform: string; path: string; assets?: number; variant?: string }[] = [];
   const skipped: { platform: string; reason: string }[] = [];
+  const warnings: { platform: string; reason: string }[] = [];
+  const renderedVariants = new Map<string, string>();
   for (const s of slices) {
     if (s.platform === "github-org" && profile.flavor !== "brand") continue;
+    const variant = resolveVariantBody(args.workspace, s);
+    if (variant.warning !== undefined) {
+      warnings.push({ platform: s.platform, reason: variant.warning });
+    }
+    if (variant.text !== undefined && variant.id !== undefined) {
+      // The chosen body is a COMPLETE artifact (skills/github-readme playbook:
+      // `cp variants/<id>.md ../<user>/README.md`), not a prose fragment. Write
+      // it verbatim instead of the deterministic render; no duplicated H1.
+      const renderer = RENDERERS[s.platform];
+      const path =
+        renderer === undefined
+          ? join(args.workspace, "profiles", `${s.platform}.md`)
+          : join(args.workspace, "profiles", s.platform, "README.md");
+      if (renderer !== undefined) {
+        rmSync(join(args.workspace, "profiles", `${s.platform}.md`), { force: true });
+        rmSync(join(args.workspace, "profiles", s.platform, "assets"), {
+          recursive: true,
+          force: true,
+        });
+      }
+      mkdirSync(dirname(path), { recursive: true });
+      writeFileSync(path, variant.text);
+      renderedVariants.set(s.platform, variant.id);
+      written.push({ platform: s.platform, path, variant: variant.id });
+      continue;
+    }
     const renderer = RENDERERS[s.platform];
     if (renderer === undefined) {
       // #239: a manual-paste surface with a bio row gets a file on disk too —
@@ -197,7 +226,13 @@ export function runBuild(args: BuildArgs): number {
         platform: s.platform,
         reason: "empty render — no bios row for this platform+lang; platform output removed",
       });
-      rmSync(dir, { recursive: true, force: true });
+      // Preserve the variant store (#238): it is an INPUT beside the output,
+      // not generated content. Remove only the generated artifact/assets.
+      const variantsDir = join(dir, "variants");
+      const keepVariants = existsSync(variantsDir);
+      rmSync(join(dir, "README.md"), { force: true });
+      rmSync(join(dir, "assets"), { recursive: true, force: true });
+      if (!keepVariants) rmSync(dir, { recursive: true, force: true });
       continue;
     }
     mkdirSync(dir, { recursive: true });
@@ -252,6 +287,7 @@ export function runBuild(args: BuildArgs): number {
         })),
         written,
         skipped,
+        warnings,
         media: bundle.findings,
         selection: selFindings,
       },
@@ -263,7 +299,9 @@ export function runBuild(args: BuildArgs): number {
     line(`\n[${s.platform}]`);
     if (s.statement !== undefined) line(`  statement: ${s.statement}`);
     if (s.active !== undefined)
-      line(`  active: ${s.active.variantId} (chosen ${s.active.chosenAt})`);
+      line(
+        `  active: ${s.active.variantId} (chosen ${s.active.chosenAt})${renderedVariants.get(s.platform) !== undefined ? " — rendered" : " — deterministic fallback"}`,
+      );
     for (const b of s.bios) line(`  bio (${b.length}): ${b.text}`);
     for (const h of s.headlines) line(`  headline: ${h.text}`);
     if (s.bios.length === 0 && s.headlines.length === 0)
@@ -273,11 +311,17 @@ export function runBuild(args: BuildArgs): number {
   if (written.length > 0) {
     section("deploy artifacts written");
     for (const w of written)
-      line(`  ${w.path}${w.assets !== undefined ? ` (+${w.assets} asset(s) in assets/)` : ""}`);
+      line(
+        `  ${w.path}${w.assets !== undefined ? ` (+${w.assets} asset(s) in assets/)` : ""}${w.variant !== undefined ? ` (variant ${w.variant})` : ""}`,
+      );
   }
   if (skipped.length > 0) {
     section(`empty renders removed (${skipped.length}) — pure profiles/ (§15.1)`);
     for (const k of skipped) line(`  [${k.platform}] ${k.reason}`);
+  }
+  if (warnings.length > 0) {
+    section(`variant warnings (${warnings.length})`);
+    for (const w of warnings) line(`  [${w.platform}] ${w.reason}`);
   }
   if (bundle.findings.length > 0) {
     section(`media pipeline (M8/§18.6): ${bundle.findings.length} finding(s)`);

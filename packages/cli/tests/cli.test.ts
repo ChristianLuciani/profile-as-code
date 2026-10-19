@@ -283,6 +283,177 @@ describe("pasco build (compile slices)", () => {
     expect(existsSync(join(ws, "profiles", "upwork.md"))).toBe(false);
   });
 
+  it("renders the chosen variant body when active + store exist (#238)", () => {
+    const ws = tempDir();
+    copyFixture(MINIMAL, ws);
+    mkdirSync(join(ws, "profiles", "upwork", "variants"), { recursive: true });
+    writeFileSync(join(ws, "profiles", "upwork", "variants", "up-1.md"), "CHOSEN VARIANT BODY\n");
+    writeFileSync(
+      join(ws, "content", "active.yaml"),
+      'upwork:\n  lang: en\n  variantId: up-1\n  chosenAt: "2026-10-19T12:00:00.000Z"\n',
+    );
+
+    const r = run(["build", "upwork", "--json", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as {
+      data: { written: { platform: string; variant?: string }[] };
+    };
+    expect(data.data.written[0]?.variant).toBe("up-1");
+    const artifact = readFileSync(join(ws, "profiles", "upwork.md"), "utf8");
+    expect(artifact).toContain("CHOSEN VARIANT BODY");
+    expect(artifact).not.toContain("I architect sovereign AI stacks");
+  });
+
+  it("renders a multi-paragraph variant as prose, not bold (#238 premerge)", () => {
+    const ws = tempDir();
+    copyFixture(MINIMAL, ws);
+    mkdirSync(join(ws, "profiles", "github-readme", "variants"), { recursive: true });
+    writeFileSync(
+      join(ws, "profiles", "github-readme", "variants", "gh-prose.md"),
+      "First line.\n\nSecond paragraph.\n",
+    );
+    writeFileSync(
+      join(ws, "content", "active.yaml"),
+      'github-readme:\n  lang: en\n  variantId: gh-prose\n  chosenAt: "2026-10-19T12:00:00.000Z"\n',
+    );
+    const r = run(["build", "github-readme", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    const artifact = readFileSync(join(ws, "profiles", "github-readme", "README.md"), "utf8");
+    expect(artifact).toContain("First line.\n\nSecond paragraph.");
+    expect(artifact).not.toContain("**First line.");
+  });
+
+  it("uses the chosen complete artifact even when it cites non-SSOT chrome URLs (#238 premerge)", () => {
+    const ws = tempDir();
+    copyFixture(MINIMAL, ws);
+    mkdirSync(join(ws, "profiles", "upwork", "variants"), { recursive: true });
+    writeFileSync(
+      join(ws, "profiles", "upwork", "variants", "up-evil.md"),
+      "Body with https://evil.example/x and a badge.\n",
+    );
+    writeFileSync(
+      join(ws, "content", "active.yaml"),
+      'upwork:\n  lang: en\n  variantId: up-evil\n  chosenAt: "2026-10-19T12:00:00.000Z"\n',
+    );
+    const r = run(["build", "upwork", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    // The variant is user-authored complete text; the engine copies it. The
+    // URL-SSOT rule applies to generated renderers, not to this user artifact.
+    expect(readFileSync(join(ws, "profiles", "upwork.md"), "utf8")).toContain("evil.example");
+  });
+
+  it("writes a complete github-org variant verbatim (#238 premerge)", () => {
+    const dir = join(tempDir(), "brand-variant");
+    expect(run(["init", "--flavor", "brand", dir]).code).toBe(0);
+    mkdirSync(join(dir, "profiles", "github-org", "variants"), { recursive: true });
+    writeFileSync(join(dir, "profiles", "github-org", "variants", "org-1.md"), "ORG BODY\n");
+    writeFileSync(
+      join(dir, "content", "active.yaml"),
+      'github-org:\n  lang: en\n  variantId: org-1\n  chosenAt: "2026-10-19T12:00:00.000Z"\n',
+    );
+    const r = run(["build", "github-org", "--workspace", dir]);
+    expect(r.code).toBe(0);
+    const artifact = readFileSync(join(dir, "profiles", "github-org", "README.md"), "utf8");
+    expect(artifact).toBe("ORG BODY\n");
+  });
+
+  it("validate keeps active-variant-missing for an empty body (#238 premerge)", () => {
+    const ws = tempDir();
+    copyFixture(MINIMAL, ws);
+    mkdirSync(join(ws, "profiles", "researchgate", "variants"), { recursive: true });
+    writeFileSync(join(ws, "profiles", "researchgate", "variants", "rg-empty.md"), "");
+    writeFileSync(
+      join(ws, "content", "active.yaml"),
+      'researchgate:\n  lang: en\n  variantId: rg-empty\n  chosenAt: "2026-10-19T12:00:00.000Z"\n',
+    );
+    const r = run(["validate", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("active-variant-missing");
+  });
+
+  it("falls back deterministically when the active variant body is missing (#238)", () => {
+    const ws = tempDir();
+    copyFixture(MINIMAL, ws);
+    writeFileSync(
+      join(ws, "content", "active.yaml"),
+      'upwork:\n  lang: en\n  variantId: up-2\n  chosenAt: "2026-10-19T12:00:00.000Z"\n',
+    );
+    const r = run(["build", "upwork", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("variant warnings");
+    expect(r.stdout).toContain("no body");
+    expect(readFileSync(join(ws, "profiles", "upwork.md"), "utf8")).toContain(
+      "I architect sovereign AI stacks",
+    );
+  });
+
+  it("writes the chosen complete artifact verbatim (#238)", () => {
+    const ws = tempDir();
+    copyFixture(MINIMAL, ws);
+    mkdirSync(join(ws, "profiles", "github-readme", "variants"), { recursive: true });
+    writeFileSync(
+      join(ws, "profiles", "github-readme", "variants", "gh-en-1.md"),
+      "CHOSEN VARIANT BODY\n",
+    );
+    writeFileSync(
+      join(ws, "content", "active.yaml"),
+      'github-readme:\n  lang: en\n  variantId: gh-en-1\n  chosenAt: "2026-10-19T12:00:00.000Z"\n',
+    );
+    const r = run(["build", "github-readme", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    const artifact = readFileSync(join(ws, "profiles", "github-readme", "README.md"), "utf8");
+    // The store holds a COMPLETE README; build writes it as the artifact (no
+    // duplicated deterministic header/badges/footer).
+    expect(artifact).toBe("CHOSEN VARIANT BODY\n");
+    expect(artifact).not.toContain("# Elena Vasquez");
+  });
+
+  it("refuses a variant id that is not a safe path segment (#238)", () => {
+    const ws = tempDir();
+    copyFixture(MINIMAL, ws);
+    const r = run(["refine", "linkedin", "--choose", "../evil", "--workspace", ws]);
+    expect(r.code).toBe(2);
+    expect(readFileSync(join(ws, "content", "active.yaml"), "utf8")).not.toContain("../evil");
+
+    writeFileSync(
+      join(ws, "content", "active.yaml"),
+      'upwork:\n  lang: en\n  variantId: "../evil"\n  chosenAt: "2026-10-19T12:00:00.000Z"\n',
+    );
+    const b = run(["build", "upwork", "--workspace", ws]);
+    expect(b.code).toBe(0);
+    expect(b.stdout).toContain("not a safe path segment");
+    expect(readFileSync(join(ws, "profiles", "upwork.md"), "utf8")).toContain(
+      "I architect sovereign AI stacks",
+    );
+  });
+
+  it("preserves the variant store when an empty render unbuilds a platform (#238)", () => {
+    const ws = tempDir();
+    copyFixture(MINIMAL, ws);
+    mkdirSync(join(ws, "profiles", "kofi", "variants"), { recursive: true });
+    writeFileSync(join(ws, "profiles", "kofi", "variants", "k1.md"), "BODY\n");
+    const r = run(["build", "kofi", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    expect(existsSync(join(ws, "profiles", "kofi", "variants", "k1.md"))).toBe(true);
+    expect(existsSync(join(ws, "profiles", "kofi", "README.md"))).toBe(false);
+  });
+
+  it("does not put the variant marker in a manual paste artifact (#238)", () => {
+    const ws = tempDir();
+    copyFixture(MINIMAL, ws);
+    mkdirSync(join(ws, "profiles", "kofi", "variants"), { recursive: true });
+    writeFileSync(join(ws, "profiles", "kofi", "variants", "k1.md"), "CHOSEN KOFI BODY\n");
+    writeFileSync(
+      join(ws, "content", "active.yaml"),
+      'kofi:\n  lang: en\n  variantId: k1\n  chosenAt: "2026-10-19T12:00:00.000Z"\n',
+    );
+    const r = run(["build", "kofi", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    const artifact = readFileSync(join(ws, "profiles", "kofi", "README.md"), "utf8");
+    expect(artifact).toContain("CHOSEN KOFI BODY");
+    expect(artifact).not.toContain("<!-- active variant:");
+  });
+
   it("writes the kofi paste artifact for a kofi workspace (v1.7, #130)", () => {
     const ws = tempDir();
     copyFixture(join(__dirname, "..", "..", "core", "tests", "fixtures", "minimal-kofi"), ws);
@@ -372,6 +543,20 @@ describe("pasco build (compile slices)", () => {
       ...PASTE_PLATFORMS.map((entry) => entry.platform),
     ]);
     expect(existsSync(join(ws, "profiles", "kofi"))).toBe(false);
+  });
+
+  it("validate does not warn active-variant-missing when the body exists (#238)", () => {
+    const ws = tempDir();
+    copyFixture(MINIMAL, ws);
+    mkdirSync(join(ws, "profiles", "researchgate", "variants"), { recursive: true });
+    writeFileSync(join(ws, "profiles", "researchgate", "variants", "rg-1.md"), "BODY\n");
+    writeFileSync(
+      join(ws, "content", "active.yaml"),
+      'researchgate:\n  lang: en\n  variantId: rg-1\n  chosenAt: "2026-10-19T12:00:00.000Z"\n',
+    );
+    const r = run(["validate", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).not.toContain("active-variant-missing");
   });
 
   it("exit 2 on unknown platform", () => {

@@ -53,6 +53,7 @@ import { EXIT } from "../exit.js";
 import { RENDERERS } from "../generated/renderers.gen.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import { certificationMap, filterReport, reportDataOf, summaryOf } from "../report-shape.js";
+import { resolveVariantBody } from "../variant-store.js";
 import {
   depsOf,
   digestOf,
@@ -202,6 +203,10 @@ function renderArtifact(
   if (renderer === undefined) return undefined;
   const policy = sanitizeCompletenessPolicy(args.completenessPolicy);
   const slice = compile(profile, surface as Platform, args.lang ?? "en", policy);
+  // Judge the same bytes `pasco build` would write: the chosen body is a
+  // complete artifact and replaces the deterministic render (#238).
+  const variant = resolveVariantBody(args.workspace, slice);
+  if (variant.text !== undefined) return variant.text;
   return renderer(slice, collectMedia(profile, args.workspace).assets).text;
 }
 
