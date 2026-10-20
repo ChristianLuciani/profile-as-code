@@ -16,7 +16,8 @@
     "path": "/Users/eva/PROJECTOS/GitHub/ChristianLuciani/profile-data",
     "branch": "main",
     "sha_at_start": "d0303f7",
-    "content_hash_unrecorded_note": "pasco has no content-hash command; integrity carries by git (commit + working tree == d0303f7)"
+    "content_hash_unrecorded_note": "pasco has no content-hash command; integrity carries by git (commit + working tree == d0303f7)",
+    "path_note": "recorded run context (absolute path on the operator's machine), not a default — scripts require PASCO_WS or this value"
   },
   "surface": {
     "kind": "github-profile",
@@ -24,13 +25,29 @@
     "target_file": "README.md",
     "target_branch": "main",
     "live_sha_baseline": "2e317e6",
-    "artifact_source": "profiles/github-readme/README.md (pasco build)"
+    "published_artifact": "profiles/github-readme/variants/gh-en-3.md",
+    "deterministic_artifact": "profiles/github-readme/README.md",
+    "published_sha256_at_run_end": "bfb0dbc35cd9"
   },
   "baseline": {
     "date": "2026-10-19",
-    "pasco_validate": { "exit": 0, "schema": "valid", "drift": 0, "geo": "87/100" },
-    "completeness": { "pct": 65.8, "satisfied": 2, "total": 5 },
-    "status": { "units": 59, "stale": 0, "never": 59, "in_sync": 0 },
+    "pasco_validate": {
+      "exit": 0,
+      "schema": "valid",
+      "drift": 0,
+      "geo": "87/100"
+    },
+    "completeness": {
+      "pct": 65.8,
+      "satisfied": 2,
+      "total": 5
+    },
+    "status": {
+      "units": 59,
+      "stale": 0,
+      "never": 59,
+      "in_sync": 0
+    },
     "diff_vs_live_profile": {
       "exit": 1,
       "summary": "SSOT artifact != live README; live copy pre-v1.5 (pac-era footer)"

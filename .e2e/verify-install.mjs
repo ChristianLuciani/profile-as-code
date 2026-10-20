@@ -10,9 +10,16 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const WS = process.env.PASCO_WS ?? "/Users/eva/PROJECTOS/GitHub/ChristianLuciani/profile-data";
+const HERE = dirname(fileURLToPath(import.meta.url));
+const MANIFEST_PATH = join(HERE, "manifest.json");
+const manifestRaw = existsSync(MANIFEST_PATH)
+  ? JSON.parse(readFileSync(MANIFEST_PATH, "utf8"))
+  : {};
+// No default personal path (same rule as verify.mjs): PASCO_WS, or the manifest's recorded run.
+const WS = process.env.PASCO_WS ?? manifestRaw.workspace?.path;
 
 const out = [];
 // Blocked: a precondition this script could not meet (e.g. no `pasco` on PATH yet, so the
@@ -121,27 +128,31 @@ if (!onPath) {
     }
     return h.digest("hex");
   };
-  const before = existsSync(join(WS, "content")) ? hash() : null;
-  const real = sh(pasco, ["validate", "--workspace", WS]);
-  rec(
-    real.code === 0 ? "PASS" : "FAIL",
-    "published CLI validates the real workspace",
-    `exit ${real.code}`,
-  );
-  if (before)
+  if (WS === undefined) {
+    rec("BLOCKED", "real-workspace probe", "set PASCO_WS=<path to a profile-data workspace>");
+  } else {
+    const before = existsSync(join(WS, "content")) ? hash() : null;
+    const real = sh(pasco, ["validate", "--workspace", WS]);
     rec(
-      before === hash() ? "PASS" : "FAIL",
-      "validate left the workspace byte-identical (no writes)",
-      `${before.slice(0, 12)}`,
+      real.code === 0 ? "PASS" : "FAIL",
+      "published CLI validates the real workspace",
+      `exit ${real.code}`,
     );
-  rec(
-    /geo/.test(real.out) ? "INFO" : "INFO",
-    "geo line present",
-    real.out
-      .split("\n")
-      .find((l) => /overall score/.test(l))
-      ?.trim() ?? "",
-  );
+    if (before)
+      rec(
+        before === hash() ? "PASS" : "FAIL",
+        "validate left the workspace byte-identical (no writes)",
+        `${before.slice(0, 12)}`,
+      );
+    rec(
+      "INFO",
+      "geo line present",
+      real.out
+        .split("\n")
+        .find((l) => /overall score/.test(l))
+        ?.trim() ?? "",
+    );
+  }
 }
 
 const failed = out.filter((r) => r.s === "FAIL");

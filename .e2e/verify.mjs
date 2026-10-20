@@ -13,8 +13,14 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENGINE = join(HERE, "..");
-const WS = process.env.PASCO_WS ?? "/Users/eva/PROJECTOS/GitHub/ChristianLuciani/profile-data";
 const PASCO = join(ENGINE, "packages", "cli", "dist", "index.js");
+
+// The workspace is NOT part of this repo: it is an independent, private profile-data repo.
+// No default path (a personal absolute path in the engine repo is a portability bug and a
+// privacy hint). Set PASCO_WS, or let the manifest carry it for a recorded run.
+const MANIFEST_PATH = join(HERE, "manifest.json");
+const manifest = existsSync(MANIFEST_PATH) ? JSON.parse(readFileSync(MANIFEST_PATH, "utf8")) : {};
+const WS = process.env.PASCO_WS ?? manifest.workspace?.path;
 
 let yaml;
 try {
@@ -48,8 +54,11 @@ const load = (file) => {
 };
 
 // ── 0. preconditions ────────────────────────────────────────────────────────
-const manifest = JSON.parse(readFileSync(join(HERE, "manifest.json"), "utf8"));
 record(existsSync(PASCO) ? "PASS" : "FAIL", "engine binary present", PASCO);
+if (WS === undefined) {
+  record("FAIL", "workspace path supplied", "set PASCO_WS=<path to a profile-data workspace>");
+  process.exit(1);
+}
 record("INFO", "workspace", WS);
 
 if (existsSync(join(WS, "content"))) {
@@ -71,14 +80,19 @@ if (existsSync(join(WS, "content"))) {
   if (vj?.geo?.overall != null) record("INFO", "geo overall score", `${vj.geo.overall}/100`);
 
   // ── 2. completeness ───────────────────────────────────────────────────────
+  // Baseline comes from the manifest (measured at run start), never a literal in the script:
+  // a hardcoded number makes every later run compare against yesterday's workspace.
+  const baselinePct = manifest.baseline?.completeness?.pct;
   const c = run("node", [PASCO, "status", "--completeness"]);
   const m = c.out.match(/(\d+(?:\.\d+)?)% — (\d+)\/(\d+)/);
-  if (m) {
+  if (m && baselinePct !== undefined) {
     record(
-      Number(m[1]) >= 65.8 ? "PASS" : "FAIL",
+      Number(m[1]) >= baselinePct ? "PASS" : "FAIL",
       "completeness not below baseline",
-      `${m[1]}% (baseline 65.8%)`,
+      `${m[1]}% (baseline ${baselinePct}%)`,
     );
+  } else if (m) {
+    record("INFO", "completeness", `${m[1]}% (no baseline declared in manifest)`);
   }
   // deployment item = every trackable unit carries a ledger record
   const never = c.out.match(/Deployed to a surface — (\d+)\/(\d+)/);
@@ -92,7 +106,9 @@ if (existsSync(join(WS, "content"))) {
   const esCovered = (load("bios.yaml") ?? []).filter((b) => b.lang === "es").map((b) => b.platform);
   const enPlatforms = [...new Set([...bioT, ...headT])];
   const missingEs = enPlatforms.filter((p) => !esCovered.includes(p));
-  record("FAIL", "every en platform also has an es text", missingEs.join(", ") || "complete");
+  // Not a FAIL: a workspace may legitimately be EN-only on a surface (this run declared it).
+  // The engine's own language rule is the INFO below; this line only reports the shape.
+  record("INFO", "en platforms without an es text", missingEs.join(", ") || "none");
   record(
     "INFO",
     "completeness-lang-coverage",
@@ -135,29 +151,47 @@ if (existsSync(join(WS, "content"))) {
         `${b.text.length}`,
       );
   }
-  // limits the platform skills must DECLARE (they state the caps the agent is held to)
-  for (const [platform, cap] of [
-    ["linkedin", "headline"],
-    ["upwork", "headline"],
-    ["x", "bio"],
-  ]) {
+  // R6: the skills must declare the SAME cap this verifier enforces. The old check searched
+  // `new RegExp("headline")` — which matches nearly any prose — so it was tautological.
+  const CAP_FIELD = { linkedin: "headline", upwork: "headline", x: "bio" };
+  for (const [platform, field] of Object.entries(CAP_FIELD)) {
+    const cap = LIMITS[platform]?.[field];
     const skillPath = join(ENGINE, "skills", platform, "SKILL.md");
-    const has =
-      existsSync(skillPath) && new RegExp(String(cap), "i").test(readFileSync(skillPath, "utf8"));
+    const body = existsSync(skillPath) ? readFileSync(skillPath, "utf8") : "";
     record(
-      "INFO",
-      `skills/${platform}/SKILL.md declares a limit for ${cap}`,
-      has ? "yes" : "not found",
+      existsSync(skillPath) ? "INFO" : "INFO",
+      `skills/${platform}/SKILL.md`,
+      existsSync(skillPath)
+        ? body.includes(String(cap))
+          ? `declares the enforced cap (${cap})`
+          : `does NOT declare the enforced cap (${cap})`
+        : "not present in this engine version",
     );
   }
 
   // ── 5. link SSOT + markdown validity in renders ───────────────────────────
   const identity = load("identity.yaml") ?? {};
   const ssot = new Set((identity.links ?? []).map((l) => l.url));
-  const readme = existsSync(join(WS, "profiles", "github-readme", "README.md"))
-    ? readFileSync(join(WS, "profiles", "github-readme", "README.md"), "utf8")
+  // R2: what the deploy cycle must judge is the PUBLISHED artifact — the active variant when
+  // one exists (#238), never the deterministic render. The manifest declares which file that
+  // is for this run; with no declaration we fall back to the deterministic render and SAY so.
+  const publishedRel = manifest.surface?.published_artifact;
+  const artifactRel = publishedRel ?? "profiles/github-readme/README.md";
+  const readme = existsSync(join(WS, artifactRel))
+    ? readFileSync(join(WS, artifactRel), "utf8")
     : "";
-  if (readme) {
+  record(
+    "INFO",
+    "parity target",
+    publishedRel
+      ? `${artifactRel} (declared published artifact)`
+      : `${artifactRel} (no published_artifact declared — deterministic)`,
+  );
+  // R1: an empty or trivial render must FAIL, not pass vacuously — a check that green-lights
+  // an empty file is worse than no check (it was the one false PASS this verifier produced).
+  if (readme.trim().length < 32) {
+    record("FAIL", "rendered artifact has content", `${readme.trim().length} chars`);
+  } else {
     const hrefs = [...readme.matchAll(/\]\(([^)\s]+)\)/g)].map((x) => x[1]);
     const outside = hrefs.filter(
       (u) =>
@@ -171,7 +205,17 @@ if (existsSync(join(WS, "content"))) {
       outside.join(", ") || "",
     );
     // unbalanced markdown link labels/parens: `](` that never closes before the next `[`
-    const broken = [...readme.matchAll(/\[([^\]]*)\]\(([^()\s]*\([^)]*[^)\s]*)\)/g)];
+    // A raw "(" inside a CommonMark destination invalidates the whole link. The previous
+    // pattern matched a PAR inside ITSELF (dest with "(" closed by ")" + ")" of the link), so
+    // it could never fire — it reported 0 forever. Bare inline is not this check's domain.
+    // CommonMark: an UNENCODED "(" inside a destination makes it ambiguous — GitHub's renderer
+    // closes the link early and the rest leaks as text. (A raw ")" always closes it; a BALANCED
+    // pair like a_(b) is still outside the spec, and %28/%29 is the fix.) The original check
+    // matched a paren pair inside its own pattern, so it could never fire — that is the false
+    // PASS this replacement removes.
+    const broken = [...readme.matchAll(/\]\(([^)\n]*)\)/g)].filter(
+      (m) => !m[1].startsWith("<") && /[()]/.test(m[1].replace(/%28/gi, "").replace(/%29/gi, "")),
+    );
     record(
       broken.length === 0 ? "PASS" : "FAIL",
       "markdown link destinations balanced (no paren inside a destination)",
@@ -186,20 +230,17 @@ if (existsSync(join(WS, "content"))) {
       "no URL-as-badge-label (locale-agnostic)",
       labelUrls.join(", ") || "",
     );
-    // CV-bio style trilingual hook present
-    record(
-      /^\*\*Physicist\.|Physicist\.\s*20\+/m.test(readme) ? "PASS" : "INFO",
-      "trilingual bio (CV bio_spot) in the hook",
-      "optional — reviewer judgement",
-    );
-  } else {
-    record("INFO", "no generated profile README in workspace", "expected before Step 1");
   }
 
   // ── 6. live GitHub profile parity (the deploy is byte-identical to the artifact) ──
   const gh = run(
     "gh",
-    ["api", "repos/ChristianLuciani/ChristianLuciani/readme", "--jq", ".content"],
+    [
+      "api",
+      `repos/${manifest.surface?.target_repo ?? "ChristianLuciani/ChristianLuciani"}/readme`,
+      "--jq",
+      ".content",
+    ],
     { cwd: ENGINE },
   );
   if (gh.code === 0) {
@@ -208,8 +249,8 @@ if (existsSync(join(WS, "content"))) {
     const artSha = readme ? createHash("sha256").update(readme).digest("hex") : null;
     record(
       liveSha === artSha ? "PASS" : "FAIL",
-      "live profile README == workspace artifact",
-      `${liveSha.slice(0, 12)} vs ${artSha?.slice(0, 12) ?? "no artifact"}`,
+      `live profile README == ${publishedRel ? "published artifact (variants)" : "workspace artifact"}`,
+      `${liveSha.slice(0, 12)} vs ${artSha?.slice(0, 12) ?? "no artifact"}${manifest.surface?.published_sha256_at_run_end ? ` (run declared ${manifest.surface.published_sha256_at_run_end})` : ""}`,
     );
     record(
       /generated by profile-as-code p(asc)?o build/.test(live) ? "PASS" : "INFO",
@@ -218,7 +259,7 @@ if (existsSync(join(WS, "content"))) {
     );
     record(
       /"@type": "Person"/.test(live) ? "PASS" : "FAIL",
-      "live README carries schema.org Person JSON-LD",
+      "live README carries schema.org Person JSON-LD (§15.4: @id/entity fields live only in the deterministic render; a prose variant without it is citable-less)",
       "",
     );
     record(

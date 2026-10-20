@@ -15,7 +15,7 @@ Todo número de este informe se refiere a **este** binario, y se puede re-deriva
 | `dist` sha256 | `c94b339e98d4c440f8dd6f19054cde9901c5742ceabfca426a836fce72cc080f` | `shasum -a 256 "$(npm prefix -g)/lib/node_modules/@profile-as-code/cli/dist/index.js"` |
 | Dependencias publicadas | `yaml ^2.9.1`, `zod ^4.6.5` (nada más) | `npm view @profile-as-code/cli@0.3.0 dependencies` |
 | Fuente de la versión | tag `v0.3.0` → `21e4cde` | `git rev-parse v0.3.0` |
-| Tag de baseline E2E | `e2e-0.3.0` → `21e4cde` | `git rev-parse e2e-0.3.0^{commit}` |
+
 | Attestation de provenance | **ausente** (`dist.attestations` no existe) | `npm view @profile-as-code/cli@0.3.0 dist.attestations` |
 | `main` del engine al cerrar | `d8ebc7e` (6 días y ~20 commits adelante de `v0.3.0`) | `git log --oneline v0.3.0..main` |
 | `profile-data` al cerrar | `5ed0073` | `git -C profile-data rev-parse main` |
@@ -66,15 +66,32 @@ Antes de correr, se anota `shasum -a 256` del `dist` instalado. Un run que no pu
 ### 2. El diff entre versiones se puede hacer
 
 ```sh
-# el código de la versión que se testeó, contra el de la próxima
-git diff e2e-0.3.0 e2e-<próxima> -- packages/cli/src packages/renderers skills platforms
+# de un tag a otro: qué CAMBIÓ entre dos versiones (el caso que usa el inventario)
+git diff e2e-0.3.0 e2e-0.4.0 -- packages/cli/src packages/renderers skills platforms
+
+# de la versión a un release sin tag todavía: `...` (tres puntos) usa el merge-base, así el
+# diff no arrastra los cambios de main que no tienen nada que ver con el release
+git diff e2e-0.3.0...v0.4.0 -- packages/
 ```
+
+> **No uses `e2e-0.3.0..HEAD` en el working tree de main**: arrastraba todo lo que entró a
+> main después del tag (los PRs de releases, docs, CI) y la lista de "features nuevas" se
+> volvía ilegible. El diff que importa es el del **código del CLI y de los renderers**, con
+> merge-base.
 
 Ese diff **es** la lista de features nuevas que el próximo run tiene que inventariar. Regla: **ninguna version se declara e2e-completa hasta que cada entrada del diff esté en el inventario con nivel ✅/🟡/❌** — un ❌ es aceptable como declaración, el silencio no.
 
 ### 3. El checklist de features nuevas
 
 Crear el tag `e2e-<versión>` **junto al release** (no después). El cuerpo del tag quotea: el hash del `dist`, el comando de re-derivación y la ruta de este inventario. Así el inventario de la versión N+1 arranca desde `git diff`.
+
+### Nit encontrado en el review — `git describe` nunca reportó `v0.3.0`
+
+`v0.3.0` es un tag **ligero** (`git cat-file -t v0.3.0` → `commit`), y `git describe` sólo usa
+anotados: en `main` había reportado `fatal: no names found` hasta que existió `e2e-0.3.0`
+(marcado ligero a propósito, para no pasar a ser el nombre que `describe` devuelve). Ningún
+script de este repo usa `describe`, así que **no rompe hoy**; se anota acá para que nadie lo
+use más adelante como fuente de versión de una release que `describe` no puede ver.
 
 ### Estado de este contrato hoy
 
