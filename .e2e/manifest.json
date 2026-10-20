@@ -9,7 +9,8 @@
     "artifact_sha": "engine tag v0.3.0 -> 21e4cde (2026-10-11); main was 30555c1 at session start",
     "install_mode": "global real, run by the human in their own terminal (session sandbox cannot write ~/.npm or ~/.local — EPERM, 2026-10-19)",
     "cli_dist": "packages/cli/dist/index.js (present, NOT the artifact under test)",
-    "cli_version": "pasco 0.3.0 (same version string on both — the tarball and main are 6 days apart)"
+    "cli_version": "pasco 0.3.0 (same version string on both — the tarball and main are 6 days apart)",
+    "published_dist_sha256": "c94b339e98d4c440f8dd6f19054cde9901c5742ceabfca426a836fce72cc080f"
   },
   "workspace": {
     "repo": "ChristianLuciani/profile-data",
@@ -54,9 +55,20 @@
     }
   },
   "commands": {
-    "pasco": "node /Users/eva/PROJECTOS/GitHub/ChristianLuciani/profile-as-code/packages/cli/dist/index.js",
-    "alias": "alias pasco='node /Users/eva/PROJECTOS/GitHub/ChristianLuciani/profile-as-code/packages/cli/dist/index.js'",
-    "why": "pasco was not on PATH before A0 (verified `command -v pasco` -> empty, 2026-10-19); after A0 the PATH bin is what this run uses",
-    "not_the_test": "the source build at packages/cli/dist is NOT what this run verifies"
+    "pasco_note": "the run used the PATH pasco (~/.local/bin/pasco), NOT the repo dist; verify.mjs runs the repo dist (a different build of the same version) — stated so a re-run knows which binary each number came from",
+    "verify_workspace": "PASCO_WS=<workspace> node .e2e/verify.mjs",
+    "verify_install": "node .e2e/verify-install.mjs"
+  },
+  "run": {
+    "date": "2026-10-19/20",
+    "executed_by": "operator in a real terminal, treated as a non-technical user",
+    "engine_binary": "packages/cli/dist (this repo) — the artifact is npm @profile-as-code/cli@0.3.0; the two are the SAME version string but NOT the same build, see artifact_under_test",
+    "workspace_scope": "profile-data worktree at the merged commit, not the operator's working tree"
+  },
+  "environment": {
+    "os": "darwin (Apple Silicon)",
+    "node": "v22.23.1",
+    "npm_prefix": "~/.local",
+    "notes": "npm works from a normal shell; the agent sandbox cannot write ~/.npm — installation was run by the operator"
   }
 }

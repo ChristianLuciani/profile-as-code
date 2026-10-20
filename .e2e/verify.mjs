@@ -13,7 +13,10 @@ import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENGINE = join(HERE, "..");
-const PASCO = join(ENGINE, "packages", "cli", "dist", "index.js");
+// PASCO_BIN lets a run point at the PUBLISHED install (~/.local/.../cli/dist/index.js). The
+// default is this repo's build: same version STRING as the published tarball, different build —
+// a number from one is not a number from the other, so the check below names which one ran.
+const PASCO = process.env.PASCO_BIN ?? join(ENGINE, "packages", "cli", "dist", "index.js");
 
 // The workspace is NOT part of this repo: it is an independent, private profile-data repo.
 // No default path (a personal absolute path in the engine repo is a portability bug and a
@@ -55,6 +58,16 @@ const load = (file) => {
 
 // ── 0. preconditions ────────────────────────────────────────────────────────
 record(existsSync(PASCO) ? "PASS" : "FAIL", "engine binary present", PASCO);
+const binVersion = existsSync(PASCO) ? run("node", [PASCO, "--version"], { cwd: ENGINE }) : null;
+const binSha = createHash("sha256")
+  .update(existsSync(PASCO) ? readFileSync(PASCO) : "")
+  .digest("hex");
+const declaredSha = manifest.engine?.published_dist_sha256;
+record(
+  "INFO",
+  "engine binary under test",
+  `${binVersion?.out.trim() ?? "?"} · sha256 ${binSha.slice(0, 12)}${declaredSha ? (declaredSha.startsWith(binSha.slice(0, 12)) ? " (== declared published artifact)" : ` (run declared ${declaredSha.slice(0, 12)})`) : ""}`,
+);
 if (WS === undefined) {
   record("FAIL", "workspace path supplied", "set PASCO_WS=<path to a profile-data workspace>");
   process.exit(1);
@@ -280,6 +293,7 @@ if (existsSync(join(WS, "content"))) {
       "deploy status",
       `units ${counts[1]} · stale ${counts[2]} · never ${counts[3]} · in-sync ${counts[4]}`,
     );
+  // The ledger is content/deployments.yaml by contract (§19.1); .pascorc has no ledger path.
   const ledger = load("deployments.yaml") ?? {};
   const surfaces = new Set();
   for (const units of Object.values(ledger))
