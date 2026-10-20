@@ -1,5 +1,9 @@
 # M1 · la lista de `--mark` (qué pegué dónde)
 
+> **Alcance declarado** (`agos` §Convenciones):
+> Cubre: la lista de comandos `--mark` por unidad × superficie que el run PREPARÓ · No cubre: que se hayan ejecutado: ninguno lo hizo (el ledger cerró con 62 units `never`) · as_of: 2026-10-20
+> Si una pieza no aparece, no asumas que no existe: reportá el hueco.
+
 `pasco status --mark <ledgerKey> <surface>` registra **una** unidad en **una** superficie.
 Cada `--mark` reescribe `content/deployments.yaml` entero (se lleva los comentarios).
 

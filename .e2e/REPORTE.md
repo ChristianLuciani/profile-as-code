@@ -28,7 +28,7 @@ El run entero se ejecutó contra **un** binario, y esto lo vuelve re-derivable s
 | Versión | `@profile-as-code/cli@0.3.0` |
 | `dist` sha256 | `c94b339e98d4c440f8dd6f19054cde9901c5742ceabfca426a836fce72cc080f` |
 | Código fuente | tag `v0.3.0` → `21e4cde` · tag de baseline `e2e-0.3.0` → `21e4cde` |
-| `main` del engine al cerrar | `d8ebc7e` — **no fue dogfoodeado** (está ~20 commits adelante) |
+| `main` del engine al cerrar | `d8ebc7e` — **no fue dogfoodeado** (79 commits y 8 d 17 h más nuevo que `v0.3.0`, medido con `git rev-list --count`) |
 | Attestation npm | ausente — el vínculo versión↔código se sostiene en el tag y el hash, no en el registry |
 
 Comando de re-derivación:
@@ -50,7 +50,7 @@ git rev-parse v0.3.0 e2e-0.3.0^{commit}
 | 5 | SSOT con el binario publicado reproduce el estado de `main` | `validate` × 2 artefactos | ✅ geo 87/100 en ambos |
 | 6 | Loop completo sin tocar hechos | `shasum` antes/después de `check`/`diff`/`--completeness` | ✅ `7f699ffb…` = `7f699ffb…` |
 | 7 | Las 7 ediciones al SSOT | `validate` tras cada una | ✅ schema valid · drift 0 |
-| 8 | `role: identity` recupera el ancla de entidad | `validate --json` | ✅ structured-data **80 → 100** · geo **87 → 93** |
+| 8 | `role: identity` recupera el ancla de entidad | `validate` con y sin la línea, sobre este SSOT | ✅ structured-data **80 → 100** (sección) · geo **88 → 93** (+5 overall) = ✅ — medido 2026-10-20 sobre el estado final |
 | 9 | Dos headlines faltantes (RG, X/en) suben consistencia | `validate` | ✅ fact consistency **92 → 94** |
 | 10 | PR de datos mergeado | GitHub API | ✅ `profile-data#7` → `5ed0073` |
 | 11 | PR de publicación mergeado | GitHub API | ✅ `ChristianLuciani#2` → `bfb0dbc3` depende de `5ed0073` |
@@ -84,7 +84,7 @@ git rev-parse v0.3.0 e2e-0.3.0^{commit}
 | [#238](https://github.com/ChristianLuciani/profile-as-code/issues/238) | el variant elegido nunca se renderiza | `active.yaml` = `gh-en-1`; `build` emite el determinista |
 | [#239](https://github.com/ChristianLuciani/profile-as-code/issues/239) | superficies de pega sin artefacto en disco | `find` → solo `github-readme/` |
 | [#240](https://github.com/ChristianLuciani/profile-as-code/issues/240) | texto sobre el límite pasa `validate` **y** `check` | Upwork 80/50, `0 finding(s)` |
-| [#241](https://github.com/ChristianLuciani/profile-as-code/issues/241) | el hueco de `role: identity` invisible en el score | 80/100 sin `@id` — luego **+20 reales** al declararlo |
+| [#241](https://github.com/ChristianLuciani/profile-as-code/issues/241) | el hueco de `role: identity` invisible en el score | structured-data **80/100** sin `@id`; declararlo subió la **sección** a 100 (+20 de sección = **+5 overall**) — el punto del issue: 5 de 100 no se ve, 20 de una sección sí |
 | [#242](https://github.com/ChristianLuciani/profile-as-code/issues/242) | "optimizado" no es medible | verde en todos los gates mientras el artefacto publicado era otro |
 | [#247](https://github.com/ChristianLuciani/profile-as-code/issues/247) + [#248](https://github.com/ChristianLuciani/profile-as-code/issues/248)–[#252](https://github.com/ChristianLuciani/profile-as-code/issues/252) | epic `pasco edit` + 5 slices | el error de campo-en-archivo-equivocado, y "cambié una cosa y 4 filas siguen diciendo otra" |
 | [#253](https://github.com/ChristianLuciani/profile-as-code/issues/253) | la skill de plataforma nunca se encuentra en npm | `refine` → `(not installed — fall back…)`; el tarball solo trae `dist/` |
@@ -107,6 +107,6 @@ Ninguna fue un error de sintaxis: las cuatro pasaron `validate` en verde. Por es
 - `.e2e/manifest.json` — shas de arranque de ambos repos, artefacto bajo prueba, comandos
 - `.e2e/PLAN.md` — el plan de tres bloques con los criterios de verificación
 - `.e2e/verify-install.mjs` — 11 checks de instalación
-- `.e2e/verify.mjs` — 36–39 checks de workspace + red
+- `.e2e/verify.mjs` — 36–41 checks de workspace + red (el número depende de cuántas filas `headlines`/`bios` tenga el workspace)
 - `.e2e/L1-values.md` · `old-values.md` · `M1-mark.md` · `ROLLBACK.md`
-- `.e2e/content/*.yaml` — copia read-only del SSOT en `d0303f7`
+- ~~`.e2e/content/*.yaml`~~ — la copia read-only del SSOT **se borró antes del commit**: este repo es el engine y no lleva datos de usuario (SPEC §9). Se usó sólo como línea base durante el run

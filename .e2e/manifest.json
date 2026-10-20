@@ -63,7 +63,9 @@
     "date": "2026-10-19/20",
     "executed_by": "operator in a real terminal, treated as a non-technical user",
     "engine_binary": "packages/cli/dist (this repo) — the artifact is npm @profile-as-code/cli@0.3.0; the two are the SAME version string but NOT the same build, see artifact_under_test",
-    "workspace_scope": "profile-data worktree at the merged commit, not the operator's working tree"
+    "workspace_scope": "profile-data worktree at the merged commit, not the operator's working tree",
+    "surfaces_deployed": ["linkedin", "upwork", "x", "researchgate", "substack", "patreon"],
+    "surfaces_deployed_note": "DECLARED at run start as the surfaces to be pasted; the run ended with NONE pasted (ledger 62 units never) — a re-run must set this to what was actually deployed"
   },
   "environment": {
     "os": "darwin (Apple Silicon)",

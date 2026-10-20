@@ -1,5 +1,9 @@
 # Old values — what to paste back if you dislike the new text
 
+> **Alcance declarado** (`agos` §Convenciones):
+> Cubre: los valores ANTERIORES de los campos que el run cambió en `bios` y `headlines` · No cubre: los valores de `positioning`/`identity` (viven en el historial git) ni ningún dato que no estuviera en este workspace · as_of: 2026-10-20
+> Si una pieza no aparece, no asumas que no existe: reportá el hueco.
+
 Captured 2026-10-19, from `profile-data` @ `d0303f7`. These are the **current SSOT values**.
 If you reject a new variant, paste the old one back into `content/` (L3 in the plan).
 

@@ -171,9 +171,16 @@ if (existsSync(join(WS, "content"))) {
     const cap = LIMITS[platform]?.[field];
     const skillPath = join(ENGINE, "skills", platform, "SKILL.md");
     const body = existsSync(skillPath) ? readFileSync(skillPath, "utf8") : "";
+    // R6 could not fail inside this script by design (a skills surface is a doc, not an
+    // engine gate) — but it must be a NAMEABLE gap, not a format: a skill that does not
+    // declare the cap this verifier enforces lets the agent write past it (premerge F5).
+    const declares = existsSync(skillPath) && body.includes(String(cap));
     record(
-      existsSync(skillPath) ? "INFO" : "INFO",
+      "INFO",
       `skills/${platform}/SKILL.md`,
+      declares
+        ? `declares the enforced cap (${cap})`
+        : `GAP — does not declare the enforced cap (${cap})`,
       existsSync(skillPath)
         ? body.includes(String(cap))
           ? `declares the enforced cap (${cap})`
@@ -248,15 +255,12 @@ if (existsSync(join(WS, "content"))) {
   // ── 6. live GitHub profile parity (the deploy is byte-identical to the artifact) ──
   const gh = run(
     "gh",
-    [
-      "api",
-      `repos/${manifest.surface?.target_repo ?? "ChristianLuciani/ChristianLuciani"}/readme`,
-      "--jq",
-      ".content",
-    ],
+    ["api", `repos/${manifest.surface?.target_repo ?? "<unset>"}/readme`, "--jq", ".content"],
     { cwd: ENGINE },
   );
-  if (gh.code === 0) {
+  if (manifest.surface?.target_repo === undefined) {
+    record("INFO", "live profile read skipped", "manifest.surface.target_repo not declared");
+  } else if (gh.code === 0) {
     const live = Buffer.from(gh.out.trim(), "base64").toString("utf8");
     const liveSha = createHash("sha256").update(live).digest("hex");
     const artSha = readme ? createHash("sha256").update(readme).digest("hex") : null;
@@ -275,10 +279,16 @@ if (existsSync(join(WS, "content"))) {
       "live README carries schema.org Person JSON-LD (§15.4: @id/entity fields live only in the deterministic render; a prose variant without it is citable-less)",
       "",
     );
+    // Was inverted (premerge F2): a healthy @context https://… read as FAIL, and NO JSON-LD
+    // read as PASS. The question is about the `sameAs` array of the Person block specifically.
+    const sameAsBlock = live.match(/"sameAs"\s*:\s*\[([\s\S]*?)\]/)?.[1] ?? "";
+    const badSameAs = [...sameAsBlock.matchAll(/"([^"]*)"/g)]
+      .map((m) => m[1])
+      .filter((u) => !/^https?:\/\//.test(u));
     record(
-      /"[^"]+"\s*:\s*"[^"]*[a-z]:\/\/[^"]*"/.test(live) ? "FAIL" : "PASS",
-      'JSON-LD URLs are real URLs (no bare "mailto:…" as a URL)',
-      "",
+      badSameAs.length === 0 ? "PASS" : "FAIL",
+      "JSON-LD sameAs carries page URLs only (no mailto:/relative)",
+      badSameAs.join(", ") || "none",
     );
   } else {
     record("INFO", "live GitHub read unavailable", gh.out.split("\n")[0]);
@@ -298,7 +308,10 @@ if (existsSync(join(WS, "content"))) {
   const surfaces = new Set();
   for (const units of Object.values(ledger))
     for (const surf of Object.keys(units)) surfaces.add(surf);
-  const expected = manifest.surfaces ?? [];
+  // Was `manifest.surfaces ?? []` — a key the manifest never had, so `expected` was always []
+  // and the check below was dead code (premerge F3). Derive the expectation from the recorded
+  // run instead: the surfaces the operator said they deployed, or the target of the deploy.
+  const expected = manifest.run?.surfaces_deployed ?? manifest.target_surfaces ?? [];
   const missing = expected.filter((x) => ![...surfaces].some((sg) => sg.startsWith(x)));
   if (expected.length)
     record(
@@ -310,8 +323,10 @@ if (existsSync(join(WS, "content"))) {
 
   // ── 8. release tag for pasco diff ─────────────────────────────────────────
   const tag = run("git", ["tag", "-l", "release-*"]);
+  // run() folds stderr into .out, so "not a git repository" read as output → PASS. A failing
+  // command is not evidence: gate on the exit code first (premerge F1).
   record(
-    tag.out.trim() ? "PASS" : "PENDING",
+    tag.code !== 0 ? "INFO" : tag.out.trim() ? "PASS" : "PENDING",
     "release-* tag exists (baseline for pasco diff)",
     tag.out.trim() || "none",
   );

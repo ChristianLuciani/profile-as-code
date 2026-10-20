@@ -1,5 +1,9 @@
 # Rollback — E2E dogfood, Christian Luciani
 
+> **Alcance declarado** (`agos` §Convenciones):
+> Cubre: cómo revertir cada superficie tocada por el run (perfil publicado, rama del workspace, ledger) · No cubre: las superficies manuales que nunca se pegaron (no hay nada que revertir) ni el historial de edición de cada plataforma · as_of: 2026-10-20
+> Si una pieza no aparece, no asumas que no existe: reportá el hueco.
+
 ## Surface: GitHub profile README (`ChristianLuciani/ChristianLuciani`, `README.md`, `main`)
 
 Baseline verified 2026-10-19: branch head `2e317e6` = live README content.

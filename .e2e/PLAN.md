@@ -1,7 +1,7 @@
 # E2E dogfood — Christian Luciani · plan de extremo a extremo
 
 > **Alcance declarado** (`agos` §Convenciones):
-> Cubre: las 6 superficies que tienen sección propia en el SSOT y un flujo completo (GitHub profile README · LinkedIn · Upwork · X · ResearchGate · Substack) + Patreon y CV/website como chequeo de coherencia, más el loop del engine (`validate → build → diff → status → mark → tag`) · No cubre: Instagram, WhatsApp, ORCID y YouTube (sin checklist ni texto por plataforma en el SSOT) · as_of: 2026-10-19
+> Cubre: las 6 superficies que tienen sección propia en el SSOT y un flujo completo (GitHub profile README · LinkedIn · Upwork · X · ResearchGate · Substack) + Patreon y CV/website como chequeo de coherencia, más el loop del engine **hasta donde el run lo ejecutó** (`validate → build → diff → status`; `--mark` y el tag `release-*` NO se ejecutaron) · No cubre: Instagram, WhatsApp, ORCID y YouTube (sin checklist ni texto por plataforma en el SSOT) · as_of: 2026-10-19
 >
 > Si una superficie no aparece, no asumas que no existe: reportá el hueco.
 

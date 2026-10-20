@@ -1,5 +1,9 @@
 # L1 · valores exactos para tu SSOT (decidido 2026-10-19)
 
+> **Alcance declarado** (`agos` §Convenciones):
+> Cubre: los 8 valores exactos que el operador escribió en su SSOT el 2026-10-19/20, con su conteo medido · No cubre: los valores alternativos descartados, ni los textos que dependen de una fuente que el run no consiguió (cap de Patreon) · as_of: 2026-10-20
+> Si una pieza no aparece, no asumas que no existe: reportá el hueco.
+
 **Vos escribís.** Cada bloque es un valor listo para pegar; el conteo a la derecha es el caracter count
 medido con el mismo `.length` que usa el engine para medir (cada símbolo cuenta 1; los caracteres
 Unicode como `·` o `—` también).

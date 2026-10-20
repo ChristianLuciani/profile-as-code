@@ -17,7 +17,7 @@ Todo número de este informe se refiere a **este** binario, y se puede re-deriva
 | Fuente de la versión | tag `v0.3.0` → `21e4cde` | `git rev-parse v0.3.0` |
 
 | Attestation de provenance | **ausente** (`dist.attestations` no existe) | `npm view @profile-as-code/cli@0.3.0 dist.attestations` |
-| `main` del engine al cerrar | `d8ebc7e` (6 días y ~20 commits adelante de `v0.3.0`) | `git log --oneline v0.3.0..main` |
+| `main` del engine al cerrar | `d8ebc7e` — **79 commits y 8 d 17 h** adelante de `v0.3.0` | `git log --oneline v0.3.0..main` |
 | `profile-data` al cerrar | `5ed0073` | `git -C profile-data rev-parse main` |
 | Perfil publicado al cerrar | `ac8a619` · README sha256 `bfb0dbc35cd9` | `gh api repos/ChristianLuciani/ChristianLuciani/commits/main` |
 
@@ -67,7 +67,7 @@ Antes de correr, se anota `shasum -a 256` del `dist` instalado. Un run que no pu
 
 ```sh
 # de un tag a otro: qué CAMBIÓ entre dos versiones (el caso que usa el inventario)
-git diff e2e-0.3.0 e2e-0.4.0 -- packages/cli/src packages/renderers skills platforms
+git diff e2e-0.3.0 e2e-0.4.0 -- packages/cli/src packages/core/src packages/renderers skills platforms
 
 # de la versión a un release sin tag todavía: `...` (tres puntos) usa el merge-base, así el
 # diff no arrastra los cambios de main que no tienen nada que ver con el release
@@ -85,13 +85,19 @@ Ese diff **es** la lista de features nuevas que el próximo run tiene que invent
 
 Crear el tag `e2e-<versión>` **junto al release** (no después). El cuerpo del tag quotea: el hash del `dist`, el comando de re-derivación y la ruta de este inventario. Así el inventario de la versión N+1 arranca desde `git diff`.
 
-### Nit encontrado en el review — `git describe` nunca reportó `v0.3.0`
+### Corrección (premerge F7) — el relato anterior sobre `git describe` era falso
 
-`v0.3.0` es un tag **ligero** (`git cat-file -t v0.3.0` → `commit`), y `git describe` sólo usa
-anotados: en `main` había reportado `fatal: no names found` hasta que existió `e2e-0.3.0`
-(marcado ligero a propósito, para no pasar a ser el nombre que `describe` devuelve). Ningún
-script de este repo usa `describe`, así que **no rompe hoy**; se anota acá para que nadie lo
-use más adelante como fuente de versión de una release que `describe` no puede ver.
+El borrador anterior decía que `git describe` "nunca reportó `v0.3.0` porque es ligero". **Eso es
+falso en las dos mitades**, verificado:
+
+- `git describe --tags` **sí** devuelve tags ligeros (sin `--tags` sólo usa anotados);
+- `git describe --tags v0.3.0` → `e2e-0.3.0`, porque **ambos tags apuntan al mismo commit**
+  `21e4cde` — no hay distancia que resolver.
+
+El riesgo real, entonces, no es el tipo de tag: es una **colisión de nombres** el día que alguien
+crea `e2e-<versión>` sobre el mismo commit que `v<versión>`. Mitigación: los consumidores
+excluyen explícitamente (`git describe --exclude='e2e-*'`), y el tag de baseline marca el código
+testeado, no la release.
 
 ### Estado de este contrato hoy
 
