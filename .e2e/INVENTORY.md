@@ -1,0 +1,109 @@
+# E2E — inventario de features testeadas (run 2026-10-19/20)
+
+> **Alcance declarado** (`agos` §Convenciones):
+> Cubre: cada comando y cada comportamiento del CLI `@profile-as-code/cli@0.3.0` que el run ejecutó, con el nivel de profundidad real · No cubre: los 7 renderers distintos de `github-readme`, el flavor `brand`, ni (en v0.3.0) ninguna feature que no existía — ver §"Lo que NO se probó" · as_of: 2026-10-20
+>
+> Si una feature no aparece, no asumas que no se probó: leé §Lo que NO se probó.
+
+## Identidad del artefacto bajo prueba
+
+Todo número de este informe se refiere a **este** binario, y se puede re-derivar **sin red**:
+
+| Dato | Valor | Cómo re-derivarlo |
+|---|---|---|
+| Paquete | `@profile-as-code/cli@0.3.0` | `pasco --version` |
+| `dist` sha256 | `c94b339e98d4c440f8dd6f19054cde9901c5742ceabfca426a836fce72cc080f` | `shasum -a 256 "$(npm prefix -g)/lib/node_modules/@profile-as-code/cli/dist/index.js"` |
+| Dependencias publicadas | `yaml ^2.9.1`, `zod ^4.6.5` (nada más) | `npm view @profile-as-code/cli@0.3.0 dependencies` |
+| Fuente de la versión | tag `v0.3.0` → `21e4cde` | `git rev-parse v0.3.0` |
+
+| Attestation de provenance | **ausente** (`dist.attestations` no existe) | `npm view @profile-as-code/cli@0.3.0 dist.attestations` |
+| `main` del engine al cerrar | `d8ebc7e` — **79 commits y 8 d 17 h** adelante de `v0.3.0` | `git log --oneline v0.3.0..main` |
+| `profile-data` al cerrar | `5ed0073` | `git -C profile-data rev-parse main` |
+| Perfil publicado al cerrar | `ac8a619` · README sha256 `bfb0dbc35cd9` | `gh api repos/ChristianLuciani/ChristianLuciani/commits/main` |
+
+> **Por qué importa la separación `v0.3.0` ↔ `main`:** el dogfood corrió contra el **tarball publicado**, que es el código de `v0.3.0`. Lo que hoy está en `main` **no fue dogfoodeado**. Un usuario que instale `main` (o el build local) está en un artefacto distinto al que este informe describe.
+
+## Inventario — ✅ probado a fondo · 🟡 probado parcial · ❌ no probado
+
+| Superficie | Comando | Nivel | Qué se verificó / qué faltó |
+|---|---|---|---|
+| Instalación | `npm i -g`, PATH, versión | ✅ | `command -v pasco` en shell nuevo; `pasco 0.3.0`; dist idéntico al de una instalación aislada en `/tmp` |
+| Scaffold | `pasco init` | ✅ | carpeta vacía → `validate`-clean; **se niega a sobrescribir** (exit 1) |
+| Contrato | `pasco validate` | ✅ | schema valid · drift 0 · geo en 6 estados distintos (87 → 93); **no escribe** (hash antes/después) |
+| Render | `pasco build [platform]` | 🟡 | a fondo **sólo `github-readme`**; los otros 7 renderers de 0.3.0 (`github-org`, `kofi`, `buymeacoffee`, `liberapay`, `gumroad`, `payhip`, `hotmart`) **no se ejercitaron** (los creadores de monetización hicieron *empty render → removed*, que sí se observó) |
+| Historial | `pasco diff` | ✅ | sin `release-*` → fallback al primer commit; listado de archivos correcto |
+| Ledger | `pasco status` (lectura) | ✅ | 59 → 62 units, todos `never`; unidades compuestas (`bios:*`, `headlines:*`, `skills:*`) bien construidas |
+| Ledger | `pasco status --mark` | ❌ | **nunca se ejecutó** — no hubo pega manual que marcar |
+| Ledger | `pasco status --verify` | ❌ | nunca se ejecutó (requiere una fila del ledger) |
+| Ledger | `pasco status --write-checklist` | ❌ | nunca (sobrescribe `CHECKLIST.md`) |
+| Completitud | `pasco status --completeness` | ✅ | 65.8% — 2/5, estable en 4 mediciones |
+| Reglas | `pasco check` | ✅ | ejecuta registro de evidencia + media; **el catálogo por plataforma no ejecuta** (su propio `owner:` lo dice y lo probamos con un título ilegal) |
+| Variantes | `pasco refine` (sin `--choose`) | ✅ | emite el task template; **y se midió su defecto**: `(not installed — fall back…)` en instalación npm (#253) |
+| Variantes | `pasco refine --choose` | ❌ | nunca — y habría sido inútil: `build` no lee `active.yaml` (#238) |
+| Skills | `pasco skills:install` | 🟡 | en `/tmp`; imprime un placeholder de un repo privado (#254) |
+| Salida máquina | `--json` | 🟡 | `validate --json`; no sistemático en el resto |
+| Workspace | `--workspace` | 🟡 | un uso (verificar memoria del `.pascorc` en worktrees) |
+| Flavor | `brand` | ❌ | nunca — ni `init --flavor brand` ni `github-org` ni la matriz de handles |
+| Deploy | ciclo git/API real | ✅ | _no es un comando_: PR en `profile-data` + PR en el repo de perfil + `sha256(publicado)==sha256(decidido)` |
+| Deploy | pega manual + ledger | ❌ | 5 superficies sin pegar → el ledger quedó en `never` |
+
+## Lo que NO se probó (declarado)
+
+1. **7 de 8 renderers.** El run usó un workspace `person` cuyo único renderer relevante es `github-readme`. Los de monetización y `github-org` (brand) quedaron intactos.
+2. **Todo el camino de escritura del ledger** — `--mark`, `--verify`, `--write-checklist`. Es el hueco más grande: son los comandos que vuelven verdad el estado de deploy y hoy no tienen un run detrás.
+3. **`refine --choose`** y, detrás, el flujo de variantes completo (M3).
+4. **Flavor `brand` completo.**
+5. **La red de seguridad de salida** (`--json`) en todos los comandos.
+
+## Contrato de re-e2e (para cada versión siguiente)
+
+El objetivo no es "probar una vez", es **hacer esto obligatorio en cada release**. Tres piezas que lo hacen mecánico:
+
+### 1. La versión deja de ser prosa: es un hash
+
+Antes de correr, se anota `shasum -a 256` del `dist` instalado. Un run que no puede reproducir ese hash **no es comparable**. (Hoy el informe dice "0.3.0" en prosa; el hash es la constancia.)
+
+### 2. El diff entre versiones se puede hacer
+
+```sh
+# de un tag a otro: qué CAMBIÓ entre dos versiones (el caso que usa el inventario)
+git diff e2e-0.3.0 e2e-0.4.0 -- packages/cli/src packages/core/src packages/renderers skills platforms
+
+# de la versión a un release sin tag todavía: `...` (tres puntos) usa el merge-base, así el
+# diff no arrastra los cambios de main que no tienen nada que ver con el release
+git diff e2e-0.3.0...v0.4.0 -- packages/
+```
+
+> **No uses `e2e-0.3.0..HEAD` en el working tree de main**: arrastraba todo lo que entró a
+> main después del tag (los PRs de releases, docs, CI) y la lista de "features nuevas" se
+> volvía ilegible. El diff que importa es el del **código del CLI y de los renderers**, con
+> merge-base.
+
+Ese diff **es** la lista de features nuevas que el próximo run tiene que inventariar. Regla: **ninguna version se declara e2e-completa hasta que cada entrada del diff esté en el inventario con nivel ✅/🟡/❌** — un ❌ es aceptable como declaración, el silencio no.
+
+### 3. El checklist de features nuevas
+
+Crear el tag `e2e-<versión>` **junto al release** (no después). El cuerpo del tag quotea: el hash del `dist`, el comando de re-derivación y la ruta de este inventario. Así el inventario de la versión N+1 arranca desde `git diff`.
+
+### Corrección (premerge F7) — el relato anterior sobre `git describe` era falso
+
+El borrador anterior decía que `git describe` "nunca reportó `v0.3.0` porque es ligero". **Eso es
+falso en las dos mitades**, verificado:
+
+- `git describe --tags` **sí** devuelve tags ligeros (sin `--tags` sólo usa anotados);
+- `git describe --tags v0.3.0` → `e2e-0.3.0`, porque **ambos tags apuntan al mismo commit**
+  `21e4cde` — no hay distancia que resolver.
+
+El riesgo real, entonces, no es el tipo de tag: es una **colisión de nombres** el día que alguien
+crea `e2e-<versión>` sobre el mismo commit que `v<versión>`. Mitigación: los consumidores
+excluyen explícitamente (`git describe --exclude='e2e-*'`), y el tag de baseline marca el código
+testeado, no la release.
+
+### Estado de este contrato hoy
+
+| Pieza | Estado |
+|---|---|
+| Tag `e2e-0.3.0` | ✅ creado (`21e4cde`) |
+| Hash del `dist` en el informe | ✅ §Identidad |
+| Inventario por feature | ✅ esta tabla |
+| Checklist automático al publicar | ❌ hoy es una regla documentada, no un gate de CI |
