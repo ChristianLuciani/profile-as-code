@@ -9,6 +9,8 @@
 
 **El ciclo de publicación cerró, verificado al byte.** El ciclo de **registro** no: 62 unidades siguen en `never` porque las 5 superficies manuales no se pegaron ni se marcaron.
 
+Y el **alcance no es total**: de 8 renderers se probó 1, y del ledger no se ejecutó ningún camino de escritura (`--mark`/`--verify`/`--write-checklist`). El inventario por feature está en [`INVENTORY.md`](INVENTORY.md) — "cerrado" aquí significa *cerrado en lo que declara*, no *probado todo*.
+
 ```
 sha256(publicado en github.com/ChristianLuciani) = bfb0dbc35cd9
 sha256(decidido en profiles/…/variants/gh-en-3.md) = bfb0dbc35cd9
@@ -16,6 +18,26 @@ sha256(decidido en profiles/…/variants/gh-en-3.md) = bfb0dbc35cd9
 ```
 
 Esa igualdad **no existía en ningún momento anterior de este repo**: hasta hoy, lo publicado era una copia manual del 2026-08-11 y llevaba 9 líneas de diferencia con el SSOT, incluyendo un footer con el nombre pre-rename del CLI (`pac`).
+
+## Identidad del artefacto (constancia verificable — no prosa)
+
+El run entero se ejecutó contra **un** binario, y esto lo vuelve re-derivable sin red:
+
+| Dato | Valor |
+|---|---|
+| Versión | `@profile-as-code/cli@0.3.0` |
+| `dist` sha256 | `c94b339e98d4c440f8dd6f19054cde9901c5742ceabfca426a836fce72cc080f` |
+| Código fuente | tag `v0.3.0` → `21e4cde` · tag de baseline `e2e-0.3.0` → `21e4cde` |
+| `main` del engine al cerrar | `d8ebc7e` — **no fue dogfoodeado** (está ~20 commits adelante) |
+| Attestation npm | ausente — el vínculo versión↔código se sostiene en el tag y el hash, no en el registry |
+
+Comando de re-derivación:
+```sh
+shasum -a 256 "$(npm prefix -g)/lib/node_modules/@profile-as-code/cli/dist/index.js"
+git rev-parse v0.3.0 e2e-0.3.0^{commit}
+```
+
+**Qué no se probó y cómo se re-executa en cada versión:** [`.e2e/INVENTORY.md`](INVENTORY.md) — inventario por comando (✅/🟡/❌), los 5 caminos que este run no tocó, y el **contrato de re-e2e** (diff `e2e-N`↔`e2e-N+1` = features nuevas a inventariar).
 
 ## Tabla de evidencia
 
