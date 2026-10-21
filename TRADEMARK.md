@@ -6,7 +6,7 @@ marks, not the code.
 
 ## Scope
 
-- **Covered:** the names, the mark, the tile, the lockup and the wordmark.
+- **Covered:** the names, the mark, the tile, the lockup, the wordmark and the identity sheet.
 - **Not covered:** the software, the schema and the docs. Those are MIT — see
   [`LICENSE`](LICENSE).
 

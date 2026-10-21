@@ -193,6 +193,7 @@ code {
 .kicker {
   margin: 0 0 14px;
   color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.75rem;
   font-weight: 760;
   letter-spacing: 0.14em;

@@ -77,7 +77,7 @@
 
   <text x="500" y="592" font-family="SF Mono, Menlo, Consolas, monospace" font-size="10" letter-spacing="1.8" fill="#58606D">06 — TYPE</text>
   <text x="500" y="622" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="-0.5" fill="#12161C">System sans, 700 — voice</text>
-  <text x="500" y="650" font-family="SF Mono, Menlo, Consolas, monospace" font-size="16" letter-spacing="0.4" fill="#12161C">ui-monospace, 600 — data &amp; labels</text>
+  <text x="500" y="650" font-family="SF Mono, Menlo, Consolas, monospace" font-size="16" font-weight="600" letter-spacing="0.4" fill="#12161C">ui-monospace, 600 — data &amp; labels</text>
 
   <line x1="64" y1="688" x2="1056" y2="688" stroke="#E1DDD2"/>
   <text x="64" y="708" font-family="SF Mono, Menlo, Consolas, monospace" font-size="9" letter-spacing="1.6" fill="#9AA1AC">ONE COLOR · EVERY FEATURE IS A CUT · CLEAR SPACE ≥ 4u · MIN MARK 16 PX</text>

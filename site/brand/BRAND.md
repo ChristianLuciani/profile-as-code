@@ -160,7 +160,7 @@ then propagate the same path and the same mask to the other surfaces.
 
 ## 13. Licensing
 
-The code is MIT. The mark, the tile, the lockup and the wordmark are **not** covered by
+The code is MIT. The mark, the tile, the lockup, the wordmark and the identity sheet are **not** covered by
 that license: they are marks of Christian Luciani, all rights reserved. What is allowed
 without asking (referring to the project, linking, unmodified editorial use) and what is
 not (another product's logo, modified geometry, endorsement) is written in
