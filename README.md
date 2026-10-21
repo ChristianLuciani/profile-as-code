@@ -1,5 +1,9 @@
 # profile-as-code
 
+<p align="center">
+  <img src="site/brand/lockup.png" alt="profile-as-code" width="300">
+</p>
+
 **Tu identidad profesional como código.** Un solo source of truth versionado (YAML) → textos optimizados
 por plataforma (LinkedIn, GitHub, Upwork, X, ResearchGate…) con **skills por plataforma** que codifican el
 conocimiento SOTA de cada red.
@@ -171,6 +175,14 @@ cuenta ni repo.
   Toda skill pasa por review: sanitización + security scan + test de comportamiento.
 - Regla de evidencia: toda afirmación cuantitativa de una skill lleva fuente + fecha.
 
+## Marca
+
+El isotipo, el lockup y la lámina de identidad viven en [`site/brand/`](site/brand/), con
+el manual en [`BRAND.md`](site/brand/BRAND.md): construcción, color, tipografía y reglas
+de uso. El código es MIT; **el nombre y el logo no** — ver [`TRADEMARK.md`](TRADEMARK.md)
+y [`site/brand/LICENSE`](site/brand/LICENSE).
+
 ## Licencia
 
-MIT — ver `LICENSE`.
+MIT para el código — ver [`LICENSE`](LICENSE). El nombre y el logo quedan fuera de esa
+licencia: [`TRADEMARK.md`](TRADEMARK.md) y [`site/brand/LICENSE`](site/brand/LICENSE).

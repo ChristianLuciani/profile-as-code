@@ -140,8 +140,17 @@ No third face. Emphasis is weight and space, never italics.
 | `lockup.svg` | horizontal lockup (mark + wordmark) |
 | `identity.svg` | construction sheet, sizes, tile, palette, type |
 | `identity.png` | 1120 px render of the sheet |
+| `lockup.png` | 2× render on paper, for the README hero |
 
 `site/favicon.svg` is a copy of `mark-tile.svg`; `site/index.html` inlines `mark.svg`.
+
+## 13. Licensing
+
+The code is MIT. The mark, the tile, the lockup and the wordmark are **not** covered by
+that license: they are marks of Christian Luciani, all rights reserved. What is allowed
+without asking (referring to the project, linking, unmodified editorial use) and what is
+not (another product's logo, modified geometry, endorsement) is written in
+[`../../TRADEMARK.md`](../../TRADEMARK.md); the local notice is in `LICENSE`.
 
 ## Change log
 
