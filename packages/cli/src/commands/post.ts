@@ -101,7 +101,19 @@ function readPosting(channel: string): PostingRules {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
     throw new UsageError(`${path} must contain a mapping`);
   }
-  return raw as PostingRules;
+  const rules = raw as PostingRules;
+  if (rules.platform !== undefined && rules.platform !== channel) {
+    throw new UsageError(
+      `${path}: platform "${rules.platform}" does not match channel "${channel}"`,
+    );
+  }
+  const type = rules.settings?.__type;
+  if (type !== undefined && String(type) !== channel) {
+    throw new UsageError(
+      `${path}: settings.__type "${String(type)}" does not match channel "${channel}"`,
+    );
+  }
+  return rules;
 }
 
 /* ---------------------------------------------------------------------------
@@ -176,12 +188,6 @@ export function resolveFact(profile: LoadedProfile, pointer: string): string | u
   if (typeof current === "string") return current;
   if (typeof current === "number" || typeof current === "boolean") return String(current);
   return undefined;
-}
-
-export function factRefs(text: string): string[] {
-  const out: string[] = [];
-  for (const match of text.matchAll(/\{\{fact:([^}]+)\}\}/g)) out.push((match[1] ?? "").trim());
-  return out;
 }
 
 export function renderFacts(
@@ -435,7 +441,16 @@ function buildPostizPayload(args: {
   for (const [channel, state] of Object.entries(args.ledger.channels)) {
     if (state.chosen === undefined) continue;
     const chosen = chosenVariant(args.workspace, args.ledger, channel);
-    if (chosen === undefined) continue;
+    if (chosen === undefined) {
+      throw new Error(
+        `channel ${channel}: chosen variant "${state.chosen}" has no body at ${variantPath(
+          args.workspace,
+          args.ledger.id,
+          channel,
+          state.chosen,
+        )}`,
+      );
+    }
     const rendered = renderFacts(chosen.text, args.profile);
     if (rendered.dangling.length > 0) {
       throw new Error(`channel ${channel}: dangling fact ref(s): ${rendered.dangling.join(", ")}`);
@@ -485,6 +500,7 @@ function handleSeed(args: PostArgs): number {
     throw new UsageError(`seed file not found: ${args.textArg}`);
   }
   const text = readFileSync(args.textArg, "utf8");
+  if (text.trim() === "") throw new UsageError("seed text is empty");
   const ledger = createSeed(args.workspace, seedId, text);
   if (isJsonMode()) {
     return report("post", true, EXIT.OK, {
@@ -583,8 +599,28 @@ function handleCheck(args: PostArgs): number {
   let errors = 0;
   let warnings = 0;
   for (const channel of Object.keys(ledger.channels)) {
+    const state = ledger.channels[channel];
+    if (state?.chosen === undefined) continue;
     const chosen = chosenVariant(args.workspace, ledger, channel);
-    if (chosen === undefined) continue;
+    if (chosen === undefined) {
+      errors += 1;
+      findingsByChannel.push({
+        channel,
+        findings: [
+          {
+            code: "missing-body",
+            severity: "error",
+            message: `chosen variant "${state.chosen}" has no body at ${variantPath(
+              args.workspace,
+              ledger.id,
+              channel,
+              state.chosen,
+            )}`,
+          },
+        ],
+      });
+      continue;
+    }
     const rendered = renderFacts(chosen.text, profile);
     const findings: Finding[] = rendered.dangling.map((pointer) => ({
       code: "dangling-ref",
@@ -627,6 +663,10 @@ function handleExport(args: PostArgs): number {
   if (target !== "postiz") {
     throw new UsageError(`unsupported target "${target}" (only "postiz" today)`);
   }
+  const type = args.typeArg ?? "draft";
+  if (!["draft", "schedule", "now"].includes(type)) {
+    throw new UsageError(`--type must be draft|schedule|now (got "${type}")`);
+  }
   const loaded = loadProfile(args.workspace);
   if (typeof loaded === "number") return loaded;
   const profile = loaded;
@@ -635,7 +675,7 @@ function handleExport(args: PostArgs): number {
     workspace: args.workspace,
     ledger,
     profile,
-    type: args.typeArg ?? "draft",
+    type,
     date: args.dateArg ?? new Date().toISOString(),
   });
   if (payload.posts.length === 0) {
