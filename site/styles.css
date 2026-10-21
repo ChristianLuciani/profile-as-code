@@ -140,15 +140,15 @@ code {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   color: var(--ink);
   text-decoration: none;
-  font-weight: 680;
-  letter-spacing: -0.02em;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.022em;
 }
 
 .mark {
-  color: var(--accent);
   flex: none;
 }
 
@@ -193,6 +193,7 @@ code {
 .kicker {
   margin: 0 0 14px;
   color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 0.75rem;
   font-weight: 760;
   letter-spacing: 0.14em;
