@@ -15,6 +15,7 @@ import type {
 } from "@profile-as-code/core";
 import { deployStatus } from "@profile-as-code/core";
 import type { StatusArgs } from "./commands/status.js";
+import type { PublicationTruth } from "./publication.js";
 
 export function summaryOf(data: LedgerReport): {
   total: number;
@@ -30,11 +31,17 @@ export function summaryOf(data: LedgerReport): {
   };
 }
 
-export function reportDataOf(data: LedgerReport, args: StatusArgs): Record<string, unknown> {
+export function reportDataOf(
+  data: LedgerReport,
+  args: StatusArgs,
+  /** #242: ADDITIVE sibling of the D18/§19.5 payload — derived, never stored. */
+  publication?: readonly PublicationTruth[],
+): Record<string, unknown> {
   return {
     workspace: args.workspace,
     platform: args.platformArg ?? null,
     ...summaryOf(data),
+    ...(publication === undefined ? {} : { publication }),
     units: data.units,
     untracked: data.untracked,
     removed: data.removed,
