@@ -180,6 +180,9 @@ ni soporte prioritario, y no da influencia sobre el roadmap — las decisiones s
 los issues y en `docs/SPEC.md`, y una propuesta se evalúa por sus méritos, no por quién la financia.
 El proyecto sigue siendo MIT: el código ya es tuyo, pagues o no.
 
+**Sponsors:** todavía no hay ninguno. Los nombres y logos de quienes patrocinan se publican
+en esta sección, en el orden de su tier — si sos el primero, tu nombre va acá.
+
 ## Licencia
 
 MIT — ver `LICENSE`.
