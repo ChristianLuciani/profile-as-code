@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-labelledby="pasco-tile-title">
+  <title id="pasco-tile-title">profile-as-code</title>
+  <rect width="32" height="32" rx="8" fill="#1F4FFF"/>
+  <g transform="translate(0.82 2.3) scale(0.92)">
+    <path fill="#F7F5EF" fill-rule="evenodd" d="M7 7.5A2.5 2.5 0 0 1 9.5 5H12A8.5 8.5 0 1 1 12 17.98V25.5A2.5 2.5 0 0 1 7 25.5ZM17.5 7.2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 1 0 0-8.6Z"/>
+  </g>
+</svg>

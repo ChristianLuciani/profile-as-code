@@ -140,7 +140,7 @@ code {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   color: var(--ink);
   text-decoration: none;
   font-weight: 680;

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 40" width="240" height="40" role="img" aria-label="profile-as-code">
+  <g transform="translate(0 5.5) scale(0.875)" color="#12161C">
+    <path fill="currentColor" fill-rule="evenodd" d="M7 7.5A2.5 2.5 0 0 1 9.5 5H12A8.5 8.5 0 1 1 12 17.98V25.5A2.5 2.5 0 0 1 7 25.5ZM17.5 7.2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 1 0 0-8.6Z"/>
+  </g>
+  <text x="34" y="25" font-family="Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="-0.42" fill="#12161C">profile-as-code</text>
+</svg>

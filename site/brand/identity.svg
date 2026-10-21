@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 720" width="1120" height="720" role="img" aria-label="profile-as-code identity sheet">
+  <title>profile-as-code — identity sheet</title>
+  <rect width="1120" height="720" fill="#F7F5EF"/>
+
+  <!-- header -->
+  <text x="64" y="54" font-family="SF Mono, Menlo, Consolas, monospace" font-size="11" letter-spacing="2.2" fill="#12161C">PROFILE-AS-CODE</text>
+  <text x="1056" y="54" text-anchor="end" font-family="SF Mono, Menlo, Consolas, monospace" font-size="11" letter-spacing="2.2" fill="#58606D">IDENTITY / v1 — MARK &amp; LOCKUP</text>
+  <line x1="64" y1="76" x2="1056" y2="76" stroke="#E1DDD2" stroke-width="1"/>
+
+  <!-- 01 mark -->
+  <text x="64" y="108" font-family="SF Mono, Menlo, Consolas, monospace" font-size="10" letter-spacing="1.8" fill="#58606D">01 — THE MARK</text>
+
+  <!-- construction grid 32 × 10 -->
+  <defs>
+    <pattern id="minor" width="10" height="10" patternUnits="userSpaceOnUse" x="64" y="120">
+      <path d="M10 0H0V10" fill="none" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/>
+    </pattern>
+    <pattern id="major" width="40" height="40" patternUnits="userSpaceOnUse" x="64" y="120">
+      <path d="M40 0H0V40" fill="none" stroke="#DCD6C8" stroke-width="0.8"/>
+    </pattern>
+  </defs>
+  <rect x="64" y="120" width="320" height="320" fill="url(#minor)"/>
+  <rect x="64" y="120" width="320" height="320" fill="url(#major)" stroke="#D8D2C4"/>
+
+  <!-- guide geometry -->
+  <g fill="none" stroke="#1F4FFF" stroke-width="0.8" opacity="0.4">
+    <circle cx="239" cy="235" r="85" stroke-dasharray="3 4"/>
+    <circle cx="239" cy="235" r="43" stroke-dasharray="3 4"/>
+    <rect x="134" y="170" width="50" height="230"/>
+    <path d="M64 235H384M64 400H384"/>
+  </g>
+
+  <!-- mark, 10× -->
+  <g transform="translate(64,120) scale(10)">
+    <path fill="#12161C" fill-rule="evenodd" d="M7 7.5A2.5 2.5 0 0 1 9.5 5H12A8.5 8.5 0 1 1 12 17.98V25.5A2.5 2.5 0 0 1 7 25.5ZM17.5 7.2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 1 0 0-8.6Z"/>
+  </g>
+
+  <text x="64" y="498" font-family="SF Mono, Menlo, Consolas, monospace" font-size="10" letter-spacing="1.4" fill="#58606D">32 × 32 GRID · ONE PATH · COUNTER Ø 8.6 · STEM 5</text>
+  <text x="64" y="530" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#12161C">The loop is the profile. The line is the code.</text>
+  <text x="64" y="552" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="14" fill="#12161C">One path, no seams: identity and source are the same stroke.</text>
+
+  <!-- 02 lockup -->
+  <text x="500" y="112" font-family="SF Mono, Menlo, Consolas, monospace" font-size="10" letter-spacing="1.8" fill="#58606D">02 — LOCKUP</text>
+  <rect x="500" y="128" width="556" height="96" fill="#FFFDF8" stroke="#E1DDD2"/>
+  <g transform="translate(528,162) scale(0.875)">
+    <path fill="#12161C" fill-rule="evenodd" d="M7 7.5A2.5 2.5 0 0 1 9.5 5H12A8.5 8.5 0 1 1 12 17.98V25.5A2.5 2.5 0 0 1 7 25.5ZM17.5 7.2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 1 0 0-8.6Z"/>
+  </g>
+  <text x="566" y="186" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="-0.42" fill="#12161C">profile-as-code</text>
+
+  <!-- 03 sizes -->
+  <text x="500" y="270" font-family="SF Mono, Menlo, Consolas, monospace" font-size="10" letter-spacing="1.8" fill="#58606D">03 — SIZES</text>
+  <g>
+    <g transform="translate(486,324) scale(2)"><path fill="#12161C" fill-rule="evenodd" d="M7 7.5A2.5 2.5 0 0 1 9.5 5H12A8.5 8.5 0 1 1 12 17.98V25.5A2.5 2.5 0 0 1 7 25.5ZM17.5 7.2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 1 0 0-8.6Z"/></g>
+    <g transform="translate(567.25,345) scale(1.25)"><path fill="#12161C" fill-rule="evenodd" d="M7 7.5A2.5 2.5 0 0 1 9.5 5H12A8.5 8.5 0 1 1 12 17.98V25.5A2.5 2.5 0 0 1 7 25.5ZM17.5 7.2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 1 0 0-8.6Z"/></g>
+    <g transform="translate(629.875,355.5) scale(0.875)"><path fill="#12161C" fill-rule="evenodd" d="M7 7.5A2.5 2.5 0 0 1 9.5 5H12A8.5 8.5 0 1 1 12 17.98V25.5A2.5 2.5 0 0 1 7 25.5ZM17.5 7.2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 1 0 0-8.6Z"/></g>
+    <g transform="translate(676.5,366) scale(0.5)"><path fill="#12161C" fill-rule="evenodd" d="M7 7.5A2.5 2.5 0 0 1 9.5 5H12A8.5 8.5 0 1 1 12 17.98V25.5A2.5 2.5 0 0 1 7 25.5ZM17.5 7.2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 1 0 0-8.6Z"/></g>
+  </g>
+  <g font-family="SF Mono, Menlo, Consolas, monospace" font-size="9" letter-spacing="1" fill="#9AA1AC">
+    <text x="500" y="402">64</text><text x="576" y="402">40</text><text x="636" y="402">28</text><text x="680" y="402">16</text>
+  </g>
+
+  <!-- 04 tile -->
+  <text x="760" y="270" font-family="SF Mono, Menlo, Consolas, monospace" font-size="10" letter-spacing="1.8" fill="#58606D">04 — TILE / FAVICON</text>
+  <g>
+    <rect x="760" y="292" width="64" height="64" rx="16" fill="#1F4FFF"/>
+    <g transform="translate(760,292) scale(2)"><g transform="translate(0.82,1.74) scale(0.92)"><path fill="#F7F5EF" fill-rule="evenodd" d="M7 7.5A2.5 2.5 0 0 1 9.5 5H12A8.5 8.5 0 1 1 12 17.98V25.5A2.5 2.5 0 0 1 7 25.5ZM17.5 7.2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 1 0 0-8.6Z"/></g></g>
+    <rect x="840" y="313" width="40" height="40" rx="10" fill="#1F4FFF"/>
+    <g transform="translate(840,313) scale(1.25)"><g transform="translate(0.82,1.74) scale(0.92)"><path fill="#F7F5EF" fill-rule="evenodd" d="M7 7.5A2.5 2.5 0 0 1 9.5 5H12A8.5 8.5 0 1 1 12 17.98V25.5A2.5 2.5 0 0 1 7 25.5ZM17.5 7.2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 1 0 0-8.6Z"/></g></g>
+    <rect x="896" y="320" width="26" height="26" rx="6.5" fill="#1F4FFF"/>
+    <g transform="translate(896,320) scale(0.8125)"><g transform="translate(0.82,1.74) scale(0.92)"><path fill="#F7F5EF" fill-rule="evenodd" d="M7 7.5A2.5 2.5 0 0 1 9.5 5H12A8.5 8.5 0 1 1 12 17.98V25.5A2.5 2.5 0 0 1 7 25.5ZM17.5 7.2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 1 0 0-8.6Z"/></g></g>
+    <rect x="938" y="326" width="16" height="16" rx="4" fill="#1F4FFF"/>
+    <g transform="translate(938,326) scale(0.5)"><g transform="translate(0.82,1.74) scale(0.92)"><path fill="#F7F5EF" fill-rule="evenodd" d="M7 7.5A2.5 2.5 0 0 1 9.5 5H12A8.5 8.5 0 1 1 12 17.98V25.5A2.5 2.5 0 0 1 7 25.5ZM17.5 7.2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 1 0 0-8.6Z"/></g></g>
+    <g font-family="SF Mono, Menlo, Consolas, monospace" font-size="9" letter-spacing="1" fill="#9AA1AC">
+      <text x="760" y="386">64</text><text x="840" y="386">40</text><text x="896" y="386">26</text><text x="938" y="386">16</text>
+    </g>
+  </g>
+
+  <!-- negative -->
+  <rect x="64" y="580" width="380" height="96" fill="#12161C"/>
+  <text x="84" y="602" font-family="SF Mono, Menlo, Consolas, monospace" font-size="9" letter-spacing="1.6" fill="#8F9AA8">ON INK</text>
+  <g transform="translate(88,626) scale(0.875)">
+    <path fill="#F7F5EF" fill-rule="evenodd" d="M7 7.5A2.5 2.5 0 0 1 9.5 5H12A8.5 8.5 0 1 1 12 17.98V25.5A2.5 2.5 0 0 1 7 25.5ZM17.5 7.2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 1 0 0-8.6Z"/>
+  </g>
+  <text x="126" y="650" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="-0.42" fill="#F7F5EF">profile-as-code</text>
+
+  <!-- 05 palette -->
+  <text x="500" y="452" font-family="SF Mono, Menlo, Consolas, monospace" font-size="10" letter-spacing="1.8" fill="#58606D">05 — PALETTE</text>
+  <g font-family="SF Mono, Menlo, Consolas, monospace" font-size="9" letter-spacing="1" fill="#58606D">
+    <rect x="500" y="470" width="160" height="72" fill="#F7F5EF" stroke="#E1DDD2"/>
+    <text x="512" y="560">PAPER  #F7F5EF</text>
+    <rect x="676" y="470" width="160" height="72" fill="#12161C"/>
+    <text x="688" y="560">INK  #12161C</text>
+    <rect x="852" y="470" width="160" height="72" fill="#1F4FFF"/>
+    <text x="864" y="560">SIGNAL  #1F4FFF</text>
+  </g>
+
+  <!-- 06 type -->
+  <text x="500" y="612" font-family="SF Mono, Menlo, Consolas, monospace" font-size="10" letter-spacing="1.8" fill="#58606D">06 — TYPE</text>
+  <text x="500" y="640" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="-0.5" fill="#12161C">System sans, 700 — voice</text>
+  <text x="500" y="668" font-family="SF Mono, Menlo, Consolas, monospace" font-size="16" letter-spacing="0.4" fill="#12161C">ui-monospace, 600 — data &amp; labels</text>
+
+  <!-- footer -->
+  <line x1="64" y1="692" x2="1056" y2="692" stroke="#E1DDD2" stroke-width="1"/>
+  <text x="64" y="712" font-family="SF Mono, Menlo, Consolas, monospace" font-size="9" letter-spacing="1.6" fill="#9AA1AC">CLEAR SPACE &#8805; 4u · MINIMUM MARK 16 PX · NEVER OUTLINE, GRADIENT OR ROTATE</text>
+</svg>
