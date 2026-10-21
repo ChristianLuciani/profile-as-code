@@ -1,0 +1,7 @@
+# The Sponsor button needs TWO switches: this file on the default branch, AND the
+# repo feature flag (Settings > Features > Sponsorships, enabled 2026-10-21).
+# Funding links can be non-empty while the flag is off and the button stays hidden.
+# Sponsors itself is per ACCOUNT (ChristianLuciani) — this file only declares where
+# the money goes. A `polar:` or `custom:` rail (max 4 URLs) goes here, never in a
+# separate file: GitHub reads this one.
+github: ChristianLuciani
