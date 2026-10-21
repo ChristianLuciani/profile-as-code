@@ -15,7 +15,7 @@ la misma entrada, para quien no llega por el repositorio.
 
 ## Para quién es (y qué necesitás)
 
-**Es una herramienta para gente técnica**: lo mínimo es una terminal y **Node.js ≥ 22**.
+**Es una herramienta para personas técnicas**: lo mínimo es una terminal y **Node.js ≥ 22**.
 El workspace **es una carpeta**; un repo es el lugar **recomendado** para guardarla, no un
 requisito (SPEC §9). Tres on-ramps, cada uno con su diferencia de capacidades al frente:
 
@@ -48,7 +48,7 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 
 ```
         ┌──────────────────────────────────────────────────────┐
-        │                 REPO PÚBLICO (producto)               │
+        │                 REPO PÚBLICO (producto)              │
         │  ┌─────────┐  ┌──────────────┐  ┌─────────────────┐  │
         │  │  DATA   │→ │  CORE        │→ │  RENDERERS      │  │
         │  │  YAML   │  │  validación  │  │  linkedin/      │  │
@@ -56,7 +56,7 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
         │  │         │  │  drift-check │  │  x/researchgate/│  │
         │  │         │  │  geo-check   │  │  substack       │  │
         │  └─────────┘  └──────────────┘  └─────────────────┘  │
-        │        CI: validate · lint · tests · build          │
+        │        CI: validate · lint · tests · build           │
         └───────────────┬──────────────────────────┬───────────┘
                         │ datos del usuario         │ outputs listos
         ┌───────────────▼──────────┐   ┌───────────▼──────────────┐
@@ -170,6 +170,15 @@ cuenta ni repo.
 - **PRs de skills** — conocimiento SOTA de una plataforma que no cubrimos (Behance, Xing, Indeed…).
   Toda skill pasa por review: sanitización + security scan + test de comportamiento.
 - Regla de evidencia: toda afirmación cuantitativa de una skill lleva fuente + fecha.
+
+## Sponsor this project
+
+Si el proyecto te resulta útil, podés [patrocinarlo desde GitHub Sponsors](https://github.com/sponsors/ChristianLuciani).
+El patrocinio financia el trabajo sobre el **engine** (`packages/core`) y la **CLI `pasco`** (`packages/cli`):
+el contrato de `docs/SPEC.md`, los renderers y las skills por plataforma. Qué **no** compra: no hay SLA
+ni soporte prioritario, y no da influencia sobre el roadmap — las decisiones se discuten a la vista en
+los issues y en `docs/SPEC.md`, y una propuesta se evalúa por sus méritos, no por quién la financia.
+El proyecto sigue siendo MIT: el código ya es tuyo, pagues o no.
 
 ## Licencia
 
