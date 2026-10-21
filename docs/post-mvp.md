@@ -80,6 +80,19 @@ Without it, the payload uses `REPLACE_ME` and the export warns.
   contradiction (the post says a different year/role than the SSOT) is the next
   check, not a claim of this MVP.
 
+## Known limits (MVP)
+
+- Two channels, no threads, no scheduler/OAuth.
+- Char limits use JavaScript `.length`, not the platform's weighted count
+  (emoji/CJK may pass `check` and fail the platform).
+- Re-choosing a variant after publishing keeps the old `publishedAt`/`url` but
+  marks the channel `local-only`; **per-variant publish history is not modeled
+  yet**. The ledger is per seed/channel, not per projection.
+- `post.yaml` is one ledger per seed; concurrent `choose` on the same seed can
+  race (single-operator MVP; no lock).
+- `unsourced-claim` is a warning with false positives on dates/versions; it is
+  a nudge, not a gate.
+
 ## Week-1 protocol (the evaluation)
 
 1. Import 20 historical posts (`post import`) and create 5 new seeds.
