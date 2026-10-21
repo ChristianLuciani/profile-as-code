@@ -1,117 +1,148 @@
 # profile-as-code — identity
 
-The mark, the lockup, and the two type voices. This is the source of truth for the
-project page and the favicon.
+**Status:** v1.0, ratified 2026-10-21. **Covers:** the mark, the lockup, the tile,
+colour, type and usage. **Does not cover:** social cards, README banners, CLI output.
+`as_of: 2026-10-21`.
 
-**Covers:** the mark (SVG), the horizontal lockup, the favicon tile, colour and type
-usage. **Does not cover:** social cards, the npm/README banner, or the CLI's terminal
-output. `as_of: 2026-10-20`.
+## 1. The decision
 
-## Direction — “Loop & Line”
+The mark is **Smile · Soft**: a solid disc with a lowercase `p` cut out of it; the
+counter of the p is the eye, one short cut below it is the mouth.
 
-One closed loop resting on one straight line. No frame, no badge, no illustration:
-the mark is a single filled path, and everything it means is carried by proportion and
-counter-space. The loop is a human shape — a cycle, a person, a profile that is
-maintained rather than finished. The line is the code it is written on. They meet
-without a seam, because the claim of the product is that the profile and its source are
-the same artefact seen at two resolutions.
+It was chosen on 2026-10-21 by three readers on visual preference alone (the author and
+two reviewers), after the monogram-only p and the typographic directions had been drawn
+and compared. The semiotic review in §2–§5 is the test that decision has to survive; it
+does:
 
-Colour is ink on paper, with a single electric signal. There are no gradients, no
-shadows, no second accent: the blue appears once per surface, on the mark or on one
-action, never both. A brand that promises one source of truth cannot afford a palette
-that says two.
+- it keeps the letter that names the tool;
+- it adds one trait, not a second shape;
+- every feature is a cut, so the mark stays one colour;
+- the face is the shortest way to say “profile” without drawing a person.
 
-The drawing lives on a 32-unit grid and is specified in units, not pixels, so it holds
-from 16 px to a 320 px construction sheet. Weight is constant: the counter is wide
-enough to survive as a dot at favicon size, and the stem keeps a stable spine when the
-loop is scaled down. Nothing is nudged by eye after the fact; every node sits on a half
-unit and the arcs are tangent by construction.
+## 2. The sign, in three registers
 
-The composition is deliberately asymmetric: mass sits in the loop, the descender gives
-the mark a foot, and the wordmark carries the width. The mark never competes with the
-name — it is smaller, quieter, and separated by one constant gap. Clear space is
-generous because the form is simple; crowding it would make it look accidental.
+| Register | What it is |
+|---|---|
+| **Symbol** | the `p` = *profile*, *pasco* — a convention: the initial |
+| **Icon** | the counter = an eye; the disc = a head / avatar; the p = a head in profile |
+| **Index** | the disc = a badge or seal (an object that certifies); the cut = an inscription; the pupil = a gaze |
 
-This is the part that has to look laboured over even though it is reduced: the join
-between bowl and stem has no visible step, the counter is a true circle rather than an
-optical oval, and the lockup is set once, at one weight, at one tracking. The reference
-is structural, not pictorial: the p is the first letter of *profile* and of `pasco`; the
-loop is the profile, the line is the code, and because both are one path, there is one
-source. Someone who uses the CLI should feel it; someone who does not should simply see
-a confident mark.
+A logo usually works in one register. This one works in three at once, which is why it
+survives scaling: a reader who knows the product sees the letter; a reader who does not
+sees a face; both see the badge shape that every avatar already uses.
 
-## The mark
+## 3. The name is arbitrary; the mark motivates it
+
+`pasco` was not coined as an acronym. The bin was renamed `pac` → `pasco` because an
+unrelated npm package already shipped a `pac` binary (`docs/USER-GUIDE.md`, “Why the
+names”, checked 2026-09-30). Semiotically it is an **arbitrary signifier** — and it
+sounds like a surname (Pascal, Pasco, Pasquale), not like a command. `profile-as-code`
+is the motivated name.
+
+The `p` is the hinge: the initial of both. It is the only element that can serve both
+names without repeating the word, and the only one that can become a face. The chain is
+`p` → *profile* → person → `pasco`: the mark gives the arbitrary name the body it lacks.
+Nothing forces a reader to parse `P·AS·CO`; the mark does not depend on that reading.
+
+## 4. One eye is a profile
+
+A frontal face has two eyes. One eye, with the mouth moved to the side, is a head
+turned: a **profile** — the portrait and the professional summary are the same word.
+That fixes two constraints: never add a second eye, and keep the mouth off-centre, at
+the side, not in the middle.
+
+## 5. Every feature is a cut
+
+The mark is one plate with holes: the p, the pupil and the mouth are all knockouts of
+the disc. No inlay, no second ink, no gradient, no outline. That is why the coloured
+pupil was rejected at the final step: an inlay breaks the technique for a 2 px accent,
+and on the ink disc it sat at ≈3.1:1 — just over the 3:1 floor.
+
+The source uses an SVG `mask`; it is the only non-path primitive in the asset. Flatten
+it for print if the pipeline does not support masks (Illustrator/Figma “flatten”, or
+`rsvg-convert`).
+
+## 6. Construction
 
 | Property | Value |
 |---|---|
 | Artboard | 32 × 32 units |
-| Path | one path, `fill-rule="evenodd"` |
-| Stem | 5 units wide, `x 7 → 12`, `y 5 → 28`, full-radius foot |
-| Bowl | circle Ø 17 (r 8.5) at `(17.5, 11.5)` |
-| Counter | circle Ø 8.6 (r 4.3), same centre |
-| Stroke | 4.2 units at the bowl, 5 at the stem |
-| Bounding box | 19 × 25 units (`x 7 → 26`, `y 3 → 28`) |
-| Minimum size | 16 px (the counter still reads as a dot) |
+| Disc | circle Ø 26 (r 13) at `(16, 16)` |
+| p | stem 4 wide, bowl Ø 13.6 (r 6.8), counter Ø 6.88 (r 3.44) |
+| p bounding box | 16.1 × 17.9 (`x 9.2 → 25.3`, `y 4.5 → 22.4`) |
+| Pupil | Ø 2.3 at `(16.6, 10.2)` |
+| Mouth | arc r 4.2, 145° → 35°, stroke 1.6, round caps, centre `(20.1, 17.9)` |
+| Minimum size | 16 px; the face reads from 32 px |
 | Clear space | ≥ 4 units on every side |
 
-The mark is an SVG source, never a PNG. It inherits `currentColor`, so it takes the
-accent in the header and paper/ink wherever it is placed.
+The mark is an SVG source, never a PNG, and it inherits `currentColor`.
 
-## The lockup
+## 7. Lockup
 
-Mark 28 px, wordmark 19 px, gap 6 px, optically baseline-aligned — see
-`lockup.svg`. In HTML the wordmark is live text, not outlines: it keeps the page
-selectable, searchable and translatable. The accessible name is always
-`profile-as-code`; the mark itself is decorative (`aria-hidden="true"`) when the name is
+Mark 28 px, wordmark 19 px, gap 6 px — about 10 px visual, because the disc’s
+sidebearing does the rest. In HTML the wordmark is live text, not outlines: it keeps the
+page selectable, searchable and translatable. The accessible name is always
+`profile-as-code`; the mark is decorative (`aria-hidden="true"`) when the name is
 already in the link.
 
-## Colour
+## 8. Colour
 
 | Token | Hex | Use |
 |---|---|---|
-| Paper | `#F7F5EF` | page ground, glyph on the tile |
-| Ink | `#12161C` | mark, wordmark, body |
-| Signal | `#1F4FFF` | mark in the header, tile ground, one action per screen |
+| Paper | `#F7F5EF` | ground |
+| Ink | `#12161C` | the mark, the wordmark, body |
+| Signal | `#1F4FFF` | the tile, one action per screen |
 
-Dark mode reuses the same three roles with the page tokens already defined in
-`site/styles.css`: the mark takes `--accent` (`#8AB0FF`), the tile keeps Signal.
+The rule: **the mark is ink on paper and paper on ink; Signal never enters the mark.**
+The accent belongs to the tile and to actions. Dark mode reuses the page tokens; the
+mark follows `currentColor`.
 
-## Type
+## 9. Type
 
 Two voices, one family each:
 
 - **Voice** — system sans (`system-ui, -apple-system, "Segoe UI", Roboto, …`), 700 for
-  the wordmark, 780 for the page headline. This is the human register.
-- **Data** — `ui-monospace` for labels, kickers, code and version strings. This is the
-  machine register.
+  the wordmark, 780 for the page headline.
+- **Data** — `ui-monospace` for labels, kickers, code and version strings.
 
-No third face. No italics for emphasis in the identity; emphasis is weight and space.
+No third face. Emphasis is weight and space, never italics.
 
-## Rules
+## 10. Rules
 
-- Do not outline the mark, add a stroke, rotate it, or place it in a circle or a badge.
-- Do not recolour the tile; it is Signal with a Paper glyph, full stop.
+- Do not add a second eye, a nose, eyebrows or teeth.
+- Do not colour the pupil, and do not invert the face: the pupil is always a cut.
+- Do not place the disc in a circle or a badge frame; it is already the badge.
+- Do not scale the mark below 16 px. Below 32 px the face fades to a dot and a dash —
+  that is expected; the tile carries the icon.
+- Do not outline, rotate, add a stroke or a shadow.
 - Do not set the wordmark in another face or re-track it below `-0.03em`.
-- Do not place the monochrome mark on a mid-tone without checking contrast; it is
-  designed for paper or ink.
-- Do not scale the mark below 16 px; use the tile instead.
 
-## Considered and rejected
+## 11. Considered and rejected
 
-- **Three lines in a rounded box** (the previous mark): reads as a list or a form field,
-  and the box does the work instead of the idea.
-- **Fan of lines from a dot**: the “share” glyph, already everywhere.
-- **Brace beside stacked lines**: correctly says “text becomes code”, but at 28 px it
-  reads as an indent control, not as an identity.
+- **Monogram p** (first direction on this branch): clean, but no face and no motivation
+  for the name; superseded.
+- **Drop Cap + eye**: a slab-serif p whose counter becomes an eye; strong at large
+  sizes, but the serifs vanish below 20 px and the face is only an eye.
+- **Pilcrow**: the paragraph mark; literary, but reads as a flag or a microphone at
+  lockup size.
+- **Disc + Signal pupil**: the inlay; lost to the one-colour rule and to ≈3.1:1 on ink.
+- **Brow, Wink, Smile · Open**: the face turns into a cartoon and the letter loses
+  dominance.
+- **Earlier geometric marks** (fan, brace, contours, hash, fingerprint, tag): stock
+  glyphs; drawn and discarded in the exploration round.
 
-## Assets
+## 12. Assets
 
 | File | What it is |
 |---|---|
-| `mark.svg` | the mark, `currentColor`, 32 grid |
-| `mark-tile.svg` | app icon / favicon, Signal tile + Paper glyph |
+| `mark.svg` | the mark, `currentColor`, 32 grid, one mask |
+| `mark-tile.svg` | app icon / favicon: Signal tile, Paper glyph |
 | `lockup.svg` | horizontal lockup (mark + wordmark) |
-| `identity.svg` | construction sheet + sizes + palette + type |
-| `identity.png` | 1120 px render of the sheet for quick review |
+| `identity.svg` | construction sheet, sizes, tile, palette, type |
+| `identity.png` | 1120 px render of the sheet |
 
 `site/favicon.svg` is a copy of `mark-tile.svg`; `site/index.html` inlines `mark.svg`.
+
+## Change log
+
+- **v1.0** — 2026-10-21 — Smile · Soft ratified; supersedes the monogram p.

@@ -24,7 +24,15 @@
     <div class="wrap header-inner">
       <a class="brand" href="./" aria-label="profile-as-code — home">
         <svg class="mark" width="28" height="28" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-          <path fill="currentColor" fill-rule="evenodd" d="M7 7.5A2.5 2.5 0 0 1 9.5 5H12A8.5 8.5 0 1 1 12 17.98V25.5A2.5 2.5 0 0 1 7 25.5ZM17.5 7.2a4.3 4.3 0 1 0 0 8.6 4.3 4.3 0 1 0 0-8.6Z"/>
+          <defs>
+            <mask id="pasco-cut">
+              <rect width="32" height="32" fill="#fff"/>
+              <path fill="#000" fill-rule="evenodd" d="M9.2 8A2 2 0 0 1 11.2 6H13.2A6.8 6.8 0 1 1 13.2 16.384V22.4A2 2 0 0 1 9.2 22.4Z M17.6 7.76a3.44 3.44 0 1 0 0 6.88 3.44 3.44 0 1 0 0-6.88Z"/>
+              <circle cx="16.6" cy="10.2" r="1.15" fill="#000"/>
+              <path d="M16.4 20.6c.9 1.8 2.2 2.7 3.7 2.7s2.8-.9 3.7-2.7" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round"/>
+            </mask>
+          </defs>
+          <circle cx="16" cy="16" r="13" fill="currentColor" mask="url(#pasco-cut)"/>
         </svg>
         <span>profile-as-code</span>
       </a>
