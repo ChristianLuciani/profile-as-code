@@ -111,7 +111,7 @@ describe("surface", () => {
   it("prints help", () => {
     const r = run(["--help"]);
     expect(r.code).toBe(0);
-    for (const cmd of ["init", "validate", "build", "diff", "refine", "check", "skills:install"]) {
+    for (const cmd of ["init", "validate", "build", "diff", "refine", "check", "skills:export"]) {
       expect(r.stdout).toContain(cmd);
     }
   });
@@ -745,7 +745,7 @@ describe("pasco refine (partial: template + record)", () => {
   });
 });
 
-describe("pasco check (offline rules) + pasco skills:install (projection pointer)", () => {
+describe("pasco check (offline rules) + pasco skills:export (shipped skills)", () => {
   it("lists the user checks from the schema-validated catalog", () => {
     const r = run(["check", "github-readme", "--workspace", MINIMAL]);
     expect(r.code).toBe(0);
@@ -901,15 +901,88 @@ describe("pasco check (offline rules) + pasco skills:install (projection pointer
     ]);
   });
 
-  it("skills:install prints the skills-studio projection command", () => {
-    const r = run(["skills:install", "pi"]);
+  it("skills:export --list lists the platform skills this package ships", () => {
+    const r = run(["skills:export", "--list"]);
     expect(r.code).toBe(0);
-    expect(r.stdout).toContain("bin/project.sh pi");
+    expect(r.stdout).toContain("github-readme");
+    expect(r.stdout).toMatch(/skills\/?$/m);
+    expect(r.stdout).not.toContain("skills-studio");
   });
 
-  it("skills:install exit 2 on unknown agent", () => {
-    const r = run(["skills:install", "cobol"]);
+  it("skills:export <dir> copies the shipped skills into a directory the user names", () => {
+    const dest = join(tempDir(), "exported-skills");
+    const r = run(["skills:export", dest]);
+    expect(r.code).toBe(0);
+    expect(existsSync(join(dest, "github-readme", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(dest, "github-readme", "checks.yaml"))).toBe(true);
+
+    const again = run(["skills:export", dest]);
+    expect(again.code).toBe(1);
+    expect(again.stderr).toContain("not empty");
+  });
+
+  it("skills:export refuses a destination inside the shipped tree (no self-copy recursion)", () => {
+    const listed = JSON.parse(run(["skills:export", "--list", "--json"]).stdout) as {
+      data: { root: string };
+    };
+    const r = run(["skills:export", join(listed.data.root, "nested")]);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("inside the shipped skills tree");
+  });
+
+  it("skills:install is gone from the public CLI (#254 C1)", () => {
+    const r = run(["skills:install", "pi"]);
     expect(r.code).toBe(2);
+    expect(r.stderr).toContain("unknown command");
+  });
+});
+
+describe("published-surface boundary (#253/#254)", () => {
+  const PRIVATE = /skills-studio|prompt-studio|AGOS\b|project\.sh/;
+
+  it("help output names no repo or tooling a reader cannot open", () => {
+    const helps = [
+      run(["--help"]),
+      ...["init", "validate", "build", "diff", "refine", "check", "status", "skills:export"].map(
+        (cmd) => run([cmd, "--help"]),
+      ),
+    ];
+    for (const r of helps) {
+      expect(r.code).toBe(0);
+      expect(r.stdout).not.toMatch(PRIVATE);
+    }
+  });
+
+  it("refine prints a real SKILL.md path from the package (#253)", () => {
+    const r = run(["refine", "github-readme", "--workspace", MINIMAL]);
+    expect(r.code).toBe(0);
+    const match = r.stdout.match(/^Skill \(communicative strategy — READ IT FIRST\): (.+)$/m);
+    expect(match).not.toBeNull();
+    const skillPath = match?.[1] ?? "";
+    expect(skillPath).toMatch(/skills\/github-readme\/SKILL\.md$/);
+    expect(existsSync(skillPath)).toBe(true);
+  });
+
+  it("refine distinguishes 'no skill for <platform>' from 'skills not shipped'", () => {
+    const r = run(["refine", "upwork", "--workspace", MINIMAL]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("no skill for upwork yet");
+    expect(r.stdout).toContain("this package ships:");
+    expect(r.stdout).not.toContain("skills not shipped with this package");
+  });
+
+  it("refine --json carries the skill lookup state", () => {
+    const found = JSON.parse(
+      run(["refine", "github-readme", "--json", "--workspace", MINIMAL]).stdout,
+    ) as { data: { skill: { state: string; path?: string } } };
+    expect(found.data.skill.state).toBe("found");
+    expect(found.data.skill.path).toMatch(/skills\/github-readme\/SKILL\.md$/);
+
+    const missing = JSON.parse(
+      run(["refine", "upwork", "--json", "--workspace", MINIMAL]).stdout,
+    ) as { data: { skill: { state: string; channel?: string } } };
+    expect(missing.data.skill.state).toBe("no-skill");
+    expect(missing.data.skill.channel).toBe("upwork");
   });
 });
 

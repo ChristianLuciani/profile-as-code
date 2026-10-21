@@ -65,14 +65,16 @@ commands above are the standalone path.
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13); the chosen body is `profiles/<platform>/variants/<id>.md` (a complete platform artifact), rendered by `pasco build` (#238) | 🚧 template + `--choose` (full flow M3) |
 | `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) + offline `max-chars`/`min-chars` over headlines/bios (#240) | 🚧 offline rules today (limits + registry + media; remaining catalog M3/M4) |
 | `pasco post <seed\|task\|choose\|check\|export\|import\|list>` | Week-1 post MVP (#264): a seed at `posts/<seed>/seed.md` → task bundle → chosen variant → check → optional Postiz draft payload; the CLI never calls an LLM | 🚧 experiment (not in the v1 contract; `docs/post-mvp.md`) |
-| `pasco skills:install <agent>` | Skills-studio projection command (AGOS) | 🚧 prints the projection command |
+| `pasco skills:export <dir> [--list]` | Copy the platform skills this package ships into a directory you name (`--list` shows them; no per-agent paths are invented — #254) | ✅ |
 
 The partial commands are explicit, and each one says what still owns the rest:
 
 - **`refine`** — without `--choose` it emits the **agent task template** the
   executing agent works from (the CLI never calls an LLM and never wires the hub);
-  `--choose` records the pick in `content/active.yaml`. The full variant flow is
-  M3 (`src/commands/refine.ts`).
+  `--choose` records the pick in `content/active.yaml`. The platform skill ships
+  **inside this package**, so the template prints its real path on an npm install
+  (and says `no skill for <platform>` vs `skills not shipped` distinctly —
+  #253). The full variant flow is M3 (`src/commands/refine.ts`).
 - **`check`** — executes the offline rules that exist today: the brand handle
   matrix (brand flavor only, D15/§17), the evidence-registry checks (M7/§18.8),
   the media-transport rules (M8/§18.6), and the `max-chars` / `min-chars` rows
@@ -80,13 +82,16 @@ The partial commands are explicit, and each one says what still owns the rest:
   (offline, warn-class, #240). The remaining per-platform rules in the catalog
   ship with the skills `checks.yaml` union (M3) and the full `pasco check` (M4).
   It prints its `owner` line (`src/commands/check.ts`).
-- **`skills:install`** — prints the skills-studio projection command; projecting
-  is the studio's job (AGOS), not the CLI's (`src/commands/skills-install.ts`).
+- **`skills:export`** — copies the platform skills this package ships into the
+  directory the user names (`--list` first; an existing non-empty directory needs
+  `--force`). It replaces the earlier projection stub: the CLI never invents a
+  per-agent destination and never points at tooling the reader cannot open
+  (`src/commands/skills-export.ts`, #254).
 - **`post`** — the week-1 experiment (#264/#265): a CLI subcommand family over
   the `posts/` store; it never calls an LLM, emits the agent task, records the
-  choice, checks limits/URLs/refs and exports a Postiz draft. It needs the
-  repo's `skills/` (`PASCO_SKILLS_DIR` when running a packaged CLI), and it is
-  **not part of the v1 contract yet** (`docs/post-mvp.md`).
+  choice, checks limits/URLs/refs and exports a Postiz draft. It reads the
+  `skills/` bundled with the package (set `PASCO_SKILLS_DIR` only to point at a
+  custom tree), and it is **not part of the v1 contract yet** (`docs/post-mvp.md`).
 
 ### Publication truth (derived — SPEC §20.1, #242)
 
@@ -138,7 +143,8 @@ pasco post task demo --channel linkedin,x   # task bundles (no LLM call)
 pasco post choose demo --channel linkedin --variant linkedin-1
 pasco post check demo                        # limits + URLs + {{fact:...}} refs
 pasco post export demo --target postiz       # POST /posts draft payload
-pasco skills:install pi
+pasco skills:export --list                   # platform skills shipped with this package
+pasco skills:export ~/.claude/skills         # copy them to a directory you choose
 ```
 
 ## Workspace resolution (D14)

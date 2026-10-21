@@ -116,8 +116,51 @@ try {
     fail(`installed bin printed "${out.trim()}", expected "${expected}"`);
   }
 
+  // 8. Platform skills ship in the tarball and resolve from the INSTALLED
+  //    package (#253): `refine` must print a real path under the npm prefix,
+  //    not the repo-dev layout a user does not have. The tarball also must not
+  //    carry a reference to tooling/repos a reader cannot open (#254 C1).
+  const packedSkill = join(inner, "skills", "github-readme", "SKILL.md");
+  if (!existsSync(packedSkill)) {
+    fail('tarball is missing "skills/github-readme/SKILL.md" (files must ship skills/)');
+  }
+  const workspace = join(pkgDir, "..", "core", "tests", "fixtures", "minimal");
+  const refineOut = run(
+    realpathSync(binLink),
+    ["refine", "github-readme", "--workspace", workspace],
+    {
+      cwd: installDir,
+    },
+  );
+  const match = refineOut.match(/^Skill \(communicative strategy — READ IT FIRST\): (.+)$/m);
+  if (match === null) fail(`installed refine printed no skill line:\n${refineOut}`);
+  const skillPath = match[1];
+  const installedPkg = realpathSync(join(installDir, "node_modules", "@profile-as-code", "cli"));
+  if (!existsSync(skillPath)) {
+    fail(`installed refine printed a skill path that does not exist: ${skillPath}`);
+  }
+  if (!realpathSync(skillPath).startsWith(installedPkg)) {
+    fail(`installed refine resolved outside the installed package: ${skillPath}`);
+  }
+  const noSkillOut = run(realpathSync(binLink), ["refine", "upwork", "--workspace", workspace], {
+    cwd: installDir,
+  });
+  if (!noSkillOut.includes("no skill for upwork yet")) {
+    fail(
+      `installed refine did not distinguish "no skill for upwork" from "not shipped":\n${noSkillOut}`,
+    );
+  }
+  const helpOut = run(realpathSync(binLink), ["--help"], { cwd: installDir });
+  if (/skills-studio|prompt-studio|AGOS\b|project\.sh/.test(helpOut)) {
+    fail("installed --help references a repo/tooling the reader cannot open");
+  }
+  const listOut = run(realpathSync(binLink), ["skills:export", "--list"], { cwd: installDir });
+  if (!listOut.includes("github-readme")) {
+    fail(`installed skills:export --list does not list the shipped skills:\n${listOut}`);
+  }
+
   console.log(
-    `verify-pack PASS: ${packed} exposes bin pasco (${binPath}, executable, shebang, installed smoke "${expected}")`,
+    `verify-pack PASS: ${packed} exposes bin pasco (${binPath}, executable, shebang, installed smoke "${expected}") + ships skills (${skillPath})`,
   );
 } catch (err) {
   console.error(err instanceof Error ? err.message : err);

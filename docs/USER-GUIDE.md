@@ -162,8 +162,8 @@ pasco --version   # what you installed — 0.3.0 today
 pasco --help      # command list + exit-code contract
 ```
 
-`--help` prints `init`, `validate`, `build`, `diff`, `refine`, `check`, `status`
-and `skills:install`, plus the exit-code contract: `0` ok · `1` schema or
+`--help` prints `init`, `validate`, `build`, `diff`, `refine`, `check`, `post`,
+`status` and `skills:export`, plus the exit-code contract: `0` ok · `1` schema or
 workspace failure · `2` usage error. `pasco status --help` covers the deploy
 ledger and its opt-in live check (`--mark`, `--verify`, `--write-checklist`,
 `--completeness`). Which of those commands are still partial is stated in the
@@ -715,7 +715,8 @@ pasco diff [--json]                        # changes since last release-* tag
 pasco refine <platform> [--lang] [--variants N]   # emit the agent task template (full flow M3)
 pasco refine <platform> --choose <id>      # record chosen variant in content/active.yaml
 pasco check [platform]                     # offline rules + checks catalog (rest of catalog M4)
-pasco skills:install <agent>               # print the skills-studio projection command
+pasco skills:export --list                 # platform skills shipped with this package
+pasco skills:export <dir>                  # copy them to a directory you name
 pasco --workspace <path> <cmd>             # target a workspace explicitly
 pasco --json <cmd>                         # machine-readable output
 ```

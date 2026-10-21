@@ -76,6 +76,14 @@ per-user private repo (`profile-data`), scaffolded from the template
    staleness computable: `stale` only WARNS (re-measure, or mark it `kind=record`
    if it is history), `unreachable` FAILS (a rebased-away sha is a claim without a
    source).
+9. **A published surface may only reference what its reader can open (#254).**
+   `--help`, command output, the package README/description and error messages are
+   read by a stranger: they may not name a path, repo or tool that stranger cannot
+   open. The CLI may only read artifacts it ships — `packages/cli/skills/` is a
+   **generated** copy of `<repo>/skills/` (produced by `scripts/bundle-skills.mjs`
+   on `build`/`prepack`, listed in the package's `files`); never edit the copy or
+   resolve a skill from an engine checkout as the primary path. Dated records
+   (CHANGELOG history, sourced research, issue/PR bodies) are exempt — rule 8.
 
 ## Commands
 

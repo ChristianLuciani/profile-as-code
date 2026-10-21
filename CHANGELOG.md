@@ -24,6 +24,19 @@ minor versions may contain breaking contract changes.
   `CHECKLIST.md`. Additive in `--json` (`publication`), and the one cap executor moved to
   `packages/cli/src/limits.ts` so `check` and `status` share it — and the planned
   `edit` slices (#248–#252) consume it instead of a second cap table.
+- **The platform skills ship with `@profile-as-code/cli` (#253)** — `skills/` is copied
+  into the package at build/pack time (`files: ["dist","skills"]`) and resolved from the
+  package root, so `pasco refine` prints a real `SKILL.md` path on an npm install instead
+  of the repo-dev layout a user does not have. The output now distinguishes *no skill for
+  `<platform>`* from *skills not shipped with this package*; `post` reads the same tree.
+
+### Changed
+
+- **`pasco skills:install <agent>` → `pasco skills:export <dir> [--list]` (#254, C1)** —
+  the CLI no longer prints a projection command for a private studio. It copies the
+  platform skills it ships into a directory the user names (non-empty destinations need
+  `--force`), and no published surface references a path/repo/tooling the reader cannot
+  open (rule now in AGENTS/CONTRIBUTING). The tarball is asserted by `verify:pack`.
 
 ### Planned (roadmap)
 
