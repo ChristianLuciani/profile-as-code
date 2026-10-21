@@ -92,7 +92,11 @@ const seen = new Set();
 const usages = events
   .filter((e) => e?.type === "turn_end" || e?.type === "result" || e?.type === "assistant")
   .map((e) => {
-    const id = e?.message?.responseId ?? e?.message?.id ?? e?.uuid ?? JSON.stringify(e?.message?.usage ?? e?.usage);
+    const id =
+      e?.message?.responseId ??
+      e?.message?.id ??
+      e?.uuid ??
+      JSON.stringify(e?.message?.usage ?? e?.usage);
     if (seen.has(id)) return null;
     seen.add(id);
     return e?.message?.usage ?? e?.usage;
