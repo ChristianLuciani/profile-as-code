@@ -45,8 +45,10 @@ import {
 import { parseDocument, stringify } from "yaml";
 import { capabilitiesOf } from "./capabilities.js";
 import { certToken, type StatusArgs } from "./commands/status.js";
+import { DEFAULT_CHECKS } from "./default-checks.js";
 import { EXIT } from "./exit.js";
 import { isJsonMode, line, report, section } from "./output.js";
+import { publicationCoverageLine, publicationLine, publicationOfCaller } from "./publication.js";
 import { filterReport, reportDataOf } from "./report-shape.js";
 
 /**
@@ -245,8 +247,15 @@ function finishVerify(
     }),
   };
 
+  // #242: the SAME derived publication truth the read report carries — a verify
+  // pass is exactly when the artifact axis can change (a live mismatch forces
+  // `diverges`), so the payload must not silently omit it.
+  const publication = publicationOfCaller(args, profile, withDerived, DEFAULT_CHECKS);
+
   if (isJsonMode()) {
-    return report("status", true, EXIT.OK, { data: reportDataOf(withDerived, args) });
+    return report("status", true, EXIT.OK, {
+      data: reportDataOf(withDerived, args, publication),
+    });
   }
 
   section(
@@ -254,6 +263,16 @@ function finishVerify(
   );
   for (const { key, verdict } of verdicts) {
     line(`  ${key} → ${verdict.surface}: ${certToken(verdict.certification)}`);
+  }
+  if (publication.length > 0) {
+    section("publication truth — derived, never stored (SPEC §20.1)");
+    for (const truth of publication) {
+      line(`  ${publicationLine(truth)}`);
+      for (const finding of truth.findings) {
+        line(`    warn: [${finding.code}] ${finding.message} (${finding.path})`);
+      }
+    }
+    line(`  coverage: ${publicationCoverageLine(publication)}`);
   }
   if (verdicts.length === 0) {
     line("  nothing to verify — no ledger record on the requested surface(s)");

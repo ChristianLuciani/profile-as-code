@@ -1,5 +1,9 @@
 # profile-as-code
 
+<p align="center">
+  <img src="site/brand/lockup.png" alt="profile-as-code" width="300">
+</p>
+
 **Tu identidad profesional como código.** Un solo source of truth versionado (YAML) → textos optimizados
 por plataforma (LinkedIn, GitHub, Upwork, X, ResearchGate…) con **skills por plataforma** que codifican el
 conocimiento SOTA de cada red.
@@ -7,7 +11,7 @@ conocimiento SOTA de cada red.
 > CLI-first · TypeScript · Sin infraestructura · Tus datos siempre tuyos.
 
 ![CI](https://github.com/ChristianLuciani/profile-as-code/actions/workflows/ci.yml/badge.svg)
-![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
+![License: MIT for the code](https://img.shields.io/badge/license-MIT%20code-green.svg)
 [![Discussions](https://img.shields.io/badge/discussions-comunidad-blue.svg)](https://github.com/ChristianLuciani/profile-as-code/discussions)
 
 **Project page:** [christianluciani.github.io/profile-as-code](https://christianluciani.github.io/profile-as-code/) —
@@ -15,7 +19,7 @@ la misma entrada, para quien no llega por el repositorio.
 
 ## Para quién es (y qué necesitás)
 
-**Es una herramienta para gente técnica**: lo mínimo es una terminal y **Node.js ≥ 22**.
+**Es una herramienta para personas técnicas**: lo mínimo es una terminal y **Node.js ≥ 22**.
 El workspace **es una carpeta**; un repo es el lugar **recomendado** para guardarla, no un
 requisito (SPEC §9). Tres on-ramps, cada uno con su diferencia de capacidades al frente:
 
@@ -48,7 +52,7 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 
 ```
         ┌──────────────────────────────────────────────────────┐
-        │                 REPO PÚBLICO (producto)               │
+        │                 REPO PÚBLICO (producto)              │
         │  ┌─────────┐  ┌──────────────┐  ┌─────────────────┐  │
         │  │  DATA   │→ │  CORE        │→ │  RENDERERS      │  │
         │  │  YAML   │  │  validación  │  │  linkedin/      │  │
@@ -56,7 +60,7 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
         │  │         │  │  drift-check │  │  x/researchgate/│  │
         │  │         │  │  geo-check   │  │  substack       │  │
         │  └─────────┘  └──────────────┘  └─────────────────┘  │
-        │        CI: validate · lint · tests · build          │
+        │        CI: validate · lint · tests · build           │
         └───────────────┬──────────────────────────┬───────────┘
                         │ datos del usuario         │ outputs listos
         ┌───────────────▼──────────┐   ┌───────────▼──────────────┐
@@ -183,6 +187,14 @@ El proyecto sigue siendo MIT: el código ya es tuyo, pagues o no.
 **Sponsors:** todavía no hay ninguno. Los nombres y logos de quienes patrocinan se publican
 en esta sección, en el orden de su tier — si sos el primero, tu nombre va acá.
 
+## Marca
+
+El isotipo, el lockup y la lámina de identidad viven en [`site/brand/`](site/brand/), con
+el manual en [`BRAND.md`](site/brand/BRAND.md): construcción, color, tipografía y reglas
+de uso. El código es MIT; **el nombre y el logo no** — ver [`TRADEMARK.md`](TRADEMARK.md)
+y [`site/brand/LICENSE`](site/brand/LICENSE).
+
 ## Licencia
 
-MIT — ver `LICENSE`.
+MIT para el código — ver [`LICENSE`](LICENSE). El nombre y el logo quedan fuera de esa
+licencia: [`TRADEMARK.md`](TRADEMARK.md) y [`site/brand/LICENSE`](site/brand/LICENSE).

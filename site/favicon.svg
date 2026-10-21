@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28">
-  <title>profile-as-code</title>
-  <rect width="28" height="28" rx="8" fill="#1f4fff"/>
-  <path d="M8 9.5h7M8 14h12M8 18.5h7" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
-  <circle cx="18.5" cy="9.5" r="1.7" fill="#fff"/>
-  <circle cx="18.5" cy="18.5" r="1.7" fill="#fff"/>
-</svg>
