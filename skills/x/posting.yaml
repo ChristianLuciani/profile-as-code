@@ -1,0 +1,24 @@
+# x post rules — machine-readable (MVP)
+#
+# The `post check` command reads limits/settings/hashtags from here. The prose
+# strategy lives in post.md; this file is the contract. Re-verify the source
+# before changing a hard limit.
+
+platform: x
+settings:
+  __type: x
+  who_can_reply_post: everyone
+limits:
+  maxChars: 280
+links:
+  policy: identity-ssot-only
+hashtags:
+  max: 3
+structure:
+  - hook
+  - body
+  - close
+sources:
+  - url: https://developer.x.com/en/docs/x-api/v2/tweets/create-post
+    date: 2026-10-20
+    note: "X post character limit (280 for standard accounts; verified/premium differ)."

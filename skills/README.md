@@ -52,3 +52,11 @@ skills/<plataforma>/
 `github-org` — README del GitHub **org** para workspaces `flavor: brand`: voz de
 marca (≠ voz personal), handle-matrix checks (`handle-claimed`/`handle-consistent`,
 offline en `pasco check`), trademark/impersonación. Ver `skills/github-org/`.
+
+## Post skills (MVP, #264)
+
+The week-1 post experiment uses a **different shape** from the profile skills:
+`skills/<platform>/post.md` (judgment) + `skills/<platform>/posting.yaml`
+(machine-readable limits/settings). `pasco post` reads them; `pasco refine` keeps
+reading `SKILL.md`. They cover two channels only (`linkedin`, `x`) and are not
+projected to harnesses yet — see `docs/post-mvp.md`.

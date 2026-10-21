@@ -9,14 +9,14 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import type { Lang, Platform } from "@profile-as-code/core";
 import { compile, LoadError, load, SchemaValidationError } from "@profile-as-code/core";
 import { parseDocument, stringify } from "yaml";
 import { parseLang, parsePlatform, parseVariants, UsageError } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report } from "../output.js";
+import { skillFile } from "../skill-path.js";
 import { hasVariantBody, isSafeVariantId, variantBodyPath } from "../variant-store.js";
 import type { Pascorc } from "../workspace.js";
 import { defaultsLang } from "../workspace.js";
@@ -30,11 +30,7 @@ export const REFINE_OWNER =
  * the skill is not installed (e.g. npm-installed CLI without skills shipped).
  */
 function platformSkillPath(platform: string): string | undefined {
-  const here = dirname(fileURLToPath(import.meta.url)); // packages/cli/dist/commands
-  const candidates = [
-    join(here, "..", "..", "..", "..", "skills", platform, "SKILL.md"), // repo dev
-  ];
-  return candidates.find((p) => existsSync(p));
+  return skillFile(platform, "SKILL.md");
 }
 
 export interface RefineArgs {
