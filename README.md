@@ -171,6 +171,15 @@ cuenta ni repo.
   Toda skill pasa por review: sanitización + security scan + test de comportamiento.
 - Regla de evidencia: toda afirmación cuantitativa de una skill lleva fuente + fecha.
 
+## Sponsor this project
+
+Si el proyecto te resulta útil, podés [patrocinarlo desde GitHub Sponsors](https://github.com/sponsors/ChristianLuciani).
+El patrocinio financia el trabajo sobre el **engine** (`packages/core`) y la **CLI `pasco`** (`packages/cli`):
+el contrato de `docs/SPEC.md`, los renderers y las skills por plataforma. Qué **no** compra: no hay SLA
+ni soporte prioritario, y no da influencia sobre el roadmap — las decisiones se discuten a la vista en
+los issues y en `docs/SPEC.md`, y una propuesta se evalúa por sus méritos, no por quién la financia.
+El proyecto sigue siendo MIT: el código ya es tuyo, pagues o no.
+
 ## Licencia
 
 MIT — ver `LICENSE`.
