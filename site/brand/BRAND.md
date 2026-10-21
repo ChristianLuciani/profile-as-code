@@ -79,7 +79,7 @@ The mark is an SVG source, never a PNG, and it inherits `currentColor`.
 
 ## 7. Lockup
 
-Mark 28 px, wordmark 19 px, gap 6 px — about 10 px visual, because the disc’s
+Mark 28 px, wordmark 19 px, gap 8 px — about 10 px visual, because the disc’s
 sidebearing does the rest. In HTML the wordmark is live text, not outlines: it keeps the
 page selectable, searchable and translatable. The accessible name is always
 `profile-as-code`; the mark is decorative (`aria-hidden="true"`) when the name is
@@ -143,6 +143,10 @@ No third face. Emphasis is weight and space, never italics.
 | `lockup.png` | 2× render on paper, for the README hero |
 
 `site/favicon.svg` is a copy of `mark-tile.svg`; `site/index.html` inlines `mark.svg`.
+
+The geometry is repeated by necessity in the tile, the lockup, the inline mark and the
+identity sheet — each asset is standalone. `mark.svg` is the source: change it first,
+then propagate the same path and the same mask to the other surfaces.
 
 ## 13. Licensing
 
