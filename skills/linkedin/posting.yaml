@@ -1,0 +1,23 @@
+# linkedin post rules — machine-readable (MVP)
+#
+# The `post check` command reads limits/settings/hashtags from here. The prose
+# strategy lives in post.md; this file is the contract. Re-verify the source
+# before changing a hard limit.
+
+platform: linkedin
+settings:
+  __type: linkedin
+limits:
+  maxChars: 3000
+links:
+  policy: identity-ssot-only
+hashtags:
+  max: 5
+structure:
+  - hook
+  - body
+  - close
+sources:
+  - url: https://www.linkedin.com/help/linkedin/answer/a528565
+    date: 2026-10-20
+    note: "LinkedIn post character limit (3,000); re-verify, the platform changes limits."

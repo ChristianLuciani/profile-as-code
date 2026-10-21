@@ -16,6 +16,7 @@ import { runBuild } from "./commands/build.js";
 import { runCheck } from "./commands/check.js";
 import { runDiff } from "./commands/diff.js";
 import { runInit } from "./commands/init.js";
+import { runPost } from "./commands/post.js";
 import { runRefine } from "./commands/refine.js";
 import { runSkillsInstall } from "./commands/skills-install.js";
 import { runStatus } from "./commands/status.js";
@@ -57,6 +58,9 @@ Commands:
                                 brand flavor), registry checks (M7/§18.8) and
                                 media-transport rules (M8/§18.6) and max-chars/min-chars
                                 over headlines/bios (offline, #240); remaining rows M3/M4
+  post <subcommand>             MVP (week-1 experiment): seed → task bundle → choose →
+                                check → optional Postiz draft payload. No LLM call.
+                                Subcommands: seed · task · choose · check · export · import · list
   status [platform] [--verify]   Per-entry deploy report — origin · surfaces · in-sync/stale/never
                                  + certification (D18/§19.5); --verify runs the opt-in C1
                                  live check (the engine's ONE network path, §19.5)
@@ -89,6 +93,13 @@ interface FlagOptions {
   selection?: boolean;
   view?: string;
   verify?: boolean;
+  channel?: string;
+  variant?: string;
+  text?: string;
+  target?: string;
+  out?: string;
+  type?: string;
+  date?: string;
 }
 
 function parseCommandFlags(
@@ -156,6 +167,21 @@ pasco check (M4). Prints its owner line (src/commands/check.ts).`,
   "skills:install": `pasco skills:install <agent>
 Prints the skills-studio projection command for <agent> (pi|claude|aionui|opencode).
 Projection is the skills-studio job (AGOS), not the CLI's.`,
+  post: `pasco post <seed|task|choose|check|export|import|list> [...] [--json] [--workspace <path>]
+MVP (week-1 experiment): a post is a PROJECTION of a seed, not an identity fact.
+  seed <id> --text <file>          create posts/<id>/seed.md + post.yaml
+  task <id> --channel <c1,c2> [--variants N]
+                                   emit posts/<id>/<channel>/task.md (agent task:
+                                   seed + facts + skill + channel rules); no LLM call
+  choose <id> --channel <c> --variant <v> [--text <file>]
+                                   record the chosen variant in post.yaml
+  check <id>                       max-chars, URLs only from the SSOT, {{fact:...}}
+                                   refs resolve; unsourced numeric claims warn
+  export <id> [--target postiz] [--out <file>] [--type draft|schedule|now] [--date <iso>]
+                                   build a Postiz POST /posts payload (integration
+                                   IDs from postiz.yaml; REPLACE_ME when missing)
+  import <dir> --channel <c>       import historical .md posts as seeds
+  list                             list seeds and their chosen variants`,
   status: `pasco status [platform] [--mark <ledgerKey> <surface>] [--at <iso8601>] [--verify] [--write-checklist] [--completeness] [--json] [--workspace <path>]
 Per-entry deploy-status report (D18, §19): ledger key · origin (template/user) ·
 surfaces published · sync state (in-sync / stale / never) · certification
@@ -308,6 +334,44 @@ async function runMain(): Promise<number> {
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       return runCheck({ workspace, platformArg: positionals[0] });
+    }
+    case "post": {
+      const { flags, positionals } = parseCommandFlags(rest, {
+        channel: { type: "string" },
+        variants: { type: "string" },
+        variant: { type: "string" },
+        text: { type: "string" },
+        target: { type: "string" },
+        out: { type: "string" },
+        type: { type: "string" },
+        date: { type: "string" },
+      });
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.post}\n`);
+        return EXIT.OK;
+      }
+      if (positionals.length < 1 || positionals.length > 2) {
+        throw new UsageError(
+          "usage: pasco post <seed|task|choose|check|export|import|list> [<seed-id|dir>] [flags]",
+        );
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      const pascorc = readWorkspacePascorc(workspace);
+      return runPost({
+        workspace,
+        subcommand: positionals[0],
+        ...(positionals[1] !== undefined ? { seedArg: positionals[1] } : {}),
+        channelArg: flags.channel,
+        variantsArg: flags.variants,
+        variantArg: flags.variant,
+        textArg: flags.text,
+        targetArg: flags.target,
+        outArg: flags.out,
+        typeArg: flags.type,
+        dateArg: flags.date,
+        pascorc,
+      });
     }
     case "status": {
       const { flags, positionals } = parseCommandFlags(rest, {
