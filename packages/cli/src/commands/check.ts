@@ -14,7 +14,7 @@
  * github-org skill's `url-live` check (network, not drift).
  */
 
-import type { LoadedProfile, Platform } from "@profile-as-code/core";
+import type { LoadedProfile } from "@profile-as-code/core";
 import {
   collectMedia,
   driftCheck,
@@ -26,81 +26,11 @@ import {
 import { parsePlatform } from "../contract.js";
 import { DEFAULT_CHECKS } from "../default-checks.js";
 import { EXIT } from "../exit.js";
+import { limitFindings } from "../limits.js";
 import { isJsonMode, line, report, section } from "../output.js";
 
 export const CHECK_OWNER =
   "M6: handle-matrix rules (brand, offline) executed; M7 (D17/§18.8): registry checks (credential-expiry, no-private-in-public-output) executed; M8 (§18.6): media-transport rules executed; limits: max-chars/min-chars over existing rows executed (offline); remaining catalog ships with M3/M4 (SPEC §7)";
-
-/** A text-limit finding is WARN by contract (D12: facts warn, schema fails). */
-export interface LimitFinding {
-  severity: "warn";
-  code: "max-chars" | "min-chars";
-  message: string;
-  path: string;
-}
-
-/**
- * Execute the `max-chars` / `min-chars` rows of the (already platform-filtered)
- * check catalog over the rows that exist today: headlines and bios. No network;
- * an optional `surface` selector keeps a title cap off the bio; a non-numeric
- * value is a warn, never a crash (#240).
- */
-function limitFindings(
-  profile: LoadedProfile,
-  checks: LoadedProfile["checks"],
-  platform?: Platform,
-): LimitFinding[] {
-  const rows = [
-    ...(profile.headlines ?? []).map((h) => ({
-      label: `headline ${h.platform}/${h.lang}`,
-      platform: h.platform,
-      surface: "headline" as const,
-      text: h.text,
-      path: `headlines:${h.platform}:${h.lang}`,
-    })),
-    ...(profile.bios ?? []).map((b) => ({
-      label: `bio ${b.platform}/${b.lang}/${b.length}`,
-      platform: b.platform,
-      surface: "bio" as const,
-      text: b.text,
-      path: `bios:${b.platform}:${b.lang}:${b.length}`,
-    })),
-  ];
-  const findings: LimitFinding[] = [];
-  for (const check of checks) {
-    if (check.rule !== "max-chars" && check.rule !== "min-chars") continue;
-    if (typeof check.value !== "number" || !Number.isFinite(check.value)) {
-      findings.push({
-        severity: "warn",
-        code: check.rule,
-        message: `check ${check.id ?? "(no id)"} has a non-numeric ${check.rule} value — skipped`,
-        path: `checks:${check.id ?? "?"}`,
-      });
-      continue;
-    }
-    for (const row of rows) {
-      if (check.platform !== "all" && check.platform !== row.platform) continue;
-      // `all` means every surface in the workspace, but a scoped command must
-      // not report another platform's rows under a "for <platform>" header.
-      if (check.platform === "all" && platform !== undefined && row.platform !== platform) continue;
-      const surface = check.surface ?? "both";
-      if (surface !== "both" && surface !== row.surface) continue;
-      const length = [...row.text].length;
-      const over = check.rule === "max-chars" && length > check.value;
-      const under = check.rule === "min-chars" && length < check.value;
-      if (!over && !under) continue;
-      findings.push({
-        severity: "warn",
-        code: check.rule,
-        message: `${row.label} has ${length} chars, ${over ? "over max" : "under min"} ${check.value}${
-          check.note === undefined ? "" : ` — ${check.note}`
-        }`,
-        path: row.path,
-      });
-    }
-  }
-  return findings;
-}
 
 /** Handle drift codes the offline handle-matrix execution reports. */
 const HANDLE_CODES = new Set([

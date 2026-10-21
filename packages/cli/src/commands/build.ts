@@ -28,6 +28,7 @@ import { parseLang, parsePlatform } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { RENDERERS } from "../generated/renderers.gen.js";
 import { isJsonMode, line, report, section } from "../output.js";
+import { artifactPath } from "../publication.js";
 import { resolveVariantBody } from "../variant-store.js";
 import type { Pascorc } from "../workspace.js";
 import {
@@ -172,10 +173,9 @@ export function runBuild(args: BuildArgs): number {
       // `cp variants/<id>.md ../<user>/README.md`), not a prose fragment. Write
       // it verbatim instead of the deterministic render; no duplicated H1.
       const renderer = RENDERERS[s.platform];
-      const path =
-        renderer === undefined
-          ? join(args.workspace, "profiles", `${s.platform}.md`)
-          : join(args.workspace, "profiles", s.platform, "README.md");
+      // ONE home for the artifact path (#242): `status` compares these bytes, so
+      // this must be the same rule, not a second copy of it.
+      const path = artifactPath(args.workspace, s.platform);
       if (renderer !== undefined) {
         rmSync(join(args.workspace, "profiles", `${s.platform}.md`), { force: true });
         rmSync(join(args.workspace, "profiles", s.platform, "assets"), {
@@ -193,7 +193,7 @@ export function runBuild(args: BuildArgs): number {
     if (renderer === undefined) {
       // #239: a manual-paste surface with a bio row gets a file on disk too —
       // one row verbatim, via the shared paste core. Empty = unbuild (§15.1).
-      const path = join(args.workspace, "profiles", `${s.platform}.md`);
+      const path = artifactPath(args.workspace, s.platform);
       const text = pasteSource(s);
       if (text === "") {
         skipped.push({
@@ -212,7 +212,8 @@ export function runBuild(args: BuildArgs): number {
     // file so profiles/ stays a pure function (#245 premerge F2).
     rmSync(join(args.workspace, "profiles", `${s.platform}.md`), { force: true });
     const result = renderer(s, bundle.assets);
-    const dir = join(args.workspace, "profiles", s.platform);
+    const path = artifactPath(args.workspace, s.platform);
+    const dir = dirname(path);
     // v1.7 (#130): an empty artifact is not a deploy artifact — a paste
     // platform (kofi) yields "" when no bios row exists for platform+lang
     // (compile filters exactly). The lifecycle is COMPLETE: profiles/ is a
@@ -236,7 +237,6 @@ export function runBuild(args: BuildArgs): number {
       continue;
     }
     mkdirSync(dir, { recursive: true });
-    const path = join(dir, "README.md");
     writeFileSync(path, result.text);
 
     // assets/ IS part of the platform output (Q9/D19 — one dir per platform,
