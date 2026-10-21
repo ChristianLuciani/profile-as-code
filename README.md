@@ -15,7 +15,7 @@ la misma entrada, para quien no llega por el repositorio.
 
 ## Para quién es (y qué necesitás)
 
-**Es una herramienta para gente técnica**: lo mínimo es una terminal y **Node.js ≥ 22**.
+**Es una herramienta para personas técnicas**: lo mínimo es una terminal y **Node.js ≥ 22**.
 El workspace **es una carpeta**; un repo es el lugar **recomendado** para guardarla, no un
 requisito (SPEC §9). Tres on-ramps, cada uno con su diferencia de capacidades al frente:
 
@@ -48,7 +48,7 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 
 ```
         ┌──────────────────────────────────────────────────────┐
-        │                 REPO PÚBLICO (producto)               │
+        │                 REPO PÚBLICO (producto)              │
         │  ┌─────────┐  ┌──────────────┐  ┌─────────────────┐  │
         │  │  DATA   │→ │  CORE        │→ │  RENDERERS      │  │
         │  │  YAML   │  │  validación  │  │  linkedin/      │  │
@@ -56,7 +56,7 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
         │  │         │  │  drift-check │  │  x/researchgate/│  │
         │  │         │  │  geo-check   │  │  substack       │  │
         │  └─────────┘  └──────────────┘  └─────────────────┘  │
-        │        CI: validate · lint · tests · build          │
+        │        CI: validate · lint · tests · build           │
         └───────────────┬──────────────────────────┬───────────┘
                         │ datos del usuario         │ outputs listos
         ┌───────────────▼──────────┐   ┌───────────▼──────────────┐
