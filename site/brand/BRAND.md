@@ -94,10 +94,13 @@ already in the link.
 | Paper | `#F7F5EF` | ground |
 | Ink | `#12161C` | the mark, the wordmark, body |
 | Signal | `#1F4FFF` | the tile, one action per screen |
+| Surface | `#FFFDF8` | cards, the lockup specimen |
+| Line | `#E1DDD2` | rules and borders |
+| Muted | `#58606D` | labels and secondary text |
 
 The rule: **the mark is ink on paper and paper on ink; Signal never enters the mark.**
-The accent belongs to the tile and to actions. Dark mode reuses the page tokens; the
-mark follows `currentColor`.
+The accent belongs to the tile and to actions. Dark mode reuses the page tokens — the
+accent becomes `#8AB0FF` — and the mark follows `currentColor`.
 
 ## 9. Type
 
@@ -156,7 +159,8 @@ rsvg-convert -w 1120 site/brand/identity.svg -o site/brand/identity.png
 
 The geometry is repeated by necessity in the tile, the lockup, the inline mark and the
 identity sheet — each asset is standalone. `mark.svg` is the source: change it first,
-then propagate the same path and the same mask to the other surfaces.
+then propagate the same path to the other surfaces; the tile paints the pupil instead of
+masking it.
 
 ## 13. Licensing
 

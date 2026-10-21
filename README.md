@@ -11,7 +11,7 @@ conocimiento SOTA de cada red.
 > CLI-first · TypeScript · Sin infraestructura · Tus datos siempre tuyos.
 
 ![CI](https://github.com/ChristianLuciani/profile-as-code/actions/workflows/ci.yml/badge.svg)
-![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
+![License: MIT for the code](https://img.shields.io/badge/license-MIT%20code-green.svg)
 [![Discussions](https://img.shields.io/badge/discussions-comunidad-blue.svg)](https://github.com/ChristianLuciani/profile-as-code/discussions)
 
 **Project page:** [christianluciani.github.io/profile-as-code](https://christianluciani.github.io/profile-as-code/) —
