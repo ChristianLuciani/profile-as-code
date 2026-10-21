@@ -187,6 +187,10 @@ Per-entry deploy-status report (D18, §19): ledger key · origin (template/user)
 surfaces published · sync state (in-sync / stale / never) · certification
 (verified / attested / unverifiable / out-of-band-drift, §19.5) — plus untracked
 rows (add an id to track) and removed keys (ledger keeps the audit trail).
+It ends with the DERIVED publication truth per surface (SPEC §20.1, #242):
+  <surface>: <sync> · artifact: <matches-SSOT|diverges|absent> · limits: <ok|over(cap)>
+— the artifact on disk vs what the SSOT renders TODAY (offline; offline cap
+warnings carry their source). Derived, never stored: nothing here writes.
   --mark <ledgerKey> <surface>  confirm a manual paste: records deployedAt + the
         CURRENT contentHash in content/deployments.yaml (only pasco writes it,
         D14) plus certification.state attested — and the artifactHash ANCHOR when
@@ -207,7 +211,8 @@ rows (add an id to track) and removed keys (ledger keeps the audit trail).
         surface carries its certification token.
   --completeness                profile-completeness checklist + percentage
         (issue #102). Policy (target/weights/langs) from .pascorc "completeness";
-        the percentage is DERIVED — only the policy is ever stored.
+        the percentage is DERIVED — only the policy is ever stored. Carries the
+        publication-coverage line (SPEC §20.1): coverage, never a new score.
   --selection [--view <name>]   the resolved VIEW (D22/§21): what the surface
         emits, every entry it omits and WHY. Read-only. Policy from .pascorc
         "selection". Subset-only by design — the report exists so an omission is

@@ -4,17 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>profile-as-code — your professional identity, as code</title>
-  <meta name="description" content="A versioned source of truth for your professional identity. One YAML workspace, platform-specific texts for GitHub, LinkedIn, Upwork, X, and more. CLI-first, open source, MIT.">
+  <meta name="description" content="A versioned source of truth for your professional identity. One YAML workspace, platform-specific texts for GitHub, LinkedIn, Upwork, X, and more. CLI-first, open source, MIT-licensed code.">
   <meta name="color-scheme" content="light dark">
   <link rel="canonical" href="https://christianluciani.github.io/profile-as-code/">
   <meta property="og:type" content="website">
   <meta property="og:title" content="profile-as-code — your professional identity, as code">
-  <meta property="og:description" content="One YAML workspace, platform-specific texts for GitHub, LinkedIn, Upwork, X, and more. CLI-first, open source, MIT.">
+  <meta property="og:description" content="One YAML workspace, platform-specific texts for GitHub, LinkedIn, Upwork, X, and more. CLI-first, open source, MIT-licensed code.">
   <meta property="og:url" content="https://christianluciani.github.io/profile-as-code/">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="profile-as-code — your professional identity, as code">
-  <meta name="twitter:description" content="One YAML workspace, platform-specific texts. CLI-first, open source, MIT.">
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta name="twitter:description" content="One YAML workspace, platform-specific texts. CLI-first, open source, MIT-licensed code.">
+  <link rel="icon" href="brand/mark-tile.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -23,11 +23,16 @@
   <header class="site-header">
     <div class="wrap header-inner">
       <a class="brand" href="./" aria-label="profile-as-code — home">
-        <svg class="mark" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
-          <rect x="1" y="1" width="26" height="26" rx="8" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".35"/>
-          <path d="M8 9.5h7M8 14h12M8 18.5h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          <circle cx="18.5" cy="9.5" r="1.7" fill="currentColor"/>
-          <circle cx="18.5" cy="18.5" r="1.7" fill="currentColor"/>
+        <svg class="mark" width="28" height="28" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <defs>
+            <mask id="pasco-cut">
+              <rect width="32" height="32" fill="#fff"/>
+              <path fill="#000" fill-rule="evenodd" d="M9.2 8A2 2 0 0 1 11.2 6H13.2A6.8 6.8 0 1 1 13.2 16.384V22.4A2 2 0 0 1 9.2 22.4Z M17.6 7.76a3.44 3.44 0 1 0 0 6.88 3.44 3.44 0 1 0 0-6.88Z"/>
+              <circle cx="16.6" cy="10.2" r="1.15" fill="#000"/>
+              <path d="M16.4 20.6c.9 1.8 2.2 2.7 3.7 2.7s2.8-.9 3.7-2.7" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round"/>
+            </mask>
+          </defs>
+          <circle cx="16" cy="16" r="13" fill="currentColor" mask="url(#pasco-cut)"/>
         </svg>
         <span>profile-as-code</span>
       </a>
@@ -221,7 +226,7 @@
         <li><a href="https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/USER-GUIDE.md"><span>User guide</span><small>Install, scaffold, load your facts, keep them updated.</small></a></li>
         <li><a href="https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md"><span>Specification</span><small>The contract: decisions, data model, interfaces, roadmap.</small></a></li>
         <li><a href="https://github.com/ChristianLuciani/profile-as-code/blob/main/CONTRIBUTING.md"><span>Contributing</span><small>Direction, hygiene, and the measured latency table.</small></a></li>
-        <li><a href="https://github.com/ChristianLuciani/profile-as-code/blob/main/LICENSE"><span>Licence</span><small>MIT. Use it, fork it, build on it.</small></a></li>
+        <li><a href="https://github.com/ChristianLuciani/profile-as-code/blob/main/LICENSE"><span>Licence</span><small>MIT for the code; the name and the mark are reserved.</small></a></li>
         <li><a href="https://github.com/ChristianLuciani/profile-as-code/discussions"><span>Discussions</span><small>Questions, ideas, and the occasional design argument.</small></a></li>
         <li><a href="https://github.com/ChristianLuciani/profile-as-code"><span>Source</span><small>The engine, the schema, the renderers, and the skills.</small></a></li>
       </ul>
@@ -231,7 +236,7 @@
   <footer class="site-footer">
     <div class="wrap footer-inner">
       <p><strong>profile-as-code</strong> — your professional identity, as code.</p>
-      <p class="footer-meta">MIT · pre-1.0 · <a href="https://github.com/ChristianLuciani/profile-as-code">GitHub</a></p>
+      <p class="footer-meta">MIT code · <a href="https://github.com/ChristianLuciani/profile-as-code/blob/main/TRADEMARK.md">marks reserved</a> · pre-1.0 · <a href="https://github.com/ChristianLuciani/profile-as-code">GitHub</a></p>
     </div>
   </footer>
 </body>

@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 720" width="1120" height="720" role="img" aria-label="profile-as-code identity sheet">
+  <title>profile-as-code — identity sheet</title>
+  <defs>
+    <mask id="cut">
+      <rect width="32" height="32" fill="#fff"/>
+      <path fill="#000" fill-rule="evenodd" d="M9.2 8A2 2 0 0 1 11.2 6H13.2A6.8 6.8 0 1 1 13.2 16.384V22.4A2 2 0 0 1 9.2 22.4Z M17.6 7.76a3.44 3.44 0 1 0 0 6.88 3.44 3.44 0 1 0 0-6.88Z"/>
+      <circle cx="16.6" cy="10.2" r="1.15" fill="#000"/>
+      <path d="M16.4 20.6c.9 1.8 2.2 2.7 3.7 2.7s2.8-.9 3.7-2.7" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round"/>
+    </mask>
+  </defs>
+  <rect width="1120" height="720" fill="#F7F5EF"/>
+
+  <text x="64" y="54" font-family="SF Mono, Menlo, Consolas, monospace" font-size="11" letter-spacing="2.2" fill="#12161C">PROFILE-AS-CODE</text>
+  <text x="1056" y="54" text-anchor="end" font-family="SF Mono, Menlo, Consolas, monospace" font-size="11" letter-spacing="2.2" fill="#58606D">IDENTITY / v1 — SMILE · SOFT</text>
+  <line x1="64" y1="76" x2="1056" y2="76" stroke="#E1DDD2"/>
+
+  <text x="64" y="108" font-family="SF Mono, Menlo, Consolas, monospace" font-size="10" letter-spacing="1.8" fill="#58606D">01 — THE MARK</text>
+  <rect x="64" y="120" width="320" height="320" fill="none" stroke="#D8D2C4"/>
+  <path d="M64 120V440" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M64 120H384" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M74 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 130H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M84 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 140H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M94 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 150H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M104 120V440" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M64 160H384" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M114 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 170H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M124 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 180H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M134 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 190H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M144 120V440" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M64 200H384" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M154 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 210H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M164 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 220H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M174 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 230H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M184 120V440" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M64 240H384" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M194 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 250H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M204 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 260H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M214 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 270H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M224 120V440" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M64 280H384" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M234 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 290H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M244 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 300H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M254 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 310H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M264 120V440" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M64 320H384" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M274 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 330H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M284 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 340H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M294 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 350H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M304 120V440" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M64 360H384" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M314 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 370H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M324 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 380H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M334 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 390H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M344 120V440" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M64 400H384" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M354 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 410H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M364 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 420H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M374 120V440" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M64 430H384" stroke="#E1DDD2" stroke-width="0.5" opacity="0.55"/><path d="M384 120V440" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/><path d="M64 440H384" stroke="#E1DDD2" stroke-width="0.8" opacity="0.9"/>
+  <g fill="none" stroke="#1F4FFF" stroke-width="0.7" opacity="0.35">
+    <circle cx="224" cy="280" r="130"/>
+    <path d="M64 280H384M224 120V440" stroke-dasharray="2 6" stroke-width="0.6"/>
+  </g>
+  <g transform="translate(64.000 120.000) scale(10.0000)"><circle cx="16" cy="16" r="13" fill="#12161C" mask="url(#cut)"/></g>
+
+  <text x="64" y="470" font-family="SF Mono, Menlo, Consolas, monospace" font-size="10" letter-spacing="1.4" fill="#58606D">32 × 32 · DISC Ø26 · PUPIL Ø2.3 · MOUTH 1.6 / ROUND CAPS</text>
+  <text x="64" y="498" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#12161C">The profile is cut out of the badge: the p is the letter,</text>
+  <text x="64" y="520" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#12161C">the counter is the eye, the mouth is the smile.</text>
+
+  <rect x="64" y="552" width="380" height="96" fill="#12161C"/>
+  <text x="84" y="574" font-family="SF Mono, Menlo, Consolas, monospace" font-size="9" letter-spacing="1.6" fill="#8F9AA8">ON INK</text>
+  <g transform="translate(88.000 596.000) scale(0.8750)"><circle cx="16" cy="16" r="13" fill="#F7F5EF" mask="url(#cut)"/></g>
+  <text x="124" y="615.5" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="-0.42" fill="#F7F5EF">profile-as-code</text>
+
+  <text x="500" y="108" font-family="SF Mono, Menlo, Consolas, monospace" font-size="10" letter-spacing="1.8" fill="#58606D">02 — LOCKUP</text>
+  <rect x="500" y="124" width="556" height="104" fill="#FFFDF8" stroke="#E1DDD2"/>
+  <g transform="translate(528.000 150.000) scale(0.8750)"><circle cx="16" cy="16" r="13" fill="#12161C" mask="url(#cut)"/></g>
+  <text x="564" y="169.5" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="-0.42" fill="#12161C">profile-as-code</text>
+
+  <text x="500" y="264" font-family="SF Mono, Menlo, Consolas, monospace" font-size="10" letter-spacing="1.8" fill="#58606D">03 — SIZES</text>
+  <g transform="translate(500.000 286.000) scale(2.0000)"><circle cx="16" cy="16" r="13" fill="#12161C" mask="url(#cut)"/></g>
+  <g transform="translate(576.000 298.000) scale(1.2500)"><circle cx="16" cy="16" r="13" fill="#12161C" mask="url(#cut)"/></g>
+  <g transform="translate(638.000 306.000) scale(0.8750)"><circle cx="16" cy="16" r="13" fill="#12161C" mask="url(#cut)"/></g>
+  <g transform="translate(684.000 315.000) scale(0.5000)"><circle cx="16" cy="16" r="13" fill="#12161C" mask="url(#cut)"/></g>
+  <g font-family="SF Mono, Menlo, Consolas, monospace" font-size="9" letter-spacing="1" fill="#9AA1AC">
+    <text x="500" y="400">64</text><text x="576" y="400">40</text><text x="638" y="400">28</text><text x="684" y="400">16</text>
+  </g>
+
+  <text x="760" y="264" font-family="SF Mono, Menlo, Consolas, monospace" font-size="10" letter-spacing="1.8" fill="#58606D">04 — TILE / FAVICON</text>
+  <g transform="translate(760 286) scale(2)">
+      <rect width="32" height="32" rx="8" fill="#1F4FFF"/>
+      <g fill="#F7F5EF"><path fill-rule="evenodd" d="M9.2 8A2 2 0 0 1 11.2 6H13.2A6.8 6.8 0 1 1 13.2 16.384V22.4A2 2 0 0 1 9.2 22.4Z M17.6 7.76a3.44 3.44 0 1 0 0 6.88 3.44 3.44 0 1 0 0-6.88Z"/><path d="M15.45 10.2a1.15 1.15 0 1 0 2.3 0 1.15 1.15 0 1 0-2.3 0Z"/></g>
+      <path d="M16.4 20.6c.9 1.8 2.2 2.7 3.7 2.7s2.8-.9 3.7-2.7" fill="none" stroke="#F7F5EF" stroke-width="1.6" stroke-linecap="round"/></g>
+  <g transform="translate(840 306) scale(1.25)">
+      <rect width="32" height="32" rx="8" fill="#1F4FFF"/>
+      <g fill="#F7F5EF"><path fill-rule="evenodd" d="M9.2 8A2 2 0 0 1 11.2 6H13.2A6.8 6.8 0 1 1 13.2 16.384V22.4A2 2 0 0 1 9.2 22.4Z M17.6 7.76a3.44 3.44 0 1 0 0 6.88 3.44 3.44 0 1 0 0-6.88Z"/><path d="M15.45 10.2a1.15 1.15 0 1 0 2.3 0 1.15 1.15 0 1 0-2.3 0Z"/></g>
+      <path d="M16.4 20.6c.9 1.8 2.2 2.7 3.7 2.7s2.8-.9 3.7-2.7" fill="none" stroke="#F7F5EF" stroke-width="1.6" stroke-linecap="round"/></g>
+  <g transform="translate(896 315) scale(0.8125)">
+      <rect width="32" height="32" rx="8" fill="#1F4FFF"/>
+      <g fill="#F7F5EF"><path fill-rule="evenodd" d="M9.2 8A2 2 0 0 1 11.2 6H13.2A6.8 6.8 0 1 1 13.2 16.384V22.4A2 2 0 0 1 9.2 22.4Z M17.6 7.76a3.44 3.44 0 1 0 0 6.88 3.44 3.44 0 1 0 0-6.88Z"/><path d="M15.45 10.2a1.15 1.15 0 1 0 2.3 0 1.15 1.15 0 1 0-2.3 0Z"/></g>
+      <path d="M16.4 20.6c.9 1.8 2.2 2.7 3.7 2.7s2.8-.9 3.7-2.7" fill="none" stroke="#F7F5EF" stroke-width="1.6" stroke-linecap="round"/></g>
+  <g transform="translate(934 321) scale(0.5)">
+      <rect width="32" height="32" rx="8" fill="#1F4FFF"/>
+      <g fill="#F7F5EF"><path fill-rule="evenodd" d="M9.2 8A2 2 0 0 1 11.2 6H13.2A6.8 6.8 0 1 1 13.2 16.384V22.4A2 2 0 0 1 9.2 22.4Z M17.6 7.76a3.44 3.44 0 1 0 0 6.88 3.44 3.44 0 1 0 0-6.88Z"/><path d="M15.45 10.2a1.15 1.15 0 1 0 2.3 0 1.15 1.15 0 1 0-2.3 0Z"/></g>
+      <path d="M16.4 20.6c.9 1.8 2.2 2.7 3.7 2.7s2.8-.9 3.7-2.7" fill="none" stroke="#F7F5EF" stroke-width="1.6" stroke-linecap="round"/></g>
+  <g font-family="SF Mono, Menlo, Consolas, monospace" font-size="9" letter-spacing="1" fill="#9AA1AC">
+    <text x="760" y="400">64</text><text x="840" y="400">40</text><text x="896" y="400">26</text><text x="934" y="400">16</text>
+  </g>
+
+  <text x="500" y="440" font-family="SF Mono, Menlo, Consolas, monospace" font-size="10" letter-spacing="1.8" fill="#58606D">05 — PALETTE</text>
+  <rect x="500" y="458" width="160" height="72" fill="#F7F5EF" stroke="#E1DDD2"/>
+  <rect x="676" y="458" width="160" height="72" fill="#12161C"/>
+  <rect x="852" y="458" width="160" height="72" fill="#1F4FFF"/>
+  <g font-family="SF Mono, Menlo, Consolas, monospace" font-size="9" letter-spacing="1" fill="#58606D">
+    <text x="512" y="548">PAPER #F7F5EF</text><text x="688" y="548">INK #12161C</text><text x="864" y="548">SIGNAL #1F4FFF</text>
+  </g>
+
+  <text x="500" y="592" font-family="SF Mono, Menlo, Consolas, monospace" font-size="10" letter-spacing="1.8" fill="#58606D">06 — TYPE</text>
+  <text x="500" y="622" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="-0.5" fill="#12161C">System sans, 700 — voice</text>
+  <text x="500" y="650" font-family="SF Mono, Menlo, Consolas, monospace" font-size="16" font-weight="600" letter-spacing="0.4" fill="#12161C">ui-monospace, 600 — data &amp; labels</text>
+
+  <line x1="64" y1="688" x2="1056" y2="688" stroke="#E1DDD2"/>
+  <text x="64" y="708" font-family="SF Mono, Menlo, Consolas, monospace" font-size="9" letter-spacing="1.6" fill="#9AA1AC">ONE COLOR · EVERY FEATURE IS A CUT · CLEAR SPACE ≥ 4u · MIN MARK 16 PX</text>
+</svg>
