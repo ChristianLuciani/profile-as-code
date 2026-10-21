@@ -25,7 +25,10 @@ export type PostSource = "authored" | "imported";
 export interface PostChannelState {
   chosen?: string;
   chosenAt?: string;
+  /** SHA-256 of the PUBLISHED bytes (facts rendered), not the template. */
   contentHash?: string;
+  /** SHA-256 of the variant template as written (may contain {{fact:...}}). */
+  templateHash?: string;
   publishedAt?: string | null;
   url?: string | null;
   sync?: PostSyncState;
@@ -170,33 +173,39 @@ export interface ChooseResult {
   ledger: PostLedger;
   path: string;
   contentHash: string;
+  templateHash: string;
 }
 
-/** Record the chosen variant for a channel. The body must already exist. */
+/** Record the chosen variant for a channel. The body must already exist.
+ *  `publishedText` is the fact-rendered text the platform will receive; when
+ *  omitted (legacy callers), the template is hashed as the published bytes. */
 export function chooseVariant(
   workspace: string,
   id: string,
   channel: string,
   variant: string,
+  publishedText?: string,
 ): ChooseResult {
   const path = variantPath(workspace, id, channel, variant);
   if (!existsSync(path)) throw new Error(`no variant body at ${path}`);
   const text = readFileSync(path, "utf8");
   if (text.trim() === "") throw new Error(`variant body is empty at ${path}`);
   const ledger = readLedger(workspace, id);
-  const contentHash = hashText(text);
+  const templateHash = hashText(text);
+  const contentHash = hashText(publishedText ?? text);
   const chosenAt = new Date().toISOString();
   ledger.channels[channel] = {
     ...(ledger.channels[channel] ?? {}),
     chosen: variant,
     chosenAt,
     contentHash,
+    templateHash,
     sync: "local-only",
     certification: "unverifiable",
   };
   ledger.status = "draft";
   writeLedger(workspace, ledger);
-  return { ledger, path, contentHash };
+  return { ledger, path, contentHash, templateHash };
 }
 
 /** Read the chosen variant body, or undefined when the channel has no choice. */

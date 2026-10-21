@@ -64,6 +64,7 @@ commands above are the standalone path.
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never · **certification** (verified/attested/unverifiable/out-of-band-drift, §19.5) + ledger write paths (D18, §19) | ✅ |
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13); the chosen body is `profiles/<platform>/variants/<id>.md` (a complete platform artifact), rendered by `pasco build` (#238) | 🚧 template + `--choose` (full flow M3) |
 | `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) + offline `max-chars`/`min-chars` over headlines/bios (#240) | 🚧 offline rules today (limits + registry + media; remaining catalog M3/M4) |
+| `pasco post <seed\|task\|choose\|check\|export\|import\|list>` | Week-1 post MVP (#264): a seed at `posts/<seed>/seed.md` → task bundle → chosen variant → check → optional Postiz draft payload; the CLI never calls an LLM | 🚧 experiment (not in the v1 contract; `docs/post-mvp.md`) |
 | `pasco skills:install <agent>` | Skills-studio projection command (AGOS) | 🚧 prints the projection command |
 
 The partial commands are explicit, and each one says what still owns the rest:
@@ -81,6 +82,11 @@ The partial commands are explicit, and each one says what still owns the rest:
   It prints its `owner` line (`src/commands/check.ts`).
 - **`skills:install`** — prints the skills-studio projection command; projecting
   is the studio's job (AGOS), not the CLI's (`src/commands/skills-install.ts`).
+- **`post`** — the week-1 experiment (#264/#265): a CLI subcommand family over
+  the `posts/` store; it never calls an LLM, emits the agent task, records the
+  choice, checks limits/URLs/refs and exports a Postiz draft. It needs the
+  repo's `skills/` (`PASCO_SKILLS_DIR` when running a packaged CLI), and it is
+  **not part of the v1 contract yet** (`docs/post-mvp.md`).
 
 ## Usage
 
@@ -100,6 +106,11 @@ pasco status --write-checklist        # regenerate CHECKLIST.md from the ledger
 pasco refine linkedin --variants 3            # emits the agent task template (full flow M3)
 pasco refine linkedin --choose li-en-2        # records the chosen variant in content/active.yaml
 pasco check github-readme
+pasco post seed demo --text seed.md           # week-1 experiment: posts/<seed>/seed.md
+pasco post task demo --channel linkedin,x   # task bundles (no LLM call)
+pasco post choose demo --channel linkedin --variant linkedin-1
+pasco post check demo                        # limits + URLs + {{fact:...}} refs
+pasco post export demo --target postiz       # POST /posts draft payload
 pasco skills:install pi
 ```
 

@@ -226,9 +226,6 @@ function factLines(profile: LoadedProfile): string[] {
   if (profile.identity.location !== undefined) {
     lines.push(`identity.location = ${profile.identity.location}`);
   }
-  if (profile.identity.email !== undefined) {
-    lines.push(`identity.email = ${profile.identity.email}`);
-  }
   (profile.identity.links ?? []).forEach((link, index) => {
     lines.push(`identity.links[${index}].url = ${link.url}`);
   });
@@ -259,6 +256,9 @@ function factLines(profile: LoadedProfile): string[] {
       lines.push(`publications[${selector}].url = ${publication.url}`);
     }
   });
+  (profile.press ?? []).forEach((item, index) => {
+    if (item.url !== undefined) lines.push(`press[${index}].url = ${item.url}`);
+  });
   for (const credential of profile.credentials ?? []) {
     if (credential.id === undefined) continue;
     lines.push(`credentials[${credential.id}].title = ${credential.title}`);
@@ -280,28 +280,42 @@ function factLines(profile: LoadedProfile): string[] {
  * checks
  * ------------------------------------------------------------------------- */
 
+/** Extract URL-like candidates, including scheme-less and www forms, and
+ *  normalize the scheme so the SSOT comparison is case-insensitive there. */
+function urlCandidates(text: string): string[] {
+  const out = new Set<string>();
+  const pattern = /\b(?:https?:\/\/|www\.)[^\s)\]]+|\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\/[^\s)\]]*/gi;
+  for (const match of text.matchAll(pattern)) {
+    let raw = (match[0] ?? "").replace(/[.,;:!?]+$/, "");
+    if (raw === "") continue;
+    if (!/^https?:\/\//i.test(raw)) raw = `https://${raw}`;
+    out.add(raw.replace(/^https?:\/\//i, (scheme) => scheme.toLowerCase()));
+  }
+  return [...out];
+}
+
 export function checkText(text: string, rules: PostingRules, profile: LoadedProfile): Finding[] {
   const findings: Finding[] = [];
+  const content = text.trim();
   const max = rules.limits?.maxChars;
   const min = rules.limits?.minChars;
-  if (max !== undefined && text.length > max) {
+  if (max !== undefined && content.length > max) {
     findings.push({
       code: "max-chars",
       severity: "error",
-      message: `post is ${text.length} chars; ${rules.platform ?? "channel"} allows ${max}`,
+      message: `post is ${content.length} chars; ${rules.platform ?? "channel"} allows ${max}`,
     });
   }
-  if (min !== undefined && text.length < min) {
+  if (min !== undefined && content.length < min) {
     findings.push({
       code: "min-chars",
       severity: "error",
-      message: `post is ${text.length} chars; ${rules.platform ?? "channel"} requires at least ${min}`,
+      message: `post is ${content.length} chars; ${rules.platform ?? "channel"} requires at least ${min}`,
     });
   }
 
   const allowed = allowedUrls(profile);
-  for (const match of text.matchAll(/https?:\/\/[^\s)\]]+/g)) {
-    const url = match[0].replace(/[.,;:!?]+$/, "");
+  for (const url of urlCandidates(content)) {
     if (!allowed.has(url)) {
       findings.push({
         code: "url-not-in-ssot",
@@ -313,7 +327,7 @@ export function checkText(text: string, rules: PostingRules, profile: LoadedProf
 
   const maxTags = rules.hashtags?.max;
   if (maxTags !== undefined) {
-    const tags = text.match(/(^|\s)#[A-Za-z0-9_]+/g) ?? [];
+    const tags = content.match(/(^|\s)#[A-Za-z0-9_]+/g) ?? [];
     if (tags.length > maxTags) {
       findings.push({
         code: "hashtags",
@@ -323,7 +337,7 @@ export function checkText(text: string, rules: PostingRules, profile: LoadedProf
     }
   }
 
-  for (const rawLine of text.split("\n")) {
+  for (const rawLine of content.split("\n")) {
     const lineText = rawLine.trim();
     if (lineText === "" || lineText.includes("{{fact:") || lineText.includes("evidence:")) continue;
     if (/\d/.test(lineText) && /[%$]|\b\d{2,}\b/.test(lineText)) {
@@ -501,6 +515,11 @@ function handleSeed(args: PostArgs): number {
   }
   const text = readFileSync(args.textArg, "utf8");
   if (text.trim() === "") throw new UsageError("seed text is empty");
+  if (existsSync(seedPath(args.workspace, seedId))) {
+    throw new UsageError(
+      `seed ${seedId} already exists at ${seedPath(args.workspace, seedId)}; edit it directly`,
+    );
+  }
   const ledger = createSeed(args.workspace, seedId, text);
   if (isJsonMode()) {
     return report("post", true, EXIT.OK, {
@@ -564,13 +583,24 @@ function handleChoose(args: PostArgs): number {
   if (args.variantArg === undefined || args.variantArg === "") {
     throw new UsageError("--variant is required");
   }
+  readPosting(channel);
   if (args.textArg !== undefined) {
     if (!existsSync(args.textArg)) throw new UsageError(`variant file not found: ${args.textArg}`);
     const target = variantPath(args.workspace, seedId, channel, args.variantArg);
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, readFileSync(args.textArg, "utf8"));
   }
-  const result = chooseVariant(args.workspace, seedId, channel, args.variantArg);
+  const loaded = loadProfile(args.workspace);
+  if (typeof loaded === "number") return loaded;
+  const variantFile = variantPath(args.workspace, seedId, channel, args.variantArg);
+  if (!existsSync(variantFile)) {
+    throw new UsageError(`no variant body at ${variantFile}`);
+  }
+  const rendered = renderFacts(readFileSync(variantFile, "utf8"), loaded);
+  if (rendered.dangling.length > 0) {
+    throw new UsageError(`dangling fact ref(s): ${rendered.dangling.join(", ")}`);
+  }
+  const result = chooseVariant(args.workspace, seedId, channel, args.variantArg, rendered.text);
   if (isJsonMode()) {
     return report("post", true, EXIT.OK, {
       data: {
@@ -627,7 +657,17 @@ function handleCheck(args: PostArgs): number {
       severity: "error",
       message: `{{fact:${pointer}}} does not resolve in the profile`,
     }));
-    findings.push(...checkText(rendered.text, readPosting(channel), profile));
+    let rules: PostingRules | undefined;
+    try {
+      rules = readPosting(channel);
+    } catch (err) {
+      findings.push({
+        code: "unsupported-channel",
+        severity: "error",
+        message: (err as Error).message,
+      });
+    }
+    if (rules !== undefined) findings.push(...checkText(rendered.text, rules, profile));
     for (const finding of findings) {
       if (finding.severity === "error") errors += 1;
       else warnings += 1;
@@ -667,6 +707,13 @@ function handleExport(args: PostArgs): number {
   if (!["draft", "schedule", "now"].includes(type)) {
     throw new UsageError(`--type must be draft|schedule|now (got "${type}")`);
   }
+  const date = args.dateArg ?? new Date().toISOString();
+  if (Number.isNaN(Date.parse(date))) {
+    throw new UsageError(`--date must be an ISO date (got "${date}")`);
+  }
+  if (type === "schedule" && args.dateArg === undefined) {
+    throw new UsageError("--type schedule requires --date");
+  }
   const loaded = loadProfile(args.workspace);
   if (typeof loaded === "number") return loaded;
   const profile = loaded;
@@ -676,7 +723,7 @@ function handleExport(args: PostArgs): number {
     ledger,
     profile,
     type,
-    date: args.dateArg ?? new Date().toISOString(),
+    date,
   });
   if (payload.posts.length === 0) {
     return report("post", false, EXIT.FAIL, {
@@ -723,6 +770,7 @@ function handleImport(args: PostArgs): number {
     throw new UsageError(`import dir not found: ${sourceDir}`);
   }
   const channel = parsePlatform(args.channelArg ?? "");
+  readPosting(channel);
   const files = readdirSync(sourceDir)
     .filter((name) => name.endsWith(".md"))
     .sort();

@@ -112,10 +112,11 @@ describe("pasco post (week-1 MVP)", () => {
     expect(content).not.toContain("{{fact:");
   });
 
-  it("fails a URL outside the SSOT and a dangling fact ref", () => {
+  it("fails URLs outside the SSOT, including uppercase and scheme-less forms", () => {
     const ws = workspace();
     seed(ws, "s2");
-    const bad = "A claim.\n\nhttps://evil.example/not-in-ssot\n{{fact:identity.nope}}\n";
+    const bad =
+      "A claim.\n\nhttps://evil.example/not-in-ssot\nHTTPS://evil.example/upper\nsee github.com/evil/bare\n";
     variant(ws, "s2", "x", "x-bad", bad);
     const check = run(["post", "check", "s2", "--json", "--workspace", ws]);
     expect(check.code).toBe(1);
@@ -123,8 +124,62 @@ describe("pasco post (week-1 MVP)", () => {
       data: { errors: number; channels: { findings: { code: string }[] }[] };
     };
     const codes = envelope.data.channels.flatMap((channel) => channel.findings.map((f) => f.code));
-    expect(codes).toContain("url-not-in-ssot");
+    expect(codes.filter((code) => code === "url-not-in-ssot")).toHaveLength(3);
+  });
+
+  it("rejects a dangling fact ref at choose and catches it after an edit", () => {
+    const ws = workspace();
+    seed(ws, "s3");
+    const dir = join(ws, "posts", "s3", "x");
+    mkdirSync(dir, { recursive: true });
+    const dangling = join(dir, "x-dangling.md");
+    writeFileSync(dangling, "A claim from {{fact:identity.nope}}.\n");
+    const choose = run([
+      "post",
+      "choose",
+      "s3",
+      "--channel",
+      "x",
+      "--variant",
+      "x-dangling",
+      "--workspace",
+      ws,
+    ]);
+    expect(choose.code).toBe(2);
+    expect(choose.stderr).toContain("dangling");
+
+    variant(ws, "s3", "x", "x-ok", "A claim from {{fact:identity.name}}.\n");
+    writeFileSync(join(dir, "x-ok.md"), "A claim from {{fact:identity.nope}}.\n");
+    const check = run(["post", "check", "s3", "--json", "--workspace", ws]);
+    expect(check.code).toBe(1);
+    const envelope = JSON.parse(check.stdout) as {
+      data: { channels: { findings: { code: string }[] }[] };
+    };
+    const codes = envelope.data.channels.flatMap((channel) => channel.findings.map((f) => f.code));
     expect(codes).toContain("dangling-ref");
+  });
+
+  it("trims the published text before counting chars", () => {
+    const ws = workspace();
+    seed(ws, "s4");
+    variant(ws, "s4", "x", "x-280", `${"a".repeat(280)}\n`);
+    expect(run(["post", "check", "s4", "--workspace", ws]).code).toBe(0);
+    variant(ws, "s4", "x", "x-281", "a".repeat(281));
+    const check = run(["post", "check", "s4", "--json", "--workspace", ws]);
+    expect(check.code).toBe(1);
+    const envelope = JSON.parse(check.stdout) as {
+      data: { channels: { findings: { code: string }[] }[] };
+    };
+    const codes = envelope.data.channels.flatMap((channel) => channel.findings.map((f) => f.code));
+    expect(codes).toContain("max-chars");
+  });
+
+  it("rejects an invalid export date and schedule without a date", () => {
+    const ws = workspace();
+    seed(ws, "s5");
+    variant(ws, "s5", "x", "x-ok", "A short post from {{fact:identity.name}}.\n");
+    expect(run(["post", "export", "s5", "--type", "schedule", "--workspace", ws]).code).toBe(2);
+    expect(run(["post", "export", "s5", "--date", "not-a-date", "--workspace", ws]).code).toBe(2);
   });
 
   it("imports historical posts as seeds", () => {
