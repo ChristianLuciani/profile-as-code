@@ -60,7 +60,9 @@ and on the ink disc it sat at ≈3.1:1 — just over the 3:1 floor.
 
 The source uses an SVG `mask`; it is the only non-path primitive in the asset. Flatten
 it for print if the pipeline does not support masks (Illustrator/Figma “flatten”, or
-`rsvg-convert`).
+`rsvg-convert`). The tile is the one exception to “everything is a cut”: its pupil is
+painted Paper, because the tile is an opaque ground and a knockout there would show the
+page through the eye.
 
 ## 6. Construction
 
@@ -69,11 +71,11 @@ it for print if the pipeline does not support masks (Illustrator/Figma “flatte
 | Artboard | 32 × 32 units |
 | Disc | circle Ø 26 (r 13) at `(16, 16)` |
 | p | stem 4 wide, bowl Ø 13.6 (r 6.8), counter Ø 6.88 (r 3.44) |
-| p bounding box | 16.1 × 17.9 (`x 9.2 → 25.3`, `y 4.5 → 22.4`) |
+| p bounding box | 16.1 × 19.9 (`x 9.2 → 25.3`, `y 4.5 → 24.4`) |
 | Pupil | Ø 2.3 at `(16.6, 10.2)` |
-| Mouth | arc r 4.2, 145° → 35°, stroke 1.6, round caps, centre `(20.1, 17.9)` |
+| Mouth | cubic from `(16.4, 20.6)` to `(23.8, 20.6)`, depth 2.7, stroke 1.6, round caps |
 | Minimum size | 16 px; the face reads from 32 px |
-| Clear space | ≥ 4 units on every side |
+| Clear space | ≥ 4 units when placed; the 32 artboard already carries 3 |
 
 The mark is an SVG source, never a PNG, and it inherits `currentColor`.
 
@@ -110,7 +112,8 @@ No third face. Emphasis is weight and space, never italics.
 ## 10. Rules
 
 - Do not add a second eye, a nose, eyebrows or teeth.
-- Do not colour the pupil, and do not invert the face: the pupil is always a cut.
+- Do not colour the pupil. In the mark it is a cut; in the tile it is Paper, because the
+  tile is an opaque ground.
 - Do not place the disc in a circle or a badge frame; it is already the badge.
 - Do not scale the mark below 16 px. Below 32 px the face fades to a dot and a dash —
   that is expected; the tile carries the icon.
@@ -140,7 +143,7 @@ No third face. Emphasis is weight and space, never italics.
 | `lockup.svg` | horizontal lockup (mark + wordmark) |
 | `identity.svg` | construction sheet, sizes, tile, palette, type |
 | `identity.png` | 1120 px render of the sheet |
-| `lockup.png` | 2× render on paper, for the README hero |
+| `lockup.png` | 600 px render on paper (2× the 300 px README size) |
 
 `site/favicon.svg` is a copy of `mark-tile.svg`; `site/index.html` inlines `mark.svg`.
 

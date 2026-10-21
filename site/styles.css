@@ -143,8 +143,9 @@ code {
   gap: 8px;
   color: var(--ink);
   text-decoration: none;
-  font-weight: 680;
-  letter-spacing: -0.02em;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.022em;
 }
 
 .mark {
