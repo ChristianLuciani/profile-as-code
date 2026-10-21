@@ -16,8 +16,9 @@ marks, not the code.
 - Linking to the repository or the project page.
 - Reproducing the unmodified mark, or an unmodified screenshot of the project page, to
   identify the project in editorial coverage, comparisons or tutorials.
-- Keeping the files in a fork of this repository, as long as the fork is not presented
-  as the official project.
+- Forking the repository: the code is MIT; the brand assets in `site/brand/` stay
+  reserved (see `site/brand/LICENSE`), and the fork must not present itself as the
+  official project.
 
 ## Not allowed without written permission
 

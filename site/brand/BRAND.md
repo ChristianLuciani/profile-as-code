@@ -1,6 +1,6 @@
 # profile-as-code — identity
 
-**Status:** v1.0, ratified 2026-10-21. **Covers:** the mark, the lockup, the tile,
+**Status:** v1.0, adopted 2026-10-21. **Covers:** the mark, the lockup, the tile,
 colour, type and usage. **Does not cover:** social cards, README banners, CLI output.
 `as_of: 2026-10-21`.
 
@@ -58,7 +58,7 @@ the disc. No inlay, no second ink, no gradient, no outline. That is why the colo
 pupil was rejected at the final step: an inlay breaks the technique for a 2 px accent,
 and on the ink disc it sat at ≈3.1:1 — just over the 3:1 floor.
 
-The source uses an SVG `mask`; it is the only non-path primitive in the asset. Flatten
+The source uses an SVG `mask`; it is the only construct beyond paths and basic shapes. Flatten
 it for print if the pipeline does not support masks (Illustrator/Figma “flatten”, or
 `rsvg-convert`). The tile is the one exception to “everything is a cut”: its pupil is
 painted Paper, because the tile is an opaque ground and a knockout there would show the
@@ -70,14 +70,14 @@ page through the eye.
 |---|---|
 | Artboard | 32 × 32 units |
 | Disc | circle Ø 26 (r 13) at `(16, 16)` |
-| p | stem 4 wide, bowl Ø 13.6 (r 6.8), counter Ø 6.88 (r 3.44) |
-| p bounding box | 16.1 × 19.9 (`x 9.2 → 25.3`, `y 4.5 → 24.4`) |
+| p | stem 4 wide, bowl Ø 13.6 (r 6.8), counter Ø 6.88 (r 3.44), corners r 2 |
+| p bounding box | 15.2 × 20.0 (`x 9.2 → 24.4`, `y 4.4 → 24.4`) |
 | Pupil | Ø 2.3 at `(16.6, 10.2)` |
 | Mouth | cubic from `(16.4, 20.6)` to `(23.8, 20.6)`, depth 2.7, stroke 1.6, round caps |
 | Minimum size | 16 px; the face reads from 32 px |
 | Clear space | ≥ 4 units when placed; the 32 artboard already carries 3 |
 
-The mark is an SVG source, never a PNG, and it inherits `currentColor`.
+The mark is an SVG source; the PNGs in this directory are renders, never sources. It inherits `currentColor`.
 
 ## 7. Lockup
 
@@ -145,7 +145,14 @@ No third face. Emphasis is weight and space, never italics.
 | `identity.png` | 1120 px render of the sheet |
 | `lockup.png` | 600 px render on paper (2× the 300 px README size) |
 
-`site/favicon.svg` is a copy of `mark-tile.svg`; `site/index.html` inlines `mark.svg`.
+The two PNGs are renders, regenerated from their SVGs:
+
+```sh
+rsvg-convert -w 600 -b '#F7F5EF' site/brand/lockup.svg -o site/brand/lockup.png
+rsvg-convert -w 1120 site/brand/identity.svg -o site/brand/identity.png
+```
+
+`site/index.html` points its `<link rel="icon">` at `site/brand/mark-tile.svg` and inlines `mark.svg`; there is no separate favicon copy.
 
 The geometry is repeated by necessity in the tile, the lockup, the inline mark and the
 identity sheet — each asset is standalone. `mark.svg` is the source: change it first,
@@ -161,4 +168,4 @@ not (another product's logo, modified geometry, endorsement) is written in
 
 ## Change log
 
-- **v1.0** — 2026-10-21 — Smile · Soft ratified; supersedes the monogram p.
+- **v1.0** — 2026-10-21 — Smile · Soft adopted; supersedes the monogram p.
