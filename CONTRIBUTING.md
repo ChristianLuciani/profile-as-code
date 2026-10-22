@@ -38,6 +38,15 @@ every decision lives in [`docs/SPEC.md`](docs/SPEC.md) (decisions D1–D18). Rea
    (fixtures live in `packages/core/tests/fixtures/`).
 7. **Sign your work (DCO, D21).** Every commit carries a sign-off — commit with
    `git commit -s`. See [Sign your work](#sign-your-work-dco) below.
+8. **Public surfaces name only what a reader can open (#254).** A command's help,
+   output, error message, the npm README/description, or a scaffolded workspace may
+   not point at a path, repo or tool the reader does not have. The CLI reads
+   `packages/cli/skills/`, generated from `skills/` at build/pack time
+   (`scripts/bundle-skills.mjs`) — edit the source under `skills/`, never the copy.
+   The other allowed roots are an explicit `PASCO_SKILLS_DIR` and, for developers
+   only, the marked workspace checkout; a published install must not depend on
+   them. Dated records (CHANGELOG history, sourced research, issue/PR bodies) are
+   exempt (AGENTS rule 8).
 
 ## Local setup
 

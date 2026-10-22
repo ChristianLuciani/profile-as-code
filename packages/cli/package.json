@@ -1,7 +1,7 @@
 {
   "name": "@profile-as-code/cli",
   "version": "0.3.0",
-  "description": "pasco — the profile-as-code CLI: init, validate, build, diff, status + partial refine (task template), check (offline rules M6–M8; catalog ships M3/M4), skills:install (prints the projection command). Consumes @profile-as-code/core; never re-implements load/drift/geo/compile.",
+  "description": "pasco — the profile-as-code CLI: init, validate, build, diff, status + partial refine (task template), check (offline rules M6–M8; catalog ships M3/M4), skills:export (copies the platform skills this package ships). Consumes @profile-as-code/core; never re-implements load/drift/geo/compile.",
   "type": "module",
   "license": "MIT",
   "bin": {
@@ -26,13 +26,15 @@
     "json-schema"
   ],
   "files": [
-    "dist"
+    "dist",
+    "skills"
   ],
   "scripts": {
-    "build": "pnpm --filter \"@profile-as-code/cli^...\" build && tsup && node -e \"process.platform !== 'win32' && require('node:fs').chmodSync('dist/index.js', 0o755)\"",
+    "build": "pnpm --filter \"@profile-as-code/cli^...\" build && tsup && node scripts/bundle-skills.mjs && node -e \"process.platform !== 'win32' && require('node:fs').chmodSync('dist/index.js', 0o755)\"",
     "verify:pack": "node scripts/verify-pack.mjs",
     "guard:release": "node scripts/release-guard.mjs",
     "prepublishOnly": "publint",
+    "prepack": "node scripts/bundle-skills.mjs",
     "typecheck": "tsc -p tsconfig.test.json",
     "test": "pnpm build && vitest run",
     "test:watch": "vitest"

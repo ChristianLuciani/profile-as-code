@@ -6,7 +6,16 @@
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,6 +39,24 @@ function run(args: string[], cwd?: string): RunResult {
   const res = spawnSync(process.execPath, [CLI, ...args], {
     encoding: "utf8",
     cwd,
+    timeout: 15_000,
+  });
+  if (res.error !== undefined) throw res.error;
+  return { code: res.status ?? -1, stdout: res.stdout ?? "", stderr: res.stderr ?? "" };
+}
+
+/** A package-shaped layout that can run the built CLI outside the repo. */
+function fakePackage(dir: string): void {
+  mkdirSync(join(dir, "dist"), { recursive: true });
+  copyFileSync(CLI, join(dir, "dist", "index.js"));
+  // Resolve yaml/zod exactly as an installed package would.
+  symlinkSync(join(__dirname, "..", "node_modules"), join(dir, "node_modules"), "dir");
+}
+
+function runFake(pkg: string, args: string[]): RunResult {
+  const res = spawnSync(process.execPath, [join(pkg, "dist", "index.js"), ...args], {
+    encoding: "utf8",
+    cwd: pkg,
     timeout: 15_000,
   });
   if (res.error !== undefined) throw res.error;
@@ -111,7 +138,7 @@ describe("surface", () => {
   it("prints help", () => {
     const r = run(["--help"]);
     expect(r.code).toBe(0);
-    for (const cmd of ["init", "validate", "build", "diff", "refine", "check", "skills:install"]) {
+    for (const cmd of ["init", "validate", "build", "diff", "refine", "check", "skills:export"]) {
       expect(r.stdout).toContain(cmd);
     }
   });
@@ -745,7 +772,7 @@ describe("pasco refine (partial: template + record)", () => {
   });
 });
 
-describe("pasco check (offline rules) + pasco skills:install (projection pointer)", () => {
+describe("pasco check (offline rules) + pasco skills:export (shipped skills)", () => {
   it("lists the user checks from the schema-validated catalog", () => {
     const r = run(["check", "github-readme", "--workspace", MINIMAL]);
     expect(r.code).toBe(0);
@@ -901,15 +928,128 @@ describe("pasco check (offline rules) + pasco skills:install (projection pointer
     ]);
   });
 
-  it("skills:install prints the skills-studio projection command", () => {
-    const r = run(["skills:install", "pi"]);
+  it("skills:export --list lists the platform skills this package ships", () => {
+    const r = run(["skills:export", "--list"]);
     expect(r.code).toBe(0);
-    expect(r.stdout).toContain("bin/project.sh pi");
+    expect(r.stdout).toContain("github-readme");
+    expect(r.stdout).toMatch(/skills\/?$/m);
+    expect(r.stdout).not.toContain("skills-studio");
   });
 
-  it("skills:install exit 2 on unknown agent", () => {
-    const r = run(["skills:install", "cobol"]);
+  it("skills:export <dir> copies the shipped skills into a directory the user names", () => {
+    const dest = join(tempDir(), "exported-skills");
+    const r = run(["skills:export", dest]);
+    expect(r.code).toBe(0);
+    expect(existsSync(join(dest, "github-readme", "SKILL.md"))).toBe(true);
+    expect(existsSync(join(dest, "github-readme", "checks.yaml"))).toBe(true);
+
+    const again = run(["skills:export", dest]);
+    expect(again.code).toBe(1);
+    expect(again.stderr).toContain("not empty");
+
+    const forced = run(["skills:export", dest, "--force"]);
+    expect(forced.code).toBe(0);
+    expect(forced.stdout).toContain("copied");
+  });
+
+  it("resolves a repo checkout only when pnpm-workspace.yaml marks the workspace (#253)", () => {
+    const root = tempDir();
+    mkdirSync(join(root, "skills", "github-readme"), { recursive: true });
+    writeFileSync(join(root, "skills", "github-readme", "SKILL.md"), "# skill\n");
+    writeFileSync(join(root, "pnpm-workspace.yaml"), "packages:\n  - packages/*\n");
+    const pkg = join(root, "packages", "cli");
+    fakePackage(pkg);
+
+    const r = runFake(pkg, ["refine", "github-readme", "--workspace", MINIMAL]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain(join(root, "skills", "github-readme", "SKILL.md"));
+  });
+
+  it("does not read a skills/ tree above the package without the workspace marker (#253)", () => {
+    // The layout the previous pass proved was reachable: an ancestor skills/
+    // tree with no pnpm-workspace.yaml is NOT a checkout of this engine.
+    const root = tempDir();
+    mkdirSync(join(root, "skills", "github-readme"), { recursive: true });
+    writeFileSync(join(root, "skills", "github-readme", "SKILL.md"), "# skill\n");
+    const pkg = join(root, "tmp", "pkg");
+    fakePackage(pkg);
+
+    const r = runFake(pkg, ["refine", "github-readme", "--workspace", MINIMAL]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("skills not shipped with this package");
+    expect(r.stdout).not.toContain(join(root, "skills"));
+  });
+
+  it("skills:export refuses a destination inside the shipped tree (no self-copy recursion)", () => {
+    const listed = JSON.parse(run(["skills:export", "--list", "--json"]).stdout) as {
+      data: { root: string };
+    };
+    const r = run(["skills:export", join(listed.data.root, "nested")]);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("inside the shipped skills tree");
+  });
+
+  it("skills:install is gone from the public CLI (#254 C1)", () => {
+    const r = run(["skills:install", "pi"]);
     expect(r.code).toBe(2);
+    expect(r.stderr).toContain("unknown command");
+  });
+});
+
+describe("published-surface boundary (#253/#254)", () => {
+  const PRIVATE = /skills-studio|prompt-studio|AGOS\b|project\.sh/;
+
+  it("help output names no repo or tooling a reader cannot open", () => {
+    const helps = [
+      run(["--help"]),
+      ...[
+        "init",
+        "validate",
+        "build",
+        "diff",
+        "refine",
+        "check",
+        "post",
+        "status",
+        "skills:export",
+      ].map((cmd) => run([cmd, "--help"])),
+    ];
+    for (const r of helps) {
+      expect(r.code).toBe(0);
+      expect(r.stdout).not.toMatch(PRIVATE);
+    }
+  });
+
+  it("refine prints a real SKILL.md path from the package (#253)", () => {
+    const r = run(["refine", "github-readme", "--workspace", MINIMAL]);
+    expect(r.code).toBe(0);
+    const match = r.stdout.match(/^Skill \(communicative strategy — READ IT FIRST\): (.+)$/m);
+    expect(match).not.toBeNull();
+    const skillPath = match?.[1] ?? "";
+    expect(skillPath).toMatch(/skills\/github-readme\/SKILL\.md$/);
+    expect(existsSync(skillPath)).toBe(true);
+  });
+
+  it("refine distinguishes 'no skill for <platform>' from 'skills not shipped'", () => {
+    const r = run(["refine", "upwork", "--workspace", MINIMAL]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("no skill for upwork yet");
+    expect(r.stdout).toContain("this package ships:");
+    expect(r.stdout).not.toContain("skills not shipped with this package");
+  });
+
+  it("refine --json carries the skill lookup state", () => {
+    const found = JSON.parse(
+      run(["refine", "github-readme", "--json", "--workspace", MINIMAL]).stdout,
+    ) as { data: { skill: { state: string; path?: string } } };
+    expect(found.data.skill.state).toBe("found");
+    expect(found.data.skill.path).toMatch(/skills\/github-readme\/SKILL\.md$/);
+
+    const missing = JSON.parse(
+      run(["refine", "upwork", "--json", "--workspace", MINIMAL]).stdout,
+    ) as { data: { skill: { state: string; channel?: string } } };
+    expect(missing.data.skill.state).toBe("no-skill");
+    expect(missing.data.skill.channel).toBe("upwork");
   });
 });
 

@@ -1,5 +1,10 @@
 # Build session — M1 CLI (`packages/cli`, binary `pasco`)
 
+> **Historical record (2026-09 build prompt).** The `skills:install` stub described
+> below was replaced by `skills:export <dir> [--list]` in #254, and the platform skills
+> it pointed at now ship inside the package (#253). Read the commands below as history,
+> not as a current instruction.
+
 > Paste this prompt into a NEW agent session (one deliverable per session). Docs convention: EN (D8).
 > Session rules: NEVER touch main/master. Own worktree + branch per your session/harness convention
 > (harness artifact, NOT a project convention — the project only requires: never main, descriptive

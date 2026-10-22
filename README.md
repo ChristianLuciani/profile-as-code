@@ -102,7 +102,7 @@ Plataformas (enum D16): **49** (34 Postiz + 15 operator extras) · renderers: **
 | Investigación SOTA por plataforma | 🚧 `skills/github-readme` + `skills/github-org` + `skills/kofi` + `skills/hotmart`; resto: asistente **SOTA Research**, ver `docs/research/RUN.md` |
 | Schema JSON v1.9 (contrato) | ✅ `schema/profile.schema.json` (person + brand flavor) |
 | Core engine (load · drift · geo · compile) | ✅ `packages/core` (tests, CI) |
-| CLI `pasco` | ✅ init·validate·build·diff·status; check ejecuta reglas offline M6/M7/M8 (catálogo M3/M4); refine/skills:install 🚧 — detalle en [`packages/cli/README.md`](packages/cli/README.md) |
+| CLI `pasco` | ✅ init·validate·build·diff·status; check ejecuta reglas offline M6/M7/M8 (catálogo M3/M4); refine 🚧; skills:export ✅ — detalle en [`packages/cli/README.md`](packages/cli/README.md) |
 | Renderer GitHub (dogfood) | ✅ `github-readme` + `github-org` (brand) + la familia paste (`kofi` v1.7; `buymeacoffee`/`liberapay`/`gumroad`/`payhip` v1.8; `hotmart` v1.9) |
 
 **Brand flavor (M6, D15):** el mismo engine modela identidades de marca — `pasco init
@@ -133,7 +133,7 @@ pnpm gen:platforms   # regenera las superficies derivadas desde platforms/regist
 
 ## Roadmap (M1–M5, detalle en SPEC §12)
 
-1. **M1** spec + schema + core ✅ → **CLI `pasco` ✅** (init·validate·build·diff·status; refine/check/skills:install 🚧 — detalle en [`packages/cli/README.md`](packages/cli/README.md))
+1. **M1** spec + schema + core ✅ → **CLI `pasco` ✅** (init·validate·build·diff·status; refine/check 🚧, skills:export ✅ — detalle en [`packages/cli/README.md`](packages/cli/README.md))
 2. **M2** renderer `github-readme` + CI + dogfood
 3. **M3** investigación SOTA → skills v1 + `pasco refine` (hub local)
 4. **M4** renderers linkedin/upwork/x/researchgate/substack + playbooks + `pasco check`
@@ -147,7 +147,7 @@ profile-as-code/
 ├── packages/
 │   ├── core/             # ✅ load · drift · geo · compile (Zod desde schema)
 │   ├── renderers/        # github-readme + github-org + kofi — más adapters por plataforma (seam de contribución)
-│   └── cli/              # pasco — init·validate·build·diff·status ✅ (refine/check/skills:install 🚧; check ejecuta reglas offline M6/M7/M8, igual que packages/cli/README.md)
+│   └── cli/              # pasco — init·validate·build·diff·status ✅ (refine/check 🚧, skills:export ✅; check ejecuta reglas offline M6/M7/M8, igual que packages/cli/README.md)
 ├── skills/               # skills por plataforma (conocimiento SOTA)
 ├── templates/
 │   ├── profile-data/       # on-ramp A: puntero al template repo del workspace (SPEC §9.2)

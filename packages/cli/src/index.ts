@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * pasco — the profile-as-code CLI. Full command reference: packages/cli/README.md
- * (refine/check/skills:install are partial and each one says what still owns the
+ * (refine/check are partial and each one says what still owns the
  * rest).
  *
  * Consumes @profile-as-code/core (load/driftCheck/geoCheck/compile); never
@@ -18,7 +18,7 @@ import { runDiff } from "./commands/diff.js";
 import { runInit } from "./commands/init.js";
 import { runPost } from "./commands/post.js";
 import { runRefine } from "./commands/refine.js";
-import { runSkillsInstall } from "./commands/skills-install.js";
+import { runSkillsExport } from "./commands/skills-export.js";
 import { runStatus } from "./commands/status.js";
 import { runValidate } from "./commands/validate.js";
 import { parseFlavor, UsageError } from "./contract.js";
@@ -64,8 +64,8 @@ Commands:
   status [platform] [--verify]   Per-entry deploy report — origin · surfaces · in-sync/stale/never
                                  + certification (D18/§19.5); --verify runs the opt-in C1
                                  live check (the engine's ONE network path, §19.5)
-  skills:install <agent>        Prints the skills-studio projection command (AGOS);
-                                projecting stays the studio's job, not the CLI's
+  skills:export <dir>           Copy the skill channels this package ships into <dir>
+          [--force] [--list]     (--force overlays; --list shows them); no harness paths
 
 Common flags (after the command):
   --workspace <path>  Workspace path (resolution: --workspace > .pascorc > cwd, D14)
@@ -100,6 +100,8 @@ interface FlagOptions {
   out?: string;
   type?: string;
   date?: string;
+  list?: boolean;
+  force?: boolean;
 }
 
 function parseCommandFlags(
@@ -164,9 +166,11 @@ flavor, D15/§17), registry checks (M7/§18.8) and media-transport rules
 (offline, #240; optional surface selector). Remaining rows in
 content/checks.yaml ship with the skills checks.yaml union (M3) and the full
 pasco check (M4). Prints its owner line (src/commands/check.ts).`,
-  "skills:install": `pasco skills:install <agent>
-Prints the skills-studio projection command for <agent> (pi|claude|aionui|opencode).
-Projection is the skills-studio job (AGOS), not the CLI's.`,
+  "skills:export": `pasco skills:export <dir> [--force] [--json]
+pasco skills:export --list [--json]
+Copies the skill channels this package ships (SPEC §16) into a directory you
+name. --list shows them; an existing non-empty directory needs --force (files are
+overlaid, nothing is deleted). No harness-specific destination is invented.`,
   post: `pasco post <seed|task|choose|check|export|import|list> [...] [--json] [--workspace <path>]
 MVP (week-1 experiment): a post is a PROJECTION of a seed, not an identity fact.
   seed <id> --text <file>          create posts/<id>/seed.md + post.yaml
@@ -440,15 +444,26 @@ async function runMain(): Promise<number> {
         deps: { fetchText: httpFetchText },
       });
     }
-    case "skills:install": {
-      const { flags, positionals } = parseCommandFlags(rest);
+    case "skills:export": {
+      const { flags, positionals } = parseCommandFlags(rest, {
+        list: { type: "boolean" },
+        force: { type: "boolean" },
+      });
       if (flags.help === true) {
-        process.stdout.write(`${COMMAND_HELP["skills:install"]}\n`);
+        process.stdout.write(`${COMMAND_HELP["skills:export"]}\n`);
         return EXIT.OK;
       }
-      if (positionals.length > 1) throw new UsageError("usage: pasco skills:install <agent>");
+      if (positionals.length > 1) {
+        throw new UsageError(
+          "usage: pasco skills:export <dir> [--force] | pasco skills:export --list",
+        );
+      }
       setJsonMode(flags.json === true);
-      return runSkillsInstall({ agent: positionals[0] });
+      return runSkillsExport({
+        dir: positionals[0],
+        list: flags.list === true,
+        force: flags.force === true,
+      });
     }
     default:
       throw new UsageError(

@@ -16,22 +16,13 @@ import { parseDocument, stringify } from "yaml";
 import { parseLang, parsePlatform, parseVariants, UsageError } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report } from "../output.js";
-import { skillFile } from "../skill-path.js";
+import { lookupSkill, skillLine } from "../skill-path.js";
 import { hasVariantBody, isSafeVariantId, variantBodyPath } from "../variant-store.js";
 import type { Pascorc } from "../workspace.js";
 import { defaultsLang } from "../workspace.js";
 
 export const REFINE_OWNER =
   "M3 SOTA research per platform → skills v1 + the full refine flow (SPEC §12/§16 M3); model-agnostic (D10/D11/D13)";
-
-/**
- * Locate the platform skill (SPEC §16.1) relative to the CLI install
- * (repo dev flow: <repo>/skills/<platform>/SKILL.md). Returns undefined when
- * the skill is not installed (e.g. npm-installed CLI without skills shipped).
- */
-function platformSkillPath(platform: string): string | undefined {
-  return skillFile(platform, "SKILL.md");
-}
 
 export interface RefineArgs {
   workspace: string;
@@ -155,7 +146,12 @@ export function runRefine(args: RefineArgs): number {
   const projects = slice.projects.map((p) => p.name).join(", ");
   const publications = slice.publications.map((p) => p.title).join(" | ");
   const anchors = slice.keywords.geo.associations?.join(", ") ?? "";
-  const skillPath = platformSkillPath(platform);
+  const skill = lookupSkill(platform, "SKILL.md");
+  const skillPath = skill.state === "found" ? skill.path : undefined;
+  const researchCandidate =
+    skillPath === undefined ? undefined : skillPath.replace(/SKILL\.md$/, "research/SOTA-2026.md");
+  const researchPath =
+    researchCandidate !== undefined && existsSync(researchCandidate) ? researchCandidate : "—";
 
   const template = [
     `# pasco refine — agent task (agent-driven: D10/D11/D13; no LLM call, no hub)`,
@@ -163,8 +159,8 @@ export function runRefine(args: RefineArgs): number {
     ``,
     `Platform: ${platform}`,
     `Language: ${lang}`,
-    `Skill (communicative strategy — READ IT FIRST): ${skillPath ?? "(not installed — fall back to the deterministic renderer output)"}`,
-    `Research (dated sources): ${skillPath === undefined ? "—" : skillPath.replace(/SKILL\.md$/, "research/SOTA-2026.md")}`,
+    `Skill (communicative strategy — READ IT FIRST): ${skillLine(skill)}`,
+    `Research (dated sources): ${researchPath}`,
     `Variant id convention: ${platform.replace(/[^a-z]/g, "")}-${lang}-<n> (e.g. gh-en-1, gh-en-2, gh-en-3).`,
     ``,
     `Facts (language-independent — MUST stay byte-identical across variants and platforms):`,
@@ -196,7 +192,7 @@ export function runRefine(args: RefineArgs): number {
 
   if (isJsonMode()) {
     return report("refine", true, EXIT.OK, {
-      data: { mode: "template", platform, lang, variants, template, ownedBy: REFINE_OWNER },
+      data: { mode: "template", platform, lang, variants, template, skill, ownedBy: REFINE_OWNER },
     });
   }
   process.stdout.write(template);

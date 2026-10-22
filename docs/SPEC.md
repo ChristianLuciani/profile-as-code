@@ -322,7 +322,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco check [platform]` | run skill-declared checks before deploy; char limits accept an optional `surface` (`headline`/`bio`/`both`) so a title cap does not flag the bio (#240) |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22). **The read report also ends with the derived publication truth per surface (§20.1, #242): ledger · artifact-vs-SSOT · declared cap — computed on every read, stored nowhere** |
-| `pasco skills:install <agent>` | project repo skills → agent skill studio (zhiweio pattern) |
+| `pasco skills:export <dir> [--force] [--list]` | copy the skill channels **this package ships** into a directory the user names; `--force` overlays an existing non-empty directory (nothing is deleted), `--list` shows the channels. No per-agent destination is invented. Skill lookup reads only the package's own `skills/`, an explicit `PASCO_SKILLS_DIR`, or the marked workspace checkout (developers) — #253/#254 |
 | `pasco serve` | run the **minimal reference adapter** (D20) — exposes `Core` over a **local HTTP contract** so any consumer (UI, editor, script, service) drives the engine without re-implementing it. Minimal **by construction**; a deployment that needs more ships its own server against the same contract |
 
 ## 8. GEO as a cross-cutting layer
@@ -699,7 +699,9 @@ First platform: **`github-readme`** — the only 100% git/API-deployable surface
 
 1. `pasco refine <platform> [--lang] [--variants N]` emits the agent task: the facts
    (compile slice) + a pointer to `skills/<platform>/SKILL.md`. The CLI never calls an
-   LLM and never wires the hub (D13).
+   LLM and never wires the hub (D13). The skills **ship inside the npm package**
+   (`files: ["dist","skills"]`) and resolve from the package root; a repo checkout is
+   only the second probe, so an install never depends on the engine repo (#253).
 2. The executing agent (AionUi, OpenHands, Claude Code, Cursor, pi…) reads the skill
    and produces N variants in prose — the human picks one.
 3. `pasco refine <platform> --choose <variantId>` records the choice in `content/active.yaml`
