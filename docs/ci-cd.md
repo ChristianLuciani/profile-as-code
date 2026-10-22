@@ -72,13 +72,6 @@ One job, **`ci`**, required on every PR and push to `main`:
    nobody can resolve is a claim without a source). A `kind=record` citation is
    never stale. This is the only step that needs history, which is why the
    checkout above fetches `fetch-depth: 0`.
-   A third node step follows — **project page** (`scripts/site-check`,
-   issue #201): the page under `site/` is outside the Markdown corpus, so this
-   gate checks its ids, in-page anchors and local paths on **every** page,
-   refuses `<script>` and `http://`, and self-tests first. Since #277 it runs
-   *after* `pnpm install`, because the page now contains documentation pages
-   projected from the Markdown (a companion `version-check.mjs` keeps the page's
-   published-version claim equal to `packages/cli/package.json`).
 3. **TypeScript workspace** — steps activate automatically once `package.json` lands
    (M1 core), in this order: **dependency gate** (`scripts/dep-gate`, issue #98 —
    node-only, before install to fail fast: `packages/server` must depend on
@@ -108,6 +101,14 @@ One job, **`ci`**, required on every PR and push to `main`:
    fixes a manifest, and the self-test first proves it refuses every class it
    claims) →
    `pnpm install --frozen-lockfile` →
+   **project page** (`scripts/site-check`, issues #201/#277 — it moved here from
+   the pre-install block: since #277 the gate runs over the documentation pages
+   PROJECTED from the Markdown, which needs `marked` installed. It projects
+   first (`scripts/site-docs/gen.mjs`), then checks ids, in-page anchors and
+   local paths on **every** page, refuses `<script>`, inline event handlers and
+   `http://`, and a companion `version-check.mjs` asserts that every published
+   surface — the landing plus each projected document — states the version in
+   `packages/cli/package.json`) →
    **`pnpm lint`** (Biome: lint + format + import order, issue #59) →
    **D3 freshness** (`pnpm gen:zod` then `git diff --exit-code` on the committed Zod, so a
    schema edit without regeneration fails here) →
@@ -534,9 +535,12 @@ know whether it is *complete*, so this preparation is a human step:
    `## [<version>] - <date>` heading; keep forward-looking `### Planned` items under
    `[Unreleased]`.
 3. If the release changes what the page claims (status, command set, version), update
-   `site/index.html` in the same preparation commit. The page is deployed from the released
-   commit (#277), so a stale claim goes public: the pre-publish barrier fails when its
-   `@profile-as-code/cli@<version>` line and `packages/cli/package.json` disagree.
+   `site/index.html` **and** the version claim in `docs/USER-GUIDE.md` in the same preparation
+   commit — the page is deployed from the released commit (#277), so a stale claim goes public.
+   The pre-publish barrier scans every published surface (the landing plus each document
+   projected into `site/docs/`) and fails when any `@profile-as-code/cli@<version>` disagrees
+   with `packages/cli/package.json`. A version stated in another form is not gated: keep it
+   canonical.
 4. Commit that preparation to `main`, then `git tag v<version> && git push --tags` — the tag is
    the version marker; **the publish itself is the dispatch**
    ([§Releasing — the primary path](#releasing--the-primary-path-issue-208)).
@@ -580,8 +584,10 @@ failed publish leaves the page at the previous release. `pages.yml` also exposes
 release for.
 
 Two barriers run **before** the irreversible publish, from that same commit: the docs must
-project (`scripts/site-docs/gen.mjs` + `scripts/site-check`), and the page's
-`@profile-as-code/cli@<version>` claim must equal `packages/cli/package.json`
+project (`scripts/site-docs/gen.mjs` + `scripts/site-check`), and **every surface the page
+publishes** — the landing and each document projected into `site/docs/`, read from their
+canonical Markdown via `scripts/site-docs/docs.mjs` — must state
+`@profile-as-code/cli@<version>` equal to `packages/cli/package.json`
 (`scripts/site-check/version-check.mjs`). Neither is recoverable after npm publishes.
 
 ### Documentation pages are a projection, not a copy

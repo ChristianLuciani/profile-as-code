@@ -166,6 +166,8 @@ jobs:
           node scripts/site-docs/gen.mjs
           node scripts/site-check/check.mjs
           node scripts/site-check/version-check.mjs
+        env:
+          SITE_REF: ${{ steps.guard.outputs.commit }}
 
       # Auth is OIDC-first: the npm CLI prefers the OIDC environment over
       # NODE_AUTH_TOKEN, and the OIDC path is written to NEVER throw — a failed exchange

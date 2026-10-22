@@ -102,7 +102,7 @@ node scripts/gen-platforms/gen.mjs --check   # assert the projections are fresh
 node scripts/gen-packages/gen.mjs --check    # assert the Map covers every package
 node scripts/evidence-gate/check.mjs         # assert run-citations are anchored reachably
 pnpm site                                    # project the docs into site/docs/ + gate every page
-node scripts/site-check/version-check.mjs    # assert the page's version claim matches the CLI manifest
+                                             # + assert every published version claim matches the CLI manifest
 python3 -m venv /tmp/schema-venv && /tmp/schema-venv/bin/pip install jsonschema pyyaml
 /tmp/schema-venv/bin/python scripts/schema-check/check.py
 ```

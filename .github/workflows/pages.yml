@@ -92,6 +92,9 @@ jobs:
           node scripts/site-check/version-check.mjs
         env:
           SITE_RELEASED_AT: ${{ inputs.release }}
+          # Links to documents that are NOT projected must land on the same tree
+          # the page describes, not on `main` (which may hold unreleased text).
+          SITE_REF: ${{ inputs.ref }}
 
       # The default GITHUB_TOKEN cannot CREATE the Pages site; `enablement:
       # true` would need a PAT/App token. Enable Pages once after the visibility
