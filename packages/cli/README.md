@@ -143,8 +143,8 @@ pasco post task demo --channel linkedin,x   # task bundles (no LLM call)
 pasco post choose demo --channel linkedin --variant linkedin-1
 pasco post check demo                        # limits + URLs + {{fact:...}} refs
 pasco post export demo --target postiz       # POST /posts draft payload
-pasco skills:export --list                   # platform skills shipped with this package
-pasco skills:export ~/.claude/skills         # copy them to a directory you choose
+pasco skills:export --list                   # skill channels shipped with this package
+pasco skills:export ./pasco-skills           # copy them to a directory you choose
 ```
 
 ## Workspace resolution (D14)

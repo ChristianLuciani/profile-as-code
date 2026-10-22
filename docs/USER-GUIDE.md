@@ -716,7 +716,7 @@ pasco refine <platform> [--lang] [--variants N]   # emit the agent task template
 pasco refine <platform> --choose <id>      # record chosen variant in content/active.yaml
 pasco check [platform]                     # offline rules + checks catalog (rest of catalog M4)
 pasco skills:export --list                 # platform skills shipped with this package
-pasco skills:export <dir>                  # copy them to a directory you name
+pasco skills:export <dir> [--force]        # copy them; --force overlays a non-empty dir
 pasco --workspace <path> <cmd>             # target a workspace explicitly
 pasco --json <cmd>                         # machine-readable output
 ```

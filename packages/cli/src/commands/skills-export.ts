@@ -12,7 +12,7 @@ import { join, resolve, sep } from "node:path";
 import { UsageError } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report } from "../output.js";
-import { listChannels, NOT_SHIPPED_MESSAGE, skillsDir } from "../skill-path.js";
+import { listChannels, listSkills, NOT_SHIPPED_MESSAGE, skillsDir } from "../skill-path.js";
 
 export interface SkillsExportArgs {
   dir?: string;
@@ -46,14 +46,21 @@ export function runSkillsExport(args: SkillsExportArgs): number {
   }
 
   const platforms = listChannels(root);
+  const strategySkills = listSkills(root);
 
   if (args.list) {
     if (isJsonMode()) {
-      return report("skills:export", true, EXIT.OK, { data: { root, platforms } });
+      return report("skills:export", true, EXIT.OK, {
+        data: { root, platforms, strategySkills },
+      });
     }
-    line(`pasco skills:export: ${platforms.length} skill channels shipped with this package`);
+    line(
+      `pasco skills:export: ${platforms.length} skill channels shipped with this package (${strategySkills.length} with SKILL.md)`,
+    );
     line(`  ${root}`);
-    for (const platform of platforms) line(`  - ${platform}`);
+    for (const platform of platforms) {
+      line(`  - ${platform}${strategySkills.includes(platform) ? "" : " (post-only)"}`);
+    }
     line("  run: pasco skills:export <dir>   # copy them into a directory you name");
     return EXIT.OK;
   }
@@ -90,7 +97,7 @@ export function runSkillsExport(args: SkillsExportArgs): number {
   const files = countFiles(root);
   if (isJsonMode()) {
     return report("skills:export", true, EXIT.OK, {
-      data: { root, destination, platforms, files },
+      data: { root, destination, platforms, strategySkills, files },
     });
   }
   line(

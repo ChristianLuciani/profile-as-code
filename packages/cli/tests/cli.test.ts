@@ -6,7 +6,16 @@
 
 import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -919,6 +928,27 @@ describe("pasco check (offline rules) + pasco skills:export (shipped skills)", (
     const again = run(["skills:export", dest]);
     expect(again.code).toBe(1);
     expect(again.stderr).toContain("not empty");
+
+    const forced = run(["skills:export", dest, "--force"]);
+    expect(forced.code).toBe(0);
+    expect(forced.stdout).toContain("copied");
+  });
+
+  it("reports 'skills not shipped' when the package carries no skills (#253)", () => {
+    // A package-shaped layout with no skills/ and no workspace marker above it:
+    // the state that must never be confused with "this platform has no skill".
+    const pkg = tempDir();
+    mkdirSync(join(pkg, "dist"));
+    copyFileSync(CLI, join(pkg, "dist", "index.js"));
+    symlinkSync(join(__dirname, "..", "node_modules"), join(pkg, "node_modules"), "dir");
+    const r = spawnSync(
+      process.execPath,
+      [join(pkg, "dist", "index.js"), "refine", "github-readme", "--workspace", MINIMAL],
+      { encoding: "utf8", cwd: pkg, timeout: 15_000 },
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain("skills not shipped with this package");
+    expect(r.stdout).not.toContain("no skill for github-readme");
   });
 
   it("skills:export refuses a destination inside the shipped tree (no self-copy recursion)", () => {
@@ -943,9 +973,17 @@ describe("published-surface boundary (#253/#254)", () => {
   it("help output names no repo or tooling a reader cannot open", () => {
     const helps = [
       run(["--help"]),
-      ...["init", "validate", "build", "diff", "refine", "check", "status", "skills:export"].map(
-        (cmd) => run([cmd, "--help"]),
-      ),
+      ...[
+        "init",
+        "validate",
+        "build",
+        "diff",
+        "refine",
+        "check",
+        "post",
+        "status",
+        "skills:export",
+      ].map((cmd) => run([cmd, "--help"])),
     ];
     for (const r of helps) {
       expect(r.code).toBe(0);

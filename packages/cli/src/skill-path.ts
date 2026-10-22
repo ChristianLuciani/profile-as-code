@@ -19,16 +19,17 @@ export function skillsDir(): string | undefined {
   if (override !== undefined && override !== "" && isDirectory(override)) return override;
 
   const here = dirname(fileURLToPath(import.meta.url)); // <pkg>/dist when bundled
-  const shipped = join(here, "..", "skills"); // <pkg>/skills — what npm ships
+  const pkgDir = join(here, ".."); // <pkg>
+  const shipped = join(pkgDir, "skills"); // <pkg>/skills — what npm ships
   if (isDirectory(shipped)) return shipped;
 
-  let dir = here;
-  for (let i = 0; i < 6; i += 1) {
-    const candidate = join(dir, "skills");
-    if (isDirectory(candidate)) return candidate;
-    const parent = dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
+  // Repo checkout only, and only the real workspace root: <repo>/pnpm-workspace.yaml
+  // must sit next to <repo>/skills. A bare ancestor walk could resolve another
+  // package's or the consumer's skills/ tree — a path this install does not ship
+  // (the #254 boundary) — and mask the "not shipped" state (#253).
+  const repoRoot = join(pkgDir, "..", ".."); // <pkg> → packages → <repo>
+  if (existsSync(join(repoRoot, "pnpm-workspace.yaml")) && isDirectory(join(repoRoot, "skills"))) {
+    return join(repoRoot, "skills");
   }
   return undefined;
 }

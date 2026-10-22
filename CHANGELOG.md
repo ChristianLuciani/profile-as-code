@@ -30,23 +30,21 @@ minor versions may contain breaking contract changes.
   of the repo-dev layout a user does not have. The output now distinguishes *no skill for
   `<platform>`* from *skills not shipped with this package*; `post` reads the same tree.
 
-### Changed
-
-- **`pasco skills:install <agent>` → `pasco skills:export <dir> [--list]` (#254, C1)** —
-  the CLI no longer prints a projection command for a private studio. It copies the
-  platform skills it ships into a directory the user names (non-empty destinations need
-  `--force`), and no published surface references a path/repo/tooling the reader cannot
-  open (rule now in AGENTS/CONTRIBUTING). The tarball is asserted by `verify:pack`.
-
 ### Planned (roadmap)
 
 - Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
-- CLI `pasco`: build · validate · diff · check · refine · skills:install (M1/M3)
+- CLI `pasco`: build · validate · diff · check · refine (M1/M3); `skills:export` shipped with the package (#253/#254)
 - Per-platform skills v1 from SOTA research (M3)
 - `profile-data` template repo + web renderer (M5)
 
 ### Changed
 
+- **`pasco skills:install <agent>` → `pasco skills:export <dir> [--force] [--list]` (#254, C1)** —
+  the CLI no longer prints a projection command for a private studio. It copies the
+  skill channels it ships into a directory the user names (a non-empty destination needs
+  `--force`, which overlays and never deletes), and no published surface references a
+  path/repo/tooling the reader cannot open (rule now in AGENTS/CONTRIBUTING). The tarball
+  is asserted by `verify:pack`.
 - **The hosted on-ramp is a declared v1 non-goal (#221), and the surfaces that still called it
   a plan are reconciled (#222)** — §9.2's three on-ramps (A template repo · B `pasco init` ·
   C bring your own storage) all require a terminal, and A also an account, so a visitor with
