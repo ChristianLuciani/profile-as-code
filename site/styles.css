@@ -800,12 +800,18 @@ h3 {
   font-size: 0.86em;
 }
 
-.doc-body table {
-  display: block;
+.md-table {
   max-width: 100%;
   margin: 1.4em 0;
-  border-collapse: collapse;
   overflow-x: auto;
+}
+
+.doc-body table {
+  /* Below this width the cells stop being readable: let `.md-table` scroll
+     instead of squeezing every column to one word per line. */
+  min-width: 34rem;
+  max-width: 100%;
+  border-collapse: collapse;
 }
 
 .doc-body th,

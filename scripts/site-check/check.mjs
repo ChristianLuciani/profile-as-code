@@ -101,6 +101,12 @@ function check(html, siteDir, page = "index.html") {
   if (/@import\b/i.test(html)) errors.push("@import is not allowed");
   if (/url\(\s*['"]?https?:\/\//i.test(html)) errors.push("external url() is not allowed");
   if (/<script\b/i.test(html)) errors.push("the page must stay script-free (<script> found)");
+  // A `<script>` tag is not the only way to run code: the projected Markdown
+  // passes raw HTML through (`marked` does not sanitize), so an inline handler
+  // would execute without ever writing `<script>` (#277 review R2).
+  if (/\son[a-z]+\s*=/i.test(html)) {
+    errors.push("the page must stay script-free (inline event handler attribute found)");
+  }
 
   return { errors, ids: ids.size, links: links.length };
 }
@@ -111,7 +117,8 @@ function selfTest() {
     '<script>alert(1)</script><a href="http://example.com">x</a>' +
     '<link rel="stylesheet" href="https://example.com/x.css">' +
     '<img src="https://example.com/x.png">' +
-    '<style>@import url("https://example.com/x.css");</style>';
+    '<style>@import url("https://example.com/x.css");</style>' +
+    '<div onclick="alert(1)">x</div>';
   const result = check(broken, SITE);
   const failures = [];
   if (!result.errors.some((e) => e.includes("#missing")))
@@ -125,6 +132,8 @@ function selfTest() {
   if (!result.errors.some((e) => e.includes("external asset")))
     failures.push("did not catch an external asset");
   if (!result.errors.some((e) => e.includes("@import"))) failures.push("did not catch @import");
+  if (!result.errors.some((e) => e.includes("inline event handler")))
+    failures.push("did not catch an inline event handler");
   if (failures.length > 0) {
     throw new Error(`self-test failed: ${failures.join("; ")}`);
   }
@@ -133,6 +142,18 @@ function selfTest() {
   if (ok.errors.length > 0) {
     throw new Error(`self-test false positive: ${ok.errors.join("; ")}`);
   }
+
+  // Local paths resolve against the PAGE's directory (#277): a nested page
+  // legitimately links `../styles.css` and `./sibling.html`.
+  const nested = check(
+    '<link rel="stylesheet" href="../styles.css"><a href="./sibling.html">x</a>',
+    SITE,
+    "docs/nested.html",
+  );
+  if (nested.errors.some((e) => e.includes("escapes site/")))
+    throw new Error("self-test false positive: a nested page cannot link ../");
+  if (!nested.errors.some((e) => e.includes("does not exist")))
+    throw new Error("self-test: a nested page's missing local path was not caught");
   console.log("site-check self-test: PASS");
 }
 

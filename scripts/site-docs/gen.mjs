@@ -43,10 +43,12 @@ const SITE_URL = "https://christianluciani.github.io/profile-as-code";
 
 /** The reading set. Order is the prev/next order on the docs index. */
 const DOCS = [
-  { slug: "user-guide", file: "docs/USER-GUIDE.md" },
-  { slug: "spec", file: "docs/SPEC.md" },
-  { slug: "contributing", file: "CONTRIBUTING.md" },
-  { slug: "roadmap", file: "docs/ROADMAP.md" },
+  { slug: "user-guide", file: "docs/USER-GUIDE.md", lang: "en" },
+  { slug: "spec", file: "docs/SPEC.md", lang: "en" },
+  { slug: "contributing", file: "CONTRIBUTING.md", lang: "en" },
+  // The roadmap is written in Spanish; the page must say so (screen readers and
+  // search engines both read `lang`).
+  { slug: "roadmap", file: "docs/ROADMAP.md", lang: "es" },
 ];
 
 const GEN_NOTE =
@@ -105,7 +107,7 @@ function firstParagraph(html) {
   // one-sentence description a reader (or a crawler) needs.
   const body = html
     .replace(/^[\s\S]*?<h1[^>]*>[\s\S]*?<\/h1>/i, "")
-    .replace(/<blockquote>[\s\S]*?<\/blockquote>/gi, "");
+    .replace(/^\s*<blockquote>[\s\S]*?<\/blockquote>/i, "");
   const match = body.match(/<p>([\s\S]*?)<\/p>/i);
   return match ? plainText(match[1]) : "";
 }
@@ -146,6 +148,13 @@ function rewriteHref(href, doc) {
   return `${REPO_URL}/${kind}/main/${relative}${hash}`;
 }
 
+/** Keep table semantics (a11y) and move the horizontal scroll to a wrapper. */
+function wrapTables(html) {
+  return html
+    .replace(/<table>/g, '<div class="md-table"><table>')
+    .replace(/<\/table>/g, "</table></div>");
+}
+
 function rewriteLinks(html, doc) {
   return html
     .replace(/(\shref=")([^"]*)(")/g, (_m, open, href, close) => {
@@ -182,12 +191,12 @@ function releaseLine() {
   return `<p class="doc-release">Published from <code>${escapeHtml(released)}</code>: this page describes the released artifact, not <code>main</code>.</p>\n`;
 }
 
-function shell({ title, description, canonical, body, prefix = "../" }) {
+function shell({ title, description, canonical, body, prefix = "../", lang = "en" }) {
   // A document title that already names the project does not get the suffix twice.
   const fullTitle = /profile-as-code/i.test(title) ? title : `${title} — profile-as-code`;
   return `<!-- ${GEN_NOTE} -->
 <!doctype html>
-<html lang="en">
+<html lang="${lang}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -268,7 +277,7 @@ function docNav(index, docs) {
 }
 
 function renderDoc(doc, index, docs) {
-  const rendered = rewriteLinks(marked.parse(doc.raw, { gfm: true }), doc);
+  const rendered = rewriteLinks(wrapTables(marked.parse(doc.raw, { gfm: true })), doc);
   const title = firstHeading(rendered);
   if (!title) throw new Error(`projected document has no H1 title: ${doc.file}`);
   const description = truncate(firstParagraph(rendered), 200);
@@ -289,6 +298,7 @@ ${rendered}
     description,
     canonical: `${SITE_URL}/docs/${doc.slug}.html`,
     body,
+    lang: doc.lang,
   });
 }
 
