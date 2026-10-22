@@ -586,7 +586,7 @@ release for.
 Two barriers run **before** the irreversible publish, from that same commit: the docs must
 project (`scripts/site-docs/gen.mjs` + `scripts/site-check`), and **every surface the page
 publishes** — the landing and each document projected into `site/docs/`, read from their
-canonical Markdown via `scripts/site-docs/docs.mjs` — must state
+canonical Markdown via `scripts/site-docs/site-config.mjs` — must state
 `@profile-as-code/cli@<version>` equal to `packages/cli/package.json`
 (`scripts/site-check/version-check.mjs`). Neither is recoverable after npm publishes.
 
@@ -610,7 +610,7 @@ The same run emits the **site-root artifacts** (issue #279), all gitignored:
 | `404.html` | served by Pages for unknown paths; `noindex` |
 | `sitemap.xml` | one `<url>` per page; `lastmod` from `git log -1 -- <file>`. The deploy checkout is `fetch-depth: 0` on purpose: a shallow clone returns HEAD's date, so the generator omits the date instead of lying |
 | `robots.txt` | **host-scoped** (RFC 9309): under `…github.io/<repo>/` crawlers never fetch it. Ships because it becomes correct with a custom domain |
-| JSON-LD | `SoftwareApplication` on the landing (hand-authored with the page), `TechArticle` per document. The page gate allows exactly `<script type="application/ld+json">` and nothing else |
+| JSON-LD | `SoftwareApplication` on the landing (hand-authored with the page, `softwareVersion` included), `TechArticle` per document with `author`. The page gate allows exactly `<script type="application/ld+json">` and nothing else |
 | `llms.txt` | llmstxt.org shape: summary, documents, and each document's `##` anchors |
 | `AGENTS.md` | the same guide for a cold agent that reads the site rather than the repo |
 

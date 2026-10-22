@@ -15,6 +15,8 @@ export const SITE = {
   repo: "ChristianLuciani/profile-as-code",
   baseUrl: "https://christianluciani.github.io/profile-as-code",
   license: "MIT",
+  /** Named author for the article metadata (the repository's owner). */
+  author: "Christian Luciani",
   /** Package manifest the published version claims are checked against. */
   versionManifest: "packages/cli/package.json",
   claimPackage: "@profile-as-code/cli",

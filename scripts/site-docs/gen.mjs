@@ -22,7 +22,8 @@
  *      produced by github-slugger, the same algorithm GitHub uses, so anchors
  *      written against the repository keep resolving.
  *   D. No runtime. The output is static HTML + the shared `site/styles.css`;
- *      no `<script>`, no external asset (the page gate enforces both).
+ *      no executable `<script>` (a JSON-LD block is data, and the page gate
+ *      allows exactly that), no external asset.
  *
  * Usage: node scripts/site-docs/gen.mjs
  * Then:  node scripts/site-check/check.mjs   (or: pnpm site)
@@ -212,7 +213,8 @@ const MARK = `<svg class="mark" width="28" height="28" viewBox="0 0 32 32" aria-
 /** `prefix` is the path back to `site/` — `../` from `docs/`, empty at the root. */
 function nav(prefix) {
   // `./#what` (not `#what`) at the root: the 404 is its own page, so an
-  // in-page anchor there would point at ids the page does not have.
+  // in-page anchor there would point at ids the page does not have. An absolute
+  // base (the 404's) is used verbatim.
   const root = prefix === "" ? "./" : prefix;
   return `<nav class="site-nav" aria-label="Primary">
         <a href="${root}#what">What it does</a>
@@ -250,6 +252,10 @@ function shell({
   canonical,
   body,
   prefix = "../",
+  // `assetBase` overrides the relative prefix with an absolute base. The 404 is
+  // served AT THE REQUESTED URL, so every relative URL in it resolves against
+  // that path and dies — its links must be absolute (site URLs, not doc-relative).
+  assetBase = prefix,
   jsonLd = [],
   noindex = false,
   ogType = "article",
@@ -275,19 +281,19 @@ function shell({
   ${ogTags()}
   <meta name="twitter:card" content="${SITE.ogImage ? "summary_large_image" : "summary"}">
   ${jsonLd.map(jsonLdTag).join("\n  ")}
-  <link rel="icon" href="${prefix}brand/mark-tile.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="${prefix}styles.css">
+  <link rel="icon" href="${assetBase}brand/mark-tile.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="${assetBase}styles.css">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
 
   <header class="site-header">
     <div class="wrap header-inner">
-      <a class="brand" href="${prefix}" aria-label="profile-as-code — home">
+      <a class="brand" href="${assetBase}" aria-label="${SITE.name} — home">
         ${MARK}
         <span>profile-as-code</span>
       </a>
-      ${nav(prefix)}
+      ${nav(assetBase)}
     </div>
   </header>
 
@@ -356,6 +362,7 @@ function renderDoc(doc, index, docs) {
     headline: title,
     description,
     url: canonical,
+    author: { "@type": "Person", name: SITE.author },
     ...(updated ? { dateModified: updated } : {}),
     isPartOf: { "@type": "WebSite", name: SITE.name, url: `${SITE_URL}/` },
   };
@@ -404,32 +411,35 @@ ${cards}
 function buildNotFound() {
   const body = `    <div class="wrap doc-layout doc-layout-single">
       <article class="doc-body">
-        <p class="doc-breadcrumb"><a href="./">Home</a></p>
+        <p class="doc-breadcrumb"><a href="${SITE_URL}/">Home</a></p>
         <h1>Page not found</h1>
         <p class="lede">That URL does not exist on this site — the documentation index lists everything that does.</p>
         <ul class="checks">
-          <li><a href="./docs/">Documentation index</a></li>
-          <li><a href="./">Home</a></li>
+          <li><a href="${SITE_URL}/docs/">Documentation index</a></li>
+          <li><a href="${SITE_URL}/">Home</a></li>
           <li><a href="${REPO_URL}">The repository</a></li>
         </ul>
       </article>
     </div>`;
   return shell({
     title: "Page not found",
-    description: "That URL does not exist on the profile-as-code site.",
+    description: `That URL does not exist on the ${SITE.name} site.`,
     canonical: null,
     body,
     prefix: "",
+    assetBase: `${SITE_URL}/`,
     noindex: true,
     ogType: "website",
   });
 }
 
+const escapeXml = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 function buildSitemap(entries) {
   const urls = entries
     .map(
       ({ loc, lastmod }) =>
-        `  <url>\n    <loc>${loc}</loc>${lastmod ? `\n    <lastmod>${lastmod.slice(0, 10)}</lastmod>` : ""}\n  </url>`,
+        `  <url>\n    <loc>${escapeXml(loc)}</loc>${lastmod ? `\n    <lastmod>${escapeXml(lastmod.slice(0, 10))}</lastmod>` : ""}\n  </url>`,
     )
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -478,6 +488,7 @@ function buildLlmsTxt(docs) {
 
 ## Documentation
 
+- [Home](${SITE_URL}/): what the project is, the three on-ramps and the status.
 - [Documentation index](${SITE_URL}/docs/): every projected document.
 ${docs.map((doc) => `- [${doc.title}](${SITE_URL}/docs/${doc.slug}.html): ${doc.blurb}`).join("\n")}
 
@@ -485,7 +496,8 @@ ${outlines}
 ## About this site
 
 - [AGENTS.md](${SITE_URL}/AGENTS.md): guide for an agent consuming this site.
-- [Source repository](${REPO_URL}): canonical; every page here is generated (never edit a generated file).
+- The landing, the stylesheet and the brand assets are committed source; every
+  other file is generated at deploy. The repository is canonical: ${REPO_URL}.
 `;
 }
 
@@ -498,8 +510,12 @@ read this file first.
 ## Source of truth
 
 - The repository is canonical: ${REPO_URL}.
-- Every page under this site is **projected from the repository at deploy time**
-  and is not committed. Editing the site edits nothing.
+- **Generated at deploy, never committed**: every page under \`/docs/\`, the 404,
+  \`sitemap.xml\`, \`robots.txt\`, \`llms.txt\` and this file. Editing them edits
+  nothing.
+- **Committed and hand-authored**: the landing (\`site/index.html\`),
+  \`site/styles.css\` and \`site/brand/\`. Those are changed in the repository
+  like any other source file.
 
 ## How to consume
 

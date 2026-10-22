@@ -8,13 +8,13 @@
  *
  * Scope is EVERY surface the page publishes, not just the landing: the landing
  * (`site/index.html`) and the documents projected into `site/docs/` — read from
- * their canonical Markdown (`scripts/site-docs/docs.mjs`), so the check does not
+ * their canonical Markdown (`scripts/site-docs/site-config.mjs`), so the check does not
  * depend on having generated first. A page-level check that read only
  * `index.html` would pass while the projected user guide still advertised the
  * previous version (that is exactly how this gate first shipped — PR #278
  * review, major).
  *
- * The claim has one canonical form: `@profile-as-code/cli@<version>`. A document
+ * The claim has one canonical form: `${SITE.claimPackage}@<version>`. A document
  * that states the version any other way is not gated; write it in that form.
  */
 import { readFileSync } from "node:fs";
@@ -53,6 +53,16 @@ function check(files, version) {
       }
     }
   }
+  for (const file of files) {
+    for (const match of file.text.matchAll(/"softwareVersion"\s*:\s*"([^"]+)"/g)) {
+      claims += 1;
+      if (match[1] !== version) {
+        errors.push(
+          `${file.label} JSON-LD says softwareVersion ${match[1]}, manifest says ${version}`,
+        );
+      }
+    }
+  }
   if (claims === 0) {
     errors.push(`no published surface states ${PKG}@<version> — add the claim in that form`);
   }
@@ -64,15 +74,23 @@ function selfTest() {
   const ok = [{ label: "index", text: `<code>${PKG}@0.3.0</code>` }];
 
   if (check(ok, "0.3.0").length > 0) failures.push("false positive on a matching version");
-  if (
-    check([{ label: "index", text: "<code>@profile-as-code/cli@0.2.0</code>" }], "0.3.0").length ===
-    0
-  )
+  if (check([{ label: "index", text: `<code>${PKG}@0.2.0</code>` }], "0.3.0").length === 0)
     failures.push("did not catch a stale version");
   if (check([{ label: "index", text: "<p>no claim here</p>" }], "0.3.0").length === 0)
     failures.push("did not catch a missing claim");
   // The regression this gate shipped with: the landing is right, a projected
   // document is stale — it must still fail, and name the document.
+  const badJsonLd = check(
+    [
+      {
+        label: "site/index.html",
+        text: `${PKG}@0.3.0 <script>{"softwareVersion":"0.2.0"}</script>`,
+      },
+    ],
+    "0.3.0",
+  );
+  if (badJsonLd.length === 0) failures.push("did not catch a stale JSON-LD softwareVersion");
+
   const stale = [
     { label: "site/index.html", text: `${PKG}@0.3.0` },
     { label: "docs/USER-GUIDE.md", text: `tracks \`pasco\` at \`${PKG}@0.2.0\`` },
@@ -105,5 +123,5 @@ if (errors.length > 0) {
   process.exit(1);
 }
 console.log(
-  `site version-check: PASS (${files.length} published surface(s) scanned, claim @profile-as-code/cli@${version})`,
+  `site version-check: PASS (${files.length} published surface(s) scanned, claim ${PKG}@${version})`,
 );
