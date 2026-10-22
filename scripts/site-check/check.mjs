@@ -2,10 +2,11 @@
 /**
  * Project-page gate (#201).
  *
- * `site/index.html` sits outside the Markdown link corpus, so the docs link
- * gate (`scripts/link-check`) cannot see its local links or in-page anchors.
- * This gate keeps the static page honest with zero dependencies and no
- * network access:
+ * The page's HTML sits outside the Markdown link corpus, so the docs link gate
+ * (`scripts/link-check`) cannot see its local links or in-page anchors. This
+ * gate keeps every page under `site/` honest with zero dependencies and no
+ * network access — including the documentation pages projected into
+ * `site/docs/` by `scripts/site-docs/gen.mjs` (#277):
  *
  *   A. every `id` is unique;
  *   B. every `href="#id"` resolves to an id on the page;
@@ -18,7 +19,7 @@
  * script tag, a duplicate id, an insecure URL, an external asset and
  * `@import`, so a green run is a signal, not a coincidence.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -28,11 +29,27 @@ const ROOT = path.resolve(HERE, "..", "..");
 const SITE = path.join(ROOT, "site");
 const PAGE = path.join(SITE, "index.html");
 
+/** Every `.html` file under `site/`, relative to it, in a stable order. */
+function pages(dir) {
+  const out = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
+    a.name.localeCompare(b.name),
+  )) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...pages(full));
+    else if (entry.name.endsWith(".html")) out.push(path.relative(SITE, full));
+  }
+  return out;
+}
+
 function uniq(values) {
   return [...new Set(values)];
 }
 
-function check(html, siteDir) {
+function check(html, siteDir, page = "index.html") {
+  // Local paths resolve against the PAGE's directory, not the site root: a page
+  // under site/docs/ links to ../styles.css and ./spec.html.
+  const pageDir = path.dirname(path.join(siteDir, page));
   const errors = [];
   const ids = new Set();
   const idRe = /\sid\s*=\s*"([^"]+)"/g;
@@ -65,7 +82,7 @@ function check(html, siteDir) {
 
     const clean = ref.split(/[?#]/, 1)[0];
     if (clean === "") continue;
-    const target = path.resolve(siteDir, clean);
+    const target = path.resolve(pageDir, clean);
     const rel = path.relative(siteDir, target);
     if (rel.startsWith("..") || path.isAbsolute(rel)) {
       errors.push(`local path escapes site/: ${ref}`);
@@ -84,6 +101,12 @@ function check(html, siteDir) {
   if (/@import\b/i.test(html)) errors.push("@import is not allowed");
   if (/url\(\s*['"]?https?:\/\//i.test(html)) errors.push("external url() is not allowed");
   if (/<script\b/i.test(html)) errors.push("the page must stay script-free (<script> found)");
+  // A `<script>` tag is not the only way to run code: the projected Markdown
+  // passes raw HTML through (`marked` does not sanitize), so an inline handler
+  // would execute without ever writing `<script>` (#277 review R2).
+  if (/\son[a-z]+\s*=/i.test(html)) {
+    errors.push("the page must stay script-free (inline event handler attribute found)");
+  }
 
   return { errors, ids: ids.size, links: links.length };
 }
@@ -94,7 +117,8 @@ function selfTest() {
     '<script>alert(1)</script><a href="http://example.com">x</a>' +
     '<link rel="stylesheet" href="https://example.com/x.css">' +
     '<img src="https://example.com/x.png">' +
-    '<style>@import url("https://example.com/x.css");</style>';
+    '<style>@import url("https://example.com/x.css");</style>' +
+    '<div onclick="alert(1)">x</div>';
   const result = check(broken, SITE);
   const failures = [];
   if (!result.errors.some((e) => e.includes("#missing")))
@@ -108,6 +132,8 @@ function selfTest() {
   if (!result.errors.some((e) => e.includes("external asset")))
     failures.push("did not catch an external asset");
   if (!result.errors.some((e) => e.includes("@import"))) failures.push("did not catch @import");
+  if (!result.errors.some((e) => e.includes("inline event handler")))
+    failures.push("did not catch an inline event handler");
   if (failures.length > 0) {
     throw new Error(`self-test failed: ${failures.join("; ")}`);
   }
@@ -116,6 +142,18 @@ function selfTest() {
   if (ok.errors.length > 0) {
     throw new Error(`self-test false positive: ${ok.errors.join("; ")}`);
   }
+
+  // Local paths resolve against the PAGE's directory (#277): a nested page
+  // legitimately links `../styles.css` and `./sibling.html`.
+  const nested = check(
+    '<link rel="stylesheet" href="../styles.css"><a href="./sibling.html">x</a>',
+    SITE,
+    "docs/nested.html",
+  );
+  if (nested.errors.some((e) => e.includes("escapes site/")))
+    throw new Error("self-test false positive: a nested page cannot link ../");
+  if (!nested.errors.some((e) => e.includes("does not exist")))
+    throw new Error("self-test: a nested page's missing local path was not caught");
   console.log("site-check self-test: PASS");
 }
 
@@ -124,10 +162,25 @@ if (!existsSync(PAGE)) {
   console.error(`site-check: FAIL — missing ${path.relative(ROOT, PAGE)}`);
   process.exit(1);
 }
-const { errors, ids, links } = check(readFileSync(PAGE, "utf8"), SITE);
-if (errors.length > 0) {
-  for (const error of errors) console.error(`E-SITE: ${error}`);
-  console.error(`site-check: FAIL (${uniq(errors).length} error(s))`);
+const files = pages(SITE);
+if (!files.includes("index.html")) {
+  console.error("site-check: FAIL — site/index.html is missing");
   process.exit(1);
 }
-console.log(`site-check: PASS (${ids} ids, ${links} links)`);
+
+let failed = 0;
+let totalIds = 0;
+let totalLinks = 0;
+for (const file of files) {
+  const result = check(readFileSync(path.join(SITE, file), "utf8"), SITE, file);
+  totalIds += result.ids;
+  totalLinks += result.links;
+  if (result.errors.length === 0) continue;
+  failed += 1;
+  for (const error of uniq(result.errors)) console.error(`E-SITE ${file}: ${error}`);
+}
+if (failed > 0) {
+  console.error(`site-check: FAIL (${failed} of ${files.length} page(s))`);
+  process.exit(1);
+}
+console.log(`site-check: PASS (${files.length} page(s), ${totalIds} ids, ${totalLinks} links)`);

@@ -150,6 +150,25 @@ jobs:
           TAG: ${{ steps.guard.outputs.tag }}
         run: node packages/cli/scripts/release-notes.mjs --version "${TAG#v}"
 
+      # Issue #277: the project page is deployed from THIS commit (the `site` job
+      # at the bottom), so whatever it says here becomes the public description of
+      # this release. Two facts can make it lie, and both are cheap to catch —
+      # before the irreversible publish, not after:
+      #   - the docs no longer project (renamed/moved source, broken relative link);
+      #   - the page advertises a CLI version other than package.json's
+      #     (`version-check.mjs`). npm cannot be un-published, so a page announcing
+      #     the wrong version would be live with no way back.
+      # The same projection runs again in `pages.yml` for the deploy; this step is
+      # the barrier, not the deploy.
+      - if: steps.guard.outputs.tag != ''
+        name: Project the site and gate it (pre-publish barrier)
+        run: |
+          node scripts/site-docs/gen.mjs
+          node scripts/site-check/check.mjs
+          node scripts/site-check/version-check.mjs
+        env:
+          SITE_REF: ${{ steps.guard.outputs.commit }}
+
       # Auth is OIDC-first: the npm CLI prefers the OIDC environment over
       # NODE_AUTH_TOKEN, and the OIDC path is written to NEVER throw — a failed exchange
       # returns undefined and leaves whatever token the config had (lib/utils/oidc.js, npm
@@ -223,3 +242,24 @@ jobs:
               --notes-file "$RUNNER_TEMP/notes.md" \
               --verify-tag
           fi
+
+  # The project page (issue #277). It runs AFTER publish, from the same verified
+  # commit, so the page can never describe a version that did not ship: a failed
+  # publish skips this job and the page stays at the previous release. The deploy
+  # itself lives in `pages.yml`, which is also dispatchable on its own — that is
+  # the explicit operator override for a page fix that should not wait a release.
+  #
+  # Not a `release: published` trigger: `gh release create` above authenticates
+  # with GITHUB_TOKEN, and events created by that token do not start workflows
+  # (only workflow_dispatch and repository_dispatch do) — the job would never run.
+  site:
+    needs: publish
+    if: needs.publish.outputs.tag != ''
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+    with:
+      ref: ${{ needs.publish.outputs.commit }}
+      release: ${{ needs.publish.outputs.tag }}

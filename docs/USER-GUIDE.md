@@ -6,9 +6,11 @@ updated, and stay in sync as the engine evolves.
 
 > Audience: a **user** of the engine (not an engine contributor). Contributor
 > docs live in [CONTRIBUTING.md](../CONTRIBUTING.md); the product contract is
-> [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli`
-> version **0.3.0** — tagged `v0.3.0` and published to npm (`latest`) on
-> 2026-10-11 (#113, #207).
+> [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli@0.3.0`
+> — tagged `v0.3.0` and published to npm (`latest`) on 2026-10-11 (#113, #207).
+> Keep that claim in its canonical form: the release barrier
+> (`scripts/site-check/version-check.mjs`) fails the publish when it disagrees
+> with `packages/cli/package.json`.
 > The [CLI's command/status table](../packages/cli/README.md) is authoritative
 > on which commands are still partial; SPEC §12 holds the milestone roadmap.
 

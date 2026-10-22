@@ -72,10 +72,6 @@ One job, **`ci`**, required on every PR and push to `main`:
    nobody can resolve is a claim without a source). A `kind=record` citation is
    never stale. This is the only step that needs history, which is why the
    checkout above fetches `fetch-depth: 0`.
-   A third always-on node step follows it — **project page** (`scripts/site-check`,
-   issue #201): the static page under `site/` is outside the Markdown corpus, so
-   this gate checks its ids, in-page anchors and local paths, refuses `<script>`
-   and `http://`, and self-tests first. Zero dependencies, no network, no install.
 3. **TypeScript workspace** — steps activate automatically once `package.json` lands
    (M1 core), in this order: **dependency gate** (`scripts/dep-gate`, issue #98 —
    node-only, before install to fail fast: `packages/server` must depend on
@@ -105,6 +101,14 @@ One job, **`ci`**, required on every PR and push to `main`:
    fixes a manifest, and the self-test first proves it refuses every class it
    claims) →
    `pnpm install --frozen-lockfile` →
+   **project page** (`scripts/site-check`, issues #201/#277 — it moved here from
+   the pre-install block: since #277 the gate runs over the documentation pages
+   PROJECTED from the Markdown, which needs `marked` installed. It projects
+   first (`scripts/site-docs/gen.mjs`), then checks ids, in-page anchors and
+   local paths on **every** page, refuses `<script>`, inline event handlers and
+   `http://`, and a companion `version-check.mjs` asserts that every published
+   surface — the landing plus each projected document — states the version in
+   `packages/cli/package.json`) →
    **`pnpm lint`** (Biome: lint + format + import order, issue #59) →
    **D3 freshness** (`pnpm gen:zod` then `git diff --exit-code` on the committed Zod, so a
    schema edit without regeneration fails here) →
@@ -530,7 +534,14 @@ know whether it is *complete*, so this preparation is a human step:
 2. Move the release-worthy `[Unreleased]` entries under a new
    `## [<version>] - <date>` heading; keep forward-looking `### Planned` items under
    `[Unreleased]`.
-3. Commit that preparation to `main`, then `git tag v<version> && git push --tags` — the tag is
+3. If the release changes what the page claims (status, command set, version), update
+   `site/index.html` **and** the version claim in `docs/USER-GUIDE.md` in the same preparation
+   commit — the page is deployed from the released commit (#277), so a stale claim goes public.
+   The pre-publish barrier scans every published surface (the landing plus each document
+   projected into `site/docs/`) and fails when any `@profile-as-code/cli@<version>` disagrees
+   with `packages/cli/package.json`. A version stated in another form is not gated: keep it
+   canonical.
+4. Commit that preparation to `main`, then `git tag v<version> && git push --tags` — the tag is
    the version marker; **the publish itself is the dispatch**
    ([§Releasing — the primary path](#releasing--the-primary-path-issue-208)).
 
@@ -557,6 +568,40 @@ attw ./profile-as-code-cli-<version>.tgz --profile esm-only
 entry — see the publish chain above); `publint` is the check that matters
 there. A failure at this point is a **post-mortem, not a rollback**: record it
 in the CHANGELOG and fix forward in the next version.
+
+## Project page — `.github/workflows/pages.yml`
+
+The page is the entry surface for readers who do not arrive through the repository
+(#201). What it says is versioned under `site/`; it is static HTML with no runtime — no
+`<script>`, no external asset — and `scripts/site-check` enforces that on every page.
+
+**It deploys from a RELEASE, not from `main`** (#277). A feature merged to `main` never
+appears on the page before the release that ships it: the `site` job at the end of
+`release.yml` calls `pages.yml` with the exact commit `publish` verified and shipped
+(`needs.publish.outputs.commit`) and is gated on the same `needs.publish.outputs.tag`, so a
+failed publish leaves the page at the previous release. `pages.yml` also exposes
+`workflow_dispatch` as the explicit override — a page fix the operator decides not to wait a
+release for.
+
+Two barriers run **before** the irreversible publish, from that same commit: the docs must
+project (`scripts/site-docs/gen.mjs` + `scripts/site-check`), and **every surface the page
+publishes** — the landing and each document projected into `site/docs/`, read from their
+canonical Markdown via `scripts/site-docs/docs.mjs` — must state
+`@profile-as-code/cli@<version>` equal to `packages/cli/package.json`
+(`scripts/site-check/version-check.mjs`). Neither is recoverable after npm publishes.
+
+### Documentation pages are a projection, not a copy
+
+`site/docs/*.html` is generated from the Markdown (`USER-GUIDE`, `SPEC`, `CONTRIBUTING`,
+`ROADMAP`) by `scripts/site-docs/gen.mjs`, using `marked` (GFM) and `github-slugger` (so
+anchors are identical to GitHub's). That output is **gitignored**: the Markdown is the only
+committed copy, so there is nothing to drift — a doc edit either projects or CI fails.
+Local preview: `pnpm site` (project, then gate).
+
+Links are rewritten at projection time: a projected document becomes a local `.html`, any
+other repository path becomes its GitHub URL. Adding a document to `DOCS` in the script is
+the only registration step; a declared source that is missing fails the run instead of
+shrinking the page silently.
 
 ## Other
 

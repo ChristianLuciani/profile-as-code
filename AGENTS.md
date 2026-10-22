@@ -29,9 +29,10 @@ per-user private repo (`profile-data`), scaffolded from the template
 | `packages/renderers/` | One adapter per platform | the contribution seam |
 | `skills/<platform>/` | Living knowledge per platform (D5) | follows `skills/README.md` |
 | `docs/research/` | Prior-art + SOTA, sourced + dated | |
-| `site/` | Static project page (#201) → GitHub Pages | no build step; keep the on-ramps synced with SPEC §9.2 |
+| `site/` | Static project page (#201) → GitHub Pages, deployed from the released commit (#277) | no runtime; `site/docs/` is generated and gitignored — never edit it; keep the on-ramps synced with SPEC §9.2 |
 | `scripts/schema-check/` | Contract self-test (CI) | |
-| `scripts/site-check/` | Project-page gate (CI): ids, anchors, local paths, no scripts | issue #201 |
+| `scripts/site-docs/` | Projects the reading docs into `site/docs/*.html` (gitignored) | issues #277 · Markdown is the only copy; add a doc = one entry in `DOCS` |
+| `scripts/site-check/` | Page gates (CI + pre-publish): ids, anchors, local paths, no scripts — on every page; version claim vs the CLI manifest | issues #201/#277 |
 | `scripts/dep-gate/` | D20 scope self-test (CI): server→core only, core never reaches server | issue #98 |
 
 ## Rules for agents (in addition to CONTRIBUTING.md)
@@ -100,7 +101,8 @@ pnpm gen:packages                 # list/verify the workspace package inventory
 node scripts/gen-platforms/gen.mjs --check   # assert the projections are fresh
 node scripts/gen-packages/gen.mjs --check    # assert the Map covers every package
 node scripts/evidence-gate/check.mjs         # assert run-citations are anchored reachably
-node scripts/site-check/check.mjs            # assert the project page's ids/anchors/local paths
+pnpm site                                    # project the docs into site/docs/ + gate every page
+                                             # + assert every published version claim matches the CLI manifest
 python3 -m venv /tmp/schema-venv && /tmp/schema-venv/bin/pip install jsonschema pyyaml
 /tmp/schema-venv/bin/python scripts/schema-check/check.py
 ```
