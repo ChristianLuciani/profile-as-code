@@ -586,7 +586,7 @@ release for.
 Two barriers run **before** the irreversible publish, from that same commit: the docs must
 project (`scripts/site-docs/gen.mjs` + `scripts/site-check`), and **every surface the page
 publishes** — the landing and each document projected into `site/docs/`, read from their
-canonical Markdown via `scripts/site-docs/docs.mjs` — must state
+canonical Markdown via `scripts/site-docs/site-config.mjs` — must state
 `@profile-as-code/cli@<version>` equal to `packages/cli/package.json`
 (`scripts/site-check/version-check.mjs`). Neither is recoverable after npm publishes.
 
@@ -599,9 +599,23 @@ committed copy, so there is nothing to drift — a doc edit either projects or C
 Local preview: `pnpm site` (project, then gate).
 
 Links are rewritten at projection time: a projected document becomes a local `.html`, any
-other repository path becomes its GitHub URL. Adding a document to `DOCS` in the script is
-the only registration step; a declared source that is missing fails the run instead of
-shrinking the page silently.
+other repository path becomes its GitHub URL **at the deployed ref** (`SITE_REF`), never `main`.
+Adding a document to `scripts/site-docs/site-config.mjs` is the only registration step; a
+declared source that is missing fails the run instead of shrinking the page silently.
+
+The same run emits the **site-root artifacts** (issue #279), all gitignored:
+
+| Artifact | Note |
+|---|---|
+| `404.html` | served by Pages for unknown paths; `noindex` |
+| `sitemap.xml` | one `<url>` per page; `lastmod` from `git log -1 -- <file>`. The deploy checkout is `fetch-depth: 0` on purpose: a shallow clone returns HEAD's date, so the generator omits the date instead of lying |
+| `robots.txt` | **host-scoped** (RFC 9309): under `…github.io/<repo>/` crawlers never fetch it. Ships because it becomes correct with a custom domain |
+| JSON-LD | `SoftwareApplication` on the landing (hand-authored with the page, `softwareVersion` included), `TechArticle` per document with `author`. The page gate allows exactly `<script type="application/ld+json">` and nothing else |
+| `llms.txt` | llmstxt.org shape: summary, documents, and each document's `##` anchors |
+| `AGENTS.md` | the same guide for a cold agent that reads the site rather than the repo |
+
+Dates are the only non-deterministic input: `git log` makes them reproducible per commit, and
+a shallow checkout makes them *absent* rather than wrong.
 
 ## Other
 

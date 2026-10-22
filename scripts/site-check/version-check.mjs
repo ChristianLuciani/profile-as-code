@@ -8,29 +8,31 @@
  *
  * Scope is EVERY surface the page publishes, not just the landing: the landing
  * (`site/index.html`) and the documents projected into `site/docs/` — read from
- * their canonical Markdown (`scripts/site-docs/docs.mjs`), so the check does not
+ * their canonical Markdown (`scripts/site-docs/site-config.mjs`), so the check does not
  * depend on having generated first. A page-level check that read only
  * `index.html` would pass while the projected user guide still advertised the
  * previous version (that is exactly how this gate first shipped — PR #278
  * review, major).
  *
- * The claim has one canonical form: `@profile-as-code/cli@<version>`. A document
+ * The claim has one canonical form: `${SITE.claimPackage}@<version>`. A document
  * that states the version any other way is not gated; write it in that form.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { DOCS } from "../site-docs/docs.mjs";
+import { DOCS, SITE } from "../site-docs/site-config.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..", "..");
 
-/** Every published-CLI version a text claims, via `@profile-as-code/cli@X`. */
+const PKG = SITE.claimPackage;
+const escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Every published version a text claims, via `<claimPackage>@X`. */
 function claimedVersions(text) {
-  return [...text.matchAll(/@profile-as-code\/cli@([0-9]+\.[0-9]+\.[0-9]+[^\s<`)",;]*)/g)].map(
-    (match) => match[1],
-  );
+  const pattern = new RegExp(`${escapeRe(PKG)}@([0-9]+\\.[0-9]+\\.[0-9]+[^\\s<\`)",;]*)`, "g");
+  return [...text.matchAll(pattern)].map((match) => match[1]);
 }
 
 /**
@@ -46,36 +48,52 @@ function check(files, version) {
       claims += 1;
       if (claim !== version) {
         errors.push(
-          `${file.label} advertises @profile-as-code/cli@${claim} but package.json says ${version}`,
+          `${file.label} advertises ${PKG}@${claim} but ${SITE.versionManifest} says ${version}`,
+        );
+      }
+    }
+  }
+  for (const file of files) {
+    for (const match of file.text.matchAll(/"softwareVersion"\s*:\s*"([^"]+)"/g)) {
+      claims += 1;
+      if (match[1] !== version) {
+        errors.push(
+          `${file.label} JSON-LD says softwareVersion ${match[1]}, manifest says ${version}`,
         );
       }
     }
   }
   if (claims === 0) {
-    errors.push(
-      "no published surface states @profile-as-code/cli@<version> — add the claim in that form",
-    );
+    errors.push(`no published surface states ${PKG}@<version> — add the claim in that form`);
   }
   return errors;
 }
 
 function selfTest() {
   const failures = [];
-  const ok = [{ label: "index", text: "<code>@profile-as-code/cli@0.3.0</code>" }];
+  const ok = [{ label: "index", text: `<code>${PKG}@0.3.0</code>` }];
 
   if (check(ok, "0.3.0").length > 0) failures.push("false positive on a matching version");
-  if (
-    check([{ label: "index", text: "<code>@profile-as-code/cli@0.2.0</code>" }], "0.3.0").length ===
-    0
-  )
+  if (check([{ label: "index", text: `<code>${PKG}@0.2.0</code>` }], "0.3.0").length === 0)
     failures.push("did not catch a stale version");
   if (check([{ label: "index", text: "<p>no claim here</p>" }], "0.3.0").length === 0)
     failures.push("did not catch a missing claim");
   // The regression this gate shipped with: the landing is right, a projected
   // document is stale — it must still fail, and name the document.
+  const badJsonLd = check(
+    [
+      {
+        label: "site/index.html",
+        text: `${PKG}@0.3.0 <script>{"softwareVersion":"0.2.0"}</script>`,
+      },
+    ],
+    "0.3.0",
+  );
+  if (badJsonLd.length === 0) failures.push("did not catch a stale JSON-LD softwareVersion");
+
   const stale = [
-    { label: "site/index.html", text: "@profile-as-code/cli@0.3.0" },
-    { label: "docs/USER-GUIDE.md", text: "tracks `pasco` at `@profile-as-code/cli@0.2.0`" },
+    { label: "site/index.html", text: `${PKG}@0.3.0` },
+    { label: "docs/USER-GUIDE.md", text: `tracks \`pasco\` at \`${PKG}@0.2.0\`` },
   ];
   const staleErrors = check(stale, "0.3.0");
   if (staleErrors.length === 0) failures.push("did not catch a stale PROJECTED document");
@@ -88,9 +106,7 @@ function selfTest() {
 
 selfTest();
 
-const version = JSON.parse(
-  readFileSync(path.join(ROOT, "packages", "cli", "package.json"), "utf8"),
-).version;
+const version = JSON.parse(readFileSync(path.join(ROOT, SITE.versionManifest), "utf8")).version;
 
 const files = [
   { label: "site/index.html", text: readFileSync(path.join(ROOT, "site", "index.html"), "utf8") },
@@ -107,5 +123,5 @@ if (errors.length > 0) {
   process.exit(1);
 }
 console.log(
-  `site version-check: PASS (${files.length} published surface(s) scanned, claim @profile-as-code/cli@${version})`,
+  `site version-check: PASS (${files.length} published surface(s) scanned, claim ${PKG}@${version})`,
 );
