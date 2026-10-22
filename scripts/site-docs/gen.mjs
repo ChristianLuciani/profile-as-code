@@ -79,6 +79,14 @@ function plainText(html) {
     .trim();
 }
 
+/** Cut at a word boundary and mark the cut, so a card never ends mid-word. */
+function truncate(text, max) {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,;:.—-]+$/, "")}…`;
+}
+
 function escapeHtml(text) {
   return text
     .replace(/&/g, "&amp;")
@@ -263,7 +271,7 @@ function renderDoc(doc, index, docs) {
   const rendered = rewriteLinks(marked.parse(doc.raw, { gfm: true }), doc);
   const title = firstHeading(rendered);
   if (!title) throw new Error(`projected document has no H1 title: ${doc.file}`);
-  const description = firstParagraph(rendered).slice(0, 200);
+  const description = truncate(firstParagraph(rendered), 200);
   const onThisPage = toc(rendered);
 
   const body = `    <div class="wrap doc-layout">
@@ -326,7 +334,7 @@ const docs = DOCS.map((doc) => {
   const rendered = marked.parse(raw, { gfm: true });
   const title = firstHeading(rendered);
   if (!title) throw new Error(`projected document has no H1 title: ${doc.file}`);
-  return { ...doc, raw, title, blurb: firstParagraph(rendered).slice(0, 140) };
+  return { ...doc, raw, title, blurb: truncate(firstParagraph(rendered), 140) };
 });
 
 for (const [index, doc] of docs.entries()) {
