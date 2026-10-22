@@ -1,0 +1,30 @@
+/**
+ * The site's single configuration surface (issue #277).
+ *
+ * Everything downstream is derived from this file: the generator renders it, and
+ * the release barrier reads it. One home, two consumers — a document added here
+ * is projected AND gated, so there is no second list to forget.
+ *
+ * `lang` is the language of the DOCUMENT, not of the page chrome (which stays
+ * English): the roadmap is written in Spanish and must say so.
+ */
+export const SITE = {
+  name: "profile-as-code",
+  tagline:
+    "A versioned source of truth for your professional identity: one YAML workspace, platform-specific texts for GitHub, LinkedIn, Upwork, X, and more.",
+  repo: "ChristianLuciani/profile-as-code",
+  baseUrl: "https://christianluciani.github.io/profile-as-code",
+  license: "MIT",
+  /** Package manifest the published version claims are checked against. */
+  versionManifest: "packages/cli/package.json",
+  claimPackage: "@profile-as-code/cli",
+  /** A raster asset under `site/` (OG ignores SVG). Null = no og:image. */
+  ogImage: { path: "brand/identity.png", width: 1120, height: 720, alt: "profile-as-code" },
+};
+
+export const DOCS = [
+  { slug: "user-guide", file: "docs/USER-GUIDE.md", lang: "en" },
+  { slug: "spec", file: "docs/SPEC.md", lang: "en" },
+  { slug: "contributing", file: "CONTRIBUTING.md", lang: "en" },
+  { slug: "roadmap", file: "docs/ROADMAP.md", lang: "es" },
+];

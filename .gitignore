@@ -40,3 +40,11 @@ docs/research/_drafts/
 
 # vitest JSON reporter output (generated; contains absolute paths)
 .vitest/
+
+# Site-root artifacts projected by scripts/site-docs/gen.mjs (issue #279):
+# generated at deploy, never committed — same rule as site/docs/.
+site/404.html
+site/sitemap.xml
+site/robots.txt
+site/llms.txt
+site/AGENTS.md

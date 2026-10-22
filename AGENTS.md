@@ -29,10 +29,10 @@ per-user private repo (`profile-data`), scaffolded from the template
 | `packages/renderers/` | One adapter per platform | the contribution seam |
 | `skills/<platform>/` | Living knowledge per platform (D5) | follows `skills/README.md` |
 | `docs/research/` | Prior-art + SOTA, sourced + dated | |
-| `site/` | Static project page (#201) → GitHub Pages, deployed from the released commit (#277) | no runtime; `site/docs/` is generated and gitignored — never edit it; keep the on-ramps synced with SPEC §9.2 |
+| `site/` | Static project page (#201) → GitHub Pages, deployed from the released commit (#277) | no runtime; `site/docs/`, `404.html`, `sitemap.xml`, `robots.txt`, `llms.txt`, `AGENTS.md` are generated and gitignored — never edit them; keep the on-ramps synced with SPEC §9.2 |
 | `scripts/schema-check/` | Contract self-test (CI) | |
-| `scripts/site-docs/` | Projects the reading docs into `site/docs/*.html` (gitignored) | issues #277 · Markdown is the only copy; add a doc = one entry in `DOCS` |
-| `scripts/site-check/` | Page gates (CI + pre-publish): ids, anchors, local paths, no scripts — on every page; version claim vs the CLI manifest | issues #201/#277 |
+| `scripts/site-docs/` | Projects the reading docs + the site-root artifacts (404, sitemap, robots, llms.txt, AGENTS.md) into gitignored files | issues #277/#279 · Markdown is the only copy; add a doc = one entry in `site-config.mjs` |
+| `scripts/site-check/` | Page gates (CI + pre-publish): ids, anchors, local paths, no scripts (JSON-LD is the only exception) — on every page; version claim vs the CLI manifest | issues #201/#277/#279 |
 | `scripts/dep-gate/` | D20 scope self-test (CI): server→core only, core never reaches server | issue #98 |
 
 ## Rules for agents (in addition to CONTRIBUTING.md)

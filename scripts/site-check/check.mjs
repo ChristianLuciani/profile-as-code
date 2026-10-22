@@ -100,7 +100,18 @@ function check(html, siteDir, page = "index.html") {
 
   if (/@import\b/i.test(html)) errors.push("@import is not allowed");
   if (/url\(\s*['"]?https?:\/\//i.test(html)) errors.push("external url() is not allowed");
-  if (/<script\b/i.test(html)) errors.push("the page must stay script-free (<script> found)");
+  // The page must stay script-free. The ONE allowed script element is a JSON-LD
+  // block: it is data, the browser does not execute it, and the generator
+  // escapes `<` so a string cannot close the tag early. Anything else — a JS
+  // `<script>`, or a JSON-LD one with a `src` — is refused.
+  for (const [, attrs] of html.matchAll(/<script\b([^>]*)>/gi)) {
+    const isJsonLd = /type\s*=\s*"application\/ld\+json"/i.test(attrs);
+    const hasSrc = /\ssrc\s*=/i.test(attrs);
+    if (!isJsonLd || hasSrc) {
+      errors.push("the page must stay script-free (only a JSON-LD <script> is allowed)");
+      break;
+    }
+  }
   // A `<script>` tag is not the only way to run code: the projected Markdown
   // passes raw HTML through (`marked` does not sanitize), so an inline handler
   // would execute without ever writing `<script>` (#277 review R2).
@@ -123,7 +134,7 @@ function selfTest() {
   const failures = [];
   if (!result.errors.some((e) => e.includes("#missing")))
     failures.push("did not catch a broken anchor");
-  if (!result.errors.some((e) => e.includes("<script>")))
+  if (!result.errors.some((e) => e.includes("script-free")))
     failures.push("did not catch a script tag");
   if (!result.errors.some((e) => e.includes("duplicate id")))
     failures.push("did not catch a duplicate id");
@@ -142,6 +153,17 @@ function selfTest() {
   if (ok.errors.length > 0) {
     throw new Error(`self-test false positive: ${ok.errors.join("; ")}`);
   }
+
+  // JSON-LD is allowed (data, not code); a JS script type is not.
+  const ld = check('<script type="application/ld+json">{"@type":"TechArticle"}</script>', SITE);
+  if (ld.errors.length > 0)
+    throw new Error(`self-test false positive: JSON-LD refused (${ld.errors.join("; ")})`);
+  const js = check('<script type="text/javascript">alert(1)</script>', SITE);
+  if (!js.errors.some((e) => e.includes("script-free")))
+    throw new Error("self-test: a JS <script> was not caught");
+  const ldSrc = check('<script type="application/ld+json" src="x.json"></script>', SITE);
+  if (!ldSrc.errors.some((e) => e.includes("script-free")))
+    throw new Error("self-test: a JSON-LD script with src was not caught");
 
   // Local paths resolve against the PAGE's directory (#277): a nested page
   // legitimately links `../styles.css` and `./sibling.html`.

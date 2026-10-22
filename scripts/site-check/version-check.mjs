@@ -21,16 +21,18 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { DOCS } from "../site-docs/docs.mjs";
+import { DOCS, SITE } from "../site-docs/site-config.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..", "..");
 
-/** Every published-CLI version a text claims, via `@profile-as-code/cli@X`. */
+const PKG = SITE.claimPackage;
+const escapeRe = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Every published version a text claims, via `<claimPackage>@X`. */
 function claimedVersions(text) {
-  return [...text.matchAll(/@profile-as-code\/cli@([0-9]+\.[0-9]+\.[0-9]+[^\s<`)",;]*)/g)].map(
-    (match) => match[1],
-  );
+  const pattern = new RegExp(`${escapeRe(PKG)}@([0-9]+\\.[0-9]+\\.[0-9]+[^\\s<\`)",;]*)`, "g");
+  return [...text.matchAll(pattern)].map((match) => match[1]);
 }
 
 /**
@@ -46,22 +48,20 @@ function check(files, version) {
       claims += 1;
       if (claim !== version) {
         errors.push(
-          `${file.label} advertises @profile-as-code/cli@${claim} but package.json says ${version}`,
+          `${file.label} advertises ${PKG}@${claim} but ${SITE.versionManifest} says ${version}`,
         );
       }
     }
   }
   if (claims === 0) {
-    errors.push(
-      "no published surface states @profile-as-code/cli@<version> — add the claim in that form",
-    );
+    errors.push(`no published surface states ${PKG}@<version> — add the claim in that form`);
   }
   return errors;
 }
 
 function selfTest() {
   const failures = [];
-  const ok = [{ label: "index", text: "<code>@profile-as-code/cli@0.3.0</code>" }];
+  const ok = [{ label: "index", text: `<code>${PKG}@0.3.0</code>` }];
 
   if (check(ok, "0.3.0").length > 0) failures.push("false positive on a matching version");
   if (
@@ -74,8 +74,8 @@ function selfTest() {
   // The regression this gate shipped with: the landing is right, a projected
   // document is stale — it must still fail, and name the document.
   const stale = [
-    { label: "site/index.html", text: "@profile-as-code/cli@0.3.0" },
-    { label: "docs/USER-GUIDE.md", text: "tracks `pasco` at `@profile-as-code/cli@0.2.0`" },
+    { label: "site/index.html", text: `${PKG}@0.3.0` },
+    { label: "docs/USER-GUIDE.md", text: `tracks \`pasco\` at \`${PKG}@0.2.0\`` },
   ];
   const staleErrors = check(stale, "0.3.0");
   if (staleErrors.length === 0) failures.push("did not catch a stale PROJECTED document");
@@ -88,9 +88,7 @@ function selfTest() {
 
 selfTest();
 
-const version = JSON.parse(
-  readFileSync(path.join(ROOT, "packages", "cli", "package.json"), "utf8"),
-).version;
+const version = JSON.parse(readFileSync(path.join(ROOT, SITE.versionManifest), "utf8")).version;
 
 const files = [
   { label: "site/index.html", text: readFileSync(path.join(ROOT, "site", "index.html"), "utf8") },
