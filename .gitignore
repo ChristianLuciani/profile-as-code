@@ -12,6 +12,10 @@ build/
 # it via the package's "files" list — the source of truth stays <repo>/skills/)
 packages/cli/skills/
 
+# Projected documentation pages (scripts/site-docs/gen.mjs → site/docs/, issue
+# #277). A deploy artifact, never committed: the Markdown is the only copy.
+site/docs/
+
 # Local data / secrets (NUNCA commiteados)
 .env
 .env.*

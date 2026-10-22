@@ -20,11 +20,16 @@
     "gen:renderers": "node scripts/renderer-map/gen.mjs",
     "gen:platforms": "node scripts/gen-platforms/gen.mjs",
     "gen:doc-links": "node scripts/link-check/check.mjs",
-    "gen:packages": "node scripts/gen-packages/gen.mjs"
+    "gen:packages": "node scripts/gen-packages/gen.mjs",
+    "gen:site-docs": "node scripts/site-docs/gen.mjs",
+    "site": "node scripts/site-docs/gen.mjs && node scripts/site-check/check.mjs"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
     "@biomejs/biome": "^2.5.15",
+    "github-slugger": "^2.0.0",
+    "marked": "^18.1.1",
+    "marked-gfm-heading-id": "^4.1.4",
     "publint": "^0.3.25",
     "yaml": "^2.9.1"
   }

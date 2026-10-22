@@ -95,13 +95,10 @@ jobs:
         run: |
           node scripts/evidence-gate/test.mjs
           node scripts/evidence-gate/check.mjs
-
-      # Issue #201: the project page is static HTML, outside the Markdown link
-      # corpus. This gate checks its ids, in-page anchors and local paths,
-      # refuses <script> and http://, and self-tests first. Offline,
-      # zero-dependency — same shape as the docs link gate above.
-      - name: Project page gate (offline, self-tested)
-        run: node scripts/site-check/check.mjs
+      # Issue #201 / #277: the project page gate no longer runs here. The page now
+      # links to documentation pages that are PROJECTED, not committed — so the
+      # gate needs `site/docs/` to exist, which needs the workspace dependencies
+      # (`marked`). It runs after `pnpm install` below, over the generated tree.
 
       # Issue #98: dependency gate (D20 scope rule). The D3 drift-check shape
       # applied to the workspace graph — `packages/server` may depend on core
@@ -182,6 +179,19 @@ jobs:
       - name: Install dependencies
         if: hashFiles('package.json') != ''
         run: pnpm install --frozen-lockfile
+
+      # Issue #201 / #277: project the documentation into the page and gate the
+      # WHOLE page — ids, in-page anchors and local paths on every generated
+      # page, no `<script>`, no external asset. `site/docs/` is gitignored: the
+      # Markdown is the only committed copy, so a doc edit cannot drift from the
+      # site — it either projects or this step fails. The version barrier keeps
+      # the page's published-version claim equal to the CLI manifest.
+      - name: Project the docs and gate the page (#277)
+        if: hashFiles('package.json') != ''
+        run: |
+          node scripts/site-docs/gen.mjs
+          node scripts/site-check/check.mjs
+          node scripts/site-check/version-check.mjs
 
       # Issue #59: style gate — Biome (single tool: lint + format + import order).
       # Runs before tests to fail fast; config in biome.json, `pnpm lint` locally.

@@ -1,21 +1,47 @@
 name: pages
 
-# Publishes the minimal project page (#201) to GitHub Pages.
+# Publishes the project page (site/) to GitHub Pages.
 #
-# While the repository is private on GitHub Free, Pages is not available, so the
-# job is skipped: `main` stays green and no failing run is created. After the
-# visibility flip, enable Pages once (the default GITHUB_TOKEN cannot create the
-# site), then the next change under `site/` (or a manual dispatch) deploys. The
-# page is the entry surface for readers who do not arrive through the repository;
-# its content is versioned here so it cannot drift from the SPEC.
+# WHICH REF DEPLOYS: not `main`. The page is the public description of a
+# RELEASE, so the release workflow calls this workflow with the exact commit it
+# published (issue #277) — a feature merged to `main` never reaches the page
+# before the release that ships it. A `workflow_dispatch` run is the explicit
+# override: the operator decides to publish (say) a typo fix without cutting a
+# release, and the run records that decision.
+#
+# The page is static and script-free; its documentation pages are projected from
+# the Markdown at the deployed commit (`scripts/site-docs/gen.mjs`) into the
+# gitignored `site/docs/`, so the repository keeps ONE copy of every document.
+#
+# Requires the one-time human step: repo Settings → Pages → Source: GitHub
+# Actions. While the repository is private the job is skipped, so `main` stays
+# green and no failing run is created.
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'site/**'
-      - '.github/workflows/pages.yml'
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit or tag to publish. Empty publishes the ref that triggered the run.
+        type: string
+        required: false
+        default: ''
+      release:
+        description: Release label for the page footer (e.g. v0.4.0). Empty omits the line.
+        type: string
+        required: false
+        default: ''
   workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit or tag to publish. Empty publishes the selected branch.
+        type: string
+        required: false
+        default: ''
+      release:
+        description: Release label for the page footer (e.g. v0.4.0). Empty omits the line.
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -30,7 +56,9 @@ concurrency:
 
 jobs:
   deploy:
-    if: ${{ !github.event.repository.private }}
+    # `repository` is absent from some event payloads; treat that as "do not
+    # deploy" rather than assuming the site is public.
+    if: ${{ github.event.repository != null && !github.event.repository.private }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
@@ -41,20 +69,33 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ inputs.ref || github.ref }}
           persist-credentials: false
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: .nvmrc
+          cache: pnpm
 
-      # Defense-in-depth: CI already runs this gate on every PR; the deploy
-      # path refuses to upload a page whose local links/anchors are broken.
-      - name: Project page gate (offline, self-tested)
-        run: node scripts/site-check/check.mjs
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Project the docs from the deployed commit, then gate the whole page:
+      # ids, in-page anchors and local paths on EVERY page — no `<script>`, no
+      # external asset, no `http://`.
+      - name: Project the docs and gate the page (#277)
+        run: |
+          node scripts/site-docs/gen.mjs
+          node scripts/site-check/check.mjs
+          node scripts/site-check/version-check.mjs
+        env:
+          SITE_RELEASED_AT: ${{ inputs.release }}
 
       # The default GITHUB_TOKEN cannot CREATE the Pages site; `enablement:
       # true` would need a PAT/App token. Enable Pages once after the visibility
-      # flip, then run this workflow (or push a site change):
+      # flip, then run this workflow (or let a release call it):
       #   gh api -X POST repos/ChristianLuciani/profile-as-code/pages -f build_type=workflow
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
 
