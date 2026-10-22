@@ -83,5 +83,9 @@ export function lookupSkill(channel: string, file = "SKILL.md"): SkillLookup {
 export function skillLine(lookup: SkillLookup): string {
   if (lookup.state === "found") return lookup.path;
   if (lookup.state === "not-shipped") return NOT_SHIPPED_MESSAGE;
-  return `no skill for ${lookup.channel} yet — this package ships: ${lookup.shipped.join(", ")}; fall back to the deterministic renderer output (the platform's limits are not encoded yet)`;
+  const shipped =
+    lookup.shipped.length > 0
+      ? `this package ships: ${lookup.shipped.join(", ")}`
+      : "this package ships no platform skills";
+  return `no skill for ${lookup.channel} yet — ${shipped}; fall back to the deterministic renderer output (the platform's limits are not encoded yet)`;
 }

@@ -36,7 +36,7 @@ import {
   variantPath,
   writeLedger,
 } from "../post-store.js";
-import { skillFile } from "../skill-path.js";
+import { NOT_SHIPPED_MESSAGE, skillFile, skillsDir } from "../skill-path.js";
 import type { Pascorc } from "../workspace.js";
 import { defaultsLang } from "../workspace.js";
 
@@ -90,7 +90,9 @@ function readPosting(channel: string): PostingRules {
   const path = postingPath(channel);
   if (path === undefined) {
     throw new UsageError(
-      `no post skill for "${channel}" — expected skills/${channel}/posting.yaml + post.md`,
+      skillsDir() === undefined
+        ? NOT_SHIPPED_MESSAGE
+        : `no post skill for "${channel}" — expected skills/${channel}/posting.yaml + post.md`,
     );
   }
   const doc = parseDocument(readFileSync(path, "utf8"));

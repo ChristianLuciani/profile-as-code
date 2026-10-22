@@ -79,11 +79,14 @@ per-user private repo (`profile-data`), scaffolded from the template
 9. **A published surface may only reference what its reader can open (#254).**
    `--help`, command output, the package README/description and error messages are
    read by a stranger: they may not name a path, repo or tool that stranger cannot
-   open. The CLI may only read artifacts it ships — `packages/cli/skills/` is a
+   open. The CLI reads the skills it ships — `packages/cli/skills/` is a
    **generated** copy of `<repo>/skills/` (produced by `scripts/bundle-skills.mjs`
-   on `build`/`prepack`, listed in the package's `files`); never edit the copy or
-   resolve a skill from an engine checkout as the primary path. Dated records
-   (CHANGELOG history, sourced research, issue/PR bodies) are exempt — rule 8.
+   on `build`/`prepack`, listed in the package's `files`); never edit the copy.
+   The only other roots are an explicit `PASCO_SKILLS_DIR` (the user points at a
+   tree) and, for developers only, the marked workspace checkout
+   (`<repo>/pnpm-workspace.yaml` next to `<repo>/skills/`); a published install
+   must never depend on either fallback. Dated records (CHANGELOG history, sourced
+   research, issue/PR bodies) are exempt — rule 8.
 
 ## Commands
 

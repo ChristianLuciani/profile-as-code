@@ -148,6 +148,10 @@ export function runRefine(args: RefineArgs): number {
   const anchors = slice.keywords.geo.associations?.join(", ") ?? "";
   const skill = lookupSkill(platform, "SKILL.md");
   const skillPath = skill.state === "found" ? skill.path : undefined;
+  const researchCandidate =
+    skillPath === undefined ? undefined : skillPath.replace(/SKILL\.md$/, "research/SOTA-2026.md");
+  const researchPath =
+    researchCandidate !== undefined && existsSync(researchCandidate) ? researchCandidate : "—";
 
   const template = [
     `# pasco refine — agent task (agent-driven: D10/D11/D13; no LLM call, no hub)`,
@@ -156,7 +160,7 @@ export function runRefine(args: RefineArgs): number {
     `Platform: ${platform}`,
     `Language: ${lang}`,
     `Skill (communicative strategy — READ IT FIRST): ${skillLine(skill)}`,
-    `Research (dated sources): ${skillPath === undefined ? "—" : skillPath.replace(/SKILL\.md$/, "research/SOTA-2026.md")}`,
+    `Research (dated sources): ${researchPath}`,
     `Variant id convention: ${platform.replace(/[^a-z]/g, "")}-${lang}-<n> (e.g. gh-en-1, gh-en-2, gh-en-3).`,
     ``,
     `Facts (language-independent — MUST stay byte-identical across variants and platforms):`,

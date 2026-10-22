@@ -64,8 +64,8 @@ Commands:
   status [platform] [--verify]   Per-entry deploy report — origin · surfaces · in-sync/stale/never
                                  + certification (D18/§19.5); --verify runs the opt-in C1
                                  live check (the engine's ONE network path, §19.5)
-  skills:export <dir>           Copy the platform skills this package ships into <dir>
-          [--list]              (--list: show which platforms ship); no harness paths
+  skills:export <dir>           Copy the skill channels this package ships into <dir>
+          [--force] [--list]     (--force overlays; --list shows them); no harness paths
 
 Common flags (after the command):
   --workspace <path>  Workspace path (resolution: --workspace > .pascorc > cwd, D14)

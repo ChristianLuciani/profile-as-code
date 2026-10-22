@@ -65,7 +65,7 @@ commands above are the standalone path.
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13); the chosen body is `profiles/<platform>/variants/<id>.md` (a complete platform artifact), rendered by `pasco build` (#238) | 🚧 template + `--choose` (full flow M3) |
 | `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) + offline `max-chars`/`min-chars` over headlines/bios (#240) | 🚧 offline rules today (limits + registry + media; remaining catalog M3/M4) |
 | `pasco post <seed\|task\|choose\|check\|export\|import\|list>` | Week-1 post MVP (#264): a seed at `posts/<seed>/seed.md` → task bundle → chosen variant → check → optional Postiz draft payload; the CLI never calls an LLM | 🚧 experiment (not in the v1 contract; `docs/post-mvp.md`) |
-| `pasco skills:export <dir> [--list]` | Copy the platform skills this package ships into a directory you name (`--list` shows them; no per-agent paths are invented — #254) | ✅ |
+| `pasco skills:export <dir> [--force] [--list]` | Copy the platform skills this package ships into a directory you name (`--list` shows them; no per-agent paths are invented — #254) | ✅ |
 
 The partial commands are explicit, and each one says what still owns the rest:
 

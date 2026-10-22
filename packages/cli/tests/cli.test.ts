@@ -45,6 +45,24 @@ function run(args: string[], cwd?: string): RunResult {
   return { code: res.status ?? -1, stdout: res.stdout ?? "", stderr: res.stderr ?? "" };
 }
 
+/** A package-shaped layout that can run the built CLI outside the repo. */
+function fakePackage(dir: string): void {
+  mkdirSync(join(dir, "dist"), { recursive: true });
+  copyFileSync(CLI, join(dir, "dist", "index.js"));
+  // Resolve yaml/zod exactly as an installed package would.
+  symlinkSync(join(__dirname, "..", "node_modules"), join(dir, "node_modules"), "dir");
+}
+
+function runFake(pkg: string, args: string[]): RunResult {
+  const res = spawnSync(process.execPath, [join(pkg, "dist", "index.js"), ...args], {
+    encoding: "utf8",
+    cwd: pkg,
+    timeout: 15_000,
+  });
+  if (res.error !== undefined) throw res.error;
+  return { code: res.status ?? -1, stdout: res.stdout ?? "", stderr: res.stderr ?? "" };
+}
+
 function git(dir: string, args: string[]): void {
   execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", stdio: "pipe" });
 }
@@ -934,21 +952,32 @@ describe("pasco check (offline rules) + pasco skills:export (shipped skills)", (
     expect(forced.stdout).toContain("copied");
   });
 
-  it("reports 'skills not shipped' when the package carries no skills (#253)", () => {
-    // A package-shaped layout with no skills/ and no workspace marker above it:
-    // the state that must never be confused with "this platform has no skill".
-    const pkg = tempDir();
-    mkdirSync(join(pkg, "dist"));
-    copyFileSync(CLI, join(pkg, "dist", "index.js"));
-    symlinkSync(join(__dirname, "..", "node_modules"), join(pkg, "node_modules"), "dir");
-    const r = spawnSync(
-      process.execPath,
-      [join(pkg, "dist", "index.js"), "refine", "github-readme", "--workspace", MINIMAL],
-      { encoding: "utf8", cwd: pkg, timeout: 15_000 },
-    );
-    expect(r.status).toBe(0);
+  it("resolves a repo checkout only when pnpm-workspace.yaml marks the workspace (#253)", () => {
+    const root = tempDir();
+    mkdirSync(join(root, "skills", "github-readme"), { recursive: true });
+    writeFileSync(join(root, "skills", "github-readme", "SKILL.md"), "# skill\n");
+    writeFileSync(join(root, "pnpm-workspace.yaml"), "packages:\n  - packages/*\n");
+    const pkg = join(root, "packages", "cli");
+    fakePackage(pkg);
+
+    const r = runFake(pkg, ["refine", "github-readme", "--workspace", MINIMAL]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain(join(root, "skills", "github-readme", "SKILL.md"));
+  });
+
+  it("does not read a skills/ tree above the package without the workspace marker (#253)", () => {
+    // The layout the previous pass proved was reachable: an ancestor skills/
+    // tree with no pnpm-workspace.yaml is NOT a checkout of this engine.
+    const root = tempDir();
+    mkdirSync(join(root, "skills", "github-readme"), { recursive: true });
+    writeFileSync(join(root, "skills", "github-readme", "SKILL.md"), "# skill\n");
+    const pkg = join(root, "tmp", "pkg");
+    fakePackage(pkg);
+
+    const r = runFake(pkg, ["refine", "github-readme", "--workspace", MINIMAL]);
+    expect(r.code).toBe(0);
     expect(r.stdout).toContain("skills not shipped with this package");
-    expect(r.stdout).not.toContain("no skill for github-readme");
+    expect(r.stdout).not.toContain(join(root, "skills"));
   });
 
   it("skills:export refuses a destination inside the shipped tree (no self-copy recursion)", () => {
