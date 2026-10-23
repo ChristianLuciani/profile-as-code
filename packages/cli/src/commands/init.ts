@@ -116,9 +116,14 @@ private by default and never leaves your control (D14: integration by configured
 
 ## Files
 
-- \`content/*.yaml\` — the profile (file name = root property, see schema/README.md)
+Three top-level directories, three grains — nothing nests one inside another:
+\`content/\` is identity, \`profiles/\` is generated output (its \`variants/\` subdir is input),
+\`posts/\` is the stream.
+
+- \`content/*.yaml\` — identity facts, the SSOT (file name = root property, see schema/README.md)
 - \`profiles/\` — generated outputs (created by pasco build; committed: they ARE the deploy artifacts)
 - \`profiles/<platform>/variants/\` — chosen variant bodies (INPUT, #238; preserved by build)
+- \`posts/\` — the stream, created by \`pasco post\` (#264): seeds + per-channel projections; never identity facts
 - \`.pascorc\` — workspace config (defaults)
 
 ## Workflow
@@ -141,9 +146,14 @@ checks drift and renders brand surfaces. Private by default (D14: configured pat
 
 ## Files
 
-- \`content/*.yaml\` — the brand profile (file name = root property, see schema/README.md)
+Three top-level directories, three grains — nothing nests one inside another:
+\`content/\` is identity, \`profiles/\` is generated output (its \`variants/\` subdir is input),
+\`posts/\` is the stream.
+
+- \`content/*.yaml\` — the brand profile, identity facts (file name = root property, see schema/README.md)
 - \`profiles/\` — generated outputs (github-org README is the first deploy artifact; pasco build also writes manual-paste files)
 - \`profiles/<platform>/variants/\` — chosen variant bodies (INPUT, #238; preserved by build)
+- \`posts/\` — the stream, created by \`pasco post\` (#264): seeds + per-channel projections; never identity facts
 - \`.pascorc\` — workspace config (defaults)
 
 ## Workflow

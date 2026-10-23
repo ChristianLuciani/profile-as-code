@@ -823,6 +823,7 @@ One workspace per identity, same engine (D14/D15):
 | Deploy playbooks | per-platform skills, `skills/<platform>/playbook.md` (shared `templates/playbooks/` planned, M4/M5) | copy-paste + verification steps |
 | Your facts | `profile-data-<username>` (private), `content/*.yaml` | the SSOT — the only thing you edit |
 | Generated outputs | your workspace, `profiles/` | committed deploy artifacts — never hand-edited |
+| Posts (the stream) | your workspace, `posts/` | seeds + per-channel projections (`pasco post`, experimental #264) — never identity facts, and never read by `pasco validate` |
 | Chosen variants | your workspace, `content/active.yaml` | what is live per platform/lang |
 | Re-paste ledger | your workspace, `CHANGELOG.md` + `CHECKLIST.md` | what changed and what was verified |
 
