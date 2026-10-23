@@ -417,10 +417,11 @@ Capability differences, said plainly:
   `CHECKLIST.md` wired for the workflow, the licence, and repo automation. `pasco init` stays
   **minimal by design** — the complete package lives in the template, and content parity
   between the on-ramps is explicitly not a goal (issue #200).
-- **Discoverability today:** all three resolve for a stranger. A's surface (the satellite
+- **Discoverability today:** all three surfaces resolve for a stranger. A's (the satellite
   repo) is **public** (verified 2026-10-23: `gh repo view ChristianLuciani/profile-data-template
-  --json visibility` → `PUBLIC`, HTTP 200), so `Use this template` works for anyone; B and C
-  are reachable from the public npm package, with no repo access at all.
+  --json visibility` → `PUBLIC`, HTTP 200), so `Use this template` is reachable — A still
+  requires an account and a repo, as the table above says; B and C are reachable from the
+  public npm package, with no repo access at all.
 - **`pasco init` behavior does not change with this section** — what it scaffolds today *is*
   the local on-ramp.
 

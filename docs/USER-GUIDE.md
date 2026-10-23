@@ -86,9 +86,10 @@ scaffold, written into the storage you already use.
 
 Repo access is a prerequisite of the source and template paths, not of npm: §2
 Option B clones the engine repo and §3 Option A clones the template, so both need
-a git remote and, to push your own copy, an account. Both repos are **public**
-(verified 2026-10-23), so a third party without access no longer fails there
-(STANDARDS item 10; see the table under "Before you start"). §2 Option A installs
+a git remote and, to push your own copy, an account. The **template is public**
+(verified 2026-10-23), so Option A no longer fails for a reader without access
+(STANDARDS item 10; see the table under "Before you start"); the engine repo's
+own visibility statements are reconciled separately (#293). §2 Option A installs
 from the public npm registry, and **§3 Options B/C work end-to-end from it**: no
 repo, no account, nothing to clone.
 

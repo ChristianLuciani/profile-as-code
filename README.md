@@ -33,8 +33,8 @@ requisito (SPEC §9). Tres on-ramps, cada uno con su diferencia de capacidades a
 El paquete `@profile-as-code/cli` está **publicado en npm** (0.3.0, 2026-10-11), así que los dos
 caminos sin cuenta funcionan hoy sin acceso a ningún repo. El template repo (on-ramp A) es
 **público** (verificado 2026-10-23: `gh repo view ChristianLuciani/profile-data-template
---json visibility` → `PUBLIC`, HTTP 200), así que **Use this template** funciona para cualquiera
-(STANDARDS community item 10).
+--json visibility` → `PUBLIC`, HTTP 200), así que **Use this template** resuelve para cualquiera
+— la cuenta y el repo siguen siendo el requisito del on-ramp A (STANDARDS community item 10).
 
 El camino **hosted** — un perfil publicado por nosotros, sin cuenta y sin terminal — es un
 **no-goal declarado de v1**: ninguno de estos on-ramps llega ahí, y su trigger de reapertura
