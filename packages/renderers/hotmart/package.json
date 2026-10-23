@@ -5,9 +5,9 @@
   },
   "description": "Renderer hotmart (v1.9, issue #137): deterministic plain-text profile paste-source from a PlatformProfile slice. Hotmart is a paste platform (D9) — the artifact IS the text to paste into the storefront's profile body [? — unverified surface, pending skill]. Pure function of the SSOT — no network, no AI, no randomness. Fees/eligibility per the official legal texts (fetched 2026-10-05): skills/hotmart/research/SOTA-2026.md.",
   "devDependencies": {
-    "@types/node": "^26.6.4",
+    "@types/node": "^26.6.5",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.5"
   },
   "engines": {
     "node": ">=22"
