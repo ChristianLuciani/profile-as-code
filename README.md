@@ -18,6 +18,9 @@ conocimiento SOTA de cada red.
 **Project page:** [christianluciani.github.io/profile-as-code](https://christianluciani.github.io/profile-as-code/) —
 la misma entrada, para quien no llega por el repositorio.
 
+**¿Primera vez acá?** [START-HERE](docs/START-HERE.md) elige la ruta según quién sos (persona sin
+terminal · contribuidor · agente); [USER-GUIDE](docs/USER-GUIDE.md) es la referencia completa.
+
 ## Para quién es (y qué necesitás)
 
 **Es una herramienta para personas técnicas**: lo mínimo es una terminal y **Node.js ≥ 22**.
