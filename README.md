@@ -18,6 +18,9 @@ conocimiento SOTA de cada red.
 **Project page:** [christianluciani.github.io/profile-as-code](https://christianluciani.github.io/profile-as-code/) —
 la misma entrada, para quien no llega por el repositorio.
 
+**¿Primera vez acá?** [START-HERE](docs/START-HERE.md) elige la ruta según quién sos (persona sin
+terminal · contribuidor · agente); [USER-GUIDE](docs/USER-GUIDE.md) es la referencia completa.
+
 ## Para quién es (y qué necesitás)
 
 **Es una herramienta para personas técnicas**: lo mínimo es una terminal y **Node.js ≥ 22**.
@@ -31,9 +34,10 @@ requisito (SPEC §9). Tres on-ramps, cada uno con su diferencia de capacidades a
 | **Traé tu almacenamiento** | el mismo `pasco init`, escrito en la ruta que elijas (disco, nube, otro host git) | igual que `pasco init` | **ninguno** |
 
 El paquete `@profile-as-code/cli` está **publicado en npm** (0.3.0, 2026-10-11), así que los dos
-caminos sin cuenta funcionan hoy sin acceso a ningún repo. El template repo (on-ramp A) sigue
-privado y llega solo a quien ya tiene acceso, hasta el flip de familia (STANDARDS community
-item 10).
+caminos sin cuenta funcionan hoy sin acceso a ningún repo. El template repo (on-ramp A) es
+**público** (verificado 2026-10-23: `gh repo view ChristianLuciani/profile-data-template
+--json visibility` → `PUBLIC`, HTTP 200), así que **Use this template** resuelve para cualquiera
+— la cuenta y el repo siguen siendo el requisito del on-ramp A (STANDARDS community item 10).
 
 El camino **hosted** — un perfil publicado por nosotros, sin cuenta y sin terminal — es un
 **no-goal declarado de v1**: ninguno de estos on-ramps llega ahí, y su trigger de reapertura
