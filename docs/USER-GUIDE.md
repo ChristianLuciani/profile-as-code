@@ -29,8 +29,8 @@ updated, and stay in sync as the engine evolves.
 > (which needs a git history); what they lose is the template's automation and its
 > history. The npm package `@profile-as-code/cli` is **public**, so B and C need
 > **no repo access at all** — that is the path this guide documents for a reader
-> who has, or wants, no GitHub repo. The template repo is private today, so on-ramp
-> A reaches insiders only until the family flip ([STANDARDS](STANDARDS.md),
+> who has, or wants, no GitHub repo. The template repo is **public** (verified
+> 2026-10-23), so on-ramp A resolves for a stranger ([STANDARDS](STANDARDS.md),
 > community item 10). The **hosted** path — a profile published by us, reached
 > with no account and no terminal — is a declared **v1 non-goal**: none of these
 > on-ramps reaches it, and its reopening trigger lives in [SPEC §2](SPEC.md).
@@ -85,11 +85,13 @@ Option C needs nothing beyond Node ≥ 22** — it is the same `pasco init`
 scaffold, written into the storage you already use.
 
 Repo access is a prerequisite of the source and template paths, not of npm: §2
-Option B clones a **private** engine repo and §3 Option A clones a **private**
-template — a third party without access fails there (STANDARDS item 10; see the
-table under "Before you start"). §2 Option A installs from the public npm
-registry, and **§3 Options B/C work end-to-end from it**: no repo, no account,
-nothing to clone.
+Option B clones the engine repo and §3 Option A clones the template, so both need
+a git remote and, to push your own copy, an account. The **template is public**
+(verified 2026-10-23), so Option A no longer fails for a reader without access
+(STANDARDS item 10; see the table under "Before you start"); the engine repo's
+own visibility statements are reconciled separately (#293). §2 Option A installs
+from the public npm registry, and **§3 Options B/C work end-to-end from it**: no
+repo, no account, nothing to clone.
 
 ---
 
