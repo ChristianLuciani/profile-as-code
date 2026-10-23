@@ -50,9 +50,11 @@ One job, **`ci`**, required on every PR and push to `main`:
    historical artifacts, not live docs. Offline and deterministic: external URLs
    are never fetched — a required check cannot depend on third-party uptime or
    rate limits (`https://ko-fi.com/christianluciani` answered HTTP 403 to a bot,
-   #132, 2026-10) — and the private family target `profile-data-template` is
-   DECLARED in `scripts/link-check/allowlist.json` with its removal trigger (the
-   visibility flip). Node-only, needs no install, so it runs before
+   #132, 2026-10). A private family target therefore needs a declaration, not a
+   fetch: `scripts/link-check/allowlist.json` holds them, each with its removal
+   trigger, and an entry nothing references is a warning. The registry is empty
+   since #273 — `profile-data-template` went public (verified 2026-10-23) and its
+   trigger fired. Node-only, needs no install, so it runs before
    `pnpm install` to fail fast — after the pinned Node setup, like every other
    node gate, so the required check is reproducible; the step is unconditional
    (it uses no workspace code, so it must run even without `package.json`). The
