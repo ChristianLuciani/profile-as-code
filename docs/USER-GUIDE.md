@@ -68,9 +68,10 @@ Core principles (SPEC D1–D18, abbreviated):
 
 ## 0.5 The full cycle of one change
 
-Every change walks seven steps, and only the first three are in the old habit
-("edit, validate, paste"). Step 4 is where a green `validate` stops meaning
-"published".
+Every change walks seven steps, and the sections below grew up around them rather
+than stating them: editing, validating and publishing lived in three places that
+never named the seam between step 3 and step 4 — where a green `validate` stops
+meaning "published".
 
 | # | Step | Command | The question it answers |
 |---|---|---|---|
@@ -79,13 +80,14 @@ Every change walks seven steps, and only the first three are in the old habit
 | 3 | **Build** the artifact | `pasco build <platform>` | what exact bytes go to the platform? ([§5](#5-validate--build)) |
 | 4 | **Publish** it | paste, or PR the artifact into `<you>/<you>` | is the platform showing the new text? ([§7](#7-deploy)) |
 | 5 | **Mark** the deploy | `pasco status --mark <block>:<id> <platform>` | which artifact is live, and is it stale? ([§7](#7-deploy)) |
-| 6 | **Verify** (opt-in) | `pasco status --verify` | is *certified* — a live check actually saw it? ([§7](#7-deploy)) |
+| 6 | **Verify** (opt-in) | `pasco status --verify` | is this surface *certified* — did a live check actually see it? ([§7](#7-deploy)) |
 | 7 | **Tag** the release | `git tag release-<date> && git push --tags` | what is the baseline for the next `pasco diff`? ([§6](#6-add-entries--update-content)) |
 
 Steps 4–6 repeat **per surface**: you publish to LinkedIn, then to the GitHub
-profile, and each one gets its own mark. `pasco status` is the per-surface
-answer, and `status.publication` adds the derived view (does the artifact still
-match the SSOT, and does a platform truncate the text).
+profile, and each one gets its own mark. `pasco status` is the per-surface answer;
+`pasco status --json` adds the derived view per surface in `data.publication[]`
+(`sync`, `artifact`, `limits`, `units`) — does the built artifact still match the
+SSOT, and does a platform truncate the text.
 
 ---
 
@@ -339,6 +341,12 @@ holds the value **directly**, with no wrapper key. `bios.yaml` contains the
 | `education.yaml` *(v1.1)* | `education` | formal education (degree, field, institution) |
 | `languages.yaml` *(v1.1)* | `languages` | spoken languages + level |
 
+**Give each canonical URL its role.** `links[].role` (`identity` | `realization` |
+`aggregator`, v1.6/#103) is what structured data reads: `identity` marks the URLs that
+*are* you (site, GitHub, LinkedIn), `realization` a thing you made, `aggregator` a
+profile host. The `identity` role is worth real points — the 2026-10-19/20 dogfood run
+moved structured-data from 80 to 100 with that one line (#260).
+
 Brand flavor (D15) adds: `socialHandles` (handle matrix with claim status),
 `newsletter`, `podcast`, `press`, `audiences`, and org-identity fields in
 `identity.yaml` (`orgName`, `logo`, `mission`, `tagline`, `brandVoice`,
@@ -577,19 +585,24 @@ your re-paste list.
 
 A platform will truncate a text that is too long, and **`pasco validate` will not
 warn you** — caps are not schema, they are per-surface limits (D12: facts warn,
-schema fails). The limits catalogue lives in the workspace as
-`content/checks.yaml`, merged with the engine's defaults:
+schema fails). The catalogue is the workspace's `content/checks.yaml`; `pasco init`
+copies the engine defaults into it, and **if the file declares any check it replaces
+the defaults** (`profile.checks` wins whole, it is not merged row by row) — trim a
+row and the rest of the default catalogue stops applying.
 
 ```sh
 pasco check            # every measured text against its surface's cap
-pasco check --json     # {severity: "warn", code: "max-chars", path: "headlines:upwork:en"}
+pasco check --json     # envelope: data.limits[] = {severity, code, message, path, ...}
 ```
 
-Two rules when a cap is missing from the catalogue: **declare it** with its source
-(the platform's own documentation, dated) rather than guessing, and when no source
-exists, say so — an invented cap is worse than an absent one, because it makes you
-edit good text for a limit nobody can point to. The cap warning always names its
-source; if it cannot, it is a `[?]`, not a fact.
+Where the caps come from matters, because the defaults are honest about not knowing:
+most of them are `[?]` (third-party guidance or an editorial soft cap), not a
+platform's published limit. Two rules when you touch the catalogue: **declare a cap
+with its source and date** (the platform's own documentation when it exists) rather
+than guessing, and when no source exists leave it `[?]` — an invented cap is worse
+than an absent one, because it makes you cut good text for a limit nobody can
+point to. `pasco check` echoes a check's `note` when the catalogue carries one; it
+cannot invent a source for a row that has none.
 
 ---
 
@@ -661,32 +674,38 @@ Non-negotiables:
 
 ---
 
-### Deploy by PR — and the worktree trap
+### Deploy by PR
 
-For the git/API class, "publish" is a pull request into your profile repo
-(`<you>/<you>`), and the human merges. Do it from a worktree so your workspace
-checkout stays clean:
+For the git/API class, "publish" is a pull request into your **profile** repo
+(`<you>/<you>`) — not into your data workspace — and the human merges. Build in the
+workspace, publish from a checkout of the profile repo:
 
 ```sh
-git worktree add ../profile-data-<username>-deploy -b deploy/<date>
-cd ../profile-data-<username>-deploy      # run pasco FROM HERE
-pasco build github-readme                 # writes profiles/github-readme/README.md
-git add profiles/ && git commit -s -m "deploy: refresh the GitHub profile"
+# 1. build in the workspace (where content/ and .pascorc live)
+cd ~/profile-data-<username>
+pasco build github-readme            # -> profiles/github-readme/README.md
+
+# 2. publish from the profile repo
+gh repo clone <you>/<you> ../profile-readme
+cd ../profile-readme
+git switch -c deploy/<date>
+cp ~/profile-data-<username>/profiles/github-readme/README.md README.md
+git add README.md && git commit -s -m "deploy: refresh my GitHub profile"
 git push -u origin deploy/<date>
 gh pr create --fill
 ```
 
-**The trap:** `.pascorc` with `"workspace": "."` resolves relative to the
-**current directory** (D14: `--workspace` → `.pascorc` → cwd). Run `pasco` from
-the parent checkout and the artifact lands in the parent's `profiles/`, while the
-worktree you are about to commit stays empty — you then "deploy" a file nobody
-reviewed. Either `cd` into the worktree where `content/` and `.pascorc` live, or
-pass `--workspace <path>` explicitly; the flag wins.
+**The trap:** `pasco` discovers `.pascorc` in the directory you run it **from**, and
+a `"workspace": "."` field resolves relative to that file's directory (D14:
+`--workspace` → `.pascorc` → cwd). Run `pasco build` from inside `../profile-readme`
+— or from a parent of the workspace — and it builds against a tree with no
+`content/`, while the file you commit stays the old one. Run it from the workspace
+root, or pass `--workspace <path>` explicitly; the flag wins.
 
-Two more rules that keep this honest: never push to the profile repo's `main`
-(the PR is the review), and after the merge come back to step 5 of
-[the cycle](#05-the-full-cycle-of-one-change) — `pasco status --mark` — so the
-ledger records what is actually live.
+Two rules that keep this honest: never push to the profile repo's `main` (the PR is
+the review), and after the merge come back to step 5 of
+[the cycle](#05-the-full-cycle-of-one-change) — `pasco status --mark` — so the ledger
+records what is actually live.
 
 ---
 

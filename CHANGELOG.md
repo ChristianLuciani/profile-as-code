@@ -12,13 +12,17 @@ minor versions may contain breaking contract changes.
 ### Added
 
 - **`docs/START-HERE.md` — the map each reader was missing (#260)** — the dogfood run
-  (2026-10-19/20) broke at four points the guide never covered: editing the wrong YAML file,
+  (2026-10-19/20) broke at five points the guide never covered: editing the wrong YAML file,
   editing without an editor, being cut by a platform cap a green `validate` never warned about,
-  and deploying by PR from the wrong directory. Three routes (person · contributor · agent),
-  each with the mistake that route actually makes, and the four USER-GUIDE sections they read
-  next: the seven-step cycle of one change (§0.5), the first edit without an editor (§4.4),
-  platform caps at edit time (§6), and deploy by PR plus the `.pascorc` worktree trap (§7).
-  Published as a page (`site-config.mjs`), so the same Markdown is the only copy.
+  deploying by PR from the wrong directory, and `links[].role: identity` (the one line worth
+  +20 structured-data points, documented nowhere). Three routes (person · contributor · agent),
+  each with the mistake that route actually makes, plus the USER-GUIDE sections they read next:
+  the seven-step cycle of one change (§0.5), the first edit without an editor, the `links[]`
+  role rule, platform caps at edit time (§6), and deploy by PR with the `.pascorc` discovery
+  trap (§7). The issue's proposed §4.1/§8.3 **were already taken** (golden rule, multi-workspace),
+  so the new material sits at §4.4 and inside §7 — an addressed deviation, not a silent one.
+  Published as a page (`site-config.mjs`), so the same Markdown is the only copy, and CONTRIBUTING
+  ground rule 8 makes "the doc line" part of every dogfood finding.
 - **Derived publication truth — `pasco status` now says whether the artifact is the one
   the SSOT produces (SPEC §20.1, #242)** — the 2026-10-19 dogfood found every gate green
   while the published profile was not verified in the terms a user cares about: a green

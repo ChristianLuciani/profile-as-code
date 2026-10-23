@@ -11,8 +11,8 @@ row actually makes.
 | **[An agent acting for a person](#route-3--an-agent-acting-for-a-person)** | `pasco status --json` | treating a green `validate` as "my new text is published" |
 
 Every route ends in the same place: [the full cycle of one change](USER-GUIDE.md#05-the-full-cycle-of-one-change)
-— edit → validate → build → **publish** → mark → verify → tag. Step 4 is the one the
-old docs assumed you already knew.
+— edit → validate → build → **publish** → mark → verify → tag. What the guide never
+did was name the seam between step 3 and step 4.
 
 ## Route 1 — a person with a profile to publish
 
@@ -56,11 +56,12 @@ Commit with `-s` (DCO: every commit carries a `Signed-off-by` trailer — CI enf
 it), push the branch, open the PR, and let the human merge.
 
 **The mistake this route makes:** reading "CI failed" as one thing. The PR pipeline is
-a set of contract gates, and each one names what it checked: schema self-test, the
-documentation link/anchor gate, generated-artifact freshness (`pnpm gen:*`), typecheck,
-tests, build, the tarball's `pasco` bin, and the DCO trailer. Fix the gate that
-failed — [CONTRIBUTING.md](../CONTRIBUTING.md) lists them with the command that
-reproduces each locally.
+a set of contract gates — including the schema self-test, the documentation
+link/anchor gate, generated-artifact freshness (`pnpm gen:*`), the page projection
+gate, lint, typecheck, tests, build, the tarball's `pasco` bin, and the DCO trailer
+on every commit. Each failing step names itself and prints the command that
+reproduces it locally; fix that one, not "CI". The full step list is
+[the CI/CD map](ci-cd.md).
 
 If your change is to a document, run the page projection too — `pnpm site` regenerates
 `site/docs/` and gates every page. The Markdown is the only committed copy.
@@ -76,15 +77,18 @@ pasco check --json        # platform caps: does any text exceed the declared lim
 ```
 
 **The mistake this route makes:** reporting "done" from `validate` alone. `validate`
-judges your source of truth, not what is published:
-`status.publication.artifact` answers *does the built artifact still match the SSOT*,
-`sync` answers *did the SSOT change after the deploy*, and `limits` answers *does a
-platform truncate this text*. A green validate with `artifact: diverges` is the normal
-state of an unpublished edit — say so instead of declaring success.
+judges your source of truth, not what is published. In `pasco status --json` the
+envelope carries `data.publication[]`, one row per surface, and the three axes answer
+three different questions: `artifact` — does the built artifact still match the SSOT;
+`sync` — did the SSOT change after the deploy; `limits` — does a platform truncate
+this text. A green validate with `artifact: diverges` is the normal state of an
+unpublished edit — say so instead of declaring success.
 
-Two things the engine cannot verify today, and an agent must not imply otherwise:
-the live variant a platform is actually showing stays `attested` unless a live check
-ran, and `validate` does not look at the active variant at all.
+What the engine still cannot verify, and an agent must not imply otherwise: a surface
+with no live check reads `attested` (or `unverifiable` when the check could not run),
+and `validate` reconciles the **active variant record** (`active[platform]`, including
+`drift/active-variant-missing`) but neither validates that variant's text nor compares
+it with what the platform is showing.
 
 ## What this page is not
 
