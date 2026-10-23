@@ -105,7 +105,7 @@ jobs:
       # true` would need a PAT/App token. Enable Pages once after the visibility
       # flip, then run this workflow (or let a release call it):
       #   gh api -X POST repos/ChristianLuciani/profile-as-code/pages -f build_type=workflow
-      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
