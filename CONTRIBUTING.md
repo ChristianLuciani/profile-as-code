@@ -38,7 +38,13 @@ every decision lives in [`docs/SPEC.md`](docs/SPEC.md) (decisions D1–D18). Rea
    (fixtures live in `packages/core/tests/fixtures/`).
 7. **Sign your work (DCO, D21).** Every commit carries a sign-off — commit with
    `git commit -s`. See [Sign your work](#sign-your-work-dco) below.
-8. **Public surfaces name only what a reader can open (#254).** A command's help,
+8. **A dogfood product issue adds the doc line that would have prevented it (#260).**
+   Every problem a real end-to-end run finds — a wrong-file edit, an unexplained
+   failure, a platform that truncates text — either lands with the line in the guide
+   that would have caught it (usually `docs/START-HERE.md` or the section
+   `docs/USER-GUIDE.md` it links) or the issue states why it cannot be documented yet
+   (because the fix is code). A fix without its line is how the same gap comes back.
+9. **Public surfaces name only what a reader can open (#254).** A command's help,
    output, error message, the npm README/description, or a scaffolded workspace may
    not point at a path, repo or tool the reader does not have. The CLI reads
    `packages/cli/skills/`, generated from `skills/` at build/pack time
