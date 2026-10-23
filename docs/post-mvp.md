@@ -5,8 +5,10 @@
 > feature, or a service — not to grow the engine.
 
 A post is a **projection of a seed**, not an identity fact. The store lives in
-the user's workspace at `posts/`, outside `content/` and outside
-`profile.schema.json`:
+the user's workspace at `posts/` — **the stream**, beside `content/` (identity) and
+`profiles/` (generated output), outside `profile.schema.json`. The three top-level
+directories are three grains and never nest: no `content/posts`, no `posts/content`
+(#267):
 
 ```
 posts/<seed-id>/

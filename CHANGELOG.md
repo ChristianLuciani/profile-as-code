@@ -39,6 +39,12 @@ minor versions may contain breaking contract changes.
 
 ### Changed
 
+- **The workspace has three top-level grains, and the scaffold now says so (#267)** —
+  `content/` is identity (the SSOT), `profiles/` is generated output, `posts/` is the stream
+  (seeds + per-channel projections, #264) — never identity facts. `pasco init`'s README
+  templates state the boundary for both flavors, SPEC §9's tree carries `posts/`, and
+  `docs/post-mvp.md` names the rejected nestings (`content/posts`, `content/identities`,
+  `content/profiles`). No rename, no schema change, no move of existing workspaces.
 - **The recommended on-ramp now resolves for a stranger (#273)** — `profile-data-template`
   went public (verified 2026-10-23: `gh repo view ChristianLuciani/profile-data-template
   --json visibility` → `PUBLIC`, HTTP 200), so its removal trigger fired: the link-check
