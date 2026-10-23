@@ -4,6 +4,9 @@ From zero to a maintained, versioned professional profile: install the engine,
 create your data workspace, load your facts for the first time, keep entries
 updated, and stay in sync as the engine evolves.
 
+> New here? [START-HERE.md](START-HERE.md) picks the route by who you are; this
+> guide is the reference those routes read.
+>
 > Audience: a **user** of the engine (not an engine contributor). Contributor
 > docs live in [CONTRIBUTING.md](../CONTRIBUTING.md); the product contract is
 > [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli@0.3.0`
@@ -62,6 +65,27 @@ Core principles (SPEC D1–D18, abbreviated):
 - **GEO is consistency.** An LLM that reads your LinkedIn and your GitHub must
   find identical facts — contradictions get you filtered out. That is why the
   engine checks drift across platforms.
+
+## 0.5 The full cycle of one change
+
+Every change walks seven steps, and only the first three are in the old habit
+("edit, validate, paste"). Step 4 is where a green `validate` stops meaning
+"published".
+
+| # | Step | Command | The question it answers |
+|---|---|---|---|
+| 1 | **Edit** one file, one root property | `nano content/<block>.yaml` | what do I actually want to say? ([§4.4](#44-your-first-edit-without-an-editor)) |
+| 2 | **Validate** the source of truth | `pasco validate` | is this schema-valid, and does it drift from my other platforms? ([§5](#5-validate--build)) |
+| 3 | **Build** the artifact | `pasco build <platform>` | what exact bytes go to the platform? ([§5](#5-validate--build)) |
+| 4 | **Publish** it | paste, or PR the artifact into `<you>/<you>` | is the platform showing the new text? ([§7](#7-deploy)) |
+| 5 | **Mark** the deploy | `pasco status --mark <block>:<id> <platform>` | which artifact is live, and is it stale? ([§7](#7-deploy)) |
+| 6 | **Verify** (opt-in) | `pasco status --verify` | is *certified* — a live check actually saw it? ([§7](#7-deploy)) |
+| 7 | **Tag** the release | `git tag release-<date> && git push --tags` | what is the baseline for the next `pasco diff`? ([§6](#6-add-entries--update-content)) |
+
+Steps 4–6 repeat **per surface**: you publish to LinkedIn, then to the GitHub
+profile, and each one gets its own mark. `pasco status` is the per-surface
+answer, and `status.publication` adds the derived view (does the artifact still
+match the SSOT, and does a platform truncate the text).
 
 ---
 
@@ -378,6 +402,35 @@ Two kinds of results (D12):
   platforms or GEO gaps. These do not block you, but fix them: contradictions
   are exactly what gets a profile discounted by LLMs reading it.
 
+### 4.4 Your first edit, without an editor
+
+You do not need an editor setup to start — `nano` is enough, and the only thing
+that matters is **which file** you open. The block → file map is
+[§4.1](#41-the-golden-rule-one-file--one-root-property); keep it visible for the
+first few edits.
+
+```sh
+cd ~/profile-data-<username>
+nano content/identity.yaml     # name, location, links[] — the GEO anchor
+# Ctrl-O, Enter, Ctrl-X
+pasco validate
+```
+
+Three habits that prevent almost every first-run error:
+
+1. **A block goes in its own file.** A `bios:` list pasted into `identity.yaml`
+   fails with a schema error that names the file and the unexpected key — it is
+   not a bug, it is the file. Paste it in `content/bios.yaml`.
+2. **One value, one line.** Multi-line YAML block scalars (`|`, `>`) are legal
+   YAML but the editor tooling (`pasco edit`, #247) will refuse them later; keep
+   scalars single-line now and you will not have to rewrite them.
+3. **Validate after each edit, not after five.** A schema failure names the file
+   and the value; five edits later, the message still names the file but you no
+   longer remember which change caused it.
+
+If the profile is live and your edit does not show up, you skipped step 4 of
+[the cycle](#05-the-full-cycle-of-one-change) — `validate` never publishes.
+
 ---
 
 ## 5. Validate & build
@@ -520,6 +573,24 @@ git tag release-2026-09 && git push --tags
 `pasco diff` then tells you exactly which files changed since that release —
 your re-paste list.
 
+### Platform caps at edit time
+
+A platform will truncate a text that is too long, and **`pasco validate` will not
+warn you** — caps are not schema, they are per-surface limits (D12: facts warn,
+schema fails). The limits catalogue lives in the workspace as
+`content/checks.yaml`, merged with the engine's defaults:
+
+```sh
+pasco check            # every measured text against its surface's cap
+pasco check --json     # {severity: "warn", code: "max-chars", path: "headlines:upwork:en"}
+```
+
+Two rules when a cap is missing from the catalogue: **declare it** with its source
+(the platform's own documentation, dated) rather than guessing, and when no source
+exists, say so — an invented cap is worse than an absent one, because it makes you
+edit good text for a limit nobody can point to. The cap warning always names its
+source; if it cannot, it is a `[?]`, not a fact.
+
 ---
 
 ## 7. Deploy
@@ -587,6 +658,35 @@ Non-negotiables:
 - Deploy steps and post-deploy verification for `manual` platforms live in each platform
   skill's `playbook.md` (`skills/<platform>/`); a shared `templates/playbooks/` directory is
   planned for M4/M5 (SPEC §12).
+
+---
+
+### Deploy by PR — and the worktree trap
+
+For the git/API class, "publish" is a pull request into your profile repo
+(`<you>/<you>`), and the human merges. Do it from a worktree so your workspace
+checkout stays clean:
+
+```sh
+git worktree add ../profile-data-<username>-deploy -b deploy/<date>
+cd ../profile-data-<username>-deploy      # run pasco FROM HERE
+pasco build github-readme                 # writes profiles/github-readme/README.md
+git add profiles/ && git commit -s -m "deploy: refresh the GitHub profile"
+git push -u origin deploy/<date>
+gh pr create --fill
+```
+
+**The trap:** `.pascorc` with `"workspace": "."` resolves relative to the
+**current directory** (D14: `--workspace` → `.pascorc` → cwd). Run `pasco` from
+the parent checkout and the artifact lands in the parent's `profiles/`, while the
+worktree you are about to commit stays empty — you then "deploy" a file nobody
+reviewed. Either `cd` into the worktree where `content/` and `.pascorc` live, or
+pass `--workspace <path>` explicitly; the flag wins.
+
+Two more rules that keep this honest: never push to the profile repo's `main`
+(the PR is the review), and after the merge come back to step 5 of
+[the cycle](#05-the-full-cycle-of-one-change) — `pasco status --mark` — so the
+ledger records what is actually live.
 
 ---
 
