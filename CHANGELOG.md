@@ -39,6 +39,15 @@ minor versions may contain breaking contract changes.
 
 ### Changed
 
+- **The recommended on-ramp now resolves for a stranger (#273)** — `profile-data-template`
+  went public (verified 2026-10-23: `gh repo view ChristianLuciani/profile-data-template
+  --json visibility` → `PUBLIC`, HTTP 200), so its removal trigger fired: the link-check
+  declaration in `scripts/link-check/allowlist.json` is gone (the registry is empty, the
+  `W-ALLOWLIST-UNUSED` warning keeps it honest) and the surfaces that still called the
+  satellite private (SPEC §9.2, STANDARDS community item 10 and its publication section,
+  `docs/ci-cd.md`) say public with the verification. No duplication: `templates/profile-data/`
+  stays a pointer; re-scoping to a second in-repo template would have created a second source
+  of truth for zero reader benefit.
 - **`pasco skills:install <agent>` → `pasco skills:export <dir> [--force] [--list]` (#254, C1)** —
   the CLI no longer prints a projection command for a private studio. It copies the
   skill channels it ships into a directory the user names (a non-empty destination needs

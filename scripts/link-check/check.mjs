@@ -25,11 +25,12 @@
  *     uptime or rate limits. An `https://…` destination — including a link to
  *     a private family repo — is recorded and skipped, never resolved.
  *   - the private family targets therefore need a declaration, not a fetch:
- *     `allowlist.json` is the explicit, documented registry with its removal
- *     trigger (the `profile-data-template` visibility flip). A reference to an
- *     allowlisted target is surfaced with its count; a declaration nothing in
- *     scope references is reported as a WARNING so the registry cannot rot
- *     silently (W-ALLOWLIST-UNUSED).
+ *     `allowlist.json` is the explicit, documented registry, each entry carrying
+ *     the trigger that removes it. A reference to an allowlisted target is
+ *     surfaced with its count; a declaration nothing in scope references is
+ *     reported as a WARNING so the registry cannot rot silently
+ *     (W-ALLOWLIST-UNUSED) — that is how the last entry left: `profile-data-template`
+ *     went public and its trigger fired (#273), so the registry is empty today.
  *
  * Scope is every tracked, non-hidden Markdown doc area: root `*.md`
  * (`README`, `CONTRIBUTING`, `AGENTS`, `GOVERNANCE`, `SECURITY`,
