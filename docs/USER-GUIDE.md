@@ -85,11 +85,12 @@ Option C needs nothing beyond Node ≥ 22** — it is the same `pasco init`
 scaffold, written into the storage you already use.
 
 Repo access is a prerequisite of the source and template paths, not of npm: §2
-Option B clones a **private** engine repo and §3 Option A clones a **private**
-template — a third party without access fails there (STANDARDS item 10; see the
-table under "Before you start"). §2 Option A installs from the public npm
-registry, and **§3 Options B/C work end-to-end from it**: no repo, no account,
-nothing to clone.
+Option B clones the engine repo and §3 Option A clones the template, so both need
+a git remote and, to push your own copy, an account. Both repos are **public**
+(verified 2026-10-23), so a third party without access no longer fails there
+(STANDARDS item 10; see the table under "Before you start"). §2 Option A installs
+from the public npm registry, and **§3 Options B/C work end-to-end from it**: no
+repo, no account, nothing to clone.
 
 ---
 

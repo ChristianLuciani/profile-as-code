@@ -43,9 +43,11 @@ minor versions may contain breaking contract changes.
   went public (verified 2026-10-23: `gh repo view ChristianLuciani/profile-data-template
   --json visibility` → `PUBLIC`, HTTP 200), so its removal trigger fired: the link-check
   declaration in `scripts/link-check/allowlist.json` is gone (the registry is empty, the
-  `W-ALLOWLIST-UNUSED` warning keeps it honest) and the surfaces that still called the
-  satellite private (SPEC §9.2, STANDARDS community item 10 and its publication section,
-  `docs/ci-cd.md`) say public with the verification. No duplication: `templates/profile-data/`
+  `W-ALLOWLIST-UNUSED` warning keeps it honest) and every surface this PR reconciles —
+  `README.md`, `docs/USER-GUIDE.md`, `docs/SPEC.md` §9.2, `docs/STANDARDS.md` (community
+  items 4, 5, 10 and the publication section), `docs/ci-cd.md`, `site/index.html` — says
+  public with the verification. The wider class (surfaces still calling the *engine* repo
+  private) is tracked in #293, not silently dropped. No duplication: `templates/profile-data/`
   stays a pointer; re-scoping to a second in-repo template would have created a second source
   of truth for zero reader benefit.
 - **`pasco skills:install <agent>` → `pasco skills:export <dir> [--force] [--list]` (#254, C1)** —
