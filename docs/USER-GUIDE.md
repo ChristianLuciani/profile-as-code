@@ -4,6 +4,9 @@ From zero to a maintained, versioned professional profile: install the engine,
 create your data workspace, load your facts for the first time, keep entries
 updated, and stay in sync as the engine evolves.
 
+> New here? [START-HERE.md](START-HERE.md) picks the route by who you are; this
+> guide is the reference those routes read.
+>
 > Audience: a **user** of the engine (not an engine contributor). Contributor
 > docs live in [CONTRIBUTING.md](../CONTRIBUTING.md); the product contract is
 > [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli@0.3.0`
@@ -29,8 +32,8 @@ updated, and stay in sync as the engine evolves.
 > (which needs a git history); what they lose is the template's automation and its
 > history. The npm package `@profile-as-code/cli` is **public**, so B and C need
 > **no repo access at all** — that is the path this guide documents for a reader
-> who has, or wants, no GitHub repo. The template repo is private today, so on-ramp
-> A reaches insiders only until the family flip ([STANDARDS](STANDARDS.md),
+> who has, or wants, no GitHub repo. The template repo is **public** (verified
+> 2026-10-23), so on-ramp A resolves for a stranger ([STANDARDS](STANDARDS.md),
 > community item 10). The **hosted** path — a profile published by us, reached
 > with no account and no terminal — is a declared **v1 non-goal**: none of these
 > on-ramps reaches it, and its reopening trigger lives in [SPEC §2](SPEC.md).
@@ -63,6 +66,29 @@ Core principles (SPEC D1–D18, abbreviated):
   find identical facts — contradictions get you filtered out. That is why the
   engine checks drift across platforms.
 
+## 0.5 The full cycle of one change
+
+Every change walks seven steps, and the sections below grew up around them rather
+than stating them: editing, validating and publishing lived in three places that
+never named the seam between step 3 and step 4 — where a green `validate` stops
+meaning "published".
+
+| # | Step | Command | The question it answers |
+|---|---|---|---|
+| 1 | **Edit** one file, one root property | `nano content/<block>.yaml` | what do I actually want to say? ([§4.4](#44-your-first-edit-without-an-editor)) |
+| 2 | **Validate** the source of truth | `pasco validate` | is this schema-valid, and does it drift from my other platforms? ([§5](#5-validate--build)) |
+| 3 | **Build** the artifact | `pasco build <platform>` | what exact bytes go to the platform? ([§5](#5-validate--build)) |
+| 4 | **Publish** it | paste, or PR the artifact into `<you>/<you>` | is the platform showing the new text? ([§7](#7-deploy)) |
+| 5 | **Mark** the deploy | `pasco status --mark <surface-key> <platform>` | which artifact is live, and is it stale? ([§7](#7-deploy)) |
+| 6 | **Verify** (opt-in) | `pasco status --verify` | is this surface *certified* — did a live check actually see it? ([§7](#7-deploy)) |
+| 7 | **Tag** the release | `git tag release-<date> && git push --tags` | what is the baseline for the next `pasco diff`? ([§6](#6-add-entries--update-content)) |
+
+Steps 4–6 repeat **per surface**: you publish to LinkedIn, then to the GitHub
+profile, and each one gets its own mark. `pasco status` is the per-surface answer;
+`pasco status --json` adds the derived view per surface in `data.publication[]`
+(`sync`, `artifact`, `limits`, `units`) — does the built artifact still match the
+SSOT, and does a platform truncate the text.
+
 ---
 
 ## 1. Prerequisites
@@ -85,11 +111,13 @@ Option C needs nothing beyond Node ≥ 22** — it is the same `pasco init`
 scaffold, written into the storage you already use.
 
 Repo access is a prerequisite of the source and template paths, not of npm: §2
-Option B clones a **private** engine repo and §3 Option A clones a **private**
-template — a third party without access fails there (STANDARDS item 10; see the
-table under "Before you start"). §2 Option A installs from the public npm
-registry, and **§3 Options B/C work end-to-end from it**: no repo, no account,
-nothing to clone.
+Option B clones the engine repo and §3 Option A clones the template, so both need
+a git remote and, to push your own copy, an account. The **template is public**
+(verified 2026-10-23), so Option A no longer fails for a reader without access
+(STANDARDS item 10; see the table under "Before you start"); the engine repo's
+own visibility statements are reconciled separately (#293). §2 Option A installs
+from the public npm registry, and **§3 Options B/C work end-to-end from it**: no
+repo, no account, nothing to clone.
 
 ---
 
@@ -313,6 +341,12 @@ holds the value **directly**, with no wrapper key. `bios.yaml` contains the
 | `education.yaml` *(v1.1)* | `education` | formal education (degree, field, institution) |
 | `languages.yaml` *(v1.1)* | `languages` | spoken languages + level |
 
+**Give each canonical URL its role.** `links[].role` (`identity` | `realization` |
+`aggregator`, v1.6/#103) is what structured data reads: `identity` marks the URLs that
+*are* you (site, GitHub, LinkedIn), `realization` a thing you made, `aggregator` a
+profile host. The `identity` role is worth real points — the 2026-10-19/20 dogfood run
+moved structured-data from 80 to 100 with that one line (#260).
+
 Brand flavor (D15) adds: `socialHandles` (handle matrix with claim status),
 `newsletter`, `podcast`, `press`, `audiences`, and org-identity fields in
 `identity.yaml` (`orgName`, `logo`, `mission`, `tagline`, `brandVoice`,
@@ -375,6 +409,36 @@ Two kinds of results (D12):
 - **Drift / GEO findings → WARN (exit 0).** Facts that contradict across
   platforms or GEO gaps. These do not block you, but fix them: contradictions
   are exactly what gets a profile discounted by LLMs reading it.
+
+### 4.4 Your first edit, without an editor
+
+You do not need an editor setup to start — `nano` is enough, and the only thing
+that matters is **which file** you open. The block → file map is
+[§4.1](#41-the-golden-rule-one-file--one-root-property); keep it visible for the
+first few edits.
+
+```sh
+cd ~/profile-data-<username>
+nano content/identity.yaml     # name, location, links[] — the GEO anchor
+# Ctrl-O, Enter, Ctrl-X
+pasco validate
+```
+
+Three habits that prevent almost every first-run error:
+
+1. **A block goes in its own file.** A `bios:` list pasted into `identity.yaml`
+   fails with a schema error that names the file and the unexpected key — it is
+   not a bug, it is the file. Paste it in `content/bios.yaml`.
+2. **One value, one line.** Multi-line YAML block scalars (`|`, `>`) are legal
+   YAML, but the planned editor (`pasco edit`, #247 — not shipped yet) will refuse
+   them; keep
+   scalars single-line now and you will not have to rewrite them.
+3. **Validate after each edit, not after five.** A schema failure names the file
+   and the value; five edits later, the message still names the file but you no
+   longer remember which change caused it.
+
+If the profile is live and your edit does not show up, you skipped step 4 of
+[the cycle](#05-the-full-cycle-of-one-change) — `validate` never publishes.
 
 ---
 
@@ -518,6 +582,29 @@ git tag release-2026-09 && git push --tags
 `pasco diff` then tells you exactly which files changed since that release —
 your re-paste list.
 
+### Platform caps at edit time
+
+A platform will truncate a text that is too long, and **`pasco validate` will not
+warn you** — caps are not schema, they are per-surface limits (D12: facts warn,
+schema fails). The catalogue is the workspace's `content/checks.yaml`; `pasco init`
+copies the engine defaults into it, and **if the file declares any check it replaces
+the defaults** (`profile.checks` wins whole, it is not merged row by row): the rows
+you keep still apply, but a row you delete no longer falls back to the engine's copy.
+
+```sh
+pasco check            # every measured text against its surface's cap
+pasco check --json     # envelope: data.limits[] = {severity, code, message, path, ...}
+```
+
+Where the caps come from matters, because the defaults are honest about not knowing:
+most of them are `[?]` (third-party guidance or an editorial soft cap), not a
+platform's published limit. Two rules when you touch the catalogue: **declare a cap
+with its source and date** (the platform's own documentation when it exists) rather
+than guessing, and when no source exists leave it `[?]` — an invented cap is worse
+than an absent one, because it makes you cut good text for a limit nobody can
+point to. `pasco check` echoes a check's `note` when the catalogue carries one; it
+cannot invent a source for a row that has none.
+
 ---
 
 ## 7. Deploy
@@ -526,7 +613,7 @@ Two deploy classes (D9):
 
 | Class | Platforms | How |
 |---|---|---|
-| **manual** | LinkedIn, Upwork, X, ResearchGate, Substack, Patreon… | copy the generated/curated text → paste into the platform → verify → `pasco status --mark <block>:<id> <platform>` |
+| **manual** | LinkedIn, Upwork, X, ResearchGate, Substack, Patreon… | copy the generated/curated text → paste into the platform → verify → `pasco status --mark <surface-key> <platform>` (`pasco status` prints each row's key) |
 | **git/API** | GitHub profile README, (web, M5) | the artifact is a file: `profiles/github-readme/README.md` → PR/commit it into your GitHub profile repo (e.g. `<you>/<you>`) — the human merges |
 
 Non-negotiables:
@@ -585,6 +672,40 @@ Non-negotiables:
 - Deploy steps and post-deploy verification for `manual` platforms live in each platform
   skill's `playbook.md` (`skills/<platform>/`); a shared `templates/playbooks/` directory is
   planned for M4/M5 (SPEC §12).
+
+### Deploy by PR
+
+For the git/API class, "publish" is a pull request into your **profile** repo
+(`<you>/<you>`) — not into your data workspace — and the human merges. Build in the
+workspace, publish from a checkout of the profile repo:
+
+```sh
+# 1. build in the workspace (where content/ and .pascorc live)
+cd ~/profile-data-<username>
+pasco build github-readme            # -> profiles/github-readme/README.md
+
+# 2. publish from the profile repo
+gh repo clone <you>/<you> ../profile-readme
+cd ../profile-readme
+git switch -c deploy/<date>
+cp ~/profile-data-<username>/profiles/github-readme/README.md README.md
+git add README.md && git commit -s -m "deploy: refresh my GitHub profile"
+git push -u origin deploy/<date>
+gh pr create --fill
+```
+
+**The trap:** `pasco` discovers `.pascorc` in the directory you run it **from**, and
+a `"workspace": "."` field resolves relative to that file's directory (D14:
+`--workspace` → `.pascorc` → cwd). Run `pasco build` from inside `../profile-readme`
+— or from a parent of the workspace — and the run stops with
+`workspace has no content/` (or builds a different workspace than the one you mean),
+while the file you commit stays the old one. Run it from the workspace root, or pass
+`--workspace <path>` explicitly; the flag wins.
+
+Two rules that keep this honest: never push to the profile repo's `main` (the PR is
+the review), and after the merge come back to step 5 of
+[the cycle](#05-the-full-cycle-of-one-change) — `pasco status --mark` — so the ledger
+records what is actually live.
 
 ---
 

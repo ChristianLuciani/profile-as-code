@@ -11,6 +11,18 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **`docs/START-HERE.md` — the map each reader was missing (#260)** — the dogfood run
+  (2026-10-19/20) broke at five points the guide never covered: editing the wrong YAML file,
+  editing without an editor, being cut by a platform cap a green `validate` never warned about,
+  deploying by PR from the wrong directory, and `links[].role: identity` (the one line worth
+  +20 structured-data points, documented nowhere). Three routes (person · contributor · agent),
+  each with the mistake that route actually makes, plus the USER-GUIDE sections they read next:
+  the seven-step cycle of one change (§0.5), the first edit without an editor, the `links[]`
+  role rule, platform caps at edit time (§6), and deploy by PR with the `.pascorc` discovery
+  trap (§7). The issue's proposed §4.1/§8.3 **were already taken** (golden rule, multi-workspace),
+  so the new material sits at §4.4 and inside §7 — an addressed deviation, not a silent one.
+  Published as a page (`site-config.mjs`), so the same Markdown is the only copy, and CONTRIBUTING
+  ground rule 8 makes "the doc line" part of every dogfood finding.
 - **Derived publication truth — `pasco status` now says whether the artifact is the one
   the SSOT produces (SPEC §20.1, #242)** — the 2026-10-19 dogfood found every gate green
   while the published profile was not verified in the terms a user cares about: a green
@@ -39,6 +51,18 @@ minor versions may contain breaking contract changes.
 
 ### Changed
 
+- **The recommended on-ramp now resolves for a stranger (#273)** — `profile-data-template`
+  went public (verified 2026-10-23: `gh repo view ChristianLuciani/profile-data-template
+  --json visibility` → `PUBLIC`, HTTP 200), so its removal trigger fired: the link-check
+  declaration in `scripts/link-check/allowlist.json` is gone (the registry is empty, the
+  `W-ALLOWLIST-UNUSED` warning keeps it honest). The surfaces reconciled here — `README.md`,
+  `docs/USER-GUIDE.md`, `docs/SPEC.md` §9.2, `docs/STANDARDS.md` (community items 4, 5, 10
+  and the publication section), `docs/ci-cd.md`, `site/index.html` — state the template as
+  public and cite the verification where they make the claim; `check.mjs`'s header documents
+  the mechanism. The wider class (surfaces still calling the *engine* repo private) is
+  tracked in #293, not silently dropped. No duplication: `templates/profile-data/`
+  stays a pointer; re-scoping to a second in-repo template would have created a second source
+  of truth for zero reader benefit.
 - **`pasco skills:install <agent>` → `pasco skills:export <dir> [--force] [--list]` (#254, C1)** —
   the CLI no longer prints a projection command for a private studio. It copies the
   skill channels it ships into a directory the user names (a non-empty destination needs
