@@ -117,7 +117,8 @@ private by default and never leaves your control (D14: integration by configured
 ## Files
 
 Three top-level directories, three grains — nothing nests one inside another:
-\`content/\` is identity, \`profiles/\` is generated output, \`posts/\` is the stream.
+\`content/\` is identity, \`profiles/\` is generated output (its \`variants/\` subdir is input),
+\`posts/\` is the stream.
 
 - \`content/*.yaml\` — identity facts, the SSOT (file name = root property, see schema/README.md)
 - \`profiles/\` — generated outputs (created by pasco build; committed: they ARE the deploy artifacts)
@@ -146,7 +147,8 @@ checks drift and renders brand surfaces. Private by default (D14: configured pat
 ## Files
 
 Three top-level directories, three grains — nothing nests one inside another:
-\`content/\` is identity, \`profiles/\` is generated output, \`posts/\` is the stream.
+\`content/\` is identity, \`profiles/\` is generated output (its \`variants/\` subdir is input),
+\`posts/\` is the stream.
 
 - \`content/*.yaml\` — the brand profile, identity facts (file name = root property, see schema/README.md)
 - \`profiles/\` — generated outputs (github-org README is the first deploy artifact; pasco build also writes manual-paste files)

@@ -433,7 +433,8 @@ profile-data/
 ├── profiles/            # generated outputs (committed: they ARE the deploy artifacts) +
 │                        # <platform>/variants/ — chosen variant bodies (INPUT, #238)
 ├── posts/               # the STREAM: seeds + per-channel projections (#264, #267) — never
-│                        # read as identity facts; not part of profile.schema.json
+│                        # read as identity facts; not part of profile.schema.json; created by
+│                        # `pasco post`, not by `pasco init`
 ├── CHANGELOG.md         # every change: date + which platforms need re-paste
 ├── CHECKLIST.md         # per-platform verification after pasting
 └── .pascorc             # workspace path, defaults (D11–D14)
