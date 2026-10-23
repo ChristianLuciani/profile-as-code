@@ -10,14 +10,15 @@ row actually makes.
 | **[Someone maintaining or contributing to the engine](#route-2--a-maintainer-or-contributor)** | a clone of this repo | a red CI you cannot read, or a commit that fails the DCO check |
 | **[An agent acting for a person](#route-3--an-agent-acting-for-a-person)** | `pasco status --json` | treating a green `validate` as "my new text is published" |
 
-Every route ends in the same place: [the full cycle of one change](USER-GUIDE.md#05-the-full-cycle-of-one-change)
+Routes 1 and 3 end in the same place: [the full cycle of one change](USER-GUIDE.md#05-the-full-cycle-of-one-change)
 — edit → validate → build → **publish** → mark → verify → tag. What the guide never
-did was name the seam between step 3 and step 4.
+did was name the seam between step 3 and step 4. (Route 2 ends at a reviewed PR;
+a maintainer never publishes a profile.)
 
 ## Route 1 — a person with a profile to publish
 
-No account, no repo, no terminal experience assumed. The whole path is one command
-plus one file edit.
+No account, no repo, no terminal experience assumed. The whole path is two commands
+and one file edit.
 
 ```sh
 npm i -g @profile-as-code/cli     # Node >= 22
@@ -27,8 +28,9 @@ pasco validate                    # schema (fails) + drift/geo (warns)
 pasco build github-readme         # writes profiles/github-readme/README.md
 ```
 
-Then publish: copy the generated text for manual platforms, or commit the GitHub
-artifact into your `<you>/<you>` repo ([§7](USER-GUIDE.md#7-deploy)).
+Then publish: copy the generated text for manual platforms, or open a PR against
+`<you>/<you>` with the GitHub artifact ([§7](USER-GUIDE.md#7-deploy)) — never a push
+to its `main`.
 
 **The mistake this route makes:** editing the wrong file. `bios.yaml` and
 `identity.yaml` look identical in a terminal, and a row pasted into the wrong one
@@ -95,6 +97,8 @@ it with what the platform is showing.
 - Not the reference — [USER-GUIDE.md](USER-GUIDE.md) is, section by section.
 - Not the contract — [SPEC.md](SPEC.md) is, decision by decision.
 - Not a tutorial for a specific platform — `skills/<platform>/` carries the living
-  knowledge per surface, and the caps come from the platform's own declaration.
+  knowledge per surface. Caps are not there: they live in your workspace's
+  `content/checks.yaml`, and the engine defaults are mostly `[?]` until you cite a
+  source ([§6](USER-GUIDE.md#platform-caps-at-edit-time)).
 
 If a step here contradicts the guide, the guide wins and this page is the bug.

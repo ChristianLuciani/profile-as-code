@@ -79,7 +79,7 @@ meaning "published".
 | 2 | **Validate** the source of truth | `pasco validate` | is this schema-valid, and does it drift from my other platforms? ([§5](#5-validate--build)) |
 | 3 | **Build** the artifact | `pasco build <platform>` | what exact bytes go to the platform? ([§5](#5-validate--build)) |
 | 4 | **Publish** it | paste, or PR the artifact into `<you>/<you>` | is the platform showing the new text? ([§7](#7-deploy)) |
-| 5 | **Mark** the deploy | `pasco status --mark <block>:<id> <platform>` | which artifact is live, and is it stale? ([§7](#7-deploy)) |
+| 5 | **Mark** the deploy | `pasco status --mark <surface-key> <platform>` | which artifact is live, and is it stale? ([§7](#7-deploy)) |
 | 6 | **Verify** (opt-in) | `pasco status --verify` | is this surface *certified* — did a live check actually see it? ([§7](#7-deploy)) |
 | 7 | **Tag** the release | `git tag release-<date> && git push --tags` | what is the baseline for the next `pasco diff`? ([§6](#6-add-entries--update-content)) |
 
@@ -430,7 +430,8 @@ Three habits that prevent almost every first-run error:
    fails with a schema error that names the file and the unexpected key — it is
    not a bug, it is the file. Paste it in `content/bios.yaml`.
 2. **One value, one line.** Multi-line YAML block scalars (`|`, `>`) are legal
-   YAML but the editor tooling (`pasco edit`, #247) will refuse them later; keep
+   YAML, but the planned editor (`pasco edit`, #247 — not shipped yet) will refuse
+   them; keep
    scalars single-line now and you will not have to rewrite them.
 3. **Validate after each edit, not after five.** A schema failure names the file
    and the value; five edits later, the message still names the file but you no
@@ -587,8 +588,8 @@ A platform will truncate a text that is too long, and **`pasco validate` will no
 warn you** — caps are not schema, they are per-surface limits (D12: facts warn,
 schema fails). The catalogue is the workspace's `content/checks.yaml`; `pasco init`
 copies the engine defaults into it, and **if the file declares any check it replaces
-the defaults** (`profile.checks` wins whole, it is not merged row by row) — trim a
-row and the rest of the default catalogue stops applying.
+the defaults** (`profile.checks` wins whole, it is not merged row by row): the rows
+you keep still apply, but a row you delete no longer falls back to the engine's copy.
 
 ```sh
 pasco check            # every measured text against its surface's cap
@@ -612,7 +613,7 @@ Two deploy classes (D9):
 
 | Class | Platforms | How |
 |---|---|---|
-| **manual** | LinkedIn, Upwork, X, ResearchGate, Substack, Patreon… | copy the generated/curated text → paste into the platform → verify → `pasco status --mark <block>:<id> <platform>` |
+| **manual** | LinkedIn, Upwork, X, ResearchGate, Substack, Patreon… | copy the generated/curated text → paste into the platform → verify → `pasco status --mark <surface-key> <platform>` (`pasco status` prints each row's key) |
 | **git/API** | GitHub profile README, (web, M5) | the artifact is a file: `profiles/github-readme/README.md` → PR/commit it into your GitHub profile repo (e.g. `<you>/<you>`) — the human merges |
 
 Non-negotiables:
@@ -672,8 +673,6 @@ Non-negotiables:
   skill's `playbook.md` (`skills/<platform>/`); a shared `templates/playbooks/` directory is
   planned for M4/M5 (SPEC §12).
 
----
-
 ### Deploy by PR
 
 For the git/API class, "publish" is a pull request into your **profile** repo
@@ -698,9 +697,10 @@ gh pr create --fill
 **The trap:** `pasco` discovers `.pascorc` in the directory you run it **from**, and
 a `"workspace": "."` field resolves relative to that file's directory (D14:
 `--workspace` → `.pascorc` → cwd). Run `pasco build` from inside `../profile-readme`
-— or from a parent of the workspace — and it builds against a tree with no
-`content/`, while the file you commit stays the old one. Run it from the workspace
-root, or pass `--workspace <path>` explicitly; the flag wins.
+— or from a parent of the workspace — and the run stops with
+`workspace has no content/` (or builds a different workspace than the one you mean),
+while the file you commit stays the old one. Run it from the workspace root, or pass
+`--workspace <path>` explicitly; the flag wins.
 
 Two rules that keep this honest: never push to the profile repo's `main` (the PR is
 the review), and after the merge come back to step 5 of
