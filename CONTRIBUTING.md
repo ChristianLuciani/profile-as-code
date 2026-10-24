@@ -108,6 +108,27 @@ Use your real name and a valid email: the trailer is the record of who certified
 contribution. The gate is `scripts/dco-check/` (self-test first, then the range check) — run it
 locally with `bash scripts/dco-check/test.sh`.
 
+## Filing issues
+
+Blank issues are disabled: every issue comes from a template
+([bug](.github/ISSUE_TEMPLATE/bug_report.yml),
+[feature](.github/ISSUE_TEMPLATE/feature_request.yml)) — or from an agent session
+(`gh issue create`, which bypasses them).
+
+Automated triage demands four canonical sections. A heading opens a section when its line
+carries one of the accepted spellings — the templates emit them, a manually typed issue
+reproduces them:
+
+| Field | Accepted spellings |
+|---|---|
+| repro | `repro` · `punto de partida` |
+| expected | `expected` · `esperado` |
+| suspected files | `suspected files` · `suspect files` · `archivos sospechosos` |
+| ADR-lite | `ADR-lite` (also spelled `ADR lite`) |
+
+An issue carrying all four is implementation-ready: triage reads it instead of parking it on
+format.
+
 ## Pull request workflow
 
 1. Pick an issue (or open one first — discuss before big changes; the contract and core

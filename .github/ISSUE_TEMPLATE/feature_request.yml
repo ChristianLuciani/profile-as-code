@@ -7,17 +7,27 @@ body:
       value: |
         Check `docs/SPEC.md` (decisions D1–D14, roadmap §12) first — some things are intentionally out of scope.
   - type: textarea
-    id: problem
+    id: repro
     attributes:
-      label: What's the problem / need?
-      description: The user need behind the request, not the solution.
+      label: Problem / need (repro)
+      description: The user need behind the request, not the solution — the starting point of the workflow.
     validations:
       required: true
   - type: textarea
-    id: proposal
+    id: expected
     attributes:
-      label: Proposed approach
-      description: Sketch of the solution. For big changes, expect a spec discussion (ADR-lite).
+      label: Expected outcome
+      description: How the engine, profile or page should behave once this ships — written so it can be checked.
+  - type: textarea
+    id: suspected-files
+    attributes:
+      label: Suspected files
+      description: Paths or globs expected to be touched. Write `none` when unknown.
+  - type: textarea
+    id: adr-lite
+    attributes:
+      label: Proposed approach (ADR-lite)
+      description: Sketch of the solution — what you chose, what you rejected and why. For big changes, expect a spec discussion.
   - type: dropdown
     id: area
     attributes:
