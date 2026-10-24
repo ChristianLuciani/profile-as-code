@@ -9,8 +9,9 @@ updated, and stay in sync as the engine evolves.
 >
 > Audience: a **user** of the engine (not an engine contributor). Contributor
 > docs live in [CONTRIBUTING.md](../CONTRIBUTING.md); the product contract is
-> [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli@0.3.0`
-> — tagged `v0.3.0` and published to npm (`latest`) on 2026-10-11 (#113, #207).
+> [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli@0.3.5`
+> — release `v0.3.5` (cut 2026-10-24; the npm publish of that release is the runbook's
+> irreversible step — `docs/ci-cd.md` §Releasing; #113, #207).
 > Keep that claim in its canonical form: the release barrier
 > (`scripts/site-check/version-check.mjs`) fails the publish when it disagrees
 > with `packages/cli/package.json`.
@@ -130,17 +131,20 @@ Two paths. **Option A is the intended path for users** (published on npm);
 
 ```sh
 npm i -g @profile-as-code/cli    # the package
-pasco --version                  # the bin — expect 0.3.0
+pasco --version                  # the bin — expect 0.3.5
 ```
 
 One global install: no clone, no build, nothing written outside the npm prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
-> **Status** [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-12]: `@profile-as-code/cli@0.3.0`
-> is **public** and tagged `latest` (published 2026-10-11T03:43:27Z; tag `v0.3.0` → `21e4cde`;
-> check with `npm view @profile-as-code/cli version`).
+> **Status**: this guide tracks the released `@profile-as-code/cli@0.3.5` (tag `v0.3.5`,
+> cut 2026-10-24, CHANGELOG `[0.3.5]`); the npm publish is that release's irreversible
+> step — verify the published `latest` with `npm view @profile-as-code/cli version`.
+> Previous published state [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-12]: version
+> `0.3.0` **public** and tagged `latest` (published 2026-10-11T03:43:27Z; tag `v0.3.0` →
+> `21e4cde`).
 > Separately, and **not** registry-sourced: the built bin on `main` reports the matching
-> version (`node packages/cli/dist/index.js --version` → `pasco 0.3.0`, 2026-10-12) — a
+> version (`node packages/cli/dist/index.js --version` → `pasco 0.3.5`, 2026-10-24) — a
 > local-build check, not a run of the published tarball.
 > Caveat, closing (#293): the engine repo is **public** (measured 2026-10-24) — `repository.url`
 > resolves for any reader now; the published versions keep **no attestation** (published while the

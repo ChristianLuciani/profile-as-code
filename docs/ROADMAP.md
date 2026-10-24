@@ -1,7 +1,7 @@
 # Roadmap — de acá a lo planificado
 
-> **Generado** 2026-09-24 · **actualizado** 2026-10-05 (+M9, post-merge PR #135) desde el estado
-> verificado del repo (no del declarado).
+> **Generado** 2026-09-24 · **actualizado** 2026-10-24 (estado de publicación y la página
+> release-bound; prep de `v0.3.5`) desde el estado verificado del repo (no del declarado).
 > Canónico del plan: `docs/SPEC.md` §12. Este documento agrega **qué está realmente hecho**
 > y **en qué orden conviene seguir**, con la evidencia de cada afirmación.
 > Regenerar/corregir cuando la evidencia cambie.
@@ -12,39 +12,61 @@
 |---|---|---|---|
 | **M1** spec + schema + core + CLI skeleton | ✅ | **✅ cerrado** | `schema/`, `packages/core` (10 archivos de test), CLI con 8 comandos |
 | **M2** renderer github-readme + CI + dogfood | ✅ | **✅ cerrado** | `packages/renderers/github-readme`; el README real de `ChristianLuciani/ChristianLuciani` (10.3 KB) lleva el marker generado |
-| **M3** SOTA research + skills v1 + `pasco refine` | pendiente | **⚠️ parcial** — skills existen, `refine` parcial (template + `--choose`; el flujo completo es M3) | `skills/github-readme/`, `skills/github-org/`; header PARTIAL de `packages/cli/src/commands/refine.ts` + `packages/cli/README.md` |
-| **M4** renderers linkedin/upwork/x/researchgate/substack + `pasco check` + ledger | pendiente | **⚠️ parcial** — ledger ✅ (D18), `check` parcial, renderers ✗ | `deployments` en schema (v1.3); `check.ts` ejecuta reglas offline M6/M7/M8 (`CHECK_OWNER`, `packages/cli/src/commands/check.ts:29`) y lista el resto del catálogo `content/checks.yaml` como no ejecutado (M3/M4); solo 2 renderers |
-| **M5** web renderer + template release + CONTRIBUTING | pendiente | **✗ no empezado** | Sin `packages/renderers/web`; CONTRIBUTING existe pero M5 pedía "completo" |
+| **M3** SOTA research + skills v1 + `pasco refine` | pendiente | **⚠️ parcial** — skills ✅ y **viajan con el paquete** (copia generada `packages/cli/skills/` en `files`, #253; `pasco skills:export` #254); `refine` parcial (template + `--choose`; el flujo completo es M3) | header PARTIAL de `packages/cli/src/commands/refine.ts` (re-verificado 2026-10-24) |
+| **M4** renderers linkedin/upwork/x/researchgate/substack + `pasco check` + ledger | pendiente | **⚠️ parcial** — ledger ✅ (D18), `check` parcial, los renderers M4 ✗ | `deployments` en schema (v1.3); `check.ts` ejecuta reglas offline M6/M7/M8 + limits (`CHECK_OWNER`, `packages/cli/src/commands/check.ts`; catálogo `content/checks.yaml`); el repo tiene 8 renderers (GitHub ×2 + la familia funding-paste entregada en `0.2.0`, D16/D17) — los M4 no (verificado 2026-10-24, `ls packages/renderers/`) |
+| **M5** web renderer + template release + CONTRIBUTING | pendiente | **⚠️ parcial** — template release ✅ (`profile-data-template` PUBLIC, #273) y CONTRIBUTING existe; web renderer ✗ | `gh repo view ChristianLuciani/profile-data-template --json visibility` → `PUBLIC` (2026-10-23); sin `packages/renderers/web` (2026-10-24) |
 | **M6** brand flavor | ✅ | **✅ cerrado** | `flavor: brand`, `github-org` renderer, `skills/github-org/`, `templates/profile-data-brand` |
 | **M7** evidence core | ✅ | **✅ cerrado** | schema v1.4 (`credentials[]`/`artifacts[]`), `registryCheck`, `hasCredential` en JSON-LD |
 | **M8** media pipeline | ✅ | **✅ contrato sí, deploy no** | `assets/` + `manifest.json` + `collectMedia` en core; los playbooks de deploy son M4 |
 | **M9** training-time corpus presence | ⏳ contrato sí, decisión **deferida** (Q10, post-M3) | **✗ no empezado** — piso ya definido: **privado-first** (bloquea crawlers de entrenamiento, sin licencia abierta) con opt-in explícito del dueño | `docs/research/03-training-time-visibility.md` (PR #135 + corrección de consentimiento, 2026-10-05); SPEC §12 M9 + §14 Q10 |
 
-**Lectura:** el engine y el README raíz están alineados tras el alineamiento M-state (#117, PR #121):
-`pasco` ✅ con `refine`/`check` 🚧, detalle en `packages/cli/README.md`. Lo que falta **no es motor
-— es superficie**: más renderers (M4), el web (M5), y el flujo completo de `refine` (M3).
+**Fuera de los milestones — lo que la serie `0.2.0` → `0.3.5` entregó (2026-10-09 → hoy):**
+
+- **Distribución resuelta (#105, cerrado)**: `@profile-as-code/cli` en npm — `0.2.0`
+  (2026-10-09T23:24:37Z) y `0.3.0` (2026-10-11T03:43:27Z, `latest`), con GitHub Releases
+  creados por el run del `workflow_dispatch` (el push del tag solo anuncia)
+  [OFICIAL] [WEB: registry.npmjs.org + `gh release list`, 2026-10-24].
+- **Publicación verificable end-to-end (SPEC §20.1, #242)**: `pasco status` deriva
+  `sync` / `artifact` / `limits` contra la SSOT, y `--completeness` es coverage de
+  publicación; los caps del catálogo #240 viven en `packages/cli/src/limits.ts`.
+- **Página release-bound (#277/#278/#279)**: landing + 5 documentos proyectados (START-HERE
+  incluido, #260), gates `site-check`/`version-check`, y el deploy sale del commit del
+  release (job `site` de `.github/workflows/release.yml` → `pages.yml`). La página viva hoy
+  (2026-10-24) es la landing anterior; la nueva sale con el primer release bajo esta
+  maquinaria.
+- **Scaffold + on-ramps**: tres granos (`content/` identidad · `profiles/` generado ·
+  `posts/` stream) en los templates de `pasco init` (#267); `profile-data-template` PUBLIC
+  (#273); hosted on-ramp declarado **v1 non-goal** con trigger de reapertura (#221/#222,
+  SPEC §2).
+- **Repo público + hygiene**: la reconciliación del flip de visibilidad (#293) y los issue
+  templates canónicos (#294) quedaron medidos y fechados en sus documentos.
+
+**Lectura:** el motor cubre su contrato, la distribución está resuelta y la publicación es
+verificable de punta a punta. Lo que falta **no es motor — es superficie**: el flujo completo
+de `refine` (M3), los renderers M4 y el web (M5); detalle en `packages/cli/README.md`.
 
 ---
 
 ## Orden recomendado
 
-El criterio de orden es **desbloquear valor con la menor cantidad de piezas nuevas**. Publicar
-`pasco` es lo que convierte trabajo terminado en algo usable por otros; todo lo demás suma a un
-motor que hoy nadie de afuera puede ejecutar.
+El criterio de orden es **desbloquear valor con la menor cantidad de piezas nuevas**. Con
+`pasco` publicado y la publicación verificable, el multiplicador es el flujo completo de
+refinamiento y cada renderer nuevo: suman canal sin tocar el motor.
 
-### Ahora — desbloquear la distribución
+### Ahora — el producto prometido
 
-**1 · Publicar `pasco`** → **#105** (implementation-ready)
-Tres bloques de docs + una decisión del operador (visibilidad ↔ provenance). **No requiere
-código**: `verify:pack` pasa. Es el mayor retorno por hora de todo el backlog, porque el
-trabajo ya está hecho y solo le falta la puerta de entrada.
-
-**2 · `pasco refine` real** → M3
+**1 · `pasco refine` real** → M3
 Es **el diferenciador del producto** (§1 goal 3: *"intent-driven texts como N variantes que el
 usuario elige"*). Hoy es parcial (D10/D11/D13: emitir el template del agent task y registrar la
 variante elegida con `--choose`); falta el flujo completo (generate → user picks → commit active),
 y sin él `pasco` es válido pero no es lo que el proyecto promete. Además es la pieza que las
-platform skills (ya escritas) existen para alimentar.
+platform skills — que ahora viajan con el paquete (#253) — existen para alimentar.
+
+**2 · Epic `pasco edit` (#247)** — la superficie de edición sin YAML a la vista, para
+humanos y agentes. El plan S1–S5 (#248–#252) está parado en sus propias puertas de decisión
+(el S2, el write que preserva comentarios #249, es el que hay que decidir antes de escribir
+código); los slices **consumen** los ejes de publicación de #242 en vez de una segunda tabla
+de caps.
 
 ### Después — superficie por plataforma
 
@@ -71,13 +93,18 @@ Cierra el pipeline de media: hoy el engine bundlea assets, pero publicarlos es M
 
 ### Después — comunidad
 
-**7 · `profile-data-template` release + CONTRIBUTING completo** → M5
-**8 · #95 licence + CLA** — time-sensitive, antes de la primera contribución externa
-**9 · #100 refresh de la status table** — housekeeping
+**7 · #299** — el residuo contable de la reconciliación pública (#293): las filas de
+checklist y la sección libre de `docs/STANDARDS.md` que siguen en presente con la premisa
+vieja. Chico, docs-only; una sesión lo cierra.
+**8 · #175** — el estrato de respuesta externa se publica cuando existan 3 PRs externos
+(bloqueado por naturaleza — el trigger es el mundo, no el repo).
 
 ### Transversal — no milestone
 
-**10 · #98 dependency gate de `packages/server`** — scope rule del D20, cuando ese paquete exista
+**9 · #274** — gate de CI: superficies públicas no referencian tooling/repos que el lector
+no puede abrir (inventario de testigos + gate).
+**10 · #280** — i18n: ¿versión en español de la página? (D8, hreflang y el coste de
+mantener dos corpus) — decisión abierta (`needs-decision`), no trabajo pendiente.
 
 ---
 
@@ -103,10 +130,10 @@ retrofittear un modelo que el propio campo todavía está discutiendo.
 ## Dependencias entre ítems
 
 ```
-#105 publicar ──────────────┐
-                            ├──► permite que 3/4/5 tengan usuarios reales
-M3 refine ──────────────────┤
-                            │
+pasco publicado (0.2/0.3) ───┐
+                             ├──► permite que 3/4/5 tengan usuarios reales
+M3 refine ───────────────────┤
+                             │
 M4 renderers ───► M4 check ─┘
                      │
 M5 web ──────────────┴──► M8 deploy playbooks

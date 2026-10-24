@@ -1,6 +1,6 @@
 {
   "name": "@profile-as-code/cli",
-  "version": "0.3.0",
+  "version": "0.3.5",
   "description": "pasco — the profile-as-code CLI: init, validate, build, diff, status + partial refine (task template), check (offline rules M6–M8; catalog ships M3/M4), skills:export (copies the platform skills this package ships). Consumes @profile-as-code/core; never re-implements load/drift/geo/compile.",
   "type": "module",
   "license": "MIT",

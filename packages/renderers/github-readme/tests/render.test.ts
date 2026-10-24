@@ -865,6 +865,95 @@ describe("renderer github-readme — empty keyword items never create a weight m
   });
 });
 
+describe("renderer github-readme — featured ordering is status-led (issue #257)", () => {
+  /** Build a slice from inline workspace files (same pattern as the #78 describe). */
+  function sliceFrom(files: Record<string, string>) {
+    const dir = mkdtempSync(join(tmpdir(), "pasco-render-status-"));
+    mkdirSync(join(dir, "content"), { recursive: true });
+    for (const [name, body] of Object.entries(files))
+      writeFileSync(join(dir, "content", name), body, "utf8");
+    try {
+      return {
+        slice: compile(load(dir), "github-readme", "en"),
+        cleanup: () => rmSync(dir, { recursive: true, force: true }),
+      };
+    } catch (err) {
+      rmSync(dir, { recursive: true, force: true });
+      throw err;
+    }
+  }
+
+  const orderOf = (slice: ReturnType<typeof compile>) =>
+    [
+      ...(render(slice).text.split("## Projects")[1]?.split("\n## ")[0] ?? "").matchAll(
+        /- \*\*([^*]+)\*\*/g,
+      ),
+    ].map((m) => m[1]);
+
+  it("the rank leads: a maintained project carrying ALL the weight cannot outrank an active one", () => {
+    // Decision recorded 2026-10-21 (#257): the weight is the TIEBREAK now.
+    // Measured on the dogfood corpus (profile-data@d9d2278, 2026-10-24): with
+    // the status-led sort the two keyword-less actives enter the top-6 while
+    // the heavier experimental entries drop out.
+    const { slice, cleanup } = sliceFrom({
+      "identity.yaml": "name: Elena Vasquez\n",
+      "skills.yaml":
+        "- name: Accounting\n  keywords: [ontology]\n  platformWeights:\n    github-readme: 0.9\n",
+      "projects.yaml":
+        '- name: "Fat Maintained"\n  status: maintained\n  keywords: [ontology]\n- name: "Bare Active"\n  status: active\n',
+    });
+    try {
+      expect(orderOf(slice)).toEqual(["Bare Active", "Fat Maintained"]);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("the rank tail is exercised: experimental > planning > archived > absent (weight inside a tier)", () => {
+    const { slice, cleanup } = sliceFrom({
+      "identity.yaml": "name: Elena Vasquez\n",
+      "skills.yaml": "- name: X\n",
+      "projects.yaml":
+        '- name: "Abs"\n- name: "Arch"\n  status: archived\n- name: "Plan"\n  status: planning\n- name: "Exp"\n  status: experimental\n',
+    });
+    try {
+      expect(orderOf(slice)).toEqual(["Exp", "Plan", "Arch", "Abs"]);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("ties are total: same rank and weight settle by name asc (no hidden ties)", () => {
+    const { slice, cleanup } = sliceFrom({
+      "identity.yaml": "name: Elena Vasquez\n",
+      "skills.yaml": "- name: X\n",
+      "projects.yaml":
+        '- name: "zeta"\n  status: active\n- name: "Alpha"\n  status: active\n- name: "Kappa"\n  status: active\n',
+    });
+    try {
+      expect(orderOf(slice)).toEqual(["Alpha", "Kappa", "zeta"]);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("the tiebreak is the UTF-16 code-unit order, never the system collation (D19)", () => {
+    // Measured probe (2026-10-24, node 22 ICU): 'apple'.localeCompare('APPLE')
+    // === -1, while the code-unit order sorts 'A' (0x41) first — reverting the
+    // tiebreak to localeCompare flips this assertion.
+    const { slice, cleanup } = sliceFrom({
+      "identity.yaml": "name: Elena Vasquez\n",
+      "skills.yaml": "- name: X\n",
+      "projects.yaml": '- name: "apple"\n  status: active\n- name: "APPLE"\n  status: active\n',
+    });
+    try {
+      expect(orderOf(slice)).toEqual(["APPLE", "apple"]);
+    } finally {
+      cleanup();
+    }
+  });
+});
+
 describe("renderer github-readme — completeness line (issue #102)", () => {
   it("emits the deterministic line from the slice's report, before the footer", () => {
     const slice = compile(load(MINIMAL), "github-readme", "en");
