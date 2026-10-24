@@ -4,6 +4,20 @@
   "description": "pasco — the profile-as-code CLI: init, validate, build, diff, status + partial refine (task template), check (offline rules M6–M8; catalog ships M3/M4), skills:export (copies the platform skills this package ships). Consumes @profile-as-code/core; never re-implements load/drift/geo/compile.",
   "type": "module",
   "license": "MIT",
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/ChristianLuciani"
+    },
+    {
+      "type": "kofi",
+      "url": "https://ko-fi.com/christianluciani"
+    },
+    {
+      "type": "patreon",
+      "url": "https://www.patreon.com/cluciani"
+    }
+  ],
   "bin": {
     "pasco": "dist/index.js"
   },

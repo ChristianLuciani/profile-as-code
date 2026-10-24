@@ -75,6 +75,9 @@ Common flags (after the command):
 Exit codes: 0 ok · 1 schema/workspace failure · 2 usage error.
 Drift warnings exit 0 (D12: facts warn, schema fails).
 
+pasco is free (MIT). Consider a tip ;)
+  https://ko-fi.com/christianluciani · https://github.com/sponsors/ChristianLuciani
+
 See packages/cli/README.md for details.
 `;
 
