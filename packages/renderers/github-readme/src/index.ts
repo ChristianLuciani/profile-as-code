@@ -150,10 +150,11 @@ function skillWeight(s: Skill): number {
 }
 
 /**
- * Featured-project ordering (SPEC §15.3): the best github-readme skill weight
+ * Featured-project weight (SPEC §15.3): the best github-readme skill weight
  * among skills sharing at least one keyword OR geoKeyword with the project
- * (geoKeywords = the GEO match surface, D7). Deterministic: weight desc,
- * then name asc.
+ * (geoKeywords = the GEO match surface, D7). Pure, no network. The ORDER it
+ * feeds is the featured sort below (status-led since #257: the weight is the
+ * tiebreak, the rank leads).
  */
 function projectWeight(p: Project, skills: readonly Skill[]): number {
   const pk = new Set(nonEmpty(p.keywords).map((k) => k.toLowerCase().trim()));
@@ -166,6 +167,29 @@ function projectWeight(p: Project, skills: readonly Skill[]): number {
     if ([...pk].some((k) => sk.has(k))) best = Math.max(best, skillWeight(s));
   }
   return best;
+}
+
+/**
+ * Status rank of the featured ordering (SPEC §15.3 — decision recorded on
+ * profile-as-code #257, 2026-10-21, `main@647c510`): the rank — `active` >
+ * `maintained` > `experimental` > `planning` > `archived` — comes from the
+ * schema's `status` vocabulary; the RANK order, not the enum's list order, is
+ * the contract. Absent status ranks last on purpose: an un-graded project
+ * cannot outrank a graded one (measured 2026-10-24 on the dogfood corpus —
+ * `profile-data@d9d2278`: 10/10 projects carry status, so the absent case is
+ * the contract-declared branch, not corpus-tuned). Deterministic: rank asc,
+ * weight desc, name asc.
+ */
+const STATUS_RANK: Record<string, number> = {
+  active: 0,
+  maintained: 1,
+  experimental: 2,
+  planning: 3,
+  archived: 4,
+};
+
+function statusRank(status: Project["status"]): number {
+  return status === undefined ? 5 : (STATUS_RANK[status] ?? 5);
 }
 
 export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResult {
@@ -206,10 +230,13 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   // 2. Statement.
   if (p.statement !== undefined) out.push("", `**${p.statement}**`);
 
-  // 3. Featured projects — top 6 by weight (§15.3), all if fewer.
+  // 3. Featured projects — top 6 (§15.3), all if fewer: status-led since #257
+  //    (the rank leads, the weight is the tiebreak, name closes).
   const projects = [...p.projects].sort(
     (a, b) =>
-      projectWeight(b, p.skills) - projectWeight(a, p.skills) || a.name.localeCompare(b.name),
+      statusRank(a.status) - statusRank(b.status) ||
+      projectWeight(b, p.skills) - projectWeight(a, p.skills) ||
+      a.name.localeCompare(b.name),
   );
   if (projects.length > 0) {
     out.push("", "## Projects");
