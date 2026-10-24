@@ -59,8 +59,20 @@ class GateError extends Error {}
  * surface is declared; a future intentional publisher is added here in a
  * reviewed diff (issue #190). Directory-keyed on purpose — the subject is the
  * location, not the manifest name (the D20 precedent).
+ *
+ * The five seam packages joined 2026-10-24 (#259 — decision recorded
+ * 2026-10-21: the seam of contribution is published); the cli was the
+ * allowlist's first (and, until that decision, only) member. Order of the
+ * publish (core first) and the multi-package mechanism live in #301.
  */
-const DEFAULT_PUBLISHABLE = ["packages/cli"];
+const DEFAULT_PUBLISHABLE = [
+  "packages/cli",
+  "packages/core",
+  "packages/markdown",
+  "packages/paste",
+  "packages/artifact",
+  "packages/github",
+];
 
 async function exists(target) {
   try {

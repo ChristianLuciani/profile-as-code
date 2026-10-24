@@ -1,6 +1,9 @@
 {
   "name": "@profile-as-code/artifact",
-  "private": true,
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "version": "0.1.0",
   "description": "The canonical artifact projection of SPEC §19.5 (bound + transport normalization) plus its conformance body. The ONE home of the projection every verifying adapter delegates to — issue #216, D5.",
   "type": "module",
