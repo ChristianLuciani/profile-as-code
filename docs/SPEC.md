@@ -178,6 +178,24 @@ renderers emit the email as a **mailto: href** in the Links section (output-only
 the schema.org `email` property on `Person`/`Organization` JSON-LD; `sameAs` stays
 page-URLs-only (a `mailto:` URI is not a reference page).
 
+**Answer-engine surface (issue #288 — additive, v1.10):** `identity.definition` and root
+`faq[]` are the two things an answer engine can quote — the half the data model lacked.
+`definition` is one sentence of the form "X is a …" per language (EN required), ≤ 160
+chars per value and it must contain the entity name — the length cap is schema-enforced;
+the name check is a `geoCheck` rule (geoCheck v2, #289). `faq[]` carries the questions
+THIS entity answers, as **facts with langMaps, never invented copy** (same curation rule
+as `bios[]`, D11/D14 — an answer `refine` invents is a claim with no source and gets
+dropped by cite-aware systems, §8): `q` ≤ 90 chars per value and unique per workspace
+(JSON Schema cannot express it — duplicates collapse into one answer surface), `a` ≤ 320
+chars (beyond that it is prose, not an answer), optional `source` = the `$defs/url`
+scheme boundary (an answer with no pointer is a claim), 3–20 entries (below 3 there is no
+surface; above 20 it is a page, not a profile). Consumers: `structuredData()` exposes
+`description` (from `definition`; brands fall back to `mission` when no definition is
+declared) and a separate `FAQPage` JSON-LD node — emitted only when `faq[]` exists,
+never an empty one; `jsonLd` gains nothing new. The competitive split measured
+2026-10-23 (`[WEB]`, #288 evidence: a GEO competitor ships 12 question-shaped H2s and
+zero structured answers) is engine-ownable: the SSOT, not the renderers, is the surface.
+
 **Platform set (D16 — additive, v1.2):** ONE shared enum for both flavors — the union of
 Postiz's 34 supported networks ([OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02) plus
 **15 operator extras**: the six v1 non-Postiz surfaces (`github-readme`, `upwork`,
@@ -243,7 +261,7 @@ Single-source discipline is enforced, not trusted:
 coverage — per-platform skills are separate follow-ups.
 
 ```yaml
-identity:      { name, email?, location, photo, links[] }      # canonical links: THE source of URLs; email = contact fact (v1.5, #71)
+identity:      { name, email?, definition?, location, photo, links[] }   # definition = the canonical "X is a …" sentence (v1.10, #288)
 positioning:   { statement: {lang}, audiences: {lang: angle}, geo: { semanticAssociations[], citationsGoal } }
 bios:          [ { platform, lang, length: short|medium|long, text } ]   # generated + curated
 headlines:     [ { platform, lang, text } ]                   # per-platform, per-lang
@@ -257,6 +275,7 @@ keywords:      { seo: { platform: [] }, geo: { associations: [], claims: [] } }
 checks:        [ { platform, rule, value, surface? } ]         # declarative; surface = headline|bio|both (#240)
 active:        { platform: { lang, variantId, chosenAt } }    # which variant is live
 deployments:   { <ledgerKey>: { <surface>: { deployedAt, contentHash, source } } }   # per-entry deploy ledger (D18, §19)
+faq:           [ { id, q{lang ≤90, unique}, a{lang ≤320}, source? } ]   # the citable answer surface, 3–20 entries (v1.10, #288)
 ```
 
 **Evidence registry (D17, §18 — additive, v1.4):** `credentials[]` and `artifacts[]` are
@@ -339,6 +358,12 @@ GEO is not a renderer — it is enforced in four places:
 
 Anti-patterns to forbid: keyword stuffing (LLMs discount it), contradictions (auto-filtered),
 unverifiable claims (no source → dropped by cite-aware systems).
+
+**v1.10 inputs (#288):** the answer-engine facts — `identity.definition` and `faq[]` —
+feed geoCheck v2 (#289), which turns the constraints this SPEC cannot express in JSON
+Schema (name-in-definition, per-workspace q uniqueness) into citability checks
+(`geo/canonical-definition`, `geo/faq-coverage`) alongside freshness, sameAs coverage and
+the honest name-collision risk; the check table lands with that PR.
 
 ## 9. the profile-data workspace (folder-first; a repo is recommended)
 
@@ -482,6 +507,7 @@ Two different "templates" (previous confusion):
 8. **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable, checksummed bundling — Q9 resolved as D19: one `assets/` dir per platform output) · deploy playbooks publish media to the public surface · git-lfs guidance · portfolio-site consumption lands **with M5** (the web renderer does not exist yet — engine-side contract ships first).
 9. **M9 (training-time corpus presence — deferred, Q10)**: outputs are designed not only for inference-time citation (GEO, layer 2) but — for owners who explicitly consent — for entry into future model training corpora (layer 3). Inputs + documented levers: `docs/research/03-training-time-visibility.md` (sourced + dated). Floor regardless of the Q10 resolution — **private-first default**: `robots.txt` on published surfaces **blocks** AI-training crawlers (CCBot / vendor AI crawlers) and user data ships **without** an open license; entering corpora or open-licensing data requires the profile owner's explicit opt-in (consent field — schema work deferred with Q10). The operator's own profiles may opt in: that consent is theirs to give. Decision (Q10): a `huggingface-dataset` renderer/exporter vs contributing to existing open datasets vs both — decided when the M3 platform SOTA research closes.
 10. **M10 (fact selection, D22/§21 — issue #235)**: `.pascorc` → `selection.views` + `selectFacts()` in core + `build --view` + `status --selection` + the five selection findings; Phase 1 is **schema-free** (selection by §19.2 key, and `artifacts[].tags` finally read as §18.9 declared). Phase 2 adds optional `tags[]` to six entry blocks (not `skills`); **Phase 3** (several views per platform, `profiles/<view>/`) needs a D19 amendment and stays out of scope until asked for.
+11. **Answer-engine surface (schema v1.10 — issues #288 → #289 → #287)**: `identity.definition` + `faq[]` (the citable facts, #288) · `structuredData()` gains `description` + a separate `FAQPage` JSON-LD node (only when the fields exist) · geoCheck v2 citability codes (#289 — freshness INFO, honest name-collision) · `pasco entity --json/--jsonld` (#287), the entity projection for surfaces the engine does not render.
 
 ## 13. Resolved decisions (former open questions)
 

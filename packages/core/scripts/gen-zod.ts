@@ -134,6 +134,59 @@ function toLangMapListShape(): JsonNode {
 
 // ---------------------------------------------------------------------------
 
+/** v1.10 (#288): langMap-by-signature nodes with CAPPED values (definition <=160,
+ *  faq q <=90, a <=320): normalize like the bare langMap — EN via properties.en,
+ *  caps intact, propertyNames dropped (the key enum re-attaches by the same
+ *  langMapKeys guard post-gen). Without it a capped shape renders as a bare
+ *  z.record and the Zod loses the EN requirement (D12 fail class).
+ */
+function isCappedLangMap(node: unknown): boolean {
+  const n = node as Record<string, unknown> | undefined;
+  const ap = n?.additionalProperties as Record<string, unknown> | undefined;
+  return (
+    n?.type === "object" &&
+    Array.isArray(n.required) &&
+    (n.required as string[]).includes("en") &&
+    JSON.stringify(n.propertyNames) === JSON.stringify({ $ref: "#/$defs/lang" }) &&
+    ap?.type === "string" &&
+    ("minLength" in ap || "maxLength" in ap)
+  );
+}
+
+function normalizeCappedLangMaps(node: JsonNode, capped: JsonNode[]): JsonNode {
+  if (Array.isArray(node))
+    return node.map((n) => normalizeCappedLangMaps(n as JsonNode, capped)) as unknown as JsonNode;
+  if (typeof node !== "object" || node === null) return node;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
+    const v = value as JsonNode & {
+      required: string[];
+      additionalProperties: JsonNode;
+      [extra: string]: unknown;
+    };
+    if (!isCappedLangMap(v)) {
+      out[key] = normalizeCappedLangMaps(v, capped);
+      continue;
+    }
+    const val = v.additionalProperties;
+    if (!capped.some((c) => JSON.stringify(c) === JSON.stringify(val))) capped.push(val);
+    const { propertyNames: _drop, ...rest } = v as unknown as Record<string, unknown>;
+    const strays = Object.entries(rest).filter(
+      ([k]) => k !== "required" && k !== "additionalProperties",
+    );
+    out[key] = {
+      type: "object",
+      properties: { en: val },
+      required: v.required,
+      additionalProperties: val,
+      ...Object.fromEntries(strays),
+    };
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+
 const raw = JSON.parse(readFileSync(SCHEMA_PATH, "utf8")) as JsonNode & {
   $defs?: Record<string, unknown>;
 };
@@ -144,12 +197,28 @@ defs.langMap = toLangMapShape();
 if (!defs.langMapList) throw new Error("gen-zod: $defs.langMapList missing from schema (v1.1)");
 defs.langMapList = toLangMapListShape();
 
+// v1.10 (#288): normalize the CAPPED langMap shapes (see isCappedLangMap) before
+// generation — EN required via `properties`, value caps intact, key enum is
+// re-attached post-generation by the same `langMapKeys` guard. The normalized
+// tree REPLACES the raw one for the whole generation flow (the rewritten nodes
+// are copies; the walk is pure).
+const cappedShapes: JsonNode[] = [];
+const normalizedRoot = normalizeCappedLangMaps(raw, cappedShapes) as JsonNode & {
+  $defs?: Record<string, unknown>;
+};
+const normalizedDefs = normalizedRoot.$defs ?? {};
+if (cappedShapes.length === 0) {
+  throw new Error(
+    "gen-zod: no capped langMap shape normalized — the v1.10 definition/faq nodes are missing from the schema?",
+  );
+}
+
 // The platform list is codegen-owned as a VALUE too (issue #152): the generated
 // module exports the ids as a const tuple so `types.ts` derives `Platform` /
 // `PLATFORMS` from it instead of mirroring the enum by hand. It is read from the
 // SAME `$defs.platform` the Zod enum is generated from — the JSON Schema stays
 // the single hand-authored home; every other list is generated or derived.
-const platformDef = defs.platform as JsonNode | undefined;
+const platformDef = normalizedDefs.platform as JsonNode | undefined;
 if (!platformDef || !Array.isArray(platformDef.enum) || platformDef.enum.length === 0) {
   throw new Error("gen-zod: $defs.platform.enum missing (or empty) from schema");
 }
@@ -163,7 +232,7 @@ const platformValues = (platformDef.enum as unknown[]).map((value) => {
 });
 
 let droppedRequiredOnlyOneOf = 0;
-const inlined = inlineDefs(raw, defs) as JsonNode;
+const inlined = inlineDefs(normalizedRoot, normalizedDefs) as JsonNode;
 const generated = jsonSchemaToZod(inlined, { module: "esm", name: "profileSchema", zodVersion: 4 });
 
 // Safety nets — a schema change that silently breaks generation must fail CI.
@@ -187,7 +256,35 @@ if (langMapListCount === 0) {
     `gen-zod: no langMapList expression found — expected at least one "${LANG_MAP_LIST_EXPR}" (v1.1)`,
   );
 }
-const withKeyGuard = generated
+// v1.10 (#288): the CAPPED langMap occurrences render as the same object shape
+// with a constrained value — wrap each distinct rendered expression with the
+// same langMapKeys guard (key enum + EN-required object shape + value caps).
+// The count comes from the schema walk (cappedShapes), never from prose.
+const cappedGuarded = (() => {
+  const cappedExprRx =
+    /z\.object\(\{ "en": (z\.string(?:\(\))?(?:\.min\(\d+\))?(?:\.max\(\d+\))?) \}\)\.catchall\(\1\)/g;
+  const found = generated.match(new RegExp(cappedExprRx.source, "g")) ?? [];
+  const distinct = [...new Set(found)];
+  if (distinct.length < cappedShapes.length) {
+    throw new Error(
+      `gen-zod: expected ≥${cappedShapes.length} capped langMap expression(s), generated ${distinct.length}`,
+    );
+  }
+  let guarded = generated;
+  for (const expr of distinct) {
+    guarded = guarded.split(expr).join(`langMapKeys(${expr})`);
+  }
+  // An unconstrained leftover means a capped shape rendered as a bare z.record
+  // and was never guarded en-required (D12 fail class — the JSON Schema keeps it).
+  if (/z\.record\(z\.string\(\), z\.string\(\)\.min\(1\)/.test(guarded)) {
+    throw new Error(
+      "gen-zod: a capped langMap rendered as a bare z.record and was not key-guarded (en-required lost — D12 fail class)",
+    );
+  }
+  return guarded;
+})();
+
+const withKeyGuard = cappedGuarded
   .split(LANG_MAP_EXPR)
   .join(`langMapKeys(${LANG_MAP_EXPR})`)
   .split(LANG_MAP_LIST_EXPR)

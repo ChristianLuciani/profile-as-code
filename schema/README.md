@@ -4,11 +4,14 @@
 workspace (JSON Schema, draft 2020-12). Per D3, JSON Schema is the contract source and
 **Zod schemas are generated from it** in `packages/core` — never hand-written in parallel.
 
-> Status: **v1.1** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
-> v1.1 is **additive** (semver minor): every v1 workspace still validates unchanged. New:
-> `role` as langMap (org stays invariant string), `experience.highlights` as string[] per lang (langMapList),
-> root `education` + `languages`, `publication.authors`/`url`, `identity.handle`/`timezone`,
-> `patreon` in the checks platform enum.
+> Status: **v1.10** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
+> v1.x is **additive** (semver minor): every earlier workspace still validates unchanged. New
+> in v1.10 (issue #288): the answer-engine surface — `identity.definition` (the canonical
+> per-language definition, ≤ 160 chars per value, must contain the entity name — the name
+> check is a geoCheck rule, #289) and root `faq[]` (3–20 citable Q&A pairs, `q` ≤ 90 and
+> unique per workspace, `a` ≤ 320, optional `$defs/url` `source`). The same minor completes
+> the version label of the §19.5 certification additions (issue #132 — they shipped under
+> the v1.9 URI). Earlier minors: see the `$id`'s description and the CHANGELOG.
 
 ## URL scheme rule (issue #53)
 
@@ -64,6 +67,7 @@ validates the result against this schema. File → root property mapping:
 | `deployments.yaml` | `deployments` | v1.3 (D18): per-entry deploy ledger — ledgerKey → surface → `{deployedAt, contentHash, source}`. Key space: root block names (`identity`/`positioning`/`keywords`) or `block:key` composites (`bios:…`, `headlines:…`, `skills:…`, `socialHandles:…`, `experience:<id>`…). Only `pasco` mutates it (`--mark` / deploy commands, D14) |
 | `credentials.yaml` | `credentials[]` | v1.4 (D17): third-party attestations (certificate/title/award/patent) — issuer, verifyUrl, issued/expires, visibility (§18). Naming discipline: never called evidence (§18.1) |
 | `artifacts.yaml` | `artifacts[]` | v1.4 (D17): works/media (portfolio/gallery/showreel/dataset/document/code) — `locator: {url \| path}` (capability matrix §18.3), checksum, license, tags, visibility |
+| `faq.yaml` | `faq[]` | v1.10 (issue #288): the citable answer surface — 3–20 fact pairs (`id` §19.2 shape; `q` ≤ 90 per value + unique per workspace, core-check in geoCheck v2 #289; `a` ≤ 320; optional http(s) `source` = an answer with no pointer is a claim). Projected as `FAQPage` JSON-LD ONLY when present |
 
 Files are optional (a fresh user may start with `identity.yaml` only); the schema only
 requires `identity`. Unknown top-level properties **fail validation** (`additionalProperties:

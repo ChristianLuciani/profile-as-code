@@ -11,7 +11,8 @@
       "!**/dist",
       "!**/node_modules",
       "!packages/core/src/generated",
-      "!packages/cli/src/generated"
+      "!packages/cli/src/generated",
+      "!scripts/schema-check/fixtures"
     ]
   },
   "formatter": {

@@ -10,6 +10,11 @@ esqueleto; este README es el puntero. Este es el **on-ramp A** (recomendado): ce
 instalación para arrancar y trae el paquete completo — ejemplo comentado, docs operativas,
 licencia y automatización. Requiere cuenta y repo.
 
+**v1.10 (#288):** el esqueleto del template añadirá sus filas de `definition` + `faq`
+(`content/{identity,faq}.yaml`) cuando el template tire de este schema; el motor ya lo
+proyecta (`structuredData()` → `description` + `FAQPage`) y los fixtures del engine lo
+ejercitan.
+
 ## Los otros dos on-ramps (sin cuenta ni repo)
 
 El workspace **es una carpeta**; un repo es el lugar recomendado para guardarla, no un
