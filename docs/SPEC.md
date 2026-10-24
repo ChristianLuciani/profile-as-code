@@ -579,12 +579,14 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
 1. **Header**: name (H1) + platform headline (`headlines[]`, github-readme, lang) + canonical link
    badges (`identity.links` — ORCID, Zenodo, SSRN, scholar, … as shield.io badges).
 2. **Statement**: `positioning.statement` (lang) — the one-line root.
-3. **Featured projects** (top 3–6, status-led — issue #257, decision recorded 2026-10-21, `main@647c510`;
-   measured on the dogfood corpus `profile-data@d9d2278` (2026-10-24): 10/10 projects carry `status` and the
-   corpus has no `archived`, so the rank's tail is contract-declared and test-covered): the `status` RANK
-   leads (`active` > `maintained` > `experimental` > `planning` > `archived`; absent status ranks last — an
-   un-graded project cannot outrank a graded one), `skills[].platformWeights[github-readme]` weight is the
-   tiebreak, name last, all if fewer): name, status, description (lang), links, evidence (verified claims).
+3. **Featured projects** (top 3–6 — issue #257 reconciles the slice: the renderer cuts at 6, all if fewer;
+   status-led — decision recorded 2026-10-21, `main@647c510`; measured on the dogfood corpus
+   `profile-data@d9d2278` (2026-10-24): 10/10 projects carry `status` and the corpus has no `archived`, so the
+   rank's tail is contract-declared and test-covered): the `status` RANK leads — `active` > `maintained` >
+   `experimental` > `planning` > `archived`, absent status ranks last (an un-graded project cannot outrank a
+   graded one); `skills[].platformWeights[github-readme]` weight is the tiebreak; the name closes by
+   codepoint order, locale-free (ICU-dependent `localeCompare` can flip across environments — D19
+   byte-parity): name, status, description (lang), links, evidence (verified claims).
 4. **Publications** (citable): title, venue, year, DOI link. DOI-only entries (the GEO anchor).
 5. **Skills** (ordered by weight): `name` + keywords, from the SSOT. No invented prose.
 6. **Links**: `identity.email` first (a contact fact leads, channels follow — `- [Email](mailto:…)`),

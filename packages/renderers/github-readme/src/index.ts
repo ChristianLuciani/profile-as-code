@@ -178,7 +178,7 @@ function projectWeight(p: Project, skills: readonly Skill[]): number {
  * cannot outrank a graded one (measured 2026-10-24 on the dogfood corpus —
  * `profile-data@d9d2278`: 10/10 projects carry status, so the absent case is
  * the contract-declared branch, not corpus-tuned). Deterministic: rank asc,
- * weight desc, name asc.
+ * weight desc, name asc by CODEPOINT (never the system locale — D19).
  */
 const STATUS_RANK: Record<string, number> = {
   active: 0,
@@ -190,6 +190,16 @@ const STATUS_RANK: Record<string, number> = {
 
 function statusRank(status: Project["status"]): number {
   return status === undefined ? 5 : (STATUS_RANK[status] ?? 5);
+}
+
+/**
+ * Byte-wise name compare for the featured tiebreak (D19 byte-parity):
+ * `localeCompare` depends on the ICU build — its result can flip across
+ * environments, and a tie it reports as `0` would leak slice order through a
+ * stable sort. Codepoint comparison is environment-independent.
+ */
+function byteOrder(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResult {
@@ -231,12 +241,13 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   if (p.statement !== undefined) out.push("", `**${p.statement}**`);
 
   // 3. Featured projects — top 6 (§15.3), all if fewer: status-led since #257
-  //    (the rank leads, the weight is the tiebreak, name closes).
+  //    (the rank leads, the weight is the tiebreak, the name closes codepoint-
+  //    wise — D19 byte-parity; localeCompare is ICU-dependent, never here).
   const projects = [...p.projects].sort(
     (a, b) =>
       statusRank(a.status) - statusRank(b.status) ||
       projectWeight(b, p.skills) - projectWeight(a, p.skills) ||
-      a.name.localeCompare(b.name),
+      byteOrder(a.name, b.name),
   );
   if (projects.length > 0) {
     out.push("", "## Projects");
