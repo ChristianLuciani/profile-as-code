@@ -190,8 +190,12 @@ ni soporte prioritario, y no da influencia sobre el roadmap — las decisiones s
 los issues y en `docs/SPEC.md`, y una propuesta se evalúa por sus méritos, no por quién la financia.
 El proyecto sigue siendo MIT: el código ya es tuyo, pagues o no.
 
-**Sponsors:** todavía no hay ninguno. Los nombres y logos de quienes patrocinan se publican
-en esta sección, en el orden de su tier — si sos el primero, tu nombre va acá.
+[![GitHub Sponsors](https://img.shields.io/badge/sponsor-EA4AAA?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/ChristianLuciani)
+[![Tip on Ko-fi](https://img.shields.io/badge/tip-FF5E5B?logo=kofi&logoColor=white)](https://ko-fi.com/christianluciani)
+[![Patreon](https://img.shields.io/badge/patreon-FF424D?logo=patreon&logoColor=white)](https://www.patreon.com/cluciani)
+
+**Sponsors:** el nombre y logo de cada tier se publican acá, en orden de tier — no de
+monto. Si sos el primero en tu tier, tu espacio ya está reservado.
 
 ## Marca
 
