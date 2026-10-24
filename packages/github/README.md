@@ -236,6 +236,6 @@ Widening this to the name list is its own decision, with its own source.
 ## Dependencies
 
 `@profile-as-code/core` for the `Profile` type only. `vitest` is an optional peer,
-needed only by `./conformance`.
+needed only by `./conformance`. Node ≥ 22 (the `engines` field of this manifest).
 
 See [SPEC §19.5](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md) · [repository README](https://github.com/ChristianLuciani/profile-as-code/blob/main/README.md).

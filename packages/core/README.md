@@ -74,5 +74,5 @@ every drift rule).
 
 Requires Node ≥ 22 (the `engines` field of this manifest). Full source and docs
 live in the [public repository](https://github.com/ChristianLuciani/profile-as-code) —
-the repo paths above (`schema/profile.schema.json`, `scripts/gen-zod.ts`,
-`tests/fixtures/`) are files a reader can open there.
+`scripts/gen-zod.ts` and `tests/fixtures/` above are package-relative paths there
+(`packages/core/…`); the contract source is the repository's `schema/profile.schema.json`.

@@ -290,21 +290,24 @@ Each stage validates what the next one makes irreversible:
    which would break the dry-run smoke path of release.yml. The CLI is
    bin-only (no `types` entry), so attw adds no signal there anyway; it runs
    in `ci.yml` over the typed packages, where it does;
-5. **Publish** — two steps, both OIDC-first auth (below): the **seam cohort** —
-   `core → markdown → paste → artifact → github` — is packed with `pnpm pack`,
+5. **Publish** — two steps, both OIDC-first (below): the **seam cohort** —
+   `core → markdown → paste → artifact → github` — publishes with `pnpm publish`,
    which rewrites the runtime `workspace:*` dependency of `paste` and `github`
-   (`npm publish` would leave it unresolvable in the published manifest, issue
-   #301), and the rewritten tarball is published with `npm publish`. A package
-   whose version is already live is skipped: all six packages version
-   independently (the decision recorded in #259, 2026-10-21). The **CLI** then
-   publishes from its working directory as before, still carrying
-   `prepublishOnly`.
+   (`npm publish` does not rewrite it — the published manifest would carry an
+   unresolvable dependency, issue #301). A package whose version is already live
+   is skipped: all six packages version independently — the policy **issue #301
+   declares** (#259's decision covers publishing the five and left the version
+   policy open). The **CLI** then publishes from its working directory as
+   before, still carrying `prepublishOnly`.
 
    The release tag stays anchored to the CLI package (the guard above is
    unchanged); a release event publishes whatever member of the cohort changed.
-   #259's external-renderer criterion (`npm pack` + a clean publish with a
-   renderer from outside the workspace) is a declared future pipeline step — no
-   external renderer exists yet.
+   A seam-only change ships with the next release event; if none is pending,
+   prepare a CLI version bump as the event's anchor — the tag must be the CLI's
+   version (the guard's invariant) — and record the seam change under that
+   section of the single CHANGELOG. #259's external-renderer criterion (`npm
+   pack` + a clean publish with a renderer from outside the workspace) is a
+   declared future pipeline step — no external renderer exists yet.
 
 One class of manifest error escapes every hook above: npm's publish-time
 auto-correction. `npm publish` fixes some malformed fields at publish time and
@@ -344,14 +347,16 @@ sequencing that got here — read it as history, not as instructions.
 The publish step authenticates with **trusted publishing (OIDC)**: `id-token: write` is
 granted to the `publish` job, and the npm CLI exchanges that short-lived OIDC token for a
 publish token, so no long-lived write credential is required ([WEB]
-docs.npmjs.com/trusted-publishers, checked 2026-09-19). Both publish steps
-(`release.yml`) ride the same carrier: the **npm CLI** performs the exchange —
-including for the five seam packages, published as already-rewritten
-**tarballs**: packing and the `workspace:*` rewrite are `pnpm pack`'s job
-(#301), the exchange is npm's. The current `pnpm` (11.20.0, the `packageManager`
-pin) does not implement the exchange (no OIDC or trusted-publishing code in its
-dist, inspected 2026-10-24) — a `pnpm publish` here would end in `ENEEDAUTH`
-with no fallback, so it is not in the pipeline.
+docs.npmjs.com/trusted-publishers, checked 2026-09-19). Each publish step performs the
+exchange with its own client ([OFICIAL] dist of the pinned tool, inspected
+2026-10-24): `pnpm publish` for the seam cohort — pnpm 11.20.0, the
+`packageManager` pin, implements it: `lib/publish/oidc/{idToken,authToken,provenance}.js`
+in its dist, exchanging the Actions OIDC token against the registry's
+trusted-publishing endpoint (`/-/npm/v1/oidc/token/exchange/package/…`) — and
+the **npm CLI** for the CLI package (the client that published 0.2.0–0.3.5).
+An earlier revision of the cohort step asserted the opposite (packed with pnpm,
+published via `npm publish` on a false "this pnpm lacks the exchange") — caught
+by PR #309's round-1 review against the dist itself, corrected here.
 
 The mechanics below are each a real way this fails silently — they are written down so the
 next person debugging a publish does not have to rediscover them:
@@ -595,7 +600,7 @@ attw ./profile-as-code-cli-<version>.tgz --profile esm-only
 
 ```bash
 npm view @profile-as-code/<pkg> version   # for each seam package whose version changed —
-npm pack @profile-as-code/<pkg>           # must match the manifest at the tag (issue #301);
+npm pack @profile-as-code/<pkg>@<version> # must match the manifest at the tag (issue #301);
 publint ./profile-as-code-<pkg>-<version>.tgz   # pack + publint the tarball the same way
 ```
 

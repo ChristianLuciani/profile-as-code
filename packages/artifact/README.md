@@ -96,5 +96,6 @@ describe("github-readme artifact capability", () => {
 ## Dependencies
 
 None at runtime. `vitest` is an optional peer, needed only by `./conformance`.
+Node ≥ 22 (the `engines` field of this manifest).
 
 See [SPEC §19.5](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md) · [repository README](https://github.com/ChristianLuciani/profile-as-code/blob/main/README.md).
