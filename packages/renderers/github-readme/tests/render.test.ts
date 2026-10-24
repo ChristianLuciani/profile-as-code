@@ -930,6 +930,13 @@ describe("renderer github-readme — featured ordering is status-led (issue #257
       "projects.yaml":
         '- name: "zeta"\n  status: active\n- name: "Alpha"\n  status: active\n- name: "Kappa"\n  status: active\n',
     });
+    try {
+      expect(orderOf(slice)).toEqual(["Alpha", "Kappa", "zeta"]);
+    } finally {
+      cleanup();
+    }
+  });
+
   it("the tiebreak is the UTF-16 code-unit order, never the system collation (D19)", () => {
     // Measured pair that DISCRIMINATES the two orders (2026-10-24, node 22's
     // ICU): 'apple'.localeCompare('APPLE') === -1 (the collation sorts the
