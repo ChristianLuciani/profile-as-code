@@ -1,10 +1,11 @@
 # Repo configuration — branch protection, CI/CD (free plan)
 
-> How this repository is protected and automated. Status: **private** (per `docs/STANDARDS.md`).
-> **Free-plan reality:** branch protection and rulesets are ONLY available on public repos (or
-> GitHub Pro). While this repo is private, protection is enforced by **process**: access control +
-> PR-only flow + maintainer-only merges. The API calls below are the **public-ready step** —
-> re-apply them the moment the repo goes public.
+> How this repository is protected and automated. Status: **public** (measured 2026-10-24:
+> `gh repo view … --json visibility` → `PUBLIC`; #293). **Free-plan reality:** branch protection
+> and rulesets are ONLY available on public repos (or GitHub Pro). While the repo was private,
+> protection was enforced by **process**; the API calls below were **executed at the flip** —
+> as of the 2026-10-24 reading: `main` protection active (required checks `ci` + `sign-off`,
+> strict, enforce-admins, conversation resolution) and ruleset `main-basic` registered (disabled).
 
 ## Branch protection — `main`
 
