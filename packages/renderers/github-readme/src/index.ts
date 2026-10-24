@@ -23,7 +23,7 @@ import type {
   Project,
   Skill,
 } from "@profile-as-code/core";
-import { completenessLine, isPublicEntry } from "@profile-as-code/core";
+import { byteOrder, completenessLine, isPublicEntry } from "@profile-as-code/core";
 import { mdHref, mdText } from "@profile-as-code/markdown";
 
 export const deploySpec = "git" as const;
@@ -191,17 +191,8 @@ function statusRank(status: Project["status"]): number {
   return status === undefined ? 5 : (STATUS_RANK[status] ?? 5);
 }
 
-/**
- * Environment-independent name compare for the featured tiebreak (D19
- * byte-parity): UTF-16 code UNITS (`a < b` — JS native string order,
- * deterministic on every environment, ICU-free; NOT codepoint order on the
- * astral edge — the SPEC §15.3 names the comparison exactly). A `localeCompare`
- * here would depend on the ICU build and can tie (`0`), leaking slice order
- * through the stable sort. The discriminating probe lives in the test.
- */
-function byteOrder(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
-}
+// The featured tiebreak's comparator moved to the ONE home: core's `byteOrder`
+// (#305) — SPEC §15.3 names the order (UTF-16 code units, ICU-free).
 
 export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResult {
   const lang = opts.lang ?? p.lang;
@@ -244,7 +235,7 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   // 3. Featured projects — top 6 (§15.3), all if fewer: status-led since #257
   //    (the rank leads, the weight is the tiebreak, the name closes in UTF-16
   //    code-unit order — D19 byte-parity; localeCompare is ICU-dependent,
-  //    never here).
+  //    never here — the compare delegates to core's `byteOrder` home, #305).
   const projects = [...p.projects].sort(
     (a, b) =>
       statusRank(a.status) - statusRank(b.status) ||
@@ -284,7 +275,7 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
 
   // 5. Skills — weight order for this platform.
   const skills = [...p.skills].sort(
-    (a, b) => skillWeight(b) - skillWeight(a) || a.name.localeCompare(b.name),
+    (a, b) => skillWeight(b) - skillWeight(a) || byteOrder(a.name, b.name),
   );
   if (skills.length > 0) {
     out.push("", "## Skills");

@@ -586,9 +586,11 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
    `planning` > `archived`; absent ranks last — an un-graded project cannot outrank a graded one), the
    `skills[].platformWeights[github-readme]` weight is the tiebreak, the name closes in UTF-16 code-UNIT
    order (JS `a < b` — deterministic, ICU-free; not codepoint order on the astral edge; a localeCompare would
-   be ICU-dependent — D19): name, status, description (lang), links, evidence (verified claims).
+   be ICU-dependent — D19; since #305 the comparison lives in ONE place, core's `byteOrder`, which every engine
+   text sort delegates to): name, status, description (lang), links, evidence (verified claims).
 4. **Publications** (citable): title, venue, year, DOI link. DOI-only entries (the GEO anchor).
-5. **Skills** (ordered by weight): `name` + keywords, from the SSOT. No invented prose.
+5. **Skills** (ordered by weight; the name tie closes in core's `byteOrder` UTF-16 code-unit order, #305):
+   `name` + keywords, from the SSOT. No invented prose.
 6. **Links**: `identity.email` first (a contact fact leads, channels follow — `- [Email](mailto:…)`),
    then **every** `identity.links` entry as the visible link list (humans want all channels), then
    the JSON-LD `Person` assembled by core (v1.6/§15.4: `@id` from the `role: identity` link,
@@ -627,7 +629,9 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
   Absent `role` = `realization`, so **no workspace needs
   editing** to keep validating (dev-methodology §3: additive). **It is NOT output-neutral**, and
   the honest accounting is three declared changes: (a) the `github-readme` JSON-LD gains
-  `jobTitle`/`worksFor`, which the renderer never emitted although `geoCheck` computed them;
+  `jobTitle`/`worksFor`, which the renderer never emitted although `geoCheck` computed them
+  (the most-recent role: `start` descending in core's `byteOrder` order — dates are digits, so
+  it is also locale-stable; #305);
   (b) both renderers' `sameAs` now excludes `role: identity`/`role: aggregator` links, and the
   shared `sameAs` builder adds claimed `socialHandles[].url` (a growth for person workspaces that
   declare handles); (c) `geoCheck` adds `geo/entity-id`, so a workspace declaring no
@@ -1370,6 +1374,9 @@ surface**, three orthogonal axes, each with one owner:
 ```
 <surface>: <in-sync|stale|never> · artifact: <matches-SSOT|diverges|absent> · limits: <ok|over(cap)> · units: <n> recorded
 ```
+
+Unit rows read in staleness order — `stale` · `never` · `in-sync` — and the key tie closes in
+core's `byteOrder` UTF-16 code-unit order (issue #305): the home every engine text sort delegates to (D19).
 
 The trailing `units` count is the coverage behind `sync` — the human line must not overstate
 it either, so it says how many units are recorded on that surface rather than letting one
