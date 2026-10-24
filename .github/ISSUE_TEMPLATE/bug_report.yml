@@ -15,9 +15,9 @@ body:
     validations:
       required: true
   - type: textarea
-    id: steps
+    id: repro
     attributes:
-      label: Steps to reproduce
+      label: Repro steps
       description: Minimal commands or fixture. If it involves a profile, paste (or redact) the data.
       placeholder: |
         1. pnpm test --filter @profile-as-code/core
@@ -37,6 +37,19 @@ body:
       description: Include error output / stack trace.
     validations:
       required: true
+  - type: textarea
+    id: suspected-files
+    attributes:
+      label: Suspected files
+      description: Paths/globs you believe the bug lives in. Write `none` when there is no suspect yet.
+      placeholder: |
+        - packages/core/src/…
+  - type: textarea
+    id: adr-lite
+    attributes:
+      label: ADR-lite
+      description: One-line design decision — what you chose, what you rejected and why. Write `n/a` when there is none.
+      placeholder: "n/a — no design decision"
   - type: dropdown
     id: area
     attributes:
