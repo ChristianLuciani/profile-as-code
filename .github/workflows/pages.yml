@@ -9,6 +9,16 @@ name: pages
 # override: the operator decides to publish (say) a typo fix without cutting a
 # release, and the run records that decision.
 #
+# DEPLOY GATE (measured 2026-10-24, issue #307): the `github-pages` environment's
+# protection rules do not admit tag-origin runs — the release workflow's tag-run call
+# failed exactly there on v0.3.5 (`Tag "v0.3.5" is not allowed to deploy to github-pages
+# due to environment protection rules`; the publish/Release legs of that run succeeded).
+# Until the operator decides (#307 docket — option (c), "the environment opens", is the fix),
+# the page ships via this workflow's own dispatch:
+#   gh workflow run pages.yml --ref main -f ref=<commit> -f release=<tag>
+# (the v0.3.5 recovery: run 40061075031, success; without `release` the footer line is
+# omitted — `gen.mjs` renders it only with the label, measured twice).
+#
 # The page is static and script-free; its documentation pages are projected from
 # the Markdown at the deployed commit (`scripts/site-docs/gen.mjs`) into the
 # gitignored `site/docs/`, so the repository keeps ONE copy of every document.
