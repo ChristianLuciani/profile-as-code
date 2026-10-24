@@ -9,6 +9,15 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Planned (roadmap)
+
+- Renderers: linkedin, upwork, x, researchgate, substack (M4)
+- CLI `pasco`: the full `refine` flow (M3); the `edit` epic (#247, slices S1–S5)
+- Per-platform skills v1 from SOTA research (M3)
+- Web renderer (M5)
+
+## [0.3.5] - 2026-10-24
+
 ### Added
 
 - **`docs/START-HERE.md` — the map each reader was missing (#260)** — the dogfood run
@@ -41,13 +50,6 @@ minor versions may contain breaking contract changes.
   package root, so `pasco refine` prints a real `SKILL.md` path on an npm install instead
   of the repo-dev layout a user does not have. The output now distinguishes *no skill for
   `<platform>`* from *skills not shipped with this package*; `post` reads the same tree.
-
-### Planned (roadmap)
-
-- Renderers: `github-readme` (dogfood), linkedin, upwork, x, researchgate, substack (M2/M4)
-- CLI `pasco`: build · validate · diff · check · refine (M1/M3); `skills:export` shipped with the package (#253/#254)
-- Per-platform skills v1 from SOTA research (M3)
-- `profile-data` template repo + web renderer (M5)
 
 ### Changed
 
