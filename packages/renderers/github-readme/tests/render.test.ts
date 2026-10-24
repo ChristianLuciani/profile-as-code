@@ -944,8 +944,7 @@ describe("renderer github-readme — featured ordering is status-led (issue #257
     const { slice, cleanup } = sliceFrom({
       "identity.yaml": "name: Elena Vasquez\n",
       "skills.yaml": "- name: X\n",
-      "projects.yaml":
-        '- name: "apple"\n  status: active\n- name: "APPLE"\n  status: active\n',
+      "projects.yaml": '- name: "apple"\n  status: active\n- name: "APPLE"\n  status: active\n',
     });
     try {
       expect(orderOf(slice)).toEqual(["APPLE", "apple"]);
