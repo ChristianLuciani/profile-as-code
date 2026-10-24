@@ -1,6 +1,9 @@
 {
   "name": "@profile-as-code/markdown",
-  "private": true,
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "version": "0.1.0",
   "description": "Markdown-safety helpers shared by markdown-emitting renderers: CommonMark-safe destinations (`mdHref`) and link text (`mdText`). SPEC §15.2.",
   "type": "module",

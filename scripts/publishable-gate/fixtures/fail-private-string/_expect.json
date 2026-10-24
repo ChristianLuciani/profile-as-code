@@ -1,4 +1,6 @@
 {
+  "publishable": ["packages/cli"],
   "status": "fail",
+  "note": "the private-as-string shape fails under an explicitly declared publishable set that excludes the violator (the DEFAULT allowlist grew with #259, so this default-path private-field fixture re-aims at the allowlist seam)",
   "marker": "\u0027packages/core\u0027 (@fixture/core) does not declare \"private\": true (found: \"true\")"
 }
