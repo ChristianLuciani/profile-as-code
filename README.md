@@ -182,7 +182,8 @@ cuenta ni repo.
 
 ## Sponsor this project
 
-Si el proyecto te resulta útil, podés [patrocinarlo desde GitHub Sponsors](https://github.com/sponsors/ChristianLuciani).
+Si el proyecto te resulta útil, podés [patrocinarlo desde GitHub Sponsors](https://github.com/sponsors/ChristianLuciani),
+dejar un tip en [Ko-fi](https://ko-fi.com/christianluciani) o apoyar en [Patreon](https://www.patreon.com/cluciani).
 El patrocinio financia el trabajo sobre el **engine** (`packages/core`) y la **CLI `pasco`** (`packages/cli`):
 el contrato de `docs/SPEC.md`, los renderers y las skills por plataforma. Qué **no** compra: no hay SLA
 ni soporte prioritario, y no da influencia sobre el roadmap — las decisiones se discuten a la vista en

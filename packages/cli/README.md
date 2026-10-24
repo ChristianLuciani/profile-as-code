@@ -198,3 +198,17 @@ pnpm -r build                                # strict TS, all packages
 
 Tests execute the **built binary** against the core fixtures (reused, not
 duplicated) plus a minimal invalid fixture — no mocks, real exit codes.
+
+## Support
+
+`pasco` is free (MIT). Consider a tip ;) — one line in `--help`, no post-install
+script, no nag on every command:
+
+- [Ko-fi](https://ko-fi.com/christianluciani)
+- [Patreon](https://www.patreon.com/cluciani)
+- [GitHub Sponsors](https://github.com/sponsors/ChristianLuciani)
+
+A tip funds the engine (`packages/core`) and this CLI — the schema contract
+(`docs/SPEC.md`), the renderers and the platform skills. It buys **no** SLA, no
+priority handling, and no influence over the roadmap: a proposal is weighed on
+its merits, in public. The code stays MIT — it is yours whether you tip or not.

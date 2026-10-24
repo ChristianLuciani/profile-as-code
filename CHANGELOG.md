@@ -9,6 +9,15 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Added
+
+- **Funding rails — the project is now easy to fund** — `funding` field in the CLI
+  manifest (GitHub Sponsors · Ko-fi · Patreon; `npm fund` and the npmjs.com package
+  page surface it natively from the next release), a `--help` footer tip line, a
+  Support section on the package README, and the `ko_fi:`/`patreon:` rails in
+  `.github/FUNDING.yml`. Deliberately not: no post-install script, no donation nag
+  on every command — the ask lives in `--help` and the READMEs only.
+
 ### Planned (roadmap)
 
 - Renderers: linkedin, upwork, x, researchgate, substack (M4)
