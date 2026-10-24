@@ -171,15 +171,13 @@ function projectWeight(p: Project, skills: readonly Skill[]): number {
 
 /**
  * Status rank of the featured ordering (SPEC §15.3 — decision recorded on
- * profile-as-code #257, 2026-10-21, `main@647c510`): the rank — `active` >
- * `maintained` > `experimental` > `planning` > `archived` — comes from the
- * schema's `status` vocabulary; the RANK order, not the enum's list order, is
- * the contract. Absent status ranks last on purpose: an un-graded project
- * cannot outrank a graded one (measured 2026-10-24 on the dogfood corpus —
- * `profile-data@d9d2278`: 10/10 projects carry status, so the absent case is
- * the contract-declared branch, not corpus-tuned). Deterministic: rank asc,
- * weight desc, name asc in UTF-16 code-unit order (never the system locale —
- * D19; the byteOrder doc names the discrimination case).
+ * profile-as-code #257, 2026-10-21, `main@647c510`): `active` > `maintained` >
+ * `experimental` > `planning` > `archived` — the schema's `status` vocabulary,
+ * the RANK order (not the enum's list order) is the contract. Absent status
+ * ranks last: an un-graded project cannot outrank a graded one (measured
+ * 2026-10-24 on `profile-data@d9d2278`: 10/10 carry status, none archived —
+ * the absent branch is contract-declared, not corpus-tuned). Rank asc,
+ * weight desc, name in UTF-16 code-unit order — D19.
  */
 const STATUS_RANK: Record<string, number> = {
   active: 0,
@@ -195,13 +193,11 @@ function statusRank(status: Project["status"]): number {
 
 /**
  * Environment-independent name compare for the featured tiebreak (D19
- * byte-parity). It compares UTF-16 code UNITS (`a < b` — JS native string
- * order, identical on every environment; ICU-free). It is NOT codepoint order
- * on the astral edge — the SPEC §15.3 names the comparison exactly; a
- * `localeCompare` would depend on the ICU build (its result can flip across
- * environments, and a tie reported as `0` would leak slice order through a
- * stable sort). Measured pair that discriminates the two: `APPLE` vs `apple`
- * (ICU's collation puts the lowercase first; code-units put `A`/0x41 first).
+ * byte-parity): UTF-16 code UNITS (`a < b` — JS native string order,
+ * deterministic on every environment, ICU-free; NOT codepoint order on the
+ * astral edge — the SPEC §15.3 names the comparison exactly). A `localeCompare`
+ * here would depend on the ICU build and can tie (`0`), leaking slice order
+ * through the stable sort. The discriminating probe lives in the test.
  */
 function byteOrder(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;

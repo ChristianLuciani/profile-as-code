@@ -938,10 +938,9 @@ describe("renderer github-readme — featured ordering is status-led (issue #257
   });
 
   it("the tiebreak is the UTF-16 code-unit order, never the system collation (D19)", () => {
-    // Measured pair that DISCRIMINATES the two orders (2026-10-24, node 22's
-    // ICU): 'apple'.localeCompare('APPLE') === -1 (the collation sorts the
-    // lowercase first) while the code-unit order sorts 'A' (0x41) first.
-    // Reverting the tiebreak to localeCompare would flip this assertion.
+    // Measured probe (2026-10-24, node 22 ICU): 'apple'.localeCompare('APPLE')
+    // === -1, while the code-unit order sorts 'A' (0x41) first — reverting the
+    // tiebreak to localeCompare flips this assertion.
     const { slice, cleanup } = sliceFrom({
       "identity.yaml": "name: Elena Vasquez\n",
       "skills.yaml": "- name: X\n",

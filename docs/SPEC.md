@@ -581,13 +581,12 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
 2. **Statement**: `positioning.statement` (lang) — the one-line root.
 3. **Featured projects** (top 6 — issue #257 reconciled the slice: the renderer cuts at 6, all if fewer;
    status-led — decision recorded 2026-10-21, `main@647c510`; measured on the dogfood corpus
-   `profile-data@d9d2278` (2026-10-24): 10/10 projects carry `status` and the corpus has no `archived`, so the
-   rank's tail is contract-declared and test-covered): the `status` RANK leads — `active` > `maintained` >
-   `experimental` > `planning` > `archived`, absent status ranks last (an un-graded project cannot outrank a
-   graded one); `skills[].platformWeights[github-readme]` weight is the tiebreak; the name closes in UTF-16
-   code-UNIT order (JS `a < b` — deterministic and ICU-free on every environment; it is NOT codepoint order
-   on the astral edge — the comparison is named exactly; ICU-dependent `localeCompare` can flip across
-   environments — D19 byte-parity): name, status, description (lang), links, evidence (verified claims).
+   `profile-data@d9d2278` (2026-10-24): 10/10 carry `status`, none `archived` — the rank's tail is
+   contract-declared and test-covered): the `status` RANK leads (`active` > `maintained` > `experimental` >
+   `planning` > `archived`; absent ranks last — an un-graded project cannot outrank a graded one), the
+   `skills[].platformWeights[github-readme]` weight is the tiebreak, the name closes in UTF-16 code-UNIT
+   order (JS `a < b` — deterministic, ICU-free; not codepoint order on the astral edge; a localeCompare would
+   be ICU-dependent — D19): name, status, description (lang), links, evidence (verified claims).
 4. **Publications** (citable): title, venue, year, DOI link. DOI-only entries (the GEO anchor).
 5. **Skills** (ordered by weight): `name` + keywords, from the SSOT. No invented prose.
 6. **Links**: `identity.email` first (a contact fact leads, channels follow — `- [Email](mailto:…)`),
