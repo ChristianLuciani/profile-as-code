@@ -178,7 +178,8 @@ function projectWeight(p: Project, skills: readonly Skill[]): number {
  * cannot outrank a graded one (measured 2026-10-24 on the dogfood corpus —
  * `profile-data@d9d2278`: 10/10 projects carry status, so the absent case is
  * the contract-declared branch, not corpus-tuned). Deterministic: rank asc,
- * weight desc, name asc by CODEPOINT (never the system locale — D19).
+ * weight desc, name asc in UTF-16 code-unit order (never the system locale —
+ * D19; the byteOrder doc names the discrimination case).
  */
 const STATUS_RANK: Record<string, number> = {
   active: 0,
@@ -193,10 +194,14 @@ function statusRank(status: Project["status"]): number {
 }
 
 /**
- * Byte-wise name compare for the featured tiebreak (D19 byte-parity):
- * `localeCompare` depends on the ICU build — its result can flip across
- * environments, and a tie it reports as `0` would leak slice order through a
- * stable sort. Codepoint comparison is environment-independent.
+ * Environment-independent name compare for the featured tiebreak (D19
+ * byte-parity). It compares UTF-16 code UNITS (`a < b` — JS native string
+ * order, identical on every environment; ICU-free). It is NOT codepoint order
+ * on the astral edge — the SPEC §15.3 names the comparison exactly; a
+ * `localeCompare` would depend on the ICU build (its result can flip across
+ * environments, and a tie reported as `0` would leak slice order through a
+ * stable sort). Measured pair that discriminates the two: `APPLE` vs `apple`
+ * (ICU's collation puts the lowercase first; code-units put `A`/0x41 first).
  */
 function byteOrder(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
@@ -241,8 +246,9 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   if (p.statement !== undefined) out.push("", `**${p.statement}**`);
 
   // 3. Featured projects — top 6 (§15.3), all if fewer: status-led since #257
-  //    (the rank leads, the weight is the tiebreak, the name closes codepoint-
-  //    wise — D19 byte-parity; localeCompare is ICU-dependent, never here).
+  //    (the rank leads, the weight is the tiebreak, the name closes in UTF-16
+  //    code-unit order — D19 byte-parity; localeCompare is ICU-dependent,
+  //    never here).
   const projects = [...p.projects].sort(
     (a, b) =>
       statusRank(a.status) - statusRank(b.status) ||
