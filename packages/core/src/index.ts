@@ -5,6 +5,10 @@
  * from it (packages/core/scripts/gen-zod.ts) and committed.
  */
 
+/** The ONE home of every text-order comparison (D19 byte-parity, #305) —
+ *  UTF-16 code units, ICU-free; every engine sort that breaks ties by string
+ *  delegates here. */
+export { byteOrder } from "./byte-order.js";
 export type { CompilePolicy } from "./compile.js";
 export { compile } from "./compile.js";
 export type {

@@ -14,6 +14,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { byteOrder } from "@profile-as-code/core";
 import { describe, expect, it } from "vitest";
 import { describeArtifactConformance } from "../src/conformance.js";
 import { createArtifactExtractor, isArtifactExtractor, projectArtifact } from "../src/index.js";
@@ -93,7 +94,7 @@ describe("packages/artifact — the canonical projection (#216)", () => {
         .map((s) => [s, slugs.find((other) => other.startsWith(`${s}-`)) as string] as const)
         // Sorted by the shorter slug, so the expectation does not depend on the
         // enum's declaration order.
-        .sort(([a], [b]) => a.localeCompare(b));
+        .sort(([a], [b]) => byteOrder(a, b));
       // The property is only meaningful while the contract HAS such pairs; if the
       // enum stops having any, this test must say so instead of passing vacuously.
       expect(pairs.map(([short, long]) => `${short}→${long}`)).toEqual([
