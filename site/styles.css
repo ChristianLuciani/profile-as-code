@@ -170,6 +170,9 @@ code {
 }
 
 .site-nav .nav-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   color: var(--ink);
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -571,6 +574,9 @@ h3 {
 }
 
 .doc-links span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-weight: 680;
 }
 
@@ -606,6 +612,20 @@ h3 {
 
 .footer-meta a {
   font-weight: 600;
+}
+
+/* The vendored decorative marks (icon-github sprite in every page body). */
+.icon {
+  width: 0.95em;
+  height: 0.95em;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+/* The footer-meta row is plain inline text: the icon there aligns to it. */
+.footer-meta .icon {
+  vertical-align: -0.12em;
+  margin-right: 4px;
 }
 
 @media (max-width: 900px) {
