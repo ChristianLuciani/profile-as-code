@@ -25,6 +25,7 @@
  * Classification + provenance: `identeco-cifereca/glossary/naming.md`.
  */
 
+import { byteOrder } from "./byte-order.js";
 import { credentialLdEntries } from "./registry.js";
 import type {
   EducationalOccupationalCredentialLd,
@@ -110,8 +111,10 @@ export function sameAsUrls(profile: Profile): string[] {
 /** The most recent role — the one a schema.org Person would call jobTitle/worksFor. */
 function currentRole(profile: Profile): { jobTitle?: string; worksFor?: string } {
   const items = [...(profile.experience ?? [])];
+  // Most recent first; the tie order is byte-order, not ICU (D19, #305) —
+  // dates are digits, so the visible order is also locale-stable.
   const byStart = (a: (typeof items)[number], b: (typeof items)[number]) =>
-    b.start.localeCompare(a.start);
+    byteOrder(b.start, a.start);
   const current = items.filter((item) => item.end === "present").sort(byStart)[0];
   const latest = items.sort(byStart)[0];
   const pick = current ?? latest;

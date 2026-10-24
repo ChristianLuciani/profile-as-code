@@ -1,6 +1,6 @@
 # `@profile-as-code/github`
 
-The **shared GitHub owner resolution** of [SPEC §19.5](../../docs/SPEC.md) (issue
+The **shared GitHub owner resolution** of [SPEC §19.5](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md) (issue
 #224, the residual #216 declared; the route grammar of #227): the one place a
 workspace candidate — a URL or a declared handle — becomes a GitHub owner, or is
 refused. A renderer support package, the `packages/paste` / `packages/artifact`
@@ -236,6 +236,6 @@ Widening this to the name list is its own decision, with its own source.
 ## Dependencies
 
 `@profile-as-code/core` for the `Profile` type only. `vitest` is an optional peer,
-needed only by `./conformance`.
+needed only by `./conformance`. Node ≥ 22 (the `engines` field of this manifest).
 
-See [SPEC §19.5](../../docs/SPEC.md) · [repository README](../../README.md).
+See [SPEC §19.5](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md) · [repository README](https://github.com/ChristianLuciani/profile-as-code/blob/main/README.md).

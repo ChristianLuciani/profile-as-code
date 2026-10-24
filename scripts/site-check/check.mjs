@@ -32,11 +32,19 @@ const ROOT = path.resolve(HERE, "..", "..");
 const SITE_DIR = path.join(ROOT, "site");
 const PAGE = path.join(SITE_DIR, "index.html");
 
-/** Every `.html` file under `site/`, relative to it, in a stable order. */
+/** Every `.html` file under `site/`, relative to it, in a stable order.
+ *
+ * The order is byte-order, not ICU (issue #305, D19 byte-parity): the gate's
+ * report order may not depend on the runner's ICU build. Scripts are
+ * dependency-free `.mjs` (dep-gate style), so this is the two-line mirror of
+ * the ONE home — `packages/core/src/byte-order.ts` — not a second source: its
+ * semantics is pinned by core's own probe, and a runner-visible difference
+ * would show as a red gate diff, not a silent reorder.
+ */
 function pages(dir) {
   const out = [];
   for (const entry of readdirSync(dir, { withFileTypes: true }).sort((a, b) =>
-    a.name.localeCompare(b.name),
+    a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
   )) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) out.push(...pages(full));

@@ -17,7 +17,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { deployStatus, load } from "@profile-as-code/core";
+import { byteOrder, deployStatus, load } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
 import { publicationTruth } from "../src/publication.js";
 
@@ -85,7 +85,7 @@ function hashTree(dir: string): string {
   const hash = createHash("sha256");
   const walk = (current: string): void => {
     for (const entry of readdirSync(current, { withFileTypes: true }).sort((a, b) =>
-      a.name.localeCompare(b.name),
+      byteOrder(a.name, b.name),
     )) {
       const path = join(current, entry.name);
       if (entry.isDirectory()) walk(path);

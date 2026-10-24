@@ -30,6 +30,7 @@ import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   attestedRecord,
+  byteOrder,
   type CompletenessReport,
   completeness,
   completenessLine,
@@ -644,9 +645,11 @@ export async function runStatus(args: StatusArgs): Promise<number> {
   section(
     `deploy status — ${s.total} units · ${s.stale} stale · ${s.never} never · ${s.inSync} in-sync${args.platformArg !== undefined ? ` (surface: ${args.platformArg})` : ""}`,
   );
+  // Units lead by staleness rank; the key tie closes in byte order, not ICU
+  // (D19 byte-parity — the core `byteOrder` home, issue #305).
   const ordered = [...filtered.units].sort((a, b) => {
     const rank = { stale: 0, never: 1, "in-sync": 2 } as const;
-    return rank[a.state] - rank[b.state] || a.key.localeCompare(b.key);
+    return rank[a.state] - rank[b.state] || byteOrder(a.key, b.key);
   });
   for (const u of ordered) {
     const surfaces = formatSurfacePairs(u.surfaces, u.certification);
