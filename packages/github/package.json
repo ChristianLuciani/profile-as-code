@@ -1,6 +1,9 @@
 {
   "name": "@profile-as-code/github",
-  "private": true,
+  "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "version": "0.1.0",
   "description": "The shared GitHub surface knowledge of SPEC §19.5 — the ONE home of the owner resolution every GitHub adapter delegates to, plus its conformance body (issue #224, residual of #216; D5).",
   "type": "module",
