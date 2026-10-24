@@ -137,7 +137,9 @@ The era-while-private workarounds (this repo, until the flip — measured public
 - **Dependabot:** alerts and version updates for private repos are limited on Free (version updates
   effectively require public or Pro). While private, dependency bumps got the manual weekly review;
   the flip unblocks it (`.github/dependabot.yml` present, verified 2026-10-24).
-- **Actions:** 2,000 minutes/month on private free repos — ample for this CI (~1 min/run).
+- **Actions:** 2,000 minutes/month on private free repos — ample for this CI (~1 min/run); the flip
+  makes usage **free** for standard GitHub-hosted runners (public repositories — GitHub Docs, fetched
+  2026-10-24, [OFICIAL]).
 
 ## Applying this policy to new projects
 
