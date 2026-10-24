@@ -1,10 +1,11 @@
 # Repo configuration — branch protection, CI/CD (free plan)
 
-> How this repository is protected and automated. Status: **private** (per `docs/STANDARDS.md`).
-> **Free-plan reality:** branch protection and rulesets are ONLY available on public repos (or
-> GitHub Pro). While this repo is private, protection is enforced by **process**: access control +
-> PR-only flow + maintainer-only merges. The API calls below are the **public-ready step** —
-> re-apply them the moment the repo goes public.
+> How this repository is protected and automated. Status: **public** (measured 2026-10-24:
+> `gh repo view … --json visibility` → `PUBLIC`; #293). **Free-plan reality:** branch protection
+> and rulesets are ONLY available on public repos (or GitHub Pro). While the repo was private,
+> protection was enforced by **process**. Measured 2026-10-24: `main` protection active (required
+> checks `ci` + `sign-off`, strict, enforce-admins, conversation resolution) and ruleset
+> `main-basic` registered (2026-08-18) with enforcement **disabled**.
 
 ## Branch protection — `main`
 
@@ -372,12 +373,13 @@ only records why the auth layer behaves the way it does.
   exchange **succeeded**, the **source repo is public**, and the **package is public**
   ([WEB] docs.npmjs.com/trusted-publishers, "Automatic provenance generation"; the code reads
   `repository_visibility` from the OIDC token and re-queries the package's visibility via
-  `libaccess.getVisibility`). **The first condition now holds and the second still does not**:
+  `libaccess.getVisibility`). **At the 0.3.0 publish only the first condition held** (the flip
+  #293, 2026-10-24, clears the rest for future publishes):
   the 0.3.0 publish ran on a successful OIDC exchange, but the source repo is private, so
   `dist.attestations` is **absent** from the published manifest ([OFICIAL] registry
   `@profile-as-code/cli@0.3.0`, re-checked 2026-10-12). This is a documented limitation of the
   private repo — **not a pending task of this migration**, and not something a workflow change
-  can fix. It clears at the visibility flip.
+  can fix. The flip (2026-10-24, #293) clears it for the **next** publish; versions to date stay un-attested.
 
 - **`repository.url` must match the GitHub repo.** npm validates
   `packages/cli/package.json` → `repository.url` against the repository the workflow runs in
