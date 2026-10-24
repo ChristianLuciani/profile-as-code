@@ -586,8 +586,9 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
    `planning` > `archived`; absent ranks last — an un-graded project cannot outrank a graded one), the
    `skills[].platformWeights[github-readme]` weight is the tiebreak, the name closes in UTF-16 code-UNIT
    order (JS `a < b` — deterministic, ICU-free; not codepoint order on the astral edge; a localeCompare would
-   be ICU-dependent — D19; since #305 the comparison lives in ONE place, core's `byteOrder`, which every engine
-   text sort delegates to): name, status, description (lang), links, evidence (verified claims).
+   be ICU-dependent — D19; since #305 the name-tied comparisons live in ONE home, core's `byteOrder`
+   (every sort the engine writes with a comparator delegates there; the remaining sorts are JS's default,
+   already UTF-16 code-unit order by the language): name, status, description (lang), links, evidence (verified claims).
 4. **Publications** (citable): title, venue, year, DOI link. DOI-only entries (the GEO anchor).
 5. **Skills** (ordered by weight; the name tie closes in core's `byteOrder` UTF-16 code-unit order, #305):
    `name` + keywords, from the SSOT. No invented prose.
@@ -1376,7 +1377,8 @@ surface**, three orthogonal axes, each with one owner:
 ```
 
 Unit rows read in staleness order — `stale` · `never` · `in-sync` — and the key tie closes in
-core's `byteOrder` UTF-16 code-unit order (issue #305): the home every engine text sort delegates to (D19).
+core's `byteOrder` UTF-16 code-unit order (issue #305): the home the engine's name-tied sorts delegate to,
+with every other sort staying at JS default — code-unit order by the language itself (D19).
 
 The trailing `units` count is the coverage behind `sync` — the human line must not overstate
 it either, so it says how many units are recorded on that surface rather than letting one
