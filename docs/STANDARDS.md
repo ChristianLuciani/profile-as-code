@@ -49,17 +49,17 @@ before it is presented publicly — the first real end-to-end test is a hard req
 | 5 | No placeholders in critical paths | ✅ | no TODO/FIXME in `packages/*/src` (grep 2026-09-28); renderers + CLI built — the command inventory is a **reading of one run**, not a typed list (#226/#228): `node packages/cli/dist/index.js --help` at `dc4b87c` (2026-10-21) → **9 commands** (init, validate, build, diff, refine, check, post, status, `skills:export`); limitations tracked as issues <!-- evidence: cli as_of=dc4b87c kind=current --> |
 | 6 | Security baseline | ✅ | `SECURITY.md` present; full-history secret scan **clean** — gitleaks 8.30.1, 133/133 commits of `git rev-list --all` (incl. merge diffs via `--diff-merges=first-parent`, remote-only dependabot ref via stdin scan) + working tree, **0 findings** (2026-09-14, #56); Dependabot esbuild security alert resolved — merged #65 (f630cab, 2026-09-14), alert #1 auto-resolved `fixed` |
 | 7 | Governance in place | ✅ | LICENSE (MIT), CODE_OF_CONDUCT, CONTRIBUTING, GOVERNANCE — D-refs swept to **D1–D18** across all prose surfaces (CONTRIBUTING, GOVERNANCE, AGENTS.md ×2, PR template, build doc, USER-GUIDE, README ×2); the CHANGELOG's dated release note stays as history |
-| 8 | Maintainer sign-off | ❌ | operator-only decision; requires item 1 done (item 3 resolved 2026-10-11 by `v0.3.0` — tag + npm publish; 4 and 6 are resolved) |
+| 8 | Maintainer sign-off | ✅ | the sign-off is the flip itself: the operator flipped visibility (measured 2026-10-24: `gh repo view … --json visibility` → `PUBLIC`; #293/#299); item 3 was done (v0.3.0, 2026-10-11; items 4 and 6 resolved) |
 
 **To go public:** the tag/publish is **done** (item 3 — `v0.3.0` tagged + published 2026-10-11;
 the OIDC migration is **complete and validated**, `docs/ci-cd.md` §npm publish auth).
-What remains: dogfood re-run on HEAD recorded at `30555c1` (item 1 —
-2026-10-19; artifact refresh in `profile-data` + platform deploy remain the operator's human-gated
-loop), maintainer sign-off (item 8), flip visibility, **immediately re-apply branch protection**
-(`docs/ci-cd.md` has the exact calls — protection exists only once the repo is public on GitHub
-Free), **then enable Pages once and publish the project page** (community item 11 — the Pages
-workflow is gated on a public repo; items 6/10 may carry tracked issues only if they don't
-contradict the flip).
+Executed, all measured 2026-10-24: maintainer sign-off (item 8 — the flip itself), the visibility
+flip, **branch protection on `main`** (active: required checks `ci` + `sign-off`, strict, enforce-admins,
+conversation resolution; ruleset `main-basic` registered 2026-08-18, enforcement disabled — the
+measured state, not its application date), and **Pages enabled + live** (first build 2026-10-19; item 11).
+Still open: the human-gated dogfood deploy loop (item 1: artifact refresh + platform deploy) and the
+page's deploy-source reconciliation (row 11's residual — the live page serves a `main` override, not the
+released-commit path). Items 6/10 may carry tracked issues that do not contradict the flip.
 
 **Order ratified 2026-10-03 (#123), with an accepted cost.** The sequence above is deliberate and
 is not to be reordered. The published versions carry **no provenance attestation**, and the reason
@@ -126,14 +126,17 @@ cross-link resolves to a public target.
 Branch protection and rulesets are **not available on private repositories** with GitHub Free
 (the API returns 403 — they require GitHub Pro or a public repo). Verified empirically.
 
-Workarounds while private:
+The era-while-private workarounds (this repo, until the flip — measured public 2026-10-24, #293):
 
-- **Protection by access + process:** the repo is private (access is limited to the maintainer and
-  their agents) and every change goes through a PR that **only the maintainer merges**.
-- **The moment the repo goes public**, re-apply branch protection — `docs/ci-cd.md` has the exact
-  API calls. Re-applying protection is part of the public-ready step, not a precondition for it.
+- **Protection by access + process:** access was limited to the maintainer and their agents; every
+  change went through a PR only the maintainer merges.
+- **At the flip** the API protection returned — measured 2026-10-24: `main` carries classic branch
+  protection (required checks `ci` + `sign-off`, strict; enforce-admins; conversation resolution) plus
+  ruleset `main-basic` (registered 2026-08-18, enforcement **disabled**); `docs/ci-cd.md` keeps the
+  API calls and the measured state.
 - **Dependabot:** alerts and version updates for private repos are limited on Free (version updates
-  effectively require public or Pro). While private, treat dependency bumps as a manual weekly review.
+  effectively require public or Pro). While private, dependency bumps got the manual weekly review;
+  the flip unblocks it (`.github/dependabot.yml` present, verified 2026-10-24).
 - **Actions:** 2,000 minutes/month on private free repos — ample for this CI (~1 min/run).
 
 ## Applying this policy to new projects
