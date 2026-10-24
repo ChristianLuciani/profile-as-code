@@ -261,8 +261,11 @@ if (langMapListCount === 0) {
 // same langMapKeys guard (key enum + EN-required object shape + value caps).
 // The count comes from the schema walk (cappedShapes), never from prose.
 const cappedGuarded = (() => {
+  // F2 del pase fresco (#317): the modifier groups are REQUIRED (≥1 of min|max)
+  // — an all-optional regex also matched the BARE langMap expression and wrapped
+  // every occurrence twice (`langMapKeys(langMapKeys(...))`, 0→21 over-matched).
   const cappedExprRx =
-    /z\.object\(\{ "en": (z\.string(?:\(\))?(?:\.min\(\d+\))?(?:\.max\(\d+\))?) \}\)\.catchall\(\1\)/g;
+    /z\.object\(\{ "en": (z\.string(?:\(\))?(?:\.min\(\d+\)|\.max\(\d+\)){1,2}(?:\.max\(\d+\)|\.min\(\d+\))?) \}\)\.catchall\(\1\)/g;
   const found = generated.match(new RegExp(cappedExprRx.source, "g")) ?? [];
   const distinct = [...new Set(found)];
   if (distinct.length < cappedShapes.length) {
@@ -273,6 +276,14 @@ const cappedGuarded = (() => {
   let guarded = generated;
   for (const expr of distinct) {
     guarded = guarded.split(expr).join(`langMapKeys(${expr})`);
+  }
+  // The over-matched double-wrap must be IMPOSSIBLE: the regex above can only
+  // match a value with its own constraint, and the two wrap chains (bare and
+  // capped) wrap mutually exclusive expressions.
+  if (/langMapKeys\(langMapKeys\(/.test(guarded)) {
+    throw new Error(
+      "gen-zod: a langMap occurrence got wrapped twice (over-match between the bare and the capped guard) — no Zod output ships like that",
+    );
   }
   // An unconstrained leftover means a capped shape rendered as a bare z.record
   // and was never guarded en-required (D12 fail class — the JSON Schema keeps it).

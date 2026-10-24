@@ -11,9 +11,9 @@ instalación para arrancar y trae el paquete completo — ejemplo comentado, doc
 licencia y automatización. Requiere cuenta y repo.
 
 **v1.10 (#288):** el esqueleto del template añadirá sus filas de `definition` + `faq`
-(`content/{identity,faq}.yaml`) cuando el template tire de este schema; el motor ya lo
-proyecta (`structuredData()` → `description` + `FAQPage`) y los fixtures del engine lo
-ejercitan.
+(`content/{identity,faq}.yaml`) cuando el template tire de este schema; el motor lo
+proyectará (`structuredData()` → `description` + `FAQPage`) desde el PR que lleva el
+emisor — issue #316 — y los fixtures del engine ya ejercitan el contrato.
 
 ## Los otros dos on-ramps (sin cuenta ni repo)
 
