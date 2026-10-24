@@ -43,6 +43,7 @@ the href addresses the URL on the deploy surface.
 ## Dependencies
 
 None at runtime. Consumed by the Markdown renderers
-(`renderers-github-readme`, `renderers-github-org`).
+(`renderers-github-readme`, `renderers-github-org`). Node ≥ 22 (the `engines`
+field of this manifest).
 
-See [SPEC §15.2](../../docs/SPEC.md) · [repository README](../../README.md).
+See [SPEC §15.2](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md) · [repository README](https://github.com/ChristianLuciani/profile-as-code/blob/main/README.md).
