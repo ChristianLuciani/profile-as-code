@@ -1,35 +1,36 @@
 name: release
 
-# Publishes @profile-as-code/cli to npm and creates the matching GitHub Release from
-# CHANGELOG.md (issues #42/#58). See docs/ci-cd.md §"Releasing — the primary path".
+# Publishes the release cohort to npm — the five seam packages and @profile-as-code/cli —
+# and creates the matching GitHub Release from CHANGELOG.md (issues #42/#58). See
+# docs/ci-cd.md §"Releasing — the primary path" (mechanism reconciled by issue #307).
 #
-# WHICH TRIGGER PUBLISHES: workflow_dispatch from `main`. A `push` of a version tag
-# does NOT publish. The tag run fails at the publish step — v0.3.0 with ENEEDAUTH after
-# the token was deleted — while the dispatch run publishes. (v0.2.0 also failed on its
-# tag run, but with E403 from the granular token's missing 2FA bypass: a different
-# failure class, which cannot recur now the token is gone, so it is NOT evidence about
-# the tag ref.) The tag is the ANNOUNCEMENT and the version marker: it is what makes the
-# version tagged on origin, which release-guard.mjs requires. Not the publish action.
-# (Issue #208. This reverses the pre-0.3.0 model, where pushing the tag WAS publishing.)
+# WHICH TRIGGER PUBLISHES (measured 2026-10-24 on v0.3.5, issue #307): the TAG push. The tag
+# run runs the guard, builds + tests, publishes the cohort + the CLI over OIDC (with
+# attestation — the repo is public since #293), and creates the GitHub Release. Its ONLY
+# failing leg is the pages deploy: the `github-pages` environment's protection rules do not
+# admit tag-origin runs, so the site job fails on a tag run — the page ships via the override
+# dispatch on this workflow's companion (`gh workflow run pages.yml --ref main
+# -f ref=<commit> -f release=<tag>`; the v0.3.5 recovery: run 40061075031, success).
+# A `workflow_dispatch` from `main` after a published tag is the documented benign duplicate:
+# npm answers `409 Cannot publish over …` (v0.3.5: run 40059765655) and the dependent jobs
+# then skip. Until the operator decides the canonical path (the #307 docket: tag-only /
+# dispatch-only / the environment opens), the MECHANISM is untouched: both triggers stay, the
+# guard keeps the tag|publish invariant.
+# (History: v0.2.0's tag run failed E403 — token without 2FA bypass; v0.3.0's failed ENEEDAUTH —
+# the token was deleted and the exchange did not work outside `main`. Issue #208 decided the
+# dispatch-only runbook for that state, 2026-10-12; the flip and the reopened question live in
+# #307.)
 #
-# A tag push is therefore expected to show a RED run, and it creates NO GitHub Release:
-# the `release` job below waits on `needs: publish`, and a job whose `needs` failed is
-# skipped. Both existing Release pages came from the successful dispatch run.
+# Publish auth is trusted publishing (OIDC, issue #80): each publishing client exchanges its
+# own token — pnpm for the seam cohort, the npm CLI for the CLI package ([OFICIAL] both dists
+# inspected 2026-10-24; docs/ci-cd.md §npm publish auth carries the record).
 #
-# Publish auth is trusted publishing (OIDC, issue #80). The npm CLI detects the OIDC
-# environment and uses it BEFORE a traditional token ([WEB]
-# docs.npmjs.com/trusted-publishers, checked 2026-09-19).
+# There is NO token fallback: NPM_TOKEN was deleted in npm and in GitHub; the env line on
+# each publish step resolves to the empty string and can never carry a credential again. Do
+# not re-add the secret (issue #80; the ENEEDAUTH diagnostic stands for any failed exchange).
 #
-# There is NO token fallback any more. The OIDC exchange is written never to throw — a
-# failed exchange returns undefined and leaves whatever token the config had — and that
-# token is now gone: the `NPM_TOKEN` secret was deleted in npm and in GitHub after the
-# v0.3.0 publish ran on OIDC with it already deleted. A failed exchange therefore no
-# longer degrades to a credential; it degrades straight to ENEEDAUTH. That is what the
-# tag run reports, and it is the first thing to diagnose when a publish fails.
-#
-# Provenance is no longer a flag we set: under OIDC npm generates the attestation on
-# its own, and omits it when the SOURCE repo is private (documented limitation, not a
-# failure). See the Publish step and docs/ci-cd.md for the runbook.
+# Provenance: the publishing client decides — it attests under a successful exchange with a
+# public source repo and a public package (the v0.3.5 publish carries `dist.attestations`).
 
 on:
   push:
@@ -221,9 +222,10 @@ jobs:
       # returns undefined and leaves whatever token the config had (lib/utils/oidc.js, npm
       # 11.6.1). That token no longer exists: NPM_TOKEN was deleted in npm and in GitHub
       # after the v0.3.0 publish ran on OIDC. So there is no fallback left — an OIDC
-      # failure now ends in ENEEDAUTH, which is exactly what a tag-triggered run reports
-      # (#208). The env line below is kept but resolves to the empty string; do not
-      # re-add the secret (issue #80; runbook in docs/ci-cd.md).
+      # failure now ends in ENEEDAUTH. (Measured 2026-10-24 on v0.3.5: the tag run exchanges and
+      # publishes now; the mechanism question is #307's. The env line below is kept but
+      # resolves to the empty string; do not re-add the secret — issue #80, runbook in
+      # docs/ci-cd.md.)
       #
       # No --provenance: npm decides. It attests only when the OIDC exchange succeeded, the
       # source repo is public and the package is public — so no attestation was generated
