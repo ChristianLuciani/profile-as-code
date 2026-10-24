@@ -399,7 +399,7 @@ pinned**: the release-prep PR #304 touched no auth surface (`CHANGELOG.md`, `doc
 manifest, `site/index.html` only), so the enabling change lives outside this repo (npm
 trusted-publisher settings / client behavior) — flagged in #307, not guessed here. Whether the
 tag run, the dispatch or an environment change becomes CANONICAL is the operator's decision
-(the [#307 docket](https://github.com/ChristianLuciani/profile-as-code/issues/307): tag-only /
+(the [#307 docket](https://github.com/ChristianLuciani/profile-as-code/issues/307#issuecomment-6385452256): tag-only /
 dispatch-only / the environment opens to tag-origin runs) — `release.yml`'s mechanism is
 untouched until it lands.
 
@@ -586,7 +586,7 @@ model in the same change, comments only.
 cannot authenticate" — `v0.3.5`'s tag run published end to end (the flip's measurements in
 [§the trigger race]). The 2026-10-12 decision (c) remains the dated record of what was decided
 and why; the mechanism question reopens as the
-[#307 docket](https://github.com/ChristianLuciani/profile-as-code/issues/307) (tag-only /
+[#307 docket](https://github.com/ChristianLuciani/profile-as-code/issues/307#issuecomment-6385452256) (tag-only /
 dispatch-only / the environment opens to tag-origin runs) — the workflow's triggers are
 untouched until the operator decides.
 
@@ -611,9 +611,12 @@ know whether it is *complete*, so this preparation is a human step:
    projected into `site/docs/`) and fails when any `@profile-as-code/cli@<version>` disagrees
    with `packages/cli/package.json`. A version stated in another form is not gated: keep it
    canonical.
-4. Commit that preparation to `main`, then `git tag v<version> && git push --tags` — the tag is
-   the version marker; **the publish itself is the dispatch**
-   ([§Releasing — the primary path](#releasing--the-primary-path-issue-208)).
+4. Commit that preparation to `main`, then `git tag v<version> && git push origin v<version>` —
+   the tag push IS the publish (reconciled 2026-10-24; the order of the next steps is
+   [§Releasing — the primary path](#releasing--the-primary-path-issue-208): the tag run
+   publishes and creates the Release, the page follows with its override dispatch, and a
+   `workflow_dispatch` from `main` is only the retry path — run after a published tag, it is
+   the benign `409` duplicate).
 
 Tagging with a stale `[Unreleased]` still produces a page — just one that omits what
 shipped. A mechanical "fail if `[Unreleased]` is non-empty" gate was considered and
