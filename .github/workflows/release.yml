@@ -169,6 +169,53 @@ jobs:
         env:
           SITE_REF: ${{ steps.guard.outputs.commit }}
 
+      # Multi-package publish (issue #301; it executes the decision recorded in
+      # #259, 2026-10-21): the five seam packages publish BEFORE the CLI, in
+      # dependency order — core → markdown → paste → artifact → github → cli —
+      # with `pnpm publish`, which rewrites the runtime `workspace:*` dependency
+      # of `paste` and `github` (verified on this workspace: the published
+      # manifest reads `0.1.0`; `npm publish` does not rewrite it — leaving
+      # `@profile-as-code/core@workspace:*` unresolvable in the package page's
+      # manifest). The first revision of this step packed with pnpm and published
+      # the tarballs with `npm publish`, on this session's belief that this pnpm
+      # lacks the OIDC exchange — its round-1 review (PR #309) refuted that claim
+      # against the pnpm dist itself: pnpm 11.20.0 (the `packageManager` pin)
+      # ships `lib/publish/oidc/{idToken,authToken,provenance}.js` and exchanges
+      # the Actions OIDC token against the registry's trusted-publishing endpoint
+      # (`/-/npm/v1/oidc/token/exchange/package/…`), so `pnpm publish` performs
+      # the exchange of issue #80 and the tarball detour was a needless deviation
+      # from the mechanism the issue declares. Back to the recorded mechanism.
+      #
+      # Independent semver (the policy issue #301 declares — #259's decision
+      # covers publishing the five and left the version policy open): each of the
+      # six packages versions on its own (the seam at 0.1.0; the CLI on its own
+      # 0.3.x line). A package whose version is already live on the registry is
+      # SKIPPED, not re-published (npm cannot republish a version). An `npm view`
+      # failure — a network error, say — reads as not-live, and the republish
+      # attempt of a live version then fails loud (E403) — the backstop is loud,
+      # not silent. The release TAG stays anchored to the CLI package — the
+      # guard's invariant below is unchanged.
+      - name: Publish the seam cohort (pnpm publish, in dependency order)
+        run: |
+          set -euo pipefail
+          ORDER="core markdown paste artifact github"
+          for pkg in $ORDER; do
+            dir="packages/$pkg"
+            name="$(node -p "require('./$dir/package.json').name")"
+            version="$(node -p "require('./$dir/package.json').version")"
+            if npm view "$name@$version" version --silent >/dev/null 2>&1; then
+              echo "skip $name@$version — already live on the registry (independent semver)"
+              continue
+            fi
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              (cd "$dir" && pnpm publish --access public --no-git-checks --dry-run)
+            else
+              (cd "$dir" && pnpm publish --access public --no-git-checks)
+            fi
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       # Auth is OIDC-first: the npm CLI prefers the OIDC environment over
       # NODE_AUTH_TOKEN, and the OIDC path is written to NEVER throw — a failed exchange
       # returns undefined and leaves whatever token the config had (lib/utils/oidc.js, npm
@@ -179,9 +226,10 @@ jobs:
       # re-add the secret (issue #80; runbook in docs/ci-cd.md).
       #
       # No --provenance: npm decides. It attests only when the OIDC exchange succeeded, the
-      # source repo is public and the package is public — so no attestation is generated
-      # while the repo stays private, even though the exchange succeeds (the v0.3.0 case).
-      # See docs/ci-cd.md.
+      # source repo is public and the package is public — so no attestation was generated
+      # while the repo stayed private even though the exchange succeeded (the v0.3.0 case);
+      # the repo is public since 2026-10-23 (issue #293) — the private-source limitation
+      # that suppressed v0.3.0's attestation no longer applies. See docs/ci-cd.md.
       - name: Publish
         run: |
           ARGS="--access public"

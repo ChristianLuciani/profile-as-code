@@ -48,6 +48,6 @@ describe("kofi renderer", () => {
 
 `@profile-as-code/core` (the `PlatformProfile` type and, for the conformance
 harness, `compile`/`load`). `vitest` is an optional peer, needed only by
-`./conformance`.
+`./conformance`. Node ≥ 22 (the `engines` field of this manifest).
 
-See [SPEC §15.1](../../docs/SPEC.md) · [repository README](../../README.md).
+See [SPEC §15.1](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md) · [repository README](https://github.com/ChristianLuciani/profile-as-code/blob/main/README.md).
