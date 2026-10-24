@@ -79,6 +79,8 @@ export type SocialHandle = NonNullable<Profile["socialHandles"]>[number];
 export type Newsletter = NonNullable<Profile["newsletter"]>;
 export type Podcast = NonNullable<Profile["podcast"]>;
 export type PressItem = NonNullable<Profile["press"]>[number];
+/** v1.10 (issue #288): one citable Q&A pair — the answer-engine surface. */
+export type FaqEntry = NonNullable<Profile["faq"]>[number];
 export type BrandVoice = NonNullable<Identity["brandVoice"]>;
 export type ActiveEntry = NonNullable<Profile["active"]>[string];
 
@@ -208,6 +210,20 @@ export interface StructuredDataReadiness {
     /** v1.4 (D17/§18.9): public credentials as EducationalOccupationalCredential
      *  (Person and Organization both carry hasCredential in schema.org). */
     hasCredential?: EducationalOccupationalCredentialLd[];
+  };
+  /** v1.10 (issue #288): the `FAQPage` node — a DIFFERENT schema.org @type than
+   *  the entity, so it is its own field, never folded into `jsonLd`. Emitted ONLY
+   *  when root `faq[]` exists (never an empty FAQPage). No `@id` by design: the
+   *  engine never invents an anchor (the same rule the entity node follows, §15.4),
+   *  and a URL fragment convention is not a declared decision. */
+  faqJsonLd?: {
+    "@context": "https://schema.org";
+    "@type": "FAQPage";
+    mainEntity: Array<{
+      "@type": "Question";
+      name: string;
+      acceptedAnswer: { "@type": "Answer"; text: string };
+    }>;
   };
 }
 
