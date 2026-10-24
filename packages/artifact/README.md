@@ -1,6 +1,6 @@
 # `@profile-as-code/artifact`
 
-The **canonical artifact projection** of [SPEC §19.5](../../docs/SPEC.md) (issue
+The **canonical artifact projection** of [SPEC §19.5](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md) (issue
 #216, follow-up of #212): the bound — *"the engine-owned region opens at the last
 header above its terminus and closes at the last generated footer"* — plus the
 transport normalization (BOM, CRLF/CR). A renderer support package, the
@@ -97,4 +97,4 @@ describe("github-readme artifact capability", () => {
 
 None at runtime. `vitest` is an optional peer, needed only by `./conformance`.
 
-See [SPEC §19.5](../../docs/SPEC.md) · [repository README](../../README.md).
+See [SPEC §19.5](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md) · [repository README](https://github.com/ChristianLuciani/profile-as-code/blob/main/README.md).

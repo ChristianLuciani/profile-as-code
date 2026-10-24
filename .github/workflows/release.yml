@@ -169,6 +169,55 @@ jobs:
         env:
           SITE_REF: ${{ steps.guard.outputs.commit }}
 
+      # Multi-package publish (issue #301; it executes the decision recorded in
+      # #259, 2026-10-21): the five seam packages publish BEFORE the CLI, in
+      # dependency order — core → markdown → paste → artifact → github → cli.
+      # Two facts the mechanics rest on (both read locally, 2026-10-24):
+      #   - `paste` and `github` declare `@profile-as-code/core` as a runtime
+      #     dependency over the `workspace:*` protocol, and `npm publish` does not
+      #     rewrite it — the published manifest would carry an unresolvable
+      #     dependency. `pnpm pack` does rewrite it (verified here: the packed
+      #     `packages/paste` manifest reads `0.1.0`). So the cohort is PACKED with
+      #     pnpm and PUBLISHED with the npm CLI: this pnpm (11.20.0, the
+      #     `packageManager` pin) does not implement the OIDC exchange (no OIDC or
+      #     trusted-publishing code in its dist), and the exchange IS the auth
+      #     story of this workflow (#80). npm publishes the rewritten tarball with
+      #     the same OIDC-first env as the CLI step below.
+      #   - Independent semver: each package versions on its own (all of the seam
+      #     at 0.1.0; the CLI on its own 0.3.x line). A package whose version is
+      #     already live on the registry is SKIPPED, not re-published (npm cannot
+      #     republish a version). The release TAG stays anchored to the CLI
+      #     package — the guard's invariant below is unchanged — so a release
+      #     event publishes whatever member of the cohort changed. #259's
+      #     external-renderer criterion (pack with a renderer from outside the
+      #     workspace) stays a future pipeline step: no external renderer exists
+      #     yet — declared in docs/ci-cd.md, not guessed into code.
+      - name: Publish the seam cohort (packed with pnpm, published with npm/OIDC)
+        run: |
+          set -euo pipefail
+          ORDER="core markdown paste artifact github"
+          dest="$RUNNER_TEMP/pack"
+          mkdir -p "$dest"
+          for pkg in $ORDER; do
+            dir="packages/$pkg"
+            name="$(node -p "require('./$dir/package.json').name")"
+            version="$(node -p "require('./$dir/package.json').version")"
+            if npm view "$name@$version" version --silent >/dev/null 2>&1; then
+              echo "skip $name@$version — already live on the registry (independent semver)"
+              continue
+            fi
+            (cd "$dir" && pnpm pack --pack-destination "$dest" >/dev/null)
+            tarball="${name#@}"; tarball="${tarball//\//-}-$version.tgz"
+            test -f "$dest/$tarball" # pnpm pack produced the expected tarball
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              npm publish "$dest/$tarball" --access public --dry-run
+            else
+              npm publish "$dest/$tarball" --access public
+            fi
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       # Auth is OIDC-first: the npm CLI prefers the OIDC environment over
       # NODE_AUTH_TOKEN, and the OIDC path is written to NEVER throw — a failed exchange
       # returns undefined and leaves whatever token the config had (lib/utils/oidc.js, npm
@@ -179,8 +228,9 @@ jobs:
       # re-add the secret (issue #80; runbook in docs/ci-cd.md).
       #
       # No --provenance: npm decides. It attests only when the OIDC exchange succeeded, the
-      # source repo is public and the package is public — so no attestation is generated
-      # while the repo stays private, even though the exchange succeeds (the v0.3.0 case).
+      # source repo is public and the package is public — so no attestation was generated
+      # while the repo stayed private even though the exchange succeeded (the v0.3.0 case);
+      # the repo is public since 2026-10-23 (issue #293), so the cohort attests too.
       # See docs/ci-cd.md.
       - name: Publish
         run: |

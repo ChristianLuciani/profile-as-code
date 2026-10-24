@@ -63,7 +63,7 @@ langMap guard.
 
 ```sh
 pnpm install
-pnpm test        # vitest — 37 tests (load, drift, geo, compile)
+pnpm test        # vitest (load, drift, geo, compile)
 pnpm build       # strict tsc → dist/
 pnpm gen:zod     # regenerate src/generated/schema.zod.ts (must produce no diff)
 ```
@@ -71,3 +71,8 @@ pnpm gen:zod     # regenerate src/generated/schema.zod.ts (must produce no diff)
 Fixtures live in `tests/fixtures/`: `minimal/` (drift-free, GEO-rich — the
 reference fixture) and `drifting/` (schema-valid but contradicts itself on
 every drift rule).
+
+Requires Node ≥ 22 (the `engines` field of this manifest). Full source and docs
+live in the [public repository](https://github.com/ChristianLuciani/profile-as-code) —
+the repo paths above (`schema/profile.schema.json`, `scripts/gen-zod.ts`,
+`tests/fixtures/`) are files a reader can open there.
