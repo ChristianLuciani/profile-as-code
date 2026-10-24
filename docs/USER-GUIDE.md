@@ -142,11 +142,11 @@ One global install: no clone, no build, nothing written outside the npm prefix.
 > Separately, and **not** registry-sourced: the built bin on `main` reports the matching
 > version (`node packages/cli/dist/index.js --version` → `pasco 0.3.0`, 2026-10-12) — a
 > local-build check, not a run of the published tarball.
-> Caveat: while the engine repo stays private the package's `repository.url` points at a repo
-> outsiders cannot read, and **no published version carries a provenance attestation** — npm
-> emits it only with a public source repo, and the 0.3.0 publish ran on a successful OIDC
-> exchange with the source still private (STANDARDS §Order ratified 2026-10-03;
-> `dist.attestations` absent, re-checked 2026-10-12). The key migration itself is **done**
+> Caveat, closing (#293): the engine repo is **public** (measured 2026-10-24) — `repository.url`
+> resolves for any reader now; the published versions keep **no attestation** (published while the
+> source was private; registry `dist.attestations` absent, re-checked 2026-10-24) and stay
+> permanent records; the attestation returns by itself at the **next** publish (STANDARDS §Order
+> ratified 2026-10-03). The key migration itself is **done**
 > ([#80](https://github.com/ChristianLuciani/profile-as-code/issues/80) closed; token deleted
 > in npm and GitHub).
 >
@@ -160,8 +160,8 @@ One global install: no clone, no build, nothing written outside the npm prefix.
 ### Option B — from source
 
 ```sh
-# 1. Clone the engine (the product repo — private until the public flip;
-#    the clone needs GitHub access)
+# 1. Clone the engine (the product repo — public, #293 measured 2026-10-24:
+#    cloning needs no access; pushing needs write)
 git clone https://github.com/ChristianLuciani/profile-as-code.git
 cd profile-as-code
 
