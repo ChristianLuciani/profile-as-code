@@ -165,8 +165,6 @@ function identityAuthorityDetail(profile: Profile): string {
 // Each predicate reports ONLY what it can observe offline; a code with no
 // observation produces no finding (name-collision is the honest one).
 
-const DAY_MS = 86_400_000;
-
 /** The `identity.definition` values (the citable sentence, per lang). */
 function definitionEntries(profile: Profile): Array<[string, string]> {
   const def = profile.identity.definition;
@@ -196,14 +194,89 @@ function freshnessFacts(profile: Profile): Record<string, string> {
   return facts;
 }
 
-function newestFreshFact(facts: Record<string, string>): { key: string; when: string } | undefined {
-  let best: { key: string; when: string } | undefined;
-  for (const [key, when] of Object.entries(facts)) {
+/** The calendar 12-month window: a leap year shifts the honest edge, so a flat
+ *  365-day constant would drift the claim "inside 12 months" (fresh-pass F4).
+ *  Future-dated facts are excluded here — a fact claiming a date that has not
+ *  happened (a typo) cannot evidence freshness; readFreshness reports it. */
+function freshnessWindowStart(now: number = Date.now()): number {
+  const windowStart = new Date(now);
+  windowStart.setUTCMonth(windowStart.getUTCMonth() - 12);
+  return windowStart.getTime();
+}
+
+/** One read of the freshness signal: the newest fact inside the window (the
+ *  pass), the newest past-dated one outside it (the observable gap), and every
+ *  future-dated fact (an anomaly, never a signal — F4). */
+type FreshnessReading = {
+  fresh?: { key: string; when: string };
+  stale?: { key: string; when: string };
+  future: Array<{ key: string; when: string }>;
+};
+
+function readFreshness(profile: Profile, now: number = Date.now()): FreshnessReading {
+  const windowStart = freshnessWindowStart(now);
+  const reading: FreshnessReading = { future: [] };
+  for (const [key, when] of Object.entries(freshnessFacts(profile))) {
     const t = Date.parse(when);
     if (Number.isNaN(t)) continue;
-    if (!best || t > Date.parse(best.when)) best = { key, when };
+    if (t > now) reading.future.push({ key, when });
+    else if (t >= windowStart) {
+      if (!reading.fresh || t > Date.parse(reading.fresh.when)) reading.fresh = { key, when };
+    } else if (!reading.stale || t > Date.parse(reading.stale.when)) reading.stale = { key, when };
   }
-  return best;
+  return reading;
+}
+
+/** The declared fail-conditions of `geo/canonical-definition` (§8): a value
+ *  over the 160-char cap, or one that does not contain the entity name. The
+ *  cap is ALSO schema-enforced (max 160, #288) — the geo rule repeats it as
+ *  defense-in-depth for direct callers, the same reading as the faq floor. */
+function definitionFailures(profile: Profile): string[] {
+  const name = (profile.identity.name ?? "").toLowerCase();
+  const out: string[] = [];
+  for (const [lang, v] of definitionEntries(profile)) {
+    if (v.length > 160) out.push(`definition[${lang}] exceeds 160 chars`);
+    else if (name === "" || !v.toLowerCase().includes(name))
+      out.push(`definition[${lang}] does not contain the entity name`);
+  }
+  return out;
+}
+
+/** The disambiguating qualifiers name-collision can observe offline: the
+ *  declared `location` and the declared `experience[].role` titles (v1.1: a
+ *  string or a langMap — the issue's "(location/role)" wording). Nothing is
+ *  invented: both count ONLY when declared. The `identity.links[]` roles
+ *  (identity/realization/aggregator, v1.6) are a DIFFERENT kind of role and
+ *  never count here. */
+function collisionQualifiers(profile: Profile): string[] {
+  const out: string[] = [];
+  const location = profile.identity.location;
+  if (location) out.push(location);
+  for (const item of profile.experience ?? []) {
+    const role = item.role;
+    if (typeof role === "string") out.push(role);
+    else if (role) out.push(...Object.values(role));
+  }
+  return out.filter(Boolean);
+}
+
+/** The one-word risk, observed once: the same reading drives the score and the
+ *  detail (they can never disagree). */
+type NameCollisionObservation =
+  | { kind: "multi-word" }
+  | { kind: "no-definition" }
+  | { kind: "unqualified" }
+  | { kind: "qualified"; qualifier: string };
+
+function nameCollisionObservation(profile: Profile): NameCollisionObservation {
+  const name = profile.identity.name;
+  if (!name || /\s/.test(name)) return { kind: "multi-word" };
+  const entries = definitionEntries(profile);
+  if (entries.length === 0) return { kind: "no-definition" };
+  for (const qualifier of collisionQualifiers(profile)) {
+    if (entries.some(([, v]) => v.includes(qualifier))) return { kind: "qualified", qualifier };
+  }
+  return { kind: "unqualified" };
 }
 
 export function geoCheck(profile: Profile): GeoReport {
@@ -368,32 +441,19 @@ export function geoCheck(profile: Profile): GeoReport {
       code: "geo/canonical-definition",
       label: "Canonical definition an answer engine can quote",
       weight: 0.06,
-      // WARN: the definition IS the citable fact — absent or name-less means
-      // the entity cannot be quoted verbatim, a citability gap (not neutral).
+      // WARN: the definition IS the citable fact — absent, name-less or over
+      // the cap means the entity cannot be quoted verbatim: a citability gap
+      // (not neutral). The score implements the §8 fail-conditions, not just
+      // the prose — the fresh pass (F2) caught presence-only scoring.
       severity: "warn",
-      score: definitionEntries(profile).length === 0 ? 0 : 1,
+      score: (() => {
+        if (definitionEntries(profile).length === 0) return 0;
+        return definitionFailures(profile).length === 0 ? 1 : 0;
+      })(),
       detail:
         definitionEntries(profile).length === 0
           ? "no identity.definition declared — the one sentence an answer engine can quote verbatim (v1.10, #288)"
-          : definitionEntries(profile)
-              .filter(
-                ([, v]) =>
-                  !identity.name ||
-                  !v.toLowerCase().includes(identity.name.toLowerCase()) ||
-                  v.length > 160,
-              )
-              .reduce(
-                (msgs, [lang, v]) =>
-                  msgs.concat(
-                    v.length > 160
-                      ? [`definition[${lang}] exceeds 160 chars`]
-                      : !identity.name || !v.toLowerCase().includes(identity.name.toLowerCase())
-                        ? [`definition[${lang}] does not contain the entity name`]
-                        : [],
-                  ),
-                [] as string[],
-              )
-              .join("; ") ||
+          : definitionFailures(profile).join("; ") ||
             `${definitionEntries(profile).length} definition value(s) quoted with the entity name (≤160 chars)`,
     },
     {
@@ -444,17 +504,18 @@ export function geoCheck(profile: Profile): GeoReport {
       // INFO, NEVER WARN (#289): a dormant profile is not a bad profile — the
       // absence of freshness degrades citability without changing the pass story.
       severity: "info",
-      score: (() => {
-        const fact = newestFreshFact(freshnessFacts(profile));
-        if (!fact) return 0;
-        return Date.now() - Date.parse(fact.when) <= 365 * DAY_MS ? 1 : 0;
-      })(),
+      // Calendar 12-month window; future-dated facts cannot evidence freshness
+      // (fresh-pass F4: a typo'd 2099 deploy used to score 1).
+      score: readFreshness(profile).fresh !== undefined ? 1 : 0,
       detail: (() => {
-        const fact = newestFreshFact(freshnessFacts(profile));
-        if (!fact)
-          return "no dateModified-bearing fact (deployments/press/credentials/publications years)";
-        const fresh = Date.now() - Date.parse(fact.when) <= 365 * DAY_MS;
-        return `${fact.key} = ${fact.when} (${fresh ? "fresher than 12 months" : "older than 12 months"})`;
+        const r = readFreshness(profile);
+        if (r.fresh) return `${r.fresh.key} = ${r.fresh.when} (fresher than 12 months)`;
+        if (r.future.length > 0) {
+          const anomalies = r.future.map((f) => `${f.key} = ${f.when}`).join("; ");
+          return `future-dated fact(s) cannot evidence freshness (an anomaly, not a signal): ${anomalies}`;
+        }
+        if (r.stale) return `${r.stale.key} = ${r.stale.when} (older than 12 months)`;
+        return "no dateModified-bearing fact (deployments/press/credentials/publications years)";
       })(),
     },
     {
@@ -499,26 +560,24 @@ export function geoCheck(profile: Profile): GeoReport {
       // offline — the predicate reports the risk it can SEE (a single-token
       // name with no qualifier to disambiguate it) and says exactly that.
       severity: "info",
+      // The same observation drives the score and the detail (fresh-pass F3:
+      // the advice must be able to flip the score — location OR role).
       score: (() => {
-        const name = identity.name;
-        if (!name || /\s/.test(name)) return 1; // multi-token name is self-disambiguated
-        const entries = definitionEntries(profile);
-        if (entries.length === 0) return 0; // nothing to observe
-        const qualifier = identity.location;
-        if (qualifier && entries.some(([, v]) => v.includes(qualifier))) return 1;
-        return 0;
+        const o = nameCollisionObservation(profile);
+        return o.kind === "multi-word" || o.kind === "qualified" ? 1 : 0;
       })(),
       detail: (() => {
-        const name = identity.name;
-        if (!name || /\s/.test(name)) return "multi-word identity — inherent disambiguation";
-        const entries = definitionEntries(profile);
-        if (entries.length === 0)
-          return "[?] one-word identity without a definition to disambiguate it";
-        const qualifier = identity.location;
-        if (qualifier && entries.some(([, v]) => v.includes(qualifier))) {
-          return `one-word identity disambiguated by the declared ${JSON.stringify(qualifier)} in its definition`;
+        const o = nameCollisionObservation(profile);
+        switch (o.kind) {
+          case "multi-word":
+            return "multi-word identity — inherent disambiguation";
+          case "no-definition":
+            return "[?] one-word identity without a definition to disambiguate it";
+          case "qualified":
+            return `one-word identity disambiguated by the declared ${JSON.stringify(o.qualifier)} in its definition`;
+          case "unqualified":
+            return "one-word identity whose definition carries no disambiguating qualifier (location/role) — homonyms cannot be detected offline; declare one in the definition";
         }
-        return "one-word identity whose definition carries no disambiguating qualifier — homonyms cannot be detected offline; declare a location/role qualifier in the definition";
       })(),
     },
   ];

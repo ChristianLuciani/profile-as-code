@@ -307,6 +307,22 @@ links:
     expect(c?.score).toBe(0);
     expect(c?.severity).toBe("warn");
     expect(c?.detail).toContain("no identity.definition");
+    const namelessBody = `name: Ada Example\nlocation: Guayaquil, Ecuador\ndefinition:\n  en: "A fictional identity working from Guayaquil, Ecuador."\n`;
+    const c2 = find(
+      geoCheck(load(ws({ "identity.yaml": namelessBody }))),
+      "geo/canonical-definition",
+    );
+    // The fail-conditions land in the SCORE, not the prose (fresh-pass F2).
+    expect(c2?.score).toBe(0);
+    expect(c2?.detail).toContain("does not contain the entity name");
+    // > 160 chars is ALSO schema-capped (max 160, #288) — the geo rule repeats
+    // it as defense-in-depth, so the over-cap case is a synthetic profile too.
+    const overCap = {
+      identity: { name: "Ada Example", definition: { en: `Ada Example, ${"x".repeat(160)}` } },
+    } as unknown as Profile;
+    const c3 = find(geoCheck(overCap), "geo/canonical-definition");
+    expect(c3?.score).toBe(0);
+    expect(c3?.detail).toContain("exceeds 160 chars");
   });
 
   it("geo/faq-coverage: pass with the sourced pair set; WARN under floor / duplicate q / unsourced row", () => {
@@ -363,6 +379,25 @@ links:
     const gap = find(geoCheck(load(ws({ "identity.yaml": gapBody }))), "geo/freshness");
     expect(gap?.score).toBe(0);
     expect(gap?.severity).toBe("info"); // INFO, NEVER WARN (#289)
+    // Future-dated facts cannot evidence freshness — an anomaly, not a signal
+    // (the 365-day flat constant used to score a typo'd 2099 deploy as 1 — F4).
+    const futureTs = new Date(Date.now() + 91 * 86_400_000).toISOString();
+    const futureBody = `experience:typo-future:\n  github-readme:\n    deployedAt: ${futureTs}\n    contentHash: ${"d".repeat(64)}\n    source: manual\n`;
+    const c2 = find(
+      geoCheck(load(ws({ "identity.yaml": IDENTITY_BODY, "deployments.yaml": futureBody }))),
+      "geo/freshness",
+    );
+    expect(c2?.score).toBe(0);
+    expect(c2?.severity).toBe("info");
+    expect(c2?.detail).toContain("future-dated fact(s)");
+    const staleTs = new Date(Date.now() - 397 * 86_400_000).toISOString(); // ~13 months back
+    const staleBody = `experience:stale-deploy:\n  github-readme:\n    deployedAt: ${staleTs}\n    contentHash: ${"e".repeat(64)}\n    source: manual\n`;
+    const c3 = find(
+      geoCheck(load(ws({ "identity.yaml": IDENTITY_BODY, "deployments.yaml": staleBody }))),
+      "geo/freshness",
+    );
+    expect(c3?.score).toBe(0);
+    expect(c3?.detail).toContain("older than 12 months");
   });
 
   it("geo/sameas-coverage: pass with the handles resolved; WARN with the @id duplicate or realization < 3", () => {
@@ -396,6 +431,18 @@ links:
     const c2 = find(geoCheck(load(ws({ "identity.yaml": qualifiedBody }))), "geo/name-collision");
     expect(c2?.score).toBe(1);
     expect(c2?.detail).toContain("disambiguated by the declared");
+    const roleBody = `name: Ada\ndefinition:\n  en: "Ada is a fictional systems engineer working from Quito, Ecuador."\n`;
+    const roleProfile = load(
+      ws({
+        "identity.yaml": roleBody,
+        "experience.yaml": `- org: Fictional Org\n  role: systems engineer\n  start: "2020-01-01"\n`,
+      }),
+    );
+    const c4 = find(geoCheck(roleProfile), "geo/name-collision");
+    // The role title disambiguates too (location absent): the score flips with
+    // the qualifier it declares (fresh-pass F3 — the advice must count).
+    expect(c4?.score).toBe(1);
+    expect(c4?.detail).toContain("disambiguated by the declared");
     const bareBody = `name: Ada\nlocation: Guayaquil, Ecuador\n`;
     const c3 = find(geoCheck(load(ws({ "identity.yaml": bareBody }))), "geo/name-collision");
     expect(c3?.score).toBe(0);
