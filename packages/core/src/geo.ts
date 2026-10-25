@@ -274,7 +274,10 @@ function nameCollisionObservation(profile: Profile): NameCollisionObservation {
   const entries = definitionEntries(profile);
   if (entries.length === 0) return { kind: "no-definition" };
   for (const qualifier of collisionQualifiers(profile)) {
-    if (entries.some(([, v]) => v.includes(qualifier))) return { kind: "qualified", qualifier };
+    // Case-insensitive: the same rule the name containment applies — a
+    // definition that mentions the qualifier in another case STILL says it.
+    if (entries.some(([, v]) => v.toLowerCase().includes(qualifier.toLowerCase())))
+      return { kind: "qualified", qualifier };
   }
   return { kind: "unqualified" };
 }
@@ -303,6 +306,11 @@ export function geoCheck(profile: Profile): GeoReport {
     .flatMap((p) => p.evidence ?? [])
     .filter((e) => Boolean(e.verified)).length;
   const totalEvidence = projects.flatMap((p) => p.evidence ?? []).length;
+
+  // ONE freshness read per report (r2 fresh-pass F2 of #321): the score and the
+  // detail share it, so their window can never disagree across a boundary, and
+  // `Date.now()` is sampled once.
+  const freshness = readFreshness(profile);
 
   const checks: GeoCheck[] = [
     {
@@ -506,15 +514,23 @@ export function geoCheck(profile: Profile): GeoReport {
       severity: "info",
       // Calendar 12-month window; future-dated facts cannot evidence freshness
       // (fresh-pass F4: a typo'd 2099 deploy used to score 1).
-      score: readFreshness(profile).fresh !== undefined ? 1 : 0,
+      score: freshness.fresh !== undefined ? 1 : 0,
+      // The anomaly is reported whenever future-dated facts are OBSERVED (r2
+      // fresh-pass F1 of #321) — fresh, failing or both — never only in the
+      // failing case: §8's "reported as an anomaly" is unconditional.
       detail: (() => {
-        const r = readFreshness(profile);
-        if (r.fresh) return `${r.fresh.key} = ${r.fresh.when} (fresher than 12 months)`;
-        if (r.future.length > 0) {
-          const anomalies = r.future.map((f) => `${f.key} = ${f.when}`).join("; ");
-          return `future-dated fact(s) cannot evidence freshness (an anomaly, not a signal): ${anomalies}`;
+        const parts: string[] = [];
+        if (freshness.fresh)
+          parts.push(`${freshness.fresh.key} = ${freshness.fresh.when} (fresher than 12 months)`);
+        if (freshness.future.length > 0) {
+          const anomalies = freshness.future.map((f) => `${f.key} = ${f.when}`).join("; ");
+          parts.push(
+            `future-dated fact(s) cannot evidence freshness (an anomaly, not a signal): ${anomalies}`,
+          );
         }
-        if (r.stale) return `${r.stale.key} = ${r.stale.when} (older than 12 months)`;
+        if (parts.length > 0) return parts.join("; ");
+        if (freshness.stale)
+          return `${freshness.stale.key} = ${freshness.stale.when} (older than 12 months)`;
         return "no dateModified-bearing fact (deployments/press/credentials/publications years)";
       })(),
     },

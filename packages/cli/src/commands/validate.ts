@@ -79,6 +79,15 @@ export function runValidate(args: ValidateArgs): number {
   for (const s of Object.values(geo.sections)) {
     line(`  ${s.label}: ${s.score}/100 — ${s.detail}`);
   }
+  // The severity tier is CONSUMED here (v1.10/#289, resolved by #322): a code
+  // that scored 0 renders one line, prefixed by its tier — `info` is a NOTE,
+  // never a warning (D12: facts warn); absent = `warn` (the pre-v1.10 checks
+  // are all warnings and carry no tier key).
+  for (const c of geo.checks) {
+    if (c.score > 0) continue;
+    const prefix = c.severity === "info" ? "info" : "warn";
+    line(`  ${prefix}: [${c.code}] ${c.detail}`);
+  }
 
   return EXIT.OK;
 }

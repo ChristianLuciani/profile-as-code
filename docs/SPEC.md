@@ -372,7 +372,7 @@ not a bad profile.
 | `geo/faq-coverage` | `faq[]` absent, < 3 rows, a duplicate `q` (collapses into one answer surface), or a row without `source` | WARN | 0.06 |
 | `geo/freshness` | no `dateModified`-bearing fact in the last 12 months — calendar window; future-dated facts cannot evidence freshness and are reported as an anomaly (newest `deployments[].deployedAt`, `press[].date`, `credentials[].issued`, newest `publications[].year`) | INFO | 0.03 |
 | `geo/sameas-coverage` | a `claimed` handle resolving to a URL that is NOT in the emitted `sameAs` set (e.g. its URL is the `@id`, excluded by the assembler), or fewer than 3 `role: realization` links | WARN | 0.04 |
-| `geo/name-collision` | a one-word entity name whose `definition` carries no disambiguating qualifier (`location` or an `experience[].role` title) — homonyms cannot be detected offline: the code reports the risk it can observe, marks the unobservable as `[?]`, and never claims a collision it did not see | INFO | 0.01 |
+| `geo/name-collision` | a one-word entity name whose `definition` carries no disambiguating qualifier (`location` or an `experience[].role` title — matched case-insensitively, like the name containment above) — homonyms cannot be detected offline: the code reports the risk it can observe, marks the unobservable as `[?]`, and never claims a collision it did not see | INFO | 0.01 |
 
 ## 9. the profile-data workspace (folder-first; a repo is recommended)
 

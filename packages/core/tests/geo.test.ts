@@ -27,6 +27,21 @@ describe("geoCheck(profile)", () => {
     // sections partition the checks
     const flat = Object.values(report.sections).flatMap((s) => s.checks);
     expect(flat).toHaveLength(report.checks.length);
+
+    // #322 pins the severity default: ABSENT = `warn` — the nine pre-v1.10
+    // checks carry NO tier key (they are all warnings); only the five
+    // citability codes declare theirs.
+    const v2Codes = new Set([
+      "geo/canonical-definition",
+      "geo/faq-coverage",
+      "geo/freshness",
+      "geo/sameas-coverage",
+      "geo/name-collision",
+    ]);
+    for (const c of report.checks) {
+      if (v2Codes.has(c.code)) continue;
+      expect(c.severity).toBeUndefined();
+    }
   });
 
   it("scores fact consistency from conflicts + platform coverage (substack has a headline but no bio)", () => {
@@ -398,6 +413,16 @@ links:
     );
     expect(c3?.score).toBe(0);
     expect(c3?.detail).toContain("older than 12 months");
+    // r2 F1 (#322): the anomaly is reported WHENEVER future-dated facts are
+    // observed — even when a valid fresh fact wins the score.
+    const bothBody = `experience:fresh-deploy:\n  github-readme:\n    deployedAt: ${recentTs}\n    contentHash: ${"f".repeat(64)}\n    source: manual\nexperience:typo-future2:\n  x:\n    deployedAt: ${futureTs}\n    contentHash: ${"ab".repeat(32)}\n    source: manual\n`;
+    const c4 = find(
+      geoCheck(load(ws({ "identity.yaml": IDENTITY_BODY, "deployments.yaml": bothBody }))),
+      "geo/freshness",
+    );
+    expect(c4?.score).toBe(1); // the fresh fact still carries the score
+    expect(c4?.detail).toContain("fresher than 12 months");
+    expect(c4?.detail).toContain("future-dated fact(s)");
   });
 
   it("geo/sameas-coverage: pass with the handles resolved; WARN with the @id duplicate or realization < 3", () => {
@@ -443,6 +468,12 @@ links:
     // the qualifier it declares (fresh-pass F3 — the advice must count).
     expect(c4?.score).toBe(1);
     expect(c4?.detail).toContain("disambiguated by the declared");
+    // r2 F3 (#322): qualifier containment is CASE-INSENSITIVE, like the name
+    // containment beside it — a differently-cased mention still says it.
+    const casedBody = `name: Ada\nlocation: Madrid, Spain\ndefinition:\n  en: "Ada is a fiction working from madrid, spain."\n`;
+    const c5 = find(geoCheck(load(ws({ "identity.yaml": casedBody }))), "geo/name-collision");
+    expect(c5?.score).toBe(1);
+    expect(c5?.detail).toContain("disambiguated by the declared");
     const bareBody = `name: Ada\nlocation: Guayaquil, Ecuador\n`;
     const c3 = find(geoCheck(load(ws({ "identity.yaml": bareBody }))), "geo/name-collision");
     expect(c3?.score).toBe(0);
