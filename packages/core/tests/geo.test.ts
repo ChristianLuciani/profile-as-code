@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import type { GeoReport, Profile } from "../src/index.js";
 import { geoCheck, load } from "../src/index.js";
 
 const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
@@ -14,8 +15,10 @@ describe("geoCheck(profile)", () => {
 
     expect(report.score).toBeGreaterThan(0);
     expect(report.score).toBeLessThanOrEqual(100);
-    // 9 since v1.6 (#103): geo/entity-id (the canonical @id, from the role: identity link).
-    expect(report.checks).toHaveLength(9);
+    // 14 since v1.10 (#289): the nine post-v1.6 checks (the canonical @id came
+    // with #103/#103's readiness) + the five citability codes of geoCheck v2 —
+    // the table in §8 declares them all.
+    expect(report.checks).toHaveLength(14);
 
     // weights add up to 1
     const totalWeight = report.checks.reduce((sum, c) => sum + c.weight, 0);
@@ -249,5 +252,201 @@ describe("geoCheck — sameAs never carries the @id (v1.6 review)", () => {
     } finally {
       rmSync(dir, { recursive: true });
     }
+  });
+});
+
+describe("geoCheck v2 — the citability codes (v1.10, issue #289)", () => {
+  let n = 0;
+  const ws = (content: Record<string, string>): string => {
+    const dir = mkdtempSync(join(tmpdir(), `pasco-geo2-${n++}-`));
+    mkdirSync(join(dir, "content"), { recursive: true });
+    for (const [file, text] of Object.entries(content)) {
+      writeFileSync(join(dir, "content", file), text);
+    }
+    return dir;
+  };
+  const IDENTITY_BODY = `name: Ada Example
+location: Guayaquil, Ecuador
+definition:
+  en: "Ada Example is a fictional identity working from Guayaquil, Ecuador."
+links:
+  - url: https://ada.example
+    role: identity
+  - url: https://github.com/adaexample
+    role: realization
+  - url: https://www.linkedin.com/in/adaexample
+    role: realization
+  - url: https://x.com/adaexample
+    role: realization
+`;
+  const FAQ_BODY = `- id: faq-a
+  q: { en: "First question?" }
+  a: { en: "First answer." }
+  source: https://example.com/a
+- id: faq-b
+  q: { en: "Second question?" }
+  a: { en: "Second answer." }
+  source: https://example.com/b
+- id: faq-c
+  q: { en: "Third question?" }
+  a: { en: "Third answer." }
+  source: https://example.com/c
+`;
+  const find = (report: GeoReport, code: string) => report.checks.find((x) => x.code === code);
+
+  it("the weighted math sums to 1 exactly (the contract)", () => {
+    const report = geoCheck(load(ws({ "identity.yaml": IDENTITY_BODY })));
+    expect(report.checks.reduce((acc: number, c) => acc + c.weight, 0)).toBeCloseTo(1, 5);
+  });
+
+  it("geo/canonical-definition: pass with the quoted sentence; WARN without it (or without the name)", () => {
+    const report = geoCheck(load(ws({ "identity.yaml": IDENTITY_BODY })));
+    expect(find(report, "geo/canonical-definition")?.score).toBe(1);
+    const noDef = ws({ "identity.yaml": "name: Ada Example\nlocation: Guayaquil, Ecuador\n" });
+    const c = find(geoCheck(load(noDef)), "geo/canonical-definition");
+    expect(c?.score).toBe(0);
+    expect(c?.severity).toBe("warn");
+    expect(c?.detail).toContain("no identity.definition");
+    const namelessBody = `name: Ada Example\nlocation: Guayaquil, Ecuador\ndefinition:\n  en: "A fictional identity working from Guayaquil, Ecuador."\n`;
+    const c2 = find(
+      geoCheck(load(ws({ "identity.yaml": namelessBody }))),
+      "geo/canonical-definition",
+    );
+    // The fail-conditions land in the SCORE, not the prose (fresh-pass F2).
+    expect(c2?.score).toBe(0);
+    expect(c2?.detail).toContain("does not contain the entity name");
+    // > 160 chars is ALSO schema-capped (max 160, #288) — the geo rule repeats
+    // it as defense-in-depth, so the over-cap case is a synthetic profile too.
+    const overCap = {
+      identity: { name: "Ada Example", definition: { en: `Ada Example, ${"x".repeat(160)}` } },
+    } as unknown as Profile;
+    const c3 = find(geoCheck(overCap), "geo/canonical-definition");
+    expect(c3?.score).toBe(0);
+    expect(c3?.detail).toContain("exceeds 160 chars");
+  });
+
+  it("geo/faq-coverage: pass with the sourced pair set; WARN under floor / duplicate q / unsourced row", () => {
+    const pass = geoCheck(load(ws({ "identity.yaml": IDENTITY_BODY, "faq.yaml": FAQ_BODY })));
+    expect(find(pass, "geo/faq-coverage")?.score).toBe(1);
+    // < 3 rows is schema-blocked (faq[] minItems: 3, #288): the floor branch of
+    // the geo predicate is defense-in-depth for direct callers, so this case is
+    // a synthetic profile — a load() of a one-row faq fails at the gate (D12).
+    const oneRow = {
+      identity: { name: "Ada Example" },
+      faq: [{ q: { en: "Only question?" }, a: { en: "Only answer." } }],
+    } as unknown as Profile;
+    const c1 = find(geoCheck(oneRow), "geo/faq-coverage");
+    expect(c1?.score).toBe(0);
+    expect(c1?.detail).toContain("below the 3-row floor");
+    const dupBody = FAQ_BODY.replace(/id: faq-/g, "id: faq-z6-");
+    const c2 = find(
+      geoCheck(load(ws({ "identity.yaml": IDENTITY_BODY, "faq.yaml": `${FAQ_BODY}${dupBody}` }))),
+      "geo/faq-coverage",
+    );
+    expect(c2?.score).toBe(0);
+    expect(c2?.detail).toContain("duplicate q");
+    const unsourcedBody = `- id: faq-a
+  q: { en: "First question?" }
+  a: { en: "First answer." }
+  source: https://example.com/a
+- id: faq-b
+  q: { en: "Second question?" }
+  a: { en: "Second answer." }
+- id: faq-c
+  q: { en: "Third question?" }
+  a: { en: "Third answer." }
+  source: https://example.com/c
+`;
+    const c3 = find(
+      geoCheck(load(ws({ "identity.yaml": IDENTITY_BODY, "faq.yaml": unsourcedBody }))),
+      "geo/faq-coverage",
+    );
+    expect(c3?.score).toBe(0);
+    expect(c3?.detail).toContain("answer with no pointer is a claim");
+  });
+
+  it("geo/freshness: PASS is INFO with a recent confirmed deploy; the gap is INFO too — never WARN", () => {
+    const recentTs = new Date(Date.now() - 5 * 86_400_000).toISOString();
+    const withDeployBody = `experience:essay-2026:\n  github-readme:\n    deployedAt: ${recentTs}\n    contentHash: ${"c".repeat(64)}\n    source: manual\n`;
+    const c = find(
+      geoCheck(load(ws({ "identity.yaml": IDENTITY_BODY, "deployments.yaml": withDeployBody }))),
+      "geo/freshness",
+    );
+    expect(c?.score).toBe(1);
+    expect(c?.severity).toBe("info");
+    expect(c?.detail).toContain("fresher than 12 months");
+    const gapBody = "name: Ada Example\n";
+    const gap = find(geoCheck(load(ws({ "identity.yaml": gapBody }))), "geo/freshness");
+    expect(gap?.score).toBe(0);
+    expect(gap?.severity).toBe("info"); // INFO, NEVER WARN (#289)
+    // Future-dated facts cannot evidence freshness — an anomaly, not a signal
+    // (the 365-day flat constant used to score a typo'd 2099 deploy as 1 — F4).
+    const futureTs = new Date(Date.now() + 91 * 86_400_000).toISOString();
+    const futureBody = `experience:typo-future:\n  github-readme:\n    deployedAt: ${futureTs}\n    contentHash: ${"d".repeat(64)}\n    source: manual\n`;
+    const c2 = find(
+      geoCheck(load(ws({ "identity.yaml": IDENTITY_BODY, "deployments.yaml": futureBody }))),
+      "geo/freshness",
+    );
+    expect(c2?.score).toBe(0);
+    expect(c2?.severity).toBe("info");
+    expect(c2?.detail).toContain("future-dated fact(s)");
+    const staleTs = new Date(Date.now() - 397 * 86_400_000).toISOString(); // ~13 months back
+    const staleBody = `experience:stale-deploy:\n  github-readme:\n    deployedAt: ${staleTs}\n    contentHash: ${"e".repeat(64)}\n    source: manual\n`;
+    const c3 = find(
+      geoCheck(load(ws({ "identity.yaml": IDENTITY_BODY, "deployments.yaml": staleBody }))),
+      "geo/freshness",
+    );
+    expect(c3?.score).toBe(0);
+    expect(c3?.detail).toContain("older than 12 months");
+  });
+
+  it("geo/sameas-coverage: pass with the handles resolved; WARN with the @id duplicate or realization < 3", () => {
+    const aliasBody = `- platform: x\n  handle: adaexample-fan\n  status: claimed\n  url: https://x.com/adaexample-fan-page\n`;
+    const c = find(
+      geoCheck(load(ws({ "identity.yaml": IDENTITY_BODY, "socialHandles.yaml": aliasBody }))),
+      "geo/sameas-coverage",
+    );
+    // 3 realization links + 1 alias = 4 emitted URLs; the identity link is never an "also".
+    expect(c?.score).toBe(1);
+    expect(c?.detail).toContain("4 URLs in the emitted sameAs");
+    const dupBody = `- platform: x\n  handle: adaexample\n  status: claimed\n  url: https://ada.example\n`;
+    const c2 = find(
+      geoCheck(load(ws({ "identity.yaml": IDENTITY_BODY, "socialHandles.yaml": dupBody }))),
+      "geo/sameas-coverage",
+    );
+    expect(c2?.score).toBe(0);
+    expect(c2?.detail).toContain("not resolving");
+    const fewBody = `name: Ada Example\nlinks:\n  - url: https://ada.example\n    role: identity\n  - url: https://github.com/adaexample\n    role: realization\n`;
+    const c3 = find(geoCheck(load(ws({ "identity.yaml": fewBody }))), "geo/sameas-coverage");
+    expect(c3?.score).toBe(0);
+    expect(c3?.detail).toContain("1 role: realization link");
+  });
+
+  it("geo/name-collision: INFO pass multi-word / disambiguated; the gap names what it cannot do", () => {
+    const multiBody = `name: Ada Maria Example\nlocation: Guayaquil, Ecuador\ndefinition:\n  en: "Ada Maria Example is a fiction used by the fixtures."\n`;
+    const c = find(geoCheck(load(ws({ "identity.yaml": multiBody }))), "geo/name-collision");
+    expect(c?.score).toBe(1);
+    expect(c?.detail).toContain("multi-word identity");
+    const qualifiedBody = `name: Ada\nlocation: Guayaquil, Ecuador\ndefinition:\n  en: "Ada is a fiction working from Guayaquil, Ecuador."\n`;
+    const c2 = find(geoCheck(load(ws({ "identity.yaml": qualifiedBody }))), "geo/name-collision");
+    expect(c2?.score).toBe(1);
+    expect(c2?.detail).toContain("disambiguated by the declared");
+    const roleBody = `name: Ada\ndefinition:\n  en: "Ada is a fictional systems engineer working from Quito, Ecuador."\n`;
+    const roleProfile = load(
+      ws({
+        "identity.yaml": roleBody,
+        "experience.yaml": `- org: Fictional Org\n  role: systems engineer\n  start: "2020-01-01"\n`,
+      }),
+    );
+    const c4 = find(geoCheck(roleProfile), "geo/name-collision");
+    // The role title disambiguates too (location absent): the score flips with
+    // the qualifier it declares (fresh-pass F3 — the advice must count).
+    expect(c4?.score).toBe(1);
+    expect(c4?.detail).toContain("disambiguated by the declared");
+    const bareBody = `name: Ada\nlocation: Guayaquil, Ecuador\n`;
+    const c3 = find(geoCheck(load(ws({ "identity.yaml": bareBody }))), "geo/name-collision");
+    expect(c3?.score).toBe(0);
+    expect(c3?.severity).toBe("info");
+    expect(c3?.detail).toContain("[?]"); // the unobservable, marked as such
   });
 });
