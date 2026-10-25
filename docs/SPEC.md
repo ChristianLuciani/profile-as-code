@@ -335,7 +335,7 @@ declared renderer or an explicit "not implemented yet").
 | Command | Purpose |
 |---|---|
 | `pasco init` | scaffold a profile-data workspace from the template |
-| `pasco validate` | schema (fail) + drift/geo checks (facts warn) |
+| `pasco validate` | schema (fail) + drift/geo checks (facts warn). Text mode renders one line per GEO code that scored 0, prefixed by its severity tier — `warn: [code] …` is a warning, `info: [geo/freshness]`-style lines are NOTES, never warnings (v1.10 tiers, #322); a code that scored above 0 renders no finding line, and `absent` tier = `warn`. `--json` carries every check (with its `severity` and `detail`) — a check whose detail holds an anomaly note (future-dated freshness) is always fully visible there |
 | `pasco build [platform] [--view <name>] [--lang]` | render deterministic base texts; `--view` resolves a declared view's platform/lang + fact selection (D22, §21); a manual-paste surface without a renderer writes `profiles/<platform>.md` via the shared paste core (#239); an active variant body is written verbatim as the platform artifact (#238) |
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
 | `pasco check [platform]` | run skill-declared checks before deploy; char limits accept an optional `surface` (`headline`/`bio`/`both`) so a title cap does not flag the bio (#240) |
@@ -372,7 +372,7 @@ not a bad profile.
 | `geo/faq-coverage` | `faq[]` absent, < 3 rows, a duplicate `q` (collapses into one answer surface), or a row without `source` | WARN | 0.06 |
 | `geo/freshness` | no `dateModified`-bearing fact in the last 12 months — calendar window; future-dated facts cannot evidence freshness and are reported as an anomaly (newest `deployments[].deployedAt`, `press[].date`, `credentials[].issued`, newest `publications[].year`) | INFO | 0.03 |
 | `geo/sameas-coverage` | a `claimed` handle resolving to a URL that is NOT in the emitted `sameAs` set (e.g. its URL is the `@id`, excluded by the assembler), or fewer than 3 `role: realization` links | WARN | 0.04 |
-| `geo/name-collision` | a one-word entity name whose `definition` carries no disambiguating qualifier (`location` or an `experience[].role` title) — homonyms cannot be detected offline: the code reports the risk it can observe, marks the unobservable as `[?]`, and never claims a collision it did not see | INFO | 0.01 |
+| `geo/name-collision` | a one-word entity name whose `definition` carries no disambiguating qualifier (`location` or an `experience[].role` title — matched case-insensitively, like the name containment above) — homonyms cannot be detected offline: the code reports the risk it can observe, marks the unobservable as `[?]`, and never claims a collision it did not see | INFO | 0.01 |
 
 ## 9. the profile-data workspace (folder-first; a repo is recommended)
 

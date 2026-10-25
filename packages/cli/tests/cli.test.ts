@@ -172,6 +172,25 @@ describe("pasco validate (D12: fail on schema, warn on drift)", () => {
     expect(r.stdout).toContain("warn: [");
   });
 
+  it("geo findings render by severity tier: info is a note, absent = warn (#322)", () => {
+    const r = run(["validate", "--workspace", MINIMAL]);
+    expect(r.code).toBe(0);
+    // The minimal fixture has no definition and no faq[]: two warn-tier codes;
+    // its publications are 2024/2023 — a STALE freshness fact (not absence) in
+    // an info NOTE, never a warning.
+    expect(r.stdout).toContain("warn: [geo/canonical-definition]");
+    expect(r.stdout).toContain("warn: [geo/faq-coverage]");
+    expect(r.stdout).toContain("info: [geo/freshness]");
+    // The default tier leg: `geo/entity-id` carries NO severity key (absent =
+    // warn, the pre-v1.10 checks) and scores 0 (no role: identity link) — its
+    // line proves the consumer renders tier-absent codes as WARNINGS (#322
+    // r1 F1: inverting the default would flip this line to `info:`).
+    expect(r.stdout).toContain("warn: [geo/entity-id]");
+    // A code that scored > 0 renders no finding line.
+    expect(r.stdout).not.toContain("info: [geo/name-collision]");
+    expect(r.stdout).not.toContain("warn: [geo/sameas-coverage]");
+  });
+
   it("exits 1 on schema violation", () => {
     const r = run(["validate", "--workspace", INVALID]);
     expect(r.code).toBe(1);
