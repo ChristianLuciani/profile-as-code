@@ -335,7 +335,7 @@ declared renderer or an explicit "not implemented yet").
 | Command | Purpose |
 |---|---|
 | `pasco init` | scaffold a profile-data workspace from the template |
-| `pasco validate` | schema (fail) + drift/geo checks (facts warn) |
+| `pasco validate` | schema (fail) + drift/geo checks (facts warn). Text mode renders one line per GEO code that scored 0, prefixed by its severity tier — `warn: [code] …` is a warning, `info: [geo/freshness]`-style lines are NOTES, never warnings (v1.10 tiers, #322); a code that scored above 0 renders no finding line, and `absent` tier = `warn`. `--json` carries every check (with its `severity` and `detail`) — a check whose detail holds an anomaly note (future-dated freshness) is always fully visible there |
 | `pasco build [platform] [--view <name>] [--lang]` | render deterministic base texts; `--view` resolves a declared view's platform/lang + fact selection (D22, §21); a manual-paste surface without a renderer writes `profiles/<platform>.md` via the shared paste core (#239); an active variant body is written verbatim as the platform artifact (#238) |
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
 | `pasco check [platform]` | run skill-declared checks before deploy; char limits accept an optional `surface` (`headline`/`bio`/`both`) so a title cap does not flag the bio (#240) |
