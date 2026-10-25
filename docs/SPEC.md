@@ -359,11 +359,20 @@ GEO is not a renderer — it is enforced in four places:
 Anti-patterns to forbid: keyword stuffing (LLMs discount it), contradictions (auto-filtered),
 unverifiable claims (no source → dropped by cite-aware systems).
 
-**v1.10 inputs (#288):** the answer-engine facts — `identity.definition` and `faq[]` —
-feed geoCheck v2 (#289), which turns the constraints this SPEC cannot express in JSON
-Schema (name-in-definition, per-workspace q uniqueness) into citability checks
-(`geo/canonical-definition`, `geo/faq-coverage`) alongside freshness, sameAs coverage and
-the honest name-collision risk; the check table lands with that PR.
+**v1.10 inputs (#288), landed as geoCheck v2 (#289):** the answer-engine facts
+`identity.definition` and `faq[]` feed the five citability codes below — the
+CONTRACT, with their weights; the nine pre-v1.10 checks dilute ×0.8 to free the
+0.20 of weight they now carry (documented, never silent). Severity is the
+reporting tier only: `info` NEVER changes the pass story — a dormant profile is
+not a bad profile.
+
+| Code | Fails when | Severity | Weight |
+|---|---|---|---|
+| `geo/canonical-definition` | `identity.definition` absent, a value > 160 chars, or a value not containing the entity name | WARN | 0.06 |
+| `geo/faq-coverage` | `faq[]` absent, < 3 rows, a duplicate `q` (collapses into one answer surface), or a row without `source` | WARN | 0.06 |
+| `geo/freshness` | no `dateModified`-bearing fact in the last 12 months (newest `deployments[].deployedAt`, `press[].date`, `credentials[].issued`, newest `publications[].year`) | INFO | 0.03 |
+| `geo/sameas-coverage` | a `claimed` handle resolving to a URL that is NOT in the emitted `sameAs` set (e.g. its URL is the `@id`, excluded by the assembler), or fewer than 3 `role: realization` links | WARN | 0.04 |
+| `geo/name-collision` | a one-word entity name whose `definition` carries no disambiguating qualifier (the declared `location`) — homonyms cannot be detected offline: the code reports the risk it can observe, marks the unobservable as `[?]`, and never claims a collision it did not see | INFO | 0.01 |
 
 ## 9. the profile-data workspace (folder-first; a repo is recommended)
 

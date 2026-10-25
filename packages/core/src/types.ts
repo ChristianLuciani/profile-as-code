@@ -150,6 +150,11 @@ export interface GeoCheck {
   /** 0..1 — share of the total score this check contributes. */
   weight: number;
   detail: string;
+  /** v1.10 (#289), additive: the reporting tier. Absent = `warn` (the pre-v1.10
+   *  checks are all warnings). `info` NEVER changes the pass/fail story — a
+   *  dormant profile is not a bad profile; the tier qualifies the way the
+   *  consumer renders the finding, never the math. */
+  severity?: "warn" | "info";
 }
 
 export interface GeoSection {
