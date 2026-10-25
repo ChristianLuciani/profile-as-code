@@ -141,6 +141,8 @@ describe("surface", () => {
     for (const cmd of ["init", "validate", "build", "diff", "refine", "check", "skills:export"]) {
       expect(r.stdout).toContain(cmd);
     }
+    expect(r.stdout).toContain("pasco is free (MIT)");
+    expect(r.stdout).toContain("ko-fi.com/christianluciani");
   });
 
   it("exit 2 on unknown command", () => {
@@ -1017,6 +1019,23 @@ describe("published-surface boundary (#253/#254)", () => {
     for (const r of helps) {
       expect(r.code).toBe(0);
       expect(r.stdout).not.toMatch(PRIVATE);
+    }
+  });
+
+  it("the tip line lives only in the global help (zero-nag promise)", () => {
+    expect(run(["--help"]).stdout).toContain("ko-fi.com/christianluciani");
+    for (const cmd of [
+      "init",
+      "validate",
+      "build",
+      "diff",
+      "refine",
+      "check",
+      "post",
+      "status",
+      "skills:export",
+    ]) {
+      expect(run([cmd, "--help"]).stdout).not.toContain("ko-fi.com");
     }
   });
 

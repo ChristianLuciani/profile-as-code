@@ -182,15 +182,20 @@ cuenta ni repo.
 
 ## Sponsor this project
 
-Si el proyecto te resulta útil, podés [patrocinarlo desde GitHub Sponsors](https://github.com/sponsors/ChristianLuciani).
+Si el proyecto te resulta útil, podés [patrocinarlo desde GitHub Sponsors](https://github.com/sponsors/ChristianLuciani),
+dejar un tip en [Ko-fi](https://ko-fi.com/christianluciani) o apoyar en [Patreon](https://www.patreon.com/cluciani).
 El patrocinio financia el trabajo sobre el **engine** (`packages/core`) y la **CLI `pasco`** (`packages/cli`):
 el contrato de `docs/SPEC.md`, los renderers y las skills por plataforma. Qué **no** compra: no hay SLA
 ni soporte prioritario, y no da influencia sobre el roadmap — las decisiones se discuten a la vista en
 los issues y en `docs/SPEC.md`, y una propuesta se evalúa por sus méritos, no por quién la financia.
 El proyecto sigue siendo MIT: el código ya es tuyo, pagues o no.
 
-**Sponsors:** todavía no hay ninguno. Los nombres y logos de quienes patrocinan se publican
-en esta sección, en el orden de su tier — si sos el primero, tu nombre va acá.
+[![GitHub Sponsors](https://img.shields.io/badge/sponsor-EA4AAA?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/ChristianLuciani)
+[![Tip on Ko-fi](https://img.shields.io/badge/tip-FF5E5B?logo=kofi&logoColor=white)](https://ko-fi.com/christianluciani)
+[![Patreon](https://img.shields.io/badge/patreon-FF424D?logo=patreon&logoColor=white)](https://www.patreon.com/cluciani)
+
+**Sponsors:** el nombre y logo de cada tier se publican acá, en orden de tier — no de
+monto. Si sos el primero en tu tier, tu espacio ya está reservado.
 
 ## Marca
 
