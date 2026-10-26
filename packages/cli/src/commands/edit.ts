@@ -14,11 +14,14 @@
  * uses, so `--check` cannot drift from what gets written (N1 of the round-2
  * review: a second copy silently skipped build's selection-error gate).
  *
- * The WRITE lands with S2 (#249), whose recorded decision (2026-10-21,
- * `main@647c510`) fixes the coupling: S2 consumes the LOCATED node this resolver
- * exposes (`EditTarget.locate` — owning file + FILE-relative path), never
- * re-derives addresses. `locate` exists ONLY when the address resolves to exactly
- * one row (the only state a write may use), and only for writable addresses.
+ * The WRITE is S2 (#249) and its mechanism is the recorded decision of
+ * 2026-10-21 (`main@647c510`): a byte-range splice over the ORIGINAL text (the
+ * CST locates, it never re-serializes), block/multi-line scalars refused,
+ * no-op = 0 + `noop: true`, temp file + `load()`/schema over a temp copy +
+ * atomic rename. It consumes the LOCATED node this resolver exposes
+ * (`EditTarget.locate` — owning file + FILE-relative path) and never re-derives
+ * an address; `locate` exists ONLY when the address resolves to exactly one row,
+ * and only for writable addresses.
  */
 
 import { readdirSync } from "node:fs";
@@ -47,6 +50,13 @@ import {
   parseEditAddress,
   UsageError,
 } from "../contract.js";
+import {
+  inspectTarget,
+  StaleEditError,
+  type WriteOutcome,
+  WriteRefusedError,
+  writeEdit,
+} from "../edit-write.js";
 import { EXIT } from "../exit.js";
 import { line, report } from "../output.js";
 import type { Pascorc } from "../workspace.js";
@@ -445,11 +455,6 @@ export function runEdit(args: EditArgs): number {
       `${address.address} is read-only — links live in content/identity.yaml (the URL SSOT, §3)`,
     );
   }
-  if (args.setArg !== undefined && !args.check) {
-    throw new UsageError(
-      "pasco edit writes nothing yet (S1, #248): add --check to preview the published text; the comment-preserving write lands with S2 (#249)",
-    );
-  }
   if (args.check && args.setArg === undefined) {
     throw new UsageError(
       "--check previews a proposed value — add --set <text> (without it, the read already prints the current value)",
@@ -462,33 +467,52 @@ export function runEdit(args: EditArgs): number {
   }
   if (args.setArg !== undefined && /[\r\n]/.test(args.setArg)) {
     throw new UsageError(
-      "--set with a line break is refused: S2 (#249) writes single-line scalars only (block scalars are refused), so the preview would describe a write that cannot happen",
+      "--set with a line break is refused: the writer (#249) handles single-line scalars only (block scalars are refused: they would change the line count)",
     );
   }
 
   const target = resolveEditTarget(profile, address, args.workspace);
   const proposed = args.setArg;
-  const noop = proposed !== undefined && proposed === target.current;
+  const writing = proposed !== undefined && !args.check;
+  const noopValue = proposed !== undefined && proposed === target.current;
 
   let ok = target.matches === 1;
   let published: Published = { changes: [] };
-  if (proposed !== undefined && !noop && address.kind !== "link") {
+  let outcome: WriteOutcome | undefined;
+
+  if (proposed !== undefined && !noopValue && address.kind !== "link") {
     const located = target.locate;
     if (target.matches !== 1) {
-      ok = false;
+      ok = false; // 0 rows / ambiguous: nothing to preview and nothing to write
     } else if (located === undefined) {
       // A resolved row always has an owning file; if the handle is missing the
-      // honest answer is "no preview", never a guess.
+      // honest answer is "no preview, no write", never a guess.
       ok = false;
       published = {
         changes: [],
         reason:
-          "no owning content file for this block — the write handle is unavailable (S2 cannot splice)",
+          "no owning content file for this block — the write handle is unavailable (the splice cannot run)",
       };
     } else {
+      // Eligibility + staleness FIRST: the preview and the write must refuse the
+      // same shapes (F1) and neither may act on a file that moved since `load()`.
+      try {
+        inspectTarget({ workspace: args.workspace, target: located, expect: target.current });
+      } catch (err) {
+        if (err instanceof UsageError) throw err;
+        if (err instanceof StaleEditError || err instanceof WriteRefusedError) {
+          return report("edit", false, EXIT.FAIL, {
+            error: {
+              kind: err instanceof StaleEditError ? "stale" : "refused",
+              message: err.message,
+            },
+          });
+        }
+        throw err;
+      }
       const applied = applyEdit(profile, { ...target, locate: located }, proposed);
       published = publishedByEdit(profile, applied, address, args.workspace, args.pascorc);
-      if (published.error !== undefined) {
+      if (published.error !== undefined && !writing) {
         return report("edit", false, EXIT.FAIL, {
           error: {
             kind: "selection",
@@ -496,18 +520,55 @@ export function runEdit(args: EditArgs): number {
           },
         });
       }
-      ok = published.changes.length > 0;
+      if (writing) {
+        try {
+          outcome = writeEdit({
+            workspace: args.workspace,
+            target: located,
+            value: proposed,
+            expect: target.current,
+          });
+          ok = true;
+        } catch (err) {
+          if (err instanceof UsageError) throw err;
+          if (err instanceof StaleEditError || err instanceof WriteRefusedError) {
+            return report("edit", false, EXIT.FAIL, {
+              error: {
+                kind: err instanceof StaleEditError ? "stale" : "refused",
+                message: err.message,
+              },
+            });
+          }
+          if (err instanceof SchemaValidationError || err instanceof LoadError) {
+            return report("edit", false, EXIT.FAIL, {
+              error: {
+                kind: err instanceof SchemaValidationError ? "schema" : "load",
+                message: err.message,
+                ...(err instanceof SchemaValidationError ? { violations: [...err.issues] } : {}),
+              },
+            });
+          }
+          throw err;
+        }
+      } else {
+        ok = published.changes.length > 0;
+      }
     }
   }
 
   line(`address:  ${target.address.address}`);
+  if (writing && outcome !== undefined) line(`file:     ${outcome.file}`);
   if (target.matches === 1) {
     line(`current:  ${target.current}`);
     if (proposed !== undefined) {
       line(`proposed: ${proposed}`);
-      if (noop) {
-        line("(noop) the proposed value is identical to the current one — nothing to write");
-      } else if (published.changes.length > 0) {
+      if (noopValue) {
+        line("(noop) the proposed value is identical to the current one — nothing was written");
+      } else if (outcome !== undefined) {
+        line(outcome.noop ? "(noop) the file already held this value" : "written: yes");
+        line("validates: yes");
+      }
+      if (published.changes.length > 0) {
         const lang = "lang" in address ? `/${address.lang}` : "";
         for (const change of published.changes) {
           line(`published (${change.platform}${lang} — the artifact lines this edit changes):`);
@@ -517,20 +578,25 @@ export function runEdit(args: EditArgs): number {
         if (published.changes.length > 1) {
           line(`published in: ${published.changes.map((change) => change.platform).join(", ")}`);
         }
-      } else {
+      } else if (outcome !== undefined) {
+        // Written but not published: legitimate (the SSOT may carry a row no
+        // artifact emits) — the caller must know it, not be blocked by it.
+        line(
+          `published (${scopeLabel(address)}): this edit does not change the artifact \`pasco build\` writes`,
+        );
+        if (published.reason !== undefined) line(`  why: ${published.reason}`);
+      } else if (published.reason !== undefined) {
         line(
           `published (${scopeLabel(address)}): no change — the artifact \`pasco build\` writes is byte-identical before and after`,
         );
-        if (published.reason !== undefined) line(`  why: ${published.reason}`);
+        line(`  why: ${published.reason}`);
       }
     }
   } else if (target.matches === 0) {
     line("resolves to 0 rows — no current value");
     if (proposed !== undefined) {
       line(`proposed: ${proposed}`);
-      line(
-        "(creating a new row is not previewable in S1 — S2 (#249) decides whether edit creates rows)",
-      );
+      line("(edit does not create rows: the field must already exist in the schema and the file)");
     }
     if (target.available.length > 0) {
       line("available:");
@@ -551,6 +617,10 @@ export function runEdit(args: EditArgs): number {
     });
   }
 
+  if (published.error !== undefined && writing) {
+    line(`warning: ${published.error} (pasco build refuses to render this workspace)`);
+  }
+
   const rendered =
     published.changes.length === 0
       ? null
@@ -563,6 +633,9 @@ export function runEdit(args: EditArgs): number {
       proposed: proposed ?? null,
       rendered,
       ok,
+      noop: outcome === undefined ? noopValue : outcome.noop,
+      written: outcome !== undefined && !outcome.noop,
+      warnings: published.error === undefined ? [] : [published.error],
     },
   });
 }

@@ -1,12 +1,14 @@
 /**
- * `pasco edit` — S1 of epic #247: contract-path resolution + `--check`, and the
- * two invariants that make the slice shippable before S2's write exists:
+ * `pasco edit` — contract-path resolution + `--check` (S1 of epic #247) and the
+ * writer it delegates to (S2, #249, pinned in `edit-write.test.ts`). Invariants:
  *
- *  1. NOTHING on disk is touched (asserted on a whole-workspace snapshot).
+ *  1. A READ or a PREVIEW never touches disk (whole-workspace snapshot).
  *  2. The preview is what `pasco build` PUBLISHES, not the addressed row's own
- *     text (premerge review of PR #331, F1). The conformance test at the bottom
- *     applies the same edit to the workspace, runs `build`, and asserts the
- *     previewed text is in the artifact bytes.
+ *     text (premerge review of PR #331, F1). The conformance tests at the bottom
+ *     apply the same edit to the workspace, run `build`, and assert the previewed
+ *     text is in the artifact bytes.
+ *  3. The preview refuses exactly what the write refuses (multi-line/block
+ *     scalars, anchors) — F1 of the premerge review of PR #332.
  *
  * Runs the BUILT binary (`pnpm test` builds first) against a copy of the core
  * `minimal` fixture, so a test never mutates a committed fixture.
@@ -41,6 +43,8 @@ const tempDirs: string[] = [];
 function workspace(): string {
   const dir = mkdtempSync(join(tmpdir(), "pasco-edit-"));
   tempDirs.push(dir);
+  // The committed fixture is the reference workspace AND the writer's input
+  // shape: single-line scalars (decision of 2026-10-21, #249). No rewrite.
   cpSync(MINIMAL, dir, { recursive: true });
   return dir;
 }
@@ -99,7 +103,7 @@ function json(r: RunResult): { ok: boolean; data: Record<string, unknown> } {
   return JSON.parse(r.stdout) as { ok: boolean; data: Record<string, unknown> };
 }
 
-describe("pasco edit — S1 resolution (read-only)", () => {
+describe("pasco edit — resolution, preview and write", () => {
   it("prints the current value of a lang-only address", () => {
     const dir = workspace();
     const r = edit(dir, "positioning.statement.en");
@@ -245,7 +249,7 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     const r = edit(dir, "positioning.statement.fr", "--set", "Nouvelle déclaration", "--check");
     expect(r.code).toBe(1);
     expect(r.stdout).toContain("proposed: Nouvelle déclaration");
-    expect(r.stdout).toContain("not previewable in S1");
+    expect(r.stdout).toContain("edit does not create rows");
   });
 
   it("refuses an ambiguous (duplicate) row instead of choosing one", () => {
@@ -291,12 +295,41 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     expect(available).toContain("positioning.statement.en");
   });
 
-  it("refuses --set without --check (the write lands with S2, #249)", () => {
+  it("refuses to PREVIEW a multi-line scalar the write would refuse (F1)", () => {
     const dir = workspace();
-    const r = edit(dir, "positioning.statement.en", "--set", "New statement");
+    // The committed fixture is single-line by design (decision of 2026-10-21);
+    // this workspace wraps one bio to pin the shape both paths must refuse.
+    const bios = join(dir, "content", "bios.yaml");
+    writeFileSync(
+      bios,
+      readFileSync(bios, "utf8").replace(
+        "  text: Senior AI engineer designing local-first LLM infrastructure used by 12+ deployments. Previously ML engineer at Dataforge. 8 years in ML platforms.",
+        "  text: Senior AI engineer designing local-first\n    LLM infrastructure.",
+      ),
+    );
+    const r = edit(
+      dir,
+      "bios[platform=linkedin,lang=en,length=medium].text",
+      "--set",
+      "New",
+      "--check",
+    );
     expect(r.code).toBe(2);
-    expect(r.stderr).toContain("--check");
-    expect(r.stderr).toContain("#249");
+    expect(r.stderr).toContain("multi-line scalar");
+  });
+
+  it("writes when --check is absent (S2, #249) and previews with it", () => {
+    const dir = workspace();
+    const check = edit(dir, "positioning.statement.en", "--set", "New statement", "--check");
+    expect(check.code).toBe(0);
+    expect(check.stdout).toContain("published (github-readme/en");
+
+    const write = edit(dir, "positioning.statement.en", "--set", "New statement");
+    expect(write.code).toBe(0);
+    expect(write.stdout).toContain("written: yes");
+    expect(readFileSync(join(dir, "content", "positioning.yaml"), "utf8")).toContain(
+      "en: New statement",
+    );
   });
 
   it("refuses --check without --set, and an empty --set", () => {
@@ -324,7 +357,7 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     expect(r.stdout).toContain("(noop)");
   });
 
-  it("--json carries exactly { address, current, proposed, rendered, ok }", () => {
+  it("--json carries { address, current, proposed, rendered, ok, noop, written }", () => {
     const dir = workspace();
     const r = edit(
       dir,
@@ -339,13 +372,15 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     expect(parsed.ok).toBe(true);
     const inner = parsed.data as Record<string, unknown>;
     expect(Object.keys(inner).sort()).toEqual(
-      ["address", "current", "ok", "proposed", "rendered"].sort(),
+      ["address", "current", "noop", "ok", "proposed", "rendered", "warnings", "written"].sort(),
     );
     expect(inner.address).toBe("headlines[platform=github-readme,lang=en].text");
     expect(inner.current).toBe("Sovereign AI infrastructure engineer");
     expect(inner.proposed).toBe("Sovereign AI infra");
     expect(inner.rendered).toBe("### Sovereign AI infra");
     expect(inner.ok).toBe(true);
+    expect(inner.noop).toBe(false);
+    expect(inner.written).toBe(false);
   });
 
   it("names the active variant when it shadows the edited field (#238)", () => {
@@ -469,7 +504,7 @@ describe("pasco edit — conformance with `pasco build` (F1)", () => {
     writeFileSync(
       bios,
       readFileSync(bios, "utf8").replace(
-        "  text: Senior AI engineer designing local-first LLM infrastructure used by 12+\n    deployments. Previously ML engineer at Dataforge. 8 years in ML platforms.\n",
+        "  text: Senior AI engineer designing local-first LLM infrastructure used by 12+ deployments. Previously ML engineer at Dataforge. 8 years in ML platforms.\n",
         "  text: Shorter bio text\n",
       ),
     );
