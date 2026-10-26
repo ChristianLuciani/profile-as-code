@@ -5,7 +5,7 @@ Instructions for AI agents working in this repository. Humans: see `CONTRIBUTING
 ## What this is
 
 Spec-driven engine monorepo (pnpm). `docs/SPEC.md` is the contract — goals,
-decisions D1–D18, data model, interfaces, roadmap. No code without SPEC alignment;
+decisions (the §5 register), data model, interfaces, roadmap. No code without SPEC alignment;
 behavior changes update the SPEC first, then the code (dev-methodology).
 
 **Multi-tenant model (SPEC §9):** this repo is the engine. User data lives in a
@@ -17,7 +17,7 @@ per-user private repo (`profile-data`), scaffolded from the template
 
 | Where | What | Notes |
 |---|---|---|
-| `docs/SPEC.md` | The contract — read first | D1–D18, §7 interfaces, §12 roadmap |
+| `docs/SPEC.md` | The contract — read first | §5 decisions, §7 interfaces, §12 roadmap |
 | `schema/profile.schema.json` | Contract source (D3) | additive + reviewed; never hand-write Zod |
 | `platforms/registry.yaml` | Platform METADATA — one home (#154) | family · deploy · hosts · status · sources; generates the derived surfaces |
 | `packages/core/` | Engine: load · drift · geo · compile | vitest; fixtures in `packages/core/tests/fixtures/` |
