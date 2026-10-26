@@ -163,7 +163,7 @@ lang and the fact selection, so the surface shows a SUBSET of the SSOT. Every
 omission is reported as a warning; an addressed key that resolves to nothing is
 an error. No selection policy = byte-identical output.`,
   edit: `pasco edit <contract-path> [--set <text> [--check]] [--json] [--workspace <path>]
-Resolve ONE contract field (epic #247, S1+S2 — read · preview · write):
+Resolve ONE contract field (epic #247, S1–S3 — read · preview · write · surface impact):
   positioning.statement.<lang>
   headlines[platform=<p>,lang=<l>].text
   bios[platform=<p>,lang=<l>,length=<len>].text
@@ -184,9 +184,15 @@ With --set --check it PREVIEWS instead: it renders the surface the way
 \`pasco build\` does — active variant (#238) → renderer → shared paste source,
 current vs proposed — and prints the artifact lines the edit changes, saying so
 (with the reason) when the edit does not reach the artifact.
+Every run against a resolved, writable address also prints the edited unit's
+SURFACE IMPACT from the §19 ledger: each
+recorded surface prints stale (the edit changed the hash) or in-sync (it still
+matches), and a unit with no record rolls up to never — derived, never stored.
+The block also carries the measured drift count.
 \`--json\` payload { address, current, proposed, rendered, ok, noop, written,
-warnings } inside the usual envelope (command · ok · exitCode); warnings carries a
-non-blocking finding the write proceeded through (a selection error).
+warnings, stale, state, drift } inside the usual envelope (command · ok ·
+exitCode);
+warnings carries a non-blocking finding the write proceeded through.
 Exit: 0 written / noop / the preview changes the artifact · 1 the address did not
 resolve to exactly one row, the target is read-only or changed under the command
 (stale — nothing was written), the validation refused the result, or (preview) the
