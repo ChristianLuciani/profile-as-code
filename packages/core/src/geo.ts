@@ -24,7 +24,7 @@
  *
  * Every check is weighted; overall score 0..100. Missing data is neutral for the
  * FACT checks (score 1); the readiness and citability checks — entity @id,
- * structured person, semantic anchors, and the v1.10 codes — can score 0 on
+ * structured person, `sameAs` links, semantic anchors, and the v1.10 codes — can score 0 on
  * absence (the citability property IS the product a buyer pays for: no canonical
  * definition is a gap, not neutral silence). Both readings are declared per code
  * in §8 with their weights — a code never reweights silently.

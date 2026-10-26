@@ -22,7 +22,7 @@ workspace (JSON Schema, draft 2020-12). Per D3, JSON Schema is the contract sour
 > chars per value, must contain the entity name — the name check is a geoCheck rule, #289) and
 > root `faq[]` (3–20 citable Q&A pairs, `q` ≤ 90 and unique per workspace, `a` ≤ 320, optional
 > `$defs/url` `source`); the same minor completed the version label of the §19.5 certification
-> additions (issue #132 — they shipped under the v1.9 URI). Earlier minors: see the `$id`'s
+> additions (issue #132 — they shipped under the v1.9 URI). For the earlier minors, see the `$id`'s
 > description and the CHANGELOG.
 
 ## URL scheme rule (issue #53)

@@ -138,8 +138,8 @@ One global install: no clone, no build, nothing written outside the npm prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
 > **Status**: this guide tracks the release being cut: `@profile-as-code/cli@0.3.6`
-> (tag `v0.3.6` is pushed with it; 2026-10-26, CHANGELOG `[0.3.6]`); the npm publish is
-> that release's irreversible step — verify the published `latest` with
+> (cut 2026-10-26, CHANGELOG `[0.3.6]`; the tag is pushed when the release is cut); the
+> npm publish is that release's irreversible step — verify the published `latest` with
 > `npm view @profile-as-code/cli version`.
 > Previous published state [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-26]: version
 > `0.3.5` **public** and tagged `latest` (published 2026-10-24T03:50:04.822Z; tag `v0.3.5` →
