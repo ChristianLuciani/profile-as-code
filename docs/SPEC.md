@@ -1102,7 +1102,8 @@ deployments:
   **Schema status — shipped (v1.10).** `$defs.deploymentRecord` carries the optional
   `certification` property; the `valid-certification*.json` fixtures pass, and a record
   without it reads as `attested`. The contract was stated first on purpose (SPEC-first,
-  D3) and the implementation followed under the same v1.10 URI.
+  D3) and the implementation followed at `d172dffc` under the **v1.9** URI; v1.10
+  completed the version label.
 - The ledger is **append/update-only state**: removing a row from `content/` does not
   remove its ledger key (audit trail); `pasco status` reports the dangling key as
   `removed`.
