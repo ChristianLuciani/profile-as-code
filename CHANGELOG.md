@@ -60,8 +60,9 @@ minor versions may contain breaking contract changes.
   score changes**; the new `GeoCheck.severity` tier is additive and `info` never changes
   the pass/fail story.
 - **The release publishes the seam cohort in dependency order (#301)** — core →
-  markdown → paste → artifact → github → cli, packed with `pnpm` and published by the
-  npm CLI over OIDC; a package whose version is already live is skipped.
+  markdown → paste → artifact → github via `pnpm publish`, which rewrites the
+  runtime `workspace:*` dependency, then the CLI via `npm publish` over OIDC; a
+  package whose version is already live is skipped.
 - **Deterministic ordering is ICU-free everywhere (#305)** — every text sort delegates
   to core's `byteOrder` (UTF-16 code units), so output is byte-stable across locales.
 

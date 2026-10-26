@@ -1,7 +1,7 @@
 # Roadmap — de acá a lo planificado
 
-> **Generado** 2026-09-24 · **actualizado** 2026-10-24 (estado de publicación y la página
-> release-bound; prep de `v0.3.5`) desde el estado verificado del repo (no del declarado).
+> **Generado** 2026-09-24 · **actualizado** 2026-10-26 (estado de publicación y la página
+> release-bound; prep de `v0.3.6`) desde el estado verificado del repo (no del declarado).
 > Canónico del plan: `docs/SPEC.md` §12. Este documento agrega **qué está realmente hecho**
 > y **en qué orden conviene seguir**, con la evidencia de cada afirmación.
 > Regenerar/corregir cuando la evidencia cambie.
@@ -20,7 +20,7 @@
 | **M8** media pipeline | ✅ | **✅ contrato sí, deploy no** | `assets/` + `manifest.json` + `collectMedia` en core; los playbooks de deploy son M4 |
 | **M9** training-time corpus presence | ⏳ contrato sí, decisión **deferida** (Q10, post-M3) | **✗ no empezado** — piso ya definido: **privado-first** (bloquea crawlers de entrenamiento, sin licencia abierta) con opt-in explícito del dueño | `docs/research/03-training-time-visibility.md` (PR #135 + corrección de consentimiento, 2026-10-05); SPEC §12 M9 + §14 Q10 |
 
-**Fuera de los milestones — lo que la serie `0.2.0` → `0.3.5` entregó (2026-10-09 → hoy):**
+**Fuera de los milestones — lo que la serie `0.2.0` → `0.3.6` entregó (2026-10-09 → hoy):**
 
 - **Distribución resuelta (#105, cerrado)**: `@profile-as-code/cli` en npm — `0.2.0`
   (2026-10-09T23:24:37Z) y `0.3.0` (2026-10-11T03:43:27Z, `latest`), con GitHub Releases
@@ -40,6 +40,10 @@
   SPEC §2).
 - **Repo público + hygiene**: la reconciliación del flip de visibilidad (#293) y los issue
   templates canónicos (#294) quedaron medidos y fechados en sus documentos.
+- **Release 0.3.6 (2026-10-26)**: schema v1.10/v1.11 — answer-engine surface (#288) y
+  `identity.nationality` (#334); geoCheck v2 con sus códigos de citability (#289);
+  `pasco edit` S1–S3 (epic #247); publicación del cohort de cinco paquetes (#301);
+  funding rails y el lock anti-carreras del writer (#332).
 
 **Lectura:** el motor cubre su contrato, la distribución está resuelta y la publicación es
 verificable de punta a punta. Lo que falta **no es motor — es superficie**: el flujo completo
