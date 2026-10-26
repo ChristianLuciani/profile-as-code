@@ -630,25 +630,6 @@ export function runEdit(args: EditArgs): number {
         line(`  why: ${published.reason}`);
       }
     }
-  }
-  if (impact !== undefined) {
-    // The ledger tracks the SSOT UNIT, the published block tracks the ARTIFACT:
-    // an edit can invalidate a recorded surface while no artifact changes (a
-    // headline on a paste-only surface) — two axes, both true (review of #335, F7).
-    line(
-      `surface impact (${impact.key} — §19 ledger, derived per run, never stored; the SSOT unit, not the artifact):`,
-    );
-    const surfaces = Object.entries(impact.surfaces).sort(([a], [b]) => (a < b ? -1 : 1));
-    if (surfaces.length === 0) {
-      line("  never — no ledger record for this unit (state: never)");
-    } else {
-      for (const [surface, state] of surfaces) {
-        line(
-          `  ${surface} → ${state}${state === "stale" ? " (the edit changes the unit's contentHash)" : " (the record's hash still matches)"}`,
-        );
-      }
-    }
-    line(`  drift: ${drift}`);
   } else if (target.matches === 0) {
     line("resolves to 0 rows — no current value");
     if (proposed !== undefined) {
@@ -672,6 +653,28 @@ export function runEdit(args: EditArgs): number {
         `  ${index + 1}. ${row.address} = ${row.value}${row.note === undefined ? "" : `  (${row.note})`}`,
       );
     });
+  }
+
+  if (impact !== undefined) {
+    // The ledger tracks the SSOT UNIT, the published block tracks the ARTIFACT:
+    // an edit can invalidate a recorded surface while no artifact changes (a
+    // headline on a paste-only surface) — two axes, both true (review of #335, F7).
+    line(
+      `surface impact (${impact.key} — §19 ledger, derived per run, never stored; the SSOT unit, not the artifact):`,
+    );
+    const surfaces = Object.entries(impact.surfaces).sort(([a], [b]) => (a < b ? -1 : 1));
+    if (surfaces.length === 0) {
+      line("  never — no ledger record for this unit (state: never)");
+    } else {
+      for (const [surface, state] of surfaces) {
+        // True on a read/noop too: the record's hash differs from the unit's
+        // CURRENT contentHash (no claim that an edit just ran) — review F/N2.
+        line(
+          `  ${surface} → ${state}${state === "stale" ? " (the record's hash differs from the unit's current contentHash)" : " (the record's hash still matches)"}`,
+        );
+      }
+    }
+    line(`  drift: ${drift}`);
   }
 
   if (published.error !== undefined && writing) {

@@ -184,7 +184,8 @@ With --set --check it PREVIEWS instead: it renders the surface the way
 \`pasco build\` does — active variant (#238) → renderer → shared paste source,
 current vs proposed — and prints the artifact lines the edit changes, saying so
 (with the reason) when the edit does not reach the artifact.
-Every run also prints the edited unit's SURFACE IMPACT from the §19 ledger: each
+Every run against a resolved, writable address also prints the edited unit's
+SURFACE IMPACT from the §19 ledger: each
 recorded surface prints stale (the edit changed the hash) or in-sync (it still
 matches), and a unit with no record rolls up to never — derived, never stored.
 The block also carries the measured drift count.

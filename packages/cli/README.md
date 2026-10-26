@@ -166,8 +166,8 @@ duplicate bio (`drift/duplicate-bio`), or two links on one platform (add
 resolves to **0 rows** is reported with the addresses the workspace does have;
 `edit` never creates rows.
 
-**What the edit invalidates (S3, #250).** Every read, preview and write reports
-the edited unit's **surface impact**: the §19 ledger is consulted by ledger key
+**What the edit invalidates (S3, #250).** Every run against a **resolved, writable
+address** (a read, a preview, a write) reports the edited unit's **surface impact**: the §19 ledger is consulted by ledger key
 (`bios:<platform>:<lang>:<length>`, `headlines:<platform>:<lang>`,
 `positioning`), every **recorded** surface prints its state (`stale` when the
 edit changes the unit's `contentHash`, `in-sync` when the record's hash still

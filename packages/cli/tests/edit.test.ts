@@ -547,6 +547,36 @@ describe("pasco edit — resolution, preview and write", () => {
     expect(json(statement).data.stale).toEqual({ "github-readme": "stale", linkedin: "stale" });
   });
 
+  it("reads stale when the seeded record holds the PRE-edit hash (pre/post discrimination)", () => {
+    const dir = workspace();
+    const unit = trackableUnits(load(dir)).find((u) => u.key === "bios:linkedin:en:medium");
+    writeFileSync(
+      join(dir, "content", "deployments.yaml"),
+      `bios:linkedin:en:medium:\n  linkedin:\n    deployedAt: "2025-01-15T09:30:00Z"\n    contentHash: ${unit?.hash}\n    source: manual\n`,
+    );
+    // Different value → the applied unit hash differs from the record's hash.
+    // If the impact were computed on the PRE-edit profile it would read in-sync.
+    const r = edit(
+      dir,
+      "bios[platform=linkedin,lang=en,length=medium].text",
+      "--set",
+      "A different bio.",
+      "--json",
+    );
+    expect(r.code).toBe(0);
+    const parsed = json(r);
+    expect(parsed.data.stale).toEqual({ linkedin: "stale" });
+    expect(parsed.data.state).toBe("stale");
+  });
+
+  it("does not run the ambiguous branch for a one-row link read (N1 regression)", () => {
+    const dir = workspace();
+    const r = edit(dir, "identity.links[platform=github].url");
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("current:  https://github.com/elenavasquez");
+    expect(r.stdout).not.toContain("resolves to");
+  });
+
   it("measures drift even when nothing is proposed (F1)", () => {
     const dir = workspace();
     const headlines = join(dir, "content", "headlines.yaml");
