@@ -12,7 +12,7 @@ minor versions may contain breaking contract changes.
 ### Planned (roadmap)
 
 - Renderers: linkedin, upwork, x, researchgate, substack (M4)
-- CLI `pasco`: the full `refine` flow (M3); the `edit` epic (#247, slices S1–S5)
+- CLI `pasco`: the full `refine` flow (M3); the `edit` epic (#247, slices S4–S5)
 - Per-platform skills v1 from SOTA research (M3)
 - Web renderer (M5)
 
@@ -29,12 +29,48 @@ minor versions may contain breaking contract changes.
   structured-data `ready` gate **and completeness ratio**: a workspace that omits it
   validates, emits, and scores exactly as before. Schema contract v1.11 (additive,
   pre-v1.11 workspaces validate unchanged); `@profile-as-code/core` 0.1.1.
+- **`pasco edit` — a contract edit surface, S1–S3 (#247/#248/#249/#250)** — address
+  **one** contract field by contract path (never line/offset): read its current value
+  (S1), `--set` writes it with a comment-preserving byte-range splice — validated and
+  atomic, one-line diff (S2) — and `--set --check` previews the published lines the
+  edit changes, while S3 reports the unit's per-surface staleness from the §19 ledger.
+  Concurrent writers on one workspace serialize on `content/.pasco-edit.lock` (2 s
+  wait, then refuse; a crashed lock is broken after 30 s). S4–S5 (caps before paste,
+  agent contract) remain planned.
+- **Answer-engine surface — `identity.definition` + `faq[]` (schema v1.10, #288)** —
+  the two things an answer engine can quote: a canonical per-language definition
+  (≤ 160 chars per value, must contain the entity name) and 3–20 citable Q&A pairs
+  (`q` ≤ 90 and unique per workspace, `a` ≤ 320, optional http(s) `source`).
+  `structuredData()` exposes `description` and a separate `FAQPage` JSON-LD node,
+  emitted only when `faq[]` exists.
 - **Funding rails — the project is now easy to fund** — `funding` field in the CLI
   manifest (GitHub Sponsors · Ko-fi · Patreon; `npm fund` and the npmjs.com package
   page surface it natively), a `--help` footer tip line, a Support section on the
-  package README, and the `ko_fi:`/`patreon:` rails in `.github/FUNDING.yml`.
+  package README with its three badge rails, the vendored GitHub mark on the landing
+  and docs chrome, and the `ko_fi:`/`patreon:` rails in `.github/FUNDING.yml`.
   Deliberately not: no post-install script, no donation nag on every command — the
   ask lives in `--help` and the READMEs only.
+
+### Changed
+
+- **GEO scores move: geoCheck v2 (#289)** — five citability codes join the report
+  (`geo/canonical-definition`, `geo/faq-coverage`, `geo/freshness`,
+  `geo/sameas-coverage`, `geo/name-collision`), funded by diluting the nine pre-v1.10
+  checks ×0.8 (the weights still sum to 1, asserted). **Every workspace's reported GEO
+  score changes**; the new `GeoCheck.severity` tier is additive and `info` never changes
+  the pass/fail story.
+- **The release publishes the seam cohort in dependency order (#301)** — core →
+  markdown → paste → artifact → github → cli, packed with `pnpm` and published by the
+  npm CLI over OIDC; a package whose version is already live is skipped.
+- **Deterministic ordering is ICU-free everywhere (#305)** — every text sort delegates
+  to core's `byteOrder` (UTF-16 code units), so output is byte-stable across locales.
+
+### Fixed
+
+- **`pasco edit` writer hardening (#332)** — the preview refuses what the write
+  refuses, anchored/aliased scalars are refused, the writer re-reads immediately
+  before the atomic rename and refuses on drift, and an advisory lock closes the
+  last-writer-wins window; concurrent edits on one workspace keep both values.
 
 ## [0.3.5] - 2026-10-24
 

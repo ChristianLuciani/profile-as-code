@@ -279,7 +279,7 @@
         "nationality": {
           "type": "string",
           "pattern": "^[A-Z]{2}$",
-          "description": "v1.11 (issue #334): ISO 3166-1 alpha-2 nationality code (uppercase, e.g. `VE`), a fact distinct from `location` (residence). Maps to schema.org `Person.nationality` as a `Country` node with `identifier` on the JSON-LD. The pattern asserts ISO 3166-1 alpha-2 FORM only — `ve`, `Venezuela` and `VEN` fail loudly (ECMA-262 pattern, no flags; D12 fail class); membership in the published code list is not enforced. Optional: outside the structured-data `ready` gate and completeness ratio, so absence changes nothing."
+          "description": "v1.11 (issue #334): ISO 3166-1 alpha-2 nationality code (uppercase, e.g. `VE`), a fact distinct from `location` (residence). Maps to schema.org `Person.nationality` as a `Country` node with `identifier` on the JSON-LD. Person-only by the standard's model: a `flavor: brand` workspace may declare it (identity is shared) but the Organization branch emits no `nationality` node — the value is not silently rewritten into a brand fact. The pattern asserts ISO 3166-1 alpha-2 FORM only — `ve`, `Venezuela` and `VEN` fail loudly (ECMA-262 pattern, no flags; D12 fail class); membership in the published code list is not enforced. Optional: outside the structured-data `ready` gate and completeness ratio, so absence changes nothing."
         },
         "photo": { "$ref": "#/$defs/url" },
         "links": {

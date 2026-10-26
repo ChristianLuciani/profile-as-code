@@ -143,9 +143,9 @@ One global install: no clone, no build, nothing written outside the npm prefix.
 > Previous published state [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-12]: version
 > `0.3.0` **public** and tagged `latest` (published 2026-10-11T03:43:27Z; tag `v0.3.0` →
 > `21e4cde`).
-> Separately, and **not** registry-sourced: the built bin on `main` reports the matching
-> version (`node packages/cli/dist/index.js --version` → `pasco 0.3.6`, 2026-10-26) — a
-> local-build check, not a run of the published tarball.
+> Separately, and **not** registry-sourced: the built bin reports the matching
+> version (`node packages/cli/dist/index.js --version` at `160c648`, 2026-10-26 →
+> `pasco 0.3.6`) — a local-build check, not a run of the published tarball.
 > Caveat, closing (#293): the engine repo is **public** (measured 2026-10-24) — `repository.url`
 > resolves for any reader now; the published versions keep **no attestation** (published while the
 > source was private; registry `dist.attestations` absent, re-checked 2026-10-24) and stay

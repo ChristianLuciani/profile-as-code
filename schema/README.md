@@ -4,9 +4,13 @@
 workspace (JSON Schema, draft 2020-12). Per D3, JSON Schema is the contract source and
 **Zod schemas are generated from it** in `packages/core` — never hand-written in parallel.
 
-> Status: **v1.10** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
+> Status: **v1.11** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
 > v1.x is **additive** (semver minor): every earlier workspace still validates unchanged. New
-> in v1.10 (issue #288): the answer-engine surface — `identity.definition` (the canonical
+> in v1.11 (issue #334): `identity.nationality` — the ISO 3166-1 alpha-2 code (uppercase, e.g.
+> `VE`), asserted by `^[A-Z]{2}$`; emitted on the Person entity JSON-LD as
+> `nationality: { "@type": "Country", identifier }`. A `flavor: brand` workspace may declare
+> it (identity is shared) but emits no Organization node — schema.org defines nationality on
+> `Person`. New in v1.10 (issue #288): the answer-engine surface — `identity.definition` (the canonical
 > per-language definition, ≤ 160 chars per value, must contain the entity name — the name
 > check is a geoCheck rule, #289) and root `faq[]` (3–20 citable Q&A pairs, `q` ≤ 90 and
 > unique per workspace, `a` ≤ 320, optional `$defs/url` `source`). The same minor completes
@@ -45,7 +49,7 @@ validates the result against this schema. File → root property mapping:
 
 | File (content/) | Root property(s) | Notes |
 |---|---|---|
-| `identity.yaml` | `identity` | Required at profile level (the GEO anchor). v1.5 (issue #71): `email` — the contact email as a fact (NOT in `links[]`; renderers emit a mailto: href + JSON-LD `email`). v1.6 (#103): `links[].role` — `identity` | `realization` | `aggregator` (see §15.4) |
+| `identity.yaml` | `identity` | Required at profile level (the GEO anchor). v1.5 (issue #71): `email` — the contact email as a fact (NOT in `links[]`; renderers emit a mailto: href + JSON-LD `email`). v1.6 (#103): `links[].role` — `identity` | `realization` | `aggregator` (see §15.4). v1.11 (#334): `nationality` — ISO 3166-1 alpha-2 code, emitted as Person JSON-LD `Country.identifier` (no Organization node for brand) |
 | `flavor.yaml` | `flavor` | v1.1 (D15): `person` \| `brand`. **The file value IS the root value** — a bare scalar (`brand`), not a key:value map |
 | `socialHandles.yaml` | `socialHandles[]` | v1.1 (brand): handle matrix (platform → handle + `status: claimed\|pending`) |
 | `newsletter.yaml` | `newsletter` | v1.1 (brand): Substack/Ghost |
