@@ -161,6 +161,16 @@ function refIssues(profile: Profile): RegistryIssue[] {
         );
       }
     }
+    for (const [rIndex, ref] of (project.artifactRefs ?? []).entries()) {
+      if (!artifactIds.has(ref)) {
+        issues.push(
+          integrity(
+            `projects[${pIndex}].artifactRefs[${rIndex}]`,
+            `references artifacts[].id "${ref}" which does not exist (dangling cross-ref, load fails)`,
+          ),
+        );
+      }
+    }
   }
   for (const [pIndex, pub] of (profile.publications ?? []).entries()) {
     for (const [rIndex, ref] of (pub.artifactRefs ?? []).entries()) {
@@ -273,6 +283,13 @@ export function registryCheck(profile: LoadedProfile | Profile): RegistryFinding
         nonPublic(evidence.artifactId, "artifacts", artifacts),
         `projects[${pIndex}].evidence[${eIndex}].artifactId`,
         "evidence claim proves an artifact",
+      );
+    }
+    for (const [rIndex, ref] of (project.artifactRefs ?? []).entries()) {
+      flagLeak(
+        nonPublic(ref, "artifacts", artifacts),
+        `projects[${pIndex}].artifactRefs[${rIndex}]`,
+        "project row",
       );
     }
   }

@@ -200,6 +200,42 @@ describe("registry integrity (load, D12 fail class)", () => {
     expect(paths.some((p) => p.includes("artifactRefs"))).toBe(true);
   });
 
+  it("fails on dangling artifactRefs in projects (v1.12, #333 — the third ref site)", () => {
+    const paths = loadFail({
+      "identity.yaml": IDENTITY,
+      "projects.yaml": `- name: Demo
+  status: active
+  artifactRefs: [reel-nope]
+`,
+    });
+    expect(paths.some((p) => p.includes("projects") && p.includes("artifactRefs"))).toBe(true);
+  });
+
+  it("rejects a non-list artifactRefs at the schema boundary (v1.12, #333)", () => {
+    const paths = loadFail({
+      "identity.yaml": IDENTITY,
+      "projects.yaml": `- name: Demo
+  artifactRefs: reel-2025
+`,
+    });
+    expect(paths.some((p) => p.includes("artifactRefs"))).toBe(true);
+  });
+
+  it("resolves project artifactRefs to a public artifact (edge kept, no issue raised)", () => {
+    const profile = load(
+      makeWorkspace({
+        "identity.yaml": IDENTITY,
+        "artifacts.yaml": ARTIFACT,
+        "projects.yaml": `- name: Demo
+  status: active
+  artifactRefs: [reel-2025]
+`,
+      }),
+    );
+    expect(profile.projects?.[0]?.artifactRefs).toEqual(["reel-2025"]);
+    expect(registryCheck(profile)).toEqual([]);
+  });
+
   it("fails when a locator has both url and path (XOR)", () => {
     const paths = loadFail({
       "identity.yaml": IDENTITY,
@@ -298,6 +334,23 @@ describe("registryCheck (§18.8, offline/deterministic)", () => {
     expect(
       issues.some((i) => i.code === "check/private-in-public-output" && i.severity === "error"),
     ).toBe(true);
+  });
+
+  it("errors when a project references an unlisted artifact (leak gate covers the third site)", () => {
+    const profile = load(
+      makeWorkspace({
+        "identity.yaml": IDENTITY,
+        "artifacts.yaml": `${ARTIFACT}${secondArtifact("work-unlisted", { visibility: "unlisted" })}`,
+        "projects.yaml": `- name: Demo
+  status: active
+  artifactRefs: [work-unlisted]
+`,
+      }),
+    );
+    const issues = registryCheck(profile);
+    const leak = issues.find((i) => i.code === "check/private-in-public-output");
+    expect(leak?.severity).toBe("error");
+    expect(leak?.path).toContain("projects");
   });
 
   it("is clean for a public registry referenced from public claims", () => {
