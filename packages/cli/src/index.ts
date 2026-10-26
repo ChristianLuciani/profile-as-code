@@ -181,12 +181,15 @@ With --set --check it PREVIEWS instead: it renders the surface the way
 \`pasco build\` does — active variant (#238) → renderer → shared paste source,
 current vs proposed — and prints the artifact lines the edit changes, saying so
 (with the reason) when the edit does not reach the artifact.
-\`--json\` payload { address, current, proposed, rendered, ok, noop, written }
-inside the usual envelope (command · ok · exitCode).
+\`--json\` payload { address, current, proposed, rendered, ok, noop, written,
+warnings } inside the usual envelope (command · ok · exitCode); warnings carries a
+non-blocking finding the write proceeded through (a selection error).
 Exit: 0 written / noop / the preview changes the artifact · 1 the address did not
-resolve to exactly one row, the validation refused the result, or (preview) the
+resolve to exactly one row, the target is read-only or changed under the command
+(stale — nothing was written), the validation refused the result, or (preview) the
 artifact does not change · 2 usage (malformed address, read-only field, block or
-multi-line scalar, a value with a line break, --check without --set).`,
+multi-line scalar, anchored/aliased scalar, a value with a line break, --check
+without --set).`,
   diff: `pasco diff [--json] [--workspace <path>]
 Git-based: what changed since the last tag matching release-* (.pascorc
 diff.tagPattern) — commits + changed content files → CHANGELOG hint.`,

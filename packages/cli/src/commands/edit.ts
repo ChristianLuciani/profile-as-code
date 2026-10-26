@@ -50,7 +50,13 @@ import {
   parseEditAddress,
   UsageError,
 } from "../contract.js";
-import { inspectTarget, StaleEditError, type WriteOutcome, writeEdit } from "../edit-write.js";
+import {
+  inspectTarget,
+  StaleEditError,
+  type WriteOutcome,
+  WriteRefusedError,
+  writeEdit,
+} from "../edit-write.js";
 import { EXIT } from "../exit.js";
 import { line, report } from "../output.js";
 import type { Pascorc } from "../workspace.js";
@@ -494,9 +500,12 @@ export function runEdit(args: EditArgs): number {
         inspectTarget({ workspace: args.workspace, target: located, expect: target.current });
       } catch (err) {
         if (err instanceof UsageError) throw err;
-        if (err instanceof StaleEditError) {
+        if (err instanceof StaleEditError || err instanceof WriteRefusedError) {
           return report("edit", false, EXIT.FAIL, {
-            error: { kind: "stale", message: err.message },
+            error: {
+              kind: err instanceof StaleEditError ? "stale" : "refused",
+              message: err.message,
+            },
           });
         }
         throw err;
@@ -522,9 +531,12 @@ export function runEdit(args: EditArgs): number {
           ok = true;
         } catch (err) {
           if (err instanceof UsageError) throw err;
-          if (err instanceof StaleEditError) {
+          if (err instanceof StaleEditError || err instanceof WriteRefusedError) {
             return report("edit", false, EXIT.FAIL, {
-              error: { kind: "stale", message: err.message },
+              error: {
+                kind: err instanceof StaleEditError ? "stale" : "refused",
+                message: err.message,
+              },
             });
           }
           if (err instanceof SchemaValidationError || err instanceof LoadError) {

@@ -144,7 +144,11 @@ publishes exactly **one** bio (length priority `long > medium > short`), several
 renderers never emit the statement, and a renderer-less surface carries no
 headline. In those cases the artifact does not change and the preview says so —
 with the reason, and exit `1`. It runs the writer's **eligibility and staleness
-checks first**, so `--check` can never preview a write that `--set` would refuse.
+checks first**, so `--check` refuses the same ADDRESSED shapes `--set` refuses
+(block/multi-line/anchored scalars, a stale row). Write-time failures — a
+read-only file, a validation error, a concurrent change — can still fail after a
+green preview: the preview proves *what* would change, not that the filesystem
+will accept it.
 
 > v1 writes single-line scalars only. A workspace whose bios are wrapped by an
 > editor (this repo's own `minimal` test fixture is) must be reflowed to one line
@@ -158,14 +162,18 @@ resolves to **0 rows** is reported with the addresses the workspace does have;
 `edit` never creates rows.
 
 `--json` payload (inside the CLI's usual envelope, which also carries `command`,
-`ok` and `exitCode`): `{ address, current, proposed, rendered, ok, noop, written }`.
-`rendered` is the published text the edit produces (or `null`), `noop` says the
-value was already there, `written` says the file changed. Exit codes: **0** the
-write succeeded (or the noop was a noop), or the preview changes the artifact ·
-**1** the address did not resolve to exactly one row, the validation refused the
-result, or (preview only) the artifact does not change · **2** usage (malformed
-address, read-only field, block/multi-line scalar, a value with a line break,
-`--check` without `--set`).
+`ok` and `exitCode`): `{ address, current, proposed, rendered, ok, noop, written,
+warnings }`. `rendered` is the published text the edit produces (or `null`),
+`noop` says the value was already there, `written` says the file changed, and
+`warnings` carries the non-blocking findings a write proceeded through (a D22/§21
+selection error that makes `pasco build` refuse the workspace — the SSOT write is
+still valid, so it is reported, not blocked). Exit codes: **0** the write succeeded
+(or the noop was a noop), or the preview changes the artifact · **1** the address
+did not resolve to exactly one row, the target is read-only or changed under the
+command (stale), the validation refused the result, or (preview only) the artifact
+does not change · **2** usage (malformed address, read-only field, block/multi-line
+scalar, anchored/aliased scalar, a value with a line break, `--check` without
+`--set`).
 
 ### Publication truth (derived — SPEC §20.1, #242)
 

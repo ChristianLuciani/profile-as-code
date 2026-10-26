@@ -317,13 +317,55 @@ describe("pasco edit — S2 writer (range splice)", () => {
     expect(readFileSync(real, "utf8")).toContain("Via link");
   });
 
-  it("preserves the file mode (a read-only content file stays read-only)", () => {
+  it("refuses a read-only target (the user marked it read-only)", () => {
     const dir = workspace();
     chmodSync(fileOf(dir, "headlines.yaml"), 0o444);
-    const r = run(dir, "edit", "headlines[platform=x,lang=en].text", "--set", "Still read-only");
+    const before = hashOf(fileOf(dir, "headlines.yaml"));
+    const r = run(dir, "edit", "headlines[platform=x,lang=en].text", "--set", "Blocked", "--json");
+    expect(r.code).toBe(1);
+    const parsed = JSON.parse(r.stdout) as { error?: { kind: string; message: string } };
+    expect(parsed.error?.kind).toBe("refused");
+    expect(parsed.error?.message).toContain("read-only");
+    expect(hashOf(fileOf(dir, "headlines.yaml"))).toBe(before);
+  });
+
+  it("preserves the file mode of a writable target (0640)", () => {
+    const dir = workspace();
+    chmodSync(fileOf(dir, "headlines.yaml"), 0o640);
+    const r = run(dir, "edit", "headlines[platform=x,lang=en].text", "--set", "Mode kept");
     expect(r.code).toBe(0);
-    expect(readFileSync(fileOf(dir, "headlines.yaml"), "utf8")).toContain("Still read-only");
-    expect(statSync(fileOf(dir, "headlines.yaml")).mode & 0o777).toBe(0o444);
+    expect(readFileSync(fileOf(dir, "headlines.yaml"), "utf8")).toContain("Mode kept");
+    expect(statSync(fileOf(dir, "headlines.yaml")).mode & 0o777).toBe(0o640);
+  });
+
+  it("refuses when the file changes while the edit is being validated (N1)", () => {
+    const dir = workspace();
+    const file = fileOf(dir, "headlines.yaml");
+    const original = readFileSync(file, "utf8");
+    // A concurrent writer lands between the inspect and the rename: the guard
+    // re-reads immediately before the atomic replace and must refuse, not
+    // overwrite (both `pasco edit` invocations used to report success).
+    expect(() =>
+      writeEdit(
+        {
+          workspace: dir,
+          target: { file: "content/headlines.yaml", path: [3, "text"] },
+          value: "Mine",
+        },
+        {
+          validate: () => {
+            writeFileSync(
+              file,
+              original.replace(
+                "text: Sovereign AI stack architect — routing, local inference, evaluation",
+                "text: Theirs",
+              ),
+            );
+          },
+        },
+      ),
+    ).toThrow(StaleEditError);
+    expect(readFileSync(file, "utf8")).toContain("Theirs");
   });
 
   it("quotes a flow-row value that needs it (round-trip through the parser)", () => {
@@ -349,11 +391,20 @@ describe("pasco edit — S2 writer (range splice)", () => {
     const before = hashOf(fileOf(dir));
     chmodSync(join(dir, "content"), 0o555);
     try {
-      const r = run(dir, "edit", "headlines[platform=x,lang=en].text", "--set", "Blocked");
+      const r = run(
+        dir,
+        "edit",
+        "headlines[platform=x,lang=en].text",
+        "--set",
+        "Blocked",
+        "--json",
+      );
       expect(r.code).toBe(1);
-      expect(r.stderr).toContain("could not write");
-      expect(r.stderr).not.toContain("/var/");
-      expect(r.stderr).not.toContain("/tmp/");
+      const parsed = JSON.parse(r.stdout) as { error?: { kind: string; message: string } };
+      expect(parsed.error?.kind).toBe("load");
+      expect(parsed.error?.message).toContain("could not write");
+      expect(parsed.error?.message).not.toContain("/var/");
+      expect(parsed.error?.message).not.toContain("/tmp/");
       expect(hashOf(fileOf(dir))).toBe(before);
     } finally {
       chmodSync(join(dir, "content"), 0o755);

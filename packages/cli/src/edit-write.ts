@@ -28,7 +28,9 @@
 
 import { randomUUID } from "node:crypto";
 import {
+  accessSync,
   chmodSync,
+  constants,
   cpSync,
   mkdtempSync,
   readFileSync,
@@ -74,6 +76,15 @@ export class StaleEditError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "StaleEditError";
+  }
+}
+
+/** The workspace is in a state where the write must not run (a read-only file,
+ *  a permission the caller cannot override) — exit 1, never usage. */
+export class WriteRefusedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "WriteRefusedError";
   }
 }
 
@@ -157,6 +168,13 @@ function inspect(
     );
   }
   assertSpliceable(node, original, args.target.file, args.target.path);
+  try {
+    accessSync(filePath, constants.W_OK);
+  } catch {
+    throw new WriteRefusedError(
+      `${args.target.file} is read-only (the user marked it so) — chmod it, or preview with --check`,
+    );
+  }
   const before = node.value === null || node.value === undefined ? "" : String(node.value);
   if (args.expect !== undefined && before !== args.expect) {
     throw new StaleEditError(
@@ -241,6 +259,17 @@ export function writeEdit(
     );
   } finally {
     rmSync(tempWorkspace, { recursive: true, force: true });
+  }
+
+  // Re-read IMMEDIATELY before the rename: validation took real time (a temp
+  // copy of content/ + load()), and two concurrent `pasco edit --set` on the
+  // same file would otherwise both report success and one value would vanish
+  // (premerge review of #332, N1). The residual window between this read and the
+  // rename is microseconds; there is no portable way to close it further.
+  if (readFileSync(filePath, "utf8") !== original) {
+    throw new StaleEditError(
+      `${args.target.file}: the file changed while the edit was being validated — nothing was written; re-run`,
+    );
   }
 
   // Atomic replace at the REAL path: a symlinked content file keeps its link

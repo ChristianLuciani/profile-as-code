@@ -46,7 +46,9 @@ function workspace(): string {
   cpSync(MINIMAL, dir, { recursive: true });
   // The committed fixture wraps 5 of its 6 bios; the writer (and therefore the
   // preview, which must refuse what the write refuses) accepts single-line
-  // scalars only, so the test workspace carries the same VALUES, one line each.
+  // scalars only. This is a hand-written single-line corpus modelled on the
+  // fixture — same platforms/lengths, minus the `x` short row (no test needs it)
+  // — not a byte-for-byte copy.
   writeFileSync(
     join(dir, "content", "bios.yaml"),
     `- platform: github-readme
