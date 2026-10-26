@@ -31,7 +31,7 @@ const slice   = compile(profile, 'linkedin', 'es');      // PlatformProfile — 
   curated base, unknown active platform keys, skill level conflicts.
   *Out of scope (v1):* free-text mining of bio prose, DOI resolvability
   (network), the variants store (only the platform+lang base is validated).
-- **`geoCheck(profile)`** — weighted report (8 checks, 100 pts):
+- **`geoCheck(profile)`** — weighted report (14 checks since v1.10, 0..100):
   **fact consistency** (conflicts + per-platform bio/headline coverage),
   **structured-data readiness** (`schema.org` Person JSON-LD with `sameAs`,
   ready for the web renderer), **semantic associations** (the 3–5

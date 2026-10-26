@@ -142,7 +142,7 @@ One global install: no clone, no build, nothing written outside the npm prefix.
 > that release's irreversible step — verify the published `latest` with
 > `npm view @profile-as-code/cli version`.
 > Previous published state [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-26]: version
-> `0.3.5` **public** and tagged `latest` (published 2026-10-24T03:50:05Z; tag `v0.3.5` →
+> `0.3.5` **public** and tagged `latest` (published 2026-10-24T03:50:04.822Z; tag `v0.3.5` →
 > `c69e6b7`). The 0.3.0 publication (2026-10-11T03:43:27Z; tag `v0.3.0` → `21e4cde`)
 > stays a dated record.
 > Separately, and **not** registry-sourced: the built bin reports the matching
