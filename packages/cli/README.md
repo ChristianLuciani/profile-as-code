@@ -60,7 +60,7 @@ commands above are the standalone path.
 | `pasco init [dir]` | Scaffold a profile-data workspace (`content/identity.yaml`, `README.md`, `.pascorc`) — `pasco validate`-clean | ✅ |
 | `pasco validate [--json]` | Schema **fail** (exit 1) + drift/geo **warn** (exit 0) — D12 | ✅ |
 | `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (the eight registered in the generated renderer map) write `profiles/<platform>/README.md` + bundled media; renderer-less manual surfaces with a bio row write `profiles/<platform>.md` (#239). Empty render = no-trace unbuild of the generated output, preserving `profiles/<platform>/variants/` (chosen-variant input, #238; pure profiles/, §15.1 — v1.7). Media in `profiles/<platform>/assets/` + `assets/manifest.json` (M8/§18.6 — see `docs/media-pipeline.md`) | ✅ |
-| `pasco edit <contract-path> [--set <text> [--check]]` | Resolve **one** contract field by contract path; `--set` **writes it** (comment-preserving range splice, validated, atomic) and `--set --check` previews the **published lines the edit changes** (or says it changes nothing). Epic #247, S1+S2 landed; the report surfaces (S3–S5) are the next slices | 🚧 S1+S2 (read · preview · write) |
+| `pasco edit <contract-path> [--set <text> [--check]]` | Resolve **one** contract field by contract path; `--set` **writes it** (comment-preserving range splice, validated, atomic) and `--set --check` previews the **published lines the edit changes** (or says it changes nothing). Epic #247, S1–S3 landed; S4–S5 (caps before paste, agent contract) are the next slices | 🚧 S1–S3 (read · preview · write · surface impact) |
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never · **certification** (verified/attested/unverifiable/out-of-band-drift, §19.5) + the derived **publication truth** per surface (§20.1, #242) + ledger write paths (D18, §19) | ✅ |
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13); the chosen body is `profiles/<platform>/variants/<id>.md` (a complete platform artifact), rendered by `pasco build` (#238) | 🚧 template + `--choose` (full flow M3) |
@@ -166,9 +166,26 @@ duplicate bio (`drift/duplicate-bio`), or two links on one platform (add
 resolves to **0 rows** is reported with the addresses the workspace does have;
 `edit` never creates rows.
 
+**What the edit invalidates (S3, #250).** Every run against a **resolved, writable
+address** (a read, a preview, a write) reports the edited unit's **surface impact**: the §19 ledger is consulted by ledger key
+(`bios:<platform>:<lang>:<length>`, `headlines:<platform>:<lang>`,
+`positioning`), every **recorded** surface prints its state (`stale` when the
+edit changes the unit's `contentHash`, `in-sync` when the record's hash still
+matches), and a unit with no record reads `never` (the unit rollup). It is
+**derived on every run and stored nowhere** (SPEC §20), from the same
+`deployStatus` `pasco status` uses, so the two commands cannot disagree. The
+block also carries the **drift count** — measured on every run, read included —
+and the write's `validates:` line repeats it. The ledger tracks the SSOT **unit**,
+the published block tracks the **artifact**: an edit can invalidate a recorded
+surface while no artifact changes (a headline on a paste-only surface), and both
+lines are true.
+
 `--json` payload (inside the CLI's usual envelope, which also carries `command`,
 `ok` and `exitCode`): `{ address, current, proposed, rendered, ok, noop, written,
-warnings }`. `rendered` is the published text the edit produces (or `null`),
+warnings, stale, state, drift }` — `stale` maps each **recorded** surface to
+`in-sync|stale`, `state` is the §19 unit rollup (`never` when the unit has no
+record; `null` for a read-only link or an address that is not one row), and
+`drift` is the measured drift-check count (never a defaulted 0). `rendered` is the published text the edit produces (or `null`),
 `noop` says the value was already there, `written` says the file changed, and
 `warnings` carries the non-blocking findings a write proceeded through (a D22/§21
 selection error that makes `pasco build` refuse the workspace — the SSOT write is

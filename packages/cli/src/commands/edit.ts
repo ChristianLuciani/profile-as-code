@@ -29,6 +29,8 @@ import { join } from "node:path";
 import type { LoadedProfile, MediaAsset, Platform, PlatformProfile } from "@profile-as-code/core";
 import {
   collectMedia,
+  deployStatus,
+  driftCheck,
   LoadError,
   load,
   PLATFORMS,
@@ -428,6 +430,32 @@ function failLoad(err: unknown): number {
   throw err;
 }
 
+/** The §19.2 ledger key of the unit an address edits — `deployStatus` reads the
+ *  ledger by this key, so the report and `pasco status` cannot disagree. */
+function ledgerKeyOf(address: EditableAddress): string {
+  if (address.kind === "statement") return "positioning";
+  if (address.kind === "bio") {
+    return `bios:${address.platform}:${address.lang}:${address.length}`;
+  }
+  return `headlines:${address.platform}:${address.lang}`;
+}
+
+/** The §19 state of the unit an address edits. `deployStatus` is the authority;
+ *  its `surfaces` only lists RECORDED surfaces (`in-sync|stale`), so the unit's
+ *  `state` carries the `never` rollup (a core SyncState has no per-surface
+ *  never — the acceptance's "no record reads never" is the rollup's answer). */
+interface LedgerImpact {
+  key: string;
+  state: string;
+  surfaces: Record<string, string>;
+}
+
+function ledgerImpact(profile: LoadedProfile, address: EditableAddress): LedgerImpact {
+  const key = ledgerKeyOf(address);
+  const unit = deployStatus(profile).units.find((candidate) => candidate.key === key);
+  return { key, state: unit?.state ?? "never", surfaces: unit?.surfaces ?? {} };
+}
+
 /** Human scope label of an address: which artifact(s) carry it. */
 function scopeLabel(address: EditAddress): string {
   if (address.kind === "statement") return "every rendered platform";
@@ -479,6 +507,13 @@ export function runEdit(args: EditArgs): number {
   let ok = target.matches === 1;
   let published: Published = { changes: [] };
   let outcome: WriteOutcome | undefined;
+  // S3 (#250): the edit's impact on what was already published — DERIVED from
+  // core's §19 ledger (`deployStatus`), never stored (SPEC §20). `drift` is
+  // ALWAYS measured (a read reports the current profile's count; a 0 that was
+  // never computed is a fabricated number — round-1 review of #335, F1).
+  let impact: LedgerImpact | undefined;
+  let drift = driftCheck(profile).length;
+  if (address.kind !== "link" && target.matches === 1) impact = ledgerImpact(profile, address);
 
   if (proposed !== undefined && !noopValue && address.kind !== "link") {
     const located = target.locate;
@@ -511,6 +546,8 @@ export function runEdit(args: EditArgs): number {
         throw err;
       }
       const applied = applyEdit(profile, { ...target, locate: located }, proposed);
+      impact = ledgerImpact(applied, address);
+      drift = driftCheck(applied).length;
       published = publishedByEdit(profile, applied, address, args.workspace, args.pascorc);
       if (published.error !== undefined && !writing) {
         return report("edit", false, EXIT.FAIL, {
@@ -566,8 +603,9 @@ export function runEdit(args: EditArgs): number {
         line("(noop) the proposed value is identical to the current one — nothing was written");
       } else if (outcome !== undefined) {
         line(outcome.noop ? "(noop) the file already held this value" : "written: yes");
-        line("validates: yes");
+        line(`validates: yes (schema; drift ${drift})`);
       }
+
       if (published.changes.length > 0) {
         const lang = "lang" in address ? `/${address.lang}` : "";
         for (const change of published.changes) {
@@ -617,6 +655,28 @@ export function runEdit(args: EditArgs): number {
     });
   }
 
+  if (impact !== undefined) {
+    // The ledger tracks the SSOT UNIT, the published block tracks the ARTIFACT:
+    // an edit can invalidate a recorded surface while no artifact changes (a
+    // headline on a paste-only surface) — two axes, both true (review of #335, F7).
+    line(
+      `surface impact (${impact.key} — §19 ledger, derived per run, never stored; the SSOT unit, not the artifact):`,
+    );
+    const surfaces = Object.entries(impact.surfaces).sort(([a], [b]) => (a < b ? -1 : 1));
+    if (surfaces.length === 0) {
+      line("  never — no ledger record for this unit (state: never)");
+    } else {
+      for (const [surface, state] of surfaces) {
+        // True on a read/noop too: the record's hash differs from the unit's
+        // CURRENT contentHash (no claim that an edit just ran) — review F/N2.
+        line(
+          `  ${surface} → ${state}${state === "stale" ? " (the record's hash differs from the unit's current contentHash)" : " (the record's hash still matches)"}`,
+        );
+      }
+    }
+    line(`  drift: ${drift}`);
+  }
+
   if (published.error !== undefined && writing) {
     line(`warning: ${published.error} (pasco build refuses to render this workspace)`);
   }
@@ -636,6 +696,9 @@ export function runEdit(args: EditArgs): number {
       noop: outcome === undefined ? noopValue : outcome.noop,
       written: outcome !== undefined && !outcome.noop,
       warnings: published.error === undefined ? [] : [published.error],
+      stale: impact?.surfaces ?? {},
+      state: impact?.state ?? null,
+      drift,
     },
   });
 }
