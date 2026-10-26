@@ -117,10 +117,11 @@ skills + deploy playbooks**.
 > `workflow_dispatch` stays the documented override/retry (a `409` duplicate after a published
 > tag). Ratified as **camino (c)** in
 > [#307](https://github.com/ChristianLuciani/profile-as-code/issues/307#issuecomment-6386416707);
-> option (b) — dropping `push: tags` — discarded. **Ratified ≠ implemented:** the
-> `github-pages` environment allows only `main`/`gh-pages` (measured 2026-10-26), so the deploy
-> leg stays red until a tag policy exists — precondition and exit criterion (a cycle that does
-> not confirm it returns to option (b)) live in #327. No new `D` row; #262 owns the next.
+> option (b) — dropping `push: tags` — discarded. **The precondition landed on 2026-10-26:**
+> `github-pages` carries `tag v*` beside `branch main`/`gh-pages` (measured), so the deploy leg is
+> expected to work from the next tag; the exit criterion — a measured cycle that does not confirm
+> it returns to option (b) — and that first measurement live in #327. No new `D` row; #262 owns
+> the next.
 
 ### D20 — the `serve` scope rule (binding)
 

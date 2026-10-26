@@ -247,9 +247,9 @@ approval gate on publish.
 
 **Which trigger publishes: the tag push** — ratified 2026-10-24 as camino (c) of the #307
 docket ([ratification](https://github.com/ChristianLuciani/profile-as-code/issues/307#issuecomment-6386416707)); the `workflow_dispatch` is the documented override and retry.
-**Ratified ≠ implemented:** the `github-pages` environment still allows only the `main` and
-`gh-pages` branches (measured 2026-10-26), so the deploy leg fails until a tag policy is added
-— the precondition the ratification names, owned by #327. The full path is in
+The precondition the ratification named **landed on 2026-10-26**: `github-pages` now carries
+`tag v*` beside `branch main` / `branch gh-pages` (`environments/github-pages/deployment-branch-policies`,
+measured right after the change), so a tag run's deploy leg is expected to work from the next tag. The full path is in
 [§Releasing — the primary path](#releasing--the-primary-path-issue-208); what follows here is
 the guard and the invariant it enforces, which are the same on both entry points.
 
@@ -391,7 +391,7 @@ Measured, not inferred — the trigger that publishes changed with release `v0.3
 | `workflow_dispatch` from `main` (v0.2.0) | **success** — published | run `38004121038` |
 | `workflow_dispatch` from `main` (v0.3.0) | **success** — published | run `38109158435` |
 | `workflow_dispatch` repeat (v0.3.0) | **failed**, benign (`cannot publish over the previously published versions: 0.3.0`) | run `38109376245` |
-| `push` of tag `v0.3.5` | **success — published**: `publish` ✓ (OIDC, `dist.attestations` back), `release` ✓ (the Release page); the `site` deploy alone **failed** — the `github-pages` environment rejects tag-origin runs | run `40059745390` ([OFICIAL] readings recorded in #307, 2026-10-24) |
+| `push` of tag `v0.3.5` | **success — published**: `publish` ✓ (OIDC, `dist.attestations` back), `release` ✓ (the Release page); the `site` deploy alone **failed** — no tag policy existed on the `github-pages` environment at that date (`tag v*` was added 2026-10-26; #327 measures the first run after it) | run `40059745390` ([OFICIAL] readings recorded in #307, 2026-10-24) |
 | `workflow_dispatch` (v0.3.5, duplicate) | **failed**, benign (`409 — Cannot publish over previously staged version "0.3.5"`) — the dependent jobs then skip | run `40059765655` |
 
 **The measured flip (2026-10-24, after PR #304):** with the exchange working and the source repo
@@ -405,9 +405,9 @@ trusted-publisher settings / client behavior) — flagged in #307, not guessed h
 tag run, the dispatch or an environment change becomes CANONICAL **was decided on 2026-10-24**:
 camino (c) — the tag run is the release path and the dispatch stays as the documented override
 ([ratification](https://github.com/ChristianLuciani/profile-as-code/issues/307#issuecomment-6386416707); option (b), dropping `push: tags`, discarded). The ratification names
-the environment state it needs — a tag policy on `github-pages` — which is **not** in place yet
-(measured 2026-10-26), and its exit criterion: a measured cycle that does not confirm the new
-state sends the reconciliation back to option (b). That measurement is #327 (I5).
+the environment state it needs — a tag policy on `github-pages` — which **landed on 2026-10-26**
+(`tag v*`), and its exit criterion: a measured cycle that does not confirm the new state sends
+the reconciliation back to option (b). That measurement is #327 (I5).
 
 The first thing to inspect is the `job_workflow_ref` OIDC claim, which differs between the
 two runs (`…/release.yml@refs/tags/v0.3.0` vs `…@refs/heads/main`): if npm validates that ref
@@ -500,10 +500,10 @@ optional and `verify:pack` already asserts the tarball's bin before any publish.
 [#307 docket](https://github.com/ChristianLuciani/profile-as-code/issues/307#issuecomment-6386416707) — and `v0.3.5` is the measurement behind it (the flip and its runs live in
 [§the trigger race](#the-trigger-race--measured-per-release-issue-208--307) above): the tag run
 ran the guard, published the cohort + the CLI over OIDC, created the Release, and failed ONLY
-the `site` deploy. That leg is still red TODAY: the `github-pages` environment allows only the
-`main` and `gh-pages` branches (measured 2026-10-26), so the tag policy the ratification
-assumes is the precondition, and the page ships with the override dispatch until it exists
-(#327). The 2026-10-12 decision recorded below — the dispatch primary, the tag announces —
+the `site` deploy. That leg failed on that run for a reason that no longer applies: the `v*`
+tag policy landed on `github-pages` on 2026-10-26 (`environments/github-pages/deployment-branch-policies`: `branch main`,
+`branch gh-pages`, `tag v*`). Whether the next tag run's deploy works is **unmeasured** — the
+last tag run is `v0.3.5` — and #327 measures it. The 2026-10-12 decision recorded below — the dispatch primary, the tag announces —
 describes the state in which the exchange failed outside `main`; it is history.
 
 Do this in order:
@@ -515,9 +515,10 @@ Do this in order:
    origin (what `release-guard.mjs` requires), and the tag run IS the publish: the guard
    validates, the build and tests run, the seam cohort + the CLI publish over OIDC, and the
    Release page is created (measured on `v0.3.5`, 2026-10-24).
-3. **Recover the page when its deploy failed.** Today that is the routine case: the environment
-   allows only `main`/`gh-pages`, so a tag run's `site` leg fails on the protection rule (the
-   `v0.3.5` shape); once a tag policy exists (#327), only for a deploy that failed otherwise:
+3. **Recover the page when its deploy failed.** Until 2026-10-26 that was the routine case (the
+   `v0.3.5` shape: no tag policy on the environment). With the `v*` policy in place the tag run's
+   deploy is expected to work — unmeasured until #327 — so this step is only for a deploy that
+   failed:
 
    ```bash
    gh workflow run pages.yml --ref main -f ref="$(git rev-parse v<version>)" -f release="v<version>"
@@ -549,14 +550,16 @@ Do this in order:
    Release for the tag exists (the TAG run creates it; the dispatch only ever would, as a
    retry).
 
-**What a tag push does — the ratification, the measurement, and what is still missing.** The tag
-run **publishes** (OIDC with `dist.attestations` back, the Release page created by the same run
-— `v0.3.5`'s run `40059745390`); its `site` leg **fails today**, because the `github-pages`
-environment allows only `main` and `gh-pages` (measured 2026-10-26, deployment 7293641310), and
-the page ships with the override of step 3. Camino (c) — ratified 2026-10-24
-([ratification](https://github.com/ChristianLuciani/profile-as-code/issues/307#issuecomment-6386416707)) — makes the tag run the whole path once a tag policy is added to that
-environment; #327 owns the policy and the first end-to-end green cycle (I5), under the
-ratification's exit criterion: a cycle that does not confirm it returns to option (b).
+**What a tag push does — measured, and what is still unmeasured.** The tag run **publishes**
+(OIDC with `dist.attestations` back, the Release page created by the same run — `v0.3.5`'s run
+`40059745390`); on that run its `site` leg **failed**, because the `github-pages` environment had
+no tag policy (deployment `7293641310`, 2026-10-24), and the page shipped with the override of
+step 3. The `v*` policy **landed on 2026-10-26** (`tag v*` beside `branch main`/`branch gh-pages`,
+`environments/github-pages/deployment-branch-policies`), so the deploy leg is **expected** to work from the next tag — and no tag run has been
+measured since `v0.3.5`. That measurement is #327 (I5): camino (c), ratified 2026-10-24
+([ratification](https://github.com/ChristianLuciani/profile-as-code/issues/307#issuecomment-6386416707)),
+makes the tag run the whole path, and its exit criterion says a cycle that does not confirm the
+new state returns the reconciliation to option (b).
 
 The historical reading stays as its dated record: while the exchange failed from a tag ref,
 `v0.2.0`/`v0.3.0`'s tag runs failed at the **publish** step and created no Release — both
@@ -598,8 +601,8 @@ decision (c) remains the dated record of what was decided and why. The mechanism
 reopened was **decided on 2026-10-24**: camino (c) — the tag
 run is the release path, the dispatch is the documented override, and option (b) (dropping
 `push: tags`) is discarded ([ratification](https://github.com/ChristianLuciani/profile-as-code/issues/307#issuecomment-6386416707)). The environment change that ratification
-assumes — a tag policy on `github-pages` — is not in place yet (measured 2026-10-26); #327 owns
-it and the first green cycle.
+assumes — a tag policy on `github-pages` — landed on 2026-10-26 (`tag v*`); #327 owns the first
+measured green cycle.
 
 ### Preparing a release (do this before tagging)
 

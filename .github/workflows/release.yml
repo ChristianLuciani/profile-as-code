@@ -6,13 +6,13 @@ name: release
 #
 # WHICH TRIGGER PUBLISHES — the TAG push, as **ratified** (2026-10-24: camino (c) of #307,
 # https://github.com/ChristianLuciani/profile-as-code/issues/307#issuecomment-6386416707).
-# Ratified is not implemented: `github-pages` TODAY allows only the `main` and `gh-pages`
-# branches (measured 2026-10-26, `/environments/github-pages/deployment-branch-policies`), so a
-# tag-origin deploy still FAILS on the protection rule (v0.3.5, deployment 7293641310) and the
-# page ships via override (`gh workflow run pages.yml --ref main -f ref=<commit> -f
-# release=<tag>`, run 40061075031). The ratified path — guard, build + tests, cohort + CLI over
-# OIDC, Release, pages deploy from the published commit — becomes whole when the environment
-# gains a tag policy: the operator's precondition, #327.
+# The precondition it named LANDED on 2026-10-26: `github-pages` now carries `tag v*` beside
+# `branch main` / `branch gh-pages` (`environments/github-pages/deployment-branch-policies`,
+# measured right after the change), so a tag run's deploy leg is expected to work from the next
+# tag. Before it, the only measured tag-origin deploy failed on the protection rule (v0.3.5, deployment
+# 7293641310) and the page shipped via override (`gh workflow run pages.yml --ref main -f
+# ref=<commit> -f release=<tag>`, run 40061075031). The first tag run after the policy is #327's
+# measurement (I5 of #307).
 # A `workflow_dispatch` is the documented OVERRIDE — a deliberate publish of a ref, or the retry
 # of a failed publish — never the happy path; after a published tag it is the benign duplicate
 # npm answers `409 Cannot publish over …` (v0.3.5: run 40059765655). Both triggers stay: option
