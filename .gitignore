@@ -38,6 +38,15 @@ docs/research/_drafts/
 # Session worktrees (AGOS W3: {repo}/.worktrees/{branch}/)
 .worktrees/
 
+# AGOS session state — per-session/per-operator, never tracked. Each piece has
+# its own home; this line only keeps all of them out of git:
+#   sprints/      sprint boards (in-repo by design, #310)
+#   outbox/       TASKHUB outbox drain
+#   worktrees/    W3 index + symlinks (the worktrees themselves are above)
+#   maintenance/  the ledger a dsh sprint declares inside the repo — the
+#                 canonical default stays ~/.agos/maintenance/
+.agos/
+
 # vitest JSON reporter output (generated; contains absolute paths)
 .vitest/
 
