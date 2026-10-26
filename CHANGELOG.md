@@ -41,11 +41,10 @@ minor versions may contain breaking contract changes.
   atomic, one-line diff (S2) — `--set --check` previews the published lines the
   edit changes (S3), and writing text pre-flights the platform's published cap at
   edit time (S4; `content/checks.yaml` when declared, else the shared limits table).
-  S3 also reports the unit's per-surface staleness from the §19 ledger. Concurrent
-  writers on one workspace serialize on `content/.pasco-edit.lock` (2 s wait, then
-  refuse; a crashed lock is broken after 30 s). S5 freezes the machine-readable
-  contract and names the `#238` variant, so an agent consumes `pasco edit` without
-  parsing prose.
+  S3 also reports the unit's per-surface staleness from the §19 ledger. S5 freezes
+  the machine-readable contract and names the `#238` variant, so an agent consumes
+  `pasco edit` without parsing prose. Writer concurrency is covered under Fixed
+  below.
 - **Answer-engine surface — `identity.definition` + `faq[]` (schema v1.10, #288)** —
   the two things an answer engine can quote: a canonical per-language definition
   (≤ 160 chars per value, must contain the entity name) and 3–20 citable Q&A pairs

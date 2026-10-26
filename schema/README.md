@@ -10,10 +10,14 @@ workspace (JSON Schema, draft 2020-12). Per D3, JSON Schema is the contract sour
 > `VE`), asserted by `^[A-Z]{2}$`; emitted on the Person entity JSON-LD as
 > `nationality: { "@type": "Country", identifier }`. A `flavor: brand` workspace may declare
 > it (identity is shared) but the Organization JSON-LD carries no `nationality` property —
-> schema.org defines nationality on `Person`. New in v1.12 (issue #333): `projects[].artifactRefs` — the third reference site (publications
+> schema.org defines nationality on `Person`.
+>
+> New in v1.12 (issue #333): `projects[].artifactRefs` — the third reference site (publications
 > and press were the first two) — so a project names the work behind it and
 > published-vs-in-development is **derived** from `artifacts[]` (`visibility: public` +
-> `locator.url`), never stored (§15.3/§20.1). Earlier minors: v1.10 (issue #288) added the
+> `locator.url`), never stored (§15.3/§20.1).
+>
+> Earlier minors: v1.10 (issue #288) added the
 > answer-engine surface — `identity.definition` (the canonical per-language definition, ≤ 160
 > chars per value, must contain the entity name — the name check is a geoCheck rule, #289) and
 > root `faq[]` (3–20 citable Q&A pairs, `q` ≤ 90 and unique per workspace, `a` ≤ 320, optional

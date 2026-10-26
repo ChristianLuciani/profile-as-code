@@ -20,7 +20,7 @@
 | **M8** media pipeline | ✅ | **✅ contrato sí, deploy no** | `assets/` + `manifest.json` + `collectMedia` en core; los playbooks de deploy son M4 |
 | **M9** training-time corpus presence | ⏳ contrato sí, decisión **deferida** (Q10, post-M3) | **✗ no empezado** — piso ya definido: **privado-first** (bloquea crawlers de entrenamiento, sin licencia abierta) con opt-in explícito del dueño | `docs/research/03-training-time-visibility.md` (PR #135 + corrección de consentimiento, 2026-10-05); SPEC §12 M9 + §14 Q10 |
 
-**Fuera de los milestones — lo que la serie `0.2.0` → `0.3.6` entregó (2026-10-09 → hoy):**
+**Fuera de los milestones — lo que la serie `0.2.0` → `0.3.6` entrega (2026-10-09 → 2026-10-26; 0.3.6 en preparación):**
 
 - **Distribución resuelta (#105, cerrado)**: `@profile-as-code/cli` en npm — `0.2.0`
   (2026-10-09T23:24:37Z) y `0.3.0` (2026-10-11T03:43:27Z, `latest`), con GitHub Releases
@@ -40,7 +40,7 @@
   SPEC §2).
 - **Repo público + hygiene**: la reconciliación del flip de visibilidad (#293) y los issue
   templates canónicos (#294) quedaron medidos y fechados en sus documentos.
-- **Release 0.3.6 (2026-10-26)**: schema v1.10–v1.13 — answer-engine surface (#288),
+- **Release 0.3.6 (2026-10-26, prep)**: schema v1.10 → v1.12 → v1.13 — answer-engine surface (#288),
   `projects[].artifactRefs` (#333) e `identity.nationality` (#334); geoCheck v2 con sus
   códigos de citability (#289); `pasco edit` S1–S5 (epic #247); el pipeline de publicación
   del cohort de cinco paquetes (#301), que corre por primera vez con este release;
