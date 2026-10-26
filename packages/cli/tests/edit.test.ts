@@ -382,6 +382,8 @@ describe("pasco edit — resolution, preview and write", () => {
         "rendered",
         "stale",
         "state",
+        "limit",
+        "over",
         "warnings",
         "written",
       ].sort(),
@@ -397,6 +399,10 @@ describe("pasco edit — resolution, preview and write", () => {
     // A recorded surface would read in-sync|stale; with no record the unit's
     // rollup is `never` (the acceptance's "no record reads never").
     expect(inner.state).toBe("never");
+    // content/checks.yaml declares gh-bio-max (1000) without a `surface`, so it
+    // scopes both rows (the executor's rule) — the workspace policy wins.
+    expect(inner.limit).toEqual({ cap: 1000, source: "(no source recorded)", tier: "?" });
+    expect(inner.over).toBe(false);
     expect(typeof inner.drift).toBe("number");
   });
 
@@ -460,6 +466,177 @@ describe("pasco edit — resolution, preview and write", () => {
     const r = edit(dir, "headlines[platform=x,platform=linkedin,lang=en].text");
     expect(r.code).toBe(2);
     expect(r.stderr).toContain('selector "platform" given twice');
+  });
+
+  it("warns before the paste when the value exceeds the sourced cap (S4, #251)", () => {
+    const dir = workspace();
+    rmSync(join(dir, "content", "checks.yaml")); // fall back to the DEFAULT_CHECK catalog
+    const r = edit(
+      dir,
+      "headlines[platform=github-readme,lang=en].text",
+      "--set",
+      "x".repeat(300),
+      "--check",
+      "--json",
+    );
+    expect(r.code).toBe(0);
+    const parsed = json(r);
+    expect(parsed.data.over).toBe(true);
+    const limit = parsed.data.limit as { cap: number; source: string; tier: string };
+    expect(limit.cap).toBe(280);
+    expect(limit.tier).toBe("?");
+    expect(limit.source).toContain("editorial soft cap");
+    expect(limit.source).toMatch(/\[\?\]|\[OFICIAL\]|\[EXPERTO\]|\[BENCHMARK\]/);
+
+    const text = edit(
+      dir,
+      "headlines[platform=github-readme,lang=en].text",
+      "--set",
+      "x".repeat(300),
+      "--check",
+    );
+    expect(text.stdout).toContain("OVER");
+    expect(text.stderr).toContain("over the published cap 280");
+  });
+
+  it("prints a real source's tier ONCE and parses it anywhere in the note", () => {
+    const dir = workspace();
+    writeFileSync(
+      join(dir, "content", "checks.yaml"),
+      "- id: gh-headline-official\n  platform: github-readme\n  rule: max-chars\n  value: 100\n  surface: headline\n  note: 'Upwork Help Center (2026-01-02) [OFICIAL] — documented title limit.'\n",
+    );
+    const r = edit(
+      dir,
+      "headlines[platform=github-readme,lang=en].text",
+      "--set",
+      "x".repeat(150),
+      "--check",
+      "--json",
+    );
+    expect(r.code).toBe(0);
+    const parsed = json(r);
+    expect((parsed.data.limit as { tier: string }).tier).toBe("OFICIAL");
+    expect(parsed.data.over).toBe(true);
+
+    const text = edit(
+      dir,
+      "headlines[platform=github-readme,lang=en].text",
+      "--set",
+      "x".repeat(150),
+      "--check",
+    );
+    // The note IS the evidence text, so the tier must appear exactly once.
+    expect(text.stdout.split("[OFICIAL]").length - 1).toBe(1);
+    // …and the over-cap finding rides the machine-readable warnings bucket.
+    expect((json(r).data.warnings as string[]).length).toBeGreaterThan(0);
+  });
+
+  it("takes the STRICTEST cap, prefers the platform's own row, and scopes by surface", () => {
+    const dir = workspace();
+    writeFileSync(
+      join(dir, "content", "checks.yaml"),
+      [
+        "- {id: all-bio, platform: all, rule: max-chars, value: 100, surface: bio, note: '[EXPERTO] broad'}",
+        "- {id: up-bio, platform: upwork, rule: max-chars, value: 50, surface: bio, note: '[OFICIAL] own row'}",
+        "- {id: up-head, platform: upwork, rule: max-chars, value: 999, surface: headline, note: '[OFICIAL] headline only'}",
+      ].join("\n"),
+    );
+    const bio = edit(
+      dir,
+      "bios[platform=upwork,lang=en,length=long].text",
+      "--set",
+      "y".repeat(120),
+      "--check",
+      "--json",
+    );
+    const limit = json(bio).data.limit as { cap: number; tier: string };
+    expect(limit.cap).toBe(50); // strictest wins
+    expect(limit.tier).toBe("OFICIAL"); // the OWN row's evidence wins the tie
+    const human = edit(
+      dir,
+      "bios[platform=upwork,lang=en,length=long].text",
+      "--set",
+      "y".repeat(120),
+      "--check",
+    );
+    expect(human.stdout).toContain("(up-bio)"); // the own row is named, not all-bio
+
+    const head = edit(
+      dir,
+      "headlines[platform=upwork,lang=en].text",
+      "--set",
+      "z".repeat(1200),
+      "--check",
+      "--json",
+    );
+    expect((json(head).data.limit as { cap: number }).cap).toBe(999); // surface scoping
+  });
+
+  it("surfaces a malformed catalog row as a warning instead of skipping it silently", () => {
+    const dir = workspace();
+    writeFileSync(
+      join(dir, "content", "checks.yaml"),
+      "- {id: broken, platform: github-readme, rule: max-chars, value: many, surface: headline}\n",
+    );
+    const r = edit(
+      dir,
+      "headlines[platform=github-readme,lang=en].text",
+      "--set",
+      "a value",
+      "--check",
+      "--json",
+    );
+    const warnings = json(r).data.warnings as string[];
+    expect(warnings.some((w) => w.includes("non-numeric"))).toBe(true);
+  });
+
+  it("uses the workspace's own catalog over the defaults", () => {
+    const dir = workspace(); // content/checks.yaml: x-bio-short = 280
+    const r = edit(
+      dir,
+      "bios[platform=x,lang=en,length=short].text",
+      "--set",
+      "y".repeat(300),
+      "--check",
+      "--json",
+    );
+    expect(r.code).toBe(0);
+    const parsed = json(r);
+    expect(parsed.data.over).toBe(true);
+    expect((parsed.data.limit as { cap: number }).cap).toBe(280);
+  });
+
+  it("says cap unknown when the catalog has no sourced cap", () => {
+    const dir = workspace();
+    rmSync(join(dir, "content", "checks.yaml")); // DEFAULT_CHECK has no linkedin cap
+    const r = edit(
+      dir,
+      "bios[platform=linkedin,lang=en,length=medium].text",
+      "--set",
+      "A short bio.",
+      "--check",
+      "--json",
+    );
+    expect(r.code).toBe(0);
+    const parsed = json(r);
+    expect(parsed.data.limit).toBeNull();
+    expect(parsed.data.over).toBe(false);
+  });
+
+  it("never BLOCKS an over-cap write (D12: facts warn)", () => {
+    const dir = workspace();
+    rmSync(join(dir, "content", "checks.yaml"));
+    const r = edit(
+      dir,
+      "headlines[platform=upwork,lang=en].text",
+      "--set",
+      "x".repeat(80),
+      "--json",
+    );
+    expect(r.code).toBe(0);
+    const parsed = json(r);
+    expect(parsed.data.written).toBe(true);
+    expect(parsed.data.over).toBe(true);
   });
 
   it("reports the recorded surface as stale (S3, #250)", () => {
