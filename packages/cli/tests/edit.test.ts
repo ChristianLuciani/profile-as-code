@@ -43,36 +43,9 @@ const tempDirs: string[] = [];
 function workspace(): string {
   const dir = mkdtempSync(join(tmpdir(), "pasco-edit-"));
   tempDirs.push(dir);
+  // The committed fixture is the reference workspace AND the writer's input
+  // shape: single-line scalars (decision of 2026-10-21, #249). No rewrite.
   cpSync(MINIMAL, dir, { recursive: true });
-  // The committed fixture wraps 5 of its 6 bios; the writer (and therefore the
-  // preview, which must refuse what the write refuses) accepts single-line
-  // scalars only. This is a hand-written single-line corpus modelled on the
-  // fixture — same platforms/lengths, minus the `x` short row (no test needs it)
-  // — not a byte-for-byte copy.
-  writeFileSync(
-    join(dir, "content", "bios.yaml"),
-    `- platform: github-readme
-  lang: en
-  length: long
-  text: Elena Vasquez builds sovereign AI infrastructure.
-- platform: github-readme
-  lang: en
-  length: short
-  text: Sovereign AI infrastructure · open-source education.
-- platform: linkedin
-  lang: en
-  length: medium
-  text: Senior AI engineer designing local-first LLM infrastructure.
-- platform: linkedin
-  lang: es
-  length: medium
-  text: Ingeniera senior de IA diseñando infraestructura local-first.
-- platform: upwork
-  lang: en
-  length: long
-  text: "I architect sovereign AI stacks: model routing, local inference, and evaluation pipelines for teams that want provider independence."
-`,
-  );
   return dir;
 }
 afterAll(() => {
@@ -323,9 +296,17 @@ describe("pasco edit — resolution, preview and write", () => {
   });
 
   it("refuses to PREVIEW a multi-line scalar the write would refuse (F1)", () => {
-    const dir = mkdtempSync(join(tmpdir(), "pasco-edit-wrapped-"));
-    tempDirs.push(dir);
-    cpSync(MINIMAL, dir, { recursive: true }); // the committed fixture wraps its bios
+    const dir = workspace();
+    // The committed fixture is single-line by design (decision of 2026-10-21);
+    // this workspace wraps one bio to pin the shape both paths must refuse.
+    const bios = join(dir, "content", "bios.yaml");
+    writeFileSync(
+      bios,
+      readFileSync(bios, "utf8").replace(
+        "  text: Senior AI engineer designing local-first LLM infrastructure used by 12+ deployments. Previously ML engineer at Dataforge. 8 years in ML platforms.",
+        "  text: Senior AI engineer designing local-first\n    LLM infrastructure.",
+      ),
+    );
     const r = edit(
       dir,
       "bios[platform=linkedin,lang=en,length=medium].text",
@@ -523,7 +504,7 @@ describe("pasco edit — conformance with `pasco build` (F1)", () => {
     writeFileSync(
       bios,
       readFileSync(bios, "utf8").replace(
-        "  text: Senior AI engineer designing local-first LLM infrastructure.\n",
+        "  text: Senior AI engineer designing local-first LLM infrastructure used by 12+ deployments. Previously ML engineer at Dataforge. 8 years in ML platforms.\n",
         "  text: Shorter bio text\n",
       ),
     );

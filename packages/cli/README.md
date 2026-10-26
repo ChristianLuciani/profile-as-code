@@ -154,10 +154,11 @@ read-only **directory**, a validation refusal or a concurrent change can still
 fail at write time: the preview proves *what* would change, not that the
 filesystem will accept it.
 
-> v1 writes single-line scalars only. A workspace whose bios are wrapped by an
-> editor (this repo's own `minimal` test fixture is) must be reflowed to one line
-> per value before `pasco edit` can write it — that is the recorded decision, not
-> a bug.
+> v1 writes single-line scalars only — the recorded decision, not a bug. A
+> workspace whose bios are wrapped by an editor must be reflowed to one line per
+> value before `pasco edit` can write it; this repo's `minimal` fixture is already
+> single-line for exactly that reason (it is the reference workspace the tests
+> write through).
 
 An address that resolves to **several** rows is refused with the rows printed: a
 duplicate bio (`drift/duplicate-bio`), or two links on one platform (add

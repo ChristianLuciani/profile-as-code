@@ -43,33 +43,22 @@ afterAll(() => {
   for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
 });
 
-/** A workspace whose bios/headlines are SINGLE-LINE decorated with comments —
- *  the shape the writer accepts (the committed `minimal` fixture wraps its bios,
- *  which is the multi-line shape the decision refuses). */
+/** The committed fixture (single-line scalars) with the COMMENTS the writer must
+ *  preserve: before, beside and after the edited row. The values are untouched. */
 function workspace(): string {
   const dir = mkdtempSync(join(tmpdir(), "pasco-write-"));
   tempDirs.push(dir);
   cpSync(MINIMAL, dir, { recursive: true });
+  const bios = join(dir, "content", "bios.yaml");
+  const original = readFileSync(bios, "utf8");
   writeFileSync(
-    join(dir, "content", "bios.yaml"),
+    bios,
     `# links CANÓNICOS: acá vive la verdad de tus URLs (sameAs GEO).
 # v1.5 (issue #71): el email de contacto es un HECHO del identity, no un link
-- platform: github-readme
-  lang: en
-  length: long
-  text: Elena Vasquez builds sovereign AI infrastructure.
-- platform: github-readme
-  lang: en
-  length: short
-  text: Sovereign AI infrastructure · open-source education.
-- platform: linkedin
-  lang: en
-  length: medium
-  text: Senior AI engineer designing local-first LLM infrastructure.  # ojo: no reflow
-- platform: linkedin
-  lang: es
-  length: medium
-  text: Ingeniera senior de IA diseñando infraestructura local-first.
+${original.replace(
+  "  text: Senior AI engineer designing local-first LLM infrastructure used by 12+ deployments. Previously ML engineer at Dataforge. 8 years in ML platforms.",
+  "  text: Senior AI engineer designing local-first LLM infrastructure used by 12+ deployments. Previously ML engineer at Dataforge. 8 years in ML platforms.  # ojo: no reflow",
+)}
 # cola: no borrar
 `,
   );
@@ -148,8 +137,8 @@ describe("pasco edit — S2 writer (range splice)", () => {
     writeFileSync(
       fileOf(dir),
       readFileSync(fileOf(dir), "utf8").replace(
-        "  text: Senior AI engineer designing local-first LLM infrastructure.  # ojo: no reflow",
-        '  text: "Senior AI engineer designing local-first LLM infrastructure."  # ojo: no reflow',
+        "  text: Senior AI engineer designing local-first LLM infrastructure used by 12+ deployments. Previously ML engineer at Dataforge. 8 years in ML platforms.  # ojo: no reflow",
+        '  text: "Senior AI engineer designing local-first LLM infrastructure used by 12+ deployments. Previously ML engineer at Dataforge. 8 years in ML platforms."  # ojo: no reflow',
       ),
     );
     const before = readFileSync(fileOf(dir), "utf8");
@@ -176,7 +165,7 @@ describe("pasco edit — S2 writer (range splice)", () => {
     writeFileSync(
       fileOf(dir),
       readFileSync(fileOf(dir), "utf8").replace(
-        "  text: Senior AI engineer designing local-first LLM infrastructure.  # ojo: no reflow",
+        "  text: Senior AI engineer designing local-first LLM infrastructure used by 12+ deployments. Previously ML engineer at Dataforge. 8 years in ML platforms.  # ojo: no reflow",
         "  text: |\n    Senior AI engineer designing\n    local-first LLM infrastructure.",
       ),
     );
@@ -188,9 +177,15 @@ describe("pasco edit — S2 writer (range splice)", () => {
   });
 
   it("refuses a multi-line (wrapped) plain scalar, leaving the file untouched", () => {
-    const dir = mkdtempSync(join(tmpdir(), "pasco-write-multiline-"));
-    tempDirs.push(dir);
-    cpSync(MINIMAL, dir, { recursive: true }); // the committed fixture wraps its bios
+    const dir = workspace();
+    // The fixture is single-line by design; wrap one bio to pin the refusal.
+    writeFileSync(
+      fileOf(dir),
+      readFileSync(fileOf(dir), "utf8").replace(
+        "  text: Senior AI engineer designing local-first LLM infrastructure used by 12+ deployments. Previously ML engineer at Dataforge. 8 years in ML platforms.  # ojo: no reflow",
+        "  text: Senior AI engineer designing local-first\n    LLM infrastructure.  # ojo: no reflow",
+      ),
+    );
     const before = hashOf(fileOf(dir));
     const r = run(dir, "edit", "bios[platform=linkedin,lang=en,length=medium].text", "--set", "X");
     expect(r.code).toBe(2);
@@ -206,7 +201,7 @@ describe("pasco edit — S2 writer (range splice)", () => {
       "edit",
       "bios[platform=linkedin,lang=en,length=medium].text",
       "--set",
-      "Senior AI engineer designing local-first LLM infrastructure.",
+      "Senior AI engineer designing local-first LLM infrastructure used by 12+ deployments. Previously ML engineer at Dataforge. 8 years in ML platforms.",
       "--json",
     );
     expect(r.code).toBe(0);
