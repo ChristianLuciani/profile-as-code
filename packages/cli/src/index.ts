@@ -15,6 +15,7 @@ import { parseArgs } from "node:util";
 import { runBuild } from "./commands/build.js";
 import { runCheck } from "./commands/check.js";
 import { runDiff } from "./commands/diff.js";
+import { runEdit } from "./commands/edit.js";
 import { runInit } from "./commands/init.js";
 import { runPost } from "./commands/post.js";
 import { runRefine } from "./commands/refine.js";
@@ -50,6 +51,8 @@ Commands:
   init [dir]                    Scaffold a ${WORKSPACE_NAME} workspace (content/, README.md, .pascorc)
   validate [--json]             Schema (FAIL, exit 1) + drift/geo (WARN, exit 0) — D12
   build [platform] [--lang]     Deterministic base texts per platform+lang
+  edit <contract-path>          Resolve one contract field and, with --set --check, print old → new
+          [--set <text>] --check  plus the rendered per-platform text. Writes NOTHING (S1, #247)
   diff [--json]                 Changes since the last release tag (git-based → CHANGELOG hint)
   refine <platform> [--lang]    PARTIAL: emit agent task template; --choose <id> records the
           [--variants N]        chosen variant in content/active.yaml (agent-driven, D11/D13;
@@ -90,6 +93,8 @@ interface FlagOptions {
   choose?: string;
   flavor?: string;
   mark?: string;
+  set?: string;
+  check?: boolean;
   at?: string;
   "write-checklist"?: boolean;
   completeness?: boolean;
@@ -155,6 +160,19 @@ all platforms. lang defaults to .pascorc defaults.lang or 'en'.
 lang and the fact selection, so the surface shows a SUBSET of the SSOT. Every
 omission is reported as a warning; an addressed key that resolves to nothing is
 an error. No selection policy = byte-identical output.`,
+  edit: `pasco edit <contract-path> [--set <text>] --check [--json] [--workspace <path>]
+Resolve ONE contract field (epic #247, S1 — reads, writes nothing):
+  positioning.statement.<lang>
+  headlines[platform=<p>,lang=<l>].text
+  bios[platform=<p>,lang=<l>,length=<len>].text
+  identity.links[platform=<p>].url               (read-only)
+Without --set it prints the current value. With --set --check it prints old → new
+and the RENDERED per-platform text — what \`pasco build\` would publish — by
+running the same compile() slice the renderer consumes. --json carries
+{ address, current, proposed, rendered, ok }. The comment-preserving WRITE lands
+with the epic's next slice (#249); --set without --check is refused until then.
+Exit: 0 resolved · 1 the address did not resolve to exactly one value, or the
+compiled slice cannot carry it · 2 usage (malformed address, read-only field).`,
   diff: `pasco diff [--json] [--workspace <path>]
 Git-based: what changed since the last tag matching release-* (.pascorc
 diff.tagPattern) — commits + changed content files → CHANGELOG hint.`,
@@ -293,6 +311,29 @@ async function runMain(): Promise<number> {
         platformArg: positionals[0],
         viewArg: flags.view,
         langArg: flags.lang,
+        pascorc,
+      });
+    }
+    case "edit": {
+      const { flags, positionals } = parseCommandFlags(rest, {
+        set: { type: "string" },
+        check: { type: "boolean" },
+      });
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.edit}\n`);
+        return EXIT.OK;
+      }
+      if (positionals.length !== 1) {
+        throw new UsageError("usage: pasco edit <contract-path> [--set <text>] --check");
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      const pascorc = readWorkspacePascorc(workspace);
+      return runEdit({
+        workspace,
+        addressArg: positionals[0],
+        setArg: flags.set,
+        check: flags.check === true,
         pascorc,
       });
     }

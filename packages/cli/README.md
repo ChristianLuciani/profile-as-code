@@ -60,6 +60,7 @@ commands above are the standalone path.
 | `pasco init [dir]` | Scaffold a profile-data workspace (`content/identity.yaml`, `README.md`, `.pascorc`) — `pasco validate`-clean | ✅ |
 | `pasco validate [--json]` | Schema **fail** (exit 1) + drift/geo **warn** (exit 0) — D12 | ✅ |
 | `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (the eight registered in the generated renderer map) write `profiles/<platform>/README.md` + bundled media; renderer-less manual surfaces with a bio row write `profiles/<platform>.md` (#239). Empty render = no-trace unbuild of the generated output, preserving `profiles/<platform>/variants/` (chosen-variant input, #238; pure profiles/, §15.1 — v1.7). Media in `profiles/<platform>/assets/` + `assets/manifest.json` (M8/§18.6 — see `docs/media-pipeline.md`) | ✅ |
+| `pasco edit <contract-path> [--set <text>] --check` | Resolve **one** contract field by contract path and print the value + the **rendered per-platform text** (what `pasco build` would publish). **Read-only today** — S1 of epic #247; the comment-preserving write is the epic's next slice (#249) | 🚧 S1 (reads; writes nothing) |
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never · **certification** (verified/attested/unverifiable/out-of-band-drift, §19.5) + the derived **publication truth** per surface (§20.1, #242) + ledger write paths (D18, §19) | ✅ |
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13); the chosen body is `profiles/<platform>/variants/<id>.md` (a complete platform artifact), rendered by `pasco build` (#238) | 🚧 template + `--choose` (full flow M3) |
@@ -92,6 +93,48 @@ The partial commands are explicit, and each one says what still owns the rest:
   choice, checks limits/URLs/refs and exports a Postiz draft. It reads the
   `skills/` bundled with the package (set `PASCO_SKILLS_DIR` only to point at a
   custom tree), and it is **not part of the v1 contract yet** (`docs/post-mvp.md`).
+
+### Contract paths (`pasco edit`, epic #247 — S1 reads, writes nothing)
+
+One command answers *"what will the published text be?"* without touching a
+byte — the dogfood that opened the epic had to hash `content/*.yaml` before and
+after and read a `pasco build` scrollback to answer the same question.
+
+```sh
+pasco edit positioning.statement.en                    # the current value
+pasco edit positioning.statement.en --set "…" --check  # old → new + the rendered text
+pasco edit headlines[platform=upwork,lang=en].text --set "…" --check
+pasco edit identity.links[platform=github].url         # read-only (the URL SSOT)
+```
+
+Addressable fields (by **contract path**, never by line/offset — the schema is
+the authority on what a field is):
+
+| Address | Resolves to |
+|---|---|
+| `positioning.statement.<lang>` | `positioning.statement[lang]` (`lang`: `en`/`es`/`fr`) |
+| `headlines[platform=<p>,lang=<l>].text` | the matching `headlines[]` row |
+| `bios[platform=<p>,lang=<l>,length=<len>].text` | the matching `bios[]` row |
+| `identity.links[platform=<p>].url` | the row's URL — **read-only** |
+
+The rendered text comes from the same `compile()` slice the renderer consumes,
+so `--check` cannot disagree with `build`: lang fallback, platform filtering and
+the D22 selection view are the artifact's. An address that resolves to **0
+rows** prints the addresses the workspace *does* have; a **duplicate** row
+(`drift/duplicate-bio`) is reported as ambiguous — `edit` never picks one.
+Unknown or malformed addresses are usage errors that print the grammar for the
+block.
+
+`--json` carries `{ address, current, proposed, rendered, ok }` inside the usual
+envelope. Exit codes: **0** resolved · **1** the address did not resolve to
+exactly one value, or the compiled slice cannot carry it (a data finding, not a
+crash) · **2** usage (malformed address, read-only field, `--set` without
+`--check`).
+
+`--set` without `--check` is refused on purpose: the comment-preserving write
+(byte-range splice over the located scalar, temp file + validate + atomic
+rename) is S2 (#249), and a command that *looks* like it wrote is worse than one
+that says it cannot yet.
 
 ### Publication truth (derived — SPEC §20.1, #242)
 
