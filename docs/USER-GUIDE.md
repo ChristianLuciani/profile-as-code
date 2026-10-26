@@ -145,9 +145,6 @@ One global install: no clone, no build, nothing written outside the npm prefix.
 > `0.3.5` **public** and tagged `latest` (published 2026-10-24T03:50:04.822Z; tag `v0.3.5` →
 > `c69e6b7`). The 0.3.0 publication (2026-10-11T03:43:27Z; tag `v0.3.0` → `21e4cde`)
 > stays a dated record.
-> Separately, and **not** registry-sourced: the built bin reports the matching
-> version (`node packages/cli/dist/index.js --version` at `9c3a4bc`, 2026-10-26 →
-> `pasco 0.3.6`) — a local-build check, not a run of the published tarball.
 > Caveat, closing (#293): the engine repo is **public** (measured 2026-10-24) — `repository.url`
 > resolves for any reader now. The 0.3.0 tarball was published over OIDC while the source
 > repository was private; provenance attestations require a public source repo, so it carries

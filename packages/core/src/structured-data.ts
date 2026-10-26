@@ -250,7 +250,8 @@ export function structuredData(profile: Profile, lang: Lang = "en"): StructuredD
   // address → sameAs → hasCredential) with `@id` after `@type` when present, so a
   // workspace that declares no `role` keeps this key ORDER. `jobTitle`/`worksFor`
   // are the fields the OLD renderer silently dropped while geo.ts computed them — the
-  // divergence this module removes; they now follow `address`.
+  // divergence this module removes; `nationality`, `jobTitle` and `worksFor` follow
+  // `address` in that order.
   const jsonLd: StructuredDataReadiness["jsonLd"] = identity.name
     ? {
         "@context": "https://schema.org" as const,

@@ -201,11 +201,12 @@ dropped by cite-aware systems, §8): `q` ≤ 90 chars per value and unique per w
 (JSON Schema cannot express it — duplicates collapse into one answer surface), `a` ≤ 320
 chars (beyond that it is prose, not an answer), optional `source` = the `$defs/url`
 scheme boundary (an answer with no pointer is a claim), 3–20 entries (below 3 there is no
-surface; above 20 it is a page, not a profile). Consumers: the JSON-LD projection is
-pending in #316 — when it lands, `structuredData()` will expose `description` (from
-`definition`; brands fall back to `mission` when no definition is declared) and a
-separate `FAQPage` JSON-LD node, emitted only when `faq[]` exists, never an empty one;
-`jsonLd` gains nothing new. The schema contract ships independently of that emitter.
+surface; above 20 it is a page, not a profile). Consumers: the projection **of these two
+fields** is pending in #316 — when it lands, `structuredData()` will expose
+`description` from `definition` (the brand branch already emits `description` from
+`mission`) and a separate `FAQPage` JSON-LD node, emitted only when `faq[]` exists,
+never an empty one; `jsonLd` gains nothing new. The schema contract ships independently
+of that emitter.
 The competitive split measured
 2026-10-23 (`[WEB]`, #288 evidence: a GEO competitor ships 12 question-shaped H2s and
 zero structured answers) is engine-ownable: the SSOT, not the renderers, is the surface.
@@ -214,8 +215,8 @@ zero structured answers) is engine-ownable: the SSOT, not the renderers, is the 
 alpha-2 **code** (uppercase, e.g. `VE`) — a citable fact distinct from `identity.location`
 (residence). The JSON Schema pattern `^[A-Z]{2}$` asserts the code's FORM, so `ve`,
 `Venezuela` and `VEN` fail at the boundary (D12 fail class); membership in the published
-code list is not enforced (JSON Schema cannot bundle the list, and a stale copy would reject
-valid codes). Consumers: `structuredData()` emits the schema.org `nationality` property as
+code list is not enforced — an `enum` would go stale and reject valid or newly assigned
+codes. Consumers: `structuredData()` emits the schema.org `nationality` property as
 `{ "@type": "Country", identifier: "<code>" }` on the **Person** entity JSON-LD — a Person
 property; the Organization (brand) branch never emits it (a brand has no nationality; its
 origin fact is `established`, and an origin location would be `foundingLocation`, not
@@ -548,7 +549,7 @@ Two different "templates" (previous confusion):
 8. **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable, checksummed bundling — Q9 resolved as D19: one `assets/` dir per platform output) · deploy playbooks publish media to the public surface · git-lfs guidance · portfolio-site consumption lands **with M5** (the web renderer does not exist yet — engine-side contract ships first).
 9. **M9 (training-time corpus presence — deferred, Q10)**: outputs are designed not only for inference-time citation (GEO, layer 2) but — for owners who explicitly consent — for entry into future model training corpora (layer 3). Inputs + documented levers: `docs/research/03-training-time-visibility.md` (sourced + dated). Floor regardless of the Q10 resolution — **private-first default**: `robots.txt` on published surfaces **blocks** AI-training crawlers (CCBot / vendor AI crawlers) and user data ships **without** an open license; entering corpora or open-licensing data requires the profile owner's explicit opt-in (consent field — schema work deferred with Q10). The operator's own profiles may opt in: that consent is theirs to give. Decision (Q10): a `huggingface-dataset` renderer/exporter vs contributing to existing open datasets vs both — decided when the M3 platform SOTA research closes.
 10. **M10 (fact selection, D22/§21 — issue #235)**: `.pascorc` → `selection.views` + `selectFacts()` in core + `build --view` + `status --selection` + the five selection findings; Phase 1 is **schema-free** (selection by §19.2 key, and `artifacts[].tags` finally read as §18.9 declared). Phase 2 adds optional `tags[]` to six entry blocks (not `skills`); **Phase 3** (several views per platform, `profiles/<view>/`) needs a D19 amendment and stays out of scope until asked for.
-11. **Answer-engine surface (schema v1.10 — issues #288 → #289 → #287)**: `identity.definition` + `faq[]` (the citable facts, #288) · the `structuredData()` projection (`description` + a separate `FAQPage` JSON-LD node, only when the fields exist) is **pending in #316** · geoCheck v2 citability codes (#289 — freshness INFO, honest name-collision) · `pasco entity --json/--jsonld` (#287), the entity projection for surfaces the engine does not render.
+11. **Answer-engine surface (schema v1.10 — issues #288 → #289 → #287)**: `identity.definition` + `faq[]` (the citable facts, #288) · the `structuredData()` projection **of `definition`/`faq[]`** (`description` from `definition` + a separate `FAQPage` JSON-LD node, only when the fields exist) is **pending in #316** — the brand `description` from `mission` already ships · geoCheck v2 citability codes (#289 — freshness INFO, honest name-collision) · `pasco entity --json/--jsonld` (#287), the entity projection for surfaces the engine does not render.
 
 ## 13. Resolved decisions (former open questions)
 
@@ -1099,11 +1100,10 @@ deployments:
   state. `artifactHash` is the **anchor** the C1 check compares against, recorded by the write
   that confirms the deploy (v1: `--mark`); without it a fetch can observe but not judge
   (§19.5). Semantics, evidence fields and the rollup live in §19.5 — this block fixes the shape.
-  **Schema status — shipped (v1.10).** `$defs.deploymentRecord` carries the optional
+  **Schema status — shipped.** The property landed at `d172dffc` under the **v1.9**
+  URI (v1.10 completed its version label). `$defs.deploymentRecord` carries the optional
   `certification` property; the `valid-certification*.json` fixtures pass, and a record
-  without it reads as `attested`. The contract was stated first on purpose (SPEC-first,
-  D3) and the implementation followed at `d172dffc` under the **v1.9** URI; v1.10
-  completed the version label.
+  without it reads as `attested`. The contract was stated first on purpose (SPEC-first, D3).
 - The ledger is **append/update-only state**: removing a row from `content/` does not
   remove its ledger key (audit trail); `pasco status` reports the dangling key as
   `removed`.
