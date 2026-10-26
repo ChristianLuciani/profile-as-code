@@ -9,21 +9,32 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
-### Added
-
-- **Funding rails — the project is now easy to fund** — `funding` field in the CLI
-  manifest (GitHub Sponsors · Ko-fi · Patreon; `npm fund` and the npmjs.com package
-  page surface it natively from the next release), a `--help` footer tip line, a
-  Support section on the package README, and the `ko_fi:`/`patreon:` rails in
-  `.github/FUNDING.yml`. Deliberately not: no post-install script, no donation nag
-  on every command — the ask lives in `--help` and the READMEs only.
-
 ### Planned (roadmap)
 
 - Renderers: linkedin, upwork, x, researchgate, substack (M4)
 - CLI `pasco`: the full `refine` flow (M3); the `edit` epic (#247, slices S1–S5)
 - Per-platform skills v1 from SOTA research (M3)
 - Web renderer (M5)
+
+## [0.3.6] - 2026-10-26
+
+### Added
+
+- **`identity.nationality` — a citable nationality fact (#334)** — the ISO 3166-1
+  alpha-2 code, uppercase (`VE`), as a fact distinct from `identity.location`
+  (residence). The schema pattern `^[A-Z]{2}$` rejects `ve`, `Venezuela` and `VEN` at
+  the boundary. `structuredData()` emits schema.org `nationality` as
+  `{ "@type": "Country", identifier: "<code>" }` on the Person entity JSON-LD —
+  Person-only, since a brand has no nationality. Optional and outside the
+  structured-data `ready` gate **and completeness ratio**: a workspace that omits it
+  validates, emits, and scores exactly as before. Schema contract v1.11 (additive,
+  pre-v1.11 workspaces validate unchanged); `@profile-as-code/core` 0.1.1.
+- **Funding rails — the project is now easy to fund** — `funding` field in the CLI
+  manifest (GitHub Sponsors · Ko-fi · Patreon; `npm fund` and the npmjs.com package
+  page surface it natively), a `--help` footer tip line, a Support section on the
+  package README, and the `ko_fi:`/`patreon:` rails in `.github/FUNDING.yml`.
+  Deliberately not: no post-install script, no donation nag on every command — the
+  ask lives in `--help` and the READMEs only.
 
 ## [0.3.5] - 2026-10-24
 

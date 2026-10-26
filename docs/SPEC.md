@@ -208,6 +208,18 @@ never an empty one; `jsonLd` gains nothing new. The competitive split measured
 2026-10-23 (`[WEB]`, #288 evidence: a GEO competitor ships 12 question-shaped H2s and
 zero structured answers) is engine-ownable: the SSOT, not the renderers, is the surface.
 
+**Nationality (issue #334 — additive, v1.11):** `identity.nationality` is the ISO 3166-1
+alpha-2 **code** (uppercase, e.g. `VE`) — a citable fact distinct from `identity.location`
+(residence). The JSON Schema pattern `^[A-Z]{2}$` asserts the code's FORM, so `ve`,
+`Venezuela` and `VEN` fail at the boundary (D12 fail class); membership in the published
+code list is not enforced (JSON Schema cannot bundle the list, and a stale copy would reject
+valid codes). Consumers: `structuredData()` emits the schema.org `nationality` property as
+`{ "@type": "Country", identifier: "<code>" }` on the **Person** entity JSON-LD — a Person
+property; the Organization (brand) branch never emits it (a brand has no nationality; its
+origin fact is `established`, and an origin location would be `foundingLocation`, not
+modeled). Optional and outside the `ready` gate **and the completeness ratio**: a workspace
+that omits it validates, emits, and scores exactly as before (no behavior change, §15.4).
+
 **Platform set (D16 — additive, v1.2):** ONE shared enum for both flavors — the union of
 Postiz's 34 supported networks ([OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02) plus
 **15 operator extras**: the six v1 non-Postiz surfaces (`github-readme`, `upwork`,
@@ -273,7 +285,7 @@ Single-source discipline is enforced, not trusted:
 coverage — per-platform skills are separate follow-ups.
 
 ```yaml
-identity:      { name, email?, definition?, location, photo, links[] }   # definition = the canonical "X is a …" sentence (v1.10, #288)
+identity:      { name, email?, definition?, nationality?, location, photo, links[] }   # definition = the canonical "X is a …" sentence (v1.10, #288); nationality = ISO 3166-1 alpha-2 code (v1.11, #334)
 positioning:   { statement: {lang}, audiences: {lang: angle}, geo: { semanticAssociations[], citationsGoal } }
 bios:          [ { platform, lang, length: short|medium|long, text } ]   # generated + curated
 headlines:     [ { platform, lang, text } ]                   # per-platform, per-lang
@@ -692,6 +704,12 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
   hierarchy the standard defines. The contact email (v1.5/#71) is **not** in `sameAs` — it maps
   to the `email` property (a `mailto:` URI is not a reference page); its only rendered form is
   the Links row.
+- **Nationality (v1.11 / #334).** When `identity.nationality` is declared, the Person entity
+  JSON-LD gains `nationality: { "@type": "Country", identifier: "<code>" }` — the alpha-2
+  **code** is the fact, not a country name. Person-only by schema.org's model: the
+  Organization (brand) branch never emits it. It is optional and sits outside both the
+  `ready` gate and the completeness ratio, so a workspace without it emits and scores
+  exactly as before.
 - `@id` = the URL of the `role: identity` link. When several carry it, the **first one wins**
   (declaration order): the user marks which link is their entity, and the engine does not
   second-guess that with a hostname heuristic (an earlier draft ranked "own domain over social

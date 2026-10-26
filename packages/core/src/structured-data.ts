@@ -228,6 +228,10 @@ export function structuredData(profile: Profile, lang: Lang = "en"): StructuredD
     ...(identity.email !== undefined ? { email: identity.email } : {}),
     ...(identity.photo ? { image: identity.photo } : {}),
     ...(identity.location ? { address: identity.location } : {}),
+    // v1.11 (#334): informational only — NOT in `considered`/`populated`, so an
+    // absent nationality leaves the completeness ratio (and every pre-v1.11 score)
+    // untouched. It is optional, never a `ready` gate.
+    ...(identity.nationality !== undefined ? { nationality: identity.nationality } : {}),
     ...(role.jobTitle ? { jobTitle: role.jobTitle } : {}),
     ...(role.worksFor ? { worksFor: role.worksFor } : {}),
   };
@@ -256,6 +260,17 @@ export function structuredData(profile: Profile, lang: Lang = "en"): StructuredD
         ...(identity.email !== undefined ? { email: identity.email } : {}),
         ...(identity.photo ? { image: identity.photo } : {}),
         ...(identity.location ? { address: identity.location } : {}),
+        // v1.11 (#334): schema.org `nationality` is a PERSON property — a brand has
+        // no nationality, so the Organization branch never emits it. The value is the
+        // alpha-2 code itself, not a name: `Country.identifier`, per the issue.
+        ...(identity.nationality !== undefined
+          ? {
+              nationality: {
+                "@type": "Country" as const,
+                identifier: identity.nationality,
+              },
+            }
+          : {}),
         ...(role.jobTitle ? { jobTitle: role.jobTitle } : {}),
         ...(role.worksFor ? { worksFor: role.worksFor } : {}),
         sameAs,
