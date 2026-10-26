@@ -11,6 +11,13 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **Schema v1.12 — a project names its artifact** (#333): `projects[].artifactRefs`
+  references `artifacts[].id` — the third reference site, after `publications[]` and
+  `press[]`. It stores the edge only: published-vs-in-development is **derived** per
+  artifact (`visibility: public` + `locator.url`), never a stored flag (§15.3/§20.1).
+  `load()` fails on a dangling ref, and `pasco check` fails when the target is not
+  public (§18.5 — the leak gate now covers every reference site).
+
 - **Funding rails — the project is now easy to fund** — `funding` field in the CLI
   manifest (GitHub Sponsors · Ko-fi · Patreon; `npm fund` and the npmjs.com package
   page surface it natively from the next release), a `--help` footer tip line, a
