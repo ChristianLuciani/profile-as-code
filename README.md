@@ -102,7 +102,7 @@ Plataformas (enum D16): **49** (34 Postiz + 15 operator extras) · renderers: **
 | Fase | Estado |
 |---|---|
 | Prior-art research | ✅ `docs/research/01-prior-art.md` |
-| Spec (D1–D18 resueltas) | ✅ `docs/SPEC.md` (GEO, i18n, profile-data, Substack, **brand flavor D15/§17**) |
+| Spec (decisiones en §5) | ✅ `docs/SPEC.md` (GEO, i18n, profile-data, Substack, **brand flavor D15/§17**) |
 | Investigación SOTA por plataforma | 🚧 `skills/github-readme` + `skills/github-org` + `skills/kofi` + `skills/hotmart`; resto: asistente **SOTA Research**, ver `docs/research/RUN.md` |
 | Schema JSON v1.9 (contrato) | ✅ `schema/profile.schema.json` (person + brand flavor) |
 | Core engine (load · drift · geo · compile) | ✅ `packages/core` (tests, CI) |
@@ -129,7 +129,7 @@ pnpm gen:platforms   # regenera las superficies derivadas desde platforms/regist
 ## Documentación
 
 - [`docs/USER-GUIDE.md`](docs/USER-GUIDE.md) — guía de usuario: instalación → workspace → primer load de datos → updates (EN).
-- [`docs/SPEC.md`](docs/SPEC.md) — el contrato del motor: goals, decisiones D1–D18, data model, core interfaces, GEO, roadmap, brand flavor (§17).
+- [`docs/SPEC.md`](docs/SPEC.md) — el contrato del motor: goals, decisiones (§5), data model, core interfaces, GEO, roadmap, brand flavor (§17).
 - [`docs/research/`](docs/research/) — prior-art + prompts de investigación SOTA por plataforma.
 - [`schema/README.md`](schema/README.md) — el contrato de datos: mapping de archivos, semántica de validación.
 - [`docs/ci-cd.md`](docs/ci-cd.md) — protección de main, CI, dependabot (cómo y por qué).

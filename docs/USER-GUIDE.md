@@ -51,7 +51,7 @@ One product, one workspace folder. You never put your data in the product.
 | `profile-as-code` (this repo) | The **engine**: schema, core, CLI `pasco`, renderers, platform skills | Product (public) | Install it, update it — never put your data here |
 | `profile-data-<username>` | **Your** workspace: facts as YAML, generated outputs, changelog — a **folder**; a repo is the recommended place to keep it, not a requirement | You (private by default) | Yes — this is where you edit everything |
 
-Core principles (SPEC D1–D18, abbreviated):
+Core principles (SPEC §5 decisions, abbreviated):
 
 - **Facts vs storytelling.** Dates, roles, DOIs, projects are deterministic data
   (schema + drift-check). Prose (bios, headlines) is generated per platform, in

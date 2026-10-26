@@ -1,7 +1,7 @@
 # Contributing to profile-as-code
 
 First off: thanks for considering a contribution. This is an early-stage, spec-driven project —
-every decision lives in [`docs/SPEC.md`](docs/SPEC.md) (decisions D1–D18). Read it before diving in.
+every decision lives in [`docs/SPEC.md`](docs/SPEC.md) §5 — the decision register. Read it before diving in.
 
 ## What you can contribute
 
