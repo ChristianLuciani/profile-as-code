@@ -17,6 +17,7 @@ import { createHash } from "node:crypto";
 import {
   cpSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -345,6 +346,68 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     expect(inner.proposed).toBe("Sovereign AI infra");
     expect(inner.rendered).toBe("### Sovereign AI infra");
     expect(inner.ok).toBe(true);
+  });
+
+  it("names the active variant when it shadows the edited field (#238)", () => {
+    const dir = workspace();
+    // The minimal fixture declares `github-readme → gh-en-2025-01` in
+    // content/active.yaml but ships no body; give it one so the variant wins.
+    mkdirSync(join(dir, "profiles", "github-readme", "variants"), { recursive: true });
+    writeFileSync(
+      join(dir, "profiles", "github-readme", "variants", "gh-en-2025-01.md"),
+      "# Variant body\n",
+    );
+    const r = edit(
+      dir,
+      "headlines[platform=github-readme,lang=en].text",
+      "--set",
+      "Shadows nothing",
+      "--check",
+    );
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("no change");
+    expect(r.stdout).toContain("#238, gh-en-2025-01");
+  });
+
+  it("--json reports a 0-row address honestly (nulls, ok false)", () => {
+    const dir = workspace();
+    const r = edit(dir, "positioning.statement.fr", "--json");
+    expect(r.code).toBe(1);
+    const parsed = json(r);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.data.current).toBeNull();
+    expect(parsed.data.proposed).toBeNull();
+    expect(parsed.data.rendered).toBeNull();
+    expect(parsed.data.ok).toBe(false);
+  });
+
+  it("--json reports an ambiguous address (ok false, no rendered)", () => {
+    const dir = workspace();
+    const bios = join(dir, "content", "bios.yaml");
+    writeFileSync(
+      bios,
+      `${readFileSync(bios, "utf8")}- platform: linkedin\n  lang: en\n  length: medium\n  text: Duplicate row text.\n`,
+    );
+    const r = edit(
+      dir,
+      "bios[platform=linkedin,lang=en,length=medium].text",
+      "--set",
+      "New",
+      "--check",
+      "--json",
+    );
+    expect(r.code).toBe(1);
+    const parsed = json(r);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.data.current).toBeNull();
+    expect(parsed.data.rendered).toBeNull();
+  });
+
+  it("rejects a selector given twice", () => {
+    const dir = workspace();
+    const r = edit(dir, "headlines[platform=x,platform=linkedin,lang=en].text");
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain('selector "platform" given twice');
   });
 
   it("never touches a byte on disk (whole-workspace snapshot)", () => {

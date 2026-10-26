@@ -15,27 +15,25 @@ import { dirname, join } from "node:path";
 import type { LoadedProfile, PlatformProfile } from "@profile-as-code/core";
 import {
   collectMedia,
-  compile,
   LoadError,
   load,
   mediaManifest,
   PLATFORMS,
   SchemaValidationError,
-  type SelectionPolicy,
 } from "@profile-as-code/core";
-import { renderArtifact } from "../artifact-render.js";
+import {
+  compileSlice,
+  renderArtifact,
+  selectionErrorMessage,
+  selectionFindings,
+} from "../artifact-render.js";
 import { parseLang, parsePlatform } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { RENDERERS } from "../generated/renderers.gen.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import { artifactPath } from "../publication.js";
 import type { Pascorc } from "../workspace.js";
-import {
-  ConfigError,
-  defaultsLang,
-  sanitizeCompletenessPolicy,
-  sanitizeSelectionPolicy,
-} from "../workspace.js";
+import { ConfigError, defaultsLang, sanitizeSelectionPolicy } from "../workspace.js";
 
 /** Which renderer serves which platform is NOT decided here any more (#165):
  *  the map is generated from each renderer's own `pasco.platform` manifest field
@@ -120,30 +118,20 @@ export function runBuild(args: BuildArgs): number {
   // (review of #205, finding 3 — the default policy silently won before), and
   // through the SAME sanitizer (F5), so a malformed weight cannot reach the
   // artifact as `NaN%` while the status path is clean.
-  const completenessPolicy = sanitizeCompletenessPolicy(args.pascorc.completeness);
-  // The cast is safe: `sanitizeSelectionPolicy` has already constrained `mode`
-  // to its literal union, and the platform/lang strings are validated above.
-  const selection = selectionPolicy as SelectionPolicy | undefined;
+  // One compile path with `edit` (`artifact-render.ts`): the same workspace
+  // policy and the same selection gate, so a preview cannot promise an artifact
+  // this command refuses to write.
   const slices: PlatformProfile[] = platforms.map((p) =>
-    compile(profile, p, lang, {
-      ...completenessPolicy,
-      ...(selection === undefined ? {} : { selection, view: viewName ?? p }),
-    }),
+    compileSlice(profile, p, lang, args.pascorc, viewName),
   );
 
   // D22/§21.4 + G1: an omission is a WARN the user must see, and an unsatisfied
   // instruction (unknown key, G6) is an ERROR — the build fails rather than
   // silently omitting the wrong facts.
-  const selFindings = slices.flatMap((s) =>
-    (s.selection?.findings ?? []).map((f) => ({ platform: s.platform, ...f })),
-  );
-  const selErrors = selFindings.filter((f) => f.severity === "error");
-  if (selErrors.length > 0) {
+  const selFindings = selectionFindings(slices);
+  if (selFindings.some((finding) => finding.severity === "error")) {
     return report("build", false, EXIT.FAIL, {
-      error: {
-        kind: "selection",
-        message: `${selErrors.length} selection error(s) — ${selErrors[0]?.message}`,
-      },
+      error: { kind: "selection", message: selectionErrorMessage(selFindings) },
       data: { selection: selFindings },
     });
   }

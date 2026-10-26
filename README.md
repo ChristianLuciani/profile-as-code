@@ -151,7 +151,7 @@ profile-as-code/
 ├── packages/
 │   ├── core/             # ✅ load · drift · geo · compile (Zod desde schema)
 │   ├── renderers/        # github-readme + github-org + kofi — más adapters por plataforma (seam de contribución)
-│   └── cli/              # pasco — init·validate·build·diff·status ✅ + edit S1 (preview read-only, #247) (refine/check 🚧, skills:export ✅; check ejecuta reglas offline M6/M7/M8, igual que packages/cli/README.md)
+│   └── cli/              # pasco — init·validate·build·diff·status ✅ + edit S1 (preview read-only, #248) (refine/check 🚧, skills:export ✅; check ejecuta reglas offline M6/M7/M8, igual que packages/cli/README.md)
 ├── skills/               # skills por plataforma (conocimiento SOTA)
 ├── templates/
 │   ├── profile-data/       # on-ramp A: puntero al template repo del workspace (SPEC §9.2)

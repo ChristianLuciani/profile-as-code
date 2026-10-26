@@ -234,7 +234,7 @@ written to the workspace; only this policy is stored.
 | Code | Meaning |
 |---|---|
 | `0` | OK — schema valid. Drift warnings still exit 0 (D12: facts warn, schema fails). |
-| `1` | Schema failure or operational failure (workspace not found, bad YAML, not a git repo for `diff`). |
+| `1` | Schema or operational failure (workspace not found, bad YAML, not a git repo for `diff`), **or a data finding that blocks the command** (`edit`: the address is not exactly one row, or the edit does not change the published artifact). |
 | `2` | Usage error (unknown command/platform/lang, bad flags). |
 
 Human output is EN by default (D8/§11); `--json` prints a machine-readable

@@ -23,23 +23,21 @@
 
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import type {
-  Lang,
-  LoadedProfile,
-  MediaAsset,
-  Platform,
-  PlatformProfile,
-} from "@profile-as-code/core";
+import type { LoadedProfile, MediaAsset, Platform, PlatformProfile } from "@profile-as-code/core";
 import {
   collectMedia,
-  compile,
   LoadError,
   load,
   PLATFORMS,
   SchemaValidationError,
-  type SelectionPolicy,
 } from "@profile-as-code/core";
-import { publishedBio, renderArtifact } from "../artifact-render.js";
+import {
+  compileSlice,
+  publishedBio,
+  renderArtifact,
+  selectionErrorMessage,
+  selectionFindings,
+} from "../artifact-render.js";
 import type { EditAddress } from "../contract.js";
 import {
   bioAddress,
@@ -52,7 +50,6 @@ import {
 import { EXIT } from "../exit.js";
 import { line, report } from "../output.js";
 import type { Pascorc } from "../workspace.js";
-import { sanitizeCompletenessPolicy, sanitizeSelectionPolicy } from "../workspace.js";
 
 export interface EditArgs {
   workspace: string;
@@ -256,13 +253,17 @@ export function resolveEditTarget(
     ...(hits.length === 1 ? { current: hits[0]?.row.url as string } : {}),
     matches: hits.length,
     rows: hits.map(({ row }) => ({
-      address: rowLinkAddress(row),
+      address: rowLinkAddress(row) ?? "<not addressable>",
       value: row.url,
       ...(linkNote(row) === undefined ? {} : { note: linkNote(row) as string }),
     })),
-    available: links
-      .map((row) => rowLinkAddress(row))
-      .filter((candidate, index, all) => all.indexOf(candidate) === index),
+    available: [
+      ...new Set(
+        links
+          .map((row) => rowLinkAddress(row))
+          .filter((candidate): candidate is string => candidate !== undefined),
+      ),
+    ],
   };
 }
 
@@ -284,16 +285,6 @@ export function applyEdit(
   return copy;
 }
 
-/** The compile policy `pasco build` uses for one platform (no `--view`):
- *  completeness from the workspace + selection with the implicit view. */
-function buildPolicy(pascorc: Pascorc, platform: Platform) {
-  const selection = sanitizeSelectionPolicy(pascorc.selection) as SelectionPolicy | undefined;
-  return {
-    ...sanitizeCompletenessPolicy(pascorc.completeness),
-    ...(selection === undefined ? {} : { selection, view: platform }),
-  };
-}
-
 /** A rendered artifact, plus the slice it came from (needed to explain a miss). */
 interface ArtifactView {
   text: string;
@@ -302,18 +293,13 @@ interface ArtifactView {
   slice: PlatformProfile;
 }
 
-/** Render the artifact `pasco build` would write for one platform+lang. The
- *  brand-only surface is skipped for a person workspace (build skips it too). */
-function artifactFor(
-  profile: LoadedProfile,
+/** The artifact view of an already-compiled slice (the compile and its selection
+ *  gate live in `artifact-render.ts`, shared with `build`). */
+function viewOf(
+  slice: PlatformProfile,
   workspace: string,
-  platform: Platform,
-  lang: Lang,
-  pascorc: Pascorc,
   assets: readonly MediaAsset[],
-): ArtifactView | undefined {
-  if (platform === "github-org" && profile.flavor !== "brand") return undefined;
-  const slice = compile(profile, platform, lang, buildPolicy(pascorc, platform));
+): ArtifactView {
   return { ...renderArtifact(slice, workspace, assets), slice };
 }
 
@@ -387,24 +373,28 @@ function publishedByEdit(
 ): Published {
   const media = collectMedia(before, workspace);
   const platforms: Platform[] = address.kind === "statement" ? [...PLATFORMS] : [address.platform];
+  // `build`'s selection gate runs over ITS slice set: a bare `pasco build`
+  // compiles every platform (the brand-only surface included) and refuses on any
+  // per-view error. The preview must refuse identically even when the addressed
+  // platform is fine — otherwise it promises an artifact `build` will not write
+  // (round-3 review, F1).
+  const beforeSlices = new Map<Platform, PlatformProfile>();
+  for (const platform of PLATFORMS) {
+    beforeSlices.set(platform, compileSlice(before, platform, address.lang, pascorc));
+  }
+  const findings = selectionFindings([...beforeSlices.values()]);
+  if (findings.some((finding) => finding.severity === "error")) {
+    return { changes: [], error: selectionErrorMessage(findings) };
+  }
   const changes: Published["changes"] = [];
   let reason: string | undefined;
   for (const platform of platforms) {
-    const a = artifactFor(before, workspace, platform, address.lang, pascorc, media.assets);
-    const b = artifactFor(after, workspace, platform, address.lang, pascorc, media.assets);
-    if (a === undefined || b === undefined) {
+    if (platform === "github-org" && before.flavor !== "brand") {
       reason ??= `the ${platform} artifact is not rendered for this workspace (§17: brand-only surface)`;
       continue;
     }
-    // D22/§21: an unsatisfied selection instruction is an ERROR that makes
-    // `build` write nothing — a preview that ignored it would promise a surface
-    // that will not exist (round-2 review, N1).
-    const selectionError = (a.slice.selection?.findings ?? []).find(
-      (finding) => finding.severity === "error",
-    );
-    if (selectionError !== undefined) {
-      return { changes: [], error: selectionError.message };
-    }
+    const a = viewOf(beforeSlices.get(platform) as PlatformProfile, workspace, media.assets);
+    const b = viewOf(compileSlice(after, platform, address.lang, pascorc), workspace, media.assets);
     const region = changedRegion(a.text, b.text);
     if (region !== undefined) changes.push({ platform, ...region });
     else reason ??= explainMiss(a, address, platform);
