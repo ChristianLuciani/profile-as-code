@@ -190,8 +190,8 @@ recorded surface prints stale (the edit changed the hash) or in-sync (it still
 matches), and a unit with no record rolls up to never — derived, never stored.
 The block also carries the measured drift count.
 A headline/bio value is pre-flighted against the catalog's own max-chars cap (the
-workspace's checks.yaml, else the sourced DEFAULT_CHECKS) and prints the cap, its
-cited source and tier; over-cap is a WARNING (D12), never a block, and a platform
+workspace's checks.yaml, else the sourced caps shipped with pasco) and prints the
+cap, its cited source and tier; over-cap is a WARNING (D12), never a block, and a platform
 with no sourced cap reads \`cap: unknown\`.
 \`--json\` payload { address, current, proposed, rendered, ok, noop, written,
 warnings, stale, state, drift, limit, over } inside the usual envelope (command ·

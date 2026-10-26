@@ -182,8 +182,8 @@ lines are true.
 
 **The cap pre-flight (S4, #251).** Before a headline/bio value is accepted, the
 edit measures it against the catalog's own `max-chars` cap — `content/checks.yaml`
-when the workspace declares checks, the sourced `DEFAULT_CHECKS` catalog otherwise
-— and prints the cap, its **cited source** and its provenance tier. Over-cap is a
+when the workspace declares checks, the **sourced caps shipped with pasco**
+otherwise — and prints the cap, its **cited source** and its provenance tier. Over-cap is a
 **warning**, never a block (D12: facts warn, schema fails): `edit` says so, `check`
 reports the same finding (same executor), and a platform with **no sourced cap**
 says `cap: unknown` instead of guessing a number.

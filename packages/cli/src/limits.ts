@@ -70,15 +70,25 @@ export function applicableLimit(
   surface: "headline" | "bio",
 ): ApplicableLimit | undefined {
   let best: ApplicableLimit | undefined;
+  let bestSpecific = false;
   for (const check of checks) {
     if (check.rule !== "max-chars") continue;
     if (typeof check.value !== "number" || !Number.isFinite(check.value)) continue;
     if (check.platform !== "all" && check.platform !== platform) continue;
     const scope = check.surface ?? "both";
     if (scope !== "both" && scope !== surface) continue;
-    if (best !== undefined && check.value >= best.cap) continue;
+    const specific = check.platform !== "all";
+    // STRICTEST wins; on a tie the platform's OWN row wins over a `platform: all`
+    // one (its note is the more specific evidence — and the row a user edits).
+    if (best !== undefined) {
+      if (check.value > best.cap) continue;
+      if (check.value === best.cap && bestSpecific && !specific) continue;
+    }
     const note = check.note ?? "(no source recorded)";
-    const tier = /^\[(OFICIAL|EXPERTO|BENCHMARK|\?)\]/.exec(note)?.[1] ?? "?";
+    // The tier may lead the note (this repo's convention) or close it; either way
+    // the evidence carries it, so the reader can judge the number.
+    const tier = /\[(OFICIAL|EXPERTO|BENCHMARK|\?)\]/.exec(note)?.[1] ?? "?";
+    bestSpecific = specific;
     best = {
       cap: check.value,
       source: note,

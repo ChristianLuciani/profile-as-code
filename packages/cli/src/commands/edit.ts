@@ -61,7 +61,7 @@ import {
   writeEdit,
 } from "../edit-write.js";
 import { EXIT } from "../exit.js";
-import { type ApplicableLimit, applicableLimit } from "../limits.js";
+import { type ApplicableLimit, applicableLimit, limitFindings } from "../limits.js";
 import { line, report, warn } from "../output.js";
 import type { Pascorc } from "../workspace.js";
 
@@ -465,7 +465,6 @@ interface LimitPreflight {
   limit?: ApplicableLimit;
   length: number;
   over: boolean;
-  surface: "headline" | "bio";
 }
 
 function limitPreflight(
@@ -482,8 +481,31 @@ function limitPreflight(
     ...(limit === undefined ? {} : { limit }),
     length,
     over: limit !== undefined && length > limit.cap,
-    surface,
   };
+}
+
+/** Non-blocking findings of one run: a selection error the write proceeded
+ *  through, an over-cap value, and a catalog row the executor cannot read. */
+function warningsForEdit(
+  published: Published,
+  preflight: LimitPreflight | undefined,
+  profile: LoadedProfile,
+  address: EditAddress,
+): string[] {
+  const out: string[] = [];
+  if (published.error !== undefined) out.push(published.error);
+  if (preflight?.limit !== undefined && preflight.over) {
+    out.push(
+      `${preflight.length} chars is over the published cap ${preflight.limit.cap} (${preflight.limit.source})`,
+    );
+  }
+  if (address.kind === "headline" || address.kind === "bio") {
+    const checks = profile.checks.length > 0 ? profile.checks : DEFAULT_CHECKS;
+    for (const finding of limitFindings(profile, checks, address.platform)) {
+      if (finding.message.includes("non-numeric")) out.push(finding.message);
+    }
+  }
+  return out;
 }
 
 /** Human scope label of an address: which artifact(s) carry it. */
@@ -693,12 +715,12 @@ export function runEdit(args: EditArgs): number {
     const scope = `${address.kind === "bio" ? "bio" : "headline"}`;
     if (preflight.limit === undefined) {
       line(
-        `limits: ${preflight.length} chars — cap unknown (no sourced max-chars for this ${scope})`,
+        `limits: ${preflight.length} chars — cap unknown (no sourced max-chars for this ${scope} in the catalog: the workspace's content/checks.yaml or the caps shipped with pasco)`,
       );
     } else {
       const over = preflight.over ? " — OVER" : " — ok";
       line(
-        `limits: ${preflight.length} chars vs cap ${preflight.limit.cap}${preflight.limit.checkId === undefined ? "" : ` (${preflight.limit.checkId})`}${over}${preflight.limit.tier === "?" ? "" : ` — [${preflight.limit.tier}]`} — ${preflight.limit.source}`,
+        `limits: ${preflight.length} chars vs cap ${preflight.limit.cap}${preflight.limit.checkId === undefined ? "" : ` (${preflight.limit.checkId})`}${over} — ${preflight.limit.source}`,
       );
       if (preflight.over) {
         warn(
@@ -748,7 +770,7 @@ export function runEdit(args: EditArgs): number {
       ok,
       noop: outcome === undefined ? noopValue : outcome.noop,
       written: outcome !== undefined && !outcome.noop,
-      warnings: published.error === undefined ? [] : [published.error],
+      warnings: warningsForEdit(published, preflight, profile, address),
       stale: impact?.surfaces ?? {},
       state: impact?.state ?? null,
       drift,

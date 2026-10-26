@@ -604,7 +604,20 @@ you keep still apply, but a row you delete no longer falls back to the engine's 
 ```sh
 pasco check            # every measured text against its surface's cap
 pasco check --json     # envelope: data.limits[] = {severity, code, message, path, ...}
+
+# the same cap, before the paste — while you are writing the value
+pasco edit 'headlines[platform=upwork,lang=en].text' --set "…" --check
+# limits: 80 chars vs cap 50 (upwork-title-max) — OVER — [?] third-party guidance …
+pasco edit 'headlines[platform=upwork,lang=en].text' --set "…" --json
+# data.limit = {cap, source, tier} · data.over = true · data.warnings = [...]
 ```
+
+`pasco edit` pre-flights **the value you are about to write** against the same
+catalogue and prints the cap with its cited source and tier; over-cap is a
+**warning, never a block** (the write still happens, because a fact that warns must
+not block — D12). A platform with **no sourced cap** prints `cap: unknown` instead
+of a guessed number. The `--check` render carries the same warning, so `edit` and
+`check` never disagree about a cap.
 
 Where the caps come from matters, because the defaults are honest about not knowing:
 most of them are `[?]` (third-party guidance or an editorial soft cap), not a
