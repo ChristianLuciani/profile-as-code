@@ -245,7 +245,7 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     const r = edit(dir, "positioning.statement.fr", "--set", "Nouvelle déclaration", "--check");
     expect(r.code).toBe(1);
     expect(r.stdout).toContain("proposed: Nouvelle déclaration");
-    expect(r.stdout).toContain("not previewable in S1");
+    expect(r.stdout).toContain("edit does not create rows");
   });
 
   it("refuses an ambiguous (duplicate) row instead of choosing one", () => {
@@ -291,12 +291,18 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     expect(available).toContain("positioning.statement.en");
   });
 
-  it("refuses --set without --check (the write lands with S2, #249)", () => {
+  it("writes when --check is absent (S2, #249) and previews with it", () => {
     const dir = workspace();
-    const r = edit(dir, "positioning.statement.en", "--set", "New statement");
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("--check");
-    expect(r.stderr).toContain("#249");
+    const check = edit(dir, "positioning.statement.en", "--set", "New statement", "--check");
+    expect(check.code).toBe(0);
+    expect(check.stdout).toContain("published (github-readme/en");
+
+    const write = edit(dir, "positioning.statement.en", "--set", "New statement");
+    expect(write.code).toBe(0);
+    expect(write.stdout).toContain("written: yes");
+    expect(readFileSync(join(dir, "content", "positioning.yaml"), "utf8")).toContain(
+      "en: New statement",
+    );
   });
 
   it("refuses --check without --set, and an empty --set", () => {
@@ -324,7 +330,7 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     expect(r.stdout).toContain("(noop)");
   });
 
-  it("--json carries exactly { address, current, proposed, rendered, ok }", () => {
+  it("--json carries { address, current, proposed, rendered, ok, noop, written }", () => {
     const dir = workspace();
     const r = edit(
       dir,
@@ -339,13 +345,15 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     expect(parsed.ok).toBe(true);
     const inner = parsed.data as Record<string, unknown>;
     expect(Object.keys(inner).sort()).toEqual(
-      ["address", "current", "ok", "proposed", "rendered"].sort(),
+      ["address", "current", "noop", "ok", "proposed", "rendered", "written"].sort(),
     );
     expect(inner.address).toBe("headlines[platform=github-readme,lang=en].text");
     expect(inner.current).toBe("Sovereign AI infrastructure engineer");
     expect(inner.proposed).toBe("Sovereign AI infra");
     expect(inner.rendered).toBe("### Sovereign AI infra");
     expect(inner.ok).toBe(true);
+    expect(inner.noop).toBe(false);
+    expect(inner.written).toBe(false);
   });
 
   it("names the active variant when it shadows the edited field (#238)", () => {

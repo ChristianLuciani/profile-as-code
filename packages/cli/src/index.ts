@@ -51,8 +51,8 @@ Commands:
   init [dir]                    Scaffold a ${WORKSPACE_NAME} workspace (content/, README.md, .pascorc)
   validate [--json]             Schema (FAIL, exit 1) + drift/geo (WARN, exit 0) — D12
   build [platform] [--lang]     Deterministic base texts per platform+lang
-  edit <contract-path>          Resolve one contract field; with --set --check preview the published
-          [--set <text> --check]  lines the edit changes. Writes NOTHING (S1, #248)
+  edit <contract-path>          Resolve one contract field; --set writes it (comment-preserving,
+          [--set <text> [--check]]  validated, atomic) and --set --check previews the published lines
   diff [--json]                 Changes since the last release tag (git-based → CHANGELOG hint)
   refine <platform> [--lang]    PARTIAL: emit agent task template; --choose <id> records the
           [--variants N]        chosen variant in content/active.yaml (agent-driven, D11/D13;
@@ -162,25 +162,28 @@ all platforms. lang defaults to .pascorc defaults.lang or 'en'.
 lang and the fact selection, so the surface shows a SUBSET of the SSOT. Every
 omission is reported as a warning; an addressed key that resolves to nothing is
 an error. No selection policy = byte-identical output.`,
-  edit: `pasco edit <contract-path> [--set <text> --check] [--json] [--workspace <path>]
-Resolve ONE contract field (epic #247, S1 — reads, writes nothing):
+  edit: `pasco edit <contract-path> [--set <text> [--check]] [--json] [--workspace <path>]
+Resolve ONE contract field (epic #247, S1+S2 — read · preview · write):
   positioning.statement.<lang>
   headlines[platform=<p>,lang=<l>].text
   bios[platform=<p>,lang=<l>,length=<len>].text
   identity.links[platform=<p>,label=<l>].url     (read-only; label optional)
-Without --set it prints the current value. With --set --check it renders the
-surface the way \`pasco build\` does — active variant (#238) → renderer → shared
-paste source, current vs proposed — and prints the artifact lines the edit
-changes. An edit that does not reach the artifact says so, with the reason: a
-paste surface publishes ONE bio (length priority long>medium>short), several
-renderers never emit the statement, a renderer-less surface carries no headline.
-\`--json\` payload { address, current, proposed, rendered, ok } inside the usual
-envelope (command · ok · exitCode); \`rendered\` is the published text, or null.
-Exit: 0 the edit changes the published artifact (or is a noop) · 1 the address did
-not resolve to exactly one row, or the artifact does not change · 2 usage
-(malformed address, read-only field, --set without --check).
-The comment-preserving WRITE lands with the epic's next slice (#249); --set
-without --check is refused until then.`,
+Without --set it prints the current value. With --set it WRITES the value — a
+byte-range splice over the original text (the CST locates, it never
+re-serializes), so comments, layout and CRLF survive and the diff is one line;
+the result is validated by load()+schema over a temp copy and only then replaces
+the file atomically. Block scalars (|, >) and multi-line scalars are refused
+v1; re-setting an identical value is a noop (exit 0, nothing written).
+With --set --check it PREVIEWS instead: it renders the surface the way
+\`pasco build\` does — active variant (#238) → renderer → shared paste source,
+current vs proposed — and prints the artifact lines the edit changes, saying so
+(with the reason) when the edit does not reach the artifact.
+\`--json\` payload { address, current, proposed, rendered, ok, noop, written }
+inside the usual envelope (command · ok · exitCode).
+Exit: 0 written / noop / the preview changes the artifact · 1 the address did not
+resolve to exactly one row, the validation refused the result, or (preview) the
+artifact does not change · 2 usage (malformed address, read-only field, block or
+multi-line scalar, a value with a line break, --check without --set).`,
   diff: `pasco diff [--json] [--workspace <path>]
 Git-based: what changed since the last tag matching release-* (.pascorc
 diff.tagPattern) — commits + changed content files → CHANGELOG hint.`,
@@ -332,7 +335,7 @@ async function runMain(): Promise<number> {
         return EXIT.OK;
       }
       if (positionals.length !== 1) {
-        throw new UsageError("usage: pasco edit <contract-path> [--set <text> --check]");
+        throw new UsageError("usage: pasco edit <contract-path> [--set <text> [--check]]");
       }
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
