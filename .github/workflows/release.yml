@@ -4,23 +4,24 @@ name: release
 # and creates the matching GitHub Release from CHANGELOG.md (issues #42/#58). See
 # docs/ci-cd.md §"Releasing — the primary path" (mechanism reconciled by issue #307).
 #
-# WHICH TRIGGER PUBLISHES (measured 2026-10-24 on v0.3.5, issue #307): the TAG push. The tag
-# run runs the guard, builds + tests, publishes the cohort + the CLI over OIDC (with
-# attestation — the repo is public since #293), and creates the GitHub Release. Its ONLY
-# failing leg is the pages deploy: the `github-pages` environment's protection rules do not
-# admit tag-origin runs, so the site job fails on a tag run — the page ships via the override
-# dispatch on this workflow's companion (`gh workflow run pages.yml --ref main
-# -f ref=<commit> -f release=<tag>`; the v0.3.5 recovery: run 40061075031, success).
-# A `workflow_dispatch` from `main` after a published tag is the documented benign duplicate:
-# npm answers `409 Cannot publish over …` (v0.3.5: run 40059765655) and the dependent jobs
-# then skip. Until the operator decides the canonical path (the #307 docket: tag-only /
-# dispatch-only / the environment opens), the MECHANISM is untouched: both triggers stay, the
-# guard keeps the tag|publish invariant.
-# (History: v0.2.0's tag run failed E403 — token without 2FA bypass; v0.3.0's failed ENEEDAUTH —
-# the token was deleted and the exchange did not work outside `main`. Issue #208 decided the
-# dispatch-only runbook for that state, 2026-10-12; the flip and the reopened question live in
-# #307.)
-#
+# WHICH TRIGGER PUBLISHES — the TAG push, as **ratified** (2026-10-24: camino (c) of #307,
+# https://github.com/ChristianLuciani/profile-as-code/issues/307#issuecomment-6386416707).
+# Ratified is not implemented: `github-pages` TODAY allows only the `main` and `gh-pages`
+# branches (measured 2026-10-26, `/environments/github-pages/deployment-branch-policies`), so a
+# tag-origin deploy still FAILS on the protection rule (v0.3.5, deployment 7293641310) and the
+# page ships via override (`gh workflow run pages.yml --ref main -f ref=<commit> -f
+# release=<tag>`, run 40061075031). The ratified path — guard, build + tests, cohort + CLI over
+# OIDC, Release, pages deploy from the published commit — becomes whole when the environment
+# gains a tag policy: the operator's precondition, #327.
+# A `workflow_dispatch` is the documented OVERRIDE — a deliberate publish of a ref, or the retry
+# of a failed publish — never the happy path; after a published tag it is the benign duplicate
+# npm answers `409 Cannot publish over …` (v0.3.5: run 40059765655). Both triggers stay: option
+# (b) — removing `push: tags` — was discarded in the ratification, which carries its own exit
+# criterion: a measured cycle that does not confirm the new state returns to option (b). That
+# measurement is #327 (I5 of #307).
+# (History: v0.2.0's tag run failed E403; v0.3.0's failed ENEEDAUTH — no token, no exchange
+# outside `main`. #208 decided the dispatch-only runbook for THAT state on 2026-10-12; the
+# v0.3.5 tag run publishing the artifact + Release superseded it 12 days later, site leg red.)
 # Publish auth is trusted publishing (OIDC, issue #80): each publishing client exchanges its
 # own token — pnpm for the seam cohort, the npm CLI for the CLI package ([OFICIAL] both dists
 # inspected 2026-10-24; docs/ci-cd.md §npm publish auth carries the record).
