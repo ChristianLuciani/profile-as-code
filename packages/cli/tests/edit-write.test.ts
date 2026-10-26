@@ -24,6 +24,7 @@ import {
   rmSync,
   statSync,
   symlinkSync,
+  utimesSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -31,7 +32,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { LoadError } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
-import { StaleEditError, writeEdit } from "../src/edit-write.js";
+import { StaleEditError, WriteRefusedError, writeEdit } from "../src/edit-write.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI = join(__dirname, "..", "dist", "index.js");
@@ -402,7 +403,7 @@ describe("pasco edit — S2 writer (range splice)", () => {
       expect(r.code).toBe(1);
       const parsed = JSON.parse(r.stdout) as { error?: { kind: string; message: string } };
       expect(parsed.error?.kind).toBe("load");
-      expect(parsed.error?.message).toContain("could not write");
+      expect(parsed.error?.message).toContain("could not take the write lock");
       expect(parsed.error?.message).not.toContain("/var/");
       expect(parsed.error?.message).not.toContain("/tmp/");
       expect(hashOf(fileOf(dir))).toBe(before);
@@ -423,6 +424,37 @@ describe("pasco edit — S2 writer (range splice)", () => {
     expect(parsed.data.written).toBe(true);
     expect(parsed.data.warnings).toHaveLength(1);
     expect(String((parsed.data.warnings as string[])[0])).toContain("excludes");
+  });
+
+  it("serializes concurrent writers with the advisory lock (R1)", () => {
+    const dir = workspace();
+    const lock = join(dir, "content", ".pasco-edit.lock");
+    writeFileSync(lock, JSON.stringify({ pid: process.pid, at: Date.now() }));
+    const before = hashOf(fileOf(dir, "headlines.yaml"));
+    expect(() =>
+      writeEdit(
+        {
+          workspace: dir,
+          target: { file: "content/headlines.yaml", path: [3, "text"] },
+          value: "Mine",
+        },
+        { lockWaitMs: 50 },
+      ),
+    ).toThrow(WriteRefusedError);
+    expect(hashOf(fileOf(dir, "headlines.yaml"))).toBe(before);
+    expect(existsSync(lock)).toBe(true); // a refused writer never removes the holder's lock
+
+    // A lock left by a crashed process is broken after 30 s of age.
+    const old = new Date(Date.now() - 60_000);
+    utimesSync(lock, old, old);
+    const outcome = writeEdit({
+      workspace: dir,
+      target: { file: "content/headlines.yaml", path: [3, "text"] },
+      value: "Mine",
+    });
+    expect(outcome.noop).toBe(false);
+    expect(readFileSync(fileOf(dir, "headlines.yaml"), "utf8")).toContain("Mine");
+    expect(existsSync(lock)).toBe(false);
   });
 
   it("writes a langMap value (positioning.statement.<lang>)", () => {

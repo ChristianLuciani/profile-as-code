@@ -199,8 +199,9 @@ pasco --help      # command list + exit-code contract
 `--help` prints `init`, `validate`, `build`, `edit`, `diff`, `refine`, `check`, `post`,
 `status` and `skills:export`, plus the exit-code contract: `0` ok · `1` schema or
 workspace failure (or a data finding that blocks the command — `pasco edit` exits
-`1` when the address is not exactly one row, or when the edit does not change the
-published artifact) · `2` usage error. `pasco status --help` covers the deploy
+`1` when the address is not exactly one row, the target is read-only or stale, the
+validation refuses the write, or the preview does not change the published
+artifact) · `2` usage error. `pasco status --help` covers the deploy
 ledger and its opt-in live check (`--mark`, `--verify`, `--write-checklist`,
 `--completeness`). Which of those commands are still partial is stated in the
 [CLI's command table](../packages/cli/README.md).

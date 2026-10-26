@@ -129,8 +129,12 @@ edit never reaches disk**. CRLF and the final newline are preserved. Block scala
 (`|`, `>`) and multi-line scalars are **refused** in v1 (a replacement would change
 the line count), and so are **anchored/aliased** scalars (rewriting one would
 silently change every alias). The file's node must still hold the value the
-command resolved — a row inserted or reordered since the preview is a
-**staleness** refusal (exit 1), not a silent write to the wrong row. A symlinked
+command resolved — a row inserted or reordered since the address was resolved is
+a **staleness** refusal (exit 1), not a silent write to the wrong row.
+Concurrent `pasco edit` writers on one workspace serialize on
+`content/.pasco-edit.lock` (a second waits 2 s, then refuses; a lock left by a
+crash is broken after 30 s); an external editor is caught by the re-read
+immediately before the atomic rename. A symlinked
 content file keeps its link (the target is replaced) and the file mode is
 preserved. Re-setting an identical value is a **noop** (exit 0, nothing written).
 Rows the artifact does not emit can still be written — the command says *what* was
@@ -145,10 +149,10 @@ renderers never emit the statement, and a renderer-less surface carries no
 headline. In those cases the artifact does not change and the preview says so —
 with the reason, and exit `1`. It runs the writer's **eligibility and staleness
 checks first**, so `--check` refuses the same ADDRESSED shapes `--set` refuses
-(block/multi-line/anchored scalars, a stale row). Write-time failures — a
-read-only file, a validation error, a concurrent change — can still fail after a
-green preview: the preview proves *what* would change, not that the filesystem
-will accept it.
+(block/multi-line/anchored scalars, a stale row, a read-only **file**). A
+read-only **directory**, a validation refusal or a concurrent change can still
+fail at write time: the preview proves *what* would change, not that the
+filesystem will accept it.
 
 > v1 writes single-line scalars only. A workspace whose bios are wrapped by an
 > editor (this repo's own `minimal` test fixture is) must be reflowed to one line
@@ -171,7 +175,8 @@ still valid, so it is reported, not blocked). Exit codes: **0** the write succee
 (or the noop was a noop), or the preview changes the artifact · **1** the address
 did not resolve to exactly one row, the target is read-only or changed under the
 command (stale), the validation refused the result, or (preview only) the artifact
-does not change · **2** usage (malformed address, read-only field, block/multi-line
+does not change or a D22/§21 selection error makes `build` refuse the workspace
+(`kind: "selection"`) · **2** usage (malformed address, read-only field, block/multi-line
 scalar, anchored/aliased scalar, a value with a line break, `--check` without
 `--set`).
 

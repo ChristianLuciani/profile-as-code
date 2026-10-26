@@ -175,8 +175,11 @@ the result is validated by load()+schema over a temp copy and only then replaces
 the file atomically. Block scalars (|, >), multi-line scalars and anchored or
 aliased scalars are refused in v1 (they would move the line count or silently
 change every alias); re-setting an identical value is a noop (exit 0, nothing
-written). The PREVIEW applies the same checks, so --check never promises a write
---set refuses.
+written). Concurrent pasco edit writers on one workspace serialize on
+content/.pasco-edit.lock (a second waits 2 s, then refuses; a crash-left lock is
+broken after 30 s). The PREVIEW applies the same addressed-shape checks (scalar
+kind, anchor, staleness, a read-only file); a read-only directory or a validation
+failure is only detected by the write.
 With --set --check it PREVIEWS instead: it renders the surface the way
 \`pasco build\` does — active variant (#238) → renderer → shared paste source,
 current vs proposed — and prints the artifact lines the edit changes, saying so

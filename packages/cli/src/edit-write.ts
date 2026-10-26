@@ -30,9 +30,11 @@ import { randomUUID } from "node:crypto";
 import {
   accessSync,
   chmodSync,
+  closeSync,
   constants,
   cpSync,
   mkdtempSync,
+  openSync,
   readFileSync,
   realpathSync,
   renameSync,
@@ -67,6 +69,64 @@ export interface WriteDeps {
    *  Tests inject a throwing validator to pin "an invalid edit never reaches
    *  disk" (the acceptance's forced-invalid fixture). */
   validate?: (workspace: string) => void;
+  /** How long to wait for a concurrent `pasco edit` lock before refusing.
+   *  Production 2000 ms; tests shorten it. */
+  lockWaitMs?: number;
+}
+
+/** The advisory lock's path — inside `content/`, dot-prefixed so `load()`'s
+ *  `*.yaml` scan ignores it. */
+const LOCK_NAME = ".pasco-edit.lock";
+const LOCK_STALE_MS = 30_000;
+
+function sleep(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/** Serialize `pasco edit` writers on ONE workspace. Concurrent `--set` on the
+ *  same file is otherwise last-writer-wins: the re-read guard only narrows the
+ *  window to the check/rename gap (measured ms on a 2.7 MB workspace, premerge
+ *  review of #332 R1). An external editor is still caught by the re-read.
+ *  A lock left by a crashed process is broken after 30 s. */
+function withWriteLock<T>(workspace: string, waitMs: number, run: () => T): T {
+  const lockPath = join(workspace, "content", LOCK_NAME);
+  const started = Date.now();
+  for (;;) {
+    try {
+      const fd = openSync(lockPath, "wx");
+      try {
+        writeFileSync(fd, JSON.stringify({ pid: process.pid, at: Date.now() }));
+      } finally {
+        closeSync(fd);
+      }
+      break;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EEXIST") {
+        throw new LoadError(
+          `${LOCK_NAME}: could not take the write lock (${(err as NodeJS.ErrnoException).code ?? "error"}) — nothing was written`,
+        );
+      }
+      try {
+        if (Date.now() - statSync(lockPath).mtimeMs > LOCK_STALE_MS) {
+          rmSync(lockPath, { force: true });
+          continue;
+        }
+      } catch {
+        continue; // the holder removed it between our open and stat: retry
+      }
+      if (Date.now() - started >= waitMs) {
+        throw new WriteRefusedError(
+          `another pasco edit is writing this workspace (content/${LOCK_NAME}) — retry in a moment`,
+        );
+      }
+      sleep(25);
+    }
+  }
+  try {
+    return run();
+  } finally {
+    rmSync(lockPath, { force: true });
+  }
 }
 
 /** The address no longer points at the value the caller resolved (a row was
@@ -170,9 +230,14 @@ function inspect(
   assertSpliceable(node, original, args.target.file, args.target.path);
   try {
     accessSync(filePath, constants.W_OK);
-  } catch {
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new StaleEditError(
+        `${args.target.file} disappeared — the file changed since the address was resolved; re-run`,
+      );
+    }
     throw new WriteRefusedError(
-      `${args.target.file} is read-only (the user marked it so) — chmod it, or preview with --check`,
+      `${args.target.file} is read-only (the user marked it so) — chmod it to edit, or read it with \`pasco edit <address>\``,
     );
   }
   const before = node.value === null || node.value === undefined ? "" : String(node.value);
@@ -232,6 +297,13 @@ export function writeEdit(
   args: { workspace: string; target: WriteTarget; value: string; expect?: string },
   deps: WriteDeps = {},
 ): WriteOutcome {
+  return withWriteLock(args.workspace, deps.lockWaitMs ?? 2_000, () => writeEditLocked(args, deps));
+}
+
+function writeEditLocked(
+  args: { workspace: string; target: WriteTarget; value: string; expect?: string },
+  deps: WriteDeps,
+): WriteOutcome {
   const filePath = join(args.workspace, args.target.file);
   const { original, node, before } = inspect(args, filePath);
   if (before === args.value) return { file: args.target.file, before, noop: true };
@@ -266,7 +338,15 @@ export function writeEdit(
   // same file would otherwise both report success and one value would vanish
   // (premerge review of #332, N1). The residual window between this read and the
   // rename is microseconds; there is no portable way to close it further.
-  if (readFileSync(filePath, "utf8") !== original) {
+  let current: string;
+  try {
+    current = readFileSync(filePath, "utf8");
+  } catch (err) {
+    throw new StaleEditError(
+      `${args.target.file}: the file disappeared while the edit was being validated — nothing was written; re-run (${(err as NodeJS.ErrnoException).code ?? "error"})`,
+    );
+  }
+  if (current !== original) {
     throw new StaleEditError(
       `${args.target.file}: the file changed while the edit was being validated — nothing was written; re-run`,
     );
@@ -280,7 +360,14 @@ export function writeEdit(
   } catch {
     realPath = filePath;
   }
-  const mode = statSync(realPath).mode & 0o777;
+  let mode: number;
+  try {
+    mode = statSync(realPath).mode & 0o777;
+  } catch (err) {
+    throw new StaleEditError(
+      `${args.target.file}: the file disappeared before the atomic replace — nothing was written (${(err as NodeJS.ErrnoException).code ?? "error"})`,
+    );
+  }
   const tempFile = join(dirname(realPath), `.pasco-edit-${process.pid}-${randomUUID()}.tmp`);
   try {
     writeFileSync(tempFile, nextText, { mode });
