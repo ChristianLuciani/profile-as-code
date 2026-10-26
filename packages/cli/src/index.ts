@@ -196,15 +196,16 @@ with no sourced cap reads \`cap: unknown\`.
 An active variant (#238) on the addressed platform is NAMED (edit never chooses the
 live variant — that is refine --choose).
 \`--json\` payload { address, current, proposed, rendered, ok, noop, written,
-warnings, stale, state, drift, limit, over, variant } inside the usual envelope
+warnings, stale, state, drift, limit, over, variant, reason } inside the usual
+envelope
 (command · ok · exitCode);
 warnings carries a non-blocking finding the write proceeded through.
-Exit: 0 written / noop / the preview changes the artifact · 1 the address did not
-resolve to exactly one row, the target is read-only or changed under the command
-(stale — nothing was written), the validation refused the result, or (preview) the
-artifact does not change · 2 usage (malformed address, read-only field, block or
-multi-line scalar, anchored/aliased scalar, a value with a line break, --check
-without --set).`,
+Exit: 0 a read / written / noop / the preview changes the artifact · 1 the address
+did not resolve to exactly one row, the target is read-only or changed under the
+command (stale — nothing was written), the validation refused the result, or
+(preview) the artifact does not change · 2 usage (malformed address, unknown
+platform or language, read-only field, block or multi-line scalar, anchored/aliased
+scalar, a value with a line break, an empty --set, --check without --set).`,
   diff: `pasco diff [--json] [--workspace <path>]
 Git-based: what changed since the last tag matching release-* (.pascorc
 diff.tagPattern) — commits + changed content files → CHANGELOG hint.`,

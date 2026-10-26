@@ -622,9 +622,10 @@ pasco edit 'positioning.statement.en'                     # read it back — did
 ```
 
 `--json` is the machine contract (`address · current · proposed · rendered · ok ·
-noop · written · warnings · stale · state · drift · limit · over · variant`) and the
-exit codes are `0` ok/noop/preview-changes · `1` not one row/stale/read-only/preview
-without a change/validation · `2` usage — one test per row in the CLI README.
+noop · written · warnings · stale · state · drift · limit · over · variant · reason`)
+and the exit codes are `0` a read/write/noop/preview-that-changes · `1` not one
+row/stale/read-only/preview-without-a-change/validation · `2` usage — one test per
+row in `packages/cli/tests/edit.test.ts` (the write-path rows at the writer seam).
 
 `pasco edit` pre-flights **the value you are about to write** against the same
 catalogue and prints the cap with its cited source and tier; over-cap is a

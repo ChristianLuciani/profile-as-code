@@ -485,6 +485,33 @@ function limitPreflight(
   };
 }
 
+/** A statement renders on every platform that has a row in its language; an
+ *  active #238 variant on any of them supplies that artifact wholesale, so the
+ *  edit does not reach it — name the variants (the human path already does). */
+function statementVariantWarnings(
+  profile: LoadedProfile,
+  workspace: string,
+  pascorc: Pascorc,
+  lang: string,
+): string[] {
+  const out: string[] = [];
+  const platforms = new Set(
+    [...(profile.bios ?? []), ...(profile.headlines ?? [])]
+      .filter((row) => row.lang === lang)
+      .map((row) => row.platform),
+  );
+  for (const platform of [...platforms].sort()) {
+    const slice = compileSlice(profile, platform, lang as "en" | "es" | "fr", pascorc);
+    const variant = resolveVariantBody(workspace, slice);
+    if (variant.text !== undefined && variant.id !== undefined) {
+      out.push(
+        `an active variant (#238, ${variant.id}) supplies the ${platform} artifact body — this statement does not reach it`,
+      );
+    }
+  }
+  return out;
+}
+
 /** Non-blocking findings of one run: a selection error the write proceeded
  *  through, an over-cap value, and a catalog row the executor cannot read. */
 function warningsForEdit(
@@ -492,9 +519,14 @@ function warningsForEdit(
   preflight: LimitPreflight | undefined,
   profile: LoadedProfile,
   address: EditAddress,
+  workspace: string,
+  pascorc: Pascorc,
 ): string[] {
   const out: string[] = [];
   if (published.error !== undefined) out.push(published.error);
+  if (address.kind === "statement") {
+    out.push(...statementVariantWarnings(profile, workspace, pascorc, address.lang));
+  }
   if (preflight?.limit !== undefined && preflight.over) {
     out.push(
       `${preflight.length} chars is over the published cap ${preflight.limit.cap} (${preflight.limit.source})`,
@@ -785,7 +817,14 @@ export function runEdit(args: EditArgs): number {
       ok,
       noop: outcome === undefined ? noopValue : outcome.noop,
       written: outcome !== undefined && !outcome.noop,
-      warnings: warningsForEdit(published, preflight, profile, address),
+      warnings: warningsForEdit(
+        published,
+        preflight,
+        profile,
+        address,
+        args.workspace,
+        args.pascorc,
+      ),
       stale: impact?.surfaces ?? {},
       state: impact?.state ?? null,
       drift,
@@ -799,6 +838,7 @@ export function runEdit(args: EditArgs): number {
             },
       over: preflight?.over ?? false,
       variant: activeVariant ?? null,
+      reason: published.reason ?? null,
     },
   });
 }

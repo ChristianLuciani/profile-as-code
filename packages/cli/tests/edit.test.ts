@@ -379,6 +379,7 @@ describe("pasco edit — resolution, preview and write", () => {
         "noop",
         "ok",
         "proposed",
+        "reason",
         "rendered",
         "stale",
         "state",
@@ -404,6 +405,7 @@ describe("pasco edit — resolution, preview and write", () => {
     // scopes both rows (the executor's rule) — the workspace policy wins.
     expect(inner.limit).toEqual({ cap: 1000, source: "(no source recorded)", tier: "?" });
     expect(inner.variant).toBeNull();
+    expect(inner.reason).toBeNull();
     expect(inner.over).toBe(false);
     expect(typeof inner.drift).toBe("number");
   });
@@ -768,6 +770,54 @@ describe("pasco edit — resolution, preview and write", () => {
     expect(json(r).data.drift).toBeGreaterThan(0);
   });
 
+  it("names the variant that shadows a STATEMENT edit, in warnings and reason", () => {
+    const dir = workspace();
+    mkdirSync(join(dir, "profiles", "github-readme", "variants"), { recursive: true });
+    writeFileSync(
+      join(dir, "profiles", "github-readme", "variants", "gh-en-2025-01.md"),
+      "# Body\n",
+    );
+    const r = edit(dir, "positioning.statement.en", "--set", "Otro.", "--json");
+    const parsed = json(r);
+    const warnings = parsed.data.warnings as string[];
+    expect(warnings.some((w) => w.includes("gh-en-2025-01"))).toBe(true);
+    expect(String(parsed.data.reason)).toContain("gh-en-2025-01");
+  });
+
+  it("carries the machine-readable miss reason (S5)", () => {
+    const dir = workspace();
+    const r = edit(
+      dir,
+      "headlines[platform=upwork,lang=en].text",
+      "--set",
+      "H2",
+      "--check",
+      "--json",
+    );
+    expect(r.code).toBe(1);
+    const parsed = json(r);
+    expect(typeof parsed.data.reason).toBe("string");
+    expect(String(parsed.data.reason).length).toBeGreaterThan(0);
+  });
+
+  it("names the variant on the WRITE path too (exit 0)", () => {
+    const dir = workspace();
+    mkdirSync(join(dir, "profiles", "github-readme", "variants"), { recursive: true });
+    writeFileSync(
+      join(dir, "profiles", "github-readme", "variants", "gh-en-2025-01.md"),
+      "# Body\n",
+    );
+    const r = edit(
+      dir,
+      "headlines[platform=github-readme,lang=en].text",
+      "--set",
+      "Nuevo",
+      "--json",
+    );
+    expect(r.code).toBe(0);
+    expect(json(r).data.variant).toBe("gh-en-2025-01");
+  });
+
   it("names the active variant shadowing the addressed platform (S5, #238 guard)", () => {
     const dir = workspace();
     mkdirSync(join(dir, "profiles", "github-readme", "variants"), { recursive: true });
@@ -841,6 +891,7 @@ describe("exit-code matrix (S5, #252)", () => {
     ["read-only link --set → 2", ["identity.links[platform=github].url", "--set", "x"], 2],
     ["unknown address → 2", ["positioning.foo"], 2],
     ["unknown platform → 2", ["headlines[platform=gitlab,lang=en].text"], 2],
+    ["unknown language → 2", ["headlines[platform=github-readme,lang=de].text"], 2],
     ["--check without --set → 2", ["positioning.statement.en", "--check"], 2],
     ["empty --set → 2", ["positioning.statement.en", "--set", ""], 2],
     ["line break in --set → 2", ["positioning.statement.en", "--set", "a\nb"], 2],

@@ -190,7 +190,7 @@ says `cap: unknown` instead of guessing a number.
 
 `--json` payload (inside the CLI's usual envelope, which also carries `command`,
 `ok` and `exitCode`): `{ address, current, proposed, rendered, ok, noop, written,
-warnings, stale, state, drift, limit, over }` — `stale` maps each **recorded** surface to
+warnings, stale, state, drift, limit, over, variant, reason }` — `stale` maps each **recorded** surface to
 `in-sync|stale`, `state` is the §19 unit rollup (`never` when the unit has no
 record; `null` for a read-only link or an address that is not one row), and
 `drift` is the measured drift-check count (never a defaulted 0). `rendered` is the published text the edit produces (or `null`),
@@ -224,15 +224,30 @@ are the envelope; the edit's own fields are
 | `stale` | `Record<surface, "in-sync" \| "stale">` | each **recorded** surface of the edited unit |
 | `state` | `"never" \| "in-sync" \| "stale" \| null` | the §19 unit rollup (`null` when the address is not one writable unit) |
 | `drift` | number | the measured drift-check count |
-| `limit` | `{cap, source, tier} \| null` | the applicable published cap, or `null` when the catalog has none |
+| `limit` | `{cap, source, tier} \| null` | the applicable published cap; `null` when the catalog has none **or** the address type has no cap (a statement or a link) |
 | `over` | boolean | the value exceeds that cap |
-| `variant` | string \| null | the active #238 variant shadowing the addressed platform |
+| `variant` | string \| null | the active #238 variant shadowing the **addressed platform** (a statement names its variants in `warnings` instead) |
+| `reason` | string \| null | why the preview does not reach the artifact (the same sentence the human output prints as `why:`) |
+
+The epic's sketch maps onto this contract as `old → current`, `new → proposed`,
+`valid → ok`, `limits → limit`, `exit → exitCode`; a surface with no ledger record
+is not a per-surface `never` in core's `SyncState` — it is the unit rollup in
+`state`.
+
+**Failure payload.** A code-1 failure carries `error: {kind, message}` and **no
+`data`**; `kind` is `usage` (no JSON at all — the message goes to stderr) for
+code 2, and `schema` · `load` · `stale` · `refused` · `selection` for code 1. A
+`selection` error on a **preview** is exit 1, on a **write** exit 0 with the
+finding in `warnings` (the SSOT write is valid even when `build` refuses).
 
 **Non-goal (explicit):** `edit` never decides *which variant is live* — that is
 `pasco refine --choose` (#238). What `edit` does is **name** the active variant so
 nobody edits a field the renderer ignores.
 
-Exit codes (one row per user-visible state, each pinned by a test):
+Exit codes (one row per user-visible state; the CLI rows are pinned in
+`packages/cli/tests/edit.test.ts`, the write-path rows — stale, read-only,
+validation, lock contention — at the writer seam in
+`packages/cli/tests/edit-write.test.ts`):
 
 | Code | When |
 |---|---|
@@ -244,15 +259,18 @@ Exit codes (one row per user-visible state, each pinned by a test):
 
 ```sh
 # 1. preview — what will be published, and does it fit?
-pasco edit 'headlines[platform=upwork,lang=en].text' --set "$TEXT" --check --json
-#    data.rendered = the published lines · data.over = cap pre-flight · data.variant = #238 shadow
+#    (use a field the artifact CARRIES: a headline on a paste-only platform exits 1
+#     with rendered:null — see `reason`, which says why)
+pasco edit 'headlines[platform=github-readme,lang=en].text' --set "$TEXT" --check --json
+#    data.rendered = the published lines · data.reason = why not, when null ·
+#    data.over = cap pre-flight · data.variant = #238 shadow
 
-# 2. write only when the preview says what you meant
-pasco edit 'headlines[platform=upwork,lang=en].text' --set "$TEXT" --json
+# 2. write only when the preview says what you meant (exit 0)
+pasco edit 'headlines[platform=github-readme,lang=en].text' --set "$TEXT" --json
 #    data.written = the file changed · data.stale = the surfaces this invalidated
 
 # 3. read back (no --set) — the cheap confirmation the dogfood was missing
-pasco edit 'headlines[platform=upwork,lang=en].text' --json
+pasco edit 'headlines[platform=github-readme,lang=en].text' --json
 ```
 
 ### Publication truth (derived — SPEC §20.1, #242)
