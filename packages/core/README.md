@@ -39,9 +39,9 @@ const slice   = compile(profile, 'linkedin', 'es');      // PlatformProfile — 
   reinforced across statement/skills/keywords/projects), **citability**
   (DOI/ORCID on publications, `evidence[]` on projects) plus the v1.10 citability
   codes — canonical definition, FAQ coverage, freshness, sameAs coverage, name
-  collision. Missing data is neutral for the fact checks (never penalized); the
-  readiness/citability codes can score 0 when the signal is absent — a reported
-  gap, not a penalty (SPEC §8).
+  collision. Missing data is neutral for the fact checks (never penalized);
+  readiness/citability checks (structured data, semantic anchors, the v1.10 codes)
+  can score 0 when the signal is absent — a reported gap, not a penalty (SPEC §8).
 - **`compile(profile, platform, lang)`** — facts pass through untouched
   (identical on every platform = GEO-citable); text (bios, headlines, statement,
   audiences, citationsGoal) is filtered by platform+lang and falls back to `en`

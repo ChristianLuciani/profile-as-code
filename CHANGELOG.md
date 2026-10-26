@@ -59,9 +59,10 @@ minor versions may contain breaking contract changes.
 - **GEO scores move: geoCheck v2 (#289)** — five citability codes join the report
   (`geo/canonical-definition`, `geo/faq-coverage`, `geo/freshness`,
   `geo/sameas-coverage`, `geo/name-collision`), funded by diluting the nine pre-v1.10
-  checks ×0.8 (the weights still sum to 1, asserted). **Every workspace's reported GEO
-  score changes**; the new `GeoCheck.severity` tier is additive and `info` never changes
-  the pass/fail story.
+  checks ×0.8 (the weights still sum to 1, asserted). **Reported GEO scores move for
+  most workspaces** — the five codes enter the weighted report; a workspace already at
+  the ceiling on all 14 stays at 100. The new `GeoCheck.severity` tier is additive and
+  `info` never changes the pass/fail story.
 - **The release publishes the seam cohort in dependency order (#301)** — core →
   markdown → paste → artifact → github via `pnpm publish`, which rewrites the
   runtime `workspace:*` dependency, then the CLI via `npm publish` over OIDC; a

@@ -205,8 +205,9 @@ surface; above 20 it is a page, not a profile). Consumers: the projection **of t
 fields** is pending in #316 — when it lands, `structuredData()` will expose
 `description` from `definition` (the brand branch already emits `description` from
 `mission`) and a separate `FAQPage` JSON-LD node, emitted only when `faq[]` exists,
-never an empty one; `jsonLd` gains nothing new. The schema contract ships independently
-of that emitter.
+never an empty one — the node is its own field, never folded into `jsonLd`, which only
+gains `description` on the Person branch when #316 lands. The schema contract ships
+independently of that emitter.
 The competitive split measured
 2026-10-23 (`[WEB]`, #288 evidence: a GEO competitor ships 12 question-shaped H2s and
 zero structured answers) is engine-ownable: the SSOT, not the renderers, is the surface.

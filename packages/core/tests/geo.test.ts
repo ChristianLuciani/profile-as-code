@@ -106,16 +106,20 @@ describe("geoCheck(profile)", () => {
     expect(readiness.jsonLd?.sameAs).not.toContain("mailto:elena@example.com");
   });
 
-  it("emits schema.org nationality as Country.identifier (v1.11, #334) without moving completeness", () => {
+  it("emits schema.org nationality as Country.identifier (v1.11, #334) without moving completeness or score", () => {
     const profile = load(fixture("minimal"));
+    const baseline = geoCheck(profile);
     profile.identity.nationality = "VE";
-    const { readiness } = geoCheck(profile).sections.structuredData;
+    const report = geoCheck(profile);
+    const { readiness } = report.sections.structuredData;
 
     expect(readiness.jsonLd?.nationality).toEqual({ "@type": "Country", identifier: "VE" });
     expect(readiness.fields.nationality).toBe("VE");
     // Optional, outside the gate: same 6/7 as without the field (no new denominator).
     expect(readiness.completeness).toBeCloseTo(6 / 7, 5);
     expect(readiness.ready).toBe(true);
+    // And the weighted GEO score is untouched: no check reads the field (#334).
+    expect(report.score).toBe(baseline.score);
   });
 
   it("omits the nationality node when identity.nationality is absent (v1.11, #334)", () => {
