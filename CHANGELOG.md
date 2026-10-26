@@ -29,7 +29,7 @@ minor versions may contain breaking contract changes.
   structured-data `ready` gate **and completeness ratio**: a workspace that omits it
   validates, emits, and scores exactly as before. Schema contract v1.11 (additive,
   pre-v1.11 workspaces validate unchanged); `@profile-as-code/core` 0.1.1.
-- **`pasco edit` — a contract edit surface, S1–S4 (#247–#251)** — address
+- **`pasco edit` — a contract edit surface, S1–S4 (#248–#251; epic #247)** — address
   **one** contract field by contract path (never line/offset): read its current value
   (S1), `--set` writes it with a comment-preserving byte-range splice — validated and
   atomic, one-line diff (S2) — `--set --check` previews the published lines the

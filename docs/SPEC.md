@@ -221,6 +221,11 @@ property; the Organization (brand) branch never emits it (a brand has no nationa
 origin fact is `established`, and an origin location would be `foundingLocation`, not
 modeled). Optional and outside the `ready` gate **and the completeness ratio**: a workspace
 that omits it validates, emits, and scores exactly as before (no behavior change, §15.4).
+**Decision (operator, 2026-10-26):** Person-only is the contract — a `flavor: brand`
+workspace may declare `nationality` (identity is shared and JSON Schema has no
+flavor-conditional), the value validates, and the Organization branch emits no node.
+Surfacing that drop as a runtime finding is **not** part of v1.11; it would be new
+drift/geoCheck behavior, reopened only with a concrete consumer.
 
 **Platform set (D16 — additive, v1.2):** ONE shared enum for both flavors — the union of
 Postiz's 34 supported networks ([OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02) plus
