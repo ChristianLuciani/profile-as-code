@@ -140,11 +140,11 @@ One global install: no clone, no build, nothing written outside the npm prefix.
 > **Status**: this guide tracks the released `@profile-as-code/cli@0.3.6` (tag `v0.3.6`,
 > cut 2026-10-26, CHANGELOG `[0.3.6]`); the npm publish is that release's irreversible
 > step — verify the published `latest` with `npm view @profile-as-code/cli version`.
-> Previous published state [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-12]: version
-> `0.3.0` **public** and tagged `latest` (published 2026-10-11T03:43:27Z; tag `v0.3.0` →
-> `21e4cde`).
+> Previous published state [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-26]: version
+> `0.3.5` **public** and tagged `latest` (published 2026-10-24T03:50:05Z; tag `v0.3.5` →
+> `c69e6b7`). The 0.3.0 publication (2026-10-11) stays a dated record.
 > Separately, and **not** registry-sourced: the built bin reports the matching
-> version (`node packages/cli/dist/index.js --version` at `160c648`, 2026-10-26 →
+> version (`node packages/cli/dist/index.js --version` at `9c3a4bc`, 2026-10-26 →
 > `pasco 0.3.6`) — a local-build check, not a run of the published tarball.
 > Caveat, closing (#293): the engine repo is **public** (measured 2026-10-24) — `repository.url`
 > resolves for any reader now; the published versions keep **no attestation** (published while the

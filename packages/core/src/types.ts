@@ -181,8 +181,9 @@ export interface StructuredDataReadiness {
     email?: string;
     image?: string;
     address?: string;
-    /** v1.11 (issue #334): the ISO 3166-1 alpha-2 nationality code, when declared.
-     *  Informational — it is NOT in the completeness ratio (absence changes no score). */
+    /** v1.11 (issue #334): the ISO 3166-1 alpha-2 nationality code. Populated on the
+     *  Person branch only (a brand/Organization has no nationality, so the brand branch
+     *  leaves it undefined). Informational — NOT in the completeness ratio. */
     nationality?: string;
     jobTitle?: string;
     worksFor?: string;
