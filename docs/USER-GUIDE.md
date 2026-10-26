@@ -365,7 +365,9 @@ Brand flavor (D15) adds: `socialHandles` (handle matrix with claim status),
 the ISO 3166-1 **alpha-2** code in uppercase — `VE`, never `ve`, `Venezuela` or `VEN`
 (the schema rejects all three). Keep residence in `location`; nationality is the
 citizenship fact. It maps to schema.org `Person.nationality` (a `Country` node) on the
-generated JSON-LD, is optional, and does not change your GEO score when absent:
+generated JSON-LD — Person-only: a brand workspace validates it but the Organization
+node carries no `nationality`. It is optional and does not change your GEO score when
+absent:
 
 ```yaml
 # content/identity.yaml

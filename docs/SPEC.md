@@ -201,10 +201,12 @@ dropped by cite-aware systems, §8): `q` ≤ 90 chars per value and unique per w
 (JSON Schema cannot express it — duplicates collapse into one answer surface), `a` ≤ 320
 chars (beyond that it is prose, not an answer), optional `source` = the `$defs/url`
 scheme boundary (an answer with no pointer is a claim), 3–20 entries (below 3 there is no
-surface; above 20 it is a page, not a profile). Consumers: `structuredData()` exposes
-`description` (from `definition`; brands fall back to `mission` when no definition is
-declared) and a separate `FAQPage` JSON-LD node — emitted only when `faq[]` exists,
-never an empty one; `jsonLd` gains nothing new. The competitive split measured
+surface; above 20 it is a page, not a profile). Consumers: the JSON-LD projection is
+pending in #316 — when it lands, `structuredData()` will expose `description` (from
+`definition`; brands fall back to `mission` when no definition is declared) and a
+separate `FAQPage` JSON-LD node, emitted only when `faq[]` exists, never an empty one;
+`jsonLd` gains nothing new. The schema contract ships independently of that emitter.
+The competitive split measured
 2026-10-23 (`[WEB]`, #288 evidence: a GEO competitor ships 12 question-shaped H2s and
 zero structured answers) is engine-ownable: the SSOT, not the renderers, is the surface.
 
@@ -1092,13 +1094,10 @@ deployments:
   state. `artifactHash` is the **anchor** the C1 check compares against, recorded by the write
   that confirms the deploy (v1: `--mark`); without it a fetch can observe but not judge
   (§19.5). Semantics, evidence fields and the rollup live in §19.5 — this block fixes the shape.
-  **Schema status — target, not shipped.** This shape is the v1.10 target and is **not in
-  `schema/profile.schema.json` yet**: `$defs.deploymentRecord` still declares
-  `additionalProperties: false` with only `deployedAt`/`contentHash`/`source`, so a record
-  carrying `certification` **fails `pasco validate`** today (D12 fail class). The additive
-  schema change (a new optional `certification` property) lands in the implementation PR on
-  this branch; until then, no workspace should write the field. The contract is stated first
-  on purpose (SPEC-first, D3) — the schema is the source, and it follows this section.
+  **Schema status — shipped (v1.10).** `$defs.deploymentRecord` carries the optional
+  `certification` property; the `valid-certification*.json` fixtures pass, and a record
+  without it reads as `attested`. The contract was stated first on purpose (SPEC-first,
+  D3) and the implementation followed under the same v1.10 URI.
 - The ledger is **append/update-only state**: removing a row from `content/` does not
   remove its ledger key (audit trail); `pasco status` reports the dangling key as
   `removed`.
