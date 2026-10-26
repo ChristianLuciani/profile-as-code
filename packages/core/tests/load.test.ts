@@ -273,7 +273,7 @@ describe("identity.email (v1.5, issue #71 — the contact email is a fact, not a
     }
   });
 
-  it("accepts identity.nationality as an ISO 3166-1 alpha-2 code (v1.11, #334)", () => {
+  it("accepts identity.nationality as an ISO 3166-1 alpha-2 code (v1.13, #334)", () => {
     const dir = makeWorkspace({ "identity.yaml": "name: X\nnationality: VE\n" });
     try {
       const profile = load(dir);
@@ -283,7 +283,7 @@ describe("identity.email (v1.5, issue #71 — the contact email is a fact, not a
     }
   });
 
-  it("rejects a non-alpha-2 identity.nationality — the CODE, not the name (v1.11, #334)", () => {
+  it("rejects a non-alpha-2 identity.nationality — the CODE, not the name (v1.13, #334)", () => {
     for (const bad of ["ve", "Venezuela", "VEN", "V3", " V", "VE "]) {
       const dir = makeWorkspace({ "identity.yaml": `name: X\nnationality: '${bad}'\n` });
       try {

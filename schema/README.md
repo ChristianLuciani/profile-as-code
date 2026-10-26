@@ -4,18 +4,22 @@
 workspace (JSON Schema, draft 2020-12). Per D3, JSON Schema is the contract source and
 **Zod schemas are generated from it** in `packages/core` — never hand-written in parallel.
 
-> Status: **v1.11** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
+> Status: **v1.13** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
 > v1.x is **additive** (semver minor): every earlier workspace still validates unchanged. New
-> in v1.11 (issue #334): `identity.nationality` — the ISO 3166-1 alpha-2 code (uppercase, e.g.
+> in v1.13 (issue #334): `identity.nationality` — the ISO 3166-1 alpha-2 code (uppercase, e.g.
 > `VE`), asserted by `^[A-Z]{2}$`; emitted on the Person entity JSON-LD as
 > `nationality: { "@type": "Country", identifier }`. A `flavor: brand` workspace may declare
 > it (identity is shared) but the Organization JSON-LD carries no `nationality` property —
-> schema.org defines nationality on `Person`. New in v1.10 (issue #288): the answer-engine surface — `identity.definition` (the canonical
-> per-language definition, ≤ 160 chars per value, must contain the entity name — the name
-> check is a geoCheck rule, #289) and root `faq[]` (3–20 citable Q&A pairs, `q` ≤ 90 and
-> unique per workspace, `a` ≤ 320, optional `$defs/url` `source`). The same minor completes
-> the version label of the §19.5 certification additions (issue #132 — they shipped under
-> the v1.9 URI). Earlier minors: see the `$id`'s description and the CHANGELOG.
+> schema.org defines nationality on `Person`. New in v1.12 (issue #333): `projects[].artifactRefs` — the third reference site (publications
+> and press were the first two) — so a project names the work behind it and
+> published-vs-in-development is **derived** from `artifacts[]` (`visibility: public` +
+> `locator.url`), never stored (§15.3/§20.1). Earlier minors: v1.10 (issue #288) added the
+> answer-engine surface — `identity.definition` (the canonical per-language definition, ≤ 160
+> chars per value, must contain the entity name — the name check is a geoCheck rule, #289) and
+> root `faq[]` (3–20 citable Q&A pairs, `q` ≤ 90 and unique per workspace, `a` ≤ 320, optional
+> `$defs/url` `source`); the same minor completed the version label of the §19.5 certification
+> additions (issue #132 — they shipped under the v1.9 URI). Earlier minors: see the `$id`'s
+> description and the CHANGELOG.
 
 ## URL scheme rule (issue #53)
 
@@ -49,7 +53,7 @@ validates the result against this schema. File → root property mapping:
 
 | File (content/) | Root property(s) | Notes |
 |---|---|---|
-| `identity.yaml` | `identity` | Required at profile level (the GEO anchor). v1.5 (issue #71): `email` — the contact email as a fact (NOT in `links[]`; renderers emit a mailto: href + JSON-LD `email`). v1.6 (#103): `links[].role` — `identity` \| `realization` \| `aggregator` (see §15.4). v1.11 (#334): `nationality` — ISO 3166-1 alpha-2 code, emitted as Person JSON-LD `Country.identifier` (no `nationality` property on the Organization JSON-LD for brand) |
+| `identity.yaml` | `identity` | Required at profile level (the GEO anchor). v1.5 (issue #71): `email` — the contact email as a fact (NOT in `links[]`; renderers emit a mailto: href + JSON-LD `email`). v1.6 (#103): `links[].role` — `identity` \| `realization` \| `aggregator` (see §15.4). v1.13 (#334): `nationality` — ISO 3166-1 alpha-2 code, emitted as Person JSON-LD `Country.identifier` (no `nationality` property on the Organization JSON-LD for brand) |
 | `flavor.yaml` | `flavor` | v1.1 (D15): `person` \| `brand`. **The file value IS the root value** — a bare scalar (`brand`), not a key:value map |
 | `socialHandles.yaml` | `socialHandles[]` | v1.1 (brand): handle matrix (platform → handle + `status: claimed\|pending`) |
 | `newsletter.yaml` | `newsletter` | v1.1 (brand): Substack/Ghost |
@@ -63,7 +67,7 @@ validates the result against this schema. File → root property mapping:
 | `experience.yaml` | `experience[]` | start/end as facts (dates are language-independent); v1.1: role langMap, highlights string[] — org stays invariant string (proper noun) |
 | `education.yaml` | `education[]` | v1.1: formal education (degree/institution/start/end/note) |
 | `languages.yaml` | `languages[]` | v1.1: spoken languages (code + level) |
-| `projects.yaml` | `projects[]` | With `evidence[]` (verifiable claims) |
+| `projects.yaml` | `projects[]` | With `evidence[]` (verifiable claims); v1.12 (issue #333): `artifactRefs[]` names the work behind the row — publication truth is derived from `artifacts[]` (§15.3), never stored |
 | `publications.yaml` | `publications[]` | DOI/ORCID resolvable → GEO citability |
 | `keywords.yaml` | `keywords` | SEO per platform + GEO associations/claims |
 | `checks.yaml` | `checks[]` | User-level rules; unioned with skill `checks.yaml` |

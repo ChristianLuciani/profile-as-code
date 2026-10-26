@@ -106,7 +106,7 @@ describe("geoCheck(profile)", () => {
     expect(readiness.jsonLd?.sameAs).not.toContain("mailto:elena@example.com");
   });
 
-  it("emits schema.org nationality as Country.identifier (v1.11, #334) without moving completeness or score", () => {
+  it("emits schema.org nationality as Country.identifier (v1.13, #334) without moving completeness or score", () => {
     const profile = load(fixture("minimal"));
     const baseline = geoCheck(profile);
     profile.identity.nationality = "VE";
@@ -122,7 +122,7 @@ describe("geoCheck(profile)", () => {
     expect(report.score).toBe(baseline.score);
   });
 
-  it("omits the nationality node when identity.nationality is absent (v1.11, #334)", () => {
+  it("omits the nationality node when identity.nationality is absent (v1.13, #334)", () => {
     const { readiness } = geoCheck(load(fixture("minimal"))).sections.structuredData;
 
     expect(readiness.fields.nationality).toBeUndefined();

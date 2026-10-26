@@ -230,7 +230,7 @@ describe("brand flavor: GEO (Organization, §17.1)", () => {
     }
   });
 
-  it("does NOT emit nationality on Organization JSON-LD (v1.11, #334 — a Person property)", () => {
+  it("does NOT emit nationality on Organization JSON-LD (v1.13, #334 — a Person property)", () => {
     const dir = makeWorkspace({
       "flavor.yaml": "brand\n",
       "identity.yaml":

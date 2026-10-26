@@ -40,11 +40,11 @@
   SPEC §2).
 - **Repo público + hygiene**: la reconciliación del flip de visibilidad (#293) y los issue
   templates canónicos (#294) quedaron medidos y fechados en sus documentos.
-- **Release 0.3.6 (2026-10-26)**: schema v1.10/v1.11 — answer-engine surface (#288) y
-  `identity.nationality` (#334); geoCheck v2 con sus códigos de citability (#289);
-  `pasco edit` S1–S4 (epic #247); el pipeline de publicación del cohort de cinco
-  paquetes (#301), que corre por primera vez con este release; funding rails y el
-  lock anti-carreras del writer (#332).
+- **Release 0.3.6 (2026-10-26)**: schema v1.10–v1.13 — answer-engine surface (#288),
+  `projects[].artifactRefs` (#333) e `identity.nationality` (#334); geoCheck v2 con sus
+  códigos de citability (#289); `pasco edit` S1–S5 (epic #247); el pipeline de publicación
+  del cohort de cinco paquetes (#301), que corre por primera vez con este release;
+  funding rails y el lock anti-carreras del writer (#332).
 
 **Lectura:** el motor cubre su contrato, la distribución está resuelta y la publicación es
 verificable de punta a punta. Lo que falta **no es motor — es superficie**: el flujo completo
@@ -68,12 +68,13 @@ y sin él `pasco` es válido pero no es lo que el proyecto promete. Además es l
 platform skills — que ahora viajan con el paquete (#253) — existen para alimentar.
 
 **2 · Epic `pasco edit` (#247)** — la superficie de edición sin YAML a la vista, para
-humanos y agentes. S1 (#248), S2 (#249), S3 (#250) y S4 (#251) están implementados: resuelve un contract
-path, previewa las líneas que el artefacto de `build` cambia, escribe un valor con splice
-por rango (comentarios y layout intactos, diff de una línea, bloques rechazados, no-op 0 +
-`noop`, validación + rename atómico + lock anti-carreras), reporta el **impacto por
-superficie** derivado del ledger §19 y **pre-flights el cap** con su fuente citada antes
-del paste. Falta S5 (#252: contrato de agente); los slices **consumen** los ejes de
+humanos y agentes. S1 (#248), S2 (#249), S3 (#250), S4 (#251) y S5 (#252) están implementados: resuelve un
+contract path, previewa las líneas que el artefacto de `build` cambia, escribe un valor con
+splice por rango (comentarios y layout intactos, diff de una línea, bloques rechazados,
+no-op 0 + `noop`, validación + rename atómico + lock anti-carreras), reporta el **impacto
+por superficie** derivado del ledger §19, **pre-flights el cap** con su fuente citada antes
+del paste y **congela el contrato de agente** (`--json` + matriz de exit 0/1/2 + la receta
+"verify my edit", con el guard de variante #238). Los slices **consumen** los ejes de
 publicación de #242 en vez de una segunda tabla de caps.
 
 ### Después — superficie por plataforma

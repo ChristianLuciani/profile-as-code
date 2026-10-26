@@ -181,7 +181,7 @@ export interface StructuredDataReadiness {
     email?: string;
     image?: string;
     address?: string;
-    /** v1.11 (issue #334): the ISO 3166-1 alpha-2 nationality code. Populated on the
+    /** v1.13 (issue #334): the ISO 3166-1 alpha-2 nationality code. Populated on the
      *  Person branch only (a brand/Organization has no nationality, so the brand branch
      *  leaves it undefined). Informational — NOT in the completeness ratio. */
     nationality?: string;
@@ -210,7 +210,7 @@ export interface StructuredDataReadiness {
     sameAs: string[];
     image?: string;
     address?: string;
-    /** v1.11 (issue #334): the Person `nationality` node — the alpha-2 code as
+    /** v1.13 (issue #334): the Person `nationality` node — the alpha-2 code as
      *  `Country.identifier`. Person-only: a brand (Organization) has no nationality. */
     nationality?: { "@type": "Country"; identifier: string };
     jobTitle?: string;

@@ -361,7 +361,7 @@ Brand flavor (D15) adds: `socialHandles` (handle matrix with claim status),
 `established`). Every workspace declares its flavor in `content/flavor.yaml`
 (default `person`).
 
-**Nationality is a code, not a country name.** `identity.nationality` (v1.11/#334) takes
+**Nationality is a code, not a country name.** `identity.nationality` (v1.13/#334) takes
 the ISO 3166-1 **alpha-2** code in uppercase — `VE`, never `ve`, `Venezuela` or `VEN`
 (the schema rejects all three). Keep residence in `location`; nationality is the
 citizenship fact. It maps to schema.org `Person.nationality` (a `Country` node) on the
@@ -627,6 +627,21 @@ pasco edit 'headlines[platform=upwork,lang=en].text' --set "…" --check
 pasco edit 'headlines[platform=upwork,lang=en].text' --set "…" --json
 # data.limit = {cap, source, tier} · data.over = true · data.warnings = [...]
 ```
+
+**Verify an edit before and after the paste.** The editor is the one command that
+answers "what will be published?" without opening YAML:
+
+```sh
+pasco edit 'positioning.statement.en' --set "…" --check   # the published lines this edit changes
+pasco edit 'positioning.statement.en' --set "…"           # write it (one line, comments intact)
+pasco edit 'positioning.statement.en'                     # read it back — did it take?
+```
+
+`--json` is the machine contract (`address · current · proposed · rendered · ok ·
+noop · written · warnings · stale · state · drift · limit · over · variant · reason`)
+and the exit codes are `0` a read/write/noop/preview-that-changes · `1` not one
+row/stale/read-only/preview-without-a-change/validation · `2` usage — one test per
+row in `packages/cli/tests/edit.test.ts` (the write-path rows at the writer seam).
 
 `pasco edit` pre-flights **the value you are about to write** against the same
 catalogue and prints the cap with its cited source and tier; over-cap is a

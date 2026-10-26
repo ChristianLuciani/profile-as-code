@@ -12,7 +12,7 @@ minor versions may contain breaking contract changes.
 ### Planned (roadmap)
 
 - Renderers: linkedin, upwork, x, researchgate, substack (M4)
-- CLI `pasco`: the full `refine` flow (M3); the `edit` epic (#247, slice S5)
+- CLI `pasco`: the full `refine` flow (M3)
 - Per-platform skills v1 from SOTA research (M3)
 - Web renderer (M5)
 
@@ -27,9 +27,15 @@ minor versions may contain breaking contract changes.
   `{ "@type": "Country", identifier: "<code>" }` on the Person entity JSON-LD —
   Person-only, since a brand has no nationality. Optional and outside the
   structured-data `ready` gate **and completeness ratio**: a workspace that omits it
-  validates, emits, and scores exactly as before. Schema contract v1.11 (additive,
-  pre-v1.11 workspaces validate unchanged); `@profile-as-code/core` 0.1.1.
-- **`pasco edit` — a contract edit surface, S1–S4 (#248–#251; epic #247)** — address
+  validates, emits, and scores exactly as before. Schema contract v1.13 (additive,
+  pre-v1.13 workspaces validate unchanged); `@profile-as-code/core` 0.1.1.
+- **Schema v1.12 — a project names its artifact (#333)** — `projects[].artifactRefs`
+  references `artifacts[].id`, the third reference site after `publications[]` and
+  `press[]`. It stores the edge only: published-vs-in-development is **derived** per
+  artifact (`visibility: public` + `locator.url`), never a stored flag (§15.3/§20.1).
+  `load()` fails on a dangling ref, and `pasco check` fails when the target is not
+  public (§18.5 — the leak gate now covers every reference site).
+- **`pasco edit` — a contract edit surface, S1–S5 (#248–#252; epic #247)** — address
   **one** contract field by contract path (never line/offset): read its current value
   (S1), `--set` writes it with a comment-preserving byte-range splice — validated and
   atomic, one-line diff (S2) — `--set --check` previews the published lines the
@@ -37,7 +43,9 @@ minor versions may contain breaking contract changes.
   edit time (S4; `content/checks.yaml` when declared, else the shared limits table).
   S3 also reports the unit's per-surface staleness from the §19 ledger. Concurrent
   writers on one workspace serialize on `content/.pasco-edit.lock` (2 s wait, then
-  refuse; a crashed lock is broken after 30 s). S5 (agent contract) remains planned.
+  refuse; a crashed lock is broken after 30 s). S5 freezes the machine-readable
+  contract and names the `#238` variant, so an agent consumes `pasco edit` without
+  parsing prose.
 - **Answer-engine surface — `identity.definition` + `faq[]` (schema v1.10, #288)** —
   the two things an answer engine can quote: a canonical per-language definition
   (≤ 160 chars per value, must contain the entity name) and 3–20 citable Q&A pairs

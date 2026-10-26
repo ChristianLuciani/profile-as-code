@@ -212,7 +212,7 @@ The competitive split measured
 2026-10-23 (`[WEB]`, #288 evidence: a GEO competitor ships 12 question-shaped H2s and
 zero structured answers) is engine-ownable: the SSOT, not the renderers, is the surface.
 
-**Nationality (issue #334 — additive, v1.11):** `identity.nationality` is the ISO 3166-1
+**Nationality (issue #334 — additive, v1.13):** `identity.nationality` is the ISO 3166-1
 alpha-2 **code** (uppercase, e.g. `VE`) — a citable fact distinct from `identity.location`
 (residence). The JSON Schema pattern `^[A-Z]{2}$` asserts the code's FORM, so `ve`,
 `Venezuela` and `VEN` fail at the boundary (D12 fail class); membership in the published
@@ -226,7 +226,7 @@ that omits it validates, emits, and scores exactly as before (no behavior change
 **Decision (operator, 2026-10-26):** Person-only is the contract — a `flavor: brand`
 workspace may declare `nationality` (identity is shared and JSON Schema has no
 flavor-conditional), the value validates, and the Organization branch emits no node.
-Surfacing that drop as a runtime finding is **not** part of v1.11; it would be new
+Surfacing that drop as a runtime finding is **not** part of v1.13; it would be new
 drift/geoCheck behavior, reopened only with a concrete consumer.
 
 **Platform set (D16 — additive, v1.2):** ONE shared enum for both flavors — the union of
@@ -294,14 +294,14 @@ Single-source discipline is enforced, not trusted:
 coverage — per-platform skills are separate follow-ups.
 
 ```yaml
-identity:      { name, email?, definition?, nationality?, location, photo, links[] }   # definition = the canonical "X is a …" sentence (v1.10, #288); nationality = ISO 3166-1 alpha-2 code (v1.11, #334)
+identity:      { name, email?, definition?, nationality?, location, photo, links[] }   # definition = the canonical "X is a …" sentence (v1.10, #288); nationality = ISO 3166-1 alpha-2 code (v1.13, #334)
 positioning:   { statement: {lang}, audiences: {lang: angle}, geo: { semanticAssociations[], citationsGoal } }
 bios:          [ { platform, lang, length: short|medium|long, text } ]   # generated + curated
 headlines:     [ { platform, lang, text } ]                   # per-platform, per-lang
 skills:        [ { name, level, keywords[], geoKeywords[], platformWeights{} } ]
 experience:    [ { id?, origin?, role, org, start, end, highlights{lang} } ]   # id/origin — D18 §19
-projects:      [ { id?, origin?, name, status, description{lang}, links, keywords{}, evidence[] } ]
-publications:  [ { id?, origin?, title, venue, year, doi, orcidId } ]
+projects:      [ { id?, origin?, name, status, description{lang}, links, keywords{}, evidence[], artifactRefs[]? } ]   # artifactRefs — v1.12, #333
+publications:  [ { id?, origin?, title, venue, year, doi, orcidId, artifactRefs[]? } ]
 credentials:   [ { id, kind, title, issuer, credentialId?, verifyUrl, issued, expires?, visibility } ]
 artifacts:     [ { id, kind, title, description{lang}?, locator, checksum?, license?, tags[], visibility } ]
 keywords:      { seo: { platform: [] }, geo: { associations: [], claims: [] } }
@@ -314,8 +314,9 @@ faq:           [ { id, q{lang ≤90, unique}, a{lang ≤320}, source? } ]   # th
 **Evidence registry (D17, §18 — additive, v1.4):** `credentials[]` and `artifacts[]` are
 the proof layer — pointer-first, visibility-scoped. `projects[].evidence[]` keeps its
 claim semantics and may reference registry ids (`credentialId`/`artifactId`); canonical
-blocks (`publications[]`, `press[]`) keep their domains and gain `artifactRefs` instead of
-becoming registry kinds. Naming discipline: the word "evidence" stays claims-only (§18.1).
+blocks (`publications[]`, `press[]`, and `projects[]` since v1.12/#333) keep their domains and
+gain `artifactRefs` instead of becoming registry kinds. Naming discipline: the word
+"evidence" stays claims-only (§18.1).
 
 **Deploy ledger (D18 — additive, v1.3):** `deployments` records, per *trackable unit*
 (row entries with a stable `id`, composite `bios`/`headlines` keys, root fact blocks),
@@ -371,7 +372,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco validate` | schema (fail) + drift/geo checks (facts warn). Text mode renders one line per GEO code that scored 0, prefixed by its severity tier — `warn: [code] …` is a warning, `info: [geo/freshness]`-style lines are NOTES, never warnings (v1.10 tiers, #322); a code that scored above 0 renders no finding line, and `absent` tier = `warn`. `--json` carries every check (with its `severity` and `detail`) — a check whose detail holds an anomaly note (future-dated freshness) is always fully visible there |
 | `pasco build [platform] [--view <name>] [--lang]` | render deterministic base texts; `--view` resolves a declared view's platform/lang + fact selection (D22, §21); a manual-paste surface without a renderer writes `profiles/<platform>.md` via the shared paste core (#239); an active variant body is written verbatim as the platform artifact (#238) |
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
-| `pasco edit <contract-path> [--set <text> [--check]]` | read **or write** **one contract field** by contract path — `positioning.statement.<lang>`, `headlines[platform=<p>,lang=<l>].text`, `bios[platform=<p>,lang=<l>,length=<len>].text`, `identity.links[platform=<p>,label=<l>].url` (read-only, `label` optional). `--set` writes it: **byte-range splice over the original text** (the CST locates; it never re-serializes, so comments/layout survive and the diff is one line), block, multi-line and anchored/aliased scalars **refused** in v1, the file's node must still match the resolved value (staleness → exit 1, never a silent wrong-row write), no-op = 0 + `noop`, temp file + `load()`/schema over a temp copy + **atomic rename** (an invalid edit never reaches disk), concurrent writers serialized by an advisory `content/.pasco-edit.lock` plus a re-read immediately before the rename (an external editor is the residual window). `--set --check` previews instead: it renders the surface the way `pasco build` does (active variant → renderer → shared paste source, current vs proposed) and prints **the published lines the edit changes**, reporting an edit that does not reach the artifact with its reason instead of asserting it. It also reports the edited unit's **surface impact** from the §19 ledger — every recorded surface prints `stale` after an edit that changes the unit hash (or `in-sync` when the record still matches), and a unit with no record rolls up to `never` — derived on every run and stored nowhere (§20). A headline/bio value is pre-flighted against the catalog's own `max-chars` cap — the workspace's `content/checks.yaml` when it declares checks, else the caps shipped with pasco (#240) with its cited source and tier — over-cap is a WARN, never a block (D12), and a platform with no sourced cap reads `cap: unknown`; `--json` carries `{ address, current, proposed, rendered, ok, noop, written, warnings, stale, state, drift, limit, over }` inside the standard envelope (a D22/§21 selection error the write proceeds through is a warning, not a block: the SSOT write is valid even when `build` refuses); a read-only target or a file that changes under the command is exit 1 (`refused` / `stale`, nothing written); epic #247, S1–S4 |
+| `pasco edit <contract-path> [--set <text> [--check]]` | read **or write** **one contract field** by contract path — `positioning.statement.<lang>`, `headlines[platform=<p>,lang=<l>].text`, `bios[platform=<p>,lang=<l>,length=<len>].text`, `identity.links[platform=<p>,label=<l>].url` (read-only, `label` optional). `--set` writes it: **byte-range splice over the original text** (the CST locates; it never re-serializes, so comments/layout survive and the diff is one line), block, multi-line and anchored/aliased scalars **refused** in v1, the file's node must still match the resolved value (staleness → exit 1, never a silent wrong-row write), no-op = 0 + `noop`, temp file + `load()`/schema over a temp copy + **atomic rename** (an invalid edit never reaches disk), concurrent writers serialized by an advisory `content/.pasco-edit.lock` plus a re-read immediately before the rename (an external editor is the residual window). `--set --check` previews instead: it renders the surface the way `pasco build` does (active variant → renderer → shared paste source, current vs proposed) and prints **the published lines the edit changes**, reporting an edit that does not reach the artifact with its reason instead of asserting it. It also reports the edited unit's **surface impact** from the §19 ledger — every recorded surface prints `stale` after an edit that changes the unit hash (or `in-sync` when the record still matches), and a unit with no record rolls up to `never` — derived on every run and stored nowhere (§20). A headline/bio value is pre-flighted against the catalog's own `max-chars` cap — the workspace's `content/checks.yaml` when it declares checks, else the caps shipped with pasco (#240) with its cited source and tier — over-cap is a WARN, never a block (D12), and a platform with no sourced cap reads `cap: unknown`; `--json` carries `{ address, current, proposed, rendered, ok, noop, written, warnings, stale, state, drift, limit, over, variant, reason }` inside the standard envelope (a D22/§21 selection error the write proceeds through is a warning, not a block: the SSOT write is valid even when `build` refuses); a read-only target or a file that changes under the command is exit 1 (`refused` / `stale`, nothing written); its machine contract is frozen for agents (S5, #252): the `--json` field set and the 0/1/2 exit matrix are documented in the CLI README, one test per exit row; `edit` never chooses the live variant (#238 non-goal); epic #247, S1–S5 |
 | `pasco check [platform]` | run skill-declared checks before deploy; char limits accept an optional `surface` (`headline`/`bio`/`both`) so a title cap does not flag the bio (#240) |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22). **The read report also ends with the derived publication truth per surface (§20.1, #242): ledger · artifact-vs-SSOT · declared cap — computed on every read, stored nowhere** |
@@ -673,6 +674,22 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
 8. **Footer**: generated marker `<!-- generated by profile-as-code pasco build github-readme -->` +
    fact-count (deterministic, for diff/CI assertions).
 
+**Project publication truth is derived, never stored** (v1.12, issue #333). A project row may
+name the work behind it (`projects[].artifactRefs` → `artifacts[].id`), and publication is then
+computed from the registry: *a project is published ⟺ it has a ref to an artifact with
+`visibility: public` AND `locator.url`*. There is no `published: true`, no `stage` enum and no
+new `status` value — `status` is lifecycle activity (D11) while publication is a property of the
+referenced artifact (§18.1/§18.5), and a stored flag would drift the moment the artifact moves
+(§20.1's derived-never-stored rule). The engine stores the edge; the consumer derives the badge.
+
+The `visibility: public` conjunct is **enforced, not merely observed**: §18.5 makes a ref to an
+`unlisted`/`private` artifact fail `check`, so a row that is in development carries no ref (its
+work is not yet publishable). The gate and the derivation agree, and the predicate stays total
+for a consumer. **"Published" has two owners on purpose:** §19/§20.1 answer the *deploy* question
+(is the published artifact the one the SSOT produces today?), this rule answers the *registry*
+question (is there a public artifact behind this project?). Different axes, different owners —
+neither is a score.
+
 ### 15.4 Drift/GEO contract
 
 - The renderer NEVER outputs a URL outside the **URL SSOT**: `identity.links` plus the proof
@@ -713,7 +730,7 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
   hierarchy the standard defines. The contact email (v1.5/#71) is **not** in `sameAs` — it maps
   to the `email` property (a `mailto:` URI is not a reference page); its only rendered form is
   the Links row.
-- **Nationality (v1.11 / #334).** When `identity.nationality` is declared, the Person entity
+- **Nationality (v1.13 / #334).** When `identity.nationality` is declared, the Person entity
   JSON-LD gains `nationality: { "@type": "Country", identifier: "<code>" }` — the alpha-2
   **code** is the fact, not a country name. Person-only by schema.org's model: the
   Organization (brand) branch never emits it. It is optional and sits outside both the
@@ -890,9 +907,11 @@ are never called "evidence":
 | Credential | `credentials[]` (new) | third-party attestation | AWS certificate, university degree, award, patent |
 | Artifact | `artifacts[]` (new) | a work or media item | portfolio, photo gallery, showreel, dataset |
 
-Canonical blocks keep their domains — **no duplication**: `publications[]` (papers, DOI)
-and `press[]` (D15) are NOT registry kinds; they reference registry ids (`artifactRefs`).
-The registry is the home of what had none.
+Canonical blocks keep their domains — **no duplication**: `publications[]` (papers, DOI),
+`press[]` (D15) and `projects[]` are NOT registry kinds; they reference registry ids
+(`artifactRefs`). The registry is the home of what had none. The third site is `projects[]`
+(v1.12, issue #333): a project row names the work behind it, which is what lets a consumer
+derive published-vs-in-development from `artifacts[]` (§15.3) instead of storing a flag.
 
 ### 18.2 Schema (additive, v1.4)
 
@@ -924,7 +943,9 @@ artifacts:
 ```
 
 Cross-refs (additive, all optional): `evidenceItem` gains `credentialId`/`artifactId`;
-`publications[]` and `press[]` gain `artifactRefs: [id]`.
+`publications[]` and `press[]` gain `artifactRefs: [id]` (v1.4); `projects[]` gains
+`artifactRefs: [id]` (v1.12, issue #333). Every site resolves against the same registry:
+a dangling id fails `load()` and a non-public target fails `check` (§18.5).
 
 ### 18.3 Locators — the capability matrix
 
@@ -952,7 +973,9 @@ badges and structured data verbatim; the renderer never invents or reformats the
 
 `visibility: public | unlisted | private` on both blocks. Renderers emit only `public`;
 `unlisted` is shared on request (client DMs), `private` never leaves the workspace.
-`pasco check` rule `no-private-in-public-output` fails the build on a leak. Rationale:
+`pasco check` rule `no-private-in-public-output` fails the build on a leak — it covers
+every reference site (evidence claims, `publications[].artifactRefs`, `press[].artifactRefs`,
+and `projects[].artifactRefs` since v1.12), so adding a site cannot silently bypass it. Rationale:
 credentials carry PII (full legal name, IDs) — not every proof is for the open web.
 
 ### 18.6 Media transport (M8)

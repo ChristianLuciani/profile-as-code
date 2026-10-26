@@ -163,7 +163,7 @@ lang and the fact selection, so the surface shows a SUBSET of the SSOT. Every
 omission is reported as a warning; an addressed key that resolves to nothing is
 an error. No selection policy = byte-identical output.`,
   edit: `pasco edit <contract-path> [--set <text> [--check]] [--json] [--workspace <path>]
-Resolve ONE contract field (epic #247, S1–S4 — read · preview · write · surface impact · cap pre-flight):
+Resolve ONE contract field (epic #247, S1–S5 — read · preview · write · surface impact · cap pre-flight · agent contract):
   positioning.statement.<lang>
   headlines[platform=<p>,lang=<l>].text
   bios[platform=<p>,lang=<l>,length=<len>].text
@@ -193,16 +193,19 @@ A headline/bio value is pre-flighted against the catalog's own max-chars cap (th
 workspace's checks.yaml, else the sourced caps shipped with pasco) and prints the
 cap, its cited source and tier; over-cap is a WARNING (D12), never a block, and a platform
 with no sourced cap reads \`cap: unknown\`.
+An active variant (#238) on the addressed platform is NAMED (edit never chooses the
+live variant — that is refine --choose).
 \`--json\` payload { address, current, proposed, rendered, ok, noop, written,
-warnings, stale, state, drift, limit, over } inside the usual envelope (command ·
-ok · exitCode);
+warnings, stale, state, drift, limit, over, variant, reason } inside the usual
+envelope
+(command · ok · exitCode);
 warnings carries a non-blocking finding the write proceeded through.
-Exit: 0 written / noop / the preview changes the artifact · 1 the address did not
-resolve to exactly one row, the target is read-only or changed under the command
-(stale — nothing was written), the validation refused the result, or (preview) the
-artifact does not change · 2 usage (malformed address, read-only field, block or
-multi-line scalar, anchored/aliased scalar, a value with a line break, --check
-without --set).`,
+Exit: 0 a read / written / noop / the preview changes the artifact · 1 the address
+did not resolve to exactly one row, the target is read-only or changed under the
+command (stale — nothing was written), the validation refused the result, or
+(preview) the artifact does not change · 2 usage (malformed address, unknown
+platform or language, read-only field, block or multi-line scalar, anchored/aliased
+scalar, a value with a line break, an empty --set, --check without --set).`,
   diff: `pasco diff [--json] [--workspace <path>]
 Git-based: what changed since the last tag matching release-* (.pascorc
 diff.tagPattern) — commits + changed content files → CHANGELOG hint.`,
