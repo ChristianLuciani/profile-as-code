@@ -42,8 +42,9 @@
   templates canónicos (#294) quedaron medidos y fechados en sus documentos.
 - **Release 0.3.6 (2026-10-26)**: schema v1.10/v1.11 — answer-engine surface (#288) y
   `identity.nationality` (#334); geoCheck v2 con sus códigos de citability (#289);
-  `pasco edit` S1–S4 (epic #247); publicación del cohort de cinco paquetes (#301);
-  funding rails y el lock anti-carreras del writer (#332).
+  `pasco edit` S1–S4 (epic #247); el pipeline de publicación del cohort de cinco
+  paquetes (#301), que corre por primera vez con este release; funding rails y el
+  lock anti-carreras del writer (#332).
 
 **Lectura:** el motor cubre su contrato, la distribución está resuelta y la publicación es
 verificable de punta a punta. Lo que falta **no es motor — es superficie**: el flujo completo

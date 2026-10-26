@@ -149,9 +149,11 @@ One global install: no clone, no build, nothing written outside the npm prefix.
 > version (`node packages/cli/dist/index.js --version` at `9c3a4bc`, 2026-10-26 →
 > `pasco 0.3.6`) — a local-build check, not a run of the published tarball.
 > Caveat, closing (#293): the engine repo is **public** (measured 2026-10-24) — `repository.url`
-> resolves for any reader now. The 0.3.0 tarball predates the OIDC migration and carries
-> **no attestation** (registry `dist.attestations` absent when checked 2026-10-24) and stays a
-> permanent record; the 0.3.5 release carries npm-publish attestations + SLSA provenance v1
+> resolves for any reader now. The 0.3.0 tarball was published over OIDC while the source
+> repository was private; provenance attestations require a public source repo, so it carries
+> **none** (registry `dist.attestations` absent when checked 2026-10-24) and stays a permanent
+> record. The 0.3.5 release, published after the repo went public, carries npm-publish
+> attestations + SLSA provenance v1 (STANDARDS §Order ratified 2026-10-03)
 > [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-26]. The key migration itself is **done**
 > ([#80](https://github.com/ChristianLuciani/profile-as-code/issues/80) closed; token deleted
 > in npm and GitHub).
