@@ -12,8 +12,10 @@
  */
 import type { PlatformProfile } from "@profile-as-code/core";
 
-/** Deterministic body priority for a paste surface: `long` > `medium` > `short`. */
-const LENGTH_PRIORITY = ["long", "medium", "short"] as const;
+/** Deterministic body priority for a paste surface: `long` > `medium` > `short`.
+ *  Exported because a consumer that has to NAME the published row (`pasco edit`
+ *  explains "the artifact publishes the `medium` bio") must not re-state it. */
+export const PASTE_LENGTH_PRIORITY = ["long", "medium", "short"] as const;
 
 /**
  * Paste-source text for a compile() slice: EXACTLY ONE bios row's verbatim
@@ -27,7 +29,7 @@ const LENGTH_PRIORITY = ["long", "medium", "short"] as const;
  * separate decision, not pinned here.
  */
 export function pasteSource(p: PlatformProfile): string {
-  for (const length of LENGTH_PRIORITY) {
+  for (const length of PASTE_LENGTH_PRIORITY) {
     const bio = p.bios.find((b) => b.length === length);
     if (bio !== undefined) return `${bio.text}\n`;
   }

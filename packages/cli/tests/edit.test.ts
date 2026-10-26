@@ -27,7 +27,10 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { load } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
+import { resolveEditTarget } from "../src/commands/edit.js";
+import { parseEditAddress } from "../src/contract.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI = join(__dirname, "..", "dist", "index.js");
@@ -264,6 +267,29 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     expect(r.stdout).toContain("Duplicate row text.");
   });
 
+  it("refuses a --set with a line break (S2 writes single-line scalars only)", () => {
+    const dir = workspace();
+    const r = edit(dir, "positioning.statement.en", "--set", "line one\nline two", "--check");
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("line break");
+    expect(r.stderr).toContain("#249");
+  });
+
+  it("does not list an empty statement string as an available address", () => {
+    const dir = workspace();
+    const positioning = join(dir, "content", "positioning.yaml");
+    writeFileSync(
+      positioning,
+      readFileSync(positioning, "utf8").replace("statement:\n  en:", 'statement:\n  fr: ""\n  en:'),
+    );
+    const r = edit(dir, "positioning.statement.fr");
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("resolves to 0 rows");
+    const available = r.stdout.split("available:")[1] ?? "";
+    expect(available).not.toContain("positioning.statement.fr");
+    expect(available).toContain("positioning.statement.en");
+  });
+
   it("refuses --set without --check (the write lands with S2, #249)", () => {
     const dir = workspace();
     const r = edit(dir, "positioning.statement.en", "--set", "New statement");
@@ -339,7 +365,7 @@ describe("pasco edit — S1 resolution (read-only)", () => {
 });
 
 describe("pasco edit — conformance with `pasco build` (F1)", () => {
-  it("the previewed headline is exactly what the built README publishes", () => {
+  it("the previewed headline is exactly a line of the built README", () => {
     const dir = workspace();
     const preview = edit(
       dir,
@@ -351,7 +377,8 @@ describe("pasco edit — conformance with `pasco build` (F1)", () => {
     );
     const rendered = json(preview).data.rendered as string;
     // Apply the same edit to the SSOT, then build — the artifact must contain
-    // the previewed line, which is the claim S1 exists to make.
+    // the previewed line EXACTLY (a substring match would also pass on the
+    // round-1 defect, where `rendered` was the raw row).
     const headlines = join(dir, "content", "headlines.yaml");
     writeFileSync(
       headlines,
@@ -361,10 +388,10 @@ describe("pasco edit — conformance with `pasco build` (F1)", () => {
       ),
     );
     expect(run(dir, "build", "github-readme").code).toBe(0);
-    expect(artifact(dir, "github-readme")).toContain(rendered);
+    expect(artifact(dir, "github-readme").split("\n")).toContain(rendered);
   });
 
-  it("the previewed bio is exactly what the built paste artifact publishes", () => {
+  it("the previewed bio IS the built paste artifact (one row, verbatim)", () => {
     const dir = workspace();
     const preview = edit(
       dir,
@@ -384,6 +411,93 @@ describe("pasco edit — conformance with `pasco build` (F1)", () => {
       ),
     );
     expect(run(dir, "build", "linkedin").code).toBe(0);
-    expect(artifact(dir, "linkedin")).toContain(rendered);
+    expect(artifact(dir, "linkedin")).toBe(`${rendered}\n`);
+  });
+
+  it("NEGATIVE: a row the artifact does not publish is never previewed as published", () => {
+    const dir = workspace();
+    const bios = join(dir, "content", "bios.yaml");
+    writeFileSync(
+      bios,
+      `${readFileSync(bios, "utf8")}- platform: linkedin\n  lang: en\n  length: short\n  text: A short bio.\n`,
+    );
+    const preview = edit(
+      dir,
+      "bios[platform=linkedin,lang=en,length=short].text",
+      "--set",
+      "Edited short",
+      "--check",
+      "--json",
+    );
+    expect(preview.code).toBe(1);
+    expect(json(preview).data.rendered).toBeNull();
+    // Apply it anyway: the built paste artifact must still NOT carry it.
+    writeFileSync(
+      bios,
+      readFileSync(bios, "utf8").replace("  text: A short bio.\n", "  text: Edited short\n"),
+    );
+    expect(run(dir, "build", "linkedin").code).toBe(0);
+    expect(artifact(dir, "linkedin")).not.toContain("Edited short");
+  });
+});
+
+describe("locate — S2's write handle (file-relative + merged-profile paths)", () => {
+  it("points at the FILE path (the CST can resolve it) and the profile path (applyEdit)", () => {
+    const dir = workspace();
+    const profile = load(dir);
+
+    const headline = resolveEditTarget(
+      profile,
+      parseEditAddress("headlines[platform=upwork,lang=en].text"),
+      dir,
+    );
+    expect(headline.locate).toEqual({
+      file: "content/headlines.yaml",
+      path: [3, "text"],
+      profilePath: ["headlines", 3, "text"],
+    });
+
+    const bio = resolveEditTarget(
+      profile,
+      parseEditAddress("bios[platform=linkedin,lang=en,length=medium].text"),
+      dir,
+    );
+    expect(bio.locate).toEqual({
+      file: "content/bios.yaml",
+      path: [2, "text"],
+      profilePath: ["bios", 2, "text"],
+    });
+
+    const statement = resolveEditTarget(profile, parseEditAddress("positioning.statement.en"), dir);
+    expect(statement.locate).toEqual({
+      file: "content/positioning.yaml",
+      path: ["statement", "en"],
+      profilePath: ["positioning", "statement", "en"],
+    });
+  });
+
+  it("is absent for a read-only link, and for an address that is not exactly one row", () => {
+    const dir = workspace();
+    const profile = load(dir);
+    expect(
+      resolveEditTarget(profile, parseEditAddress("identity.links[platform=github].url"), dir)
+        .locate,
+    ).toBeUndefined();
+    expect(
+      resolveEditTarget(profile, parseEditAddress("bios[platform=x,lang=en,length=long].text"), dir)
+        .locate,
+    ).toBeUndefined();
+  });
+
+  it("finds a file whose extension is upper-case (load() is case-insensitive)", async () => {
+    const dir = workspace();
+    const { renameSync } = await import("node:fs");
+    renameSync(join(dir, "content", "headlines.yaml"), join(dir, "content", "headlines.YAML"));
+    const target = resolveEditTarget(
+      load(dir),
+      parseEditAddress("headlines[platform=upwork,lang=en].text"),
+      dir,
+    );
+    expect(target.locate?.file).toBe("content/headlines.YAML");
   });
 });

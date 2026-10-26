@@ -75,8 +75,10 @@ Common flags (after the command):
   --json              Machine-readable output
   --help, -h          Command help
 
-Exit codes: 0 ok · 1 schema/workspace failure · 2 usage error.
-Drift warnings exit 0 (D12: facts warn, schema fails).
+Exit codes: 0 ok · 1 schema/workspace failure, or a data finding that blocks the
+command (edit: the address is not one row, or the edit does not change the
+published artifact) · 2 usage error. Drift warnings exit 0 (D12: facts warn,
+schema fails).
 
 pasco is free (MIT). Consider a tip ;)
   https://ko-fi.com/christianluciani · https://github.com/sponsors/ChristianLuciani
@@ -330,7 +332,7 @@ async function runMain(): Promise<number> {
         return EXIT.OK;
       }
       if (positionals.length !== 1) {
-        throw new UsageError("usage: pasco edit <contract-path> [--set <text>] --check");
+        throw new UsageError("usage: pasco edit <contract-path> [--set <text> --check]");
       }
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);

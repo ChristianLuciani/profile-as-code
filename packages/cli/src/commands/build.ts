@@ -23,13 +23,12 @@ import {
   SchemaValidationError,
   type SelectionPolicy,
 } from "@profile-as-code/core";
-import { pasteSource } from "@profile-as-code/paste";
+import { renderArtifact } from "../artifact-render.js";
 import { parseLang, parsePlatform } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { RENDERERS } from "../generated/renderers.gen.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import { artifactPath } from "../publication.js";
-import { resolveVariantBody } from "../variant-store.js";
 import type { Pascorc } from "../workspace.js";
 import {
   ConfigError,
@@ -164,11 +163,11 @@ export function runBuild(args: BuildArgs): number {
   const renderedVariants = new Map<string, string>();
   for (const s of slices) {
     if (s.platform === "github-org" && profile.flavor !== "brand") continue;
-    const variant = resolveVariantBody(args.workspace, s);
-    if (variant.warning !== undefined) {
-      warnings.push({ platform: s.platform, reason: variant.warning });
+    const rendered = renderArtifact(s, args.workspace, bundle.assets);
+    if (rendered.warning !== undefined) {
+      warnings.push({ platform: s.platform, reason: rendered.warning });
     }
-    if (variant.text !== undefined && variant.id !== undefined) {
+    if (rendered.source === "variant" && rendered.variantId !== undefined) {
       // The chosen body is a COMPLETE artifact (skills/github-readme playbook:
       // `cp variants/<id>.md ../<user>/README.md`), not a prose fragment. Write
       // it verbatim instead of the deterministic render; no duplicated H1.
@@ -184,17 +183,16 @@ export function runBuild(args: BuildArgs): number {
         });
       }
       mkdirSync(dirname(path), { recursive: true });
-      writeFileSync(path, variant.text);
-      renderedVariants.set(s.platform, variant.id);
-      written.push({ platform: s.platform, path, variant: variant.id });
+      writeFileSync(path, rendered.text);
+      renderedVariants.set(s.platform, rendered.variantId);
+      written.push({ platform: s.platform, path, variant: rendered.variantId });
       continue;
     }
-    const renderer = RENDERERS[s.platform];
-    if (renderer === undefined) {
+    if (rendered.source === "paste") {
       // #239: a manual-paste surface with a bio row gets a file on disk too —
       // one row verbatim, via the shared paste core. Empty = unbuild (§15.1).
       const path = artifactPath(args.workspace, s.platform);
-      const text = pasteSource(s);
+      const text = rendered.text;
       if (text === "") {
         skipped.push({
           platform: s.platform,
@@ -211,7 +209,7 @@ export function runBuild(args: BuildArgs): number {
     // A renderer owns this platform now: remove any pre-renderer flat paste
     // file so profiles/ stays a pure function (#245 premerge F2).
     rmSync(join(args.workspace, "profiles", `${s.platform}.md`), { force: true });
-    const result = renderer(s, bundle.assets);
+    const result = { text: rendered.text, assets: rendered.assets };
     const path = artifactPath(args.workspace, s.platform);
     const dir = dirname(path);
     // v1.7 (#130): an empty artifact is not a deploy artifact — a paste

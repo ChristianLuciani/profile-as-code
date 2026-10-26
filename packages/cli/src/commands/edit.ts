@@ -9,18 +9,16 @@
  * The published answer is derived from the ARTIFACT, never from the addressed row
  * alone (premerge review of PR #331, F1: they are frequently different — a paste
  * surface publishes exactly ONE bio by length priority, a renderer may not emit
- * the field at all, and an active variant (#238) supplies the whole body). So
- * `--check` renders the same way `pasco build` does — variant → renderer → paste
- * source — twice (current profile, proposed profile) and reports the artifact
- * lines that change. An edit that does not change the artifact says so: that is
- * the honest answer to "what will be published", and the one thing the dogfood
- * could not get.
+ * the field at all, and an active variant (#238) supplies the whole body). The
+ * artifact text comes from `artifact-render.ts`, the SAME decision tree `build`
+ * uses, so `--check` cannot drift from what gets written (N1 of the round-2
+ * review: a second copy silently skipped build's selection-error gate).
  *
  * The WRITE lands with S2 (#249), whose recorded decision (2026-10-21,
  * `main@647c510`) fixes the coupling: S2 consumes the LOCATED node this resolver
- * exposes (`EditTarget.locate` — file + root path), never re-derives addresses.
- * `locate` exists ONLY when the address resolves to exactly one row (the only
- * state a write may use), so S2 cannot splice a fallback index.
+ * exposes (`EditTarget.locate` — owning file + FILE-relative path), never
+ * re-derives addresses. `locate` exists ONLY when the address resolves to exactly
+ * one row (the only state a write may use), and only for writable addresses.
  */
 
 import { readdirSync } from "node:fs";
@@ -41,7 +39,7 @@ import {
   SchemaValidationError,
   type SelectionPolicy,
 } from "@profile-as-code/core";
-import { pasteSource } from "@profile-as-code/paste";
+import { publishedBio, renderArtifact } from "../artifact-render.js";
 import type { EditAddress } from "../contract.js";
 import {
   bioAddress,
@@ -52,9 +50,7 @@ import {
   UsageError,
 } from "../contract.js";
 import { EXIT } from "../exit.js";
-import { RENDERERS } from "../generated/renderers.gen.js";
 import { line, report } from "../output.js";
-import { resolveVariantBody } from "../variant-store.js";
 import type { Pascorc } from "../workspace.js";
 import { sanitizeCompletenessPolicy, sanitizeSelectionPolicy } from "../workspace.js";
 
@@ -69,21 +65,58 @@ export interface EditArgs {
 /** Every address that can carry a value (links are read-only). */
 type EditableAddress = Exclude<EditAddress, { kind: "link" }>;
 
-/** A resolved contract path. */
+/** A selector value the address grammar can express (`key=value`, comma-separated). */
+const SELECTOR_UNSAFE = /[,\]=]|"/;
+
+/** The address of a link row, with its `label` when the row carries an
+ *  ADDRESSABLE one — the disambiguator a legal workspace needs when two links
+ *  share a platform. A label the grammar cannot express is reported with the row
+ *  instead of being printed as an address that would not parse. */
+function rowLinkAddress(row: { platform?: string; label?: string }): string {
+  const platform = row.platform ?? "<no platform>";
+  const addressable = row.label !== undefined && !SELECTOR_UNSAFE.test(row.label);
+  return linkAddress(platform, addressable ? row.label : undefined);
+}
+
+function linkNote(row: { platform?: string; label?: string }): string | undefined {
+  const parts: string[] = [];
+  if (row.platform === undefined) parts.push("no platform — not addressable");
+  else if (SELECTOR_UNSAFE.test(row.platform)) {
+    parts.push(
+      `platform ${JSON.stringify(row.platform)} contains a character the address grammar cannot express`,
+    );
+  }
+  if (row.label !== undefined && SELECTOR_UNSAFE.test(row.label)) {
+    parts.push(
+      `label ${JSON.stringify(row.label)} contains a character the address grammar cannot express`,
+    );
+  }
+  return parts.length === 0 ? undefined : parts.join(" · ");
+}
+
+/**
+ * A resolved contract path.
+ *
+ * `locate` is S2's write handle and carries TWO paths on purpose: `path` is
+ * FILE-relative (what a CST can resolve in `content/<root>.yaml` — the file's
+ * root is the block itself, e.g. a `bios.yaml` array, not `{bios: [...]}`), and
+ * `profilePath` is the merged-profile path `applyEdit` uses. Conflating them was
+ * a defect of the review's round 1 (N5 of round 2); a test pins both.
+ */
 export interface EditTarget {
   address: EditAddress;
-  /** Where the value lives in the workspace — the handle S2's comment-preserving
-   *  write consumes (range splice: the CST locates the node at this path).
-   *  Present ONLY when the address resolves to exactly one row: a write handle
-   *  must not exist for an ambiguous or absent address. */
-  locate?: { file: string; path: (string | number)[] };
+  locate?: {
+    file: string;
+    path: (string | number)[];
+    profilePath: (string | number)[];
+  };
   /** Exactly one match: the current value. */
   current?: string;
   /** How many rows the address resolves to: 0 (absent), 1 (addressable),
    *  >1 (several rows share the address — the command refuses to choose). */
   matches: number;
   /** The matched rows, so an ambiguous address is reported with its rows. */
-  rows: { address: string; value: string }[];
+  rows: { address: string; value: string; note?: string }[];
   /** Concrete addresses this workspace has for the addressed block — printed
    *  when the address resolves to 0 rows, so it is never a dead end. */
   available: string[];
@@ -107,18 +140,11 @@ function owningFile(workspace: string, root: string): string | undefined {
   return match === undefined ? undefined : `content/${match}`;
 }
 
-/** The address of a link row, with its `label` when present — the only
- *  disambiguator a legal workspace with two links on one platform has. */
-function rowLinkAddress(row: { platform?: string; label?: string }): string {
-  return linkAddress(row.platform ?? "<no platform>", row.label);
-}
-
 /**
  * Resolve a contract path against the loaded profile.
  *
  * The row index is the index in the WORKSPACE ARRAY: `load()` merges one root
- * property per file and never reorders, so S2 can splice that scalar in the
- * original text without a second lookup.
+ * property per file and never reorders, so it is also the index in the file.
  */
 export function resolveEditTarget(
   profile: LoadedProfile,
@@ -132,14 +158,20 @@ export function resolveEditTarget(
     const present = typeof value === "string" && value !== "";
     // Only the contract's langs are addressable — a langMap catchall key (e.g.
     // "de") is schema-legal but never renders, so listing it would be a trap.
-    const available = LANGS.filter((lang) => typeof statement[lang] === "string").map(
-      (lang) => `positioning.statement.${lang}`,
-    );
+    const available = LANGS.filter(
+      (lang) => typeof statement[lang] === "string" && statement[lang] !== "",
+    ).map((lang) => `positioning.statement.${lang}`);
     const file = owningFile(workspace, "positioning");
     return {
       address,
       ...(present && file !== undefined
-        ? { locate: { file, path: ["positioning", "statement", address.lang] } }
+        ? {
+            locate: {
+              file,
+              path: ["statement", address.lang],
+              profilePath: ["positioning", "statement", address.lang],
+            },
+          }
         : {}),
       ...(present ? { current: value } : {}),
       matches: present ? 1 : 0,
@@ -156,7 +188,13 @@ export function resolveEditTarget(
     return {
       address,
       ...(hits.length === 1 && file !== undefined
-        ? { locate: { file, path: ["headlines", hits[0]?.index as number, "text"] } }
+        ? {
+            locate: {
+              file,
+              path: [hits[0]?.index as number, "text"],
+              profilePath: ["headlines", hits[0]?.index as number, "text"],
+            },
+          }
         : {}),
       ...(hits.length === 1 ? { current: hits[0]?.row.text as string } : {}),
       matches: hits.length,
@@ -183,7 +221,13 @@ export function resolveEditTarget(
     return {
       address,
       ...(hits.length === 1 && file !== undefined
-        ? { locate: { file, path: ["bios", hits[0]?.index as number, "text"] } }
+        ? {
+            locate: {
+              file,
+              path: [hits[0]?.index as number, "text"],
+              profilePath: ["bios", hits[0]?.index as number, "text"],
+            },
+          }
         : {}),
       ...(hits.length === 1 ? { current: hits[0]?.row.text as string } : {}),
       matches: hits.length,
@@ -205,23 +249,20 @@ export function resolveEditTarget(
         row.platform === address.platform &&
         (address.label === undefined || (row.label ?? "") === address.label),
     );
-  const file = owningFile(workspace, "identity");
   return {
     address,
-    ...(hits.length === 1 && file !== undefined
-      ? { locate: { file, path: ["identity", "links", hits[0]?.index as number, "url"] } }
-      : {}),
+    // Read-only address: no write handle is emitted (S2 must not grow a second
+    // write path for the URL SSOT, §3).
     ...(hits.length === 1 ? { current: hits[0]?.row.url as string } : {}),
     matches: hits.length,
-    rows: hits.map(({ row }) => ({ address: rowLinkAddress(row), value: row.url })),
-    // A link without `platform` is legal but not addressable by this grammar —
-    // listed as such rather than hidden.
-    available: links.map((row) =>
-      rowLinkAddress({
-        platform: row.platform ?? "<no platform — not addressable>",
-        label: row.label,
-      }),
-    ),
+    rows: hits.map(({ row }) => ({
+      address: rowLinkAddress(row),
+      value: row.url,
+      ...(linkNote(row) === undefined ? {} : { note: linkNote(row) as string }),
+    })),
+    available: links
+      .map((row) => rowLinkAddress(row))
+      .filter((candidate, index, all) => all.indexOf(candidate) === index),
   };
 }
 
@@ -233,7 +274,7 @@ export function applyEdit(
   value: string,
 ): LoadedProfile {
   const copy = structuredClone(profile) as LoadedProfile;
-  const path = target.locate.path;
+  const path = target.locate.profilePath;
   let cursor: unknown = copy;
   for (const key of path.slice(0, -1)) {
     cursor = (cursor as Record<string | number, unknown>)[key];
@@ -241,14 +282,6 @@ export function applyEdit(
   const last = path[path.length - 1] as string | number;
   (cursor as Record<string | number, unknown>)[last] = value;
   return copy;
-}
-
-/** A rendered artifact, plus the slice it came from (needed to explain a miss). */
-interface RenderedArtifact {
-  text: string;
-  source: "variant" | "renderer" | "paste";
-  variantId?: string;
-  slice: PlatformProfile;
 }
 
 /** The compile policy `pasco build` uses for one platform (no `--view`):
@@ -261,12 +294,16 @@ function buildPolicy(pascorc: Pascorc, platform: Platform) {
   };
 }
 
-/**
- * Render the artifact `pasco build` would write for one platform+lang — the same
- * four decisions, in the same order: the brand-only surface is skipped for a
- * person workspace, an active variant body wins verbatim (#238), a renderer owns
- * its platform, and everything else is the shared paste source (#150).
- */
+/** A rendered artifact, plus the slice it came from (needed to explain a miss). */
+interface ArtifactView {
+  text: string;
+  source: "variant" | "renderer" | "paste";
+  variantId?: string;
+  slice: PlatformProfile;
+}
+
+/** Render the artifact `pasco build` would write for one platform+lang. The
+ *  brand-only surface is skipped for a person workspace (build skips it too). */
 function artifactFor(
   profile: LoadedProfile,
   workspace: string,
@@ -274,21 +311,10 @@ function artifactFor(
   lang: Lang,
   pascorc: Pascorc,
   assets: readonly MediaAsset[],
-): RenderedArtifact | undefined {
+): ArtifactView | undefined {
   if (platform === "github-org" && profile.flavor !== "brand") return undefined;
   const slice = compile(profile, platform, lang, buildPolicy(pascorc, platform));
-  const variant = resolveVariantBody(workspace, slice);
-  if (variant.text !== undefined) {
-    return {
-      text: variant.text,
-      source: "variant",
-      ...(variant.id === undefined ? {} : { variantId: variant.id }),
-      slice,
-    };
-  }
-  const renderer = RENDERERS[platform];
-  if (renderer === undefined) return { text: pasteSource(slice), source: "paste", slice };
-  return { text: renderer(slice, assets).text, source: "renderer", slice };
+  return { ...renderArtifact(slice, workspace, assets), slice };
 }
 
 /** The contiguous lines that differ between two artifacts (common prefix and
@@ -317,15 +343,8 @@ function changedRegion(
   };
 }
 
-/** Priority the paste core uses to pick its single row (packages/paste). */
-const BIO_LENGTH_PRIORITY = ["long", "medium", "short"] as const;
-
 /** Why an edit does not change the artifact — named, never guessed. */
-function explainMiss(
-  artifact: RenderedArtifact,
-  address: EditableAddress,
-  platform: Platform,
-): string {
+function explainMiss(artifact: ArtifactView, address: EditableAddress, platform: Platform): string {
   if (artifact.source === "variant") {
     return `an active variant${artifact.variantId === undefined ? "" : ` (#238, ${artifact.variantId})`} supplies the ${platform} artifact body — the SSOT text does not reach it`;
   }
@@ -335,9 +354,7 @@ function explainMiss(
   if (address.kind === "bio") {
     const published =
       artifact.source === "paste"
-        ? BIO_LENGTH_PRIORITY.map((length) =>
-            artifact.slice.bios.find((row) => row.length === length),
-          ).find((row) => row !== undefined)
+        ? publishedBio(artifact.slice)
         : artifact.slice.bios.find((row) => artifact.text.includes(row.text));
     if (published !== undefined) {
       return `the ${platform} artifact publishes the \`${published.length}\` bio — the addressed \`${address.length}\` row is never emitted`;
@@ -354,10 +371,11 @@ function explainMiss(
 }
 
 /** The published surface of one edit: the artifact lines that change, per
- *  platform, or the reason none do. */
+ *  platform, or the reason none do (or the selection error `build` would refuse). */
 interface Published {
   changes: { platform: string; before: string; after: string }[];
   reason?: string;
+  error?: string;
 }
 
 function publishedByEdit(
@@ -377,6 +395,15 @@ function publishedByEdit(
     if (a === undefined || b === undefined) {
       reason ??= `the ${platform} artifact is not rendered for this workspace (§17: brand-only surface)`;
       continue;
+    }
+    // D22/§21: an unsatisfied selection instruction is an ERROR that makes
+    // `build` write nothing — a preview that ignored it would promise a surface
+    // that will not exist (round-2 review, N1).
+    const selectionError = (a.slice.selection?.findings ?? []).find(
+      (finding) => finding.severity === "error",
+    );
+    if (selectionError !== undefined) {
+      return { changes: [], error: selectionError.message };
     }
     const region = changedRegion(a.text, b.text);
     if (region !== undefined) changes.push({ platform, ...region });
@@ -443,6 +470,11 @@ export function runEdit(args: EditArgs): number {
       '--set text must not be empty: compile() treats "" as absent (#84), so it could never render',
     );
   }
+  if (args.setArg !== undefined && /[\r\n]/.test(args.setArg)) {
+    throw new UsageError(
+      "--set with a line break is refused: S2 (#249) writes single-line scalars only (block scalars are refused), so the preview would describe a write that cannot happen",
+    );
+  }
 
   const target = resolveEditTarget(profile, address, args.workspace);
   const proposed = args.setArg;
@@ -460,11 +492,20 @@ export function runEdit(args: EditArgs): number {
       ok = false;
       published = {
         changes: [],
-        reason: `no owning content file for this block — the write handle is unavailable (S2 cannot splice)`,
+        reason:
+          "no owning content file for this block — the write handle is unavailable (S2 cannot splice)",
       };
     } else {
       const applied = applyEdit(profile, { ...target, locate: located }, proposed);
       published = publishedByEdit(profile, applied, address, args.workspace, args.pascorc);
+      if (published.error !== undefined) {
+        return report("edit", false, EXIT.FAIL, {
+          error: {
+            kind: "selection",
+            message: `${published.error} (pasco build refuses to write this workspace)`,
+          },
+        });
+      }
       ok = published.changes.length > 0;
     }
   }
@@ -514,7 +555,9 @@ export function runEdit(args: EditArgs): number {
           : "several rows share this address";
     line(`resolves to ${target.matches} rows — ${kind}; edit refuses to choose`);
     target.rows.forEach((row, index) => {
-      line(`  ${index + 1}. ${row.address} = ${row.value}`);
+      line(
+        `  ${index + 1}. ${row.address} = ${row.value}${row.note === undefined ? "" : `  (${row.note})`}`,
+      );
     });
   }
 

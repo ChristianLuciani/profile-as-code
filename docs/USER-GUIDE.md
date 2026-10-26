@@ -434,9 +434,9 @@ Three habits that prevent almost every first-run error:
    fails with a schema error that names the file and the unexpected key — it is
    not a bug, it is the file. Paste it in `content/bios.yaml`.
 2. **One value, one line.** Multi-line YAML block scalars (`|`, `>`) are legal
-   YAML, but the editor in progress (`pasco edit`, epic #247) previews — and will
-   write — single-line scalars only; keep scalars single-line now and you will not
-   have to rewrite them.
+   YAML, but the editor in progress (`pasco edit`, epic #247) refuses a value with
+   a line break in its preview, and the write slice (S2, #249) refuses block
+   scalars; keep scalars single-line now and you will not have to rewrite them.
 3. **Validate after each edit, not after five.** A schema failure names the file
    and the value; five edits later, the message still names the file but you no
    longer remember which change caused it.
