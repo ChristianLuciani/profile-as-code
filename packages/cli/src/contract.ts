@@ -14,7 +14,7 @@ export class UsageError extends Error {
   }
 }
 
-const LANGS: readonly string[] = ["en", "es", "fr"] as const;
+export const LANGS: readonly string[] = ["en", "es", "fr"] as const;
 const FLAVORS: readonly string[] = ["person", "brand"] as const;
 
 export function parsePlatform(value: string): Platform {
@@ -60,8 +60,11 @@ export type EditAddress =
   | { kind: "headline"; platform: Platform; lang: Lang; address: string }
   | { kind: "bio"; platform: Platform; lang: Lang; length: BioLength; address: string }
   /** `identity.links` rows carry a free-form `platform` string (the schema does
-   *  not constrain it to the platform enum), so it is kept verbatim. */
-  | { kind: "link"; platform: string; address: string };
+   *  not constrain it to the platform enum), so it is kept verbatim. `label` is
+   *  the optional disambiguator a legal workspace needs when two links share a
+   *  platform (premerge review of #331: the schema allows it, and the drift code
+   *  only flags the SAME url twice). */
+  | { kind: "link"; platform: string; label?: string; address: string };
 
 export function headlineAddress(platform: Platform, lang: Lang): string {
   return `headlines[platform=${platform},lang=${lang}].text`;
@@ -71,8 +74,10 @@ export function bioAddress(platform: Platform, lang: Lang, length: BioLength): s
   return `bios[platform=${platform},lang=${lang},length=${length}].text`;
 }
 
-export function linkAddress(platform: string): string {
-  return `identity.links[platform=${platform}].url`;
+export function linkAddress(platform: string, label?: string): string {
+  return label === undefined
+    ? `identity.links[platform=${platform}].url`
+    : `identity.links[platform=${platform},label=${label}].url`;
 }
 
 /** The grammar, printed verbatim on a usage error — the caller must never have
@@ -82,7 +87,7 @@ export function editAddressTable(): string {
     `  positioning.statement.<lang>                       lang: ${LANGS.join("|")}`,
     `  headlines[platform=<p>,lang=<l>].text              platform: <schema platform id, §6> · lang: ${LANGS.join("|")}`,
     `  bios[platform=<p>,lang=<l>,length=<len>].text      length: ${BIO_LENGTHS.join("|")}`,
-    `  identity.links[platform=<p>].url                   (read-only: links live in identity.yaml)`,
+    `  identity.links[platform=<p>,label=<l>].url         (read-only; label optional — disambiguates two links on one platform)`,
   ].join("\n");
 }
 
@@ -90,13 +95,15 @@ export function editAddressTable(): string {
 function parseSelectors(
   block: string,
   raw: string,
-  allowed: readonly string[],
+  required: readonly string[],
+  optional: readonly string[] = [],
 ): Record<string, string> {
+  const allowed = [...required, ...optional];
   const selectors: Record<string, string> = {};
   const parts = raw.split(",");
   if (parts.length === 1 && parts[0]?.trim() === "") {
     throw new UsageError(
-      `${block} needs selectors ${allowed.join("+")} — valid addresses:\n${editAddressTable()}`,
+      `${block} needs selectors ${required.join("+")} — valid addresses:\n${editAddressTable()}`,
     );
   }
   for (const part of parts) {
@@ -125,10 +132,10 @@ function parseSelectors(
     }
     selectors[key] = value;
   }
-  for (const key of allowed) {
+  for (const key of required) {
     if (!(key in selectors)) {
       throw new UsageError(
-        `${block}: missing selector "${key}" (expected ${allowed.join("+")}) — valid addresses:\n${editAddressTable()}`,
+        `${block}: missing selector "${key}" (expected ${required.join("+")}) — valid addresses:\n${editAddressTable()}`,
       );
     }
   }
@@ -194,14 +201,15 @@ export function parseEditAddress(raw: string): EditAddress {
 
     if (field !== "url") {
       throw new UsageError(
-        `identity.links[..].${field} is not addressable — the only link field is identity.links[platform=<p>].url (read-only)`,
+        `identity.links[..].${field} is not addressable — the only link field is identity.links[platform=<p>,label=<l>].url (read-only)`,
       );
     }
-    const s = parseSelectors(block, addressed[2] as string, ["platform"]);
+    const s = parseSelectors(block, addressed[2] as string, ["platform"], ["label"]);
     return {
       kind: "link",
       platform: s.platform as string,
-      address: linkAddress(s.platform as string),
+      ...(s.label === undefined ? {} : { label: s.label }),
+      address: linkAddress(s.platform as string, s.label),
     };
   }
 

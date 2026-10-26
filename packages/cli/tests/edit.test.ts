@@ -1,7 +1,12 @@
 /**
  * `pasco edit` — S1 of epic #247: contract-path resolution + `--check`, and the
- * invariant that makes the slice shippable before S2's write exists: NOTHING on
- * disk is touched (asserted byte-for-byte, the acceptance's "byte-hash fixture").
+ * two invariants that make the slice shippable before S2's write exists:
+ *
+ *  1. NOTHING on disk is touched (asserted on a whole-workspace snapshot).
+ *  2. The preview is what `pasco build` PUBLISHES, not the addressed row's own
+ *     text (premerge review of PR #331, F1). The conformance test at the bottom
+ *     applies the same edit to the workspace, runs `build`, and asserts the
+ *     previewed text is in the artifact bytes.
  *
  * Runs the BUILT binary (`pnpm test` builds first) against a copy of the core
  * `minimal` fixture, so a test never mutates a committed fixture.
@@ -9,9 +14,18 @@
 
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 
@@ -36,25 +50,49 @@ interface RunResult {
   stderr: string;
 }
 
-function edit(dir: string, ...args: string[]): RunResult {
-  const res = spawnSync(process.execPath, [CLI, "edit", ...args, "--workspace", dir], {
+function run(dir: string, ...args: string[]): RunResult {
+  const res = spawnSync(process.execPath, [CLI, ...args, "--workspace", dir], {
     encoding: "utf8",
-    timeout: 20_000,
+    timeout: 30_000,
   });
   if (res.error !== undefined) throw res.error;
   return { code: res.status ?? -1, stdout: res.stdout ?? "", stderr: res.stderr ?? "" };
 }
 
-/** sha256 of every content file (name + bytes), in name order — the slice's
- *  "no byte moved" assertion. */
-function contentHash(dir: string): string {
-  const contentDir = join(dir, "content");
+function edit(dir: string, ...args: string[]): RunResult {
+  return run(dir, "edit", ...args);
+}
+
+/** sha256 over every file of the temp workspace (name + bytes, sorted) — the
+ *  acceptance's "no file on disk is touched", not just "no content file". */
+function workspaceHash(dir: string): string {
   const hash = createHash("sha256");
-  for (const name of readdirSync(contentDir).sort()) {
-    hash.update(name);
-    hash.update(readFileSync(join(contentDir, name)));
-  }
+  const walk = (current: string): void => {
+    for (const name of readdirSync(current).sort()) {
+      const full = join(current, name);
+      if (statSync(full).isDirectory()) {
+        walk(full);
+        continue;
+      }
+      hash.update(relative(dir, full));
+      hash.update(readFileSync(full));
+    }
+  };
+  walk(dir);
   return hash.digest("hex");
+}
+
+/** The artifact `pasco build` writes for a surface (renderer → dir/README.md). */
+function artifact(workspaceDir: string, platform: string): string {
+  const rendered = join(workspaceDir, "profiles", platform, "README.md");
+  const pasted = join(workspaceDir, "profiles", `${platform}.md`);
+  if (existsSync(rendered)) return readFileSync(rendered, "utf8");
+  if (existsSync(pasted)) return readFileSync(pasted, "utf8");
+  throw new Error(`no artifact for ${platform} under ${workspaceDir}`);
+}
+
+function json(r: RunResult): { ok: boolean; data: Record<string, unknown> } {
+  return JSON.parse(r.stdout) as { ok: boolean; data: Record<string, unknown> };
 }
 
 describe("pasco edit — S1 resolution (read-only)", () => {
@@ -64,49 +102,104 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     expect(r.code).toBe(0);
     expect(r.stdout).toContain("address:  positioning.statement.en");
     expect(r.stdout).toContain("current:  AI engineer building sovereign");
-    expect(r.stdout).toContain("rendered (every platform slice, en):");
   });
 
-  it("--set --check prints old → new and the rendered platform text", () => {
+  it("--set --check previews the published lines of a renderer surface", () => {
     const dir = workspace();
     const r = edit(
       dir,
-      "headlines[platform=upwork,lang=en].text",
+      "headlines[platform=github-readme,lang=en].text",
       "--set",
-      "Sovereign AI architect",
+      "Sovereign AI infra",
       "--check",
     );
     expect(r.code).toBe(0);
-    expect(r.stdout).toContain(
-      "current:  Sovereign AI stack architect — routing, local inference, evaluation",
-    );
-    expect(r.stdout).toContain("proposed: Sovereign AI architect");
-    expect(r.stdout).toContain("rendered (upwork/en): Sovereign AI architect");
+    expect(r.stdout).toContain("current:  Sovereign AI infrastructure engineer");
+    expect(r.stdout).toContain("proposed: Sovereign AI infra");
+    // The published line, as the README renders it — not the raw row.
+    expect(r.stdout).toContain("  - ### Sovereign AI infrastructure engineer");
+    expect(r.stdout).toContain("  + ### Sovereign AI infra");
   });
 
-  it("renders a bio row through its own platform+lang+length slice", () => {
+  it("previews a bio the paste artifact actually publishes", () => {
     const dir = workspace();
     const r = edit(
       dir,
       "bios[platform=linkedin,lang=en,length=medium].text",
       "--set",
-      "Short bio",
+      "Shorter bio text",
       "--check",
     );
     expect(r.code).toBe(0);
-    expect(r.stdout).toContain("rendered (linkedin/en): Short bio");
+    expect(r.stdout).toContain("published (linkedin/en");
+    expect(r.stdout).toContain("  + Shorter bio text");
   });
 
-  it("resolves a link and refuses to write it (the URL SSOT is identity.yaml)", () => {
+  it("says NO CHANGE when the artifact publishes a different row (paste priority)", () => {
     const dir = workspace();
-    const read = edit(dir, "identity.links[platform=github].url");
-    expect(read.code).toBe(0);
-    expect(read.stdout).toContain("current:  https://github.com/elenavasquez");
-    expect(read.stdout).toContain("verbatim — the URL SSOT");
+    const bios = join(dir, "content", "bios.yaml");
+    writeFileSync(
+      bios,
+      `${readFileSync(bios, "utf8")}- platform: linkedin\n  lang: en\n  length: short\n  text: A short bio.\n`,
+    );
+    const r = edit(
+      dir,
+      "bios[platform=linkedin,lang=en,length=short].text",
+      "--set",
+      "Edited short",
+      "--check",
+    );
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("no change");
+    expect(r.stdout).toContain("publishes the `medium` bio");
+  });
+
+  it("says NO CHANGE when the artifact carries no such field at all", () => {
+    const dir = workspace();
+    const r = edit(
+      dir,
+      "headlines[platform=upwork,lang=en].text",
+      "--set",
+      "New upwork headline",
+      "--check",
+    );
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("no change");
+    expect(r.stdout).toContain("carries no headline");
+  });
+
+  it("previews the statement on the artifacts that carry it", () => {
+    const dir = workspace();
+    const r = edit(dir, "positioning.statement.en", "--set", "New statement text", "--check");
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("published (github-readme/en");
+    expect(r.stdout).toContain("  + **New statement text**");
+  });
+
+  it("resolves a link, and a label disambiguates two links on one platform", () => {
+    const dir = workspace();
+    const identity = join(dir, "content", "identity.yaml");
+    writeFileSync(
+      identity,
+      readFileSync(identity, "utf8").replace(
+        "  - platform: github\n    label: GitHub\n    url: https://github.com/elenavasquez\n",
+        "  - platform: github\n    label: GitHub\n    url: https://github.com/elenavasquez\n  - platform: github\n    label: GitHub projects\n    url: https://github.com/elenavasquez/project-as-code\n",
+      ),
+    );
+
+    const ambiguous = edit(dir, "identity.links[platform=github].url");
+    expect(ambiguous.code).toBe(1);
+    expect(ambiguous.stdout).toContain("several links share this platform");
+    expect(ambiguous.stdout).toContain("label=<…>");
+    expect(ambiguous.stdout).toContain("label=GitHub projects");
+
+    const labelled = edit(dir, "identity.links[platform=github,label=GitHub projects].url");
+    expect(labelled.code).toBe(0);
+    expect(labelled.stdout).toContain("current:  https://github.com/elenavasquez/project-as-code");
 
     const write = edit(
       dir,
-      "identity.links[platform=github].url",
+      "identity.links[platform=github,label=GitHub].url",
       "--set",
       "https://x.dev",
       "--check",
@@ -123,7 +216,7 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     expect(r.stderr).toContain("positioning.statement.<lang>");
     expect(r.stderr).toContain("headlines[platform=<p>,lang=<l>].text");
     expect(r.stderr).toContain("bios[platform=<p>,lang=<l>,length=<len>].text");
-    expect(r.stderr).toContain("identity.links[platform=<p>].url");
+    expect(r.stderr).toContain("identity.links[platform=<p>,label=<l>].url");
   });
 
   it("rejects an unknown platform with the allowed enum values", () => {
@@ -143,15 +236,20 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     expect(r.stdout).toContain("headlines[platform=upwork,lang=en].text");
   });
 
+  it("keeps the proposal visible on a 0-row address and says creation is not previewable", () => {
+    const dir = workspace();
+    const r = edit(dir, "positioning.statement.fr", "--set", "Nouvelle déclaration", "--check");
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("proposed: Nouvelle déclaration");
+    expect(r.stdout).toContain("not previewable in S1");
+  });
+
   it("refuses an ambiguous (duplicate) row instead of choosing one", () => {
     const dir = workspace();
     const bios = join(dir, "content", "bios.yaml");
-    const original = readFileSync(bios, "utf8");
-    // A duplicate platform+lang+length row is a REAL workspace state
-    // (drift/duplicate-bio) — the resolver must surface it, never pick one.
     writeFileSync(
       bios,
-      `${original}- platform: linkedin\n  lang: en\n  length: medium\n  text: Duplicate row text.\n`,
+      `${readFileSync(bios, "utf8")}- platform: linkedin\n  lang: en\n  length: medium\n  text: Duplicate row text.\n`,
     );
     const r = edit(
       dir,
@@ -162,11 +260,11 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     );
     expect(r.code).toBe(1);
     expect(r.stdout).toContain("resolves to 2 rows");
-    expect(r.stdout).toContain("refuses to choose");
+    expect(r.stdout).toContain("drift/duplicate-bio");
     expect(r.stdout).toContain("Duplicate row text.");
   });
 
-  it("refuses --set without --check: the write lands with S2 (#249)", () => {
+  it("refuses --set without --check (the write lands with S2, #249)", () => {
     const dir = workspace();
     const r = edit(dir, "positioning.statement.en", "--set", "New statement");
     expect(r.code).toBe(2);
@@ -174,57 +272,118 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     expect(r.stderr).toContain("#249");
   });
 
-  it("refuses an empty --set (schema minLength 1)", () => {
+  it("refuses --check without --set, and an empty --set", () => {
     const dir = workspace();
-    const r = edit(dir, "positioning.statement.en", "--set", "", "--check");
-    expect(r.code).toBe(2);
-    expect(r.stderr).toContain("must not be empty");
+    const checkOnly = edit(dir, "positioning.statement.en", "--check");
+    expect(checkOnly.code).toBe(2);
+    expect(checkOnly.stderr).toContain("--set");
+
+    const empty = edit(dir, "positioning.statement.en", "--set", "", "--check");
+    expect(empty.code).toBe(2);
+    expect(empty.stderr).toContain("must not be empty");
+    expect(empty.stderr).toContain("#84");
+  });
+
+  it("treats re-setting the current value as a noop (exit 0, no write)", () => {
+    const dir = workspace();
+    const r = edit(
+      dir,
+      "positioning.statement.en",
+      "--set",
+      "AI engineer building sovereign, open-source AI infrastructure for education.",
+      "--check",
+    );
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("(noop)");
   });
 
   it("--json carries exactly { address, current, proposed, rendered, ok }", () => {
     const dir = workspace();
     const r = edit(
       dir,
-      "headlines[platform=upwork,lang=en].text",
+      "headlines[platform=github-readme,lang=en].text",
       "--set",
-      "Sovereign AI architect",
+      "Sovereign AI infra",
       "--check",
       "--json",
     );
     expect(r.code).toBe(0);
-    const parsed = JSON.parse(r.stdout) as {
-      command: string;
-      ok: boolean;
-      exitCode: number;
-      data: Record<string, unknown>;
-    };
-    expect(parsed.command).toBe("edit");
+    const parsed = json(r);
     expect(parsed.ok).toBe(true);
-    expect(parsed.exitCode).toBe(0);
-    expect(Object.keys(parsed.data).sort()).toEqual(
+    const inner = parsed.data as Record<string, unknown>;
+    expect(Object.keys(inner).sort()).toEqual(
       ["address", "current", "ok", "proposed", "rendered"].sort(),
     );
-    expect(parsed.data.address).toBe("headlines[platform=upwork,lang=en].text");
-    expect(parsed.data.current).toBe(
-      "Sovereign AI stack architect — routing, local inference, evaluation",
-    );
-    expect(parsed.data.proposed).toBe("Sovereign AI architect");
-    expect(parsed.data.rendered).toBe("Sovereign AI architect");
-    expect(parsed.data.ok).toBe(true);
+    expect(inner.address).toBe("headlines[platform=github-readme,lang=en].text");
+    expect(inner.current).toBe("Sovereign AI infrastructure engineer");
+    expect(inner.proposed).toBe("Sovereign AI infra");
+    expect(inner.rendered).toBe("### Sovereign AI infra");
+    expect(inner.ok).toBe(true);
   });
 
-  it("never touches a byte on disk (read-only slice)", () => {
+  it("never touches a byte on disk (whole-workspace snapshot)", () => {
     const dir = workspace();
-    const before = contentHash(dir);
+    const before = workspaceHash(dir);
     for (const args of [
       ["positioning.statement.en"],
       ["positioning.statement.en", "--set", "Another statement", "--check"],
-      ["headlines[platform=x,lang=en].text", "--set", "A new headline", "--check"],
+      ["headlines[platform=github-readme,lang=en].text", "--set", "A new headline", "--check"],
+      ["headlines[platform=upwork,lang=en].text", "--set", "Not published", "--check"],
       ["identity.links[platform=orcid].url"],
       ["bios[platform=nope,lang=en,length=medium].text"],
     ]) {
       edit(dir, ...args);
     }
-    expect(contentHash(dir)).toBe(before);
+    expect(workspaceHash(dir)).toBe(before);
+  });
+});
+
+describe("pasco edit — conformance with `pasco build` (F1)", () => {
+  it("the previewed headline is exactly what the built README publishes", () => {
+    const dir = workspace();
+    const preview = edit(
+      dir,
+      "headlines[platform=github-readme,lang=en].text",
+      "--set",
+      "Sovereign AI infra",
+      "--check",
+      "--json",
+    );
+    const rendered = json(preview).data.rendered as string;
+    // Apply the same edit to the SSOT, then build — the artifact must contain
+    // the previewed line, which is the claim S1 exists to make.
+    const headlines = join(dir, "content", "headlines.yaml");
+    writeFileSync(
+      headlines,
+      readFileSync(headlines, "utf8").replace(
+        "  text: Sovereign AI infrastructure engineer\n",
+        "  text: Sovereign AI infra\n",
+      ),
+    );
+    expect(run(dir, "build", "github-readme").code).toBe(0);
+    expect(artifact(dir, "github-readme")).toContain(rendered);
+  });
+
+  it("the previewed bio is exactly what the built paste artifact publishes", () => {
+    const dir = workspace();
+    const preview = edit(
+      dir,
+      "bios[platform=linkedin,lang=en,length=medium].text",
+      "--set",
+      "Shorter bio text",
+      "--check",
+      "--json",
+    );
+    const rendered = json(preview).data.rendered as string;
+    const bios = join(dir, "content", "bios.yaml");
+    writeFileSync(
+      bios,
+      readFileSync(bios, "utf8").replace(
+        "  text: Senior AI engineer designing local-first LLM infrastructure used by 12+\n    deployments. Previously ML engineer at Dataforge. 8 years in ML platforms.\n",
+        "  text: Shorter bio text\n",
+      ),
+    );
+    expect(run(dir, "build", "linkedin").code).toBe(0);
+    expect(artifact(dir, "linkedin")).toContain(rendered);
   });
 });

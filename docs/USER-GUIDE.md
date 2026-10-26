@@ -196,7 +196,7 @@ pasco --version   # what you installed — 0.3.0 today
 pasco --help      # command list + exit-code contract
 ```
 
-`--help` prints `init`, `validate`, `build`, `diff`, `refine`, `check`, `post`,
+`--help` prints `init`, `validate`, `build`, `edit`, `diff`, `refine`, `check`, `post`,
 `status` and `skills:export`, plus the exit-code contract: `0` ok · `1` schema or
 workspace failure · `2` usage error. `pasco status --help` covers the deploy
 ledger and its opt-in live check (`--mark`, `--verify`, `--write-checklist`,
@@ -434,9 +434,9 @@ Three habits that prevent almost every first-run error:
    fails with a schema error that names the file and the unexpected key — it is
    not a bug, it is the file. Paste it in `content/bios.yaml`.
 2. **One value, one line.** Multi-line YAML block scalars (`|`, `>`) are legal
-   YAML, but the planned editor (`pasco edit`, #247 — not shipped yet) will refuse
-   them; keep
-   scalars single-line now and you will not have to rewrite them.
+   YAML, but the editor in progress (`pasco edit`, epic #247) previews — and will
+   write — single-line scalars only; keep scalars single-line now and you will not
+   have to rewrite them.
 3. **Validate after each edit, not after five.** A schema failure names the file
    and the value; five edits later, the message still names the file but you no
    longer remember which change caused it.
@@ -451,6 +451,7 @@ If the profile is live and your edit does not show up, you skipped step 4 of
 ```sh
 pasco validate [--json]              # schema (FAIL, exit 1) + drift/geo (WARN, exit 0)
 pasco build [platform] [--lang]      # deterministic base texts per platform+lang
+pasco edit <contract-path> [--set <text> --check]  # preview one field + the text build will publish (#247, reads only)
 pasco diff [--json]                  # what changed since the last release tag
 ```
 
@@ -839,6 +840,7 @@ One workspace per identity, same engine (D14/D15):
 pasco init [dir] [--flavor person|brand]   # scaffold a workspace (never overwrites)
 pasco validate [--json]                    # schema FAIL + drift/geo WARN (D12)
 pasco build [platform] [--lang] [--json]   # base texts; renderers write profiles/
+pasco edit <contract-path> [--set <text> --check]  # preview one field + its published text (writes nothing)
 pasco diff [--json]                        # changes since last release-* tag
 pasco refine <platform> [--lang] [--variants N]   # emit the agent task template (full flow M3)
 pasco refine <platform> --choose <id>      # record chosen variant in content/active.yaml
