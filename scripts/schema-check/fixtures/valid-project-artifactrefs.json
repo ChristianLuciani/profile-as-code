@@ -1,0 +1,1 @@
+{"identity":{"name":"Ada Example"},"flavor":"person","artifacts":[{"id":"work-kontablo","kind":"code","title":"Kontablo","locator":{"url":"https://example.com/kontablo"},"visibility":"public"}],"projects":[{"id":"proj-kontablo","name":"Kontablo","status":"active","artifactRefs":["work-kontablo"]}]}
