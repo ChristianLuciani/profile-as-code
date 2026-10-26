@@ -42,7 +42,7 @@
   templates canónicos (#294) quedaron medidos y fechados en sus documentos.
 - **Release 0.3.6 (2026-10-26)**: schema v1.10/v1.11 — answer-engine surface (#288) y
   `identity.nationality` (#334); geoCheck v2 con sus códigos de citability (#289);
-  `pasco edit` S1–S3 (epic #247); publicación del cohort de cinco paquetes (#301);
+  `pasco edit` S1–S4 (epic #247); publicación del cohort de cinco paquetes (#301);
   funding rails y el lock anti-carreras del writer (#332).
 
 **Lectura:** el motor cubre su contrato, la distribución está resuelta y la publicación es

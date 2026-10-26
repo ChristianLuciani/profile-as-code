@@ -12,7 +12,7 @@ minor versions may contain breaking contract changes.
 ### Planned (roadmap)
 
 - Renderers: linkedin, upwork, x, researchgate, substack (M4)
-- CLI `pasco`: the full `refine` flow (M3); the `edit` epic (#247, slices S4–S5)
+- CLI `pasco`: the full `refine` flow (M3); the `edit` epic (#247, slice S5)
 - Per-platform skills v1 from SOTA research (M3)
 - Web renderer (M5)
 
@@ -29,14 +29,15 @@ minor versions may contain breaking contract changes.
   structured-data `ready` gate **and completeness ratio**: a workspace that omits it
   validates, emits, and scores exactly as before. Schema contract v1.11 (additive,
   pre-v1.11 workspaces validate unchanged); `@profile-as-code/core` 0.1.1.
-- **`pasco edit` — a contract edit surface, S1–S3 (#247/#248/#249/#250)** — address
+- **`pasco edit` — a contract edit surface, S1–S4 (#247–#251)** — address
   **one** contract field by contract path (never line/offset): read its current value
   (S1), `--set` writes it with a comment-preserving byte-range splice — validated and
-  atomic, one-line diff (S2) — and `--set --check` previews the published lines the
-  edit changes, while S3 reports the unit's per-surface staleness from the §19 ledger.
-  Concurrent writers on one workspace serialize on `content/.pasco-edit.lock` (2 s
-  wait, then refuse; a crashed lock is broken after 30 s). S4–S5 (caps before paste,
-  agent contract) remain planned.
+  atomic, one-line diff (S2) — `--set --check` previews the published lines the
+  edit changes (S3), and writing text pre-flights the platform's published cap at
+  edit time (S4; `content/checks.yaml` when declared, else the shared limits table).
+  S3 also reports the unit's per-surface staleness from the §19 ledger. Concurrent
+  writers on one workspace serialize on `content/.pasco-edit.lock` (2 s wait, then
+  refuse; a crashed lock is broken after 30 s). S5 (agent contract) remains planned.
 - **Answer-engine surface — `identity.definition` + `faq[]` (schema v1.10, #288)** —
   the two things an answer engine can quote: a canonical per-language definition
   (≤ 160 chars per value, must contain the entity name) and 3–20 citable Q&A pairs
