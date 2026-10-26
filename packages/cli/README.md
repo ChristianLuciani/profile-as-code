@@ -206,6 +206,55 @@ does not change or a D22/§21 selection error makes `build` refuse the workspace
 scalar, anchored/aliased scalar, a value with a line break, `--check` without
 `--set`).
 
+### The machine contract (`--json`, S5 / #252)
+
+The payload is **frozen** (additive-only from here): `command`, `ok` and `exitCode`
+are the envelope; the edit's own fields are
+
+| Field | Type | Meaning |
+|---|---|---|
+| `address` | string | the canonical contract path |
+| `current` | string \| null | the value before the change (the epic's `old`) |
+| `proposed` | string \| null | the value the caller passed (the epic's `new`) |
+| `rendered` | string \| null | the published lines the edit produces, or `null` |
+| `ok` | boolean | the operation succeeded — for a preview, that the artifact changes (the epic's `valid`) |
+| `noop` | boolean | the value was already there; nothing was written |
+| `written` | boolean | the file changed |
+| `warnings` | string[] | non-blocking findings the run proceeded through (over-cap, a selection error, a malformed catalog row) |
+| `stale` | `Record<surface, "in-sync" \| "stale">` | each **recorded** surface of the edited unit |
+| `state` | `"never" \| "in-sync" \| "stale" \| null` | the §19 unit rollup (`null` when the address is not one writable unit) |
+| `drift` | number | the measured drift-check count |
+| `limit` | `{cap, source, tier} \| null` | the applicable published cap, or `null` when the catalog has none |
+| `over` | boolean | the value exceeds that cap |
+| `variant` | string \| null | the active #238 variant shadowing the addressed platform |
+
+**Non-goal (explicit):** `edit` never decides *which variant is live* — that is
+`pasco refine --choose` (#238). What `edit` does is **name** the active variant so
+nobody edits a field the renderer ignores.
+
+Exit codes (one row per user-visible state, each pinned by a test):
+
+| Code | When |
+|---|---|
+| **0** | a read · a write · a noop · a preview that changes the artifact (over-cap included — D12: facts warn) |
+| **1** | the address is not exactly one row · the target is read-only or stale · the validation refused the result · a preview that does **not** reach the artifact |
+| **2** | usage: malformed address, unknown platform/lang, `--set` on a read-only link, `--check` without `--set`, an empty `--set`, a value with a line break, a block/multi-line/anchored scalar |
+
+**The agent loop ("verify my edit"):**
+
+```sh
+# 1. preview — what will be published, and does it fit?
+pasco edit 'headlines[platform=upwork,lang=en].text' --set "$TEXT" --check --json
+#    data.rendered = the published lines · data.over = cap pre-flight · data.variant = #238 shadow
+
+# 2. write only when the preview says what you meant
+pasco edit 'headlines[platform=upwork,lang=en].text' --set "$TEXT" --json
+#    data.written = the file changed · data.stale = the surfaces this invalidated
+
+# 3. read back (no --set) — the cheap confirmation the dogfood was missing
+pasco edit 'headlines[platform=upwork,lang=en].text' --json
+```
+
 ### Publication truth (derived — SPEC §20.1, #242)
 
 The `status` report ends with one line per surface that has a ledger record or an

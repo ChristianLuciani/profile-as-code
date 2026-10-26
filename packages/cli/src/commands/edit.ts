@@ -63,6 +63,7 @@ import {
 import { EXIT } from "../exit.js";
 import { type ApplicableLimit, applicableLimit, limitFindings } from "../limits.js";
 import { line, report, warn } from "../output.js";
+import { resolveVariantBody } from "../variant-store.js";
 import type { Pascorc } from "../workspace.js";
 
 export interface EditArgs {
@@ -570,6 +571,15 @@ export function runEdit(args: EditArgs): number {
     address.kind !== "link" && target.matches === 1
       ? limitPreflight(profile, address, proposed ?? (target.current as string))
       : undefined;
+  // #238 guard: an active variant supplies the whole artifact body, so the SSOT
+  // text this edit changes is NOT what gets published on that platform. Name the
+  // variant — never silently edit a field the renderer ignores.
+  let activeVariant: string | undefined;
+  if ((address.kind === "headline" || address.kind === "bio") && target.matches === 1) {
+    const slice = compileSlice(profile, address.platform, address.lang, args.pascorc);
+    const variant = resolveVariantBody(args.workspace, slice);
+    if (variant.text !== undefined && variant.id !== undefined) activeVariant = variant.id;
+  }
 
   if (proposed !== undefined && !noopValue && address.kind !== "link") {
     const located = target.locate;
@@ -651,6 +661,11 @@ export function runEdit(args: EditArgs): number {
 
   line(`address:  ${target.address.address}`);
   if (writing && outcome !== undefined) line(`file:     ${outcome.file}`);
+  if (activeVariant !== undefined && (address.kind === "headline" || address.kind === "bio")) {
+    line(
+      `variant:  ${activeVariant} is active for ${address.platform} — the artifact renders the variant body (pasco refine --choose), not this text`,
+    );
+  }
   if (target.matches === 1) {
     line(`current:  ${target.current}`);
     if (proposed !== undefined) {
@@ -783,6 +798,7 @@ export function runEdit(args: EditArgs): number {
               tier: preflight.limit.tier,
             },
       over: preflight?.over ?? false,
+      variant: activeVariant ?? null,
     },
   });
 }

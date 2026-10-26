@@ -384,6 +384,7 @@ describe("pasco edit — resolution, preview and write", () => {
         "state",
         "limit",
         "over",
+        "variant",
         "warnings",
         "written",
       ].sort(),
@@ -402,6 +403,7 @@ describe("pasco edit — resolution, preview and write", () => {
     // content/checks.yaml declares gh-bio-max (1000) without a `surface`, so it
     // scopes both rows (the executor's rule) — the workspace policy wins.
     expect(inner.limit).toEqual({ cap: 1000, source: "(no source recorded)", tier: "?" });
+    expect(inner.variant).toBeNull();
     expect(inner.over).toBe(false);
     expect(typeof inner.drift).toBe("number");
   });
@@ -766,6 +768,35 @@ describe("pasco edit — resolution, preview and write", () => {
     expect(json(r).data.drift).toBeGreaterThan(0);
   });
 
+  it("names the active variant shadowing the addressed platform (S5, #238 guard)", () => {
+    const dir = workspace();
+    mkdirSync(join(dir, "profiles", "github-readme", "variants"), { recursive: true });
+    writeFileSync(
+      join(dir, "profiles", "github-readme", "variants", "gh-en-2025-01.md"),
+      "# Body\n",
+    );
+    const r = edit(
+      dir,
+      "headlines[platform=github-readme,lang=en].text",
+      "--set",
+      "Nuevo",
+      "--check",
+      "--json",
+    );
+    expect(r.code).toBe(1); // the artifact is the variant body: the edit does not reach it
+    const parsed = json(r);
+    expect(parsed.data.variant).toBe("gh-en-2025-01");
+
+    const human = edit(
+      dir,
+      "headlines[platform=github-readme,lang=en].text",
+      "--set",
+      "Nuevo",
+      "--check",
+    );
+    expect(human.stdout).toContain("variant:  gh-en-2025-01 is active for github-readme");
+  });
+
   it("never touches a byte on disk (whole-workspace snapshot)", () => {
     const dir = workspace();
     const before = workspaceHash(dir);
@@ -781,6 +812,45 @@ describe("pasco edit — resolution, preview and write", () => {
     }
     expect(workspaceHash(dir)).toBe(before);
   });
+});
+
+describe("exit-code matrix (S5, #252)", () => {
+  const cases: [string, string[], number][] = [
+    ["read → 0", ["positioning.statement.en"], 0],
+    ["write → 0", ["bios[platform=linkedin,lang=en,length=medium].text", "--set", "New bio."], 0],
+    [
+      "noop → 0",
+      [
+        "positioning.statement.en",
+        "--set",
+        "AI engineer building sovereign, open-source AI infrastructure for education.",
+      ],
+      0,
+    ],
+    [
+      "preview that changes the artifact → 0",
+      ["headlines[platform=github-readme,lang=en].text", "--set", "H2", "--check"],
+      0,
+    ],
+    [
+      "preview that does not reach the artifact → 1",
+      ["headlines[platform=upwork,lang=en].text", "--set", "H2", "--check"],
+      1,
+    ],
+    ["0 rows → 1", ["headlines[platform=upwork,lang=fr].text"], 1],
+    ["read-only link --set → 2", ["identity.links[platform=github].url", "--set", "x"], 2],
+    ["unknown address → 2", ["positioning.foo"], 2],
+    ["unknown platform → 2", ["headlines[platform=gitlab,lang=en].text"], 2],
+    ["--check without --set → 2", ["positioning.statement.en", "--check"], 2],
+    ["empty --set → 2", ["positioning.statement.en", "--set", ""], 2],
+    ["line break in --set → 2", ["positioning.statement.en", "--set", "a\nb"], 2],
+  ];
+  for (const [name, args, code] of cases) {
+    it(name, () => {
+      const dir = workspace();
+      expect(edit(dir, ...args).code).toBe(code);
+    });
+  }
 });
 
 describe("pasco edit — conformance with `pasco build` (F1)", () => {

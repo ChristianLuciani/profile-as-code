@@ -612,6 +612,20 @@ pasco edit 'headlines[platform=upwork,lang=en].text' --set "…" --json
 # data.limit = {cap, source, tier} · data.over = true · data.warnings = [...]
 ```
 
+**Verify an edit before and after the paste.** The editor is the one command that
+answers "what will be published?" without opening YAML:
+
+```sh
+pasco edit 'positioning.statement.en' --set "…" --check   # the published lines this edit changes
+pasco edit 'positioning.statement.en' --set "…"           # write it (one line, comments intact)
+pasco edit 'positioning.statement.en'                     # read it back — did it take?
+```
+
+`--json` is the machine contract (`address · current · proposed · rendered · ok ·
+noop · written · warnings · stale · state · drift · limit · over · variant`) and the
+exit codes are `0` ok/noop/preview-changes · `1` not one row/stale/read-only/preview
+without a change/validation · `2` usage — one test per row in the CLI README.
+
 `pasco edit` pre-flights **the value you are about to write** against the same
 catalogue and prints the cap with its cited source and tier; over-cap is a
 **warning, never a block** (the write still happens, because a fact that warns must
