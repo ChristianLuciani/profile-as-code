@@ -137,9 +137,10 @@ pasco --version                  # the bin — expect 0.3.6
 One global install: no clone, no build, nothing written outside the npm prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
-> **Status**: this guide tracks the released `@profile-as-code/cli@0.3.6` (tag `v0.3.6`,
-> cut 2026-10-26, CHANGELOG `[0.3.6]`); the npm publish is that release's irreversible
-> step — verify the published `latest` with `npm view @profile-as-code/cli version`.
+> **Status**: this guide tracks the release being cut: `@profile-as-code/cli@0.3.6`
+> (tag `v0.3.6` is pushed with it; 2026-10-26, CHANGELOG `[0.3.6]`); the npm publish is
+> that release's irreversible step — verify the published `latest` with
+> `npm view @profile-as-code/cli version`.
 > Previous published state [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-26]: version
 > `0.3.5` **public** and tagged `latest` (published 2026-10-24T03:50:05Z; tag `v0.3.5` →
 > `c69e6b7`). The 0.3.0 publication (2026-10-11T03:43:27Z; tag `v0.3.0` → `21e4cde`)
@@ -148,10 +149,10 @@ One global install: no clone, no build, nothing written outside the npm prefix.
 > version (`node packages/cli/dist/index.js --version` at `9c3a4bc`, 2026-10-26 →
 > `pasco 0.3.6`) — a local-build check, not a run of the published tarball.
 > Caveat, closing (#293): the engine repo is **public** (measured 2026-10-24) — `repository.url`
-> resolves for any reader now; the published versions keep **no attestation** (published while the
-> source was private; registry `dist.attestations` absent, re-checked 2026-10-24) and stay
-> permanent records; the attestation returns by itself at the **next** publish (STANDARDS §Order
-> ratified 2026-10-03). The key migration itself is **done**
+> resolves for any reader now. The 0.3.0 tarball predates the OIDC migration and carries
+> **no attestation** (registry `dist.attestations` absent when checked 2026-10-24) and stays a
+> permanent record; the 0.3.5 release carries npm-publish attestations + SLSA provenance v1
+> [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-26]. The key migration itself is **done**
 > ([#80](https://github.com/ChristianLuciani/profile-as-code/issues/80) closed; token deleted
 > in npm and GitHub).
 >
