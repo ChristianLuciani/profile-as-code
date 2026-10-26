@@ -63,10 +63,11 @@ y sin él `pasco` es válido pero no es lo que el proyecto promete. Además es l
 platform skills — que ahora viajan con el paquete (#253) — existen para alimentar.
 
 **2 · Epic `pasco edit` (#247)** — la superficie de edición sin YAML a la vista, para
-humanos y agentes. El plan S1–S5 (#248–#252) está parado en sus propias puertas de decisión
-(el S2, el write que preserva comentarios #249, es el que hay que decidir antes de escribir
-código); los slices **consumen** los ejes de publicación de #242 en vez de una segunda tabla
-de caps.
+humanos y agentes. S1 (#248) está implementado y en revisión: resuelve un contract path y
+previewa las líneas que el artefacto de `build` cambia, sin escribir. La decisión de S2
+(#249) está registrada (2026-10-21, `main@647c510`: splice por rango, bloques rechazados,
+no-op 0+`noop`) y desbloquea el write que preserva comentarios; los slices **consumen** los
+ejes de publicación de #242 en vez de una segunda tabla de caps.
 
 ### Después — superficie por plataforma
 
