@@ -29,6 +29,8 @@ import { join } from "node:path";
 import type { LoadedProfile, MediaAsset, Platform, PlatformProfile } from "@profile-as-code/core";
 import {
   collectMedia,
+  deployStatus,
+  driftCheck,
   LoadError,
   load,
   PLATFORMS,
@@ -428,6 +430,16 @@ function failLoad(err: unknown): number {
   throw err;
 }
 
+/** The §19.2 ledger key of the unit an address edits — `deployStatus` reads the
+ *  ledger by this key, so the report and `pasco status` cannot disagree. */
+function ledgerKeyOf(address: EditableAddress): string {
+  if (address.kind === "statement") return "positioning";
+  if (address.kind === "bio") {
+    return `bios:${address.platform}:${address.lang}:${address.length}`;
+  }
+  return `headlines:${address.platform}:${address.lang}`;
+}
+
 /** Human scope label of an address: which artifact(s) carry it. */
 function scopeLabel(address: EditAddress): string {
   if (address.kind === "statement") return "every rendered platform";
@@ -479,6 +491,10 @@ export function runEdit(args: EditArgs): number {
   let ok = target.matches === 1;
   let published: Published = { changes: [] };
   let outcome: WriteOutcome | undefined;
+  // S3 (#250): the edit's impact on what was already published — DERIVED from
+  // core's §19 ledger (`deployStatus`), never stored (SPEC §20).
+  let impact: { key: string; surfaces: Record<string, string>; state: string } | undefined;
+  let drift = 0;
 
   if (proposed !== undefined && !noopValue && address.kind !== "link") {
     const located = target.locate;
@@ -511,6 +527,10 @@ export function runEdit(args: EditArgs): number {
         throw err;
       }
       const applied = applyEdit(profile, { ...target, locate: located }, proposed);
+      const key = ledgerKeyOf(address);
+      const unit = deployStatus(applied).units.find((candidate) => candidate.key === key);
+      impact = { key, surfaces: unit?.surfaces ?? {}, state: unit?.state ?? "never" };
+      drift = driftCheck(applied).length;
       published = publishedByEdit(profile, applied, address, args.workspace, args.pascorc);
       if (published.error !== undefined && !writing) {
         return report("edit", false, EXIT.FAIL, {
@@ -566,7 +586,20 @@ export function runEdit(args: EditArgs): number {
         line("(noop) the proposed value is identical to the current one — nothing was written");
       } else if (outcome !== undefined) {
         line(outcome.noop ? "(noop) the file already held this value" : "written: yes");
-        line("validates: yes");
+        line(`validates: yes (schema; drift ${drift})`);
+      }
+      if (impact !== undefined) {
+        line(`surface impact (${impact.key} — derived from the §19 ledger, never stored):`);
+        const surfaces = Object.entries(impact.surfaces).sort(([a], [b]) => (a < b ? -1 : 1));
+        if (surfaces.length === 0) {
+          line("  never — no ledger record for this unit (no surface reads in-sync)");
+        } else {
+          for (const [surface, state] of surfaces) {
+            line(
+              `  ${surface} → ${state}${state === "stale" ? " (a record exists and this edit changes the unit's contentHash)" : ""}`,
+            );
+          }
+        }
       }
       if (published.changes.length > 0) {
         const lang = "lang" in address ? `/${address.lang}` : "";
@@ -636,6 +669,8 @@ export function runEdit(args: EditArgs): number {
       noop: outcome === undefined ? noopValue : outcome.noop,
       written: outcome !== undefined && !outcome.noop,
       warnings: published.error === undefined ? [] : [published.error],
+      stale: impact?.surfaces ?? {},
+      drift,
     },
   });
 }

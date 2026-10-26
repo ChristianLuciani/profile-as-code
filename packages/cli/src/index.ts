@@ -184,9 +184,12 @@ With --set --check it PREVIEWS instead: it renders the surface the way
 \`pasco build\` does — active variant (#238) → renderer → shared paste source,
 current vs proposed — and prints the artifact lines the edit changes, saying so
 (with the reason) when the edit does not reach the artifact.
+Every preview/write also prints the edited unit's SURFACE IMPACT from the §19
+ledger (each recorded surface → stale; no record → never — derived, never stored),
+and the drift count.
 \`--json\` payload { address, current, proposed, rendered, ok, noop, written,
-warnings } inside the usual envelope (command · ok · exitCode); warnings carries a
-non-blocking finding the write proceeded through (a selection error).
+warnings, stale, drift } inside the usual envelope (command · ok · exitCode);
+warnings carries a non-blocking finding the write proceeded through.
 Exit: 0 written / noop / the preview changes the artifact · 1 the address did not
 resolve to exactly one row, the target is read-only or changed under the command
 (stale — nothing was written), the validation refused the result, or (preview) the

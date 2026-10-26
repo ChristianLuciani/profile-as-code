@@ -166,9 +166,19 @@ duplicate bio (`drift/duplicate-bio`), or two links on one platform (add
 resolves to **0 rows** is reported with the addresses the workspace does have;
 `edit` never creates rows.
 
+**What the edit invalidates (S3, #250).** Every preview and every write also
+reports the edited unit's **surface impact**: the §19 ledger is consulted by
+ledger key (`bios:<platform>:<lang>:<length>`, `headlines:<platform>:<lang>`,
+`positioning`) and each recorded surface prints its state — `stale` when the edit
+changes the unit's `contentHash`, and `never` when the unit has no record. It is
+**derived on every read and stored nowhere** (SPEC §20), from the same
+`deployStatus` `pasco status` uses, so the two commands cannot disagree. The same
+block carries the drift count (`validates: yes (schema; drift N)`).
+
 `--json` payload (inside the CLI's usual envelope, which also carries `command`,
 `ok` and `exitCode`): `{ address, current, proposed, rendered, ok, noop, written,
-warnings }`. `rendered` is the published text the edit produces (or `null`),
+warnings, stale, drift }` — `stale` maps each recorded surface to
+`in-sync|stale|never`, `drift` is the drift-check count of the edited profile. `rendered` is the published text the edit produces (or `null`),
 `noop` says the value was already there, `written` says the file changed, and
 `warnings` carries the non-blocking findings a write proceeded through (a D22/§21
 selection error that makes `pasco build` refuse the workspace — the SSOT write is

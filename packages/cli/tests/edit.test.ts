@@ -357,7 +357,7 @@ describe("pasco edit — resolution, preview and write", () => {
     expect(r.stdout).toContain("(noop)");
   });
 
-  it("--json carries { address, current, proposed, rendered, ok, noop, written }", () => {
+  it("--json carries the full edit payload (incl. stale + drift)", () => {
     const dir = workspace();
     const r = edit(
       dir,
@@ -372,7 +372,18 @@ describe("pasco edit — resolution, preview and write", () => {
     expect(parsed.ok).toBe(true);
     const inner = parsed.data as Record<string, unknown>;
     expect(Object.keys(inner).sort()).toEqual(
-      ["address", "current", "noop", "ok", "proposed", "rendered", "warnings", "written"].sort(),
+      [
+        "address",
+        "current",
+        "drift",
+        "noop",
+        "ok",
+        "proposed",
+        "rendered",
+        "stale",
+        "warnings",
+        "written",
+      ].sort(),
     );
     expect(inner.address).toBe("headlines[platform=github-readme,lang=en].text");
     expect(inner.current).toBe("Sovereign AI infrastructure engineer");
@@ -381,6 +392,8 @@ describe("pasco edit — resolution, preview and write", () => {
     expect(inner.ok).toBe(true);
     expect(inner.noop).toBe(false);
     expect(inner.written).toBe(false);
+    expect(inner.stale).toEqual({});
+    expect(typeof inner.drift).toBe("number");
   });
 
   it("names the active variant when it shadows the edited field (#238)", () => {
@@ -443,6 +456,60 @@ describe("pasco edit — resolution, preview and write", () => {
     const r = edit(dir, "headlines[platform=x,platform=linkedin,lang=en].text");
     expect(r.code).toBe(2);
     expect(r.stderr).toContain('selector "platform" given twice');
+  });
+
+  it("reports the recorded surface as stale (S3, #250)", () => {
+    const dir = workspace();
+    writeFileSync(
+      join(dir, "content", "deployments.yaml"),
+      'bios:linkedin:en:medium:\n  linkedin:\n    deployedAt: "2025-01-15T09:30:00Z"\n    contentHash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n    source: manual\n',
+    );
+    const r = edit(
+      dir,
+      "bios[platform=linkedin,lang=en,length=medium].text",
+      "--set",
+      "Nueva bio.",
+      "--json",
+    );
+    expect(r.code).toBe(0);
+    const parsed = json(r);
+    expect(parsed.data.stale).toEqual({ linkedin: "stale" });
+    expect(parsed.data.drift).toBe(0);
+
+    const text = edit(
+      dir,
+      "bios[platform=linkedin,lang=en,length=medium].text",
+      "--set",
+      "Otra bio.",
+      "--check",
+    );
+    expect(text.code).toBe(0);
+    expect(text.stdout).toContain("surface impact (bios:linkedin:en:medium");
+    expect(text.stdout).toContain("linkedin → stale");
+  });
+
+  it("reads never when the unit has no ledger record", () => {
+    const dir = workspace();
+    const r = edit(
+      dir,
+      "bios[platform=linkedin,lang=en,length=medium].text",
+      "--set",
+      "Sin ledger.",
+    );
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("never — no ledger record for this unit");
+  });
+
+  it("does not report an impact for a noop (nothing changes)", () => {
+    const dir = workspace();
+    const r = edit(
+      dir,
+      "positioning.statement.en",
+      "--set",
+      "AI engineer building sovereign, open-source AI infrastructure for education.",
+    );
+    expect(r.code).toBe(0);
+    expect(r.stdout).not.toContain("surface impact");
   });
 
   it("never touches a byte on disk (whole-workspace snapshot)", () => {
