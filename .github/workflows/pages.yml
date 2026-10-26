@@ -9,17 +9,19 @@ name: pages
 # override: the operator decides to publish (say) a typo fix without cutting a
 # release, and the run records that decision.
 #
-# DEPLOY GATE — the environment allows only `main` and `gh-pages` (measured 2026-10-26,
-# `/environments/github-pages/deployment-branch-policies`), so a tag-origin deploy fails on the
-# protection rule: v0.3.5's call (`Tag "v0.3.5" is not allowed to deploy to github-pages due to
-# environment protection rules`; its publish/Release legs succeeded) and the page recovered with
-# this workflow's own dispatch:
+# DEPLOY GATE — `github-pages` carries `tag v*` beside `branch main` / `branch gh-pages` since
+# 2026-10-26 (`/environments/github-pages/deployment-branch-policies`), so the release workflow's
+# tag run is expected to deploy its own page (first measured at #327). Before that, a tag-origin
+# deploy failed on the protection rule:
+# v0.3.5's call (`Tag "v0.3.5" is not allowed to deploy to github-pages due to environment
+# protection rules`; its publish/Release legs succeeded) and the page recovered with this
+# workflow's own dispatch:
 #   gh workflow run pages.yml --ref main -f ref=<commit> -f release=<tag>
 # (run 40061075031, success; without `release` the footer line is omitted — `gen.mjs` renders
 # it only with the label, measured twice). Camino (c) of the #307 docket was **ratified** on
 # 2026-10-24 (https://github.com/ChristianLuciani/profile-as-code/issues/307#issuecomment-6386416707) — the tag run is the release
-# path and this dispatch is the override — but ratified is not configured: adding a tag policy
-# to `github-pages` is the operator's precondition, owned by #327 with the first measurement.
+# path and this dispatch is the override; the tag policy landed on 2026-10-26, and #327 owns the
+# first measured cycle.
 # The page is static and script-free; its documentation pages are projected from
 # the Markdown at the deployed commit (`scripts/site-docs/gen.mjs`) into the
 # gitignored `site/docs/`, so the repository keeps ONE copy of every document.
