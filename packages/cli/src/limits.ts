@@ -15,6 +15,16 @@
 
 import type { LoadedProfile, Platform } from "@profile-as-code/core";
 
+/** The cap that applies to one row, with its evidence — the edit-time pre-flight
+ *  (#251) asks this before the paste; `check` reports the overflows. */
+export interface ApplicableLimit {
+  cap: number;
+  /** The catalog row's `note`: source + full date + provenance tier. */
+  source: string;
+  tier: "OFICIAL" | "EXPERTO" | "BENCHMARK" | "?";
+  checkId?: string;
+}
+
 /** A text-limit finding is WARN by contract (D12: facts warn, schema fails). */
 export interface LimitFinding {
   severity: "warn";
@@ -47,6 +57,36 @@ function limitRows(profile: LoadedProfile): {
       path: `bios:${b.platform}:${b.lang}:${b.length}`,
     })),
   ];
+}
+
+/**
+ * The STRICTEST `max-chars` cap that applies to one platform+surface, or
+ * `undefined` when the catalog has no sourced cap for it (the caller must say
+ * `cap: unknown`, never guess a number — evidence rule).
+ */
+export function applicableLimit(
+  checks: LoadedProfile["checks"],
+  platform: string,
+  surface: "headline" | "bio",
+): ApplicableLimit | undefined {
+  let best: ApplicableLimit | undefined;
+  for (const check of checks) {
+    if (check.rule !== "max-chars") continue;
+    if (typeof check.value !== "number" || !Number.isFinite(check.value)) continue;
+    if (check.platform !== "all" && check.platform !== platform) continue;
+    const scope = check.surface ?? "both";
+    if (scope !== "both" && scope !== surface) continue;
+    if (best !== undefined && check.value >= best.cap) continue;
+    const note = check.note ?? "(no source recorded)";
+    const tier = /^\[(OFICIAL|EXPERTO|BENCHMARK|\?)\]/.exec(note)?.[1] ?? "?";
+    best = {
+      cap: check.value,
+      source: note,
+      tier: tier as ApplicableLimit["tier"],
+      ...(check.id === undefined ? {} : { checkId: check.id }),
+    };
+  }
+  return best;
 }
 
 /**

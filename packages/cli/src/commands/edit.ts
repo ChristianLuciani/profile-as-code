@@ -52,6 +52,7 @@ import {
   parseEditAddress,
   UsageError,
 } from "../contract.js";
+import { DEFAULT_CHECKS } from "../default-checks.js";
 import {
   inspectTarget,
   StaleEditError,
@@ -60,7 +61,8 @@ import {
   writeEdit,
 } from "../edit-write.js";
 import { EXIT } from "../exit.js";
-import { line, report } from "../output.js";
+import { type ApplicableLimit, applicableLimit } from "../limits.js";
+import { line, report, warn } from "../output.js";
 import type { Pascorc } from "../workspace.js";
 
 export interface EditArgs {
@@ -456,6 +458,34 @@ function ledgerImpact(profile: LoadedProfile, address: EditableAddress): LedgerI
   return { key, state: unit?.state ?? "never", surfaces: unit?.surfaces ?? {} };
 }
 
+/** The text-limit pre-flight of one row (#251): the catalog's own cap, with its
+ *  cited source, or `undefined` when the catalog has none (never a guessed
+ *  number — evidence rule). WARN, not a block (D12). */
+interface LimitPreflight {
+  limit?: ApplicableLimit;
+  length: number;
+  over: boolean;
+  surface: "headline" | "bio";
+}
+
+function limitPreflight(
+  profile: LoadedProfile,
+  address: EditableAddress,
+  text: string,
+): LimitPreflight | undefined {
+  if (address.kind === "statement") return undefined; // no published cap on a statement
+  const surface = address.kind === "bio" ? "bio" : "headline";
+  const checks = profile.checks.length > 0 ? profile.checks : DEFAULT_CHECKS;
+  const limit = applicableLimit(checks, address.platform, surface);
+  const length = [...text].length;
+  return {
+    ...(limit === undefined ? {} : { limit }),
+    length,
+    over: limit !== undefined && length > limit.cap,
+    surface,
+  };
+}
+
 /** Human scope label of an address: which artifact(s) carry it. */
 function scopeLabel(address: EditAddress): string {
   if (address.kind === "statement") return "every rendered platform";
@@ -514,6 +544,10 @@ export function runEdit(args: EditArgs): number {
   let impact: LedgerImpact | undefined;
   let drift = driftCheck(profile).length;
   if (address.kind !== "link" && target.matches === 1) impact = ledgerImpact(profile, address);
+  const preflight =
+    address.kind !== "link" && target.matches === 1
+      ? limitPreflight(profile, address, proposed ?? (target.current as string))
+      : undefined;
 
   if (proposed !== undefined && !noopValue && address.kind !== "link") {
     const located = target.locate;
@@ -655,6 +689,25 @@ export function runEdit(args: EditArgs): number {
     });
   }
 
+  if (preflight !== undefined) {
+    const scope = `${address.kind === "bio" ? "bio" : "headline"}`;
+    if (preflight.limit === undefined) {
+      line(
+        `limits: ${preflight.length} chars — cap unknown (no sourced max-chars for this ${scope})`,
+      );
+    } else {
+      const over = preflight.over ? " — OVER" : " — ok";
+      line(
+        `limits: ${preflight.length} chars vs cap ${preflight.limit.cap}${preflight.limit.checkId === undefined ? "" : ` (${preflight.limit.checkId})`}${over}${preflight.limit.tier === "?" ? "" : ` — [${preflight.limit.tier}]`} — ${preflight.limit.source}`,
+      );
+      if (preflight.over) {
+        warn(
+          `${scope} is ${preflight.length} chars, over the published cap ${preflight.limit.cap} — the platform may truncate it (${preflight.limit.source})`,
+        );
+      }
+    }
+  }
+
   if (impact !== undefined) {
     // The ledger tracks the SSOT UNIT, the published block tracks the ARTIFACT:
     // an edit can invalidate a recorded surface while no artifact changes (a
@@ -699,6 +752,15 @@ export function runEdit(args: EditArgs): number {
       stale: impact?.surfaces ?? {},
       state: impact?.state ?? null,
       drift,
+      limit:
+        preflight?.limit === undefined
+          ? null
+          : {
+              cap: preflight.limit.cap,
+              source: preflight.limit.source,
+              tier: preflight.limit.tier,
+            },
+      over: preflight?.over ?? false,
     },
   });
 }

@@ -60,7 +60,7 @@ commands above are the standalone path.
 | `pasco init [dir]` | Scaffold a profile-data workspace (`content/identity.yaml`, `README.md`, `.pascorc`) — `pasco validate`-clean | ✅ |
 | `pasco validate [--json]` | Schema **fail** (exit 1) + drift/geo **warn** (exit 0) — D12 | ✅ |
 | `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (the eight registered in the generated renderer map) write `profiles/<platform>/README.md` + bundled media; renderer-less manual surfaces with a bio row write `profiles/<platform>.md` (#239). Empty render = no-trace unbuild of the generated output, preserving `profiles/<platform>/variants/` (chosen-variant input, #238; pure profiles/, §15.1 — v1.7). Media in `profiles/<platform>/assets/` + `assets/manifest.json` (M8/§18.6 — see `docs/media-pipeline.md`) | ✅ |
-| `pasco edit <contract-path> [--set <text> [--check]]` | Resolve **one** contract field by contract path; `--set` **writes it** (comment-preserving range splice, validated, atomic) and `--set --check` previews the **published lines the edit changes** (or says it changes nothing). Epic #247, S1–S3 landed; S4–S5 (caps before paste, agent contract) are the next slices | 🚧 S1–S3 (read · preview · write · surface impact) |
+| `pasco edit <contract-path> [--set <text> [--check]]` | Resolve **one** contract field by contract path; `--set` **writes it** (comment-preserving range splice, validated, atomic) and `--set --check` previews the **published lines the edit changes** (or says it changes nothing). Epic #247, S1–S4 landed; S5 (agent contract) is the last slice | 🚧 S1–S4 (read · preview · write · surface impact · cap pre-flight) |
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never · **certification** (verified/attested/unverifiable/out-of-band-drift, §19.5) + the derived **publication truth** per surface (§20.1, #242) + ledger write paths (D18, §19) | ✅ |
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13); the chosen body is `profiles/<platform>/variants/<id>.md` (a complete platform artifact), rendered by `pasco build` (#238) | 🚧 template + `--choose` (full flow M3) |
@@ -180,9 +180,17 @@ the published block tracks the **artifact**: an edit can invalidate a recorded
 surface while no artifact changes (a headline on a paste-only surface), and both
 lines are true.
 
+**The cap pre-flight (S4, #251).** Before a headline/bio value is accepted, the
+edit measures it against the catalog's own `max-chars` cap — `content/checks.yaml`
+when the workspace declares checks, the sourced `DEFAULT_CHECKS` catalog otherwise
+— and prints the cap, its **cited source** and its provenance tier. Over-cap is a
+**warning**, never a block (D12: facts warn, schema fails): `edit` says so, `check`
+reports the same finding (same executor), and a platform with **no sourced cap**
+says `cap: unknown` instead of guessing a number.
+
 `--json` payload (inside the CLI's usual envelope, which also carries `command`,
 `ok` and `exitCode`): `{ address, current, proposed, rendered, ok, noop, written,
-warnings, stale, state, drift }` — `stale` maps each **recorded** surface to
+warnings, stale, state, drift, limit, over }` — `stale` maps each **recorded** surface to
 `in-sync|stale`, `state` is the §19 unit rollup (`never` when the unit has no
 record; `null` for a read-only link or an address that is not one row), and
 `drift` is the measured drift-check count (never a defaulted 0). `rendered` is the published text the edit produces (or `null`),

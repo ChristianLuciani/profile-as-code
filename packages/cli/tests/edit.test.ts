@@ -382,6 +382,8 @@ describe("pasco edit — resolution, preview and write", () => {
         "rendered",
         "stale",
         "state",
+        "limit",
+        "over",
         "warnings",
         "written",
       ].sort(),
@@ -397,6 +399,10 @@ describe("pasco edit — resolution, preview and write", () => {
     // A recorded surface would read in-sync|stale; with no record the unit's
     // rollup is `never` (the acceptance's "no record reads never").
     expect(inner.state).toBe("never");
+    // content/checks.yaml declares gh-bio-max (1000) without a `surface`, so it
+    // scopes both rows (the executor's rule) — the workspace policy wins.
+    expect(inner.limit).toEqual({ cap: 1000, source: "(no source recorded)", tier: "?" });
+    expect(inner.over).toBe(false);
     expect(typeof inner.drift).toBe("number");
   });
 
@@ -460,6 +466,86 @@ describe("pasco edit — resolution, preview and write", () => {
     const r = edit(dir, "headlines[platform=x,platform=linkedin,lang=en].text");
     expect(r.code).toBe(2);
     expect(r.stderr).toContain('selector "platform" given twice');
+  });
+
+  it("warns before the paste when the value exceeds the sourced cap (S4, #251)", () => {
+    const dir = workspace();
+    rmSync(join(dir, "content", "checks.yaml")); // fall back to the DEFAULT_CHECK catalog
+    const r = edit(
+      dir,
+      "headlines[platform=github-readme,lang=en].text",
+      "--set",
+      "x".repeat(300),
+      "--check",
+      "--json",
+    );
+    expect(r.code).toBe(0);
+    const parsed = json(r);
+    expect(parsed.data.over).toBe(true);
+    const limit = parsed.data.limit as { cap: number; source: string; tier: string };
+    expect(limit.cap).toBe(280);
+    expect(limit.tier).toBe("?");
+    expect(limit.source).toContain("editorial soft cap");
+    expect(limit.source).toMatch(/\[\?\]|\[OFICIAL\]|\[EXPERTO\]|\[BENCHMARK\]/);
+
+    const text = edit(
+      dir,
+      "headlines[platform=github-readme,lang=en].text",
+      "--set",
+      "x".repeat(300),
+      "--check",
+    );
+    expect(text.stdout).toContain("OVER");
+    expect(text.stderr).toContain("over the published cap 280");
+  });
+
+  it("uses the workspace's own catalog over the defaults", () => {
+    const dir = workspace(); // content/checks.yaml: x-bio-short = 280
+    const r = edit(
+      dir,
+      "bios[platform=x,lang=en,length=short].text",
+      "--set",
+      "y".repeat(300),
+      "--check",
+      "--json",
+    );
+    expect(r.code).toBe(0);
+    const parsed = json(r);
+    expect(parsed.data.over).toBe(true);
+    expect((parsed.data.limit as { cap: number }).cap).toBe(280);
+  });
+
+  it("says cap unknown when the catalog has no sourced cap", () => {
+    const dir = workspace();
+    rmSync(join(dir, "content", "checks.yaml")); // DEFAULT_CHECK has no linkedin cap
+    const r = edit(
+      dir,
+      "bios[platform=linkedin,lang=en,length=medium].text",
+      "--set",
+      "A short bio.",
+      "--check",
+      "--json",
+    );
+    expect(r.code).toBe(0);
+    const parsed = json(r);
+    expect(parsed.data.limit).toBeNull();
+    expect(parsed.data.over).toBe(false);
+  });
+
+  it("never BLOCKS an over-cap write (D12: facts warn)", () => {
+    const dir = workspace();
+    rmSync(join(dir, "content", "checks.yaml"));
+    const r = edit(
+      dir,
+      "headlines[platform=upwork,lang=en].text",
+      "--set",
+      "x".repeat(80),
+      "--json",
+    );
+    expect(r.code).toBe(0);
+    const parsed = json(r);
+    expect(parsed.data.written).toBe(true);
+    expect(parsed.data.over).toBe(true);
   });
 
   it("reports the recorded surface as stale (S3, #250)", () => {
