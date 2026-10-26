@@ -14,12 +14,16 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  chmodSync,
   cpSync,
   existsSync,
+  lstatSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -27,8 +31,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { LoadError } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
-import { UsageError } from "../src/contract.js";
-import { writeEdit } from "../src/edit-write.js";
+import { StaleEditError, writeEdit } from "../src/edit-write.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI = join(__dirname, "..", "dist", "index.js");
@@ -266,8 +269,109 @@ describe("pasco edit — S2 writer (range splice)", () => {
         target: { file: "content/bios.yaml", path: [99, "text"] },
         value: "X",
       }),
-    ).toThrow(UsageError);
+    ).toThrow(StaleEditError);
     expect(hashOf(fileOf(dir))).toBe(before);
+  });
+
+  it("refuses an ANCHORED scalar (rewriting it would change every alias)", () => {
+    const dir = workspace();
+    writeFileSync(
+      fileOf(dir, "headlines.yaml"),
+      "- platform: x\n  lang: en\n  text: &voice Anchored\n- platform: linkedin\n  lang: en\n  text: *voice\n",
+    );
+    const before = hashOf(fileOf(dir, "headlines.yaml"));
+    const r = run(dir, "edit", "headlines[platform=x,lang=en].text", "--set", "Changed");
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("anchor");
+    const alias = run(dir, "edit", "headlines[platform=linkedin,lang=en].text", "--set", "Changed");
+    expect(alias.code).toBe(2);
+    expect(alias.stderr).toContain("alias");
+    expect(hashOf(fileOf(dir, "headlines.yaml"))).toBe(before);
+  });
+
+  it("refuses to splice when the file moved since the preview (stale expect)", () => {
+    const dir = workspace();
+    const before = hashOf(fileOf(dir));
+    expect(() =>
+      writeEdit({
+        workspace: dir,
+        target: { file: "content/bios.yaml", path: [2, "text"] },
+        value: "New",
+        expect: "something the file does not hold",
+      }),
+    ).toThrow(StaleEditError);
+    expect(hashOf(fileOf(dir))).toBe(before);
+  });
+
+  it("keeps a symlinked content file a symlink and updates its target", () => {
+    const dir = workspace();
+    const realDir = mkdtempSync(join(tmpdir(), "pasco-write-real-"));
+    tempDirs.push(realDir);
+    const real = join(realDir, "headlines.yaml");
+    writeFileSync(real, "- platform: x\n  lang: en\n  text: Old\n");
+    rmSync(fileOf(dir, "headlines.yaml"));
+    symlinkSync(real, fileOf(dir, "headlines.yaml"));
+    const r = run(dir, "edit", "headlines[platform=x,lang=en].text", "--set", "Via link");
+    expect(r.code).toBe(0);
+    expect(lstatSync(fileOf(dir, "headlines.yaml")).isSymbolicLink()).toBe(true);
+    expect(readFileSync(real, "utf8")).toContain("Via link");
+  });
+
+  it("preserves the file mode (a read-only content file stays read-only)", () => {
+    const dir = workspace();
+    chmodSync(fileOf(dir, "headlines.yaml"), 0o444);
+    const r = run(dir, "edit", "headlines[platform=x,lang=en].text", "--set", "Still read-only");
+    expect(r.code).toBe(0);
+    expect(readFileSync(fileOf(dir, "headlines.yaml"), "utf8")).toContain("Still read-only");
+    expect(statSync(fileOf(dir, "headlines.yaml")).mode & 0o777).toBe(0o444);
+  });
+
+  it("quotes a flow-row value that needs it (round-trip through the parser)", () => {
+    const dir = workspace();
+    writeFileSync(fileOf(dir, "headlines.yaml"), "- {platform: x, lang: en, text: Old}\n");
+    const r = run(dir, "edit", "headlines[platform=x,lang=en].text", "--set", "a, b");
+    expect(r.code).toBe(0);
+    const after = readFileSync(fileOf(dir, "headlines.yaml"), "utf8");
+    expect(after.trim()).toBe('- {platform: x, lang: en, text: "a, b"}');
+  });
+
+  it("preserves a missing final newline and a single-quoted scalar", () => {
+    const dir = workspace();
+    writeFileSync(fileOf(dir, "headlines.yaml"), "- platform: x\n  lang: en\n  text: 'Old'");
+    const r = run(dir, "edit", "headlines[platform=x,lang=en].text", "--set", "New");
+    expect(r.code).toBe(0);
+    const after = readFileSync(fileOf(dir, "headlines.yaml"), "utf8");
+    expect(after).toBe("- platform: x\n  lang: en\n  text: New");
+  });
+
+  it("reports a write failure (read-only directory) without leaking a temp path", () => {
+    const dir = workspace();
+    const before = hashOf(fileOf(dir));
+    chmodSync(join(dir, "content"), 0o555);
+    try {
+      const r = run(dir, "edit", "headlines[platform=x,lang=en].text", "--set", "Blocked");
+      expect(r.code).toBe(1);
+      expect(r.stderr).toContain("could not write");
+      expect(r.stderr).not.toContain("/var/");
+      expect(r.stderr).not.toContain("/tmp/");
+      expect(hashOf(fileOf(dir))).toBe(before);
+    } finally {
+      chmodSync(join(dir, "content"), 0o755);
+    }
+  });
+
+  it("--json surfaces the selection warning of a write it proceeds with", () => {
+    const dir = workspace();
+    writeFileSync(
+      join(dir, ".pascorc"),
+      '{ "selection": { "default": { "excludeKeys": ["projects:nope"] } } }\n',
+    );
+    const r = run(dir, "edit", "headlines[platform=x,lang=en].text", "--set", "Warned", "--json");
+    expect(r.code).toBe(0);
+    const parsed = JSON.parse(r.stdout) as { data: Record<string, unknown> };
+    expect(parsed.data.written).toBe(true);
+    expect(parsed.data.warnings).toHaveLength(1);
+    expect(String((parsed.data.warnings as string[])[0])).toContain("excludes");
   });
 
   it("writes a langMap value (positioning.statement.<lang>)", () => {

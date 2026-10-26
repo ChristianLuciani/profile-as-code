@@ -172,8 +172,11 @@ Without --set it prints the current value. With --set it WRITES the value — a
 byte-range splice over the original text (the CST locates, it never
 re-serializes), so comments, layout and CRLF survive and the diff is one line;
 the result is validated by load()+schema over a temp copy and only then replaces
-the file atomically. Block scalars (|, >) and multi-line scalars are refused
-v1; re-setting an identical value is a noop (exit 0, nothing written).
+the file atomically. Block scalars (|, >), multi-line scalars and anchored or
+aliased scalars are refused in v1 (they would move the line count or silently
+change every alias); re-setting an identical value is a noop (exit 0, nothing
+written). The PREVIEW applies the same checks, so --check never promises a write
+--set refuses.
 With --set --check it PREVIEWS instead: it renders the surface the way
 \`pasco build\` does — active variant (#238) → renderer → shared paste source,
 current vs proposed — and prints the artifact lines the edit changes, saying so

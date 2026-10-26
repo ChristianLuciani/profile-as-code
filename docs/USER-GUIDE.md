@@ -437,9 +437,10 @@ Three habits that prevent almost every first-run error:
    not a bug, it is the file. Paste it in `content/bios.yaml`.
 2. **One value, one line.** Multi-line YAML block scalars (`|`, `>`) are legal
    YAML, but `pasco edit` (epic #247) writes single-line scalars only: it refuses
-   a block or multi-line value — and a `--set` containing a line break — and
-   leaves the file untouched. Keep scalars single-line and the editor can always
-   rewrite them with a one-line diff.
+   a block or multi-line value (and a `--set` containing a line break) — and an
+   anchored/aliased scalar, which would silently change every alias — leaving the
+   file untouched. Keep scalars single-line and the editor can always rewrite
+   them with a one-line diff.
 3. **Validate after each edit, not after five.** A schema failure names the file
    and the value; five edits later, the message still names the file but you no
    longer remember which change caused it.

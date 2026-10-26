@@ -1,12 +1,14 @@
 /**
- * `pasco edit` — S1 of epic #247: contract-path resolution + `--check`, and the
- * two invariants that make the slice shippable before S2's write exists:
+ * `pasco edit` — contract-path resolution + `--check` (S1 of epic #247) and the
+ * writer it delegates to (S2, #249, pinned in `edit-write.test.ts`). Invariants:
  *
- *  1. NOTHING on disk is touched (asserted on a whole-workspace snapshot).
+ *  1. A READ or a PREVIEW never touches disk (whole-workspace snapshot).
  *  2. The preview is what `pasco build` PUBLISHES, not the addressed row's own
- *     text (premerge review of PR #331, F1). The conformance test at the bottom
- *     applies the same edit to the workspace, runs `build`, and asserts the
- *     previewed text is in the artifact bytes.
+ *     text (premerge review of PR #331, F1). The conformance tests at the bottom
+ *     apply the same edit to the workspace, run `build`, and assert the previewed
+ *     text is in the artifact bytes.
+ *  3. The preview refuses exactly what the write refuses (multi-line/block
+ *     scalars, anchors) — F1 of the premerge review of PR #332.
  *
  * Runs the BUILT binary (`pnpm test` builds first) against a copy of the core
  * `minimal` fixture, so a test never mutates a committed fixture.
@@ -42,6 +44,33 @@ function workspace(): string {
   const dir = mkdtempSync(join(tmpdir(), "pasco-edit-"));
   tempDirs.push(dir);
   cpSync(MINIMAL, dir, { recursive: true });
+  // The committed fixture wraps 5 of its 6 bios; the writer (and therefore the
+  // preview, which must refuse what the write refuses) accepts single-line
+  // scalars only, so the test workspace carries the same VALUES, one line each.
+  writeFileSync(
+    join(dir, "content", "bios.yaml"),
+    `- platform: github-readme
+  lang: en
+  length: long
+  text: Elena Vasquez builds sovereign AI infrastructure.
+- platform: github-readme
+  lang: en
+  length: short
+  text: Sovereign AI infrastructure · open-source education.
+- platform: linkedin
+  lang: en
+  length: medium
+  text: Senior AI engineer designing local-first LLM infrastructure.
+- platform: linkedin
+  lang: es
+  length: medium
+  text: Ingeniera senior de IA diseñando infraestructura local-first.
+- platform: upwork
+  lang: en
+  length: long
+  text: "I architect sovereign AI stacks: model routing, local inference, and evaluation pipelines for teams that want provider independence."
+`,
+  );
   return dir;
 }
 afterAll(() => {
@@ -99,7 +128,7 @@ function json(r: RunResult): { ok: boolean; data: Record<string, unknown> } {
   return JSON.parse(r.stdout) as { ok: boolean; data: Record<string, unknown> };
 }
 
-describe("pasco edit — S1 resolution (read-only)", () => {
+describe("pasco edit — resolution, preview and write", () => {
   it("prints the current value of a lang-only address", () => {
     const dir = workspace();
     const r = edit(dir, "positioning.statement.en");
@@ -291,6 +320,21 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     expect(available).toContain("positioning.statement.en");
   });
 
+  it("refuses to PREVIEW a multi-line scalar the write would refuse (F1)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pasco-edit-wrapped-"));
+    tempDirs.push(dir);
+    cpSync(MINIMAL, dir, { recursive: true }); // the committed fixture wraps its bios
+    const r = edit(
+      dir,
+      "bios[platform=linkedin,lang=en,length=medium].text",
+      "--set",
+      "New",
+      "--check",
+    );
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("multi-line scalar");
+  });
+
   it("writes when --check is absent (S2, #249) and previews with it", () => {
     const dir = workspace();
     const check = edit(dir, "positioning.statement.en", "--set", "New statement", "--check");
@@ -345,7 +389,7 @@ describe("pasco edit — S1 resolution (read-only)", () => {
     expect(parsed.ok).toBe(true);
     const inner = parsed.data as Record<string, unknown>;
     expect(Object.keys(inner).sort()).toEqual(
-      ["address", "current", "noop", "ok", "proposed", "rendered", "written"].sort(),
+      ["address", "current", "noop", "ok", "proposed", "rendered", "warnings", "written"].sort(),
     );
     expect(inner.address).toBe("headlines[platform=github-readme,lang=en].text");
     expect(inner.current).toBe("Sovereign AI infrastructure engineer");
@@ -477,7 +521,7 @@ describe("pasco edit — conformance with `pasco build` (F1)", () => {
     writeFileSync(
       bios,
       readFileSync(bios, "utf8").replace(
-        "  text: Senior AI engineer designing local-first LLM infrastructure used by 12+\n    deployments. Previously ML engineer at Dataforge. 8 years in ML platforms.\n",
+        "  text: Senior AI engineer designing local-first LLM infrastructure.\n",
         "  text: Shorter bio text\n",
       ),
     );

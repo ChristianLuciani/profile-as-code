@@ -127,9 +127,14 @@ a temp file in the same directory, is validated by `load()` + schema over a temp
 copy of `content/`, and only then replaces the file atomically — **an invalid
 edit never reaches disk**. CRLF and the final newline are preserved. Block scalars
 (`|`, `>`) and multi-line scalars are **refused** in v1 (a replacement would change
-the line count); re-setting an identical value is a **noop** (exit 0, nothing
-written). Rows the artifact does not emit can still be written — the command says
-*what* was written and *whether it publishes*, separately.
+the line count), and so are **anchored/aliased** scalars (rewriting one would
+silently change every alias). The file's node must still hold the value the
+command resolved — a row inserted or reordered since the preview is a
+**staleness** refusal (exit 1), not a silent write to the wrong row. A symlinked
+content file keeps its link (the target is replaced) and the file mode is
+preserved. Re-setting an identical value is a **noop** (exit 0, nothing written).
+Rows the artifact does not emit can still be written — the command says *what* was
+written and *whether it publishes*, separately.
 
 **The preview (`--check`).** It renders the surface exactly the way `pasco build`
 does — active variant (#238) → renderer → shared paste source — twice (current
@@ -138,7 +143,13 @@ it is honest where echoing the addressed row would not be: a paste surface
 publishes exactly **one** bio (length priority `long > medium > short`), several
 renderers never emit the statement, and a renderer-less surface carries no
 headline. In those cases the artifact does not change and the preview says so —
-with the reason, and exit `1`.
+with the reason, and exit `1`. It runs the writer's **eligibility and staleness
+checks first**, so `--check` can never preview a write that `--set` would refuse.
+
+> v1 writes single-line scalars only. A workspace whose bios are wrapped by an
+> editor (this repo's own `minimal` test fixture is) must be reflowed to one line
+> per value before `pasco edit` can write it — that is the recorded decision, not
+> a bug.
 
 An address that resolves to **several** rows is refused with the rows printed: a
 duplicate bio (`drift/duplicate-bio`), or two links on one platform (add

@@ -50,7 +50,7 @@ import {
   parseEditAddress,
   UsageError,
 } from "../contract.js";
-import { type WriteOutcome, writeEdit } from "../edit-write.js";
+import { inspectTarget, StaleEditError, type WriteOutcome, writeEdit } from "../edit-write.js";
 import { EXIT } from "../exit.js";
 import { line, report } from "../output.js";
 import type { Pascorc } from "../workspace.js";
@@ -488,6 +488,19 @@ export function runEdit(args: EditArgs): number {
           "no owning content file for this block — the write handle is unavailable (the splice cannot run)",
       };
     } else {
+      // Eligibility + staleness FIRST: the preview and the write must refuse the
+      // same shapes (F1) and neither may act on a file that moved since `load()`.
+      try {
+        inspectTarget({ workspace: args.workspace, target: located, expect: target.current });
+      } catch (err) {
+        if (err instanceof UsageError) throw err;
+        if (err instanceof StaleEditError) {
+          return report("edit", false, EXIT.FAIL, {
+            error: { kind: "stale", message: err.message },
+          });
+        }
+        throw err;
+      }
       const applied = applyEdit(profile, { ...target, locate: located }, proposed);
       published = publishedByEdit(profile, applied, address, args.workspace, args.pascorc);
       if (published.error !== undefined && !writing) {
@@ -500,10 +513,20 @@ export function runEdit(args: EditArgs): number {
       }
       if (writing) {
         try {
-          outcome = writeEdit({ workspace: args.workspace, target: located, value: proposed });
+          outcome = writeEdit({
+            workspace: args.workspace,
+            target: located,
+            value: proposed,
+            expect: target.current,
+          });
           ok = true;
         } catch (err) {
           if (err instanceof UsageError) throw err;
+          if (err instanceof StaleEditError) {
+            return report("edit", false, EXIT.FAIL, {
+              error: { kind: "stale", message: err.message },
+            });
+          }
           if (err instanceof SchemaValidationError || err instanceof LoadError) {
             return report("edit", false, EXIT.FAIL, {
               error: {
@@ -600,6 +623,7 @@ export function runEdit(args: EditArgs): number {
       ok,
       noop: outcome === undefined ? noopValue : outcome.noop,
       written: outcome !== undefined && !outcome.noop,
+      warnings: published.error === undefined ? [] : [published.error],
     },
   });
 }

@@ -7,23 +7,41 @@
  *     alignment and layout survive BY CONSTRUCTION, and the diff is one line by
  *     construction — no document re-serialization (measured: `String(doc)`
  *     normalizes alignment and flattens block scalars).
- *  2. **block / multi-line scalars are refused** in v1 (`|`, `>`, or a quoted
- *     value carrying a line break): replacing one changes the line count and
- *     breaks the one-line-diff criterion.
- *  3. **no-op = 0 + `noop: true`** — re-setting an identical value is not a write
+ *  2. **block / multi-line scalars are refused** in v1 (`|`, `>`, or any scalar
+ *     whose SOURCE spans lines): replacing one changes the line count and breaks
+ *     the one-line-diff criterion.
+ *  3. **anchors and aliases are refused**: rewriting an anchored scalar would
+ *     silently change every alias that points at it, and rewriting an alias would
+ *     detach it from its anchor.
+ *  4. **staleness is checked**: the file's node value must still match what the
+ *     caller resolved (`expect`), so a row inserted or reordered between
+ *     `load()` and the splice is refused instead of hitting the wrong row.
+ *  5. **no-op = 0 + `noop: true`** — re-setting an identical value is not a write
  *     and not an error; the exit matrix stays 0/1/2.
- *  4. temp file in the SAME directory → `load()` + schema over a temp copy of
- *     `content/` → **atomic rename**. An invalid file never reaches disk.
- *  5. CRLF and the final newline are preserved: only the scalar's byte range is
+ *  6. temp file in the same directory → `load()` + schema over a temp copy of
+ *     `content/` → **atomic rename**. An invalid file never reaches disk, a
+ *     symlinked content file keeps its link (the target is replaced), and the
+ *     file's mode is preserved.
+ *  7. CRLF and the final newline are preserved: only the scalar's byte range is
  *     replaced and the rest of the original text is written back verbatim.
  */
 
 import { randomUUID } from "node:crypto";
-import { cpSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  cpSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { LoadError, load } from "@profile-as-code/core";
-import { isMap, isScalar, isSeq, parseDocument, type Scalar, stringify } from "yaml";
+import { isAlias, isMap, isScalar, isSeq, parseDocument, type Scalar, stringify } from "yaml";
 import { UsageError } from "./contract.js";
 
 /** Where the value lives — the `locate` handle `pasco edit` resolved (FILE
@@ -34,7 +52,7 @@ export interface WriteTarget {
 }
 
 export interface WriteOutcome {
-  /** Workspace-relative file that was (or would have been) written. */
+  /** Workspace-relative file that was written. */
   file: string;
   /** The node's value before the write — what the FILE held, not the profile. */
   before: string;
@@ -49,9 +67,18 @@ export interface WriteDeps {
   validate?: (workspace: string) => void;
 }
 
-/** Serialize the scalar ALONE (not the document): quoting/escaping are correct
- *  without dragging the rest of the file through the emitter. */
-function scalarText(value: string): string {
+/** The address no longer points at the value the caller resolved (a row was
+ *  inserted/reordered or the value changed between `load()` and the splice).
+ *  NOT a usage error: the command was right and the workspace moved. */
+export class StaleEditError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "StaleEditError";
+  }
+}
+
+/** Serialize the scalar ALONE (not the document) with `yaml`'s scalar emitter. */
+function yamlScalar(value: string): string {
   const dumped = stringify(value);
   const text = dumped.endsWith("\n") ? dumped.slice(0, -1) : dumped;
   if (text.includes("\n")) {
@@ -66,14 +93,11 @@ function scalarText(value: string): string {
 function nodeAt(document: ReturnType<typeof parseDocument>, path: (string | number)[]): unknown {
   let cursor: unknown = document.contents;
   for (const key of path) {
-    if (isMap(cursor)) {
-      cursor = cursor.get(String(key), true);
-    } else if (isSeq(cursor)) {
+    if (isMap(cursor)) cursor = cursor.get(String(key), true);
+    else if (isSeq(cursor)) {
       if (typeof key !== "number" || key < 0 || key >= cursor.items.length) return undefined;
       cursor = cursor.items[key];
-    } else {
-      return undefined;
-    }
+    } else return undefined;
     if (cursor === undefined || cursor === null) return undefined;
   }
   return cursor;
@@ -84,7 +108,7 @@ function nodeAt(document: ReturnType<typeof parseDocument>, path: (string | numb
  *  scalars (a plain scalar folded over two lines, or a quoted value carrying a
  *  line break), because replacing one changes the line count and the one-line
  *  diff is the criterion. */
-function assertSingleLine(
+function assertSpliceable(
   node: Scalar,
   original: string,
   file: string,
@@ -102,24 +126,19 @@ function assertSingleLine(
       `${file} holds a multi-line scalar at ${path.join(".")} — refused in v1 (#249): the replacement would change the line count and break the one-line diff; rewrite it as a single line first`,
     );
   }
+  if (node.anchor !== undefined) {
+    throw new UsageError(
+      `${file}:${path.join(".")} carries a YAML anchor (&${node.anchor}) — rewriting it would silently change every alias that points at it; remove the anchor/aliases first`,
+    );
+  }
 }
 
-/**
- * Replace one scalar in `target.file` with `value`.
- *
- * @throws UsageError — the node cannot be addressed safely (block/multi-line
- *   scalar, missing node, multi-line replacement), exit 2.
- * @throws LoadError — the resulting workspace would NOT validate; the original
- *   file is untouched, exit 1.
- */
-export function writeEdit(
-  args: { workspace: string; target: WriteTarget; value: string },
-  deps: WriteDeps = {},
-): WriteOutcome {
-  const filePath = join(args.workspace, args.target.file);
+/** The scalar at `path`, with the safety checks every caller needs. */
+function inspect(
+  args: { workspace: string; target: WriteTarget; expect?: string },
+  filePath: string,
+): { original: string; node: Scalar; before: string } {
   const original = readFileSync(filePath, "utf8");
-  // Ranges are present on parsed nodes, and the splice reads the ORIGINAL text
-  // (never the document's serialization), so no emitter option is needed.
   const document = parseDocument(original);
   if (document.errors.length > 0) {
     throw new LoadError(
@@ -127,26 +146,79 @@ export function writeEdit(
     );
   }
   const node = nodeAt(document, args.target.path);
-  if (!isScalar(node)) {
+  if (isAlias(node)) {
     throw new UsageError(
-      `cannot locate the scalar at ${args.target.file}:${args.target.path.join(".")} — the file changed since the preview; re-run`,
+      `${args.target.file}:${args.target.path.join(".")} is a YAML alias (*${String(node.source)}) — editing it would detach it from its anchor; edit the anchored scalar instead`,
     );
   }
-  assertSingleLine(node, original, args.target.file, args.target.path);
-
+  if (!isScalar(node)) {
+    throw new StaleEditError(
+      `${args.target.file}:${args.target.path.join(".")} no longer resolves — the file changed since the address was resolved; re-run`,
+    );
+  }
+  assertSpliceable(node, original, args.target.file, args.target.path);
   const before = node.value === null || node.value === undefined ? "" : String(node.value);
-  if (before === args.value) return { file: args.target.file, before, noop: true };
+  if (args.expect !== undefined && before !== args.expect) {
+    throw new StaleEditError(
+      `${args.target.file}:${args.target.path.join(".")} now holds ${JSON.stringify(before)}, not ${JSON.stringify(args.expect)} — the file changed since the preview; re-run`,
+    );
+  }
+  return { original, node, before };
+}
 
+/** Read-only eligibility check — the PREVIEW runs it too, so `--check` can never
+ *  promise a write that `--set` refuses (F1 of the premerge review). */
+export function inspectTarget(args: { workspace: string; target: WriteTarget; expect?: string }): {
+  before: string;
+} {
+  return { before: inspect(args, join(args.workspace, args.target.file)).before };
+}
+
+/** Every candidate must round-trip through the parser: `yaml`'s scalar emitter
+ *  is context-free, so in a flow row (`- {…}`) a plain `a, b` needs quotes. The
+ *  JSON form is a legal YAML double-quoted scalar — the fallback, never a guess. */
+function splicedText(
+  original: string,
+  node: Scalar,
+  path: (string | number)[],
+  value: string,
+): string {
   const range = node.range;
   if (range === null || range === undefined) {
     throw new UsageError(
-      `${args.target.file}:${args.target.path.join(".")} has no source range — cannot splice it safely`,
+      "the target has no source range — cannot splice it safely (the file uses a shape the CST does not locate)",
     );
   }
-  const replacement = scalarText(args.value);
-  // [start, valueEnd): the node's own bytes, WITHOUT trailing comment/newline
-  // (range[2] is the node end, which includes them).
-  const nextText = `${original.slice(0, range[0])}${replacement}${original.slice(range[1])}`;
+  for (const candidate of [yamlScalar(value), JSON.stringify(value)]) {
+    const next = `${original.slice(0, range[0])}${candidate}${original.slice(range[1])}`;
+    const reparsed = parseDocument(next);
+    const check = reparsed.errors.length === 0 ? nodeAt(reparsed, path) : undefined;
+    if (isScalar(check) && String(check.value) === value) return next;
+  }
+  throw new UsageError(
+    `the value cannot be spliced into ${path.join(".")} without changing other nodes — refused; rewrite the file by hand`,
+  );
+}
+
+/**
+ * Replace one scalar in `target.file` with `value`.
+ *
+ * @throws UsageError — the node cannot be addressed safely (block/multi-line
+ *   scalar, anchor/alias, multi-line replacement), exit 2.
+ * @throws StaleEditError — the file no longer holds `expect`; the edit was
+ *   computed against a different workspace, exit 1.
+ * @throws LoadError — the resulting workspace would NOT validate (or the temp
+ *   write failed); the original file is untouched, exit 1.
+ */
+export function writeEdit(
+  args: { workspace: string; target: WriteTarget; value: string; expect?: string },
+  deps: WriteDeps = {},
+): WriteOutcome {
+  const filePath = join(args.workspace, args.target.file);
+  const { original, node, before } = inspect(args, filePath);
+  if (before === args.value) return { file: args.target.file, before, noop: true };
+
+  const nextText = splicedText(original, node, args.target.path, args.value);
 
   // Validate BEFORE touching the real file: a temp copy of `content/` with the
   // new text goes through the same `load()` the CLI uses (schema + ledger +
@@ -155,17 +227,41 @@ export function writeEdit(
   const tempWorkspace = mkdtempSync(join(tmpdir(), "pasco-edit-write-"));
   try {
     cpSync(join(args.workspace, "content"), join(tempWorkspace, "content"), { recursive: true });
-    writeFileSync(join(tempWorkspace, args.target.file), nextText);
+    const copy = join(tempWorkspace, args.target.file);
+    // `cpSync` copies the mode; a read-only content file must still be writable
+    // in the throwaway copy, and no temp path may leak in an error (rule 9).
+    rmSync(copy, { force: true });
+    writeFileSync(copy, nextText, { mode: 0o600 });
     validate(tempWorkspace);
+  } catch (err) {
+    if (err instanceof LoadError) throw err;
+    const code = (err as NodeJS.ErrnoException).code ?? "error";
+    throw new LoadError(
+      `${args.target.file}: the edit could not be validated (${code}) — the file was not modified`,
+    );
   } finally {
     rmSync(tempWorkspace, { recursive: true, force: true });
   }
 
-  // Atomic replace in the same directory (same filesystem ⇒ rename is atomic).
-  const tempFile = join(dirname(filePath), `.pasco-edit-${process.pid}-${randomUUID()}.tmp`);
+  // Atomic replace at the REAL path: a symlinked content file keeps its link
+  // (renaming over the link would replace the link), and the mode is preserved.
+  let realPath: string;
   try {
-    writeFileSync(tempFile, nextText);
-    renameSync(tempFile, filePath);
+    realPath = realpathSync(filePath);
+  } catch {
+    realPath = filePath;
+  }
+  const mode = statSync(realPath).mode & 0o777;
+  const tempFile = join(dirname(realPath), `.pasco-edit-${process.pid}-${randomUUID()}.tmp`);
+  try {
+    writeFileSync(tempFile, nextText, { mode });
+    chmodSync(tempFile, mode);
+    renameSync(tempFile, realPath);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code ?? "error";
+    throw new LoadError(
+      `${args.target.file}: could not write (${code}) — the file was not modified`,
+    );
   } finally {
     rmSync(tempFile, { force: true });
   }
