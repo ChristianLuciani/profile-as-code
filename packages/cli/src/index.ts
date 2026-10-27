@@ -12,6 +12,7 @@
 
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { runAudit } from "./commands/audit.js";
 import { runBuild } from "./commands/build.js";
 import { runCheck } from "./commands/check.js";
 import { runDiff } from "./commands/diff.js";
@@ -60,7 +61,12 @@ Commands:
   check [platform]              Executes offline rules: brand handle matrix (M6/§17,
                                 brand flavor), registry checks (M7/§18.8) and
                                 media-transport rules (M8/§18.6) and max-chars/min-chars
-                                over headlines/bios (offline, #240); remaining rows M3/M4
+                                over headlines/bios (offline, #240) and fact-present
+                                (the built surface's facts vs the SSOT, #283);
+                                remaining rows M3/M4
+  audit [--json]                Offline diagnostic projection: findings only (no score,
+                                no prioritisation) in three fixed classes — dangling-ref,
+                                contradiction, unsourced-claim; exit 1 iff any FAIL
   post <subcommand>             MVP (week-1 experiment): seed → task bundle → choose →
                                 check → optional Postiz draft payload. No LLM call.
                                 Subcommands: seed · task · choose · check · export · import · list
@@ -216,10 +222,27 @@ content/active.yaml. No LLM call, no hub. Full variant flow: M3.`,
   check: `pasco check [platform] [--json] [--workspace <path>]
 Executes the offline rules that exist today: the brand handle matrix (brand
 flavor, D15/§17), registry checks (M7/§18.8) and media-transport rules
-(M8/§18.6), plus max-chars/min-chars over the headline/bio rows that exist
-(offline, #240; optional surface selector). Remaining rows in
+(M8/§18.6), max-chars/min-chars over the headline/bio rows that exist
+(offline, #240; optional surface selector), and fact-present (#283): the fact
+tokens (URL / ISO date / number) of the artifact pasco build last wrote must
+be the ones the SSOT render carries, else WARN (D12) — a surface with no
+artifact reports the rule as not run, never OK. Remaining rows in
 content/checks.yaml ship with the skills checks.yaml union (M3) and the full
 pasco check (M4). Prints its owner line (src/commands/check.ts).`,
+  audit: `pasco audit [--json] [--workspace <path>]
+The offline diagnostic projection over the identity (SPEC §7.1, issue #283):
+findings only — no score, no prioritisation, no branding (those belong to the
+consuming layer). Three fixed classes, each with a fixed severity:
+  dangling-ref     a pointer that does not resolve in the current view   FAIL
+  contradiction    two surfaces assert incompatible values for one datum  FAIL
+  unsourced-claim  a quantitative claim with no evidence                 WARN
+Composes load (schema), driftCheck, geoCheck (sameas-coverage), the
+completeness evidence premise and fact-present; touches no network and no
+content/deployments.yaml. --json emits { schemaVersion: "1", findings: [
+{ class, severity, path, detail } ] }; path is a factRef (row id in place of
+the index when declared) or the artifact path for a surface finding. Exit: 0
+no FAIL finding (WARN-only included) · 1 at least one FAIL, or a schema/load
+failure · 2 usage error.`,
   "skills:export": `pasco skills:export <dir> [--force] [--json]
 pasco skills:export --list [--json]
 Copies the skill channels this package ships (SPEC §16) into a directory you
@@ -419,7 +442,25 @@ async function runMain(): Promise<number> {
         throw new UsageError("usage: pasco check [platform] [--json] [--workspace <path>]");
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
-      return runCheck({ workspace, platformArg: positionals[0] });
+      return runCheck({
+        workspace,
+        platformArg: positionals[0],
+        pascorc: readWorkspacePascorc(workspace),
+      });
+    }
+    case "audit": {
+      const { flags, positionals } = parseCommandFlags(rest);
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.audit}\n`);
+        return EXIT.OK;
+      }
+      if (positionals.length > 0) {
+        throw new UsageError("usage: pasco audit [--json] [--workspace <path>]");
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      const pascorc = readWorkspacePascorc(workspace);
+      return runAudit({ workspace, pascorc });
     }
     case "post": {
       const { flags, positionals } = parseCommandFlags(rest, {

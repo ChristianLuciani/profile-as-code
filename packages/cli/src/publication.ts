@@ -115,7 +115,7 @@ function builtArtifact(workspace: string, surface: string): string | undefined {
 
 /** The surfaces that have an artifact on disk — `profiles/<s>/README.md` or
  *  `profiles/<s>.md`, filtered to the platform contract (D16). */
-function publishedSurfaces(workspace: string): string[] {
+export function publishedSurfaces(workspace: string): string[] {
   const dir = join(workspace, "profiles");
   if (!existsSync(dir)) return [];
   const known = new Set<string>(PLATFORMS);
@@ -184,7 +184,7 @@ export function createArtifactResolver(args: {
  *  the contract's language enum (§11). `--lang` is validated against that same
  *  enum, so every artifact `pasco build` can write is covered — no false
  *  `diverges` for a legitimately built `es`/`fr` artifact. */
-function candidateLangs(primary: Lang): Lang[] {
+export function candidateLangs(primary: Lang): Lang[] {
   return [primary, ...LANGS.filter((lang) => lang !== primary)];
 }
 
@@ -198,7 +198,7 @@ function candidateLangs(primary: Lang): Lang[] {
  */
 const GENERATED_COMPLETENESS = /^Profile completeness: -?\d+(?:\.\d+)?% — \d+\/\d+$/;
 
-function factIdentity(text: string): string {
+export function factIdentity(text: string): string {
   return text
     .split("\n")
     .filter((line) => !GENERATED_COMPLETENESS.test(line))

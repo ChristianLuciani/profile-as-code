@@ -9,6 +9,27 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Added
+
+- **`pasco audit [--json]` — the offline diagnostic projection (#283)** — a
+  per-identity aggregate over the checks that already exist, emitting **findings
+  only** (no score, no prioritisation, no branding — SPEC §7.1). Three fixed
+  classes with fixed severities: `dangling-ref` (a pointer that does not resolve)
+  and `contradiction` (two surfaces disagreeing on one datum) are FAIL; an
+  `unsourced-claim` (a quantitative claim with no evidence) is WARN. Exit `1` iff
+  a FAIL exists; `--json` carries `{ schemaVersion: "1", findings: [{ class,
+  severity, path, detail }] }` where `path` is a factRef (row id in place of the
+  index) or the artifact path for a surface finding. Offline: no network, and no
+  finding is derived from `content/deployments.yaml`. D23 (the presence unit) is
+  explicitly deferred to #262. — *M11 in SPEC §12.*
+- **`fact-present` — the rule the ledger recorded as missing (`PROP-017 §Risks
+  F2`)** — executed by `pasco check`: the fact tokens (URL · ISO date · number) of
+  the artifact `pasco build` last wrote must be the ones the SSOT render carries.
+  A surface that disagrees paints the specific fact (a dangling URL, a date the
+  SSOT does not assert, an unsourced number); all three are WARN in `check` (D12:
+  facts warn) and classified by `pasco audit`. No artifact = **not run**, never a
+  silent OK.
+
 ### Planned (roadmap)
 
 - Renderers: linkedin, upwork, x, researchgate, substack (M4)

@@ -197,12 +197,12 @@ pasco --version   # what you installed — 0.3.0 today
 pasco --help      # command list + exit-code contract
 ```
 
-`--help` prints `init`, `validate`, `build`, `edit`, `diff`, `refine`, `check`, `post`,
-`status` and `skills:export`, plus the exit-code contract: `0` ok · `1` schema or
+`--help` prints `init`, `validate`, `build`, `edit`, `diff`, `refine`, `check`,
+`audit`, `post`, `status` and `skills:export`, plus the exit-code contract: `0` ok · `1` schema or
 workspace failure (or a data finding that blocks the command — `pasco edit` exits
 `1` when the address is not exactly one row, the target is read-only or stale, the
 validation refuses the write, or the preview does not change the published
-artifact) · `2` usage error. `pasco status --help` covers the deploy
+artifact, and `pasco audit` exits `1` on a `FAIL` finding) · `2` usage error. `pasco status --help` covers the deploy
 ledger and its opt-in live check (`--mark`, `--verify`, `--write-checklist`,
 `--completeness`). Which of those commands are still partial is stated in the
 [CLI's command table](../packages/cli/README.md).
@@ -659,6 +659,51 @@ than an absent one, because it makes you cut good text for a limit nobody can
 point to. `pasco check` echoes a check's `note` when the catalogue carries one; it
 cannot invent a source for a row that has none.
 
+### Audit your presence (`pasco audit`, #283)
+
+`pasco check` measures one document against its rules. `pasco audit` asks the
+whole identity one question — *do my published surfaces still say what my SSOT
+says?* — and reports **findings only**: no score, no ranking, no branding. The
+engine reports; the consumer ranks (that split is the contract, not a stage).
+
+```sh
+pasco audit          # a human list, one block per finding
+pasco audit --json   # { "schemaVersion": "1", "findings": [{ class, severity, path, detail }] }
+```
+
+| Class | What it means | Severity |
+|---|---|---|
+| `dangling-ref` | a pointer does not resolve in the current view | `FAIL` → exit `1` |
+| `contradiction` | two surfaces assert incompatible values for one datum | `FAIL` → exit `1` |
+| `unsourced-claim` | a quantitative claim carries no evidence | `WARN` · exit `0` |
+
+All of it is offline and deterministic:
+
+- **schema/load** — an invalid workspace is an error (exit `1`), never a finding;
+- **drift** — a project link that is not in `identity.links`, a claimed handle
+  with no resolvable URL, the same publication with two years/venues, one role
+  written with two date ranges, …
+- **claims** — a project whose description states a number and whose `evidence[]`
+  carries no `source`; an `faq[]` answer with a number and no `source`;
+- **the built surface** (`fact-present`, after `pasco build`) — a URL the artifact
+  links that the SSOT render does not carry, a date it asserts that the render
+  does not, any other number with no backing fact. `pasco check` runs the same
+  rule and reports it as a warning; the audit grades it.
+
+`path` is a fact address (`projects[hub].links[0]`, `publications[routing]`,
+`faq[scale].q`) — the row `id` replaces the array index when the row has one. A
+finding about a built surface addresses the artifact instead
+(`profiles/github-readme/README.md`), because a fact the SSOT does not carry has
+no fact address by definition. `check --json` exposes the same rule under
+`data.factPresent` (`checked` / `notRun` / `findings`), and a surface with no
+artifact reads **not run** — never silently OK.
+
+`geo` coverage scores are deliberately **not** findings: a short canonical
+definition is a citability signal, not a pointer or a contradiction
+(`docs/SPEC.md` §7.1). `pasco audit` touches no network and works on a workspace
+with no `content/deployments.yaml` and nothing built; `pasco status --verify` is
+still the way to compare with the LIVE page.
+
 ---
 
 ## 7. Deploy
@@ -893,11 +938,12 @@ pasco edit <contract-path> [--set <text> [--check]]  # read / preview / write on
 pasco diff [--json]                        # changes since last release-* tag
 pasco refine <platform> [--lang] [--variants N]   # emit the agent task template (full flow M3)
 pasco refine <platform> --choose <id>      # record chosen variant in content/active.yaml
-pasco check [platform]                     # offline rules + checks catalog (rest of catalog M4)
+pasco check [platform]                     # offline rules + checks catalog + fact-present (rest M4)
+pasco audit [--json]                       # findings only: dangling-ref · contradiction · unsourced-claim
 pasco skills:export --list                 # platform skills shipped with this package
 pasco skills:export <dir> [--force]        # copy them; --force overlays a non-empty dir
 pasco --workspace <path> <cmd>             # target a workspace explicitly
 pasco --json <cmd>                         # machine-readable output
 ```
 
-Exit codes: `0` ok (drift warnings still 0) · `1` schema/workspace failure · `2` usage error.
+Exit codes: `0` ok (drift warnings still 0; audit WARN-only included) · `1` schema/workspace failure, or an `audit` FAIL finding · `2` usage error.
