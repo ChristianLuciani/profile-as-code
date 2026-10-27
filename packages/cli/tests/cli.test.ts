@@ -1030,6 +1030,8 @@ describe("published-surface boundary (#253/#254)", () => {
         "diff",
         "refine",
         "check",
+        "audit",
+        "entity",
         "post",
         "status",
         "skills:export",
@@ -1050,6 +1052,8 @@ describe("published-surface boundary (#253/#254)", () => {
       "diff",
       "refine",
       "check",
+      "audit",
+      "entity",
       "post",
       "status",
       "skills:export",
@@ -1710,5 +1714,41 @@ describe("pasco status --verify (D18/§19.5 certification)", () => {
     expect(res.code).toBe(0);
     expect(res.stdout).toContain("nothing to verify");
     expect(existsSync(join(ws, "content", "deployments.yaml"))).toBe(false);
+  });
+});
+
+/**
+ * `pasco entity` — the dispatcher side of the SPEC §7.2 contract: the 0/1/2
+ * exit matrix and the mode exclusivity. The projection itself (one assembler,
+ * round-trip) is unit-tested in `entity.test.ts`.
+ */
+describe("pasco entity (dispatcher + exit matrix)", () => {
+  it("--help documents both modes and the @id exit rule", () => {
+    const r = run(["entity", "--help"]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("--jsonld");
+    expect(r.stdout).toContain("--bare");
+    expect(r.stdout).toContain("@id");
+  });
+
+  it("exit 1 with a frozen --json envelope when @id is absent", () => {
+    const r = run(["entity", "--json", "--workspace", MINIMAL]);
+    expect(r.code).toBe(1);
+    const data = (JSON.parse(r.stdout) as { data: Record<string, unknown> }).data;
+    expect(data.schemaVersion).toBe("1");
+    expect((data.entity as { id: unknown }).id).toBeNull();
+  });
+
+  it("--jsonld emits the script block, exit 1 when @id is absent", () => {
+    const r = run(["entity", "--jsonld", "--workspace", MINIMAL]);
+    expect(r.code).toBe(1);
+    expect(r.stdout.startsWith('<script type="application/ld+json">')).toBe(true);
+  });
+
+  it("--json and --jsonld are separate modes, --bare/--out need --jsonld (exit 2)", () => {
+    expect(run(["entity", "--json", "--jsonld", "--workspace", MINIMAL]).code).toBe(2);
+    expect(run(["entity", "--bare", "--workspace", MINIMAL]).code).toBe(2);
+    expect(run(["entity", "--out", "/tmp/x", "--workspace", MINIMAL]).code).toBe(2);
+    expect(run(["entity", "extra", "--workspace", MINIMAL]).code).toBe(2);
   });
 });

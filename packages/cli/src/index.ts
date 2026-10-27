@@ -6,7 +6,7 @@
  *
  * Consumes @profile-as-code/core (load/driftCheck/geoCheck/compile); never
  * re-implements them. Exit codes: 0 ok · 1 schema/workspace failure or a data
- * finding that blocks the command (edit · audit) · 2 usage.
+ * finding that blocks the command (edit · audit · entity) · 2 usage.
  * Human output EN by default (D8/§11); `--json` machine-readable on every
  * command that reports data.
  */
@@ -18,13 +18,14 @@ import { runBuild } from "./commands/build.js";
 import { runCheck } from "./commands/check.js";
 import { runDiff } from "./commands/diff.js";
 import { runEdit } from "./commands/edit.js";
+import { runEntity } from "./commands/entity.js";
 import { runInit } from "./commands/init.js";
 import { runPost } from "./commands/post.js";
 import { runRefine } from "./commands/refine.js";
 import { runSkillsExport } from "./commands/skills-export.js";
 import { runStatus } from "./commands/status.js";
 import { runValidate } from "./commands/validate.js";
-import { parseFlavor, UsageError } from "./contract.js";
+import { parseFlavor, parseLang, UsageError } from "./contract.js";
 import { EXIT } from "./exit.js";
 import { httpFetchText } from "./fetch-http.js";
 import { setJsonMode } from "./output.js";
@@ -69,6 +70,11 @@ Commands:
                                 no prioritisation) in three fixed classes — dangling-ref,
                                 contradiction, unsourced-claim; stricter than
                                 validate/check on those classes; exit 1 iff any FAIL
+  entity [--json] [--jsonld]    The schema.org entity projection: facts, @id, sameAs and
+          [--out <file>] [--bare] [--lang <l>]
+                                readiness gaps as JSON, or the paste-ready JSON-LD block
+                                the renderers embed; for surfaces the engine does not
+                                render. Exit 1 when @id is absent (no declared home)
   post <subcommand>             MVP (week-1 experiment): seed → task bundle → choose →
                                 check → optional Postiz draft payload. No LLM call.
                                 Subcommands: seed · task · choose · check · export · import · list
@@ -85,8 +91,8 @@ Common flags (after the command):
 
 Exit codes: 0 ok · 1 schema/workspace failure, or a data finding that blocks the
 command (edit: the address is not one row or the edit does not change the
-published artifact; audit: at least one FAIL finding) · 2 usage error. Drift
-warnings exit 0 (D12: facts warn, schema fails).
+published artifact; audit: at least one FAIL finding; entity: no canonical @id)
+· 2 usage error. Drift warnings exit 0 (D12: facts warn, schema fails).
 
 pasco is free (MIT). Consider a tip ;)
   https://ko-fi.com/christianluciani · https://github.com/sponsors/ChristianLuciani
@@ -120,6 +126,8 @@ interface FlagOptions {
   date?: string;
   list?: boolean;
   force?: boolean;
+  jsonld?: boolean;
+  bare?: boolean;
 }
 
 function parseCommandFlags(
@@ -263,6 +271,23 @@ declared: [] or checked: [] means nothing was measured, never "clean". path is a
 of the index when the grammar block declares one) or the artifact path for a
 surface finding. Exit: 0 no FAIL finding (WARN-only included) · 1 at least one
 FAIL, or a schema/load failure · 2 usage error.`,
+  entity: `pasco entity [--json | --jsonld [--out <file>] [--bare]] [--lang <l>] [--workspace <path>]
+The entity projection for a surface this engine does not render (SPEC §7.2, #287):
+the schema.org entity the renderers embed, exposed as an artifact.
+  --json     the frozen view { schemaVersion: "1", entity: { id, type, name, sameAs,
+             email }, gaps: [{ code, detail }], jsonld: null }. entity.id is null when
+             no link declares role: identity — the engine never invents an @id. gaps
+             are the structured-data geoCheck codes that scored below 1, verbatim.
+  --jsonld   the SAME assembler output the renderers embed (core/src/structured-data.ts,
+             one home — never a second emitter), serialized as a paste-ready
+             <script type="application/ld+json"> block. Parsing it yields exactly
+             structuredData()'s object.
+    --bare   emit the bare JSON object instead of the <script> block.
+    --out <file>  write the block to <file> instead of stdout.
+  --lang <l> the assembler language (default: .pascorc defaults.lang, else 'en').
+Exit: 0 when @id is present · 1 when it is absent (the entity has no declared home;
+the JSON-LD is still emitted, without @id) · 2 usage error. Offline and
+deterministic: no network, no clock, no AI.`,
   "skills:export": `pasco skills:export <dir> [--force] [--json]
 pasco skills:export --list [--json]
 Copies the skill channels this package ships (SPEC §16) into a directory you
@@ -481,6 +506,47 @@ async function runMain(): Promise<number> {
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       const pascorc = readWorkspacePascorc(workspace);
       return runAudit({ workspace, pascorc });
+    }
+    case "entity": {
+      const { flags, positionals } = parseCommandFlags(rest, {
+        jsonld: { type: "boolean" },
+        bare: { type: "boolean" },
+        out: { type: "string" },
+        lang: { type: "string" },
+      });
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.entity}\n`);
+        return EXIT.OK;
+      }
+      if (positionals.length > 0) {
+        throw new UsageError(
+          "usage: pasco entity [--json | --jsonld [--out <file>] [--bare]] [--lang <l>]",
+        );
+      }
+      // Two output contracts and one artifact: mixing them would make a consumer
+      // guess whether stdout is an envelope or a paste-ready block (§7.2).
+      if (flags.json === true && flags.jsonld === true) {
+        throw new UsageError(
+          "usage: --json (the view) and --jsonld (the artifact) are separate modes — run them separately",
+        );
+      }
+      if (flags.bare === true && flags.jsonld !== true) {
+        throw new UsageError("usage: --bare only applies to --jsonld");
+      }
+      if (flags.out !== undefined && flags.jsonld !== true) {
+        throw new UsageError("usage: --out only applies to --jsonld");
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      const pascorc = readWorkspacePascorc(workspace);
+      return runEntity({
+        workspace,
+        pascorc,
+        jsonld: flags.jsonld === true,
+        bare: flags.bare === true,
+        ...(flags.out !== undefined ? { out: flags.out } : {}),
+        lang: flags.lang !== undefined ? parseLang(flags.lang) : defaultsLang(pascorc),
+      });
     }
     case "post": {
       const { flags, positionals } = parseCommandFlags(rest, {

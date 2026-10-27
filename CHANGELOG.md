@@ -11,6 +11,18 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **`pasco entity [--json | --jsonld]` — the entity projection for surfaces the
+  engine does not render (#287)** — `audit` diagnoses, `entity` is the fix. The
+  schema.org entity the renderers embed is exposed as an artifact: `--json` is a
+  frozen, `schemaVersion`-stamped view `{ entity: { id, type, name, sameAs,
+  email }, gaps, jsonld: null }` (gaps are the structured-data `geoCheck` codes
+  that scored below 1, verbatim — no new vocabulary), and `--jsonld` is the
+  **same assembler output** serialized as a paste-ready
+  `<script type="application/ld+json">` block (`--bare` = bare object, `--out
+  <file>` = write it). One assembler: `core/src/structured-data.ts` — the CLI
+  never re-derives the entity (SPEC §7.2). `@id` is never invented: it is the URL
+  of the `role: identity` link or `null`, and exit `1` when absent / `0` when
+  present. Offline and deterministic. — *Answer-engine surface in SPEC §12.*
 - **`pasco audit [--json]` — the offline diagnostic projection (#283)** — a
   per-identity aggregate over the checks that already exist, emitting **findings
   only** (no score, no prioritisation, no branding — SPEC §7.1). Three fixed

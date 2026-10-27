@@ -65,6 +65,7 @@ commands above are the standalone path.
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13); the chosen body is `profiles/<platform>/variants/<id>.md` (a complete platform artifact), rendered by `pasco build` (#238) | 🚧 template + `--choose` (full flow M3) |
 | `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) + offline `max-chars`/`min-chars` over headlines/bios (#240) + `fact-present` (the built surface's fact tokens vs the SSOT render, #283) | 🚧 offline rules today (limits + registry + media + fact-present; remaining catalog M3/M4) |
 | `pasco audit [--json]` | Offline **diagnostic projection**, findings only (no score/prioritisation/branding, #283): three fixed classes — `dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN — exit 1 iff any FAIL; `--json` carries `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings }` | ✅ v1 |
+| `pasco entity [--json \| --jsonld [--out <file>] [--bare]]` | The **entity projection** for surfaces the engine does not render (#287): `--json` is the frozen view — `entity { id, type, name, sameAs, email }`, the structured-data `gaps` (geoCheck codes verbatim) and `jsonld: null`; `--jsonld` is the **same assembler output** the renderers embed, as a paste-ready `<script type="application/ld+json">` block. Exit 1 when `@id` is absent (never invented) | ✅ v1 |
 | `pasco post <seed\|task\|choose\|check\|export\|import\|list>` | Week-1 post MVP (#264): a seed at `posts/<seed>/seed.md` → task bundle → chosen variant → check → optional Postiz draft payload; the CLI never calls an LLM | 🚧 experiment (not in the v1 contract; `docs/post-mvp.md`) |
 | `pasco skills:export <dir> [--force] [--list]` | Copy the platform skills this package ships into a directory you name (`--list` shows them; no per-agent paths are invented — #254) | ✅ |
 
@@ -170,6 +171,42 @@ in a FAIL class therefore exits 1 here and 0 there — declared in SPEC §7.1 an
 pinned by a test. Two inputs are deliberately NOT findings, declared in §7.1:
 `drift/url-not-in-identity` (the URL resolves — a canonicalization rule `validate`
 warns about) and `geoCheck`'s coverage codes.
+
+### The entity projection (`pasco entity`, #287)
+
+`audit` diagnoses; `entity` is the artifact for a surface this engine does not
+render (WordPress, Webflow, Next, a landing page). It exposes the **same** entity
+the renderers embed — `core/src/structured-data.ts` is the one assembler, so there
+is no CLI-local builder and no second truth (SPEC §7.2).
+
+```sh
+pasco entity --json                      # the frozen view: facts, @id, sameAs, gaps
+pasco entity --jsonld                    # paste-ready <script type="application/ld+json">
+pasco entity --jsonld --bare             # the bare JSON object
+pasco entity --jsonld --out entity.html  # write the block to a file
+```
+
+```json
+{
+  "schemaVersion": "1",
+  "entity": { "id": null, "type": "Person", "name": "Elena Vasquez", "sameAs": ["https://github.com/elenavasquez"], "email": null },
+  "gaps": [
+    { "code": "geo/entity-id", "detail": "no link declares role: identity — declare one to give the entity a canonical @id" }
+  ],
+  "jsonld": null
+}
+```
+
+`entity.id` is the URL of the `role: identity` link (the first one wins) or
+`null`: the engine **never invents an `@id`**. `gaps` are the `geoCheck` checks of
+its structured-data section that scored below 1, with the code and detail
+**verbatim** — no new vocabulary. `jsonld` is always `null` in `--json`; the
+artifact has its own mode. Parsing the `--jsonld` output yields exactly
+`structuredData()`'s object — asserted by a test.
+
+Exit `0` when `@id` is present, `1` when it is absent (the entity has no declared
+home; the JSON-LD is still emitted, without `@id`), `2` for usage. It is offline
+and deterministic: no network, no clock, no AI.
 
 ### Contract paths (`pasco edit`, epic #247 — read · preview · write)
 
@@ -397,6 +434,8 @@ pasco refine linkedin --choose li-en-2        # records the chosen variant in co
 pasco check github-readme
 pasco audit                                  # findings only: dangling-ref · contradiction · unsourced-claim
 pasco audit --json                           # { schemaVersion, findings } — exit 1 iff any FAIL
+pasco entity --json                          # entity facts + @id + sameAs + gaps (exit 1 without @id)
+pasco entity --jsonld                        # paste-ready <script type="application/ld+json">
 pasco post seed demo --text seed.md           # week-1 experiment: posts/<seed>/seed.md
 pasco post task demo --channel linkedin,x   # task bundles (no LLM call)
 pasco post choose demo --channel linkedin --variant linkedin-1

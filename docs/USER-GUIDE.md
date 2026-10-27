@@ -198,11 +198,12 @@ pasco --help      # command list + exit-code contract
 ```
 
 `--help` prints `init`, `validate`, `build`, `edit`, `diff`, `refine`, `check`,
-`audit`, `post`, `status` and `skills:export`, plus the exit-code contract: `0` ok · `1` schema or
+`audit`, `entity`, `post`, `status` and `skills:export`, plus the exit-code contract: `0` ok · `1` schema or
 workspace failure (or a data finding that blocks the command — `pasco edit` exits
 `1` when the address is not exactly one row, the target is read-only or stale, the
 validation refuses the write, or the preview does not change the published
-artifact, and `pasco audit` exits `1` on a `FAIL` finding) · `2` usage error. `pasco status --help` covers the deploy
+artifact, `pasco audit` exits `1` on a `FAIL` finding, and `pasco entity` exits `1`
+when the entity has no declared `@id`) · `2` usage error. `pasco status --help` covers the deploy
 ledger and its opt-in live check (`--mark`, `--verify`, `--write-checklist`,
 `--completeness`). Which of those commands are still partial is stated in the
 [CLI's command table](../packages/cli/README.md).
@@ -718,6 +719,33 @@ definition is a citability signal, not a pointer or a contradiction
 with no `content/deployments.yaml` and nothing built; `pasco status --verify` is
 still the way to compare with the LIVE page.
 
+### Emit the entity (`pasco entity`, #287)
+
+The audit is the diagnosis; `entity` is the fix. Every GEO engagement starts with
+markup pasted into a site this engine does not render (WordPress, Webflow, Next, a
+landing page), so the schema.org entity the renderers embed is exposed as an
+artifact:
+
+```sh
+pasco entity --json                     # the frozen view: facts, @id, sameAs, gaps
+pasco entity --jsonld                   # paste-ready <script type="application/ld+json">
+pasco entity --jsonld --bare            # the bare JSON object
+pasco entity --jsonld --out entity.html # write the block to a file
+```
+
+The `--json` view carries `entity { id, type, name, sameAs, email }` — `id` is the
+URL of the `role: identity` link, or `null`; the engine **never invents an `@id`**
+— plus `gaps`, the structured-data `geoCheck` codes that are not satisfied, with
+their code and detail verbatim (no new vocabulary), and `jsonld: null`. The
+`--jsonld` block is the **same assembler output** the renderers use
+(`core/src/structured-data.ts`, SPEC §7.2): parsing it yields exactly
+`structuredData()`'s object, never a second emitter's guess.
+
+Exit `0` when `@id` is present, `1` when it is absent — the entity has no declared
+home, and the block is still emitted without `@id` — and `2` for usage. It is
+offline and deterministic; `--lang` picks the brand `slogan`/`description`
+language (default `.pascorc` `defaults.lang`).
+
 ---
 
 ## 7. Deploy
@@ -954,6 +982,7 @@ pasco refine <platform> [--lang] [--variants N]   # emit the agent task template
 pasco refine <platform> --choose <id>      # record chosen variant in content/active.yaml
 pasco check [platform]                     # offline rules + checks catalog + fact-present (rest M4)
 pasco audit [--json]                       # findings only: dangling-ref · contradiction · unsourced-claim
+pasco entity [--json | --jsonld]           # schema.org entity view / paste-ready JSON-LD block (#287)
 pasco skills:export --list                 # platform skills shipped with this package
 pasco skills:export <dir> [--force]        # copy them; --force overlays a non-empty dir
 pasco --workspace <path> <cmd>             # target a workspace explicitly
