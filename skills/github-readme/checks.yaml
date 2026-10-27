@@ -11,7 +11,7 @@
   platform: github-readme
   rule: fact-present
   value: true
-  note: "Los hechos del README deben estar byte-idénticos al SSOT (D4)."
+  note: "El README que escribió `pasco build` se compara contra el render actual del SSOT en los dos sentidos: URL, fecha o número que la superficie agrega u omite, y texto que ningún token explica (WARN, D12; `pasco audit` lo gradúa). `link-in-identity` es una premisa aparte."
 
 - id: gh-links-identity
   platform: github-readme

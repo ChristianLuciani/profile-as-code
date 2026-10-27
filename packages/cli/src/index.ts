@@ -5,13 +5,15 @@
  * rest).
  *
  * Consumes @profile-as-code/core (load/driftCheck/geoCheck/compile); never
- * re-implements them. Exit codes: 0 ok · 1 schema/workspace failure · 2 usage.
+ * re-implements them. Exit codes: 0 ok · 1 schema/workspace failure or a data
+ * finding that blocks the command (edit · audit) · 2 usage.
  * Human output EN by default (D8/§11); `--json` machine-readable on every
  * command that reports data.
  */
 
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { runAudit } from "./commands/audit.js";
 import { runBuild } from "./commands/build.js";
 import { runCheck } from "./commands/check.js";
 import { runDiff } from "./commands/diff.js";
@@ -60,7 +62,13 @@ Commands:
   check [platform]              Executes offline rules: brand handle matrix (M6/§17,
                                 brand flavor), registry checks (M7/§18.8) and
                                 media-transport rules (M8/§18.6) and max-chars/min-chars
-                                over headlines/bios (offline, #240); remaining rows M3/M4
+                                over headlines/bios (offline, #240) and fact-present
+                                (the built surface's facts vs the SSOT, #283);
+                                remaining rows M3/M4
+  audit [--json]                Offline diagnostic projection: findings only (no score,
+                                no prioritisation) in three fixed classes — dangling-ref,
+                                contradiction, unsourced-claim; stricter than
+                                validate/check on those classes; exit 1 iff any FAIL
   post <subcommand>             MVP (week-1 experiment): seed → task bundle → choose →
                                 check → optional Postiz draft payload. No LLM call.
                                 Subcommands: seed · task · choose · check · export · import · list
@@ -76,9 +84,9 @@ Common flags (after the command):
   --help, -h          Command help
 
 Exit codes: 0 ok · 1 schema/workspace failure, or a data finding that blocks the
-command (edit: the address is not one row, or the edit does not change the
-published artifact) · 2 usage error. Drift warnings exit 0 (D12: facts warn,
-schema fails).
+command (edit: the address is not one row or the edit does not change the
+published artifact; audit: at least one FAIL finding) · 2 usage error. Drift
+warnings exit 0 (D12: facts warn, schema fails).
 
 pasco is free (MIT). Consider a tip ;)
   https://ko-fi.com/christianluciani · https://github.com/sponsors/ChristianLuciani
@@ -216,10 +224,45 @@ content/active.yaml. No LLM call, no hub. Full variant flow: M3.`,
   check: `pasco check [platform] [--json] [--workspace <path>]
 Executes the offline rules that exist today: the brand handle matrix (brand
 flavor, D15/§17), registry checks (M7/§18.8) and media-transport rules
-(M8/§18.6), plus max-chars/min-chars over the headline/bio rows that exist
-(offline, #240; optional surface selector). Remaining rows in
-content/checks.yaml ship with the skills checks.yaml union (M3) and the full
-pasco check (M4). Prints its owner line (src/commands/check.ts).`,
+(M8/§18.6), max-chars/min-chars over the headline/bio rows that exist
+(offline, #240; optional surface selector), and fact-present (#283) — only for
+the surfaces whose catalog declares it (content/checks.yaml + the shipped
+skills/<platform>/checks.yaml): the artifact pasco build last wrote and the
+SSOT render are compared in BOTH directions (a URL/date/number either side
+carries and the other does not, a URL the surface adds, prose no token
+explains), else WARN (D12). A declared surface with no artifact reports the
+rule as not run, never OK; declared: [] says no catalog declares the premise.
+Remaining rows in content/checks.yaml ship with the skills checks.yaml union
+(M3) and the full pasco check (M4). Prints its owner line
+(src/commands/check.ts).`,
+  audit: `pasco audit [--json] [--workspace <path>]
+The offline diagnostic projection over the identity (SPEC §7.1, issue #283):
+findings only — no score, no prioritisation, no branding (those belong to the
+consuming layer). Three fixed classes, each with a fixed severity:
+  dangling-ref     a pointer that does not resolve in the current view   FAIL
+  contradiction    two surfaces assert incompatible values for one datum  FAIL
+  unsourced-claim  a quantitative claim with no evidence                 WARN
+It is deliberately STRICTER than validate/check on these classes: D12 governs
+validity (facts warn), the audit's contract is publishability, so a drift fact
+in a FAIL class exits 1 here and 0 there (declared in SPEC §7.1). Two inputs are
+declared no-class rules and are NOT findings: drift/url-not-in-identity (the
+URL resolves — canonicalization, which validate warns about) and geoCheck's
+coverage codes.
+Composes load (schema), driftCheck with validate's #238 variant-store
+reconciliation, geoCheck (the faq-coverage premise gate only), the
+completeness evidence premise and fact-present (the built surface's facts vs
+the SSOT render, symmetric; it runs only where the catalog declares it).
+Touches no network, and no finding derives from content/deployments.yaml.
+--json emits { schemaVersion: "1", scope: { catalog, declared, checked, notRun },
+findings: [ { class, severity, path, detail } ] }. scope is the artifact side:
+catalog = shipped | not-shipped (a package without its skills tree cannot declare
+anything, and says so); declared = targeted surfaces whose catalog
+declares fact-present (workspace checks + the shipped skills checks.yaml),
+checked = declared surfaces compared, notRun = declared but no artifact —
+declared: [] or checked: [] means nothing was measured, never "clean". path is a factRef (row id in place
+of the index when the grammar block declares one) or the artifact path for a
+surface finding. Exit: 0 no FAIL finding (WARN-only included) · 1 at least one
+FAIL, or a schema/load failure · 2 usage error.`,
   "skills:export": `pasco skills:export <dir> [--force] [--json]
 pasco skills:export --list [--json]
 Copies the skill channels this package ships (SPEC §16) into a directory you
@@ -419,7 +462,25 @@ async function runMain(): Promise<number> {
         throw new UsageError("usage: pasco check [platform] [--json] [--workspace <path>]");
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
-      return runCheck({ workspace, platformArg: positionals[0] });
+      return runCheck({
+        workspace,
+        platformArg: positionals[0],
+        pascorc: readWorkspacePascorc(workspace),
+      });
+    }
+    case "audit": {
+      const { flags, positionals } = parseCommandFlags(rest);
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.audit}\n`);
+        return EXIT.OK;
+      }
+      if (positionals.length > 0) {
+        throw new UsageError("usage: pasco audit [--json] [--workspace <path>]");
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      const pascorc = readWorkspacePascorc(workspace);
+      return runAudit({ workspace, pascorc });
     }
     case "post": {
       const { flags, positionals } = parseCommandFlags(rest, {

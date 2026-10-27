@@ -4,16 +4,10 @@
  */
 
 import type { LoadedProfile } from "@profile-as-code/core";
-import {
-  driftCheck,
-  geoCheck,
-  LoadError,
-  load,
-  SchemaValidationError,
-} from "@profile-as-code/core";
+import { geoCheck, LoadError, load, SchemaValidationError } from "@profile-as-code/core";
+import { reconciledDrift } from "../drift-reconcile.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
-import { hasVariantBody } from "../variant-store.js";
 
 export interface ValidateArgs {
   workspace: string;
@@ -42,15 +36,8 @@ export function runValidate(args: ValidateArgs): number {
   }
 
   // #238: a variant-only surface is backed by the chosen body in the store; the
-  // core drift check cannot see the workspace file, so reconcile it here.
-  const drift = driftCheck(profile).filter((issue) => {
-    if (issue.code !== "drift/active-variant-missing") return true;
-    const platform = issue.surfaces?.[0];
-    if (platform === undefined) return true;
-    const active = profile.active?.[platform];
-    if (active === undefined) return true;
-    return !hasVariantBody(args.workspace, platform, active.variantId);
-  });
+  // reconciliation lives in ONE home so `audit` cannot disagree with `validate`.
+  const drift = reconciledDrift(args.workspace, profile);
   const geo = geoCheck(profile);
 
   if (isJsonMode()) {
