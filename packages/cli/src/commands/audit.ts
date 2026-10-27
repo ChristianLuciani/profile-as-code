@@ -55,6 +55,7 @@ import { reconciledDrift } from "../drift-reconcile.js";
 import { EXIT } from "../exit.js";
 import { type FactFindingClass, factPresentFindings } from "../fact-present.js";
 import { isJsonMode, line, report, section } from "../output.js";
+import type { CatalogState } from "../skill-checks.js";
 import { type Pascorc, sanitizeCompletenessPolicy } from "../workspace.js";
 
 /** The frozen contract version of the `--json` payload (SPEC §7.1). A consumer
@@ -77,6 +78,9 @@ export interface AuditFinding {
  * audit is never mistaken for a clean one (SPEC §7.1).
  */
 export interface AuditScope {
+  /** Whether this package ships a skills tree at all (#253): `not-shipped` is a
+   *  bundle state, not "no premise declared". */
+  catalog: CatalogState;
   /** Surfaces whose catalog declares the `fact-present` premise (workspace rows ∪
    *  the shipped skill catalog). Empty = the premise is not declared, so the
    *  artifact side measured nothing BY CONTRACT. */
@@ -108,11 +112,15 @@ export const AUDIT_SEVERITY: Record<AuditClass, "FAIL" | "WARN"> = {
  * back to `contradiction` (FAIL, visible) rather than disappearing: a new drift
  * code must never be silently dropped from the audit.
  */
-const DRIFT_CLASS: Record<string, AuditClass> = {
+const DRIFT_CLASS: Record<string, AuditClass | null> = {
+  // Canonicalization, NOT a broken pointer: the URL resolves, it is simply not
+  // mirrored in `identity.links`. `validate` warns (D12); the audit gives it no
+  // class and does not report it — the same treatment `geoCheck` gets, declared in
+  // SPEC §7.1 rather than forced into a class it does not fit.
+  "drift/url-not-in-identity": null,
   "drift/active-platform-unknown": "dangling-ref",
   "drift/active-variant-missing": "dangling-ref",
   "drift/handle-claimed-not-linked": "dangling-ref",
-  "drift/url-not-in-identity": "dangling-ref",
   "drift/date-range-inverted": "contradiction",
   "drift/duplicate-bio": "contradiction",
   "drift/duplicate-experience": "contradiction",
@@ -206,13 +214,21 @@ function ssotFindings(profile: LoadedProfile, pascorc: Pascorc): AuditFinding[] 
   if (faqDeficient) {
     for (const [index, row] of (profile.faq ?? []).entries()) {
       if (row.source !== undefined) continue;
-      const claims = [...Object.values(row.q), ...Object.values(row.a)];
-      if (!claims.some(isQuantitativeClaim)) continue;
+      // Address the FIELD that carries the claim: `path` is the machine contract a
+      // fix plan consumes, so it must not point at the question when the number is
+      // in the answer (the `.q`/`.a` mismatch of the round-2 review).
+      const field = Object.values(row.a).some(isQuantitativeClaim)
+        ? "a"
+        : Object.values(row.q).some(isQuantitativeClaim)
+          ? "q"
+          : undefined;
+      if (field === undefined) continue;
+      const noun = field === "a" ? "answer" : "question";
       findings.push(
         finding(
           "unsourced-claim",
-          `faq[${index}].q`,
-          "the answer carries a quantitative claim with no `source` — an unsourced claim (the block address is index-based: `faq` is outside the factRef grammar)",
+          `faq[${index}].${field}`,
+          `the ${noun} carries a quantitative claim with no \`source\` — an unsourced claim (the block address is index-based: \`faq\` is outside the factRef grammar)`,
         ),
       );
     }
@@ -262,9 +278,14 @@ export function runAudit(args: AuditArgs): number {
     throw err;
   }
 
-  const drift = reconciledDrift(args.workspace, profile).map((issue) => {
-    const cls = DRIFT_CLASS[issue.code] ?? "contradiction";
-    return finding(cls, factRef(profile, issue.path), `${issue.code} — ${issue.message}`);
+  const drift = reconciledDrift(args.workspace, profile).flatMap((issue) => {
+    // An explicit `null` is "no class" (declared in §7.1); an unknown code falls
+    // back to `contradiction` (visible) so a new drift code is never dropped.
+    const mapped = Object.hasOwn(DRIFT_CLASS, issue.code)
+      ? DRIFT_CLASS[issue.code]
+      : "contradiction";
+    if (mapped === null || mapped === undefined) return [];
+    return [finding(mapped, factRef(profile, issue.path), `${issue.code} — ${issue.message}`)];
   });
   const facts = factPresentFindings({
     workspace: args.workspace,
@@ -282,6 +303,7 @@ export function runAudit(args: AuditArgs): number {
   const failures = findings.filter((item) => item.severity === "FAIL").length;
   const exitCode = failures > 0 ? EXIT.FAIL : EXIT.OK;
   const scope: AuditScope = {
+    catalog: facts.catalog,
     declared: facts.declared,
     checked: facts.checked,
     notRun: facts.notRun,
@@ -298,7 +320,12 @@ export function runAudit(args: AuditArgs): number {
       ? "no surface measured"
       : `${scope.checked.length} surface(s) compared (${scope.checked.join(", ")})`;
   const missing = scope.notRun.length === 0 ? "" : ` · not run: ${scope.notRun.join(", ")}`;
-  const declared = scope.declared.length === 0 ? " · premise not declared by any catalog" : "";
+  const declared =
+    scope.catalog === "not-shipped"
+      ? " · skills tree NOT SHIPPED with this package (the catalog cannot declare the premise)"
+      : scope.declared.length === 0
+        ? " · premise not declared by any catalog"
+        : "";
   line(`  scope: ${compared}${missing}${declared}`);
   if (scope.checked.length === 0) {
     line(

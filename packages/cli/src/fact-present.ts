@@ -60,7 +60,7 @@ import {
   createArtifactResolver,
   factIdentity,
 } from "./publication.js";
-import { declaredSurfaces } from "./skill-checks.js";
+import { type CatalogState, catalogState, declaredSurfaces } from "./skill-checks.js";
 import { defaultsLang, type Pascorc } from "./workspace.js";
 
 /** The audit's fixed failure classes (SPEC §7.1) — owned by the contract, not by
@@ -88,6 +88,9 @@ export interface FactPresentFinding {
 }
 
 export interface FactPresentReport {
+  /** Whether this package ships a skills tree at all (#253): `not-shipped` means the
+   *  catalog cannot declare anything — a bundle state, never "the premise is absent". */
+  catalog: CatalogState;
   /** Surfaces whose catalog declares the `fact-present` premise (workspace rows ∪
    *  the shipped skill catalog). Empty = the premise is not declared anywhere, so
    *  the rule had nothing to run on BY CONTRACT — the distinction the payload must
@@ -343,5 +346,5 @@ export function factPresentFindings(args: {
     if (!matched) findings.push(...(best ?? [textFinding(path, surface)]));
   }
 
-  return { declared, checked, notRun, findings };
+  return { catalog: catalogState(), declared, checked, notRun, findings };
 }

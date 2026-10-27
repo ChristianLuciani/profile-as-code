@@ -119,7 +119,7 @@ pasco audit --json          # machine contract
 ```json
 {
   "schemaVersion": "1",
-  "scope": { "declared": ["github-readme"], "checked": ["github-readme"], "notRun": [] },
+  "scope": { "catalog": "shipped", "declared": ["github-readme"], "checked": ["github-readme"], "notRun": [] },
   "findings": [
     {
       "class": "dangling-ref",
@@ -131,8 +131,10 @@ pasco audit --json          # machine contract
 }
 ```
 
-`scope` is the artifact side (the SSOT-side rules always run): `declared` are the
-targeted surfaces whose catalog declares the `fact-present` premise, `checked` the
+`scope` is the artifact side (the SSOT-side rules always run): `catalog` is
+`shipped` | `not-shipped` (a package without its skills tree cannot declare the
+premise — a bundle state, not "nothing declared"); `declared` are the targeted
+surfaces whose catalog declares the `fact-present` premise, `checked` the
 declared ones whose built artifact was compared, `notRun` the declared ones with no
 artifact on disk or no renderer for the flavor. **`declared: []` means the premise
 is not declared anywhere; `checked: []` means it measured nothing** — either way the
@@ -165,7 +167,9 @@ It is **deliberately stricter than `validate`/`check`** on the two FAIL classes:
 D12 governs validity (drift facts warn, `validate` exits 0), while the audit's
 contract is publishability and the issue freezes the class severities. A drift fact
 in a FAIL class therefore exits 1 here and 0 there — declared in SPEC §7.1 and
-pinned by a test.
+pinned by a test. Two inputs are deliberately NOT findings, declared in §7.1:
+`drift/url-not-in-identity` (the URL resolves — a canonicalization rule `validate`
+warns about) and `geoCheck`'s coverage codes.
 
 ### Contract paths (`pasco edit`, epic #247 — read · preview · write)
 

@@ -5,7 +5,8 @@
  * rest).
  *
  * Consumes @profile-as-code/core (load/driftCheck/geoCheck/compile); never
- * re-implements them. Exit codes: 0 ok · 1 schema/workspace failure · 2 usage.
+ * re-implements them. Exit codes: 0 ok · 1 schema/workspace failure or a data
+ * finding that blocks the command (edit · audit) · 2 usage.
  * Human output EN by default (D8/§11); `--json` machine-readable on every
  * command that reports data.
  */
@@ -83,9 +84,9 @@ Common flags (after the command):
   --help, -h          Command help
 
 Exit codes: 0 ok · 1 schema/workspace failure, or a data finding that blocks the
-command (edit: the address is not one row, or the edit does not change the
-published artifact) · 2 usage error. Drift warnings exit 0 (D12: facts warn,
-schema fails).
+command (edit: the address is not one row or the edit does not change the
+published artifact; audit: at least one FAIL finding) · 2 usage error. Drift
+warnings exit 0 (D12: facts warn, schema fails).
 
 pasco is free (MIT). Consider a tip ;)
   https://ko-fi.com/christianluciani · https://github.com/sponsors/ChristianLuciani
@@ -243,14 +244,19 @@ consuming layer). Three fixed classes, each with a fixed severity:
   unsourced-claim  a quantitative claim with no evidence                 WARN
 It is deliberately STRICTER than validate/check on these classes: D12 governs
 validity (facts warn), the audit's contract is publishability, so a drift fact
-in a FAIL class exits 1 here and 0 there (declared in SPEC §7.1).
+in a FAIL class exits 1 here and 0 there (declared in SPEC §7.1). Two inputs are
+declared no-class rules and are NOT findings: drift/url-not-in-identity (the
+URL resolves — canonicalization, which validate warns about) and geoCheck's
+coverage codes.
 Composes load (schema), driftCheck with validate's #238 variant-store
 reconciliation, geoCheck (the faq-coverage premise gate only), the
 completeness evidence premise and fact-present (the built surface's facts vs
-the SSOT render, symmetric; it runs only where the catalog declares it). Touches no network, and no finding derives from
-content/deployments.yaml.
---json emits { schemaVersion: "1", scope: { declared, checked, notRun }, findings:
-[ { class, severity, path, detail } ] }. scope is the artifact side: declared = targeted surfaces whose catalog
+the SSOT render, symmetric; it runs only where the catalog declares it).
+Touches no network, and no finding derives from content/deployments.yaml.
+--json emits { schemaVersion: "1", scope: { catalog, declared, checked, notRun },
+findings: [ { class, severity, path, detail } ] }. scope is the artifact side:
+catalog = shipped | not-shipped (a package without its skills tree cannot declare
+anything, and says so); declared = targeted surfaces whose catalog
 declares fact-present (workspace checks + the shipped skills checks.yaml),
 checked = declared surfaces compared, notRun = declared but no artifact —
 declared: [] or checked: [] means nothing was measured, never "clean". path is a factRef (row id in place

@@ -17,13 +17,14 @@ minor versions may contain breaking contract changes.
   classes with fixed severities: `dangling-ref` (a pointer that does not resolve)
   and `contradiction` (two surfaces disagreeing on one datum) are FAIL; an
   `unsourced-claim` (a quantitative claim with no evidence) is WARN. Exit `1` iff
-  a FAIL exists; `--json` carries `{ schemaVersion: "1", scope: { declared,
-  checked, notRun }, findings: [{ class, severity, path, detail }] }` where
+  a FAIL exists; `--json` carries `{ schemaVersion: "1", scope: { catalog,
+  declared, checked, notRun }, findings: [{ class, severity, path, detail }] }` where
   `scope` is the artifact side (so "measured nothing" is distinguishable from
   "clean") and `path` is a factRef (row id in place of the index) or the artifact
   path for a surface finding. Offline: no network, and no finding is derived from
   `content/deployments.yaml`. It is deliberately stricter than `validate`/`check`
-  on the FAIL classes, declared in SPEC §7.1. D23 is operator-ratified; its
+  on the FAIL classes, and `drift/url-not-in-identity` (the URL resolves) plus
+  `geoCheck`'s coverage codes are declared no-class rules, in SPEC §7.1. D23 is operator-ratified; its
   normative entry into the SPEC is pending in #262. — *M11 in SPEC §12.*
 - **`fact-present` — the rule the ledger recorded as missing (`PROP-017 §Risks
   F2`)** — executed by `pasco check` for the surfaces whose catalog declares it

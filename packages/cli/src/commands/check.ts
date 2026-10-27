@@ -182,7 +182,11 @@ export function runCheck(args: CheckArgs): number {
   for (const finding of facts.findings) {
     line(`  warn: [${finding.code}] ${finding.message} (${finding.path})`);
   }
-  if (facts.declared.length > 0) {
+  if (facts.catalog === "not-shipped") {
+    line(
+      "  skills tree NOT SHIPPED with this package — the catalog cannot declare the premise; report it at https://github.com/ChristianLuciani/profile-as-code/issues",
+    );
+  } else if (facts.declared.length > 0) {
     line(`  declared by the catalog: ${facts.declared.join(", ")}`);
   } else {
     line(

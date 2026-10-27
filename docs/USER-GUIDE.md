@@ -694,15 +694,18 @@ All of it is offline and deterministic:
   `skills/<platform>/checks.yaml`; `link-in-identity` stays a separate premise.
 
 `path` is a fact address (`projects[hub].links[0]`, `publications[routing]`,
-`faq[scale].q`) — the row `id` replaces the array index when the row has one. A
+`faq[1].a`) — the row `id` replaces the array index for the blocks the grammar
+addresses; `faq` is outside it, so it keeps the index and names the field that
+carries the claim. A
 finding about a built surface addresses the artifact instead
 (`profiles/github-readme/README.md`), because a fact the SSOT does not carry has
 no fact address by definition. `check --json` exposes the same rule under
 `data.factPresent` (`declared` / `checked` / `notRun` / `findings`). A declared
 surface with no artifact reads **not run**, and `declared: []` says the catalog
 declares no such premise — in both cases nothing was measured, never silently OK.
-`scope` in the audit payload carries the same three lists, because an audit with an
-empty scope is not a clean audit.
+`scope` in the audit payload carries the same lists plus `catalog` (`shipped` |
+`not-shipped` — a package without its skills tree says so instead of "nothing
+declared"), because an audit with an empty scope is not a clean audit.
 
 The audit is deliberately **stricter than `validate`/`check`** on the two FAIL
 classes: D12 makes drift facts warn for *validity*, while the audit's unit is

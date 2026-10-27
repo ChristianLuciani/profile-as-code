@@ -390,13 +390,16 @@ content validity — different unit of work, different exit semantics, so foldin
 into the other was rejected.
 
 **Output (v1, frozen).** `pasco audit --json` emits the usual CLI envelope whose
-`data` is `{ "schemaVersion": "1", "scope": { "declared": [...], "checked": [...],
-"notRun": [...] }, "findings": [...] }` — findings only, plus the scope they were
-measured over. The
+`data` is `{ "schemaVersion": "1", "scope": { "catalog": "shipped" | "not-shipped",
+"declared": [...], "checked": [...], "notRun": [...] }, "findings": [...] }` —
+findings only, plus the scope they were measured over. The
 string `"1"` is the contract version: a consumer refuses a version it does not know
 rather than guessing.
 
-`scope` is the artifact side (the SSOT-side rules always run): `declared` are the
+`scope` is the artifact side (the SSOT-side rules always run): `catalog` carries the
+package-level state — `not-shipped` means this install has no skills tree, so the
+catalog CANNOT declare the premise (a broken bundle, distinct from "declares
+nothing"); `declared` are the
 targeted surfaces whose catalog declares the `fact-present` premise, `checked` the
 declared surfaces whose built artifact was compared, `notRun` the declared ones with
 no artifact on disk or no renderer for the flavor. `declared: []` means the premise
@@ -423,7 +426,19 @@ intents on two platforms and `validate` exits `0`. The audit's unit is
 *publishability*, and the issue freezes the class severities (`dangling-ref` and
 `contradiction` FAIL). A drift fact that falls in a FAIL class therefore exits `1`
 here and `0` there. The difference is pinned by a test so it cannot drift into an
-accident of composition, and `--help` states it.
+accident of composition, and `--help` states it. It applies to the codes that have a
+class; the rules the next block excludes never reach it.
+
+**Declared no-class rules (not forced into a class they do not fit).** Two inputs are
+deliberately NOT audit findings:
+
+- **`drift/url-not-in-identity`** — the URL *resolves*; the rule asks that a
+  platform-host link be mirrored in `identity.links`, a canonicalization rule that
+  `validate` warns about (D12). It is not "a pointer that does not resolve", so it
+  has no class here and the audit does not report it. (This is the same reasoning
+  that keeps `geoCheck`'s coverage codes out of the classes.)
+- **`geoCheck`** — its codes are citability coverage signals; only its
+  `faq-coverage` premise gates the claim rows (see the table).
 
 **`path` grammar.** Findings address facts with the `factRef` grammar declared in
 the ledger (`PROP-017 §Scope`: `identity.links[n].url`, `projects[id].…`,
@@ -440,7 +455,7 @@ and a finding about a *surface* artifact addresses the artifact path
 | Source | Class mapping |
 |---|---|
 | `load()` / schema | a workspace that fails the schema is the error envelope at exit 1 — never a fabricated finding |
-| `reconciledDrift` (one home, `drift-reconcile.ts`) | `driftCheck` **plus the #238 variant-store reconciliation `validate` applies** — an `active-variant-missing` already backed by a chosen body is not a finding. Pointer codes (`url-not-in-identity`, `handle-claimed-not-linked`, `active-platform-unknown`, `active-variant-missing`) → `dangling-ref`; the contradiction/duplicate families (`publication-conflict`, `orcid-conflict`, `date-range-inverted`, `duplicate-*`, `skill-conflict`, `handle-host-mismatch`) → `contradiction` |
+| `reconciledDrift` (one home, `drift-reconcile.ts`) | `driftCheck` **plus the #238 variant-store reconciliation `validate` applies** — an `active-variant-missing` already backed by a chosen body is not a finding. Pointer codes (`handle-claimed-not-linked`, `active-platform-unknown`, `active-variant-missing`) → `dangling-ref`; **`url-not-in-identity` gets NO class and is not reported** (declared above); the contradiction/duplicate families (`publication-conflict`, `orcid-conflict`, `date-range-inverted`, `duplicate-*`, `skill-conflict`, `handle-host-mismatch`) → `contradiction` |
 | `geoCheck` | **no class of its own; one premise gate.** Its codes are citability coverage signals (a missing/short `definition` is not a pointer; a claimed handle outside `sameAs` is the legitimate `@id` exclusion). The one class-mappable premise is the answer surface: `geo/faq-coverage` (score 0) owns the ≥3-row / duplicate-`q` / unsourced-row rules, and the audit reports only the deficient ROWS that assert a number with no `source` (`unsourced-claim`). No threshold is re-derived |
 | completeness `evidence` premise | a project whose claim-bearing text is quantitative and has no evidence row with a `source` → `unsourced-claim` (the item's weight `0` in the workspace policy opts the rule out) |
 | `fact-present` (§7 `check`) | runs only for the surfaces whose catalog declares the premise (workspace `content/checks.yaml` ∪ the shipped `skills/<platform>/checks.yaml` — the catalog note and the code say the same thing, #283/F6). **Symmetric**: a URL the surface adds → `dangling-ref`; a URL it omits, a date or number either side carries and the other does not, or a projected text difference with no token to attribute → `contradiction`. `unsourced-claim` is never emitted here — a number is a fact, and "no evidence" is a question about `evidence[]`/`source` |
@@ -455,7 +470,10 @@ view produced the bytes. A workspace with no `content/deployments.yaml` and no
 `profiles/` still audits: the SSOT-internal classes run and `fact-present` reports
 the declared surfaces in `scope.notRun` (never silently green); a workspace whose
 catalog declares no `fact-present` premise at all carries `scope.declared: []`, which
-the contract reads as "nothing measured", not as clean.
+the contract reads as "nothing measured", not as clean — and a package that ships no
+skills tree says so (`scope.catalog: "not-shipped"`), never "nothing declared".
+`faq` is outside the `factRef` grammar, so a claim finding addresses the row and the
+FIELD that carries the claim with the index (`faq[1].a`), never a row id.
 
 **D23 is ratified; its entry into this SPEC is pending.** The operator ratified the
 presence unit on 2026-10-23 (#262: `surface.kind`, `releases[]`, the presence-first
@@ -636,7 +654,7 @@ Two different "templates" (previous confusion):
 9. **M9 (training-time corpus presence — deferred, Q10)**: outputs are designed not only for inference-time citation (GEO, layer 2) but — for owners who explicitly consent — for entry into future model training corpora (layer 3). Inputs + documented levers: `docs/research/03-training-time-visibility.md` (sourced + dated). Floor regardless of the Q10 resolution — **private-first default**: `robots.txt` on published surfaces **blocks** AI-training crawlers (CCBot / vendor AI crawlers) and user data ships **without** an open license; entering corpora or open-licensing data requires the profile owner's explicit opt-in (consent field — schema work deferred with Q10). The operator's own profiles may opt in: that consent is theirs to give. Decision (Q10): a `huggingface-dataset` renderer/exporter vs contributing to existing open datasets vs both — decided when the M3 platform SOTA research closes.
 10. **M10 (fact selection, D22/§21 — issue #235)**: `.pascorc` → `selection.views` + `selectFacts()` in core + `build --view` + `status --selection` + the five selection findings; Phase 1 is **schema-free** (selection by §19.2 key, and `artifacts[].tags` finally read as §18.9 declared). Phase 2 adds optional `tags[]` to six entry blocks (not `skills`); **Phase 3** (several views per platform, `profiles/<view>/`) needs a D19 amendment and stays out of scope until asked for.
 11. **Answer-engine surface (schema v1.10 — issues #288 → #289 → #287)**: `identity.definition` + `faq[]` (the citable facts, #288) · the `structuredData()` projection **of `definition`/`faq[]`** (`description` from `definition` + a separate `FAQPage` JSON-LD node, only when the fields exist) is **pending in #316** — the brand `description` from `mission` already ships · geoCheck v2 citability codes (#289 — freshness INFO, honest name-collision) · `pasco entity --json/--jsonld` (#287), the entity projection for surfaces the engine does not render.
-12. **M11 (presence audit — issue #283)**: `pasco audit --json` (§7.1) — the offline findings projection (three fixed classes, exit 1 on FAIL) over `load`/schema, `reconciledDrift`, `geoCheck`'s `faq-coverage` premise, the completeness `evidence` premise and the `fact-present` rule; `fact-present` executes in `pasco check` and compares the artifact `pasco build` last wrote against the SSOT render symmetrically. Scoring/prioritisation/branding stay in the consuming layer; the presence unit itself is #262 (D23), explicitly deferred.
+12. **M11 (presence audit — issue #283)**: `pasco audit --json` (§7.1) — the offline findings projection (three fixed classes, exit 1 on FAIL) over `load`/schema, `reconciledDrift`, `geoCheck`'s `faq-coverage` premise, the completeness `evidence` premise and the `fact-present` rule; `fact-present` executes in `pasco check` and compares the artifact `pasco build` last wrote against the SSOT render symmetrically. Scoring/prioritisation/branding stay in the consuming layer; the presence unit itself is #262 (D23 — operator-ratified 2026-10-23, and its normative entry into this SPEC, with its §5 register row, is pending there).
 
 ## 13. Resolved decisions (former open questions)
 

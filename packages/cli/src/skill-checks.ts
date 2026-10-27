@@ -16,7 +16,11 @@
  *
  * Read-only, deterministic, offline: the shipped tree is resolved by `skill-path`
  * (the one home for skill lookup, including `PASCO_SKILLS_DIR` and the packaged
- * copy). A package that ships no skills declares nothing — never an invented path.
+ * copy). The three states of that lookup are PRESERVED here (#253): "this package
+ * ships no skills" (a broken bundle), "the tree ships but this surface has no
+ * catalog" (nothing declared), and "found". Collapsing them would let a broken
+ * bundle read as "the premise is not declared anywhere" — the same silent-absence
+ * failure the audit exists to prevent, one level up.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -40,21 +44,41 @@ function isCatalogRow(value: unknown): value is CatalogRow {
   return typeof row.platform === "string" && typeof row.rule === "string";
 }
 
-/** The shipped skill catalog for one surface, or `[]` when it declares none. */
-export function shippedChecks(platform: string): CatalogRow[] {
-  const root = skillsDir();
-  if (root === undefined) return [];
+/** Whether this package ships a skills tree at all — the `not-shipped` leg of the
+ *  #253 three-state contract, carried all the way to the audit payload. */
+export type CatalogState = "shipped" | "not-shipped";
+
+export function catalogState(): CatalogState {
+  return skillsDir() === undefined ? "not-shipped" : "shipped";
+}
+
+/** One surface's shipped catalog, with the state that produced it. */
+export type ShippedCatalog =
+  | { state: "found"; rows: CatalogRow[] }
+  | { state: "no-catalog"; rows: CatalogRow[] }
+  | { state: "not-shipped"; rows: CatalogRow[] };
+
+/** Resolve a surface's catalog under an explicit skills root — pure, so the three
+ *  states are testable without hiding the packaged tree. */
+export function catalogAt(root: string | undefined, platform: string): ShippedCatalog {
+  if (root === undefined) return { state: "not-shipped", rows: [] };
   const path = join(root, platform, "checks.yaml");
-  if (!existsSync(path)) return [];
+  if (!existsSync(path)) return { state: "no-catalog", rows: [] };
   let parsed: unknown;
   try {
     parsed = parse(readFileSync(path, "utf8"));
   } catch {
     // A malformed shipped catalog is a packaging bug, not a verdict: declare
-    // nothing and let the rule report "not declared" rather than crash the CLI.
-    return [];
+    // nothing and let the rule report "no catalog" rather than crash the CLI.
+    return { state: "no-catalog", rows: [] };
   }
-  return Array.isArray(parsed) ? parsed.filter(isCatalogRow) : [];
+  const rows = Array.isArray(parsed) ? parsed.filter(isCatalogRow) : [];
+  return { state: "found", rows };
+}
+
+/** The shipped catalog for one surface under the resolved skills tree. */
+export function shippedCatalog(platform: string): ShippedCatalog {
+  return catalogAt(skillsDir(), platform);
 }
 
 /**
@@ -72,6 +96,6 @@ export function declaredSurfaces(
       (check) => (check.platform === "all" || check.platform === surface) && check.rule === rule,
     );
     if (own) return true;
-    return shippedChecks(surface).some((check) => check.rule === rule);
+    return shippedCatalog(surface).rows.some((check) => check.rule === rule);
   });
 }

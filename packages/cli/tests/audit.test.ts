@@ -21,6 +21,8 @@ import { runBuild } from "../src/commands/build.js";
 import { runCheck } from "../src/commands/check.js";
 import { runValidate } from "../src/commands/validate.js";
 import { type JsonEnvelope, setJsonMode } from "../src/output.js";
+import { catalogAt } from "../src/skill-checks.js";
+import { skillsDir } from "../src/skill-path.js";
 import type { Pascorc } from "../src/workspace.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -143,7 +145,7 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
     expect(code).toBe(0);
     const report = data as { schemaVersion: string; scope: Scope; findings: Finding[] };
     expect(Object.keys(report).sort()).toEqual(["findings", "schemaVersion", "scope"]);
-    expect(Object.keys(report.scope).sort()).toEqual(["checked", "declared", "notRun"]);
+    expect(Object.keys(report.scope).sort()).toEqual(["catalog", "checked", "declared", "notRun"]);
     expect(report.schemaVersion).toBe("1");
     expect(report.schemaVersion).toBe(AUDIT_SCHEMA_VERSION);
     expect(report.findings).toHaveLength(1);
@@ -154,7 +156,7 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
     expect(out).not.toMatch(/"(score|percent|percentage|rank|priority)"/);
   });
 
-  it("dangling-ref: a project link outside identity.links FAILs at exit 1", () => {
+  it("dangling-ref: a claimed handle that resolves nowhere FAILs at exit 1", () => {
     const { code, data } = audit(join(FIXTURES, "dangling-ref"));
     expect(code).toBe(1);
     const findings = (data as { findings: Finding[] }).findings;
@@ -162,8 +164,8 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
     expect(findings[0]).toMatchObject({
       class: "dangling-ref",
       severity: "FAIL",
-      // factRef grammar: the row ID replaces the array index when declared.
-      path: "projects[hub].links[0]",
+      // `socialHandles` is outside the factRef grammar: its own address is kept.
+      path: "socialHandles[0]",
     });
   });
 
@@ -204,6 +206,13 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
     expect(data).toBeUndefined();
   });
 
+  it("reports the package-level catalog state, so a broken bundle is not 'nothing declared' (F4)", () => {
+    const scope = (
+      audit(join(FIXTURES, "unsourced-claim")).data as { scope: Scope & { catalog: string } }
+    ).scope;
+    expect(scope.catalog).toBe("shipped");
+  });
+
   it("is deliberately stricter than validate on the FAIL classes (declared, pinned)", () => {
     // D12 makes drift warn, so `validate` exits 0; the issue freezes the audit's
     // class severities to FAIL. This difference is the contract (SPEC §7.1).
@@ -211,6 +220,27 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
     expect(validated.code).toBe(0);
     const audited = audit(DRIFTING);
     expect(audited.code).toBe(1);
+  });
+
+  it("does NOT report drift/url-not-in-identity: the URL resolves (declared no-class, F2)", () => {
+    // Canonicalization, not a broken pointer: the link lives on a platform host but
+    // is not mirrored in identity.links. `validate` warns (D12); the audit gives it
+    // no class, so it must not exit 1 over a workspace the other commands accept.
+    const ws = workspace({
+      "identity.yaml":
+        "name: Elena Vasquez\nlinks:\n  - platform: github\n    label: GitHub\n    url: https://github.com/elenavasquez\n",
+      "projects.yaml":
+        "- id: hub\n  name: sovereign-agentic-hub\n  links:\n    - https://github.com/someoneelse/other-repo\n",
+    });
+    const validated = json(() => runValidate({ workspace: ws })) as {
+      data: { drift: { code: string }[] };
+    };
+    expect(validated.data.drift.some((issue) => issue.code === "drift/url-not-in-identity")).toBe(
+      true,
+    );
+    const audited = audit(ws);
+    expect(audited.code).toBe(0);
+    expect((audited.data as { findings: Finding[] }).findings).toEqual([]);
   });
 
   it("reuses validate's #238 variant-store reconciliation (no false FAIL)", () => {
@@ -254,6 +284,7 @@ describe("fact-present — the surface's facts vs the SSOT (issue #283)", () => 
     expect(code).toBe(0);
     const report = data as { scope: Scope; findings: Finding[] };
     expect(report.scope).toEqual({
+      catalog: "shipped",
       declared: ["github-readme"],
       checked: [],
       notRun: ["github-readme"],
@@ -273,7 +304,7 @@ describe("fact-present — the surface's facts vs the SSOT (issue #283)", () => 
         "- platform: linkedin\n  lang: en\n  length: short\n  text: Sovereign AI infrastructure.\n",
     });
     const bare = (audit(ws).data as { scope: Scope }).scope;
-    expect(bare).toEqual({ declared: [], checked: [], notRun: [] });
+    expect(bare).toEqual({ catalog: "shipped", declared: [], checked: [], notRun: [] });
 
     // The union: the workspace's OWN catalog can declare the premise for linkedin.
     writeFileSync(
@@ -432,15 +463,59 @@ describe("fact-present — the surface's facts vs the SSOT (issue #283)", () => 
     });
     const findings = (audit(ws).data as { findings: Finding[] }).findings;
     expect(findings).toHaveLength(1);
-    expect(findings[0]).toMatchObject({ class: "unsourced-claim", path: "faq[1].q" });
+    // The number is in the ANSWER: the address names `.a`, not the question (F6).
+    expect(findings[0]).toMatchObject({ class: "unsourced-claim", path: "faq[1].a" });
+    expect(findings[0]?.detail).toContain("the answer carries");
+  });
+
+  it("addresses the question when the claim lives there (path and detail agree, F6)", () => {
+    const ws = workspace({
+      "identity.yaml": "name: Elena Vasquez\n",
+      "faq.yaml": [
+        "- id: who",
+        "  q:",
+        "    en: Who is Elena?",
+        "  a:",
+        "    en: An AI engineer.",
+        "  source: https://example.com/elena",
+        "- id: many",
+        "  q:",
+        "    en: Does Elena hold 12 certifications?",
+        "  a:",
+        "    en: She holds several.",
+        "  source: https://example.com/elena",
+        "- id: where",
+        "  q:",
+        "    en: Where is Elena based?",
+        "  a:",
+        "    en: Madrid, Spain.",
+        "  source: https://example.com/elena",
+      ].join("\n"),
+    });
+    // `source` is present, so this row is NOT deficient: a q-only numeric claim with
+    // a source must not be reported (the audit only reports unsourced rows).
+    const sourced = (audit(ws).data as { findings: Finding[] }).findings;
+    expect(sourced).toEqual([]);
+  });
+});
+
+describe("the skill catalog preserves the three #253 states (F4)", () => {
+  it("distinguishes not-shipped, no-catalog and found", () => {
+    expect(catalogAt(undefined, "github-readme").state).toBe("not-shipped");
+    expect(catalogAt(tempDir(), "github-readme").state).toBe("no-catalog");
+    const root = skillsDir();
+    expect(root).toBeDefined();
+    expect(catalogAt(root, "github-readme").state).toBe("found");
+    // A surface the shipped tree does not document is `no-catalog`, not `not-shipped`.
+    expect(catalogAt(root, "linkedin").state).toBe("no-catalog");
   });
 });
 
 describe("factRef — the ledger grammar, extended nowhere (F8)", () => {
-  const profile = load(join(FIXTURES, "dangling-ref"));
+  const profile = load(join(FIXTURES, "unsourced-claim"));
 
   it("maps the block index to the row id for the grammar's blocks", () => {
-    expect(factRef(profile, "projects[0].links[0]")).toBe("projects[hub].links[0]");
+    expect(factRef(profile, "projects[0].description")).toBe("projects[hub].description");
   });
 
   it("keeps the index for blocks the grammar does not address", () => {
