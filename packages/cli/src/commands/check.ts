@@ -110,6 +110,7 @@ export function runCheck(args: CheckArgs): number {
     profile,
     ...(platform === undefined ? {} : { platform }),
     pascorc: args.pascorc,
+    checks: profile.checks,
   });
   const failErrors = [...registry, ...media].filter((f) => f.severity === "error");
 
@@ -181,6 +182,13 @@ export function runCheck(args: CheckArgs): number {
   for (const finding of facts.findings) {
     line(`  warn: [${finding.code}] ${finding.message} (${finding.path})`);
   }
+  if (facts.declared.length > 0) {
+    line(`  declared by the catalog: ${facts.declared.join(", ")}`);
+  } else {
+    line(
+      "  not declared by any catalog for this surface — no premise to run (the rule reads the workspace checks + the shipped skills checks.yaml)",
+    );
+  }
   if (facts.checked.length > 0) {
     line(`  compared: ${facts.checked.join(", ")}`);
   }
@@ -188,9 +196,6 @@ export function runCheck(args: CheckArgs): number {
     line(
       `  not run: ${facts.notRun.join(", ")} — no artifact on disk (run pasco build) or no renderer for this flavor`,
     );
-  }
-  if (facts.findings.length === 0 && facts.checked.length === 0) {
-    line("  fact-present: no surface to compare (nothing built yet) — NOT a pass");
   }
 
   if (profile.flavor === "brand") {

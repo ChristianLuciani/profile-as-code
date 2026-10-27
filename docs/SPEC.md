@@ -373,8 +373,8 @@ declared renderer or an explicit "not implemented yet").
 | `pasco build [platform] [--view <name>] [--lang]` | render deterministic base texts; `--view` resolves a declared view's platform/lang + fact selection (D22, §21); a manual-paste surface without a renderer writes `profiles/<platform>.md` via the shared paste core (#239); an active variant body is written verbatim as the platform artifact (#238) |
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
 | `pasco edit <contract-path> [--set <text> [--check]]` | read **or write** **one contract field** by contract path — `positioning.statement.<lang>`, `headlines[platform=<p>,lang=<l>].text`, `bios[platform=<p>,lang=<l>,length=<len>].text`, `identity.links[platform=<p>,label=<l>].url` (read-only, `label` optional). `--set` writes it: **byte-range splice over the original text** (the CST locates; it never re-serializes, so comments/layout survive and the diff is one line), block, multi-line and anchored/aliased scalars **refused** in v1, the file's node must still match the resolved value (staleness → exit 1, never a silent wrong-row write), no-op = 0 + `noop`, temp file + `load()`/schema over a temp copy + **atomic rename** (an invalid edit never reaches disk), concurrent writers serialized by an advisory `content/.pasco-edit.lock` plus a re-read immediately before the rename (an external editor is the residual window). `--set --check` previews instead: it renders the surface the way `pasco build` does (active variant → renderer → shared paste source, current vs proposed) and prints **the published lines the edit changes**, reporting an edit that does not reach the artifact with its reason instead of asserting it. It also reports the edited unit's **surface impact** from the §19 ledger — every recorded surface prints `stale` after an edit that changes the unit hash (or `in-sync` when the record still matches), and a unit with no record rolls up to `never` — derived on every run and stored nowhere (§20). A headline/bio value is pre-flighted against the catalog's own `max-chars` cap — the workspace's `content/checks.yaml` when it declares checks, else the caps shipped with pasco (#240) with its cited source and tier — over-cap is a WARN, never a block (D12), and a platform with no sourced cap reads `cap: unknown`; `--json` carries `{ address, current, proposed, rendered, ok, noop, written, warnings, stale, state, drift, limit, over, variant, reason }` inside the standard envelope (a D22/§21 selection error the write proceeds through is a warning, not a block: the SSOT write is valid even when `build` refuses); a read-only target or a file that changes under the command is exit 1 (`refused` / `stale`, nothing written); its machine contract is frozen for agents (S5, #252): the `--json` field set and the 0/1/2 exit matrix are documented in the CLI README, one test per exit row; `edit` never chooses the live variant (#238 non-goal); epic #247, S1–S5 |
-| `pasco check [platform]` | run skill-declared checks before deploy; char limits accept an optional `surface` (`headline`/`bio`/`both`) so a title cap does not flag the bio (#240). **`fact-present`** is executed here (issue #283): the fact tokens (URL · ISO date · number) of the artifact `pasco build` last wrote must be the ones the SSOT renders today — a URL the render does not carry is a dangling pointer, a date it does not carry is a contradiction, any other number is an unsourced claim. All three are WARN (D12: facts warn), and a surface with no artifact on disk reports the rule as **not run**, never as OK |
-| `pasco audit [--json]` | the **offline diagnostic projection** over the identity: findings only — no score, no prioritisation, no branding (issue #283). `--json` emits `{ schemaVersion: "1", findings: [{ class, severity, path, detail }] }`, three fixed classes (`dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN), exit 1 iff any FAIL. Composes `load` (schema), `driftCheck` (SSOT contradictions + unresolved pointers), the completeness `evidence` premise, and `fact-present`; `geoCheck`'s codes map to **no** class in v1, and that is declared (see §7.1) |
+| `pasco check [platform]` | run skill-declared checks before deploy; char limits accept an optional `surface` (`headline`/`bio`/`both`) so a title cap does not flag the bio (#240). **`fact-present`** is executed here (issue #283), **for the surfaces whose catalog declares the premise** (the workspace's `content/checks.yaml` ∪ the shipped `skills/<platform>/checks.yaml`; `link-in-identity` stays a separate premise): the artifact `pasco build` last wrote is compared **symmetrically** against the SSOT render — a URL the surface adds (dangling pointer) or omits (`contradiction`), a date or number either side carries and the other does not (`contradiction`), and a text difference no fact token explains (`contradiction`) are all findings. All are WARN (D12: facts warn), and a targeted surface with no artifact on disk reports the rule as **not run**, never as OK |
+| `pasco audit [--json]` | the **offline diagnostic projection** over the identity: findings only — no score, no prioritisation, no branding (issue #283). `--json` emits `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings: [{ class, severity, path, detail }] }` — `scope` makes "measured nothing" distinguishable from "clean" — with three fixed classes (`dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN); exit 1 iff any FAIL. Composes `load` (schema), `reconciledDrift` (drift + the #238 variant reconciliation), `geoCheck` (its `faq-coverage` premise gates the claim rows), the completeness `evidence` premise, and `fact-present`; it is **deliberately stricter** than `validate`/`check` on the FAIL classes (declared in §7.1) |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22). **The read report also ends with the derived publication truth per surface (§20.1, #242): ledger · artifact-vs-SSOT · declared cap — computed on every read, stored nowhere** |
 | `pasco skills:export <dir> [--force] [--list]` | copy the skill channels **this package ships** into a directory the user names; `--force` overlays an existing non-empty directory (nothing is deleted), `--list` shows the channels. No per-agent destination is invented. Skill lookup reads only the package's own `skills/`, an explicit `PASCO_SKILLS_DIR`, or the marked workspace checkout (developers) — #253/#254 |
@@ -390,9 +390,21 @@ content validity — different unit of work, different exit semantics, so foldin
 into the other was rejected.
 
 **Output (v1, frozen).** `pasco audit --json` emits the usual CLI envelope whose
-`data` is exactly `{ "schemaVersion": "1", "findings": [...] }` — findings only.
-The string `"1"` is the contract version: a consumer refuses a version it does not
-know rather than guessing. Each finding is `{ class, severity, path, detail }`:
+`data` is `{ "schemaVersion": "1", "scope": { "declared": [...], "checked": [...],
+"notRun": [...] }, "findings": [...] }` — findings only, plus the scope they were
+measured over. The
+string `"1"` is the contract version: a consumer refuses a version it does not know
+rather than guessing.
+
+`scope` is the artifact side (the SSOT-side rules always run): `declared` are the
+targeted surfaces whose catalog declares the `fact-present` premise, `checked` the
+declared surfaces whose built artifact was compared, `notRun` the declared ones with
+no artifact on disk or no renderer for the flavor. `declared: []` means the premise
+is not declared anywhere (nothing to measure by contract); `checked: []` means a
+declared premise measured nothing. Either way **nothing was measured** — it is the
+field that makes an empty audit distinguishable from a clean one, and the human
+output says so (`an empty scope is not a clean audit`).
+Each finding is `{ class, severity, path, detail }`:
 
 | Class | Fires when | Severity |
 |---|---|---|
@@ -404,6 +416,14 @@ Exit `1` if any `FAIL` finding exists, `0` otherwise (WARN-only included); `2` i
 usage error and a schema/load failure is the standard error envelope at exit `1`.
 No score, no percentage, no ordering-by-importance is emitted: an `[INF]` score in
 the engine would breach the module boundary.
+
+**Stricter than `validate`/`check` on these classes — by contract, not by accident.**
+D12 governs *validity*: drift facts warn, so a workspace may legitimately carry two
+intents on two platforms and `validate` exits `0`. The audit's unit is
+*publishability*, and the issue freezes the class severities (`dangling-ref` and
+`contradiction` FAIL). A drift fact that falls in a FAIL class therefore exits `1`
+here and `0` there. The difference is pinned by a test so it cannot drift into an
+accident of composition, and `--help` states it.
 
 **`path` grammar.** Findings address facts with the `factRef` grammar declared in
 the ledger (`PROP-017 §Scope`: `identity.links[n].url`, `projects[id].…`,
@@ -420,22 +440,28 @@ and a finding about a *surface* artifact addresses the artifact path
 | Source | Class mapping |
 |---|---|
 | `load()` / schema | a workspace that fails the schema is the error envelope at exit 1 — never a fabricated finding |
-| `driftCheck` | pointer codes (`url-not-in-identity`, `handle-claimed-not-linked`, `active-platform-unknown`, `active-variant-missing`) → `dangling-ref`; the contradiction/duplicate families (`publication-conflict`, `orcid-conflict`, `date-range-inverted`, `duplicate-*`, `skill-conflict`, `handle-host-mismatch`) → `contradiction` |
-| `geoCheck` | **no class in v1, declared rather than forced.** Its codes are citability coverage signals: a missing/short `definition` is not a pointer, and a claimed handle outside `sameAs` is the legitimate `@id` exclusion (geo flags it WARN), never a dangling reference. The one class-mappable premise — an answer (`faq[]`) row with no `source` — is reported row-level under the claim rule, not by parsing the check's prose detail |
+| `reconciledDrift` (one home, `drift-reconcile.ts`) | `driftCheck` **plus the #238 variant-store reconciliation `validate` applies** — an `active-variant-missing` already backed by a chosen body is not a finding. Pointer codes (`url-not-in-identity`, `handle-claimed-not-linked`, `active-platform-unknown`, `active-variant-missing`) → `dangling-ref`; the contradiction/duplicate families (`publication-conflict`, `orcid-conflict`, `date-range-inverted`, `duplicate-*`, `skill-conflict`, `handle-host-mismatch`) → `contradiction` |
+| `geoCheck` | **no class of its own; one premise gate.** Its codes are citability coverage signals (a missing/short `definition` is not a pointer; a claimed handle outside `sameAs` is the legitimate `@id` exclusion). The one class-mappable premise is the answer surface: `geo/faq-coverage` (score 0) owns the ≥3-row / duplicate-`q` / unsourced-row rules, and the audit reports only the deficient ROWS that assert a number with no `source` (`unsourced-claim`). No threshold is re-derived |
 | completeness `evidence` premise | a project whose claim-bearing text is quantitative and has no evidence row with a `source` → `unsourced-claim` (the item's weight `0` in the workspace policy opts the rule out) |
-| `fact-present` (§7 `check`) | artifact URL the SSOT render does not carry → `dangling-ref`; artifact ISO date it does not carry → `contradiction`; any other artifact number it does not carry → `unsourced-claim` |
+| `fact-present` (§7 `check`) | runs only for the surfaces whose catalog declares the premise (workspace `content/checks.yaml` ∪ the shipped `skills/<platform>/checks.yaml` — the catalog note and the code say the same thing, #283/F6). **Symmetric**: a URL the surface adds → `dangling-ref`; a URL it omits, a date or number either side carries and the other does not, or a projected text difference with no token to attribute → `contradiction`. `unsourced-claim` is never emitted here — a number is a fact, and "no evidence" is a question about `evidence[]`/`source` |
 
 **Declared v1 limits.** Artifacts are read from disk (what `pasco build` last wrote);
 no network is touched (D19), so a live page that differs is §19.5's
-`out-of-band-drift`, not an audit finding. The audit is view-free: it judges the
-whole SSOT, not a D22 selection. A workspace with no `content/deployments.yaml` and
-no `profiles/` still audits — the SSOT-internal classes run, `fact-present` reports
-"not run" (it is never silently green).
+`out-of-band-drift`, not an audit finding. The audit is **view-blind**: it judges the
+implicit per-platform view, so an artifact written by `pasco build --view <name>` is
+compared against that implicit view and reads as a contradiction — the same declared
+consequence §20.1's artifact axis carries, because neither command may guess which
+view produced the bytes. A workspace with no `content/deployments.yaml` and no
+`profiles/` still audits: the SSOT-internal classes run and `fact-present` reports
+the declared surfaces in `scope.notRun` (never silently green); a workspace whose
+catalog declares no `fact-present` premise at all carries `scope.declared: []`, which
+the contract reads as "nothing measured", not as clean.
 
-**D23 is explicitly deferred, not silently assumed.** `audit` is the first command
-whose unit is *presence* rather than *profile*, but the presence unit, `surface.kind`
-and `releases[]` are #262's decision (operator-ratified). This command ships against
-today's contract (the workspace identity); it does not pre-empt D23.
+**D23 is ratified; its entry into this SPEC is pending.** The operator ratified the
+presence unit on 2026-10-23 (#262: `surface.kind`, `releases[]`, the presence-first
+unit). The decision is closed; what is missing is its normative entry (§21, next id
+after D22), owned by that issue. Until it lands, `audit` ships against today's
+contract — the workspace identity — and does not pre-empt it.
 
 ## 8. GEO as a cross-cutting layer
 
@@ -610,7 +636,7 @@ Two different "templates" (previous confusion):
 9. **M9 (training-time corpus presence — deferred, Q10)**: outputs are designed not only for inference-time citation (GEO, layer 2) but — for owners who explicitly consent — for entry into future model training corpora (layer 3). Inputs + documented levers: `docs/research/03-training-time-visibility.md` (sourced + dated). Floor regardless of the Q10 resolution — **private-first default**: `robots.txt` on published surfaces **blocks** AI-training crawlers (CCBot / vendor AI crawlers) and user data ships **without** an open license; entering corpora or open-licensing data requires the profile owner's explicit opt-in (consent field — schema work deferred with Q10). The operator's own profiles may opt in: that consent is theirs to give. Decision (Q10): a `huggingface-dataset` renderer/exporter vs contributing to existing open datasets vs both — decided when the M3 platform SOTA research closes.
 10. **M10 (fact selection, D22/§21 — issue #235)**: `.pascorc` → `selection.views` + `selectFacts()` in core + `build --view` + `status --selection` + the five selection findings; Phase 1 is **schema-free** (selection by §19.2 key, and `artifacts[].tags` finally read as §18.9 declared). Phase 2 adds optional `tags[]` to six entry blocks (not `skills`); **Phase 3** (several views per platform, `profiles/<view>/`) needs a D19 amendment and stays out of scope until asked for.
 11. **Answer-engine surface (schema v1.10 — issues #288 → #289 → #287)**: `identity.definition` + `faq[]` (the citable facts, #288) · the `structuredData()` projection **of `definition`/`faq[]`** (`description` from `definition` + a separate `FAQPage` JSON-LD node, only when the fields exist) is **pending in #316** — the brand `description` from `mission` already ships · geoCheck v2 citability codes (#289 — freshness INFO, honest name-collision) · `pasco entity --json/--jsonld` (#287), the entity projection for surfaces the engine does not render.
-12. **M11 (presence audit — issue #283)**: `pasco audit --json` (§7.1) — the offline findings projection (three fixed classes, exit 1 on FAIL) over `validate`, `driftCheck`, the completeness `evidence` premise and the `fact-present` rule; `fact-present` executes in `pasco check` against the artifact `pasco build` last wrote. Scoring/prioritisation/branding stay in the consuming layer; the presence unit itself is #262 (D23), explicitly deferred.
+12. **M11 (presence audit — issue #283)**: `pasco audit --json` (§7.1) — the offline findings projection (three fixed classes, exit 1 on FAIL) over `load`/schema, `reconciledDrift`, `geoCheck`'s `faq-coverage` premise, the completeness `evidence` premise and the `fact-present` rule; `fact-present` executes in `pasco check` and compares the artifact `pasco build` last wrote against the SSOT render symmetrically. Scoring/prioritisation/branding stay in the consuming layer; the presence unit itself is #262 (D23), explicitly deferred.
 
 ## 13. Resolved decisions (former open questions)
 

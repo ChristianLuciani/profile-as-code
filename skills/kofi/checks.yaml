@@ -15,7 +15,7 @@
   platform: kofi
   rule: fact-present
   value: true
-  note: "Hechos del About byte-idénticos al SSOT (D4); el About es el cuerpo del perfil (SOTA-2026 §5)."
+  note: "El About que escribió `pasco build` se compara contra el render actual del SSOT en los dos sentidos — URL, fecha o número agregado u omitido, y texto sin token que lo explique (WARN, D12; `pasco audit` lo gradúa); el About es el cuerpo del perfil (SOTA-2026 §5). `link-in-identity` es una premisa aparte."
 
 - id: k-links-identity
   platform: kofi

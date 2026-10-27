@@ -16,6 +16,7 @@ import { dirname, join } from "node:path";
 import type { LoadedProfile, Platform } from "@profile-as-code/core";
 import { LoadError, load, SchemaValidationError } from "@profile-as-code/core";
 import { parseDocument } from "yaml";
+import { isQuantitativeClaim } from "../claims.js";
 import { parseLang, parsePlatform, parseVariants, UsageError } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section, warn } from "../output.js";
@@ -342,7 +343,7 @@ export function checkText(text: string, rules: PostingRules, profile: LoadedProf
   for (const rawLine of content.split("\n")) {
     const lineText = rawLine.trim();
     if (lineText === "" || lineText.includes("{{fact:") || lineText.includes("evidence:")) continue;
-    if (/\d/.test(lineText) && /[%$]|\b\d{2,}\b/.test(lineText)) {
+    if (isQuantitativeClaim(lineText)) {
       findings.push({
         code: "unsourced-claim",
         severity: "warn",

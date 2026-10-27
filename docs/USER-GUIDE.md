@@ -668,7 +668,7 @@ engine reports; the consumer ranks (that split is the contract, not a stage).
 
 ```sh
 pasco audit          # a human list, one block per finding
-pasco audit --json   # { "schemaVersion": "1", "findings": [{ class, severity, path, detail }] }
+pasco audit --json   # { schemaVersion: "1", scope: { declared, checked, notRun }, findings: [...] }
 ```
 
 | Class | What it means | Severity |
@@ -685,18 +685,29 @@ All of it is offline and deterministic:
   written with two date ranges, …
 - **claims** — a project whose description states a number and whose `evidence[]`
   carries no `source`; an `faq[]` answer with a number and no `source`;
-- **the built surface** (`fact-present`, after `pasco build`) — a URL the artifact
-  links that the SSOT render does not carry, a date it asserts that the render
-  does not, any other number with no backing fact. `pasco check` runs the same
-  rule and reports it as a warning; the audit grades it.
+- **the built surface** (`fact-present`, after `pasco build`, and only for the
+  surfaces whose catalog declares the premise) — the artifact is compared against
+  the SSOT render **in both directions**: a URL, date or number the surface adds
+  or omits, and a text difference no fact token explains. `pasco check` runs the
+  same rule and reports it as a warning; the audit grades it. The catalog is the
+  workspace's `content/checks.yaml` plus the shipped
+  `skills/<platform>/checks.yaml`; `link-in-identity` stays a separate premise.
 
 `path` is a fact address (`projects[hub].links[0]`, `publications[routing]`,
 `faq[scale].q`) — the row `id` replaces the array index when the row has one. A
 finding about a built surface addresses the artifact instead
 (`profiles/github-readme/README.md`), because a fact the SSOT does not carry has
 no fact address by definition. `check --json` exposes the same rule under
-`data.factPresent` (`checked` / `notRun` / `findings`), and a surface with no
-artifact reads **not run** — never silently OK.
+`data.factPresent` (`declared` / `checked` / `notRun` / `findings`). A declared
+surface with no artifact reads **not run**, and `declared: []` says the catalog
+declares no such premise — in both cases nothing was measured, never silently OK.
+`scope` in the audit payload carries the same three lists, because an audit with an
+empty scope is not a clean audit.
+
+The audit is deliberately **stricter than `validate`/`check`** on the two FAIL
+classes: D12 makes drift facts warn for *validity*, while the audit's unit is
+*publishability*; the class severities are frozen by the issue, so a drift fact in a
+FAIL class exits `1` here and `0` there. The difference is declared, not incidental.
 
 `geo` coverage scores are deliberately **not** findings: a short canonical
 definition is a citability signal, not a pointer or a contradiction

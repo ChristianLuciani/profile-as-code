@@ -66,7 +66,8 @@ Commands:
                                 remaining rows M3/M4
   audit [--json]                Offline diagnostic projection: findings only (no score,
                                 no prioritisation) in three fixed classes — dangling-ref,
-                                contradiction, unsourced-claim; exit 1 iff any FAIL
+                                contradiction, unsourced-claim; stricter than
+                                validate/check on those classes; exit 1 iff any FAIL
   post <subcommand>             MVP (week-1 experiment): seed → task bundle → choose →
                                 check → optional Postiz draft payload. No LLM call.
                                 Subcommands: seed · task · choose · check · export · import · list
@@ -223,12 +224,16 @@ content/active.yaml. No LLM call, no hub. Full variant flow: M3.`,
 Executes the offline rules that exist today: the brand handle matrix (brand
 flavor, D15/§17), registry checks (M7/§18.8) and media-transport rules
 (M8/§18.6), max-chars/min-chars over the headline/bio rows that exist
-(offline, #240; optional surface selector), and fact-present (#283): the fact
-tokens (URL / ISO date / number) of the artifact pasco build last wrote must
-be the ones the SSOT render carries, else WARN (D12) — a surface with no
-artifact reports the rule as not run, never OK. Remaining rows in
-content/checks.yaml ship with the skills checks.yaml union (M3) and the full
-pasco check (M4). Prints its owner line (src/commands/check.ts).`,
+(offline, #240; optional surface selector), and fact-present (#283) — only for
+the surfaces whose catalog declares it (content/checks.yaml + the shipped
+skills/<platform>/checks.yaml): the artifact pasco build last wrote and the
+SSOT render are compared in BOTH directions (a URL/date/number either side
+carries and the other does not, a URL the surface adds, prose no token
+explains), else WARN (D12). A declared surface with no artifact reports the
+rule as not run, never OK; declared: [] says no catalog declares the premise.
+Remaining rows in content/checks.yaml ship with the skills checks.yaml union
+(M3) and the full pasco check (M4). Prints its owner line
+(src/commands/check.ts).`,
   audit: `pasco audit [--json] [--workspace <path>]
 The offline diagnostic projection over the identity (SPEC §7.1, issue #283):
 findings only — no score, no prioritisation, no branding (those belong to the
@@ -236,13 +241,22 @@ consuming layer). Three fixed classes, each with a fixed severity:
   dangling-ref     a pointer that does not resolve in the current view   FAIL
   contradiction    two surfaces assert incompatible values for one datum  FAIL
   unsourced-claim  a quantitative claim with no evidence                 WARN
-Composes load (schema), driftCheck, geoCheck (sameas-coverage), the
-completeness evidence premise and fact-present; touches no network and no
-content/deployments.yaml. --json emits { schemaVersion: "1", findings: [
-{ class, severity, path, detail } ] }; path is a factRef (row id in place of
-the index when declared) or the artifact path for a surface finding. Exit: 0
-no FAIL finding (WARN-only included) · 1 at least one FAIL, or a schema/load
-failure · 2 usage error.`,
+It is deliberately STRICTER than validate/check on these classes: D12 governs
+validity (facts warn), the audit's contract is publishability, so a drift fact
+in a FAIL class exits 1 here and 0 there (declared in SPEC §7.1).
+Composes load (schema), driftCheck with validate's #238 variant-store
+reconciliation, geoCheck (the faq-coverage premise gate only), the
+completeness evidence premise and fact-present (the built surface's facts vs
+the SSOT render, symmetric; it runs only where the catalog declares it). Touches no network, and no finding derives from
+content/deployments.yaml.
+--json emits { schemaVersion: "1", scope: { declared, checked, notRun }, findings:
+[ { class, severity, path, detail } ] }. scope is the artifact side: declared = targeted surfaces whose catalog
+declares fact-present (workspace checks + the shipped skills checks.yaml),
+checked = declared surfaces compared, notRun = declared but no artifact —
+declared: [] or checked: [] means nothing was measured, never "clean". path is a factRef (row id in place
+of the index when the grammar block declares one) or the artifact path for a
+surface finding. Exit: 0 no FAIL finding (WARN-only included) · 1 at least one
+FAIL, or a schema/load failure · 2 usage error.`,
   "skills:export": `pasco skills:export <dir> [--force] [--json]
 pasco skills:export --list [--json]
 Copies the skill channels this package ships (SPEC §16) into a directory you

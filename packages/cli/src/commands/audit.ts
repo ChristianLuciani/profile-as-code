@@ -14,40 +14,46 @@
  * Exit 1 iff a FAIL finding exists; 0 otherwise (WARN-only included); a schema or
  * load failure is the standard error envelope at exit 1 (D12: schema fails).
  *
+ * **Deliberately stricter than `validate`/`check` on these classes.** Drift facts
+ * WARN there because D12 governs *validity*: a user may carry two intents on two
+ * platforms. The audit's unit is *publishability*, and #283 freezes the class
+ * severities (FAIL/FAIL/WARN) — so a drift fact that falls in a FAIL class exits 1
+ * here and 0 there. That difference is the contract, declared in SPEC §7.1 and in
+ * `--help`; it is not an accident of composition, and a test pins it.
+ *
  * It COMPOSES the checks that already exist and re-implements none of them:
  *   load()/schema        → the error envelope (never a fabricated finding)
- *   driftCheck           → SSOT-internal contradictions + unresolved pointers
- *   geoCheck             → NO v1 class: its codes are citability coverage signals
- *                          (a definition that is absent or long is not a pointer, and
- *                          a claimed handle outside `sameAs` is the legitimate `@id`
- *                          exclusion, not a dangling reference). The one premise that
- *                          IS class-mappable — an answer row without a source — is
- *                          reported row-level below instead of by parsing the check's
- *                          prose detail.
+ *   reconciledDrift      → `driftCheck` + the #238 variant-store reconciliation
+ *                          `validate` applies (one home: `drift-reconcile.ts`)
+ *   geoCheck             → no class of its own: its codes are citability coverage
+ *                          signals. The ONE premise it owns that is class-mappable is
+ *                          the answer-surface deficiency (`geo/faq-coverage`, whose
+ *                          ≥3-row / duplicate-`q` / unsourced-row rules stay in geo):
+ *                          when the check scores 0, the audit reports the deficient
+ *                          ROWS that assert a number with no `source`.
  *   completeness()       → the `evidence` premise decides whether claim sourcing is
  *                          measured at all (a policy weight of 0 opts the rule out)
- *   fact-present         → artifact fact tokens vs the SSOT render (check.ts)
+ *   fact-present         → artifact facts vs the SSOT render, symmetric (#283)
  *
  * The `path` of a finding is a `factRef` (SPEC §7.1, cited from the ledger's
- * `PROP-017 §Scope`), with the row id in place of the array index when the row
- * declares one. A finding about a SURFACE artifact has no factRef by definition —
- * the fact is not in the SSOT — so it addresses the artifact path instead.
+ * `PROP-017 §Scope`) for the blocks that grammar addresses, with the row id in
+ * place of the array index when the row declares one. A block the grammar does not
+ * address keeps its own address, and a finding about a SURFACE artifact has no
+ * factRef by definition — the fact is not in the SSOT.
  */
 
 import type { LoadedProfile } from "@profile-as-code/core";
 import {
   completeness,
-  driftCheck,
+  geoCheck,
   LoadError,
   load,
   SchemaValidationError,
 } from "@profile-as-code/core";
+import { isQuantitativeClaim } from "../claims.js";
+import { reconciledDrift } from "../drift-reconcile.js";
 import { EXIT } from "../exit.js";
-import {
-  type FactFindingClass,
-  factPresentFindings,
-  isQuantitativeClaim,
-} from "../fact-present.js";
+import { type FactFindingClass, factPresentFindings } from "../fact-present.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import { type Pascorc, sanitizeCompletenessPolicy } from "../workspace.js";
 
@@ -65,14 +71,31 @@ export interface AuditFinding {
   detail: string;
 }
 
+/**
+ * What the artifact side of the audit actually measured. The SSOT-side rules always
+ * run; this scope says whether `fact-present` had bytes to compare, so an empty
+ * audit is never mistaken for a clean one (SPEC §7.1).
+ */
+export interface AuditScope {
+  /** Surfaces whose catalog declares the `fact-present` premise (workspace rows ∪
+   *  the shipped skill catalog). Empty = the premise is not declared, so the
+   *  artifact side measured nothing BY CONTRACT. */
+  declared: string[];
+  /** Declared surfaces whose built artifact was compared. */
+  checked: string[];
+  /** Declared surfaces with no artifact on disk or no renderer — NOT run. */
+  notRun: string[];
+}
+
 export interface AuditReport {
   schemaVersion: typeof AUDIT_SCHEMA_VERSION;
+  scope: AuditScope;
   findings: AuditFinding[];
 }
 
 /** Severity is a property of the CLASS, fixed by the contract — never inherited
  *  from the severity the composing check happens to use (drift warns, the audit
- *  grades). */
+ *  grades; see the header). */
 export const AUDIT_SEVERITY: Record<AuditClass, "FAIL" | "WARN"> = {
   "dangling-ref": "FAIL",
   contradiction: "FAIL",
@@ -105,12 +128,14 @@ const DRIFT_CLASS: Record<string, AuditClass> = {
   "drift/skill-conflict": "contradiction",
 };
 
-/** Block paths whose `[n]` becomes the row `id` when the row declares one. */
-const BLOCK_PATH =
-  /^(projects|experience|publications|press|credentials|artifacts|education|faq)\[(\d+)\](.*)$/;
+/**
+ * Block paths whose `[n]` becomes the row `id` when the row declares one. Restricted
+ * to the blocks the `factRef` grammar addresses (SPEC §7.1) — `education`, `press`,
+ * `faq` and `socialHandles` are NOT in it, so they keep their own index address
+ * rather than a `block[id]` form this engine would be inventing.
+ */
+const BLOCK_PATH = /^(projects|experience|publications|credentials|artifacts)\[(\d+)\](.*)$/;
 
-/** The row blocks the factRef grammar addresses (education/faq added by the same
- *  `block[id].field` shape — SPEC §7.1 cites the grammar, it does not re-invent it). */
 function rowsOf(profile: LoadedProfile, block: string): readonly { id?: string }[] {
   switch (block) {
     case "projects":
@@ -119,16 +144,10 @@ function rowsOf(profile: LoadedProfile, block: string): readonly { id?: string }
       return profile.experience ?? [];
     case "publications":
       return profile.publications ?? [];
-    case "press":
-      return profile.press ?? [];
     case "credentials":
       return profile.credentials ?? [];
     case "artifacts":
       return profile.artifacts ?? [];
-    case "education":
-      return profile.education ?? [];
-    case "faq":
-      return profile.faq ?? [];
     default:
       return [];
   }
@@ -155,11 +174,6 @@ function finding(cls: AuditClass, path: string, detail: string): AuditFinding {
 function ssotFindings(profile: LoadedProfile, pascorc: Pascorc): AuditFinding[] {
   const findings: AuditFinding[] = [];
 
-  for (const issue of driftCheck(profile)) {
-    const cls = DRIFT_CLASS[issue.code] ?? "contradiction";
-    findings.push(finding(cls, factRef(profile, issue.path), `${issue.code} — ${issue.message}`));
-  }
-
   // The completeness `evidence` item is the premise of the claim rule: when the
   // workspace policy drops it (weight 0), it does not measure claims and the audit
   // must not measure them either. Per-project rows are reported here because the
@@ -183,18 +197,25 @@ function ssotFindings(profile: LoadedProfile, pascorc: Pascorc): AuditFinding[] 
     }
   }
 
-  for (const [index, row] of (profile.faq ?? []).entries()) {
-    if (row.source !== undefined) continue;
-    const claims = [...Object.values(row.q), ...Object.values(row.a)];
-    if (!claims.some(isQuantitativeClaim)) continue;
-    const addressed = row.id ?? String(index);
-    findings.push(
-      finding(
-        "unsourced-claim",
-        `faq[${addressed}].q`,
-        "the answer carries a quantitative claim with no `source` — an unsourced claim",
-      ),
-    );
+  // `geo/faq-coverage` owns the premise (≥3 rows, duplicate `q`, a row without
+  // `source`) — the audit only reports the deficient ROWS that are class-mappable
+  // (a number with no source). No threshold is re-derived here.
+  const faqDeficient = geoCheck(profile).checks.some(
+    (check) => check.code === "geo/faq-coverage" && check.score === 0,
+  );
+  if (faqDeficient) {
+    for (const [index, row] of (profile.faq ?? []).entries()) {
+      if (row.source !== undefined) continue;
+      const claims = [...Object.values(row.q), ...Object.values(row.a)];
+      if (!claims.some(isQuantitativeClaim)) continue;
+      findings.push(
+        finding(
+          "unsourced-claim",
+          `faq[${index}].q`,
+          "the answer carries a quantitative claim with no `source` — an unsourced claim (the block address is index-based: `faq` is outside the factRef grammar)",
+        ),
+      );
+    }
   }
 
   return findings;
@@ -241,8 +262,18 @@ export function runAudit(args: AuditArgs): number {
     throw err;
   }
 
-  const facts = factPresentFindings({ workspace: args.workspace, profile, pascorc: args.pascorc });
+  const drift = reconciledDrift(args.workspace, profile).map((issue) => {
+    const cls = DRIFT_CLASS[issue.code] ?? "contradiction";
+    return finding(cls, factRef(profile, issue.path), `${issue.code} — ${issue.message}`);
+  });
+  const facts = factPresentFindings({
+    workspace: args.workspace,
+    profile,
+    pascorc: args.pascorc,
+    checks: profile.checks,
+  });
   const findings = ordered([
+    ...drift,
     ...ssotFindings(profile, args.pascorc),
     ...facts.findings.map((item) =>
       finding(item.class, item.path, `${item.code} — ${item.message}`),
@@ -250,13 +281,30 @@ export function runAudit(args: AuditArgs): number {
   ]);
   const failures = findings.filter((item) => item.severity === "FAIL").length;
   const exitCode = failures > 0 ? EXIT.FAIL : EXIT.OK;
-  const reportData: AuditReport = { schemaVersion: AUDIT_SCHEMA_VERSION, findings };
+  const scope: AuditScope = {
+    declared: facts.declared,
+    checked: facts.checked,
+    notRun: facts.notRun,
+  };
+  const reportData: AuditReport = { schemaVersion: AUDIT_SCHEMA_VERSION, scope, findings };
 
   if (isJsonMode()) {
     return report("audit", failures === 0, exitCode, { data: reportData });
   }
 
-  section(`audit — findings only (no score, no prioritisation)`);
+  section("audit — findings only (no score, no prioritisation)");
+  const compared =
+    scope.checked.length === 0
+      ? "no surface measured"
+      : `${scope.checked.length} surface(s) compared (${scope.checked.join(", ")})`;
+  const missing = scope.notRun.length === 0 ? "" : ` · not run: ${scope.notRun.join(", ")}`;
+  const declared = scope.declared.length === 0 ? " · premise not declared by any catalog" : "";
+  line(`  scope: ${compared}${missing}${declared}`);
+  if (scope.checked.length === 0) {
+    line(
+      "  an empty scope is not a clean audit — no artifact to compare (run pasco build), or no catalog declares fact-present",
+    );
+  }
   if (findings.length === 0) {
     line("  no findings");
   } else {
@@ -264,11 +312,6 @@ export function runAudit(args: AuditArgs): number {
       line(`  ${item.severity} ${item.class} ${item.path}`);
       line(`    ${item.detail}`);
     }
-  }
-  if (facts.notRun.length > 0) {
-    line(
-      `  fact-present not run for ${facts.notRun.join(", ")} — no artifact on disk (run pasco build) or no renderer for this workspace`,
-    );
   }
   const warnings = findings.length - failures;
   line(

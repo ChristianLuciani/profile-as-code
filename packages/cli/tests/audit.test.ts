@@ -10,14 +10,16 @@
  * the SSOT). No network: the rule is offline by contract (D19).
  */
 
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { load } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
-import { AUDIT_SCHEMA_VERSION, runAudit } from "../src/commands/audit.js";
+import { AUDIT_SCHEMA_VERSION, factRef, runAudit } from "../src/commands/audit.js";
 import { runBuild } from "../src/commands/build.js";
 import { runCheck } from "../src/commands/check.js";
+import { runValidate } from "../src/commands/validate.js";
 import { type JsonEnvelope, setJsonMode } from "../src/output.js";
 import type { Pascorc } from "../src/workspace.js";
 
@@ -25,6 +27,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES = join(__dirname, "fixtures", "audit");
 const INVALID = join(__dirname, "fixtures", "invalid");
 const COMPLETE = join(__dirname, "..", "..", "core", "tests", "fixtures", "complete");
+const DRIFTING = join(__dirname, "..", "..", "core", "tests", "fixtures", "drifting");
 
 const PASCO: Pascorc = {};
 
@@ -41,6 +44,16 @@ afterAll(() => {
 function copy(src: string): string {
   const dir = tempDir();
   cpSync(src, dir, { recursive: true });
+  return dir;
+}
+
+/** A throwaway workspace from literal `content/<file>` bodies. */
+function workspace(files: Record<string, string>): string {
+  const dir = tempDir();
+  mkdirSync(join(dir, "content"), { recursive: true });
+  for (const [name, body] of Object.entries(files)) {
+    writeFileSync(join(dir, "content", name), body, "utf8");
+  }
   return dir;
 }
 
@@ -63,29 +76,74 @@ function json<T>(run: () => T): { code: T; data: JsonEnvelope["data"]; out: stri
   return { code, data: (JSON.parse(out) as JsonEnvelope).data, out };
 }
 
-function audit(workspace: string) {
-  return json(() => runAudit({ workspace, pascorc: PASCO }));
+/** Capture the HUMAN output (JSON mode off) — the contract promises it says so too. */
+function human<T>(run: () => T): { code: T; out: string } {
+  const original = process.stdout.write.bind(process.stdout);
+  let out = "";
+  process.stdout.write = ((chunk: string) => {
+    out += chunk;
+    return true;
+  }) as typeof process.stdout.write;
+  setJsonMode(false);
+  try {
+    return { code: run(), out };
+  } finally {
+    process.stdout.write = original;
+  }
 }
 
-function check(workspace: string, platform?: string) {
+function audit(workspacePath: string) {
+  return json(() => runAudit({ workspace: workspacePath, pascorc: PASCO }));
+}
+
+function check(workspacePath: string, platform?: string) {
   return json(() =>
-    runCheck({ workspace, pascorc: PASCO, ...(platform ? { platformArg: platform } : {}) }),
+    runCheck({
+      workspace: workspacePath,
+      pascorc: PASCO,
+      ...(platform ? { platformArg: platform } : {}),
+    }),
   );
 }
 
 interface Finding {
+  code?: string;
   class: string;
   severity: string;
   path: string;
   detail: string;
 }
 
+interface Scope {
+  declared: string[];
+  checked: string[];
+  notRun: string[];
+}
+
+interface FactPresent {
+  declared: string[];
+  checked: string[];
+  notRun: string[];
+  findings: Finding[];
+}
+
+/** The artifact `pasco build` writes for the fixture's only renderer surface. */
+function githubReadmeArtifact(ws: string): string {
+  return join(ws, "profiles", "github-readme", "README.md");
+}
+
+function tamper(ws: string, edit: (text: string) => string): void {
+  const artifact = githubReadmeArtifact(ws);
+  writeFileSync(artifact, edit(readFileSync(artifact, "utf8")), "utf8");
+}
+
 describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
-  it("emits findings only: the frozen schemaVersion, and no score anywhere", () => {
+  it("emits findings only: the frozen schemaVersion, the scope, and no score anywhere", () => {
     const { code, data, out } = audit(join(FIXTURES, "unsourced-claim"));
     expect(code).toBe(0);
-    const report = data as { schemaVersion: string; findings: Finding[] };
-    expect(Object.keys(report).sort()).toEqual(["findings", "schemaVersion"]);
+    const report = data as { schemaVersion: string; scope: Scope; findings: Finding[] };
+    expect(Object.keys(report).sort()).toEqual(["findings", "schemaVersion", "scope"]);
+    expect(Object.keys(report.scope).sort()).toEqual(["checked", "declared", "notRun"]);
     expect(report.schemaVersion).toBe("1");
     expect(report.schemaVersion).toBe(AUDIT_SCHEMA_VERSION);
     expect(report.findings).toHaveLength(1);
@@ -145,6 +203,34 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
     expect(code).toBe(1);
     expect(data).toBeUndefined();
   });
+
+  it("is deliberately stricter than validate on the FAIL classes (declared, pinned)", () => {
+    // D12 makes drift warn, so `validate` exits 0; the issue freezes the audit's
+    // class severities to FAIL. This difference is the contract (SPEC §7.1).
+    const validated = json(() => runValidate({ workspace: DRIFTING }));
+    expect(validated.code).toBe(0);
+    const audited = audit(DRIFTING);
+    expect(audited.code).toBe(1);
+  });
+
+  it("reuses validate's #238 variant-store reconciliation (no false FAIL)", () => {
+    const ws = copy(DRIFTING);
+    const before = (audit(ws).data as { findings: Finding[] }).findings;
+    expect(before.some((finding) => finding.detail.includes("active-variant-missing"))).toBe(true);
+
+    // The chosen body resolves the surface: `validate` already filters the code.
+    const variants = join(ws, "profiles", "researchgate", "variants");
+    mkdirSync(variants, { recursive: true });
+    writeFileSync(join(variants, "rg-2025-01.md"), "# Elena Vasquez\n\nvariant body\n", "utf8");
+    const after = (audit(ws).data as { findings: Finding[] }).findings;
+    expect(
+      after.some(
+        (finding) =>
+          finding.detail.includes("active-variant-missing") &&
+          finding.detail.includes("researchgate"),
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("fact-present — the surface's facts vs the SSOT (issue #283)", () => {
@@ -153,69 +239,214 @@ describe("fact-present — the surface's facts vs the SSOT (issue #283)", () => 
     json(() => runBuild({ workspace: ws, pascorc: PASCO }));
     const { code, data } = check(ws);
     expect(code).toBe(0);
-    const facts = (
-      data as { factPresent: { checked: string[]; notRun: string[]; findings: Finding[] } }
-    ).factPresent;
-    expect(facts.checked).toContain("github-readme");
+    const facts = (data as { factPresent: FactPresent }).factPresent;
+    // The catalog decides the surface (#283/F6): the shipped github-readme skill
+    // declares the premise; linkedin/x ship no catalog row.
+    expect(facts.declared).toEqual(["github-readme"]);
+    expect(facts.checked).toEqual(["github-readme"]);
     expect(facts.notRun).toEqual([]);
     expect(facts.findings).toEqual([]);
   });
 
-  it("reports NOT RUN when no artifact exists — absence is never OK", () => {
+  it("makes 'not run' expressible in the audit payload (F1: an empty scope is not clean)", () => {
     const ws = copy(COMPLETE);
-    const { data } = check(ws);
-    const facts = (data as { factPresent: { checked: string[]; notRun: string[] } }).factPresent;
-    expect(facts.checked).toEqual([]);
-    expect(facts.notRun).toEqual([]); // nothing built, nothing in scope
-    const human = json(() =>
-      runCheck({ workspace: ws, pascorc: PASCO, platformArg: "github-readme" }),
-    );
-    const named = (human.data as { factPresent: { notRun: string[] } }).factPresent;
-    expect(named.notRun).toEqual(["github-readme"]);
+    const { code, data } = audit(ws);
+    expect(code).toBe(0);
+    const report = data as { scope: Scope; findings: Finding[] };
+    expect(report.scope).toEqual({
+      declared: ["github-readme"],
+      checked: [],
+      notRun: ["github-readme"],
+    });
+    // The human output states it instead of looking like a clean audit.
+    const humanRun = human(() => runAudit({ workspace: ws, pascorc: PASCO }));
+    expect(humanRun.out).toContain("an empty scope is not a clean audit");
+    expect(humanRun.out).toContain("not run: github-readme");
   });
 
-  it("classifies every tampered fact token — URL, date, number — and fails the audit", () => {
+  it("declares nothing when no catalog declares the premise — and says so", () => {
+    // A workspace that targets only `linkedin`: no shipped catalog row for it, no
+    // workspace checks.yaml row → declared: [] (not measured BY CONTRACT).
+    const ws = workspace({
+      "identity.yaml": "name: Elena Vasquez\n",
+      "bios.yaml":
+        "- platform: linkedin\n  lang: en\n  length: short\n  text: Sovereign AI infrastructure.\n",
+    });
+    const bare = (audit(ws).data as { scope: Scope }).scope;
+    expect(bare).toEqual({ declared: [], checked: [], notRun: [] });
+
+    // The union: the workspace's OWN catalog can declare the premise for linkedin.
+    writeFileSync(
+      join(ws, "content", "checks.yaml"),
+      "- id: li-facts\n  platform: linkedin\n  rule: fact-present\n  value: true\n",
+      "utf8",
+    );
+    const declared = (check(ws).data as { factPresent: FactPresent }).factPresent;
+    expect(declared.declared).toEqual(["linkedin"]);
+    expect(declared.checked).toEqual([]);
+    expect(declared.notRun).toEqual(["linkedin"]);
+  });
+
+  it("classifies every tampered fact token — URL, date, number — in both directions", () => {
     const ws = copy(COMPLETE);
     json(() => runBuild({ workspace: ws, pascorc: PASCO }));
-    const artifact = join(ws, "profiles", "github-readme", "README.md");
-    const original = readFileSync(artifact, "utf8");
-    writeFileSync(
-      artifact,
-      original
-        .replace("https://example.com/verify/aws-ml", "https://example.com/verify/aws-OLD")
+    // replaceAll on purpose: the verify URL appears twice (link + JSON-LD) and the
+    // number appears in the description and its evidence line.
+    tamper(ws, (text) =>
+      text
+        .replaceAll("https://example.com/verify/aws-ml", "https://example.com/verify/aws-OLD")
         .replace('"validFrom": "2021-06-01"', '"validFrom": "2019-06-01"')
-        .replace("40 universities", "400 universities"),
-      "utf8",
+        .replaceAll("40 universities", "400 universities"),
     );
 
     const checked = check(ws);
     expect(checked.code).toBe(0); // facts warn in `check` (D12)
-    const findings = (checked.data as { factPresent: { findings: Finding[] } }).factPresent
-      .findings;
+    const findings = (checked.data as { factPresent: FactPresent }).factPresent.findings;
+    // A replaced URL/number is reported in BOTH directions (F2).
+    expect(findings.map((finding) => finding.code).sort()).toEqual([
+      "fact-present/date-missing-from-surface",
+      "fact-present/date-not-in-ssot",
+      "fact-present/number-missing-from-surface",
+      "fact-present/number-not-in-ssot",
+      "fact-present/url-missing-from-surface",
+      "fact-present/url-not-in-ssot",
+    ]);
     expect(findings.map((finding) => finding.class).sort()).toEqual([
       "contradiction",
+      "contradiction",
+      "contradiction",
+      "contradiction",
+      "contradiction",
       "dangling-ref",
-      "unsourced-claim",
     ]);
 
     const audited = audit(ws);
-    expect(audited.code).toBe(1); // two FAIL classes
+    expect(audited.code).toBe(1); // the FAIL classes
     const auditFindings = (audited.data as { findings: Finding[] }).findings;
-    expect(auditFindings.map((finding) => finding.class).sort()).toEqual([
-      "contradiction",
-      "dangling-ref",
-      "unsourced-claim",
-    ]);
-    expect(
-      auditFindings
-        .filter((finding) => finding.severity === "FAIL")
-        .map((finding) => finding.class),
-    ).not.toContain("unsourced-claim");
-    // The finding addresses the surface artifact: a fact absent from the SSOT has
-    // no factRef by definition.
     expect(
       auditFindings.every((finding) => finding.path === "profiles/github-readme/README.md"),
     ).toBe(true);
+    // `unsourced-claim` is never emitted by the artifact rule — a number is a fact.
+    expect(auditFindings.some((finding) => finding.class === "unsourced-claim")).toBe(false);
+  });
+
+  it("reports an artifact that OMITS a fact (symmetric direction)", () => {
+    const ws = copy(COMPLETE);
+    json(() => runBuild({ workspace: ws, pascorc: PASCO }));
+    // Drop the artifact's source URL (it appears once): the SSOT carries it and
+    // the surface omits it — the direction the one-sided rule could not see.
+    tamper(ws, (text) => text.replace("https://github.com/elenavasquez/sovereign-agentic-hub", ""));
+    const findings = (check(ws).data as { factPresent: FactPresent }).factPresent.findings;
+    const codes = findings.map((finding) => finding.code);
+    expect(codes).toContain("fact-present/url-missing-from-surface");
+    expect(findings.some((finding) => finding.class === "contradiction")).toBe(true);
+  });
+
+  it("reports prose no fact token explains — the §20.1 divergence, attributed (F2)", () => {
+    const ws = copy(COMPLETE);
+    json(() => runBuild({ workspace: ws, pascorc: PASCO }));
+    // No URL/date/number moves, so only the whole-file question can catch it —
+    // the case where `status` says `diverges` and the audit used to look clean.
+    tamper(ws, (text) =>
+      text.replace("Sovereign AI infrastructure engineer", "Sovereign AI infrastructure wizard"),
+    );
+    const findings = (check(ws).data as { factPresent: FactPresent }).factPresent.findings;
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({
+      code: "fact-present/text-not-in-ssot",
+      class: "contradiction",
+    });
+  });
+
+  it("is view-blind: a `build --view` artifact is compared against the implicit view (declared, F7)", () => {
+    const ws = copy(COMPLETE);
+    const pascorc: Pascorc = {
+      selection: {
+        views: { film: { platform: "github-readme", excludeKeys: ["projects:sovereign-hub"] } },
+      },
+    };
+    json(() => runBuild({ workspace: ws, pascorc, viewArg: "film" }));
+    // The artifact legitimately omits a selected-out entry; the rule compares it
+    // against the implicit per-platform view and reports the omission. That is the
+    // DECLARED consequence (SPEC §7.1) — pinned so it cannot regress into silence.
+    const findings = (check(ws).data as { factPresent: FactPresent }).factPresent.findings;
+    expect(
+      findings.some((finding) => finding.code === "fact-present/url-missing-from-surface"),
+    ).toBe(true);
+    expect(findings.every((finding) => finding.class === "contradiction")).toBe(true);
+  });
+
+  it("does not turn a GEO coverage deficiency into a claim finding (one premise gate)", () => {
+    // Three FAQ rows (the schema minimum), all sourced, two with the SAME `q`:
+    // `geo/faq-coverage` scores 0 on the duplicate, and the audit must not invent
+    // unsourced-claim rows from it.
+    const ws = workspace({
+      "identity.yaml": "name: Elena Vasquez\n",
+      "faq.yaml": [
+        "- id: who",
+        "  q:",
+        "    en: Who is Elena?",
+        "  a:",
+        "    en: An AI engineer.",
+        "  source: https://example.com/elena",
+        "- id: who-again",
+        "  q:",
+        "    en: Who is Elena?",
+        "  a:",
+        "    en: The same AI engineer.",
+        "  source: https://example.com/elena",
+        "- id: where",
+        "  q:",
+        "    en: Where is Elena based?",
+        "  a:",
+        "    en: Madrid, Spain.",
+        "  source: https://example.com/elena",
+      ].join("\n"),
+    });
+    const findings = (audit(ws).data as { findings: Finding[] }).findings;
+    expect(findings.some((finding) => finding.class === "unsourced-claim")).toBe(false);
+  });
+
+  it("reports the deficient FAQ ROW at its own address (index-based, outside the grammar)", () => {
+    const ws = workspace({
+      "identity.yaml": "name: Elena Vasquez\n",
+      "faq.yaml": [
+        "- id: who",
+        "  q:",
+        "    en: Who is Elena?",
+        "  a:",
+        "    en: An AI engineer.",
+        "  source: https://example.com/elena",
+        "- id: scale",
+        "  q:",
+        "    en: How many requests does the hub serve?",
+        "  a:",
+        "    en: Over 100 requests per month.",
+        "- id: where",
+        "  q:",
+        "    en: Where is Elena based?",
+        "  a:",
+        "    en: Madrid, Spain.",
+        "  source: https://example.com/elena",
+      ].join("\n"),
+    });
+    const findings = (audit(ws).data as { findings: Finding[] }).findings;
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({ class: "unsourced-claim", path: "faq[1].q" });
+  });
+});
+
+describe("factRef — the ledger grammar, extended nowhere (F8)", () => {
+  const profile = load(join(FIXTURES, "dangling-ref"));
+
+  it("maps the block index to the row id for the grammar's blocks", () => {
+    expect(factRef(profile, "projects[0].links[0]")).toBe("projects[hub].links[0]");
+  });
+
+  it("keeps the index for blocks the grammar does not address", () => {
+    for (const path of ["education[0].degree", "press[0].url", "faq[0].q", "socialHandles[0]"]) {
+      expect(factRef(profile, path)).toBe(path);
+    }
   });
 });
 
@@ -224,6 +455,17 @@ describe("audit is a leaf — no command depends on it", () => {
     for (const name of ["build", "check", "validate"]) {
       const source = readFileSync(join(__dirname, "..", "src", "commands", `${name}.ts`), "utf8");
       expect(source).not.toMatch(/commands\/audit|from "\.\/audit/);
+    }
+  });
+
+  it("the quantitative-claim predicate has ONE home: post and the audit share it (F9)", () => {
+    const claims = readFileSync(join(__dirname, "..", "src", "claims.ts"), "utf8");
+    expect(claims).toContain("export function isQuantitativeClaim");
+    for (const name of ["commands/post.ts", "commands/audit.ts"]) {
+      const source = readFileSync(join(__dirname, "..", "src", name), "utf8");
+      expect(source).toContain("isQuantitativeClaim");
+      // The literal predicate lives only in claims.ts — no inline copy anywhere.
+      expect(source).not.toContain("[%$]");
     }
   });
 });
