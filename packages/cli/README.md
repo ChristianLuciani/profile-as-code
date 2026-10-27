@@ -15,14 +15,13 @@ pasco --version                 # the bin — prints the installed version
 The install adds one global bin and nothing else: no post-install script, no
 server, no account.
 
-> **Published** [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-12]:
+> **Published** [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-26 at release prep]:
 > `@profile-as-code/cli` is public on npm — the registry is the source of truth
-> (`npm view @profile-as-code/cli version`). The current release is `0.3.0`
-> (published 2026-10-11T03:43:27Z, dist-tag `latest`; tag `v0.3.0` → `21e4cde`)
-> and the bin was verified running (`node packages/cli/dist/index.js --version`
-> → `pasco 0.3.0` on `main`, 2026-10-12) — a **local-build** check, not a run of the
-> published tarball. No published version carries a
-> provenance attestation while the source repo is private — documented, not pending.
+> (`npm view @profile-as-code/cli version`). At prep time the last published release is
+> `0.3.5` (published 2026-10-24T03:50:04.822Z; tag `v0.3.5` → `c69e6b7`), which carries
+> npm-publish attestations + SLSA provenance v1; `0.3.6` is prepared in this release
+> (CHANGELOG `[0.3.6]`). The `0.3.0` tarball carries none because it was published while
+> the source repository was private.
 > Source install: [User Guide §2](../../docs/USER-GUIDE.md#2-install-the-pasco-cli).
 
 ## Get a workspace
@@ -60,7 +59,7 @@ commands above are the standalone path.
 | `pasco init [dir]` | Scaffold a profile-data workspace (`content/identity.yaml`, `README.md`, `.pascorc`) — `pasco validate`-clean | ✅ |
 | `pasco validate [--json]` | Schema **fail** (exit 1) + drift/geo **warn** (exit 0) — D12 | ✅ |
 | `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (the eight registered in the generated renderer map) write `profiles/<platform>/README.md` + bundled media; renderer-less manual surfaces with a bio row write `profiles/<platform>.md` (#239). Empty render = no-trace unbuild of the generated output, preserving `profiles/<platform>/variants/` (chosen-variant input, #238; pure profiles/, §15.1 — v1.7). Media in `profiles/<platform>/assets/` + `assets/manifest.json` (M8/§18.6 — see `docs/media-pipeline.md`) | ✅ |
-| `pasco edit <contract-path> [--set <text> [--check]]` | Resolve **one** contract field by contract path; `--set` **writes it** (comment-preserving range splice, validated, atomic) and `--set --check` previews the **published lines the edit changes** (or says it changes nothing). Epic #247, S1–S4 landed; S5 (agent contract) is the last slice | 🚧 S1–S4 (read · preview · write · surface impact · cap pre-flight) |
+| `pasco edit <contract-path> [--set <text> [--check]]` | Resolve **one** contract field by contract path; `--set` **writes it** (comment-preserving range splice, validated, atomic) and `--set --check` previews the **published lines the edit changes** (or says it changes nothing). Epic #247, S1–S5 landed | ✅ S1–S5 (read · preview · write · surface impact · cap pre-flight · machine contract) |
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never · **certification** (verified/attested/unverifiable/out-of-band-drift, §19.5) + the derived **publication truth** per surface (§20.1, #242) + ledger write paths (D18, §19) | ✅ |
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13); the chosen body is `profiles/<platform>/variants/<id>.md` (a complete platform artifact), rendered by `pasco build` (#238) | 🚧 template + `--choose` (full flow M3) |

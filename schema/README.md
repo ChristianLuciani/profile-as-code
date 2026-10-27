@@ -4,17 +4,25 @@
 workspace (JSON Schema, draft 2020-12). Per D3, JSON Schema is the contract source and
 **Zod schemas are generated from it** in `packages/core` — never hand-written in parallel.
 
-> Status: **v1.12** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
+> Status: **v1.13** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
 > v1.x is **additive** (semver minor): every earlier workspace still validates unchanged. New
-> in v1.12 (issue #333): `projects[].artifactRefs` — the third reference site (publications
+> in v1.13 (issue #334): `identity.nationality` — the ISO 3166-1 alpha-2 code (uppercase, e.g.
+> `VE`), asserted by `^[A-Z]{2}$`; emitted on the Person entity JSON-LD as
+> `nationality: { "@type": "Country", identifier }`. A `flavor: brand` workspace may declare
+> it (identity is shared) but the Organization JSON-LD carries no `nationality` property —
+> schema.org defines nationality on `Person`.
+>
+> New in v1.12 (issue #333): `projects[].artifactRefs` — the third reference site (publications
 > and press were the first two) — so a project names the work behind it and
 > published-vs-in-development is **derived** from `artifacts[]` (`visibility: public` +
-> `locator.url`), never stored (§15.3/§20.1). Earlier minors: v1.10 (issue #288) added the
+> `locator.url`), never stored (§15.3/§20.1).
+>
+> Earlier minors: v1.10 (issue #288) added the
 > answer-engine surface — `identity.definition` (the canonical per-language definition, ≤ 160
 > chars per value, must contain the entity name — the name check is a geoCheck rule, #289) and
 > root `faq[]` (3–20 citable Q&A pairs, `q` ≤ 90 and unique per workspace, `a` ≤ 320, optional
 > `$defs/url` `source`); the same minor completed the version label of the §19.5 certification
-> additions (issue #132 — they shipped under the v1.9 URI). Earlier minors: see the `$id`'s
+> additions (issue #132 — they shipped under the v1.9 URI). For the earlier minors, see the `$id`'s
 > description and the CHANGELOG.
 
 ## URL scheme rule (issue #53)
@@ -49,7 +57,7 @@ validates the result against this schema. File → root property mapping:
 
 | File (content/) | Root property(s) | Notes |
 |---|---|---|
-| `identity.yaml` | `identity` | Required at profile level (the GEO anchor). v1.5 (issue #71): `email` — the contact email as a fact (NOT in `links[]`; renderers emit a mailto: href + JSON-LD `email`). v1.6 (#103): `links[].role` — `identity` | `realization` | `aggregator` (see §15.4) |
+| `identity.yaml` | `identity` | Required at profile level (the GEO anchor). v1.5 (issue #71): `email` — the contact email as a fact (NOT in `links[]`; renderers emit a mailto: href + JSON-LD `email`). v1.6 (#103): `links[].role` — `identity` \| `realization` \| `aggregator` (see §15.4). v1.13 (#334): `nationality` — ISO 3166-1 alpha-2 code, emitted as Person JSON-LD `Country.identifier` (no `nationality` property on the Organization JSON-LD for brand) |
 | `flavor.yaml` | `flavor` | v1.1 (D15): `person` \| `brand`. **The file value IS the root value** — a bare scalar (`brand`), not a key:value map |
 | `socialHandles.yaml` | `socialHandles[]` | v1.1 (brand): handle matrix (platform → handle + `status: claimed\|pending`) |
 | `newsletter.yaml` | `newsletter` | v1.1 (brand): Substack/Ghost |
@@ -71,7 +79,7 @@ validates the result against this schema. File → root property mapping:
 | `deployments.yaml` | `deployments` | v1.3 (D18): per-entry deploy ledger — ledgerKey → surface → `{deployedAt, contentHash, source}`. Key space: root block names (`identity`/`positioning`/`keywords`) or `block:key` composites (`bios:…`, `headlines:…`, `skills:…`, `socialHandles:…`, `experience:<id>`…). Only `pasco` mutates it (`--mark` / deploy commands, D14) |
 | `credentials.yaml` | `credentials[]` | v1.4 (D17): third-party attestations (certificate/title/award/patent) — issuer, verifyUrl, issued/expires, visibility (§18). Naming discipline: never called evidence (§18.1) |
 | `artifacts.yaml` | `artifacts[]` | v1.4 (D17): works/media (portfolio/gallery/showreel/dataset/document/code) — `locator: {url \| path}` (capability matrix §18.3), checksum, license, tags, visibility |
-| `faq.yaml` | `faq[]` | v1.10 (issue #288): the citable answer surface — 3–20 fact pairs (`id` §19.2 shape; `q` ≤ 90 per value + unique per workspace, core-check in geoCheck v2 #289; `a` ≤ 320; optional http(s) `source` = an answer with no pointer is a claim). Projected as `FAQPage` JSON-LD ONLY when present |
+| `faq.yaml` | `faq[]` | v1.10 (issue #288): the citable answer surface — 3–20 fact pairs (`id` §19.2 shape; `q` ≤ 90 per value + unique per workspace, core-check in geoCheck v2 #289; `a` ≤ 320; optional http(s) `source` = an answer with no pointer is a claim). The `FAQPage` JSON-LD projection is **pending in #316** — only a present `faq[]` will produce it |
 
 Files are optional (a fresh user may start with `identity.yaml` only); the schema only
 requires `identity`. Unknown top-level properties **fail validation** (`additionalProperties:

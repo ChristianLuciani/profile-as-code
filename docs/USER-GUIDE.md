@@ -9,8 +9,8 @@ updated, and stay in sync as the engine evolves.
 >
 > Audience: a **user** of the engine (not an engine contributor). Contributor
 > docs live in [CONTRIBUTING.md](../CONTRIBUTING.md); the product contract is
-> [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli@0.3.5`
-> — release `v0.3.5` (cut 2026-10-24; the npm publish of that release is the runbook's
+> [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli@0.3.6`
+> — release `v0.3.6` (cut 2026-10-26; the npm publish of that release is the runbook's
 > irreversible step — `docs/ci-cd.md` §Releasing; #113, #207).
 > Keep that claim in its canonical form: the release barrier
 > (`scripts/site-check/version-check.mjs`) fails the publish when it disagrees
@@ -131,26 +131,27 @@ Two paths. **Option A is the intended path for users** (published on npm);
 
 ```sh
 npm i -g @profile-as-code/cli    # the package
-pasco --version                  # the bin — expect 0.3.5
+pasco --version                  # the bin — expect 0.3.6
 ```
 
 One global install: no clone, no build, nothing written outside the npm prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
-> **Status**: this guide tracks the released `@profile-as-code/cli@0.3.5` (tag `v0.3.5`,
-> cut 2026-10-24, CHANGELOG `[0.3.5]`); the npm publish is that release's irreversible
-> step — verify the published `latest` with `npm view @profile-as-code/cli version`.
-> Previous published state [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-12]: version
-> `0.3.0` **public** and tagged `latest` (published 2026-10-11T03:43:27Z; tag `v0.3.0` →
-> `21e4cde`).
-> Separately, and **not** registry-sourced: the built bin on `main` reports the matching
-> version (`node packages/cli/dist/index.js --version` → `pasco 0.3.5`, 2026-10-24) — a
-> local-build check, not a run of the published tarball.
+> **Status**: this guide tracks the release being cut: `@profile-as-code/cli@0.3.6`
+> (cut 2026-10-26, CHANGELOG `[0.3.6]`; the tag is pushed when the release is cut); the
+> npm publish is that release's irreversible step — verify the published `latest` with
+> `npm view @profile-as-code/cli version`.
+> Previous published state [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-26]: version
+> `0.3.5` **public** and tagged `latest` (published 2026-10-24T03:50:04.822Z; tag `v0.3.5` →
+> `c69e6b7`). The 0.3.0 publication (2026-10-11T03:43:27Z; tag `v0.3.0` → `21e4cde`)
+> stays a dated record.
 > Caveat, closing (#293): the engine repo is **public** (measured 2026-10-24) — `repository.url`
-> resolves for any reader now; the published versions keep **no attestation** (published while the
-> source was private; registry `dist.attestations` absent, re-checked 2026-10-24) and stay
-> permanent records; the attestation returns by itself at the **next** publish (STANDARDS §Order
-> ratified 2026-10-03). The key migration itself is **done**
+> resolves for any reader now. The 0.3.0 tarball was published over OIDC while the source
+> repository was private; provenance attestations require a public source repo, so it carries
+> **none** (registry `dist.attestations` absent when checked 2026-10-24) and stays a permanent
+> record. The 0.3.5 release, published after the repo went public, carries npm-publish
+> attestations + SLSA provenance v1 (STANDARDS §Order ratified 2026-10-03)
+> [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-26]. The key migration itself is **done**
 > ([#80](https://github.com/ChristianLuciani/profile-as-code/issues/80) closed; token deleted
 > in npm and GitHub).
 >
@@ -336,7 +337,7 @@ holds the value **directly**, with no wrapper key. `bios.yaml` contains the
 
 | File | Root property | What goes in |
 |---|---|---|
-| `identity.yaml` | `identity` | name, location, photo, **`links[]`** — the canonical URL list |
+| `identity.yaml` | `identity` | name, location, photo, **`links[]`** — the canonical URL list; optional `nationality` |
 | `positioning.yaml` | `positioning` | statement, audiences, `geo` (semantic anchors, citations goal) |
 | `bios.yaml` | `bios` | one entry per platform+lang+length: short/medium/long text |
 | `headlines.yaml` | `headlines` | per platform + lang headline |
@@ -359,6 +360,21 @@ Brand flavor (D15) adds: `socialHandles` (handle matrix with claim status),
 `identity.yaml` (`orgName`, `logo`, `mission`, `tagline`, `brandVoice`,
 `established`). Every workspace declares its flavor in `content/flavor.yaml`
 (default `person`).
+
+**Nationality is a code, not a country name.** `identity.nationality` (v1.13/#334) takes
+the ISO 3166-1 **alpha-2** code in uppercase — `VE`, never `ve`, `Venezuela` or `VEN`
+(the schema rejects all three). Keep residence in `location`; nationality is the
+citizenship fact. It maps to schema.org `Person.nationality` (a `Country` node) on the
+generated JSON-LD — Person-only: a brand workspace validates it but the Organization
+node carries no `nationality`. It is optional and does not change your GEO score when
+absent:
+
+```yaml
+# content/identity.yaml
+name: Elena Vasquez
+location: Madrid, Spain   # where you live
+nationality: VE           # ISO 3166-1 alpha-2 (citizenship)
+```
 
 ### 4.2 Rules that save you pain
 

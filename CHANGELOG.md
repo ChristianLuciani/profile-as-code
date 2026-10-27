@@ -9,28 +9,80 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Planned (roadmap)
+
+- Renderers: linkedin, upwork, x, researchgate, substack (M4)
+- CLI `pasco`: the full `refine` flow (M3)
+- Per-platform skills v1 from SOTA research (M3)
+- Web renderer (M5)
+
+## [0.3.6] - 2026-10-26
+
 ### Added
 
-- **Schema v1.12 — a project names its artifact** (#333): `projects[].artifactRefs`
-  references `artifacts[].id` — the third reference site, after `publications[]` and
+- **`identity.nationality` — a citable nationality fact (#334)** — the ISO 3166-1
+  alpha-2 code, uppercase (`VE`), as a fact distinct from `identity.location`
+  (residence). The schema pattern `^[A-Z]{2}$` rejects `ve`, `Venezuela` and `VEN` at
+  the boundary. `structuredData()` emits schema.org `nationality` as
+  `{ "@type": "Country", identifier: "<code>" }` on the Person entity JSON-LD —
+  Person-only, since a brand has no nationality. Optional and outside the
+  structured-data `ready` gate **and completeness ratio**: a workspace that omits it
+  validates, emits, and scores exactly as before. Schema contract v1.13 (additive,
+  pre-v1.13 workspaces validate unchanged); `@profile-as-code/core` 0.1.1.
+- **Schema v1.12 — a project names its artifact (#333)** — `projects[].artifactRefs`
+  references `artifacts[].id`, the third reference site after `publications[]` and
   `press[]`. It stores the edge only: published-vs-in-development is **derived** per
   artifact (`visibility: public` + `locator.url`), never a stored flag (§15.3/§20.1).
   `load()` fails on a dangling ref, and `pasco check` fails when the target is not
   public (§18.5 — the leak gate now covers every reference site).
-
+- **`pasco edit` — a contract edit surface, S1–S5 (#248–#252; epic #247)** — address
+  **one** contract field by contract path (never line/offset): read its current value
+  (S1), `--set` writes it with a comment-preserving byte-range splice — validated and
+  atomic, one-line diff (S2) — `--set --check` previews the published lines the
+  edit changes (S3), and writing text pre-flights the platform's published cap at
+  edit time (S4; `content/checks.yaml` when declared, else the shared limits table).
+  S3 also reports the unit's per-surface staleness from the §19 ledger. S5 freezes
+  the machine-readable contract and names the `#238` variant, so an agent consumes
+  `pasco edit` without parsing prose. Writer concurrency is covered under Fixed
+  below.
+- **Answer-engine surface — `identity.definition` + `faq[]` (schema v1.10, #288)** —
+  the two things an answer engine can quote: a canonical per-language definition
+  (≤ 160 chars per value, must contain the entity name) and 3–20 citable Q&A pairs
+  (`q` ≤ 90 and unique per workspace, `a` ≤ 320, optional http(s) `source`). This
+  release ships the **contract**; the `structuredData()` projection of these fields
+  (Person `description` + the `FAQPage` JSON-LD node) is tracked in #316 and is not
+  emitted yet.
 - **Funding rails — the project is now easy to fund** — `funding` field in the CLI
   manifest (GitHub Sponsors · Ko-fi · Patreon; `npm fund` and the npmjs.com package
-  page surface it natively from the next release), a `--help` footer tip line, a
-  Support section on the package README, and the `ko_fi:`/`patreon:` rails in
-  `.github/FUNDING.yml`. Deliberately not: no post-install script, no donation nag
-  on every command — the ask lives in `--help` and the READMEs only.
+  page surface it natively), a `--help` footer tip line, a Support section on the
+  package README, the three badge rails in the root sponsor section, the vendored GitHub
+  mark on the landing and docs chrome, and the `ko_fi:`/`patreon:` rails in
+  `.github/FUNDING.yml`.
+  Deliberately not: no post-install script, no donation nag on every command — the
+  ask lives in `--help` and the READMEs only.
 
-### Planned (roadmap)
+### Changed
 
-- Renderers: linkedin, upwork, x, researchgate, substack (M4)
-- CLI `pasco`: the full `refine` flow (M3); the `edit` epic (#247, slices S1–S5)
-- Per-platform skills v1 from SOTA research (M3)
-- Web renderer (M5)
+- **GEO scores move: geoCheck v2 (#289)** — five citability codes join the report
+  (`geo/canonical-definition`, `geo/faq-coverage`, `geo/freshness`,
+  `geo/sameas-coverage`, `geo/name-collision`), funded by diluting the nine pre-v1.10
+  checks ×0.8 (the weights still sum to 1, asserted). **Reported GEO scores move for
+  most workspaces** — the five codes enter the weighted report; a workspace already at
+  the ceiling on all 14 stays at 100. The new `GeoCheck.severity` tier is additive and
+  `info` never changes the pass/fail story.
+- **The release publishes the seam cohort in dependency order (#301)** — core →
+  markdown → paste → artifact → github via `pnpm publish`, which rewrites the
+  runtime `workspace:*` dependency, then the CLI via `npm publish` over OIDC; a
+  package whose version is already live is skipped.
+- **Deterministic ordering is ICU-free everywhere (#305)** — every text sort delegates
+  to core's `byteOrder` (UTF-16 code units), so output is byte-stable across locales.
+
+### Fixed
+
+- **`pasco edit` writer hardening (#332)** — the preview refuses what the write
+  refuses, anchored/aliased scalars are refused, the writer re-reads immediately
+  before the atomic rename and refuses on drift, and an advisory lock closes the
+  last-writer-wins window; concurrent edits on one workspace keep both values.
 
 ## [0.3.5] - 2026-10-24
 

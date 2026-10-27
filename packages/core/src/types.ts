@@ -181,6 +181,10 @@ export interface StructuredDataReadiness {
     email?: string;
     image?: string;
     address?: string;
+    /** v1.13 (issue #334): the ISO 3166-1 alpha-2 nationality code. Populated on the
+     *  Person branch only (a brand/Organization has no nationality, so the brand branch
+     *  leaves it undefined). Informational — NOT in the completeness ratio. */
+    nationality?: string;
     jobTitle?: string;
     worksFor?: string;
     /** brand (Organization) */
@@ -206,6 +210,9 @@ export interface StructuredDataReadiness {
     sameAs: string[];
     image?: string;
     address?: string;
+    /** v1.13 (issue #334): the Person `nationality` node — the alpha-2 code as
+     *  `Country.identifier`. Person-only: a brand (Organization) has no nationality. */
+    nationality?: { "@type": "Country"; identifier: string };
     jobTitle?: string;
     worksFor?: string;
     logo?: string;
@@ -217,8 +224,9 @@ export interface StructuredDataReadiness {
     hasCredential?: EducationalOccupationalCredentialLd[];
   };
   /** v1.10 (issue #288): the `FAQPage` node — a DIFFERENT schema.org @type than
-   *  the entity, so it is its own field, never folded into `jsonLd`. Emitted ONLY
-   *  when root `faq[]` exists (never an empty FAQPage). No `@id` by design: the
+   *  the entity, so it is its own field, never folded into `jsonLd`. DECLARED for
+   *  the pending #316 emitter: when root `faq[]` exists it will be emitted (never
+   *  an empty FAQPage) — nothing writes this field today. No `@id` by design: the
    *  engine never invents an anchor (the same rule the entity node follows, §15.4),
    *  and a URL fragment convention is not a declared decision. */
   faqJsonLd?: {

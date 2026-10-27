@@ -273,6 +273,33 @@ describe("identity.email (v1.5, issue #71 — the contact email is a fact, not a
     }
   });
 
+  it("accepts identity.nationality as an ISO 3166-1 alpha-2 code (v1.13, #334)", () => {
+    const dir = makeWorkspace({ "identity.yaml": "name: X\nnationality: VE\n" });
+    try {
+      const profile = load(dir);
+      expect(profile.identity.nationality).toBe("VE");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a non-alpha-2 identity.nationality — the CODE, not the name (v1.13, #334)", () => {
+    for (const bad of ["ve", "Venezuela", "VEN", "V3", " V", "VE "]) {
+      const dir = makeWorkspace({ "identity.yaml": `name: X\nnationality: '${bad}'\n` });
+      try {
+        expect(() => load(dir)).toThrow(SchemaValidationError);
+        try {
+          load(dir);
+        } catch (error) {
+          const e = error as SchemaValidationError;
+          expect(e.issues.some((issue) => issue.path === "identity.nationality")).toBe(true);
+        }
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
   it("STILL rejects mailto: in identity.links — the #53 http(s) boundary holds (option B)", () => {
     const dir = makeWorkspace({
       "identity.yaml":

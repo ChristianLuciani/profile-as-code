@@ -230,6 +230,22 @@ describe("brand flavor: GEO (Organization, §17.1)", () => {
     }
   });
 
+  it("does NOT emit nationality on Organization JSON-LD (v1.13, #334 — a Person property)", () => {
+    const dir = makeWorkspace({
+      "flavor.yaml": "brand\n",
+      "identity.yaml":
+        "name: Topia Press\nnationality: VE\nlinks:\n  - platform: website\n    label: Website\n    url: https://topia.press\n",
+    });
+    try {
+      const sd = geoCheck(load(dir)).sections.structuredData.readiness;
+      expect(sd.entityType).toBe("Organization");
+      expect(sd.jsonLd).not.toHaveProperty("nationality");
+      expect(sd.fields.nationality).toBeUndefined();
+    } finally {
+      clean(dir);
+    }
+  });
+
   it("still emits schema.org/Person for the default (person) flavor", () => {
     const dir = makeWorkspace({
       "identity.yaml":

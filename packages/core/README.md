@@ -31,14 +31,17 @@ const slice   = compile(profile, 'linkedin', 'es');      // PlatformProfile — 
   curated base, unknown active platform keys, skill level conflicts.
   *Out of scope (v1):* free-text mining of bio prose, DOI resolvability
   (network), the variants store (only the platform+lang base is validated).
-- **`geoCheck(profile)`** — weighted report (8 checks, 100 pts):
+- **`geoCheck(profile)`** — weighted report (14 checks since v1.10, 0..100):
   **fact consistency** (conflicts + per-platform bio/headline coverage),
   **structured-data readiness** (`schema.org` Person JSON-LD with `sameAs`,
   ready for the web renderer), **semantic associations** (the 3–5
   `positioning.geo.semanticAssociations` anchors and how well each is
   reinforced across statement/skills/keywords/projects), **citability**
-  (DOI/ORCID on publications, `evidence[]` on projects). Missing data is
-  neutral, never penalized.
+  (DOI/ORCID on publications, `evidence[]` on projects) plus the v1.10 citability
+  codes — canonical definition, FAQ coverage, freshness, sameAs coverage, name
+  collision. Missing data is neutral for the fact checks (never penalized);
+  readiness/citability checks (structured data, semantic anchors, the v1.10 codes)
+  can score 0 when the signal is absent — a reported gap, not a penalty (SPEC §8).
 - **`compile(profile, platform, lang)`** — facts pass through untouched
   (identical on every platform = GEO-citable); text (bios, headlines, statement,
   audiences, citationsGoal) is filtered by platform+lang and falls back to `en`

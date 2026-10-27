@@ -228,6 +228,10 @@ export function structuredData(profile: Profile, lang: Lang = "en"): StructuredD
     ...(identity.email !== undefined ? { email: identity.email } : {}),
     ...(identity.photo ? { image: identity.photo } : {}),
     ...(identity.location ? { address: identity.location } : {}),
+    // v1.13 (#334): informational only — NOT in `considered`/`populated`, so an
+    // absent nationality leaves the completeness ratio (and every pre-v1.13 score)
+    // untouched. It is optional, never a `ready` gate.
+    ...(identity.nationality !== undefined ? { nationality: identity.nationality } : {}),
     ...(role.jobTitle ? { jobTitle: role.jobTitle } : {}),
     ...(role.worksFor ? { worksFor: role.worksFor } : {}),
   };
@@ -246,7 +250,8 @@ export function structuredData(profile: Profile, lang: Lang = "en"): StructuredD
   // address → sameAs → hasCredential) with `@id` after `@type` when present, so a
   // workspace that declares no `role` keeps this key ORDER. `jobTitle`/`worksFor`
   // are the fields the OLD renderer silently dropped while geo.ts computed them — the
-  // divergence this module removes; they now follow `address`.
+  // divergence this module removes; `nationality`, `jobTitle` and `worksFor` follow
+  // `address` in that order.
   const jsonLd: StructuredDataReadiness["jsonLd"] = identity.name
     ? {
         "@context": "https://schema.org" as const,
@@ -256,6 +261,17 @@ export function structuredData(profile: Profile, lang: Lang = "en"): StructuredD
         ...(identity.email !== undefined ? { email: identity.email } : {}),
         ...(identity.photo ? { image: identity.photo } : {}),
         ...(identity.location ? { address: identity.location } : {}),
+        // v1.13 (#334): schema.org `nationality` is a PERSON property — a brand has
+        // no nationality, so the Organization branch never emits it. The value is the
+        // alpha-2 code itself, not a name: `Country.identifier`, per the issue.
+        ...(identity.nationality !== undefined
+          ? {
+              nationality: {
+                "@type": "Country" as const,
+                identifier: identity.nationality,
+              },
+            }
+          : {}),
         ...(role.jobTitle ? { jobTitle: role.jobTitle } : {}),
         ...(role.worksFor ? { worksFor: role.worksFor } : {}),
         sameAs,
