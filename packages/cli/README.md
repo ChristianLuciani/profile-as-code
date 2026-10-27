@@ -63,7 +63,8 @@ commands above are the standalone path.
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never · **certification** (verified/attested/unverifiable/out-of-band-drift, §19.5) + the derived **publication truth** per surface (§20.1, #242) + ledger write paths (D18, §19) | ✅ |
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13); the chosen body is `profiles/<platform>/variants/<id>.md` (a complete platform artifact), rendered by `pasco build` (#238) | 🚧 template + `--choose` (full flow M3) |
-| `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) + offline `max-chars`/`min-chars` over headlines/bios (#240) | 🚧 offline rules today (limits + registry + media; remaining catalog M3/M4) |
+| `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) + offline `max-chars`/`min-chars` over headlines/bios (#240) + `fact-present` (the built surface's fact tokens vs the SSOT render, #283) | 🚧 offline rules today (limits + registry + media + fact-present; remaining catalog M3/M4) |
+| `pasco audit [--json]` | Offline **diagnostic projection**, findings only (no score/prioritisation/branding, #283): three fixed classes — `dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN — exit 1 iff any FAIL; `--json` carries `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings }` | ✅ v1 |
 | `pasco post <seed\|task\|choose\|check\|export\|import\|list>` | Week-1 post MVP (#264): a seed at `posts/<seed>/seed.md` → task bundle → chosen variant → check → optional Postiz draft payload; the CLI never calls an LLM | 🚧 experiment (not in the v1 contract; `docs/post-mvp.md`) |
 | `pasco skills:export <dir> [--force] [--list]` | Copy the platform skills this package ships into a directory you name (`--list` shows them; no per-agent paths are invented — #254) | ✅ |
 
@@ -77,11 +78,19 @@ The partial commands are explicit, and each one says what still owns the rest:
   #253). The full variant flow is M3 (`src/commands/refine.ts`).
 - **`check`** — executes the offline rules that exist today: the brand handle
   matrix (brand flavor only, D15/§17), the evidence-registry checks (M7/§18.8),
-  the media-transport rules (M8/§18.6), and the `max-chars` / `min-chars` rows
+  the media-transport rules (M8/§18.6), the `max-chars` / `min-chars` rows
   declared in `content/checks.yaml` over the headline/bio rows that exist
-  (offline, warn-class, #240). The remaining per-platform rules in the catalog
-  ship with the skills `checks.yaml` union (M3) and the full `pasco check` (M4).
-  It prints its `owner` line (`src/commands/check.ts`).
+  (offline, warn-class, #240), and **`fact-present`** — for the surfaces whose
+  catalog declares it (`content/checks.yaml` ∪ the shipped
+  `skills/<platform>/checks.yaml`): the artifact `pasco build` last wrote is
+  compared **symmetrically** against the SSOT render — a URL, ISO
+  date or number one side carries and the other does not, or a text difference no
+  fact token explains, is a finding — WARN in `check` (D12), because a published
+  surface that disagrees with the SSOT is a fact problem, not a schema one. A
+  targeted surface with no artifact reports the rule as **not run**, never as OK. The remaining
+  per-platform rules in the catalog ship with the skills `checks.yaml` union (M3)
+  and the full `pasco check` (M4). It prints its `owner` line
+  (`src/commands/check.ts`).
 - **`skills:export`** — copies the platform skills this package ships into the
   directory the user names (`--list` first; an existing non-empty directory needs
   `--force`). It replaces the earlier projection stub: the CLI never invents a
@@ -92,6 +101,75 @@ The partial commands are explicit, and each one says what still owns the rest:
   choice, checks limits/URLs/refs and exports a Postiz draft. It reads the
   `skills/` bundled with the package (set `PASCO_SKILLS_DIR` only to point at a
   custom tree), and it is **not part of the v1 contract yet** (`docs/post-mvp.md`).
+
+### The audit (`pasco audit --json`, #283)
+
+`audit` is an **offline JSON projection over existing checks** — not a second
+analysis engine and not a scoring surface. It aggregates per identity (where
+`check` is per document) and reports **findings only**: no score, no
+prioritisation, no branding. Those belong to the consumer (`PROP-017 §Module
+boundary`), and putting them in the engine would recreate the monolith the
+module split exists to prevent.
+
+```sh
+pasco audit                 # human list, one block per finding
+pasco audit --json          # machine contract
+```
+
+```json
+{
+  "schemaVersion": "1",
+  "scope": { "catalog": "shipped", "declared": ["github-readme"], "checked": ["github-readme"], "notRun": [] },
+  "findings": [
+    {
+      "class": "dangling-ref",
+      "severity": "FAIL",
+      "path": "projects[hub].links[0]",
+      "detail": "drift/url-not-in-identity — URL https://github.com/someoneelse lives on a platform host but is not in identity.links"
+    }
+  ]
+}
+```
+
+`scope` is the artifact side (the SSOT-side rules always run): `catalog` is
+`shipped` | `not-shipped` (a package without its skills tree cannot declare the
+premise — a bundle state, not "nothing declared"); `declared` are the targeted
+surfaces whose catalog declares the `fact-present` premise, `checked` the
+declared ones whose built artifact was compared, `notRun` the declared ones with no
+artifact on disk or no renderer for the flavor. **`declared: []` means the premise
+is not declared anywhere; `checked: []` means it measured nothing** — either way the
+audit says so instead of looking clean.
+
+| Class | Fires when | Severity |
+|---|---|---|
+| `dangling-ref` | a pointer does not resolve in the current view | **FAIL** |
+| `contradiction` | two surfaces assert incompatible values for one datum | **FAIL** |
+| `unsourced-claim` | a quantitative claim carries no evidence | **WARN** |
+
+`schemaVersion` is the contract version: a consumer refuses a version it does not
+know rather than guessing at the shape. `path` is a `factRef` (the row `id`
+replaces the array index when the row declares one); a finding about a built
+surface addresses the artifact path (`profiles/<surface>/README.md`), because a
+fact the SSOT does not carry has no `factRef` by definition.
+
+Exit `1` iff a `FAIL` finding exists, `0` otherwise (WARN-only included); `2` is
+a usage error, and a schema/load failure is the standard error envelope at exit
+`1`. The audit never touches the network, and no finding is derived from
+`content/deployments.yaml` (the ledger is not a fact source) — it works on a
+workspace that has neither a ledger nor a built artifact.
+
+What it composes (`docs/SPEC.md` §7.1): `load`/schema, `reconciledDrift` (drift
+plus the #238 variant-store reconciliation `validate` applies), `geoCheck` (its
+`faq-coverage` premise gates the claim rows; the codes themselves map to no class),
+the completeness `evidence` premise, and `fact-present`.
+
+It is **deliberately stricter than `validate`/`check`** on the two FAIL classes:
+D12 governs validity (drift facts warn, `validate` exits 0), while the audit's
+contract is publishability and the issue freezes the class severities. A drift fact
+in a FAIL class therefore exits 1 here and 0 there — declared in SPEC §7.1 and
+pinned by a test. Two inputs are deliberately NOT findings, declared in §7.1:
+`drift/url-not-in-identity` (the URL resolves — a canonicalization rule `validate`
+warns about) and `geoCheck`'s coverage codes.
 
 ### Contract paths (`pasco edit`, epic #247 — read · preview · write)
 
@@ -317,6 +395,8 @@ pasco status                          # …also prints the derived publication-t
 pasco refine linkedin --variants 3            # emits the agent task template (full flow M3)
 pasco refine linkedin --choose li-en-2        # records the chosen variant in content/active.yaml
 pasco check github-readme
+pasco audit                                  # findings only: dangling-ref · contradiction · unsourced-claim
+pasco audit --json                           # { schemaVersion, findings } — exit 1 iff any FAIL
 pasco post seed demo --text seed.md           # week-1 experiment: posts/<seed>/seed.md
 pasco post task demo --channel linkedin,x   # task bundles (no LLM call)
 pasco post choose demo --channel linkedin --variant linkedin-1
@@ -361,7 +441,7 @@ written to the workspace; only this policy is stored.
 | Code | Meaning |
 |---|---|
 | `0` | OK — schema valid. Drift warnings still exit 0 (D12: facts warn, schema fails). |
-| `1` | Schema or operational failure (workspace not found, bad YAML, not a git repo for `diff`), **or a data finding that blocks the command** (`edit`: the address is not exactly one row, or the edit does not change the published artifact). |
+| `1` | Schema or operational failure (workspace not found, bad YAML, not a git repo for `diff`), **or a data finding that blocks the command** (`edit`: the address is not exactly one row, or the edit does not change the published artifact; `audit`: at least one `FAIL` finding). |
 | `2` | Usage error (unknown command/platform/lang, bad flags). |
 
 Human output is EN by default (D8/§11); `--json` prints a machine-readable

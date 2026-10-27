@@ -12,6 +12,12 @@
  * here — drift's handle codes (duplicate-handle, handle-claimed-not-linked,
  * handle-host-mismatch) run offline against the SSOT; live reachability is the
  * github-org skill's `url-live` check (network, not drift).
+ *
+ * `fact-present` (#283, the rule the ledger recorded as missing — PROP-017
+ * §Risks F2): the fact tokens of the artifact `pasco build` last wrote must be
+ * the ones the SSOT render carries. WARN in every case (D12: facts warn); the
+ * class it carries is what `pasco audit` grades. A surface with no artifact is
+ * reported as NOT RUN, never as OK — an unmeasured surface is not a green one.
  */
 
 import type { LoadedProfile } from "@profile-as-code/core";
@@ -26,11 +32,13 @@ import {
 import { parsePlatform } from "../contract.js";
 import { DEFAULT_CHECKS } from "../default-checks.js";
 import { EXIT } from "../exit.js";
+import { factPresentFindings } from "../fact-present.js";
 import { limitFindings } from "../limits.js";
 import { isJsonMode, line, report, section } from "../output.js";
+import type { Pascorc } from "../workspace.js";
 
 export const CHECK_OWNER =
-  "M6: handle-matrix rules (brand, offline) executed; M7 (D17/§18.8): registry checks (credential-expiry, no-private-in-public-output) executed; M8 (§18.6): media-transport rules executed; limits: max-chars/min-chars over existing rows executed (offline); remaining catalog ships with M3/M4 (SPEC §7)";
+  "M6: handle-matrix rules (brand, offline) executed; M7 (D17/§18.8): registry checks (credential-expiry, no-private-in-public-output) executed; M8 (§18.6): media-transport rules executed; limits: max-chars/min-chars over existing rows executed (offline); fact-present (#283): the built surface's fact tokens vs the SSOT render executed (offline); remaining catalog ships with M3/M4 (SPEC §7)";
 
 /** Handle drift codes the offline handle-matrix execution reports. */
 const HANDLE_CODES = new Set([
@@ -42,6 +50,9 @@ const HANDLE_CODES = new Set([
 export interface CheckArgs {
   workspace: string;
   platformArg?: string;
+  /** Workspace policy — `fact-present` renders the surface under it, so the check
+   *  compares what `pasco build` would write, not an implicit default. */
+  pascorc: Pascorc;
 }
 
 export function runCheck(args: CheckArgs): number {
@@ -94,6 +105,13 @@ export function runCheck(args: CheckArgs): number {
   // machine external state (no evidence root, symlink escape, oversize) warns.
   const media = collectMedia(profile, args.workspace).findings;
   const limits = limitFindings(profile, checks, platform);
+  const facts = factPresentFindings({
+    workspace: args.workspace,
+    profile,
+    ...(platform === undefined ? {} : { platform }),
+    pascorc: args.pascorc,
+    checks: profile.checks,
+  });
   const failErrors = [...registry, ...media].filter((f) => f.severity === "error");
 
   if (isJsonMode()) {
@@ -110,6 +128,7 @@ export function runCheck(args: CheckArgs): number {
           registry: true,
           media: true,
           limits: true,
+          factPresent: true,
         },
         checks,
         handleMatrix,
@@ -117,6 +136,7 @@ export function runCheck(args: CheckArgs): number {
         registry,
         media,
         limits,
+        factPresent: facts,
         ownedBy: CHECK_OWNER,
       },
     });
@@ -154,6 +174,32 @@ export function runCheck(args: CheckArgs): number {
   }
   if (limits.length === 0) {
     line("  text limits: OK (no findings)");
+  }
+
+  section(
+    `fact-present (surface facts vs the SSOT render, #283): ${facts.findings.length} finding(s)`,
+  );
+  for (const finding of facts.findings) {
+    line(`  warn: [${finding.code}] ${finding.message} (${finding.path})`);
+  }
+  if (facts.catalog === "not-shipped") {
+    line(
+      "  skills tree NOT SHIPPED with this package — the catalog cannot declare the premise; report it at https://github.com/ChristianLuciani/profile-as-code/issues",
+    );
+  } else if (facts.declared.length > 0) {
+    line(`  declared by the catalog: ${facts.declared.join(", ")}`);
+  } else {
+    line(
+      "  not declared by any catalog for this surface — no premise to run (the rule reads the workspace checks + the shipped skills checks.yaml)",
+    );
+  }
+  if (facts.checked.length > 0) {
+    line(`  compared: ${facts.checked.join(", ")}`);
+  }
+  if (facts.notRun.length > 0) {
+    line(
+      `  not run: ${facts.notRun.join(", ")} — no artifact on disk (run pasco build) or no renderer for this flavor`,
+    );
   }
 
   if (profile.flavor === "brand") {

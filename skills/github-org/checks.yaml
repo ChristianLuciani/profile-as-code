@@ -19,7 +19,7 @@
   platform: github-org
   rule: fact-present
   value: true
-  note: "name/mission/tagline del README byte-idénticos al SSOT (D4)."
+  note: "El README que escribió `pasco build` se compara contra el render actual del SSOT en los dos sentidos — URL, fecha o número agregado u omitido, y texto sin token que lo explique (WARN, D12; `pasco audit` lo gradúa). `link-in-identity` es una premisa aparte."
 
 - id: org-links-identity
   platform: github-org

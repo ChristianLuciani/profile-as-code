@@ -9,6 +9,33 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Added
+
+- **`pasco audit [--json]` — the offline diagnostic projection (#283)** — a
+  per-identity aggregate over the checks that already exist, emitting **findings
+  only** (no score, no prioritisation, no branding — SPEC §7.1). Three fixed
+  classes with fixed severities: `dangling-ref` (a pointer that does not resolve)
+  and `contradiction` (two surfaces disagreeing on one datum) are FAIL; an
+  `unsourced-claim` (a quantitative claim with no evidence) is WARN. Exit `1` iff
+  a FAIL exists; `--json` carries `{ schemaVersion: "1", scope: { catalog,
+  declared, checked, notRun }, findings: [{ class, severity, path, detail }] }` where
+  `scope` is the artifact side (so "measured nothing" is distinguishable from
+  "clean") and `path` is a factRef (row id in place of the index) or the artifact
+  path for a surface finding. Offline: no network, and no finding is derived from
+  `content/deployments.yaml`. It is deliberately stricter than `validate`/`check`
+  on the FAIL classes, and `drift/url-not-in-identity` (the URL resolves) plus
+  `geoCheck`'s coverage codes are declared no-class rules, in SPEC §7.1. D23 is operator-ratified; its
+  normative entry into the SPEC is pending in #262. — *M11 in SPEC §12.*
+- **`fact-present` — the rule the ledger recorded as missing (`PROP-017 §Risks
+  F2`)** — executed by `pasco check` for the surfaces whose catalog declares it
+  (workspace `content/checks.yaml` ∪ the shipped `skills/<platform>/checks.yaml`):
+  the artifact `pasco build` last wrote is compared against the SSOT render
+  **symmetrically** — a URL, ISO date or number the surface adds or omits, and a
+  text difference no fact token explains. All are WARN in `check` (D12: facts
+  warn) and classified by `pasco audit` (a URL the surface adds is `dangling-ref`;
+  every other disagreement is `contradiction`). No artifact = **not run**, and
+  `declared: []` = no premise declared — never a silent OK.
+
 ### Planned (roadmap)
 
 - Renderers: linkedin, upwork, x, researchgate, substack (M4)

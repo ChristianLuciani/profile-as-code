@@ -16,7 +16,7 @@
   platform: hotmart
   rule: fact-present
   value: true
-  note: "Hechos del cuerpo byte-idénticos al SSOT (D4); el cuerpo es el cierre de confianza del storefront (SOTA-2026 §1)."
+  note: "El cuerpo que escribió `pasco build` se compara contra el render actual del SSOT en los dos sentidos — URL, fecha o número agregado u omitido, y texto sin token que lo explique (WARN, D12; `pasco audit` lo gradúa); el cuerpo es el cierre de confianza del storefront (SOTA-2026 §1). `link-in-identity` es una premisa aparte."
 
 - id: h-links-identity
   platform: hotmart

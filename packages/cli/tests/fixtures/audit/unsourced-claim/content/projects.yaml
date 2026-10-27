@@ -1,0 +1,4 @@
+- id: hub
+  name: sovereign-agentic-hub
+  description:
+    en: Serves 100 requests per month across 12 deployments.
