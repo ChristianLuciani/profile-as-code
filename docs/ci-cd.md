@@ -72,9 +72,13 @@ One job, **`ci`**, required on every PR and push to `main`:
    resolves the sha, asserts it is still an ancestor of the reference, and diffs
    the claim type's relevant paths (`tests` → `packages`; `links` → the Markdown
    corpus). `stale` **warns** (exit 0); `unreachable` **fails** (a citation
-   nobody can resolve is a claim without a source). A `kind=record` citation is
-   never stale. This is the only step that needs history, which is why the
-   checkout above fetches `fetch-depth: 0`.
+   nobody can resolve is a claim without a source). The reference is the commit
+   being checked (`--ref HEAD`, #342 F6): on a pull request that is the PR's own
+   head, so a `kind=current` anchor living on the unmerged branch is reachable —
+   as it legitimately is — instead of turning `unreachable` the moment `main`
+   moves past the fork; a rebased-away sha still fails, because it is not in the
+   checkout. A `kind=record` citation is never stale. This is the only step that
+   needs history, which is why the checkout above fetches `fetch-depth: 0`.
 3. **TypeScript workspace** — steps activate automatically once `package.json` lands
    (M1 core), in this order: **dependency gate** (`scripts/dep-gate`, issue #98 —
    node-only, before install to fail fast: `packages/server` must depend on

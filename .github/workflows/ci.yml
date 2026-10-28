@@ -91,10 +91,21 @@ jobs:
       # evidence rule is a contract. A historical `kind=record` citation is never
       # stale (correct forever) — pinned by the self-test. Zero deps; needs the
       # full history the checkout step above was configured to fetch.
+      #
+      # The reference is the commit being checked, not `origin/main` (#342
+      # finding F6). On a `pull_request` run that is the PR's merge commit, so a
+      # `kind=current` anchor that lives on the PR branch is REACHABLE — which
+      # it legitimately is before merge. Reading `origin/main` instead made a
+      # branch anchor look `unreachable` the moment `main` advanced past the
+      # fork, failing CI for a citation that was never rewritten; `stale` (the
+      # pre-merge verdict) was only reachable while `main` happened to be older
+      # than the anchor. A rebased-away sha still fails: it is not in the
+      # checkout. On a `push` run the commit IS the branch tip, so the check on
+      # `main` keeps its original meaning.
       - name: Evidence anchors are reachable (#226)
         run: |
           node scripts/evidence-gate/test.mjs
-          node scripts/evidence-gate/check.mjs
+          node scripts/evidence-gate/check.mjs --ref HEAD
       # Issue #201 / #277: the project page gate no longer runs here. The page now
       # links to documentation pages that are PROJECTED, not committed — so the
       # gate needs `site/docs/` to exist, which needs the workspace dependencies
