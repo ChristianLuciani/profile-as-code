@@ -20,11 +20,14 @@
  * Normalization and word-boundary matching live in `normalize.ts` — the same
  * fold `geoCheck` reads, so the two sides cannot disagree about a name.
  *
- * Four guards make a text hit NOT a citation (`cited: false`): a shorter term
- * contained in a longer one, a hit inside a longer capitalised phrase the text
- * carries, a one-word name with no declared disambiguator in its sentence, and a
- * mention inside a contrast clause. Each reports its reason; `confidence: low`
- * is never citable downstream (declared in §7.4).
+ * Guards make a text hit NOT a citation (`cited: false`): a shorter term
+ * contained in a longer declared one (`longer-name`), a one-word name with no
+ * declared disambiguator in its sentence (`ambiguous-term` + `no-qualifier`), and
+ * a mention inside a contrast clause (`contrast-context`). `competing:<phrase>`
+ * never decides on its own — it only names the longer reading the text carries
+ * when the hit is already ambiguous, so ordinary prose cannot become a
+ * competitor through an adjacent capital. `confidence: low` is never citable
+ * downstream (declared in §7.4).
  */
 
 import { byteOrder } from "./byte-order.js";
@@ -54,7 +57,7 @@ export interface CiteAnswer {
   askedAt?: string | null;
   question?: string | null;
   answer: string;
-  citations?: CiteCitation[];
+  citations: CiteCitation[];
 }
 
 /** A matched span: a character range in `answer`, or a citation pointer. */
@@ -247,7 +250,12 @@ function buildVocabulary(profile: Profile): Vocabulary {
 
   const partials: string[] = [];
   const tokens = name.split(/\s+/).filter(Boolean);
-  if (tokens.length >= 3) pushUnique(partials, used, tokens.slice(0, -1).join(" "));
+  // EVERY contiguous multi-token prefix shorter than the name (SPEC §7.4):
+  // "DA SEO Digital Studio" yields "DA SEO" and "DA SEO Digital". A single-token
+  // prefix is deliberately not a rung — it is a common word.
+  for (let length = 2; length < tokens.length; length++) {
+    pushUnique(partials, used, tokens.slice(0, length).join(" "));
+  }
 
   const targets: DeclaredTarget[] = [];
   const seenTargets = new Set<string>();
@@ -391,7 +399,7 @@ export function citeMatch(profile: Profile, answer: CiteAnswer): CiteMatch {
   //    "cited without naming" is exactly this case.
   const citationSpans: CiteSpan[] = [];
   const seenUrls = new Set<string>();
-  for (const citation of answer.citations ?? []) {
+  for (const citation of answer.citations) {
     const host = hostOf(citation.url);
     const path = pathOf(citation.url);
     if (host === undefined || path === undefined) continue;
@@ -443,12 +451,17 @@ export function citeMatch(profile: Profile, answer: CiteAnswer): CiteMatch {
   );
   const kept: TextHit[] = [];
   for (const hit of ordered) {
+    const sameSpan = kept.find(
+      (k) => k.span.start === hit.span.start && k.span.end === hit.span.end,
+    );
+    // Same text matched by two rungs: the higher rung already reports it, so the
+    // duplicate is dropped without a `longer-name` claim (nothing was shorter).
+    if (sameSpan !== undefined) continue;
     const container = kept.find(
       (k) =>
         k.span.start <= hit.span.start &&
         k.span.end >= hit.span.end &&
-        (k.span.end - k.span.start > hit.span.end - hit.span.start ||
-          (k.span.start === hit.span.start && k.span.end === hit.span.end)),
+        k.span.end - k.span.start > hit.span.end - hit.span.start,
     );
     if (container !== undefined) {
       reasons.push(`longer-name:${container.term}`);
@@ -471,15 +484,11 @@ export function citeMatch(profile: Profile, answer: CiteAnswer): CiteMatch {
       hit.cited = false;
     }
 
-    const run = capitalRun(text, hit.span.start, hit.span.end);
-    if (run !== undefined) {
-      const phrase = text.slice(run.start, run.end);
-      if (!vocab.knownTerms.has(normalizeText(phrase))) {
-        hit.reasons.push(`competing:${phrase}`);
-        hit.cited = false;
-      }
-    }
-
+    // The one-word guard is the ambiguity decision. `competing` does NOT decide
+    // anything on its own: it only NAMES the longer reading the text carries
+    // once the hit is already ambiguous, so ordinary prose ("In Ecuador Pasco
+    // is a CLI", "… Studio Founder Ana ships") can never be turned into a
+    // competitor by an adjacent capital (review F1).
     const singleWord = !/\s/.test(hit.term.trim());
     if (singleWord && hit.kind !== "handle") {
       const qualified = vocab.qualifiers.some(
@@ -490,6 +499,13 @@ export function citeMatch(profile: Profile, answer: CiteAnswer): CiteMatch {
       if (!qualified) {
         hit.reasons.push(`ambiguous-term:${normalizeText(hit.term)}`, "no-qualifier");
         hit.cited = false;
+        const run = capitalRun(text, hit.span.start, hit.span.end);
+        if (run !== undefined) {
+          const phrase = text.slice(run.start, run.end);
+          if (!vocab.knownTerms.has(normalizeText(phrase))) {
+            hit.reasons.push(`competing:${phrase}`);
+          }
+        }
       }
     }
   }
@@ -499,7 +515,9 @@ export function citeMatch(profile: Profile, answer: CiteAnswer): CiteMatch {
   const textSpans = [...kept]
     .sort(
       (a, b) =>
-        a.span.start - b.span.start || a.span.end - b.span.end || a.kind.localeCompare(b.kind),
+        a.span.start - b.span.start ||
+        a.span.end - b.span.end ||
+        RUNG_RANK[a.kind] - RUNG_RANK[b.kind],
     )
     .map((hit) => hit.span);
 

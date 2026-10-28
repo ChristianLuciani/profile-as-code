@@ -31,7 +31,6 @@
  */
 
 import { driftCheck } from "./drift.js";
-import { normalizeText } from "./normalize.js";
 import { linksWithRole, sameAsUrls, structuredData } from "./structured-data.js";
 import type {
   GeoCheck,
@@ -94,7 +93,7 @@ function semanticAnchors(profile: Profile): SemanticAssociationCoverage {
   const rawAnchors = (profile.positioning?.geo?.semanticAssociations ?? [])
     .map((a) => a.trim())
     .filter(Boolean);
-  const anchors = rawAnchors.map((a) => normalizeText(a));
+  const anchors = rawAnchors.map((a) => a.toLowerCase());
   if (anchors.length === 0) return { anchors: [], reinforced: [], missing: [], coverage: 0 };
 
   const haystack: string[] = [
@@ -109,7 +108,7 @@ function semanticAnchors(profile: Profile): SemanticAssociationCoverage {
   for (const project of profile.projects ?? []) {
     haystack.push(...(project.keywords ?? []), ...langValues(project.description));
   }
-  const normalized = haystack.map((text) => normalizeText(text));
+  const normalized = haystack.map((text) => text.trim().toLowerCase());
 
   const reinforced: string[] = [];
   const missing: string[] = [];
@@ -234,17 +233,18 @@ function readFreshness(profile: Profile, now: number = Date.now()): FreshnessRea
  *  cap is ALSO schema-enforced (max 160, #288) — the geo rule repeats it as
  *  defense-in-depth for direct callers, the same reading as the faq floor. */
 function definitionFailures(profile: Profile): string[] {
-  const name = normalizeText(profile.identity.name ?? "");
+  const name = (profile.identity.name ?? "").toLowerCase();
   const out: string[] = [];
   for (const [lang, v] of definitionEntries(profile)) {
     if (v.length > 160) out.push(`definition[${lang}] exceeds 160 chars`);
-    else if (name === "" || !normalizeText(v).includes(name))
+    else if (name === "" || !v.toLowerCase().includes(name))
       out.push(`definition[${lang}] does not contain the entity name`);
   }
   return out;
 }
 
-/** The disambiguating qualifiers name-collision can observe offline: the
+/** The disambiguating qualifiers name-collision can observe offline (also read by
+ *  `cite-check`'s one-word guard, #291 — one home for the declared list): the
  *  declared `location` and the declared `experience[].role` titles (v1.1: a
  *  string or a langMap — the issue's "(location/role)" wording). Nothing is
  *  invented: both count ONLY when declared. The `identity.links[]` roles
@@ -276,9 +276,9 @@ function nameCollisionObservation(profile: Profile): NameCollisionObservation {
   const entries = definitionEntries(profile);
   if (entries.length === 0) return { kind: "no-definition" };
   for (const qualifier of disambiguationQualifiers(profile)) {
-    // Case- and accent-insensitive (the ONE normalizer, #291): a definition
-    // that mentions the qualifier in another case STILL says it.
-    if (entries.some(([, v]) => normalizeText(v).includes(normalizeText(qualifier))))
+    // Case-insensitive: the same rule the name containment applies — a
+    // definition that mentions the qualifier in another case STILL says it.
+    if (entries.some(([, v]) => v.toLowerCase().includes(qualifier.toLowerCase())))
       return { kind: "qualified", qualifier };
   }
   return { kind: "unqualified" };

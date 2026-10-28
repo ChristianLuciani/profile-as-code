@@ -74,7 +74,7 @@ function capture<T>(fn: () => T): { code: T; out: string } {
 describe("the NDJSON input contract", () => {
   it("ignores blank lines and keeps the input order", () => {
     const { entries, issue } = parseAnswers(
-      '{"answer":"one"}\n\n{"answer":"two","citations":[]}\n',
+      '{"answer":"one","citations":[]}\n\n{"answer":"two","citations":[]}\n',
     );
     expect(issue).toBeUndefined();
     expect(entries.map((entry) => entry.answer.answer)).toEqual(["one", "two"]);
@@ -84,7 +84,7 @@ describe("the NDJSON input contract", () => {
 
   it("carries the optional fields through, and leaves the absent ones out", () => {
     const { entries } = parseAnswers(
-      '{"engine":"chatgpt","askedAt":"2026-10-23T15:00:00Z","question":"q","answer":"a"}\n',
+      '{"engine":"chatgpt","askedAt":"2026-10-23T15:00:00Z","question":"q","answer":"a","citations":[]}\n',
     );
     expect(entries[0]?.answer).toEqual({
       engine: "chatgpt",
@@ -96,7 +96,7 @@ describe("the NDJSON input contract", () => {
   });
 
   it("reports the 1-based line of invalid JSON and returns no answers", () => {
-    const { entries, issue } = parseAnswers('{"answer":"ok"}\n{"answer":\n');
+    const { entries, issue } = parseAnswers('{"answer":"ok","citations":[]}\n{"answer":\n');
     expect(entries).toEqual([]);
     expect(issue?.line).toBe(2);
     expect(issue?.message).toContain("not valid JSON");
@@ -105,6 +105,22 @@ describe("the NDJSON input contract", () => {
   it("reports the missing field, never a silent skip", () => {
     const { issue } = parseAnswers('{"engine":"chatgpt","question":"no answer"}\n');
     expect(issue).toMatchObject({ line: 1, field: "answer" });
+  });
+
+  it("requires citations[] — an absent field is malformed, never 'no sources'", () => {
+    // The contract declares `citations[]` required (SPEC §7.4): absorbing an
+    // absent field as `[]` would produce an indistinguishable false
+    // "not cited", the exact failure this command exists to prevent.
+    const { entries, issue } = parseAnswers('{"answer":"a"}\n');
+    expect(entries).toEqual([]);
+    expect(issue).toMatchObject({ line: 1, field: "citations" });
+    expect(issue?.message).toContain("required");
+  });
+
+  it("accepts an explicit empty citations[] as 'no sources'", () => {
+    const parsed = parseAnswerLine({ answer: "a", citations: [] }, 1);
+    expect(parsed.issue).toBeUndefined();
+    expect(parsed.answer?.citations).toEqual([]);
   });
 
   it("rejects a citation without a string url", () => {
@@ -164,7 +180,8 @@ describe("the JSON payload (SPEC §7.4)", () => {
   });
 
   it("reads stdin when no path is given", () => {
-    const input = '{"answer":"Pasco is a CLI for profile-as-code, built in Ecuador."}\n';
+    const input =
+      '{"answer":"Pasco is a CLI for profile-as-code, built in Ecuador.","citations":[]}\n';
     const result = run(["cite-check", "--json", "--workspace", PERSON], input);
     expect(result.code).toBe(0);
     const data = envelope(result.stdout).data as CiteCheckReport;
@@ -212,6 +229,22 @@ describe("the exit matrix (SPEC §7.4)", () => {
     expect(result.stderr).toContain("line 1 (answer)");
   });
 
+  it("exit 2 on a line with no citations field (SPEC §7.4 requires it)", () => {
+    const result = run([
+      "cite-check",
+      join(FIXTURES, "malformed", "missing-citations.ndjson"),
+      "--json",
+      "--workspace",
+      PERSON,
+    ]);
+    expect(result.code).toBe(2);
+    const body = envelope(result.stdout);
+    expect(body.ok).toBe(false);
+    expect(body.exitCode).toBe(2);
+    expect(body.error?.message).toContain("line 1 (citations)");
+    expect(body.data).toBeUndefined();
+  });
+
   it("exit 1 when the workspace cannot load", () => {
     const result = run([
       "cite-check",
@@ -242,6 +275,12 @@ describe("the published surface", () => {
     expect(result.stdout).toContain("NEVER a citation");
     expect(result.stdout).toContain("malformed NDJSON");
     expect(result.stdout).toContain("NEVER aggregated");
+    // F4: the citation-url rung names the path condition, not just the host.
+    expect(result.stdout).toContain("that path or a descendant");
+    // F7: the partial rung is every multi-token prefix, not only the longest.
+    expect(result.stdout).toContain("any contiguous multi-token prefix");
+    // F3: the input contract names citations as required.
+    expect(result.stdout).toContain('"citations" are required');
   });
 
   it("human output reports per answer and no citation rate", () => {

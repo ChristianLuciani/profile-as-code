@@ -90,32 +90,43 @@ export function parseAnswerLine(
       issue: { line: lineNumber, field: "answer", message: `"answer" must be a string` },
     };
   }
+  // The field is REQUIRED by the contract (SPEC §7.4): a missing `citations`
+  // is a runner bug, and absorbing it as "no sources" would produce an
+  // indistinguishable false "not cited" — the failure class this command
+  // exists to prevent. An answer with no sources declares `"citations": []`.
+  if (value.citations === undefined) {
+    return {
+      issue: {
+        line: lineNumber,
+        field: "citations",
+        message: `"citations" is required (use [] for an answer with no sources)`,
+      },
+    };
+  }
   const citations: CiteAnswer["citations"] = [];
-  if (value.citations !== undefined) {
-    if (!Array.isArray(value.citations)) {
+  if (!Array.isArray(value.citations)) {
+    return {
+      issue: {
+        line: lineNumber,
+        field: "citations",
+        message: `"citations" must be an array`,
+      },
+    };
+  }
+  for (const [index, row] of value.citations.entries()) {
+    if (!isRecord(row) || typeof row.url !== "string") {
       return {
         issue: {
           line: lineNumber,
-          field: "citations",
-          message: `"citations" must be an array`,
+          field: `citations[${index}].url`,
+          message: 'each citation must be an object with a string "url"',
         },
       };
     }
-    for (const [index, row] of value.citations.entries()) {
-      if (!isRecord(row) || typeof row.url !== "string") {
-        return {
-          issue: {
-            line: lineNumber,
-            field: `citations[${index}].url`,
-            message: 'each citation must be an object with a string "url"',
-          },
-        };
-      }
-      citations.push({
-        url: row.url,
-        ...(typeof row.title === "string" ? { title: row.title } : {}),
-      });
-    }
+    citations.push({
+      url: row.url,
+      ...(typeof row.title === "string" ? { title: row.title } : {}),
+    });
   }
 
   const engine = optionalString(value.engine, "engine");

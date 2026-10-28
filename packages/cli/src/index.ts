@@ -310,24 +310,30 @@ Match the workspace's declared entity against SAVED answer-engine answers
 — the engine produces none of it:
   { "engine": "chatgpt", "askedAt": "<iso>", "question": "…", "answer": "…",
     "citations": [ { "url": "https://…", "title": "…" } ] }
+"answer" and "citations" are required; "citations": [] declares "no sources".
 Read from the path, or from stdin when no path is given (or "-"). Blank lines
 are ignored; ANY other malformed line aborts the read with the 1-based line and
 the field — never a silent skip.
 The match ladder is fixed (SPEC §7.4), one rung per kind:
-  citation-url  a citation host that is the entity's own or its sameAs set   HIGH
+  citation-url  a citation of the entity's own page or a sameAs target:   HIGH
+                host equal/subdomain, and — when the declared URL carries a
+                path — that path or a descendant (a declared root URL claims
+                the whole host, so github.com/<you> != github.com/someone)
   exact-name    the full name, word-bounded, case/accent-normalized         HIGH
   alias         identity.orgName                                           MEDIUM
   handle        a declared handle (identity.handle, claimed socialHandles)  MEDIUM
-  partial       a multi-token prefix of the name                             LOW
+  partial       any contiguous multi-token prefix (>= 2 tokens, shorter
+                than the name)                                                LOW
 Matching is accent-insensitive (Domínguez = Dominguez) and word-bounded, so
 "pasco" does not match inside "pascoño". confidence "low" is NEVER a citation
 in a downstream report; the engine may say cited: true with low, and the
 consumer must refuse it.
-It refuses to guess: a hit inside a longer capitalised phrase the text carries
-(competing:<phrase>), a one-word name whose sentence has no declared
-disambiguator (ambiguous-term:<term> + no-qualifier), a mention after a contrast
-marker (contrast-context) and a term contained in a longer declared term
-(longer-name:<term>) are all quoted in reasons[] as NOT citations.
+It refuses to guess: a one-word name whose sentence has no declared
+disambiguator (ambiguous-term:<term> + no-qualifier; the longer capitalised
+reading the text carries is then quoted as competing:<phrase>), a mention after
+a contrast marker (contrast-context) and a term contained in a longer declared
+term (longer-name:<term>) are all quoted in reasons[] as NOT citations. A
+declared qualifier or an adjacent capital never disqualifies a hit by itself.
 --json emits the frozen contract { schemaVersion: "1", entity: { name, aliases,
 handles, partials, hosts }, answers: [ { line, engine, askedAt, question, cited,
 confidence, spans, reasons } ] } inside the usual envelope — one row per input

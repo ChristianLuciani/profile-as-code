@@ -1,3 +1,3 @@
 {"engine":"chatgpt","askedAt":"2026-10-23T15:00:00Z","question":"¿qué herramienta GEO hay en Ecuador?","answer":"Pasco is a CLI for profile-as-code, built in Ecuador.","citations":[{"url":"https://example.com/geo"}]}
-{"engine":"claude","askedAt":"2026-10-23T15:10:00Z","question":"Where is Pasco?","answer":"Pasco is a city in Washington, not a software tool."}
+{"engine":"claude","askedAt":"2026-10-23T15:10:00Z","question":"Where is Pasco?","answer":"Pasco is a city in Washington, not a software tool.","citations":[]}
 {"engine":"perplexity","askedAt":"2026-10-23T15:20:00Z","question":"What builds profiles from source?","answer":"A deterministic tool ships the profile from its source.","citations":[{"url":"https://github.com/pascocli","title":"pascocli"}]}

@@ -379,7 +379,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco audit [--json]` | the **offline diagnostic projection** over the identity: findings only — no score, no prioritisation, no branding (issue #283). `--json` emits `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings: [{ class, severity, path, detail }] }` — `scope` makes "measured nothing" distinguishable from "clean" — with three fixed classes (`dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN); exit 1 iff any FAIL. Composes `load` (schema), `reconciledDrift` (drift + the #238 variant reconciliation), `geoCheck` (its `faq-coverage` premise gates the claim rows), the completeness `evidence` premise, and `fact-present`; it is **deliberately stricter** than `validate`/`check` on the FAIL classes (declared in §7.1) |
 | `pasco entity [--json \| --jsonld [--out <file> [--force]] [--bare]] [--lang <l>]` | the **entity projection** for surfaces this engine does not render (issue #287): the schema.org entity assembled by `structuredData()` — `@id`, `sameAs`, type and fields — plus the readiness `gaps` (geoCheck codes, verbatim). `--json` emits `{ schemaVersion: "1", entity: { id, type, name, sameAs, email }, gaps: [{ code, detail }], jsonld: null }`; `--jsonld` emits the **same assembler output** the renderers embed, as a paste-ready `<script type="application/ld+json">` block (`--bare` = the bare object, `--out <file>` writes it atomically and refuses an existing file without `--force`). **Both modes resolve one `lang`** (`--lang`, else `.pascorc defaults.lang`) so a gap and the emitted field cannot disagree. **One assembler, no CLI-local builder**: the projection never invents `@id` and never re-derives the entity (§15.4). Exit `1` when `@id` is absent (the entity has no declared home) or the `--out` write fails; `0` otherwise; `2` is usage. Offline and deterministic (D19). Contract: §7.2 |
 | `pasco export ai-policy [--out <dir> \| --check] [--json] [--lang <l>]` | the §12 M9 stance as an artifact (issue #290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed `ai-retrieval` crawlers allowed, the listed `ai-training` crawlers disallowed; the file declares that an unlisted crawler is not restricted, each UA commented with its registry entry/operator/source/date), `llms.txt` (the workspace index, with a coverage assertion over every document it claims) and `AI-POLICY.md` (allowed · blocked · the explicit-list limit · who can change it · the date, quoting the M9 floor verbatim); `--check` exits `1` on an incomplete or unsourced entry, a duplicate token, an `as_of` that is malformed/future/older than 180 days, or a `policy.as_of` that is stale or predates its rows; `--out` refuses to write one. The crawler list is projected from `platforms/registry.yaml` (`ai:`) by `pnpm gen:platforms` — never a hardcoded UA list in the CLI. Offline; `--check` is the declared clock-reading path. Contract: §7.3 |
-| `pasco cite-check [<answers.ndjson>] [--json]` | the **citation matcher** over saved answers (issue #291): reads the runner's NDJSON (stdin when no path), matches the workspace's declared entity against each answer and emits, per answer and **never aggregated**, `{ cited, confidence, spans, reasons }`. Fixed ladder — `citation-url` (a citation host that is the entity's own or a `sameAs`/claimed-handle host) and `exact-name` (word-bounded, case- and accent-normalized) are **high**; `alias` (`identity.orgName`) and `handle` (a declared handle) are **medium**; `partial` (a contiguous multi-token prefix of the name) is **low**, and `low` is never a citation downstream. The matcher **refuses to guess**: a one-word name hit whose sentence carries no declared disambiguator, a hit inside a longer capitalised phrase the text itself carries, or a mention inside a contrast clause is reported as ambiguous, `cited: false`, with the competing reading in `reasons[]`. Offline, no model, no clock (D19). Exit `0` on a successful read (a non-citation is data, not a failure) · `1` the workspace cannot load · `2` usage or **malformed NDJSON** (never a silent skip). Contract: §7.4 |
+| `pasco cite-check [<answers.ndjson>] [--json]` | the **citation matcher** over saved answers (issue #291): reads the runner's NDJSON (stdin when no path), matches the workspace's declared entity against each answer and emits, per answer and **never aggregated**, `{ cited, confidence, spans, reasons }`. Fixed ladder — `citation-url` (a citation on the entity's own page or its `sameAs`/claimed-handle set — host, and the declared path or a descendant) and `exact-name` (word-bounded, case- and accent-normalized) are **high**; `alias` (`identity.orgName`) and `handle` (a declared handle) are **medium**; `partial` (any contiguous multi-token prefix of the name, ≥ 2 tokens) is **low**, and `low` is never a citation downstream. The matcher **refuses to guess**: a one-word name hit whose sentence carries no declared disambiguator is ambiguous (`cited: false`, with the longer capitalised reading quoted as `competing:<phrase>`), a mention inside a contrast clause is not a citation, and a declared qualifier or an adjacent capital never disqualifies a hit by itself. Offline, no model, no clock (D19). Exit `0` on a successful read (a non-citation is data, not a failure) · `1` the workspace cannot load, or the input path cannot be read · `2` usage or **malformed NDJSON** (never a silent skip). Contract: §7.4 |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22). **The read report also ends with the derived publication truth per surface (§20.1, #242): ledger · artifact-vs-SSOT · declared cap — computed on every read, stored nowhere** |
 | `pasco skills:export <dir> [--force] [--list]` | copy the skill channels **this package ships** into a directory the user names; `--force` overlays an existing non-empty directory (nothing is deleted), `--list` shows the channels. No per-agent destination is invented. Skill lookup reads only the package's own `skills/`, an explicit `PASCO_SKILLS_DIR`, or the marked workspace checkout (developers) — #253/#254 |
@@ -723,7 +723,7 @@ claimed-handle URLs, the `structuredData()` set, never a second derivation).
 | `exact-name` | the full name occurs word-bounded | `name` | **high** |
 | `alias` | `identity.orgName` occurs word-bounded | `alias` | **medium** |
 | `handle` | a declared handle occurs word-bounded | `handle` | **medium** |
-| `partial` | a contiguous multi-token **prefix** of the name (≥ 2 tokens, shorter than the name) occurs word-bounded | `partial` | **low** |
+| `partial` | **any** contiguous multi-token **prefix** of the name (≥ 2 tokens, shorter than the name) occurs word-bounded — `DA SEO` and `DA SEO Digital` for `DA SEO Digital Studio` (a term already claimed by a higher rung is not repeated) | `partial` | **low** |
 
 Matching goes through the **one normalizer** (`core/src/normalize.ts`, shared with
 `geoCheck`): case- and accent-insensitive (`Domínguez` = `Dominguez`) and
@@ -736,24 +736,27 @@ answer (`start` inclusive, `end` exclusive), mapped back from the normalized tex
 the longer occurrence wins and the shorter is reported as `longer-name:<term>`
 (`DA SEO` inside `DA SEO Digital`).
 
-**The matcher refuses to guess.** Four guards make a text hit **not a citation**
+**The matcher refuses to guess.** Three guards make a text hit **not a citation**
 (`cited: false`, the span and its rung still reported, the reason named):
 
 1. `longer-name` — the occurrence is a declared term contained in another declared
    term that also matched there.
-2. `competing:<phrase>` — the occurrence sits inside a longer capitalised phrase the
-   text itself carries (`DA SEO Digital`, `Pasco County School District`) and that
-   phrase is **not** a declared term. The competing reading is quoted from the text,
-   never invented. The run stops at punctuation, so `Pasco, WA` does not expand.
-3. `ambiguous-term:<term>` + `no-qualifier` — the hit's term is a **single word**
+2. `ambiguous-term:<term>` + `no-qualifier` — the hit's term is a **single word**
    (the same one-word collision risk `geoCheck`'s `geo/name-collision` reports) and
    its sentence carries none of the declared disambiguators: `identity.location`,
    an `experience[].role` title (the list `geoCheck` already reads, matched as a
    declared phrase) or another declared vocabulary term. A one-word name in a
    sentence that names no other declared fact is ambiguous by construction —
    `Pasco` the CLI is not `Pasco`, Washington, and no engine tells them apart
-   offline.
-4. `contrast-context` — the hit's sentence carries a contrast marker **before** it:
+   offline. `competing:<phrase>` is **not** a guard of its own: only once this rule
+   fires, the longer capitalised phrase the text carries (`Pasco County School
+   District`) — if it is not a declared term — is quoted as the competing reading,
+   so the refusal is explicit instead of unexplained. The expansion stops at
+   punctuation, so `Pasco, WA` does not expand. **An adjacent capital never
+   disqualifies a hit by itself**, and a declared qualifier in the sentence
+   (`In Ecuador Pasco is a CLI`, `DA SEO Digital Studio Founder Ana ships
+   profiles`) must leave the hit cited.
+3. `contrast-context` — the hit's sentence carries a contrast marker **before** it:
    a closed EN/ES/PT list (`unlike` · `contrary to` · `as opposed to` · `rather
    than` · `instead of` · `versus`/`vs` · `compared to` · `a diferencia de` · `en
    contraste con` · `en lugar de` · `em vez de` · `ao contrário de`). A mention in
@@ -795,9 +798,10 @@ input. `spans` are ordered: citations first (in citation order), then text spans
 
 **Exit matrix.** `0` a successful read, whatever the matches — a measurement, not
 a gate, so a `cited: false` answer is data, never a failure · `1` the workspace
-cannot load (schema/load, D12) · `2` usage, or **malformed NDJSON** (the input is
-not the declared contract; never a silent skip). Text mode prints one block per
-answer plus the number of answers read; it prints no citation rate.
+cannot load (schema/load, D12), or the **input path cannot be read** · `2` usage,
+or **malformed NDJSON** (the input is not the declared contract; never a silent
+skip). Text mode prints one block per answer plus the number of answers read; it
+prints no citation rate.
 
 **Declared limits.** The engine knows only declared facts. (a) A world homonym the
 text does not disambiguate is reported, never resolved: `Pasco, WA` is a qualified
@@ -812,9 +816,10 @@ claims the whole host. Paths compare **case-sensitively** (RFC 3986 puts that on
 the server); `www.`/trailing slashes are normalized, query strings ignored. (c) The contrast guard is a closed lexicon,
 not comprehension. (d) The alias rung reads the one alternate name the schema
 declares; a general per-language alias list would be an **additive schema change**,
-not a v1 feature. (e) `partial` reads prefixes only — a single-token prefix of a
-multi-token name is a common word and would overreport, which is the exact failure
-this command exists to prevent.
+not a v1 feature. (e) `partial` reads **every** contiguous multi-token prefix of
+the name, but never a single-token one — a single-token prefix of a multi-token
+name is a common word and would overreport, which is the exact failure this
+command exists to prevent.
 
 **Non-goals in v1.** No engine calls, no browser automation, no scheduling, no
 leaderboard, no score, no storage, no report and no aggregation (the runner's and
