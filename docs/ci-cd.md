@@ -79,6 +79,27 @@ One job, **`ci`**, required on every PR and push to `main`:
    moves past the fork; a rebased-away sha still fails, because it is not in the
    checkout. A `kind=record` citation is never stale. This is the only step that
    needs history, which is why the checkout above fetches `fetch-depth: 0`.
+   A third, always-on node step follows the evidence gate — **decision-register
+   references** (`scripts/spec-drefs`, issue #326, follow-up of #315): the
+   register has ONE extent, the `| D<n> |` rows of `docs/SPEC.md` §5, so every
+   `D<n>` cited in README/CONTRIBUTING/GOVERNANCE/AGENTS, `docs/**`,
+   `skills/**` (Markdown and the YAML catalogs — `pasco check` echoes a row's
+   `note`), `templates/**/*.md` (published on-ramps), the package READMEs,
+   `schema/README.md`, `platforms/registry.yaml` and the PR + issue templates
+   must resolve to a row, and no surface may type the extent as a range. The
+   exclusions are declared by class, never implicit: `CHANGELOG.md` and
+   `.sota/**` are dated records (rule 8), `site/**` is a projection of these
+   files, `.github/workflows/**` are CI annotations/step labels, and source code
+   plus machine data (`*.ts`, `*.js`/`*.mjs`, `*.json` such as the schema and the
+   package manifests, `DCO`, `*.cff`) are code annotations rather than documents.
+   A duplicated `| D<n> |` row is refused — the register has one row per decision. A decision
+   the register itself declares ratified-but-pending is an entry with its
+   removal trigger in `scripts/spec-drefs/allowlist.json` — reported as a
+   warning once its row lands, so `main` stays green without hiding the debt.
+   The seeded-defect self-test runs first: it proves the gate refuses a dangling
+   reference, a re-typed range in every form prose has used, a duplicated row,
+   and a malformed or out-of-scope pending entry. Zero deps, no install —
+   before `pnpm install`.
 3. **TypeScript workspace** — steps activate automatically once `package.json` lands
    (M1 core), in this order: **dependency gate** (`scripts/dep-gate`, issue #98 —
    node-only, before install to fail fast: `packages/server` must depend on

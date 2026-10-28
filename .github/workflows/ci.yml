@@ -106,6 +106,34 @@ jobs:
         run: |
           node scripts/evidence-gate/test.mjs
           node scripts/evidence-gate/check.mjs --ref HEAD
+
+      # Issue #326 (follow-up of #315): the decision register has ONE extent —
+      # the `| D<n> |` rows of `docs/SPEC.md` §5. The prose that names it used to
+      # type a fixed range of decision numbers, a number only a hand sweep kept
+      # honest, and the sweep itself stopped matching the register. #315 pointed
+      # the reader-facing surfaces at §5; this gate closes the class instead of
+      # re-running the sweep: every `D<n>` cited in README/CONTRIBUTING/
+      # GOVERNANCE/AGENTS, `docs/**`, `skills/**` (Markdown + the YAML catalogs
+      # `pasco check` echoes), `templates/**/*.md`, the package READMEs,
+      # `schema/README.md`, `platforms/registry.yaml` and the PR + issue
+      # templates must resolve to a §5 row, and no surface may type the
+      # register's extent as a range. Declared OUT by class: `CHANGELOG.md` and
+      # `.sota/**` (dated records), `site/**` (projection), `.github/workflows/**`
+      # (CI annotations/step labels) and source/machine data (`*.ts`, `*.js`,
+      # `*.json`, `DCO`, `*.cff` — code annotations). A
+      # duplicated §5 row is refused. The register file itself is scanned; a
+      # decision it declares ratified-but-pending is an entry in
+      # `scripts/spec-drefs/allowlist.json` with its removal trigger, so the
+      # debt stays visible instead of silently permitted (an entry whose row has
+      # landed WARNS). The self-test first proves the gate refuses every class it
+      # claims (dangling ref, re-typed range in every prose form, duplicated row,
+      # malformed/out-of-scope pending entry). Zero deps, no install, so it runs
+      # before `pnpm install` to fail fast.
+      - name: Decision-register references resolve (#326)
+        run: |
+          node scripts/spec-drefs/test.mjs
+          node scripts/spec-drefs/check.mjs --check
+
       # Issue #201 / #277: the project page gate no longer runs here. The page now
       # links to documentation pages that are PROJECTED, not committed — so the
       # gate needs `site/docs/` to exist, which needs the workspace dependencies
