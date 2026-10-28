@@ -136,13 +136,23 @@ export function parseAnswerLine(
   };
 }
 
+/** One parsed answer and the 1-based SOURCE line it came from. */
+export interface ParsedAnswer {
+  line: number;
+  answer: CiteAnswer;
+}
+
 /**
  * Parse the runner's NDJSON. Blank lines are ignored; the FIRST malformed line
  * aborts the whole read — the command reports it instead of returning a
  * partial result that a rate would silently absorb.
+ *
+ * The source line is carried per answer, not derived from the row index: an
+ * NDJSON file with blank lines would otherwise shift every `line` and a consumer
+ * joining back to its input would read the wrong record.
  */
-export function parseAnswers(text: string): { answers: CiteAnswer[]; issue?: NdjsonIssue } {
-  const answers: CiteAnswer[] = [];
+export function parseAnswers(text: string): { entries: ParsedAnswer[]; issue?: NdjsonIssue } {
+  const entries: ParsedAnswer[] = [];
   const lines = text.split(/\r?\n/);
   for (let index = 0; index < lines.length; index++) {
     const raw = lines[index] ?? "";
@@ -152,7 +162,7 @@ export function parseAnswers(text: string): { answers: CiteAnswer[]; issue?: Ndj
       parsed = JSON.parse(raw);
     } catch (err) {
       return {
-        answers: [],
+        entries: [],
         issue: {
           line: index + 1,
           message: `not valid JSON — ${(err as Error).message}`,
@@ -160,10 +170,10 @@ export function parseAnswers(text: string): { answers: CiteAnswer[]; issue?: Ndj
       };
     }
     const reading = parseAnswerLine(parsed, index + 1);
-    if (reading.answer === undefined) return { answers: [], issue: reading.issue };
-    answers.push(reading.answer);
+    if (reading.answer === undefined) return { entries: [], issue: reading.issue };
+    entries.push({ line: index + 1, answer: reading.answer });
   }
-  return { answers };
+  return { entries };
 }
 
 function loadProfile(
@@ -215,14 +225,14 @@ function describeSpan(span: CiteCheckRow["spans"][number]): string {
 /** Build the per-answer report rows (the pure projection of `citeMatch`). */
 export function citeCheckRows(
   profile: LoadedProfile,
-  answers: readonly CiteAnswer[],
+  entries: readonly ParsedAnswer[],
 ): CiteCheckRow[] {
-  return answers.map((answer, index) => ({
-    line: index + 1,
-    engine: answer.engine ?? null,
-    askedAt: answer.askedAt ?? null,
-    question: answer.question ?? null,
-    ...citeMatch(profile, answer),
+  return entries.map((entry) => ({
+    line: entry.line,
+    engine: entry.answer.engine ?? null,
+    askedAt: entry.answer.askedAt ?? null,
+    question: entry.answer.question ?? null,
+    ...citeMatch(profile, entry.answer),
   }));
 }
 
@@ -251,7 +261,7 @@ export function runCiteCheck(args: CiteCheckArgs): number {
     });
   }
 
-  const rows = citeCheckRows(profile, parsed.answers);
+  const rows = citeCheckRows(profile, parsed.entries);
   const entity = citeVocabulary(profile);
 
   if (isJsonMode()) {

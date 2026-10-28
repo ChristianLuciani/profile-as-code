@@ -73,18 +73,20 @@ function capture<T>(fn: () => T): { code: T; out: string } {
 
 describe("the NDJSON input contract", () => {
   it("ignores blank lines and keeps the input order", () => {
-    const { answers, issue } = parseAnswers(
+    const { entries, issue } = parseAnswers(
       '{"answer":"one"}\n\n{"answer":"two","citations":[]}\n',
     );
     expect(issue).toBeUndefined();
-    expect(answers.map((a) => a.answer)).toEqual(["one", "two"]);
+    expect(entries.map((entry) => entry.answer.answer)).toEqual(["one", "two"]);
+    // The SOURCE line, not the row index: a blank line must not shift the join key.
+    expect(entries.map((entry) => entry.line)).toEqual([1, 3]);
   });
 
   it("carries the optional fields through, and leaves the absent ones out", () => {
-    const { answers } = parseAnswers(
+    const { entries } = parseAnswers(
       '{"engine":"chatgpt","askedAt":"2026-10-23T15:00:00Z","question":"q","answer":"a"}\n',
     );
-    expect(answers[0]).toEqual({
+    expect(entries[0]?.answer).toEqual({
       engine: "chatgpt",
       askedAt: "2026-10-23T15:00:00Z",
       question: "q",
@@ -94,8 +96,8 @@ describe("the NDJSON input contract", () => {
   });
 
   it("reports the 1-based line of invalid JSON and returns no answers", () => {
-    const { answers, issue } = parseAnswers('{"answer":"ok"}\n{"answer":\n');
-    expect(answers).toEqual([]);
+    const { entries, issue } = parseAnswers('{"answer":"ok"}\n{"answer":\n');
+    expect(entries).toEqual([]);
     expect(issue?.line).toBe(2);
     expect(issue?.message).toContain("not valid JSON");
   });
