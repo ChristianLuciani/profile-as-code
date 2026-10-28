@@ -113,11 +113,14 @@ jobs:
       # honest, and the sweep itself stopped matching the register. #315 pointed
       # the reader-facing surfaces at §5; this gate closes the class instead of
       # re-running the sweep: every `D<n>` cited in README/CONTRIBUTING/
-      # GOVERNANCE/AGENTS, `docs/**/*.md`, `skills/**/*.md`, the package
-      # READMEs, `schema/README.md`, `platforms/registry.yaml` and the PR +
-      # issue templates must resolve to a §5 row, and no surface may type the
-      # register's extent as a range. Declared OUT: CHANGELOG (dated record),
-      # `site/` (projection) and `.ts`/`.js` comments (code annotations). A
+      # GOVERNANCE/AGENTS, `docs/**`, `skills/**` (Markdown + the YAML catalogs
+      # `pasco check` echoes), `templates/**/*.md`, the package READMEs,
+      # `schema/README.md`, `platforms/registry.yaml` and the PR + issue
+      # templates must resolve to a §5 row, and no surface may type the
+      # register's extent as a range. Declared OUT by class: `CHANGELOG.md` and
+      # `.sota/**` (dated records), `site/**` (projection), `.github/workflows/**`
+      # (CI annotations/step labels) and source/machine data (`*.ts`, `*.js`,
+      # `*.json`, `DCO`, `*.cff` — code annotations). A
       # duplicated §5 row is refused. The register file itself is scanned; a
       # decision it declares ratified-but-pending is an entry in
       # `scripts/spec-drefs/allowlist.json` with its removal trigger, so the

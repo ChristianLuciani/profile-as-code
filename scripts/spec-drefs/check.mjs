@@ -25,17 +25,23 @@ import { realpathSync } from "node:fs";
  *           Both warnings are non-fatal: the registry cannot rot silently, and
  *           the gate never fails for a debt it already declared.
  *
- * The scope is every prose surface that cites the register: README,
- * CONTRIBUTING, GOVERNANCE, AGENTS, every `docs/**`, `skills/**` and package
- * `README.md` Markdown file (the register itself included), `schema/README.md`,
- * the platform registry's comments, and the PR + issue templates. `skills/**`
- * and the package READMEs are PUBLISHED surfaces — the CLI ships the skills —
- * so they are reader-facing like the rest. CHANGELOG is deliberately OUT: it is
- * a dated historical record, and rule 8 leaves historical records alone. `site/`
- * is OUT: it is projected from these files, never a second copy. Comments in
- * `.ts`/`.js` source are OUT too — declared here rather than silently dropped:
- * they are code annotations, not reader-facing prose, and the issue scoped the
- * census to documents. Hidden trees and `node_modules` are skipped.
+ * The scope is every reader-facing prose surface that cites the register:
+ * README, CONTRIBUTING, GOVERNANCE, AGENTS; every `docs/**`, `skills/**` and
+ * `templates/**` Markdown file (the register itself included); the skills' YAML
+ * catalogs (`checks.yaml`/`posting.yaml` — `pasco check` echoes a row's `note`
+ * to the user, so its decision cites are reader-facing too); every package
+ * `README.md`; `schema/README.md`; the platform registry's comments; and the
+ * PR + issue templates.
+ *
+ * The exclusions are declared BY CLASS, never left implicit:
+ *   - `CHANGELOG.md` — a dated historical record (rule 8 leaves it alone);
+ *   - `.sota/**` — frozen review records, the same historical class;
+ *   - `site/**` — generated projection of these files, never a second copy;
+ *   - `.github/workflows/**` — CI annotations and step labels, code-reviewed;
+ *   - source code and machine data (`*.ts`, `*.js`/`*.mjs`, `*.json` — including
+ *     `schema/profile.schema.json` and the package manifests — plus `DCO`,
+ *     `.editorconfig`, `*.cff`) — annotations for code consumers, not documents;
+ *   - hidden trees and `node_modules`.
  *
  * `allowlist.json` is the ONE declared exception channel, the same shape as
  * `scripts/link-check/allowlist.json`: an entry names the ref, the file, the
@@ -69,9 +75,13 @@ const ROOT_SURFACES = ["README.md", "CONTRIBUTING.md", "GOVERNANCE.md", "AGENTS.
 const PR_TEMPLATE_REL = ".github/pull_request_template.md";
 const ISSUE_TEMPLATE_REL = ".github/ISSUE_TEMPLATE";
 const SKILLS_DIR = "skills";
+const TEMPLATES_DIR = "templates";
 const PACKAGES_DIR = "packages";
 const SCHEMA_README_REL = "schema/README.md";
 const PLATFORM_REGISTRY_REL = "platforms/registry.yaml";
+
+const isMarkdown = (name) => name.endsWith(".md");
+const isSkillSource = (name) => isMarkdown(name) || /\.ya?ml$/.test(name);
 
 const SECTION_5 = /^##\s+5\.\s+Decisions\b/;
 const HEADING = /^##\s+/;
@@ -116,8 +126,8 @@ export function parseRegister(source) {
   return rows;
 }
 
-/** Every `*.md` under `directory`, deterministic order, hidden trees skipped. */
-async function walkMarkdown(root, directory) {
+/** Files under `directory` that `accept` names, deterministic order, hidden skipped. */
+async function walkFiles(root, directory, accept) {
   const found = [];
   async function visit(relative) {
     let entries;
@@ -131,7 +141,7 @@ async function walkMarkdown(root, directory) {
       if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
       const child = `${relative}/${entry.name}`;
       if (entry.isDirectory()) await visit(child);
-      else if (entry.isFile() && entry.name.endsWith(".md")) found.push(child);
+      else if (entry.isFile() && accept(entry.name)) found.push(child);
     }
   }
   await visit(directory);
@@ -197,18 +207,20 @@ async function packageReadmes(root) {
 
 /** The scoped surfaces, each read once. */
 export async function collectSurfaces(root) {
-  const docs = await walkMarkdown(root, "docs");
-  const skills = await walkMarkdown(root, SKILLS_DIR);
+  const docs = await walkFiles(root, "docs", isMarkdown);
+  const skills = await walkFiles(root, SKILLS_DIR, isSkillSource);
+  const templates = await walkFiles(root, TEMPLATES_DIR, isMarkdown);
   const packages = await packageReadmes(root);
   const files = [
     ...ROOT_SURFACES,
     PR_TEMPLATE_REL,
     ...docs,
-    ...(await issueTemplates(root)),
     ...skills,
+    ...templates,
     ...packages,
     SCHEMA_README_REL,
     PLATFORM_REGISTRY_REL,
+    ...(await issueTemplates(root)),
   ];
   const surfaces = [];
   for (const file of files) {

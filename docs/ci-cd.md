@@ -82,14 +82,17 @@ One job, **`ci`**, required on every PR and push to `main`:
    A third, always-on node step follows the evidence gate — **decision-register
    references** (`scripts/spec-drefs`, issue #326, follow-up of #315): the
    register has ONE extent, the `| D<n> |` rows of `docs/SPEC.md` §5, so every
-   `D<n>` cited in README/CONTRIBUTING/GOVERNANCE/AGENTS, `docs/**/*.md`,
-   `skills/**/*.md` (the CLI ships them), the package READMEs,
+   `D<n>` cited in README/CONTRIBUTING/GOVERNANCE/AGENTS, `docs/**`,
+   `skills/**` (Markdown and the YAML catalogs — `pasco check` echoes a row's
+   `note`), `templates/**/*.md` (published on-ramps), the package READMEs,
    `schema/README.md`, `platforms/registry.yaml` and the PR + issue templates
    must resolve to a row, and no surface may type the extent as a range. The
-   gate declares its boundaries: CHANGELOG is a dated historical record (left
-   alone, rule 8), `site/` is a projection of these files, and `.ts`/`.js`
-   comments are code annotations rather than reader-facing prose. A duplicated
-   `| D<n> |` row is refused — the register has one row per decision. A decision
+   exclusions are declared by class, never implicit: `CHANGELOG.md` and
+   `.sota/**` are dated records (rule 8), `site/**` is a projection of these
+   files, `.github/workflows/**` are CI annotations/step labels, and source code
+   plus machine data (`*.ts`, `*.js`/`*.mjs`, `*.json` such as the schema and the
+   package manifests, `DCO`, `*.cff`) are code annotations rather than documents.
+   A duplicated `| D<n> |` row is refused — the register has one row per decision. A decision
    the register itself declares ratified-but-pending is an entry with its
    removal trigger in `scripts/spec-drefs/allowlist.json` — reported as a
    warning once its row lands, so `main` stays green without hiding the debt.

@@ -55,18 +55,18 @@ The schema is the contract.
 `;
 
 /**
- * A synthetic repo root. `docs`, `templates` and `files` are
+ * A synthetic repo root. `docs`, `issues` and `files` are
  * `{ "rel/path": content }`, so a case can put a reference exactly where it
- * wants it. The required scope roots (issue templates, skills, packages,
- * schema, platform registry) are always present — the gate refuses a missing
- * required surface — and the allowlist is per tree so the real one cannot leak
- * into a case.
+ * wants it. The required scope roots (issue templates, docs, skills,
+ * templates/, packages, schema, platform registry) are always present — the gate
+ * refuses a missing required surface — and the allowlist is per tree so the real
+ * one cannot leak into a case.
  */
 function makeTree({
   readme = "The register is §5; D1 and D2.\n",
   spec = SPEC,
   docs = {},
-  templates = { "feature_request.yml": "Check D1 before filing.\n" },
+  issues = { "feature_request.yml": "Check D1 before filing.\n" },
   files = {},
   allowlist = { pendingReferences: [] },
 } = {}) {
@@ -79,11 +79,12 @@ function makeTree({
   write(root, ".github/pull_request_template.md", "");
   write(root, "scripts/spec-drefs/allowlist.json", JSON.stringify(allowlist, null, 2));
   write(root, "skills/README.md", "");
+  write(root, "templates/profile-data/README.md", "");
   write(root, "packages/core/README.md", "");
   write(root, "schema/README.md", "");
   write(root, "platforms/registry.yaml", "");
   for (const [rel, content] of Object.entries(docs)) write(root, `docs/${rel}`, content);
-  for (const [rel, content] of Object.entries(templates)) {
+  for (const [rel, content] of Object.entries(issues)) {
     write(root, `.github/ISSUE_TEMPLATE/${rel}`, content);
   }
   for (const [rel, content] of Object.entries(files)) write(root, rel, content);
@@ -156,7 +157,7 @@ try {
     );
   }
   {
-    const root = tree({ templates: { "feature_request.yml": "Check docs/SPEC.md (D9) first.\n" } });
+    const root = tree({ issues: { "feature_request.yml": "Check docs/SPEC.md (D9) first.\n" } });
     const res = run(root, ["--check"]);
     check(
       "an issue template is in scope",
@@ -167,6 +168,8 @@ try {
   // ── F1: every prose surface that cites the register is in scope ───────────
   for (const [label, rel] of [
     ["skills/ (shipped by the CLI)", "skills/github-readme/SKILL.md"],
+    ["a skills YAML catalog (echoed by `pasco check`)", "skills/github-readme/checks.yaml"],
+    ["templates/ (published on-ramps)", "templates/profile-data/README.md"],
     ["a package README", "packages/core/README.md"],
     ["a renderer README", "packages/renderers/kofi/README.md"],
     ["schema/README.md", "schema/README.md"],
@@ -177,6 +180,22 @@ try {
     check(
       `${label} is in scope`,
       res.code === 1 && res.out.includes(`${rel}:1 → D9`),
+      res.out.trim(),
+    );
+  }
+  {
+    // The declared OUT classes are a contract, not an accident: a dangling ref
+    // in history/projection/CI/source must NOT fail this docs census.
+    const root = tree({});
+    write(root, ".github/workflows/ci.yml", "# D99 (D1–D2)\n");
+    write(root, "CHANGELOG.md", "- D99 (D1–D2)\n");
+    write(root, ".sota/x/05-review.md", "D99 (D1–D2)\n");
+    write(root, "schema/profile.schema.json", '{"description":"D99 (D1–D2)"}\n');
+    write(root, "packages/core/src/index.ts", "// D99 (D1–D2)\n");
+    const res = run(root, ["--check"]);
+    check(
+      "the declared OUT classes stay out (workflows, history, projection, source)",
+      res.code === 0,
       res.out.trim(),
     );
   }
@@ -218,7 +237,7 @@ try {
     );
   }
   {
-    const root = tree({ templates: { "feature_request.yml": "First check D1-D2, then file.\n" } });
+    const root = tree({ issues: { "feature_request.yml": "First check D1-D2, then file.\n" } });
     const res = run(root, ["--check"]);
     check(
       "an ASCII-hyphen range refuses too (the sweep regex shape)",
