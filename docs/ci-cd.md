@@ -71,7 +71,7 @@ One job, **`ci`**, required on every PR and push to `main`:
    `<!-- evidence: <type> as_of=<sha> kind=<record|current> -->`, and the gate
    resolves the sha, asserts it is still an ancestor of the reference, and diffs
    the claim type's relevant paths (`tests` → `packages`; `links` → the Markdown
-   corpus). `stale` **warns** (exit 0); `unreachable` **fails** (a citation
+   corpus; `registry` → the package manifests). `stale` **warns** (exit 0); `unreachable` **fails** (a citation
    nobody can resolve is a claim without a source). The reference is the commit
    being checked (`--ref HEAD`, #342 F6): on a pull request that is the PR's own
    head, so a `kind=current` anchor living on the unmerged branch is reachable —
@@ -385,7 +385,7 @@ What it asserts, and the failure it names:
 |---|---|
 | Order | `ORDER` in `release.yml` is a valid topological order of the cohort's runtime workspace dependencies (`paste`/`github` → `core`), covers exactly the five, and no member carries a runtime dependency on a workspace package outside the cohort |
 | Tarball | `pnpm pack` (not `npm pack`) produces a manifest whose `name`/`version` equal the source, whose `private`/`publishConfig.access` allow a public publish, whose `workspace:*` is rewritten to the exact peer version the same run publishes (#301), and whose `main`/`types`/`exports`/`files` targets exist inside the tarball |
-| Mechanism | the `publish` job still grants `id-token: write` (read from the job's effective `permissions:`, not as text), **every** publish invocation outside a `--dry-run` branch is `pnpm publish` (only pnpm rewrites `workspace:*`), the loop iterates `$ORDER`, the rehearsal barrier exists **before** the loop, the cohort precedes the CLI's `Publish` step, and every publishable workspace member is in the cohort |
+| Mechanism | the `publish` job still grants `id-token: write` (read from the job's effective `permissions:`, not as text), **every** publish invocation outside a `--dry-run` branch is `pnpm publish` (only pnpm rewrites `workspace:*`), the loop iterates `$ORDER`, the rehearsal barrier exists **before** the loop, the cohort precedes the CLI's `Publish` step, and every publishable workspace member **except `packages/cli`** (which publishes from its own step) is in the cohort |
 | Provenance precondition | each manifest's `repository.url` equals the repo the workflow runs in, and `repository.directory` its monorepo home |
 
 **What it cannot check — declared, not implied.** A rehearsal is offline: it cannot
@@ -420,7 +420,7 @@ done                                     # 2026-10-28 → 404 ×5
 
 So: all five seam versions resolve (200 ×5) and `paste`/`github`'s published
 manifests carry `@profile-as-code/core` `0.1.1`, not `workspace:*` — the #301
-rewrite is true on the registry doc. But none of the five carries
+rewrite is true on the registry doc. <!-- evidence: registry as_of=aa29880 kind=record --> But none of the five carries
 `dist.attestations`, and no seam member has ever been published **by the cohort
 step**. A rehearsal cannot close that: the first real cohort publish requires a
 **release event that bumps at least one seam version**, and the tag is the
