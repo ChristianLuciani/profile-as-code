@@ -1,0 +1,11 @@
+{
+  "$comment": "Pending-reference registry for scripts/spec-drefs (#326). An entry declares a D-number cited in a scanned surface that has NO `| D<n> |` row in docs/SPEC.md §5 today, with the reason and the trigger that removes it. It exists so a required check can be green on main while the register itself declares a decision ratified-but-pending — the debt stays visible instead of being silently permitted. An entry nothing references is reported as W-ALLOWLIST-UNUSED (not a failure). Empty is the steady state: a new entry needs a row already tracked by an issue.",
+  "pendingReferences": [
+    {
+      "ref": "D23",
+      "path": "docs/SPEC.md",
+      "reason": "D23 (presence audit) is operator-ratified 2026-10-23, and the register's own prose says its entry and §5 row are pending (#262, open). The reference lives in docs/SPEC.md itself (§13 Q-answer and the M11 roadmap row), not in a reader-facing on-ramp.",
+      "removalTrigger": "#262 adds the `| D23 |` row to docs/SPEC.md §5"
+    }
+  ]
+}

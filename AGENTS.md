@@ -100,6 +100,7 @@ pnpm gen:doc-links                # after the doc corpus changes (link census bl
 pnpm gen:packages                 # list/verify the workspace package inventory
 node scripts/gen-platforms/gen.mjs --check   # assert the projections are fresh
 node scripts/gen-packages/gen.mjs --check    # assert the Map covers every package
+node scripts/spec-drefs/check.mjs --check    # assert every D-ref resolves to a SPEC §5 row
 node scripts/evidence-gate/check.mjs         # assert run-citations are anchored reachably
 pnpm site                                    # project the docs into site/docs/ + gate every page
                                              # + assert every published version claim matches the CLI manifest
