@@ -742,9 +742,12 @@ their code and detail verbatim (no new vocabulary), and `jsonld: null`. The
 `structuredData()`'s object, never a second emitter's guess.
 
 Exit `0` when `@id` is present, `1` when it is absent — the entity has no declared
-home, and the block is still emitted without `@id` — and `2` for usage. It is
-offline and deterministic; `--lang` picks the brand `slogan`/`description`
-language (default `.pascorc` `defaults.lang`).
+home, and the block is still emitted without `@id` — or the `--out` write failed,
+and `2` for usage. It is offline and deterministic; `--lang` picks the language for
+**both** modes (default `.pascorc` `defaults.lang`), so the reported gaps and the
+emitted JSON-LD can never disagree about a brand `slogan`/`description`. `--out`
+refuses to overwrite an existing file unless `--force` is passed (the write is
+atomic), so a mistyped path cannot truncate your workspace.
 
 ---
 

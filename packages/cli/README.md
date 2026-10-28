@@ -183,7 +183,8 @@ is no CLI-local builder and no second truth (SPEC §7.2).
 pasco entity --json                      # the frozen view: facts, @id, sameAs, gaps
 pasco entity --jsonld                    # paste-ready <script type="application/ld+json">
 pasco entity --jsonld --bare             # the bare JSON object
-pasco entity --jsonld --out entity.html  # write the block to a file
+pasco entity --jsonld --out entity.html  # write the block (refuses an existing file)
+pasco entity --jsonld --out entity.html --force  # replace it (atomic write)
 ```
 
 ```json
@@ -191,7 +192,7 @@ pasco entity --jsonld --out entity.html  # write the block to a file
   "schemaVersion": "1",
   "entity": { "id": null, "type": "Person", "name": "Elena Vasquez", "sameAs": ["https://github.com/elenavasquez"], "email": null },
   "gaps": [
-    { "code": "geo/entity-id", "detail": "no link declares role: identity — declare one to give the entity a canonical @id" }
+    { "code": "geo/entity-id", "detail": "no role: identity link — all 5 link(s) are role: realization (they indicate the entity, not are it). Mark the one that represents you role: identity to make the entity citable." }
   ],
   "jsonld": null
 }
@@ -204,9 +205,19 @@ its structured-data section that scored below 1, with the code and detail
 artifact has its own mode. Parsing the `--jsonld` output yields exactly
 `structuredData()`'s object — asserted by a test.
 
+Both modes resolve **one** language (`--lang`, else `.pascorc` `defaults.lang`,
+else `en`): the readiness gaps are measured in the same language the JSON-LD is
+assembled, so a brand whose only populated `mission`/`tagline` is `es` cannot show
+`description` as missing while the block emits it.
+
+`--out` writes a temp file and renames it into place (atomic), and **refuses an
+existing file** unless `--force` is passed — a mistyped path must not truncate the
+SSOT. A write failure (existing file without `--force`, ENOENT, EACCES) is an error
+envelope at exit `1`, never a stack.
+
 Exit `0` when `@id` is present, `1` when it is absent (the entity has no declared
-home; the JSON-LD is still emitted, without `@id`), `2` for usage. It is offline
-and deterministic: no network, no clock, no AI.
+home; the JSON-LD is still emitted, without `@id`) or the `--out` write failed, `2`
+for usage. It is offline and deterministic: no network, no clock, no AI.
 
 ### Contract paths (`pasco edit`, epic #247 — read · preview · write)
 

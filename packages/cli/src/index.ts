@@ -71,7 +71,7 @@ Commands:
                                 contradiction, unsourced-claim; stricter than
                                 validate/check on those classes; exit 1 iff any FAIL
   entity [--json] [--jsonld]    The schema.org entity projection: facts, @id, sameAs and
-          [--out <file>] [--bare] [--lang <l>]
+          [--out <file> [--force]] [--bare] [--lang <l>]
                                 readiness gaps as JSON, or the paste-ready JSON-LD block
                                 the renderers embed; for surfaces the engine does not
                                 render. Exit 1 when @id is absent (no declared home)
@@ -271,7 +271,7 @@ declared: [] or checked: [] means nothing was measured, never "clean". path is a
 of the index when the grammar block declares one) or the artifact path for a
 surface finding. Exit: 0 no FAIL finding (WARN-only included) · 1 at least one
 FAIL, or a schema/load failure · 2 usage error.`,
-  entity: `pasco entity [--json | --jsonld [--out <file>] [--bare]] [--lang <l>] [--workspace <path>]
+  entity: `pasco entity [--json | --jsonld [--out <file> [--force]] [--bare]] [--lang <l>] [--workspace <path>]
 The entity projection for a surface this engine does not render (SPEC §7.2, #287):
 the schema.org entity the renderers embed, exposed as an artifact.
   --json     the frozen view { schemaVersion: "1", entity: { id, type, name, sameAs,
@@ -283,8 +283,10 @@ the schema.org entity the renderers embed, exposed as an artifact.
              <script type="application/ld+json"> block. Parsing it yields exactly
              structuredData()'s object.
     --bare   emit the bare JSON object instead of the <script> block.
-    --out <file>  write the block to <file> instead of stdout.
-  --lang <l> the assembler language (default: .pascorc defaults.lang, else 'en').
+    --out <file>  write the block to <file> instead of stdout; an existing file
+                  is refused (nothing is truncated) unless --force is passed.
+  --lang <l> the assembler language for BOTH modes (default: .pascorc
+             defaults.lang, else 'en'). The readiness gaps are measured in it.
 Exit: 0 when @id is present · 1 when it is absent (the entity has no declared home;
 the JSON-LD is still emitted, without @id) · 2 usage error. Offline and
 deterministic: no network, no clock, no AI.`,
@@ -512,6 +514,7 @@ async function runMain(): Promise<number> {
         jsonld: { type: "boolean" },
         bare: { type: "boolean" },
         out: { type: "string" },
+        force: { type: "boolean" },
         lang: { type: "string" },
       });
       if (flags.help === true) {
@@ -536,6 +539,9 @@ async function runMain(): Promise<number> {
       if (flags.out !== undefined && flags.jsonld !== true) {
         throw new UsageError("usage: --out only applies to --jsonld");
       }
+      if (flags.force === true && (flags.jsonld !== true || flags.out === undefined)) {
+        throw new UsageError("usage: --force only applies to --jsonld --out <file>");
+      }
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       const pascorc = readWorkspacePascorc(workspace);
@@ -545,6 +551,7 @@ async function runMain(): Promise<number> {
         jsonld: flags.jsonld === true,
         bare: flags.bare === true,
         ...(flags.out !== undefined ? { out: flags.out } : {}),
+        force: flags.force === true,
         lang: flags.lang !== undefined ? parseLang(flags.lang) : defaultsLang(pascorc),
       });
     }

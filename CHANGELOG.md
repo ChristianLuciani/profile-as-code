@@ -19,10 +19,13 @@ minor versions may contain breaking contract changes.
   that scored below 1, verbatim — no new vocabulary), and `--jsonld` is the
   **same assembler output** serialized as a paste-ready
   `<script type="application/ld+json">` block (`--bare` = bare object, `--out
-  <file>` = write it). One assembler: `core/src/structured-data.ts` — the CLI
-  never re-derives the entity (SPEC §7.2). `@id` is never invented: it is the URL
-  of the `role: identity` link or `null`, and exit `1` when absent / `0` when
-  present. Offline and deterministic. — *Answer-engine surface in SPEC §12.*
+  <file>` = write it atomically; an existing file is refused without `--force`).
+  One assembler: `core/src/structured-data.ts` — the CLI never re-derives the
+  entity (SPEC §7.2). Both modes resolve one `lang` (`--lang`, else `.pascorc
+  defaults.lang`), so `geoCheck(profile, lang)` measures gaps in the language the
+  block emits. `@id` is never invented: it is the URL of the `role: identity` link
+  or `null`, and exit `1` when absent / `0` when present. Offline and
+  deterministic. — *Answer-engine surface in SPEC §12.*
 - **`pasco audit [--json]` — the offline diagnostic projection (#283)** — a
   per-identity aggregate over the checks that already exist, emitting **findings
   only** (no score, no prioritisation, no branding — SPEC §7.1). Three fixed

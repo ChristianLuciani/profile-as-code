@@ -11,7 +11,7 @@
  * same way `geo.test.ts` exercises the role transition.
  */
 
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -65,11 +65,29 @@ function capture<T>(run: () => T): { code: T; out: string } {
   }
 }
 
-function entityJson(workspace: string): { code: number; data: EntityReport; out: string } {
+/** Capture stderr for the error envelope (a write failure must not print a stack). */
+function captureStderr<T>(run: () => T): { code: T; err: string } {
+  const original = process.stderr.write.bind(process.stderr);
+  let err = "";
+  process.stderr.write = ((chunk: string) => {
+    err += chunk;
+    return true;
+  }) as typeof process.stderr.write;
+  try {
+    return { code: run(), err };
+  } finally {
+    process.stderr.write = original;
+  }
+}
+
+function entityJson(
+  workspace: string,
+  lang: "en" | "es" | "fr" = "en",
+): { code: number; data: EntityReport; out: string } {
   setJsonMode(true);
   try {
     const { code, out } = capture(() =>
-      runEntity({ workspace, pascorc: PASCO, jsonld: false, bare: false, lang: "en" }),
+      runEntity({ workspace, pascorc: PASCO, jsonld: false, bare: false, force: false, lang }),
     );
     return { code, data: (JSON.parse(out) as JsonEnvelope).data as EntityReport, out };
   } finally {
@@ -79,7 +97,7 @@ function entityJson(workspace: string): { code: number; data: EntityReport; out:
 
 function entityJsonLd(
   workspace: string,
-  opts: { bare?: boolean; out?: string } = {},
+  opts: { bare?: boolean; out?: string; force?: boolean; lang?: "en" | "es" | "fr" } = {},
 ): { code: number; out: string } {
   setJsonMode(false);
   return capture(() =>
@@ -89,9 +107,37 @@ function entityJsonLd(
       jsonld: true,
       bare: opts.bare === true,
       ...(opts.out !== undefined ? { out: opts.out } : {}),
-      lang: "en",
+      force: opts.force === true,
+      lang: opts.lang ?? "en",
     }),
   );
+}
+
+/**
+ * A brand workspace whose only populated `mission` is `es` (`en: ""` counts as
+ * absent at the text accessor). It is the F1 regression: `--json` must not report
+ * `description(mission): no` while `--jsonld` emits the `es` description.
+ */
+function brandWorkspace(): string {
+  const dir = tempDir();
+  mkdirSync(join(dir, "content"), { recursive: true });
+  writeFileSync(join(dir, "content", "flavor.yaml"), "brand\n", "utf8");
+  writeFileSync(
+    join(dir, "content", "identity.yaml"),
+    `name: Topia Press
+logo: https://topia.press/logo.png
+established: 2026-08-18
+mission:
+  en: ""
+  es: "Ensayos de alta exigencia epistémica, de la distopía a la utopía."
+links:
+  - platform: website
+    label: Website
+    url: https://topia.press
+`,
+    "utf8",
+  );
+  return dir;
 }
 
 describe("pasco entity --json", () => {
@@ -118,14 +164,31 @@ describe("pasco entity --json", () => {
     expect(data.gaps.map((gap) => gap.code)).not.toContain("geo/entity-id");
   });
 
-  it("reuses geoCheck codes verbatim — no new gap vocabulary", () => {
+  it("reuses exactly the structured-data geoCheck codes — no new vocabulary", () => {
     const { data } = entityJson(MINIMAL);
-    const known = new Set(geoCheck(load(MINIMAL)).checks.map((check) => check.code));
+    // The FILTER is the contract, so the oracle is the section, not the whole
+    // report: a gap leaking in from `geo/faq-coverage` would pass the wider set.
+    const section = new Set(
+      geoCheck(load(MINIMAL)).sections.structuredData.checks.map((check) => check.code),
+    );
     expect(data.gaps.length).toBeGreaterThan(0);
     for (const gap of data.gaps) {
-      expect(known.has(gap.code)).toBe(true);
+      expect(section.has(gap.code)).toBe(true);
       expect(gap.detail.length).toBeGreaterThan(0);
     }
+  });
+
+  it("measures readiness in the resolved lang, like --jsonld (F1)", () => {
+    const workspace = brandWorkspace();
+    const es = entityJson(workspace, "es");
+    const en = entityJson(workspace, "en");
+
+    expect(es.data.entity.type).toBe("Organization");
+    expect(es.data.gaps.map((gap) => gap.code)).not.toContain("geo/structured-person");
+    expect(en.data.gaps.map((gap) => gap.code)).toContain("geo/structured-person");
+    expect(en.data.gaps.find((gap) => gap.code === "geo/structured-person")?.detail).toContain(
+      "description(mission): no",
+    );
   });
 
   it("is deterministic: two runs emit byte-identical output", () => {
@@ -155,13 +218,75 @@ describe("pasco entity --jsonld", () => {
 
   it("--out writes the same bytes it would print, and still exits on the @id rule", () => {
     const file = join(tempDir(), "entity.jsonld");
-    const { code, out } = entityJsonLd(withIdentityLink(), { out: file });
+    const workspace = withIdentityLink();
+    const { code, out } = entityJsonLd(workspace, { out: file });
 
     expect(code).toBe(0);
     expect(out).toContain(`wrote ${file}`);
     const written = readFileSync(file, "utf8").trimEnd();
     expect(written.startsWith('<script type="application/ld+json">')).toBe(true);
     const json = written.slice(written.indexOf("\n") + 1, written.lastIndexOf("</script>"));
-    expect(JSON.parse(json)).toEqual(structuredData(load(withIdentityLink())).jsonLd);
+    expect(JSON.parse(json)).toEqual(structuredData(load(workspace)).jsonLd);
+  });
+
+  it("--out refuses to overwrite without --force (nothing is truncated, F4)", () => {
+    const file = join(tempDir(), "existing.jsonld");
+    writeFileSync(file, "PRESERVE ME", "utf8");
+
+    const { code, err } = captureStderr(() =>
+      runEntity({
+        workspace: MINIMAL,
+        pascorc: PASCO,
+        jsonld: true,
+        bare: false,
+        out: file,
+        force: false,
+        lang: "en",
+      }),
+    );
+
+    expect(code).toBe(1);
+    expect(readFileSync(file, "utf8")).toBe("PRESERVE ME");
+    expect(err).toContain("refusing to overwrite");
+    expect(err).not.toContain("at Object");
+  });
+
+  it("--out --force replaces an existing file atomically", () => {
+    const file = join(tempDir(), "existing.jsonld");
+    writeFileSync(file, "PRESERVE ME", "utf8");
+
+    const { code } = entityJsonLd(MINIMAL, { out: file, force: true });
+
+    expect(code).toBe(1); // @id still absent: the write succeeded, the exit rule does not change
+    expect(readFileSync(file, "utf8")).toContain('"@type": "Person"');
+  });
+
+  it("--out on an unwritable path is an error envelope, not a stack (F4)", () => {
+    const file = join(tempDir(), "missing-dir", "entity.jsonld");
+
+    const { code, err } = captureStderr(() =>
+      runEntity({
+        workspace: MINIMAL,
+        pascorc: PASCO,
+        jsonld: true,
+        bare: false,
+        out: file,
+        force: false,
+        lang: "en",
+      }),
+    );
+
+    expect(code).toBe(1);
+    expect(err).toContain("cannot write");
+    expect(err).not.toContain("at Object");
+  });
+
+  it("--jsonld --lang es emits the lang-aware brand description (F1)", () => {
+    const workspace = brandWorkspace();
+    const { code, out } = entityJsonLd(workspace, { bare: true, lang: "es" });
+
+    expect(code).toBe(1); // no @id in this fixture
+    expect(JSON.parse(out)).toEqual(structuredData(load(workspace), "es").jsonLd);
+    expect((JSON.parse(out) as { description?: string }).description).toContain("distopía");
   });
 });

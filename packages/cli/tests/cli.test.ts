@@ -1749,6 +1749,7 @@ describe("pasco entity (dispatcher + exit matrix)", () => {
     expect(run(["entity", "--json", "--jsonld", "--workspace", MINIMAL]).code).toBe(2);
     expect(run(["entity", "--bare", "--workspace", MINIMAL]).code).toBe(2);
     expect(run(["entity", "--out", "/tmp/x", "--workspace", MINIMAL]).code).toBe(2);
+    expect(run(["entity", "--force", "--workspace", MINIMAL]).code).toBe(2);
     expect(run(["entity", "extra", "--workspace", MINIMAL]).code).toBe(2);
   });
 });

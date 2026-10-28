@@ -1,5 +1,5 @@
 /**
- * geoCheck(profile) — GEO as a cross-cutting layer (D7, SPEC §8).
+ * geoCheck(profile, lang?) — GEO as a cross-cutting layer (D7, SPEC §8).
  *
  * Returns a GeoReport (never throws — it is a report, not a gate, schema/README):
  *   1. factConsistency    — an LLM triangulating LinkedIn vs GitHub vs … must find
@@ -36,6 +36,7 @@ import type {
   GeoCheck,
   GeoReport,
   GeoSection,
+  Lang,
   Platform,
   Profile,
   SemanticAssociationCoverage,
@@ -282,7 +283,7 @@ function nameCollisionObservation(profile: Profile): NameCollisionObservation {
   return { kind: "unqualified" };
 }
 
-export function geoCheck(profile: Profile): GeoReport {
+export function geoCheck(profile: Profile, lang: Lang = "en"): GeoReport {
   const identity = profile.identity;
   const conflicts = driftCheck(profile).filter((issue) => CONFLICT_CODES.has(issue.code));
 
@@ -295,7 +296,11 @@ export function geoCheck(profile: Profile): GeoReport {
   ).length;
   const targetCount = targets.size;
 
-  const sd = structuredData(profile);
+  // `lang` is the same resolution the caller uses for the emitted JSON-LD: the
+  // entity projection passes `--lang`/`.pascorc defaults.lang` here so a gap and
+  // the artifact can never disagree about a lang-aware brand field (issue #287
+  // review F1). Every pre-existing caller keeps the default (`en`), unchanged.
+  const sd = structuredData(profile, lang);
   const anchors = semanticAnchors(profile);
 
   const publications = profile.publications ?? [];

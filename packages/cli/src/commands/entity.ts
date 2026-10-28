@@ -21,7 +21,7 @@
  * as the `check` matrix (#252 §S5) — 0 otherwise; 2 is a usage error (dispatcher).
  */
 
-import { writeFileSync } from "node:fs";
+import { existsSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import type { Lang, LoadedProfile } from "@profile-as-code/core";
 import {
   entityId,
@@ -65,9 +65,16 @@ export interface EntityReport {
   jsonld: null;
 }
 
-/** The `--json` view: the assembler's fields plus the structured-data gaps. */
-export function entityReport(profile: LoadedProfile): EntityReport {
-  const geo = geoCheck(profile);
+/**
+ * The `--json` view: the assembler's fields plus the structured-data gaps.
+ *
+ * `lang` is the SAME resolved language `--jsonld` uses. `geoCheck` assembles its
+ * readiness with it, so a brand whose only `mission`/`tagline` value is `es`
+ * cannot report `description`/`slogan` as missing in `--json` while `--jsonld`
+ * emits them (review F1, SPEC §7.2).
+ */
+export function entityReport(profile: LoadedProfile, lang: Lang = "en"): EntityReport {
+  const geo = geoCheck(profile, lang);
   const readiness = geo.sections.structuredData.readiness;
   // Gaps are a READING of geoCheck, never a second rule: the structured-data
   // section is the entity's readiness contract, and each check's detail already
@@ -115,6 +122,8 @@ export interface EntityArgs {
   bare: boolean;
   /** `--out <file>` (only with `--jsonld`): write the artifact instead of stdout. */
   out?: string;
+  /** `--force` (only with `--out`): replace an existing file. */
+  force: boolean;
   /** Resolved language for the assembler; dispatcher applies `.pascorc` default. */
   lang: Lang;
 }
@@ -147,6 +156,31 @@ function loadProfile(
   }
 }
 
+/**
+ * Write the artifact atomically (temp file + rename in the destination directory)
+ * and never truncate an existing file unless `--force` was passed: a typo in
+ * `--out` must not eat the workspace's SSOT, and a failure produces an error
+ * envelope instead of an uncaught stack (review F4).
+ */
+function writeArtifact(path: string, content: string, force: boolean): string | undefined {
+  if (!force && existsSync(path)) {
+    return `refusing to overwrite "${path}" — it already exists (pass --force to replace it)`;
+  }
+  const temp = `${path}.${process.pid}.pasco-tmp`;
+  try {
+    writeFileSync(temp, content, "utf8");
+    renameSync(temp, path);
+    return undefined;
+  } catch (err) {
+    try {
+      unlinkSync(temp);
+    } catch {
+      // The temp file may not exist — nothing to clean up.
+    }
+    return `cannot write "${path}": ${(err as Error).message}`;
+  }
+}
+
 export function runEntity(args: EntityArgs): number {
   const loaded = loadProfile(args.workspace);
   if (loaded.profile === undefined) return loaded.error;
@@ -168,7 +202,12 @@ export function runEntity(args: EntityArgs): number {
     }
     const artifact = args.bare ? jsonLdBare(view.jsonLd) : jsonLdScript(view.jsonLd);
     if (args.out !== undefined) {
-      writeFileSync(args.out, `${artifact}\n`, "utf8");
+      const failure = writeArtifact(args.out, `${artifact}\n`, args.force);
+      if (failure !== undefined) {
+        return report("entity", false, EXIT.FAIL, {
+          error: { kind: "write", message: failure },
+        });
+      }
       process.stdout.write(`wrote ${args.out}\n`);
     } else {
       process.stdout.write(`${artifact}\n`);
@@ -176,7 +215,7 @@ export function runEntity(args: EntityArgs): number {
     return exitCode;
   }
 
-  const view = entityReport(profile);
+  const view = entityReport(profile, args.lang);
   if (isJsonMode()) {
     return report("entity", hasId, exitCode, { data: view });
   }
