@@ -1,0 +1,16 @@
+# Fixture for `pasco cite-check` (#291): a multi-token brand with the one
+# declared alternate name the schema has (`orgName` → the alias rung) and a
+# claimed handle. Fictional.
+name: DA SEO Digital Studio
+orgName: DA SEO
+logo: https://daseo.example/logo.png
+tagline:
+  en: "Deterministic GEO for teams that publish facts"
+links:
+  - platform: x
+    label: X
+    url: https://x.com/daseo
+    role: identity
+  - platform: substack
+    label: Substack
+    url: https://daseo.substack.com

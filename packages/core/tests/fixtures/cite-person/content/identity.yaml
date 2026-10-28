@@ -1,0 +1,18 @@
+# Fixture for `pasco cite-check` (#291): a ONE-WORD name with a declared
+# qualifier (`location`) and a declared handle — the homonym case the matcher
+# must refuse to resolve by itself, and the identity link the citation rung
+# reads. Fictional.
+name: Pasco
+location: Ecuador
+handle: X @pasco_cli
+links:
+  - platform: github
+    label: GitHub
+    url: https://github.com/pascocli
+    role: identity
+  - platform: linkedin
+    label: LinkedIn
+    url: https://linkedin.com/in/pascocli
+  - platform: x
+    label: X
+    url: https://x.com/pascocli

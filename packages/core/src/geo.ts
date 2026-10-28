@@ -243,13 +243,14 @@ function definitionFailures(profile: Profile): string[] {
   return out;
 }
 
-/** The disambiguating qualifiers name-collision can observe offline: the
+/** The disambiguating qualifiers name-collision can observe offline (also read by
+ *  `cite-check`'s one-word guard, #291 — one home for the declared list): the
  *  declared `location` and the declared `experience[].role` titles (v1.1: a
  *  string or a langMap — the issue's "(location/role)" wording). Nothing is
  *  invented: both count ONLY when declared. The `identity.links[]` roles
  *  (identity/realization/aggregator, v1.6) are a DIFFERENT kind of role and
  *  never count here. */
-function collisionQualifiers(profile: Profile): string[] {
+export function disambiguationQualifiers(profile: Profile): string[] {
   const out: string[] = [];
   const location = profile.identity.location;
   if (location) out.push(location);
@@ -274,7 +275,7 @@ function nameCollisionObservation(profile: Profile): NameCollisionObservation {
   if (!name || /\s/.test(name)) return { kind: "multi-word" };
   const entries = definitionEntries(profile);
   if (entries.length === 0) return { kind: "no-definition" };
-  for (const qualifier of collisionQualifiers(profile)) {
+  for (const qualifier of disambiguationQualifiers(profile)) {
     // Case-insensitive: the same rule the name containment applies — a
     // definition that mentions the qualifier in another case STILL says it.
     if (entries.some(([, v]) => v.toLowerCase().includes(qualifier.toLowerCase())))

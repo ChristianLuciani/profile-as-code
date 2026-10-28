@@ -379,6 +379,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco audit [--json]` | the **offline diagnostic projection** over the identity: findings only — no score, no prioritisation, no branding (issue #283). `--json` emits `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings: [{ class, severity, path, detail }] }` — `scope` makes "measured nothing" distinguishable from "clean" — with three fixed classes (`dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN); exit 1 iff any FAIL. Composes `load` (schema), `reconciledDrift` (drift + the #238 variant reconciliation), `geoCheck` (its `faq-coverage` premise gates the claim rows), the completeness `evidence` premise, and `fact-present`; it is **deliberately stricter** than `validate`/`check` on the FAIL classes (declared in §7.1) |
 | `pasco entity [--json \| --jsonld [--out <file> [--force]] [--bare]] [--lang <l>]` | the **entity projection** for surfaces this engine does not render (issue #287): the schema.org entity assembled by `structuredData()` — `@id`, `sameAs`, type and fields — plus the readiness `gaps` (geoCheck codes, verbatim). `--json` emits `{ schemaVersion: "1", entity: { id, type, name, sameAs, email }, gaps: [{ code, detail }], jsonld: null }`; `--jsonld` emits the **same assembler output** the renderers embed, as a paste-ready `<script type="application/ld+json">` block (`--bare` = the bare object, `--out <file>` writes it atomically and refuses an existing file without `--force`). **Both modes resolve one `lang`** (`--lang`, else `.pascorc defaults.lang`) so a gap and the emitted field cannot disagree. **One assembler, no CLI-local builder**: the projection never invents `@id` and never re-derives the entity (§15.4). Exit `1` when `@id` is absent (the entity has no declared home) or the `--out` write fails; `0` otherwise; `2` is usage. Offline and deterministic (D19). Contract: §7.2 |
 | `pasco export ai-policy [--out <dir> \| --check] [--json] [--lang <l>]` | the §12 M9 stance as an artifact (issue #290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed `ai-retrieval` crawlers allowed, the listed `ai-training` crawlers disallowed; the file declares that an unlisted crawler is not restricted, each UA commented with its registry entry/operator/source/date), `llms.txt` (the workspace index, with a coverage assertion over every document it claims) and `AI-POLICY.md` (allowed · blocked · the explicit-list limit · who can change it · the date, quoting the M9 floor verbatim); `--check` exits `1` on an incomplete or unsourced entry, a duplicate token, an `as_of` that is malformed/future/older than 180 days, or a `policy.as_of` that is stale or predates its rows; `--out` refuses to write one. The crawler list is projected from `platforms/registry.yaml` (`ai:`) by `pnpm gen:platforms` — never a hardcoded UA list in the CLI. Offline; `--check` is the declared clock-reading path. Contract: §7.3 |
+| `pasco cite-check [<answers.ndjson>] [--json]` | the **citation matcher** over saved answers (issue #291): reads the runner's NDJSON (stdin when no path), matches the workspace's declared entity against each answer and emits, per answer and **never aggregated**, `{ cited, confidence, spans, reasons }`. Fixed ladder — `citation-url` (a citation on the entity's own page or its `sameAs`/claimed-handle set — host, and the declared path or a descendant) and `exact-name` (word-bounded, case- and accent-normalized) are **high**; `alias` (`identity.orgName`) and `handle` (a declared handle) are **medium**; `partial` (any contiguous multi-token prefix of the name, ≥ 2 tokens) is **low**, and `low` is never a citation downstream. The matcher **refuses to guess**: a one-word name hit whose sentence carries no declared disambiguator is ambiguous (`cited: false`, with the longer capitalised reading quoted as `competing:<phrase>`), a mention inside a contrast clause is not a citation, and a declared qualifier or an adjacent capital never disqualifies a hit by itself. Offline, no model, no clock (D19). Exit `0` on a successful read (a non-citation is data, not a failure) · `1` the workspace cannot load, or the input path cannot be read · `2` usage or **malformed NDJSON** (never a silent skip). Contract: §7.4 |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22). **The read report also ends with the derived publication truth per surface (§20.1, #242): ledger · artifact-vs-SSOT · declared cap — computed on every read, stored nowhere** |
 | `pasco skills:export <dir> [--force] [--list]` | copy the skill channels **this package ships** into a directory the user names; `--force` overlays an existing non-empty directory (nothing is deleted), `--list` shows the channels. No per-agent destination is invented. Skill lookup reads only the package's own `skills/`, an explicit `PASCO_SKILLS_DIR`, or the marked workspace checkout (developers) — #253/#254 |
@@ -679,6 +680,157 @@ existing foreign `robots.txt` is the user's, and a typo in `--out` must not eat 
 about how any engine actually behaves — that belongs to the measurement module.
 The command states a position and ships it; it does not audit the world.
 
+### 7.4 `pasco cite-check` — the citation matcher over saved answers (issue #291)
+
+The measurement module records what an answer engine said; this module answers the
+one question about that record the engine can own: **did this saved answer cite
+this entity?** The question is a pure function over the SSOT, so it belongs here
+and not in the runner (PROP-017's module boundary). It reads **no network, no
+model and no clock** (D19): the input is a file the runner produced, and the same
+input bytes must produce the same output bytes.
+
+```bash
+pasco cite-check answers.ndjson        # a path, or stdin when omitted (or "-")
+pasco cite-check answers.ndjson --json
+```
+
+**Input — the runner's contract, never produced here.** One JSON object per line:
+
+```json
+{ "engine": "chatgpt", "askedAt": "2026-10-23T15:00:00Z",
+  "question": "¿qué agencia GEO hay en Ecuador?",
+  "answer": "…",
+  "citations": [ { "url": "https://…", "title": "…" } ] }
+```
+
+`answer` (string) and `citations[]` (objects with a string `url`) are required;
+`engine`, `askedAt` and `question` are carried through verbatim. Blank lines are
+ignored. **Anything else is malformed**: the command names the 1-based line and
+the field, writes no results, and exits `2` — a skipped line would silently change
+a rate, which is the failure class this command exists to prevent.
+
+**The match ladder is fixed before the code — one rung per `kind`.** The vocabulary
+is the workspace's **declared** data only: the canonical `identity.name`; the one
+declared alternate name the schema has, `identity.orgName`, as an **alias**;
+declared **handles** (`identity.handle` — its final token, `@` stripped — plus every
+`socialHandles[]` row with `status: claimed`); and the **hosts** of the entity's own
+URL (`role: identity`) and of its `sameAs` set (`role: realization` links +
+claimed-handle URLs, the `structuredData()` set, never a second derivation).
+
+| Rung | Fires when | `kind` | Confidence |
+|---|---|---|---|
+| `citation-url` | a citation's host is a declared host (equal, or a subdomain of it, with a leading `www.` stripped) **and** — when the declared URL carries a path — the cited path is that path or a descendant (`github.com/elenavasquez` does not match `github.com/someone-else`) | `citation-url` | **high** |
+| `exact-name` | the full name occurs word-bounded | `name` | **high** |
+| `alias` | `identity.orgName` occurs word-bounded | `alias` | **medium** |
+| `handle` | a declared handle occurs word-bounded | `handle` | **medium** |
+| `partial` | **any** contiguous multi-token **prefix** of the name (≥ 2 tokens, shorter than the name) occurs word-bounded — `DA SEO` and `DA SEO Digital` for `DA SEO Digital Studio` (a term already claimed by a higher rung is not repeated) | `partial` | **low** |
+
+Matching goes through the matcher's normalizer (`core/src/normalize.ts`; `geoCheck`
+keeps its own case-only comparison — see §8): case- and accent-insensitive
+(`Domínguez` = `Dominguez`) and
+**word-bounded** — `pasco` does not match inside `pascoño`. A citation has no
+character span in the answer, so its span is `{ start: 0, end: 0, kind:
+"citation-url", url }`; every text span is an offset pair into the **original**
+answer (`start` inclusive, `end` exclusive), mapped back from the normalized text.
+
+**Containment.** A shorter declared term inside a longer one is not a second hit:
+the longer occurrence wins and the shorter is reported as `longer-name:<term>`
+(`DA SEO` inside `DA SEO Digital`).
+
+**The matcher refuses to guess.** Three guards make a text hit **not a citation**
+(`cited: false`, the span and its rung still reported, the reason named):
+
+1. `longer-name` — the occurrence is a declared term contained in another declared
+   term that also matched there.
+2. `ambiguous-term:<term>` + `no-qualifier` — the hit's term is a **single word**
+   (the same one-word collision risk `geoCheck`'s `geo/name-collision` reports) and
+   its sentence carries none of the declared disambiguators: `identity.location`,
+   an `experience[].role` title (the list `geoCheck` already reads, matched as a
+   declared phrase) or another declared vocabulary term. A one-word name in a
+   sentence that names no other declared fact is ambiguous by construction —
+   `Pasco` the CLI is not `Pasco`, Washington, and no engine tells them apart
+   offline. `competing:<phrase>` is **not** a guard of its own: only once this rule
+   fires, the longer capitalised phrase the text carries (`Pasco County School
+   District`) — if it is not a declared term — is quoted as the competing reading,
+   so the refusal is explicit instead of unexplained. The expansion stops at
+   punctuation, so `Pasco, WA` does not expand. **An adjacent capital never
+   disqualifies a hit by itself**, and a declared qualifier in the sentence
+   (`In Ecuador Pasco is a CLI`, `DA SEO Digital Studio Founder Ana ships
+   profiles`) must leave the hit cited.
+3. `contrast-context` — the hit's sentence carries a contrast marker **before** it:
+   a closed EN/ES/PT list (`unlike` · `contrary to` · `as opposed to` · `rather
+   than` · `instead of` · `versus`/`vs` · `compared to` · `a diferencia de` · `en
+   contraste con` · `en lugar de` · `em vez de` · `ao contrário de`). A mention in
+   a comparison is not an assertion about the entity.
+
+`cited` is true iff at least one surviving hit or citation exists; `confidence` is
+the best surviving rung, and **`low` alone** (a `partial` hit) is never a citation
+downstream. `cited` may still be true with `confidence: "low"` — the consumer MUST
+treat it as not-cited, and the field exists so that refusal is explicit rather
+than a substring accident. A report consisting only of guarded hits is
+`confidence: "low"`, `cited: false`. `reasons[]` is a **set in a fixed order**
+(the rung reasons, then the guard reasons): `citation-url` · `identity-domain` ·
+`sameAs-domain` · `url-invalid:<url>` · `exact-name` · `alias` · `handle` · `partial` · `longer-name:<t>`
+· `competing:<phrase>` · `ambiguous-term:<t>` · `no-qualifier` ·
+`contrast-context`. **Two axes, never one**: a citation span answers "was there a
+link?", a name span answers "was the entity named?" — `named without citing` is
+`exact-name` with no `citation-url` span, and `cited without naming` is the
+opposite. A consumer that needs the strict reading counts the `citation-url` spans.
+
+**`--json` (v1, frozen).** The usual envelope's `data` is:
+
+```json
+{ "schemaVersion": "1",
+  "entity": { "name": "…", "aliases": ["…"], "handles": ["…"],
+              "partials": ["…"], "hosts": ["…"] },
+  "answers": [ { "line": 1, "engine": "chatgpt", "askedAt": "…", "question": "…",
+                 "cited": true, "confidence": "high",
+                 "spans": [ { "start": 0, "end": 0, "kind": "citation-url", "url": "https://…" },
+                            { "start": 412, "end": 430, "kind": "name" } ],
+                 "reasons": ["citation-url", "sameAs-domain", "exact-name"] } ] }
+```
+
+`entity` is the vocabulary the matcher resolved, so a report can say **what** it
+matched without re-reading the workspace. `answers` has one row per input line, in
+input order and **never aggregated** — no rate, no score, no total. `line` is the
+1-based source line; `engine`/`askedAt`/`question` are `null` when omitted by the
+input. `spans` are ordered: citations first (in citation order), then text spans by
+`start`. The string `"1"` is the contract version, as in §7.1–§7.3.
+
+**Exit matrix.** `0` a successful read, whatever the matches — a measurement, not
+a gate, so a `cited: false` answer is data, never a failure · `1` the workspace
+cannot load (schema/load, D12), or the **input path cannot be read** · `2` usage,
+or **malformed NDJSON** (the input is not the declared contract; never a silent
+skip). Text mode prints one block per answer plus the number of answers read; it
+prints no citation rate.
+
+**Declared limits.** The engine knows only declared facts. (a) A world homonym the
+text does not disambiguate is reported, never resolved: `Pasco, WA` is a qualified
+mention only when a declared qualifier appears in its sentence — the matcher
+carries no gazetteer. (b) Host comparison is by **host** (a leading `www.`
+stripped; a subdomain belongs to its parent), not eTLD+1: the engine ships no
+public-suffix list, so `a.example.co.uk` and `b.example.co.uk` are different hosts
+and that is all the contract claims. A declared URL's **path** narrows the match
+to that path and its descendants, because a shared host alone (`github.com`, `x.com`)
+would overreport exactly the way substring matching does; a declared root URL
+claims the whole host. Paths compare **case-sensitively** (RFC 3986 puts that on
+the server); `www.`/trailing slashes are normalized, query strings ignored. (c) The contrast guard is a closed lexicon,
+not comprehension. (d) The alias rung reads the one alternate name the schema
+declares; a general per-language alias list would be an **additive schema change**,
+not a v1 feature. (e) `partial` reads **every** contiguous multi-token prefix of
+the name, but never a single-token one — a single-token prefix of a multi-token
+name is a common word and would overreport, which is the exact failure this
+command exists to prevent. (f) A `citations[].url` the URL parser rejects — a
+missing scheme (`github.com/pascocli`) is the common case — is **never repaired
+or guessed**: the row is reported with `url-invalid:<url>` in `reasons[]`, so a
+dropped citation cannot read as a clean `cited: false`. A URL that parses but is
+not a declared target is a legitimate "cited elsewhere" and adds no reason.
+
+**Non-goals in v1.** No engine calls, no browser automation, no scheduling, no
+leaderboard, no score, no storage, no report and no aggregation (the runner's and
+the report module's). "Am I visible?" is not this command: it answers "was I
+cited?" over bytes already saved.
+
 ## 8. GEO as a cross-cutting layer
 
 GEO is not a renderer — it is enforced in four places:
@@ -708,6 +860,18 @@ not a bad profile.
 | `geo/freshness` | no `dateModified`-bearing fact in the last 12 months — calendar window; future-dated facts cannot evidence freshness and are reported as an anomaly (newest `deployments[].deployedAt`, `press[].date`, `credentials[].issued`, newest `publications[].year`) | INFO | 0.03 |
 | `geo/sameas-coverage` | a `claimed` handle resolving to a URL that is NOT in the emitted `sameAs` set (e.g. its URL is the `@id`, excluded by the assembler), or fewer than 3 `role: realization` links | WARN | 0.04 |
 | `geo/name-collision` | a one-word entity name whose `definition` carries no disambiguating qualifier (`location` or an `experience[].role` title — matched case-insensitively, like the name containment above) — homonyms cannot be detected offline: the code reports the risk it can observe, marks the unobservable as `[?]`, and never claims a collision it did not see | INFO | 0.01 |
+
+**cite-check's fold is its own (#291).** `core/src/normalize.ts` is the case- and
+accent-folding used by `pasco cite-check` (§7.4), which matches the declared
+vocabularies offline. `geoCheck` keeps its own case-only comparisons **by
+decision**: its published score and findings (`geo/canonical-definition`,
+`geo/name-collision`, the semantic anchors) are a separate contract, and this PR
+does not move them — the regression test pins `Sofía Domínguez` + an unaccented
+definition at the pre-PR reading, so an accent-insensitive GEO check would be its
+own SPEC change. The two sides may therefore disagree about a folded name, and
+that is declared rather than hidden. `cite-check` scores nothing: it reads the
+answers the runner saved and reports, per answer, whether the entity was cited —
+the GEO codes above stay the profile-side readiness signals.
 
 ## 9. the profile-data workspace (folder-first; a repo is recommended)
 

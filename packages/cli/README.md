@@ -66,6 +66,7 @@ commands above are the standalone path.
 | `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) + offline `max-chars`/`min-chars` over headlines/bios (#240) + `fact-present` (the built surface's fact tokens vs the SSOT render, #283) | 🚧 offline rules today (limits + registry + media + fact-present; remaining catalog M3/M4) |
 | `pasco audit [--json]` | Offline **diagnostic projection**, findings only (no score/prioritisation/branding, #283): three fixed classes — `dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN — exit 1 iff any FAIL; `--json` carries `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings }` | ✅ v1 |
 | `pasco entity [--json \| --jsonld [--out <file>] [--bare]]` | The **entity projection** for surfaces the engine does not render (#287): `--json` is the frozen view — `entity { id, type, name, sameAs, email }`, the structured-data `gaps` (geoCheck codes verbatim) and `jsonld: null`; `--jsonld` is the **same assembler output** the renderers embed, as a paste-ready `<script type="application/ld+json">` block. Exit 1 when `@id` is absent (never invented) | ✅ v1 |
+| `pasco cite-check [<answers.ndjson>] [--json]` | The **citation matcher** over saved answer-engine answers (#291): reads the runner's NDJSON (stdin when no path), matches the workspace's declared entity and emits, **per answer and never aggregated**, `{ cited, confidence, spans, reasons }`. Ladder: `citation-url` (a citation on the entity's own page or its `sameAs` set — host, and the declared path or a descendant) and `exact-name` → **high**; `alias` (`identity.orgName`) and `handle` → **medium**; `partial` (any contiguous multi-token prefix, ≥ 2 tokens) → **low**, and low is never citable downstream. Refuses to guess: a one-word name with no declared disambiguator (`cited: false`, the longer capitalised reading named as `competing`), or a contrast mention, is not a citation; a declared qualifier or an adjacent capital never disqualifies a hit by itself | ✅ v1 |
 | `pasco export ai-policy [--out <dir> \| --check] [--lang <l>]` | The M9 stance as an artifact (#290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed retrieval crawlers allowed, the listed training crawlers disallowed, each UA commented with its registry entry/operator/source/date; the file declares that a crawler it does not name is **not restricted**), `llms.txt` (the workspace index: name, definition, canonical identity, `faq[]`, `publications[]`, with a coverage assertion) and `AI-POLICY.md` (allowed · blocked · that same explicit-list limit · who can change it · the date, quoting the stance verbatim). `--check` exits 1 on an incomplete or unsourced entry, a duplicate token (case-insensitive), a malformed/future/`>180`-day `as_of`, or a `policy.as_of` that is stale or older than its newest row; `--out` refuses to write one. The UA list is projected from the platform registry — never hardcoded in the CLI | ✅ v1 |
 | `pasco post <seed\|task\|choose\|check\|export\|import\|list>` | Week-1 post MVP (#264): a seed at `posts/<seed>/seed.md` → task bundle → chosen variant → check → optional Postiz draft payload; the CLI never calls an LLM | 🚧 experiment (not in the v1 contract; `docs/post-mvp.md`) |
 | `pasco skills:export <dir> [--force] [--list]` | Copy the platform skills this package ships into a directory you name (`--list` shows them; no per-agent paths are invented — #254) | ✅ |
@@ -219,6 +220,77 @@ envelope at exit `1`, never a stack.
 Exit `0` when `@id` is present, `1` when it is absent (the entity has no declared
 home; the JSON-LD is still emitted, without `@id`) or the `--out` write failed, `2`
 for usage. It is offline and deterministic: no network, no clock, no AI.
+
+### The citation matcher (`pasco cite-check`, #291)
+
+Every GEO number is priced in "prompts monitored per month", and the half that
+decides whether the number is true is one question: **did this answer actually
+cite this entity?** The network half belongs to the runner; this command answers
+the matching question over the answers it already saved. It is a pure function of
+the SSOT and the input bytes — no network, no model, no clock (D19).
+
+```sh
+pasco cite-check answers.ndjson          # one line per answer
+cat answers.ndjson | pasco cite-check    # stdin when no path is given
+pasco cite-check answers.ndjson --json   # the frozen per-answer contract
+```
+
+Input — the runner's NDJSON, which this engine never produces:
+
+```json
+{ "engine": "chatgpt", "askedAt": "2026-10-23T15:00:00Z",
+  "question": "¿qué agencia GEO hay en Ecuador?",
+  "answer": "…", "citations": [ { "url": "https://…", "title": "…" } ] }
+```
+
+`answer` and `citations[]` are required; `engine`/`askedAt`/`question` are carried
+through. A blank line is ignored; any other malformed line is exit `2` naming the
+line and field — **never a silent skip**, because a skipped line changes a rate.
+
+The ladder is fixed, and each rung carries its own confidence:
+
+| Rung | What matched | Confidence |
+|---|---|---|
+| `citation-url` | a saved citation on the entity's own page or its `sameAs` set — host, and the declared path or a descendant (`github.com/<you>` does not match `github.com/someone-else`) | **high** |
+| `exact-name` | the full `identity.name`, word-bounded, case- and accent-insensitive (`Domínguez` = `Dominguez`) | **high** |
+| `alias` | `identity.orgName` | **medium** |
+| `handle` | `identity.handle` or a `socialHandles[]` row with `status: claimed` | **medium** |
+| `partial` | **any** contiguous multi-token prefix of the name (`DA SEO` and `DA SEO Digital` of `DA SEO Digital Studio`) — a term a higher rung already claims is not repeated | **low** |
+
+`confidence: "low"` is **never** a citation in a downstream report — the field
+exists so that refusal is explicit. The matcher also refuses to guess: a one-word
+name whose sentence has no declared disambiguator (`ambiguous-term:pasco` +
+`no-qualifier`, with the longer capitalised reading the text carries named as
+`competing:Pasco County School District`), a mention after a contrast marker
+(`contrast-context`), a shorter declared term inside a longer one
+(`longer-name:…`) and a citation URL the parser rejects (`url-invalid:<url>`, a
+missing scheme being the common case — named, never dropped) are all reported in
+`reasons[]` as **not** citations.
+
+```json
+{
+  "schemaVersion": "1",
+  "entity": { "name": "Pasco", "aliases": [], "handles": ["pasco_cli"],
+              "partials": [], "hosts": ["github.com", "linkedin.com", "x.com"] },
+  "answers": [
+    { "line": 1, "engine": "chatgpt", "askedAt": "…", "question": "…",
+      "cited": true, "confidence": "high",
+      "spans": [ { "start": 0, "end": 5, "kind": "name" } ],
+      "reasons": ["exact-name"] }
+  ]
+}
+```
+
+One row per input line, in input order, **never aggregated**: no rate, no score,
+no total — that belongs to the report layer. A citation span is
+`{ start: 0, end: 0, kind: "citation-url", url }` because the URL is in the
+answer's citation list, not in its text; text spans are offsets into the original
+answer. `entity` is the declared vocabulary the matcher resolved, so a report can
+say what it matched without re-reading the workspace.
+
+Exit `0` on a successful read whatever the matches (a non-citation is data) · `1`
+when the workspace or the input path cannot be read · `2` usage, or malformed
+NDJSON. Contract: SPEC §7.4.
 
 ### The AI policy artifacts (`pasco export ai-policy`, #290)
 
@@ -495,6 +567,8 @@ pasco audit                                  # findings only: dangling-ref · co
 pasco audit --json                           # { schemaVersion, findings } — exit 1 iff any FAIL
 pasco entity --json                          # entity facts + @id + sameAs + gaps (exit 1 without @id)
 pasco entity --jsonld                        # paste-ready <script type="application/ld+json">
+pasco cite-check answers.ndjson              # per answer: cited? high/medium/low + why
+pasco cite-check answers.ndjson --json       # { schemaVersion, entity, answers[] }
 pasco post seed demo --text seed.md           # week-1 experiment: posts/<seed>/seed.md
 pasco post task demo --channel linkedin,x   # task bundles (no LLM call)
 pasco post choose demo --channel linkedin --variant linkedin-1
