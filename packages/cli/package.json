@@ -1,7 +1,7 @@
 {
   "name": "@profile-as-code/cli",
   "version": "0.3.6",
-  "description": "pasco — the profile-as-code CLI: init, validate, build, diff, edit (read / preview / write one contract field, comment-preserving), status + partial refine (task template), check (offline rules M6–M8; catalog ships M3/M4), skills:export (copies the platform skills this package ships). Consumes @profile-as-code/core; never re-implements load/drift/geo/compile.",
+  "description": "pasco \u2014 the profile-as-code CLI: init, validate, build, diff, edit (read / preview / write one contract field, comment-preserving), status + partial refine (task template), check (offline rules M6\u2013M8; catalog ships M3/M4), audit (offline findings projection), entity (the schema.org projection + paste-ready JSON-LD for surfaces the engine does not render), skills:export (copies the platform skills this package ships). Consumes @profile-as-code/core; never re-implements load/drift/geo/compile.",
   "type": "module",
   "license": "MIT",
   "funding": [

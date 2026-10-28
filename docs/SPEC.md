@@ -333,7 +333,9 @@ interface Profile { /* normalized model compiled from content/*.yaml */ }
 interface Core {
   load(workspace): Profile          // parse + validate (Zod from schema) + normalize
   driftCheck(profile): Issue[]      // fact contradictions across platforms (also GEO blocklist)
-  geoCheck(profile): GeoReport      // consistency score, structured-data readiness, semantic anchors
+  geoCheck(profile, lang?): GeoReport // consistency score, structured-data readiness, semantic anchors
+                                    // lang (default 'en') is the language the assembler reads;
+                                    // `pasco entity` passes its resolved --lang so gaps and JSON-LD agree
   completeness(profile, policy?): CompletenessReport   // weighted checklist + % (§20, issue #102)
   compile(profile, platform): PlatformProfile   // language-aware slice for a renderer
 }
@@ -375,6 +377,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco edit <contract-path> [--set <text> [--check]]` | read **or write** **one contract field** by contract path — `positioning.statement.<lang>`, `headlines[platform=<p>,lang=<l>].text`, `bios[platform=<p>,lang=<l>,length=<len>].text`, `identity.links[platform=<p>,label=<l>].url` (read-only, `label` optional). `--set` writes it: **byte-range splice over the original text** (the CST locates; it never re-serializes, so comments/layout survive and the diff is one line), block, multi-line and anchored/aliased scalars **refused** in v1, the file's node must still match the resolved value (staleness → exit 1, never a silent wrong-row write), no-op = 0 + `noop`, temp file + `load()`/schema over a temp copy + **atomic rename** (an invalid edit never reaches disk), concurrent writers serialized by an advisory `content/.pasco-edit.lock` plus a re-read immediately before the rename (an external editor is the residual window). `--set --check` previews instead: it renders the surface the way `pasco build` does (active variant → renderer → shared paste source, current vs proposed) and prints **the published lines the edit changes**, reporting an edit that does not reach the artifact with its reason instead of asserting it. It also reports the edited unit's **surface impact** from the §19 ledger — every recorded surface prints `stale` after an edit that changes the unit hash (or `in-sync` when the record still matches), and a unit with no record rolls up to `never` — derived on every run and stored nowhere (§20). A headline/bio value is pre-flighted against the catalog's own `max-chars` cap — the workspace's `content/checks.yaml` when it declares checks, else the caps shipped with pasco (#240) with its cited source and tier — over-cap is a WARN, never a block (D12), and a platform with no sourced cap reads `cap: unknown`; `--json` carries `{ address, current, proposed, rendered, ok, noop, written, warnings, stale, state, drift, limit, over, variant, reason }` inside the standard envelope (a D22/§21 selection error the write proceeds through is a warning, not a block: the SSOT write is valid even when `build` refuses); a read-only target or a file that changes under the command is exit 1 (`refused` / `stale`, nothing written); its machine contract is frozen for agents (S5, #252): the `--json` field set and the 0/1/2 exit matrix are documented in the CLI README, one test per exit row; `edit` never chooses the live variant (#238 non-goal); epic #247, S1–S5 |
 | `pasco check [platform]` | run skill-declared checks before deploy; char limits accept an optional `surface` (`headline`/`bio`/`both`) so a title cap does not flag the bio (#240). **`fact-present`** is executed here (issue #283), **for the surfaces whose catalog declares the premise** (the workspace's `content/checks.yaml` ∪ the shipped `skills/<platform>/checks.yaml`; `link-in-identity` stays a separate premise): the artifact `pasco build` last wrote is compared **symmetrically** against the SSOT render — a URL the surface adds (dangling pointer) or omits (`contradiction`), a date or number either side carries and the other does not (`contradiction`), and a text difference no fact token explains (`contradiction`) are all findings. All are WARN (D12: facts warn), and a targeted surface with no artifact on disk reports the rule as **not run**, never as OK |
 | `pasco audit [--json]` | the **offline diagnostic projection** over the identity: findings only — no score, no prioritisation, no branding (issue #283). `--json` emits `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings: [{ class, severity, path, detail }] }` — `scope` makes "measured nothing" distinguishable from "clean" — with three fixed classes (`dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN); exit 1 iff any FAIL. Composes `load` (schema), `reconciledDrift` (drift + the #238 variant reconciliation), `geoCheck` (its `faq-coverage` premise gates the claim rows), the completeness `evidence` premise, and `fact-present`; it is **deliberately stricter** than `validate`/`check` on the FAIL classes (declared in §7.1) |
+| `pasco entity [--json \| --jsonld [--out <file> [--force]] [--bare]] [--lang <l>]` | the **entity projection** for surfaces this engine does not render (issue #287): the schema.org entity assembled by `structuredData()` — `@id`, `sameAs`, type and fields — plus the readiness `gaps` (geoCheck codes, verbatim). `--json` emits `{ schemaVersion: "1", entity: { id, type, name, sameAs, email }, gaps: [{ code, detail }], jsonld: null }`; `--jsonld` emits the **same assembler output** the renderers embed, as a paste-ready `<script type="application/ld+json">` block (`--bare` = the bare object, `--out <file>` writes it atomically and refuses an existing file without `--force`). **Both modes resolve one `lang`** (`--lang`, else `.pascorc defaults.lang`) so a gap and the emitted field cannot disagree. **One assembler, no CLI-local builder**: the projection never invents `@id` and never re-derives the entity (§15.4). Exit `1` when `@id` is absent (the entity has no declared home) or the `--out` write fails; `0` otherwise; `2` is usage. Offline and deterministic (D19). Contract: §7.2 |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22). **The read report also ends with the derived publication truth per surface (§20.1, #242): ledger · artifact-vs-SSOT · declared cap — computed on every read, stored nowhere** |
 | `pasco skills:export <dir> [--force] [--list]` | copy the skill channels **this package ships** into a directory the user names; `--force` overlays an existing non-empty directory (nothing is deleted), `--list` shows the channels. No per-agent destination is invented. Skill lookup reads only the package's own `skills/`, an explicit `PASCO_SKILLS_DIR`, or the marked workspace checkout (developers) — #253/#254 |
@@ -480,6 +483,79 @@ presence unit on 2026-10-23 (#262: `surface.kind`, `releases[]`, the presence-fi
 unit). The decision is closed; what is missing is its normative entry (§21, next id
 after D22), owned by that issue. Until it lands, `audit` ships against today's
 contract — the workspace identity — and does not pre-empt it.
+
+### 7.2 `pasco entity` — the entity projection (issue #287)
+
+`audit` is the diagnostic surface and `entity` is the fix surface: the same
+schema.org entity the renderers embed, exposed as an artifact for a surface this
+engine does not render (WordPress, Webflow, a landing page). The projection is a
+**view** (D22), never a stored artifact, and it has exactly **one assembler** —
+`core/src/structured-data.ts` (§15.4). The CLI composes it; a CLI-local builder
+would recreate the two-emitters drift class the module exists to prevent.
+
+**`--json` (v1, frozen).** The usual CLI envelope carries this `data`:
+
+```json
+{
+  "schemaVersion": "1",
+  "entity": { "id": "https://…", "type": "Person", "name": "…", "sameAs": ["…"], "email": "…" },
+  "gaps": [ { "code": "geo/entity-id", "detail": "…" } ],
+  "jsonld": null
+}
+```
+
+- `entity.id` is the `@id` — the URL of the `role: identity` link — or `null` when
+  none exists. It is **never invented** (#103): the field and `gaps` say the same
+  thing. `type` is the `structuredData()` `entityType` (`Person` / `Organization`);
+  `name` and `sameAs` are the assembler's own values; `email` is `null` when the
+  workspace declares none.
+- `gaps` are the `geoCheck` checks of its **structured-data section** that scored
+  below 1, with `code` and `detail` **verbatim** — no new vocabulary, no threshold
+  re-derived. The section is the entity's readiness contract (`geo/entity-id`,
+  `geo/sameas-links`, `geo/structured-person`); other GEO codes belong to their own
+  surfaces.
+- `jsonld` is always `null` in `--json`: the artifact has its own mode, so a
+  consumer that wants the view does not also parse an embedded copy. The string
+  `"1"` is the contract version, as in §7.1.
+- **One language resolution for both modes.** `lang` is `--lang`, else `.pascorc`
+  `defaults.lang`, else `en`. `--json` passes it to `geoCheck(profile, lang)`, so
+  the readiness `gaps` are measured in the same language `--jsonld` assembles: a
+  brand whose only populated `mission`/`tagline` value is `es` cannot report
+  `description`/`slogan` as missing while the block emits it.
+
+**`--jsonld`.** Emits `structuredData(profile, lang).jsonLd` — the exact object the
+renderers embed — serialized as the paste-ready block
+
+```html
+<script type="application/ld+json">
+{ … }
+</script>
+```
+
+(`--bare` emits the bare object instead; `--out <file>` writes the same bytes to a
+file). `lang` resolves exactly as in `--json` above; only the brand branch's
+`slogan`/`description` are lang-aware, but the shared default keeps the projection
+consistent with `pasco build`. `--out` writes a temp file and renames it into place
+(atomic), **refuses to overwrite an existing file unless `--force` is passed**
+(a mistyped path must not truncate the SSOT), and a write failure is the standard
+error envelope at exit `1`, never an uncaught stack. The round-trip is the
+acceptance: parsing the emitted JSON yields exactly `structuredData()`'s object,
+asserted by a test. The block is a pure serialization — no HTML escaping beyond
+`<` → `\u003c`, which JSON parsers decode identically and which prevents a URL from
+terminating the `<script>` early.
+
+**Exit matrix.** `0` when `@id` is present · `1` when it is absent (the entity has
+no declared home — the same class as the `check` matrix, #252 §S5) · `2` usage. A
+schema/load failure is the standard error envelope at exit `1` (D12), and so is a
+failed `--out` write (existing file without `--force`, ENOENT, EACCES). The exit
+code is the same under `--json`, `--jsonld` and human output; a missing `jsonLd`
+cannot occur for a schema-valid workspace (`identity.name` is required).
+
+**Non-goals in v1.** No CMS plugin, no hosted page, no web renderer (M5), no
+scoring, no HTML page. `Person` and `Organization` only (whichever the flavor
+assembles), together with the §18.9 `hasCredential` / `CreativeWork` entries
+`structured-data.ts` already builds. `FAQPage` / `Service` / `BreadcrumbList`
+arrive with the schema issue, not here. Offline, no clock, no AI (D19).
 
 ## 8. GEO as a cross-cutting layer
 
@@ -653,7 +729,7 @@ Two different "templates" (previous confusion):
 8. **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable, checksummed bundling — Q9 resolved as D19: one `assets/` dir per platform output) · deploy playbooks publish media to the public surface · git-lfs guidance · portfolio-site consumption lands **with M5** (the web renderer does not exist yet — engine-side contract ships first).
 9. **M9 (training-time corpus presence — deferred, Q10)**: outputs are designed not only for inference-time citation (GEO, layer 2) but — for owners who explicitly consent — for entry into future model training corpora (layer 3). Inputs + documented levers: `docs/research/03-training-time-visibility.md` (sourced + dated). Floor regardless of the Q10 resolution — **private-first default**: `robots.txt` on published surfaces **blocks** AI-training crawlers (CCBot / vendor AI crawlers) and user data ships **without** an open license; entering corpora or open-licensing data requires the profile owner's explicit opt-in (consent field — schema work deferred with Q10). The operator's own profiles may opt in: that consent is theirs to give. Decision (Q10): a `huggingface-dataset` renderer/exporter vs contributing to existing open datasets vs both — decided when the M3 platform SOTA research closes.
 10. **M10 (fact selection, D22/§21 — issue #235)**: `.pascorc` → `selection.views` + `selectFacts()` in core + `build --view` + `status --selection` + the five selection findings; Phase 1 is **schema-free** (selection by §19.2 key, and `artifacts[].tags` finally read as §18.9 declared). Phase 2 adds optional `tags[]` to six entry blocks (not `skills`); **Phase 3** (several views per platform, `profiles/<view>/`) needs a D19 amendment and stays out of scope until asked for.
-11. **Answer-engine surface (schema v1.10 — issues #288 → #289 → #287)**: `identity.definition` + `faq[]` (the citable facts, #288) · the `structuredData()` projection **of `definition`/`faq[]`** (`description` from `definition` + a separate `FAQPage` JSON-LD node, only when the fields exist) is **pending in #316** — the brand `description` from `mission` already ships · geoCheck v2 citability codes (#289 — freshness INFO, honest name-collision) · `pasco entity --json/--jsonld` (#287), the entity projection for surfaces the engine does not render.
+11. **Answer-engine surface (schema v1.10 — issues #288 → #289 → #287)**: `identity.definition` + `faq[]` (the citable facts, #288) · the `structuredData()` projection **of `definition`/`faq[]`** (`description` from `definition` + a separate `FAQPage` JSON-LD node, only when the fields exist) is **pending in #316** — the brand `description` from `mission` already ships · geoCheck v2 citability codes (#289 — freshness INFO, honest name-collision) · `pasco entity --json/--jsonld` (#287 — ✅ shipped, §7.2), the entity projection for surfaces the engine does not render: it emits `structuredData()`'s own output, never a second assembler.
 12. **M11 (presence audit — issue #283)**: `pasco audit --json` (§7.1) — the offline findings projection (three fixed classes, exit 1 on FAIL) over `load`/schema, `reconciledDrift`, `geoCheck`'s `faq-coverage` premise, the completeness `evidence` premise and the `fact-present` rule; `fact-present` executes in `pasco check` and compares the artifact `pasco build` last wrote against the SSOT render symmetrically. Scoring/prioritisation/branding stay in the consuming layer; the presence unit itself is #262 (D23 — operator-ratified 2026-10-23, and its normative entry into this SPEC, with its §5 register row, is pending there).
 
 ## 13. Resolved decisions (former open questions)
@@ -854,8 +930,9 @@ neither is a score.
   penalized for what it does not claim); `geo/entity-id` is a *readiness* check, so it does
   score 0 when the anchor is absent — which is why upgrading costs up to 5 points (delta (c)).
 - Entity assembly lives in **one** place: `core/src/structured-data.ts` — the single source for
-  `@id`, `sameAs` and the entity fields, consumed by `geoCheck` and every renderer. Renderers
-  never re-derive structured-data identity (the §18.9 `credentialLdEntries` precedent, applied).
+  `@id`, `sameAs` and the entity fields, consumed by `geoCheck`, every renderer and
+  `pasco entity` (§7.2). Renderers and the CLI never re-derive structured-data identity (the
+  §18.9 `credentialLdEntries` precedent, applied).
 - Facts (dates, DOIs, roles, counts) appear byte-identical to the SSOT — that is citability (§8).
 
 ### 15.5 CI + dogfood acceptance
