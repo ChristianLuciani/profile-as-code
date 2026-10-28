@@ -17,6 +17,7 @@ import { parseArgs } from "node:util";
 import { runAudit } from "./commands/audit.js";
 import { runBuild } from "./commands/build.js";
 import { runCheck } from "./commands/check.js";
+import { runCiteCheck } from "./commands/cite-check.js";
 import { runDiff } from "./commands/diff.js";
 import { runEdit } from "./commands/edit.js";
 import { runEntity } from "./commands/entity.js";
@@ -77,6 +78,10 @@ Commands:
                                 readiness gaps as JSON, or the paste-ready JSON-LD block
                                 the renderers embed; for surfaces the engine does not
                                 render. Exit 1 when @id is absent (no declared home)
+  cite-check [<answers.ndjson>] Match the workspace's entity against saved answer-engine
+          [--json]              answers (NDJSON; stdin when no path). Offline, no model,
+                                no clock: per answer it reports cited · confidence · spans
+                                · reasons, never a rate; exit 2 on malformed NDJSON
   post <subcommand>             MVP (week-1 experiment): seed → task bundle → choose →
                                 check → optional Postiz draft payload. No LLM call.
                                 Subcommands: seed · task · choose · check · export · import · list
@@ -99,7 +104,9 @@ Common flags (after the command):
 Exit codes: 0 ok · 1 schema/workspace failure, or a data finding that blocks the
 command (edit: the address is not one row or the edit does not change the
 published artifact; audit: at least one FAIL finding; entity: no canonical @id;
-export ai-policy: an unsourced or stale UA list, or a refused write) · 2 usage error. Drift warnings exit 0 (D12: facts warn, schema fails).
+export ai-policy: an unsourced or stale UA list, or a refused write;
+cite-check: the input file cannot be read) · 2 usage error (cite-check: malformed
+NDJSON, never a silent skip). Drift warnings exit 0 (D12: facts warn, schema fails).
 
 pasco is free (MIT). Consider a tip ;)
   https://ko-fi.com/christianluciani · https://github.com/sponsors/ChristianLuciani
@@ -297,6 +304,37 @@ the schema.org entity the renderers embed, exposed as an artifact.
 Exit: 0 when @id is present · 1 when it is absent (the entity has no declared home;
 the JSON-LD is still emitted, without @id) · 2 usage error. Offline and
 deterministic: no network, no clock, no AI.`,
+  "cite-check": `pasco cite-check [<answers.ndjson>] [--json] [--workspace <path>]
+Match the workspace's declared entity against SAVED answer-engine answers
+(SPEC §7.4, issue #291). The input is the runner's NDJSON, one object per line
+— the engine produces none of it:
+  { "engine": "chatgpt", "askedAt": "<iso>", "question": "…", "answer": "…",
+    "citations": [ { "url": "https://…", "title": "…" } ] }
+Read from the path, or from stdin when no path is given (or "-"). Blank lines
+are ignored; ANY other malformed line aborts the read with the 1-based line and
+the field — never a silent skip.
+The match ladder is fixed (SPEC §7.4), one rung per kind:
+  citation-url  a citation host that is the entity's own or its sameAs set   HIGH
+  exact-name    the full name, word-bounded, case/accent-normalized         HIGH
+  alias         identity.orgName                                           MEDIUM
+  handle        a declared handle (identity.handle, claimed socialHandles)  MEDIUM
+  partial       a multi-token prefix of the name                             LOW
+Matching is accent-insensitive (Domínguez = Dominguez) and word-bounded, so
+"pasco" does not match inside "pascoño". confidence "low" is NEVER a citation
+in a downstream report; the engine may say cited: true with low, and the
+consumer must refuse it.
+It refuses to guess: a hit inside a longer capitalised phrase the text carries
+(competing:<phrase>), a one-word name whose sentence has no declared
+disambiguator (ambiguous-term:<term> + no-qualifier), a mention after a contrast
+marker (contrast-context) and a term contained in a longer declared term
+(longer-name:<term>) are all quoted in reasons[] as NOT citations.
+--json emits the frozen contract { schemaVersion: "1", entity: { name, aliases,
+handles, partials, hosts }, answers: [ { line, engine, askedAt, question, cited,
+confidence, spans, reasons } ] } inside the usual envelope — one row per input
+line, in input order, NEVER aggregated (no rate, no score, no total).
+Exit: 0 a successful read, whatever the matches (a non-citation is data) ·
+1 the workspace cannot load, or the input path cannot be read · 2 usage, or
+malformed NDJSON. Offline and deterministic: no network, no model, no clock.`,
   export: `pasco export ai-policy [--out <dir> | --check] [--lang <l>] [--json] [--workspace <path>]
 The §12 M9 stance as an artifact. Two modes, deliberately separate (one
 writes, one verifies):
@@ -549,6 +587,21 @@ async function runMain(): Promise<number> {
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       const pascorc = readWorkspacePascorc(workspace);
       return runAudit({ workspace, pascorc });
+    }
+    case "cite-check": {
+      const { flags, positionals } = parseCommandFlags(rest);
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP["cite-check"]}\n`);
+        return EXIT.OK;
+      }
+      if (positionals.length > 1) {
+        throw new UsageError(
+          "usage: pasco cite-check [<answers.ndjson>] [--json] [--workspace <path>]",
+        );
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      return runCiteCheck({ workspace, input: positionals[0] });
     }
     case "entity": {
       const { flags, positionals } = parseCommandFlags(rest, {

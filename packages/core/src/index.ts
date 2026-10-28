@@ -9,6 +9,21 @@
  *  UTF-16 code units, ICU-free; every engine sort that breaks ties by string
  *  delegates here. */
 export { byteOrder } from "./byte-order.js";
+export type {
+  CiteAnswer,
+  CiteCitation,
+  CiteConfidence,
+  CiteMatch,
+  CiteSpan,
+  CiteSpanKind,
+  CiteVocabulary,
+} from "./cite.js";
+/**
+ * The deterministic citation matcher over saved answer-engine answers
+ * (SPEC §7.4, #291) — pure, offline, no model. `citeVocabulary` is the declared
+ * vocabulary it resolves; `citeMatch` is the per-answer result.
+ */
+export { citationHost, citeMatch, citeVocabulary } from "./cite.js";
 export type { CompilePolicy } from "./compile.js";
 export { compile } from "./compile.js";
 export type {
@@ -82,6 +97,12 @@ export {
 } from "./load.js";
 export type { CollectMediaOptions, ManifestEntry, MediaAsset, MediaBundle } from "./media.js";
 export { artifactAssetTarget, collectMedia, DEFAULT_MAX_BYTES, mediaManifest } from "./media.js";
+export type { FoldedText, TermOccurrence } from "./normalize.js";
+/**
+ * The ONE case- and accent-folding every engine comparison uses (SPEC §8,
+ * #291) — shared by `geoCheck` and `cite-check`, never re-implemented.
+ */
+export { findTerm, foldForMatch, isWordBounded, normalizeText, termOccursIn } from "./normalize.js";
 export type { RegistryFinding, RegistryIssue } from "./registry.js";
 export {
   checkRegistryIntegrity,

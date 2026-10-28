@@ -31,6 +31,7 @@
  */
 
 import { driftCheck } from "./drift.js";
+import { normalizeText } from "./normalize.js";
 import { linksWithRole, sameAsUrls, structuredData } from "./structured-data.js";
 import type {
   GeoCheck,
@@ -93,7 +94,7 @@ function semanticAnchors(profile: Profile): SemanticAssociationCoverage {
   const rawAnchors = (profile.positioning?.geo?.semanticAssociations ?? [])
     .map((a) => a.trim())
     .filter(Boolean);
-  const anchors = rawAnchors.map((a) => a.toLowerCase());
+  const anchors = rawAnchors.map((a) => normalizeText(a));
   if (anchors.length === 0) return { anchors: [], reinforced: [], missing: [], coverage: 0 };
 
   const haystack: string[] = [
@@ -108,7 +109,7 @@ function semanticAnchors(profile: Profile): SemanticAssociationCoverage {
   for (const project of profile.projects ?? []) {
     haystack.push(...(project.keywords ?? []), ...langValues(project.description));
   }
-  const normalized = haystack.map((text) => text.trim().toLowerCase());
+  const normalized = haystack.map((text) => normalizeText(text));
 
   const reinforced: string[] = [];
   const missing: string[] = [];
@@ -233,11 +234,11 @@ function readFreshness(profile: Profile, now: number = Date.now()): FreshnessRea
  *  cap is ALSO schema-enforced (max 160, #288) — the geo rule repeats it as
  *  defense-in-depth for direct callers, the same reading as the faq floor. */
 function definitionFailures(profile: Profile): string[] {
-  const name = (profile.identity.name ?? "").toLowerCase();
+  const name = normalizeText(profile.identity.name ?? "");
   const out: string[] = [];
   for (const [lang, v] of definitionEntries(profile)) {
     if (v.length > 160) out.push(`definition[${lang}] exceeds 160 chars`);
-    else if (name === "" || !v.toLowerCase().includes(name))
+    else if (name === "" || !normalizeText(v).includes(name))
       out.push(`definition[${lang}] does not contain the entity name`);
   }
   return out;
@@ -249,7 +250,7 @@ function definitionFailures(profile: Profile): string[] {
  *  invented: both count ONLY when declared. The `identity.links[]` roles
  *  (identity/realization/aggregator, v1.6) are a DIFFERENT kind of role and
  *  never count here. */
-function collisionQualifiers(profile: Profile): string[] {
+export function disambiguationQualifiers(profile: Profile): string[] {
   const out: string[] = [];
   const location = profile.identity.location;
   if (location) out.push(location);
@@ -274,10 +275,10 @@ function nameCollisionObservation(profile: Profile): NameCollisionObservation {
   if (!name || /\s/.test(name)) return { kind: "multi-word" };
   const entries = definitionEntries(profile);
   if (entries.length === 0) return { kind: "no-definition" };
-  for (const qualifier of collisionQualifiers(profile)) {
-    // Case-insensitive: the same rule the name containment applies — a
-    // definition that mentions the qualifier in another case STILL says it.
-    if (entries.some(([, v]) => v.toLowerCase().includes(qualifier.toLowerCase())))
+  for (const qualifier of disambiguationQualifiers(profile)) {
+    // Case- and accent-insensitive (the ONE normalizer, #291): a definition
+    // that mentions the qualifier in another case STILL says it.
+    if (entries.some(([, v]) => normalizeText(v).includes(normalizeText(qualifier))))
       return { kind: "qualified", qualifier };
   }
   return { kind: "unqualified" };

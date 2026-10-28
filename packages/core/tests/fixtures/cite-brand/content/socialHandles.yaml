@@ -1,0 +1,7 @@
+- platform: x
+  handle: daseo
+  status: claimed
+  url: https://x.com/daseo
+- platform: instagram-standalone
+  handle: daseo.pending
+  status: pending
