@@ -55,16 +55,19 @@ The schema is the contract.
 `;
 
 /**
- * A synthetic repo root. `docs` and `templates` are `{ "rel/path": content }`,
- * so a case can put a reference exactly where it wants it. The issue-template
- * directory is always present (it is required by the gate), and the allowlist is
- * per tree so the real one cannot leak into a case.
+ * A synthetic repo root. `docs`, `templates` and `files` are
+ * `{ "rel/path": content }`, so a case can put a reference exactly where it
+ * wants it. The required scope roots (issue templates, skills, packages,
+ * schema, platform registry) are always present — the gate refuses a missing
+ * required surface — and the allowlist is per tree so the real one cannot leak
+ * into a case.
  */
 function makeTree({
   readme = "The register is §5; D1 and D2.\n",
   spec = SPEC,
   docs = {},
   templates = { "feature_request.yml": "Check D1 before filing.\n" },
+  files = {},
   allowlist = { pendingReferences: [] },
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), "spec-drefs-"));
@@ -75,10 +78,15 @@ function makeTree({
   write(root, "AGENTS.md", "");
   write(root, ".github/pull_request_template.md", "");
   write(root, "scripts/spec-drefs/allowlist.json", JSON.stringify(allowlist, null, 2));
+  write(root, "skills/README.md", "");
+  write(root, "packages/core/README.md", "");
+  write(root, "schema/README.md", "");
+  write(root, "platforms/registry.yaml", "");
   for (const [rel, content] of Object.entries(docs)) write(root, `docs/${rel}`, content);
   for (const [rel, content] of Object.entries(templates)) {
     write(root, `.github/ISSUE_TEMPLATE/${rel}`, content);
   }
+  for (const [rel, content] of Object.entries(files)) write(root, rel, content);
   return root;
 }
 
@@ -156,6 +164,22 @@ try {
       res.out.trim(),
     );
   }
+  // ── F1: every prose surface that cites the register is in scope ───────────
+  for (const [label, rel] of [
+    ["skills/ (shipped by the CLI)", "skills/github-readme/SKILL.md"],
+    ["a package README", "packages/core/README.md"],
+    ["a renderer README", "packages/renderers/kofi/README.md"],
+    ["schema/README.md", "schema/README.md"],
+    ["platforms/registry.yaml", "platforms/registry.yaml"],
+  ]) {
+    const root = tree({ files: { [rel]: "See D9.\n" } });
+    const res = run(root, ["--check"]);
+    check(
+      `${label} is in scope`,
+      res.code === 1 && res.out.includes(`${rel}:1 → D9`),
+      res.out.trim(),
+    );
+  }
   {
     const spec = SPEC.replace("The schema is the contract.", "D9 is discussed here.");
     const root = tree({ spec });
@@ -163,6 +187,20 @@ try {
     check(
       "the register file itself is scanned (a dangling ref outside §5 refuses)",
       res.code === 1 && res.out.includes("docs/SPEC.md:12 → D9"),
+      res.out.trim(),
+    );
+  }
+
+  // ── F2: one row per decision ──────────────────────────────────────────────
+  {
+    const spec = SPEC.replace("| D2 | Text-first YAML | x |", "| D1 | Duplicate row | x |");
+    const root = tree({ spec });
+    const res = run(root, ["--check"]);
+    check(
+      "a duplicated §5 row refuses with both line numbers",
+      res.code === 1 &&
+        res.out.includes("§5 defines D1 twice (lines 7 and 8)") &&
+        res.out.includes("one row per decision"),
       res.out.trim(),
     );
   }
@@ -185,6 +223,15 @@ try {
     check(
       "an ASCII-hyphen range refuses too (the sweep regex shape)",
       res.code === 1 && res.out.includes("D1-D2"),
+      res.out.trim(),
+    );
+  }
+  for (const phrase of ["D1 through D2", "D1..D2", "D 1 - D 2", "D1…D2", "D1—D2"]) {
+    const root = tree({ readme: `Decisions ${phrase} are settled.\n` });
+    const res = run(root, ["--check"]);
+    check(
+      `the range form "${phrase}" refuses`,
+      res.code === 1 && res.out.includes(phrase),
       res.out.trim(),
     );
   }

@@ -4,7 +4,7 @@
     {
       "ref": "D23",
       "path": "docs/SPEC.md",
-      "reason": "D23 (presence audit) is operator-ratified 2026-10-23, and the register's own prose says its entry and §5 row are pending (#262, open). The reference lives in docs/SPEC.md itself (§13 Q-answer and the M11 roadmap row), not in a reader-facing on-ramp.",
+      "reason": "D23 (presence audit) is operator-ratified 2026-10-23, and the register's own prose says its entry and §5 row are pending (#262, open). The reference lives in docs/SPEC.md itself (§7.1:483 and §12:1022), not in a reader-facing on-ramp.",
       "removalTrigger": "#262 adds the `| D23 |` row to docs/SPEC.md §5"
     }
   ]

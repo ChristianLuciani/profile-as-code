@@ -14,7 +14,10 @@ import { realpathSync } from "node:fs";
  *   E-GATE  a `D<n>` cited anywhere in scope does not resolve to a §5 row —
  *           a decision number whose definition a reader cannot open;
  *   E-GATE  a surface types the register's EXTENT as a range (`D1–D18`,
- *           `D1-D18`) instead of pointing at §5 — the drift class itself;
+ *           `D1-D18`, `D1..D18`, `D1 through D18`, `D 1 - D 18`) instead of
+ *           pointing at §5 — the drift class itself;
+ *   E-GATE  `docs/SPEC.md` §5 defines the same `D<n>` twice — a duplicated row
+ *           would let one of the two definitions ship silently;
  *   E-GATE  `scripts/spec-drefs/allowlist.json` is malformed, or declares a
  *           pending reference outside the scanned scope;
  *   W-ALLOWLIST-UNUSED  a pending entry nothing references;
@@ -22,12 +25,17 @@ import { realpathSync } from "node:fs";
  *           Both warnings are non-fatal: the registry cannot rot silently, and
  *           the gate never fails for a debt it already declared.
  *
- * The scope is the surfaces the issue names — README, CONTRIBUTING, GOVERNANCE,
- * AGENTS, every `docs/**` Markdown file (the register itself included) and the
- * PR + issue templates. CHANGELOG is deliberately OUT: it is a dated historical
- * record, and rule 8 leaves historical records alone. `site/` is OUT: it is
- * projected from these files, never a second copy. Hidden trees and
- * `node_modules` are skipped.
+ * The scope is every prose surface that cites the register: README,
+ * CONTRIBUTING, GOVERNANCE, AGENTS, every `docs/**`, `skills/**` and package
+ * `README.md` Markdown file (the register itself included), `schema/README.md`,
+ * the platform registry's comments, and the PR + issue templates. `skills/**`
+ * and the package READMEs are PUBLISHED surfaces — the CLI ships the skills —
+ * so they are reader-facing like the rest. CHANGELOG is deliberately OUT: it is
+ * a dated historical record, and rule 8 leaves historical records alone. `site/`
+ * is OUT: it is projected from these files, never a second copy. Comments in
+ * `.ts`/`.js` source are OUT too — declared here rather than silently dropped:
+ * they are code annotations, not reader-facing prose, and the issue scoped the
+ * census to documents. Hidden trees and `node_modules` are skipped.
  *
  * `allowlist.json` is the ONE declared exception channel, the same shape as
  * `scripts/link-check/allowlist.json`: an entry names the ref, the file, the
@@ -47,7 +55,7 @@ import { realpathSync } from "node:fs";
  *
  * Usage:  node scripts/spec-drefs/check.mjs [--root DIR] [--check]
  */
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -60,14 +68,27 @@ const ALLOWLIST_REL = "scripts/spec-drefs/allowlist.json";
 const ROOT_SURFACES = ["README.md", "CONTRIBUTING.md", "GOVERNANCE.md", "AGENTS.md"];
 const PR_TEMPLATE_REL = ".github/pull_request_template.md";
 const ISSUE_TEMPLATE_REL = ".github/ISSUE_TEMPLATE";
+const SKILLS_DIR = "skills";
+const PACKAGES_DIR = "packages";
+const SCHEMA_README_REL = "schema/README.md";
+const PLATFORM_REGISTRY_REL = "platforms/registry.yaml";
 
 const SECTION_5 = /^##\s+5\.\s+Decisions\b/;
 const HEADING = /^##\s+/;
 const REGISTER_ROW = /^\|\s*(D\d+)\s*\|/;
 const DREF = /\bD(\d+)\b/g;
-const RANGE = /\bD\d+\s*[–—-]\s*D\d+\b/g;
+/**
+ * The register's EXTENT, in every form prose has used for it: dash (en/em/ASCII,
+ * one or two hyphens), ellipsis (two dots or `…`), and the word `through`. The
+ * spaces are tolerated because "D 1 - D 2" is the same claim as "D1–D2"; the
+ * digits stay anchored to a `D`, so ordinary prose cannot match.
+ */
+const RANGE = /\bD\s*\d+\s*(?:[–—]|--|-|\.{2,}|…|through)\s*D\s*\d+\b/gi;
 
 const normalize = (value) => value.split(path.sep).join("/");
+
+/** Code-unit order, matching `link-check`/`gen-packages` (never ICU collation). */
+const byCodeUnit = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
 
 /** The `| D<n> |` rows of `docs/SPEC.md` §5, with the line that defines each. */
 export function parseRegister(source) {
@@ -80,7 +101,14 @@ export function parseRegister(source) {
   for (let i = start + 1; i < lines.length; i++) {
     if (HEADING.test(lines[i])) break;
     const match = lines[i].match(REGISTER_ROW);
-    if (match && !rows.has(match[1])) rows.set(match[1], i + 1);
+    if (!match) continue;
+    const previous = rows.get(match[1]);
+    if (previous !== undefined) {
+      throw new GateError(
+        `${SPEC_REL}: §5 defines ${match[1]} twice (lines ${previous} and ${i + 1}) — the register has one row per decision`,
+      );
+    }
+    rows.set(match[1], i + 1);
   }
   if (rows.size === 0) {
     throw new GateError(`${SPEC_REL} §5 lists no \`| D<n> |\` row`);
@@ -88,25 +116,25 @@ export function parseRegister(source) {
   return rows;
 }
 
-/** Every `docs/**` Markdown file, deterministic order, hidden trees skipped. */
-async function walkDocs(root) {
+/** Every `*.md` under `directory`, deterministic order, hidden trees skipped. */
+async function walkMarkdown(root, directory) {
   const found = [];
-  async function visit(directory) {
+  async function visit(relative) {
     let entries;
     try {
-      entries = await readdir(path.join(root, directory), { withFileTypes: true });
+      entries = await readdir(path.join(root, relative), { withFileTypes: true });
     } catch (error) {
-      throw new GateError(`cannot read ${directory}/: ${error.message}`);
+      throw new GateError(`cannot read ${relative}/: ${error.message}`);
     }
-    entries.sort((a, b) => a.name.localeCompare(b.name));
+    entries.sort(byCodeUnit);
     for (const entry of entries) {
       if (entry.name.startsWith(".") || entry.name === "node_modules") continue;
-      const child = `${directory}/${entry.name}`;
+      const child = `${relative}/${entry.name}`;
       if (entry.isDirectory()) await visit(child);
       else if (entry.isFile() && entry.name.endsWith(".md")) found.push(child);
     }
   }
-  await visit("docs");
+  await visit(directory);
   return found;
 }
 
@@ -124,10 +152,64 @@ async function issueTemplates(root) {
     .sort();
 }
 
+/** Does this repo-relative path name a regular file? (`ENOENT` = simply absent.) */
+async function isFile(root, relative) {
+  try {
+    return (await stat(path.join(root, relative))).isFile();
+  } catch (error) {
+    if (error.code === "ENOENT" || error.code === "ENOTDIR") return false;
+    throw new GateError(`cannot stat ${relative}: ${error.message}`);
+  }
+}
+
+/** The READMEs a reader opens: top-level packages and every renderer adapter. */
+async function packageReadmes(root) {
+  const found = [];
+  let entries;
+  try {
+    entries = await readdir(path.join(root, PACKAGES_DIR), { withFileTypes: true });
+  } catch (error) {
+    throw new GateError(`cannot read ${PACKAGES_DIR}/: ${error.message}`);
+  }
+  entries.sort(byCodeUnit);
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    const relative = `${PACKAGES_DIR}/${entry.name}/README.md`;
+    if (await isFile(root, relative)) found.push(relative);
+    if (entry.name !== "renderers") continue;
+    let renderers;
+    try {
+      renderers = await readdir(path.join(root, PACKAGES_DIR, "renderers"), {
+        withFileTypes: true,
+      });
+    } catch (error) {
+      throw new GateError(`cannot read ${PACKAGES_DIR}/renderers/: ${error.message}`);
+    }
+    renderers.sort(byCodeUnit);
+    for (const renderer of renderers) {
+      if (!renderer.isDirectory()) continue;
+      const adapter = `${PACKAGES_DIR}/renderers/${renderer.name}/README.md`;
+      if (await isFile(root, adapter)) found.push(adapter);
+    }
+  }
+  return found;
+}
+
 /** The scoped surfaces, each read once. */
 export async function collectSurfaces(root) {
-  const docs = await walkDocs(root);
-  const files = [...ROOT_SURFACES, PR_TEMPLATE_REL, ...docs, ...(await issueTemplates(root))];
+  const docs = await walkMarkdown(root, "docs");
+  const skills = await walkMarkdown(root, SKILLS_DIR);
+  const packages = await packageReadmes(root);
+  const files = [
+    ...ROOT_SURFACES,
+    PR_TEMPLATE_REL,
+    ...docs,
+    ...(await issueTemplates(root)),
+    ...skills,
+    ...packages,
+    SCHEMA_README_REL,
+    PLATFORM_REGISTRY_REL,
+  ];
   const surfaces = [];
   for (const file of files) {
     try {
