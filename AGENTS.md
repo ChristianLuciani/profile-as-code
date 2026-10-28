@@ -34,6 +34,7 @@ per-user private repo (`profile-data`), scaffolded from the template
 | `scripts/site-docs/` | Projects the reading docs + the site-root artifacts (404, sitemap, robots, llms.txt, AGENTS.md) into gitignored files | issues #277/#279 · Markdown is the only copy; add a doc = one entry in `site-config.mjs` |
 | `scripts/site-check/` | Page gates (CI + pre-publish): ids, anchors, local paths, no scripts (JSON-LD is the only exception) — on every page; version claim vs the CLI manifest | issues #201/#277/#279 |
 | `scripts/dep-gate/` | D20 scope self-test (CI): server→core only, core never reaches server | issue #98 |
+| `scripts/release-rehearsal/` | Pre-publish rehearsal of the seam cohort: publish order, packed manifests, `workspace:*` rewrite — packs, publishes nothing | issue #313 · offline; runs on manifest PRs and as a barrier inside `release.yml` |
 
 ## Rules for agents (in addition to CONTRIBUTING.md)
 
@@ -101,6 +102,7 @@ pnpm gen:packages                 # list/verify the workspace package inventory
 node scripts/gen-platforms/gen.mjs --check   # assert the projections are fresh
 node scripts/gen-packages/gen.mjs --check    # assert the Map covers every package
 node scripts/evidence-gate/check.mjs         # assert run-citations are anchored reachably
+pnpm rehearse:release                        # pack the seam cohort + assert order/manifests, publishes nothing
 pnpm site                                    # project the docs into site/docs/ + gate every page
                                              # + assert every published version claim matches the CLI manifest
 python3 -m venv /tmp/schema-venv && /tmp/schema-venv/bin/pip install jsonschema pyyaml

@@ -22,7 +22,8 @@
     "gen:doc-links": "node scripts/link-check/check.mjs",
     "gen:packages": "node scripts/gen-packages/gen.mjs",
     "gen:site-docs": "node scripts/site-docs/gen.mjs",
-    "site": "node scripts/site-docs/gen.mjs && node scripts/site-check/check.mjs && node scripts/site-check/version-check.mjs"
+    "site": "node scripts/site-docs/gen.mjs && node scripts/site-check/check.mjs && node scripts/site-check/version-check.mjs",
+    "rehearse:release": "node scripts/release-rehearsal/check.mjs"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",

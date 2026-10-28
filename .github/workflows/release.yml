@@ -171,6 +171,19 @@ jobs:
         env:
           SITE_REF: ${{ steps.guard.outputs.commit }}
 
+      # Issue #313: the cohort loop's first real publish is irreversible, and until
+      # a seam version bump it has only ever SKIPPED (v0.3.6). This barrier packs
+      # the five with the same client (`pnpm`, whose `workspace:*` rewrite is the
+      # #301 mechanism), offline, and asserts the publish ORDER against the
+      # workspace dependency graph, the shipped manifests (public access, rewrite
+      # target, resolvable entrypoints, repository.url) and the loop's own
+      # mechanism. It publishes nothing and needs no token: a broken manifest now
+      # fails BEFORE npm, instead of consuming a version. Same gate as
+      # `.github/workflows/release-rehearsal.yml`; what it cannot check (the OIDC
+      # exchange, the registry state, attestations) is #313's open evidence.
+      - name: Rehearse the seam cohort (packs, publishes nothing) — issue #313
+        run: node scripts/release-rehearsal/check.mjs
+
       # Multi-package publish (issue #301; it executes the decision recorded in
       # #259, 2026-10-21): the five seam packages publish BEFORE the CLI, in
       # dependency order — core → markdown → paste → artifact → github → cli —
