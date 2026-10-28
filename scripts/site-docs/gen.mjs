@@ -35,6 +35,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { marked } from "marked";
 import { gfmHeadingId } from "marked-gfm-heading-id";
+import { parse as parseYaml } from "yaml";
 /** Site config + reading set: one home, also what the release barrier scans. */
 import { DOCS, SITE } from "./site-config.mjs";
 
@@ -456,18 +457,90 @@ ${urls}
 }
 
 /**
- * `robots.txt` is host-scoped (RFC 9309): for a project site served under
- * `/<repo>/` crawlers never fetch this file. It ships anyway — it becomes
- * correct the day a custom domain exists, and it costs nothing.
+ * The project site's `robots.txt` — the SAME AI policy the engine ships to users
+ * (#290 review F3). It used to emit `User-agent: * / Allow: /`, the wildcard
+ * allow-all that `pasco export ai-policy` calls a contradiction of the M9 floor:
+ * the engine's own published surface stated the opposite policy in the one file
+ * a crawler reads.
+ *
+ * The crawler list has ONE home — the `ai:` block of `platforms/registry.yaml`
+ * (the block `pnpm gen:platforms` projects into the engine). This function reads
+ * it and renders the same two named groups, so there is no second list to drift;
+ * the structure (two groups, no wildcard, one comment per token naming its
+ * operator/source/date) mirrors `packages/cli/src/commands/export.ts`.
+ *
+ * The file is host-scoped (RFC 9309): for a project site served under `/<repo>/`
+ * crawlers never fetch it. It ships anyway — it becomes effective the day a
+ * custom domain serves the root, and it must not state the wrong policy then.
  */
-function buildRobots() {
-  return `# Project site: robots.txt is host-scoped (RFC 9309). Effective once a
-# custom domain serves this site at the host root.
-User-agent: *
-Allow: /
+function loadAiPolicy() {
+  const file = path.join(ROOT, "platforms", "registry.yaml");
+  let registry;
+  try {
+    registry = parseYaml(readFileSync(file, "utf8"));
+  } catch (error) {
+    throw new Error(`robots.txt: cannot read ${file} — ${error.message}`);
+  }
+  const ai = registry?.ai;
+  if (ai?.policy === undefined || ai.crawlers === undefined) {
+    throw new Error("robots.txt: platforms/registry.yaml declares no `ai:` policy block");
+  }
+  const rows = Object.entries(ai.crawlers).map(([slug, entry]) => ({ slug, ...entry }));
+  for (const family of ["retrieval", "training"]) {
+    if (!rows.some((row) => row.family === family)) {
+      throw new Error(`robots.txt: no "${family}" crawler in the ai policy (#290)`);
+    }
+  }
+  return { policy: ai.policy, rows };
+}
 
-Sitemap: ${SITE_URL}/sitemap.xml
-`;
+function buildRobots({ policy, rows }) {
+  const group = (family, rule, why) => {
+    const listed = rows.filter((row) => row.family === family);
+    return [
+      `# ai-${family} — ${why} (ai-policy v${policy.version}, as of ${policy.as_of})`,
+      ...listed.flatMap((row) => [
+        `#   ${row.slug} · ${row.operator} · source ${row.source} · as of ${row.as_of}`,
+        `User-agent: ${row.ua}`,
+      ]),
+      `${rule}: /`,
+      "",
+    ];
+  };
+
+  const robots = [
+    `# robots.txt — the project site, under the same AI policy pasco ships to users`,
+    `# (ai-policy v${policy.version}).`,
+    `# Retrieval is allowed for the crawlers listed under ai-retrieval; the crawlers`,
+    `# listed under ai-training are disallowed. This is an EXPLICIT LIST, with no`,
+    `# \`User-agent: *\` group: a crawler that is not listed here is not restricted`,
+    `# by this file (RFC 9309 §2.2.1). The crawler list has one home — the ai: block`,
+    `# of platforms/registry.yaml — and this file is a projection of it.`,
+    `# Host-scoped (RFC 9309): effective once a custom domain serves the root.`,
+    "",
+    ...group("retrieval", "Allow", "allowed: the output is a citation"),
+    ...group("training", "Disallow", "disallowed: the training crawlers this policy names"),
+    `Sitemap: ${SITE_URL}/sitemap.xml`,
+    "",
+  ].join("\n");
+
+  // Structural assertions before anything is written: the site must not publish
+  // a policy the registry does not state.
+  if (/^User-agent: \*/m.test(robots)) {
+    throw new Error("robots.txt: a wildcard group reappeared — the policy is an explicit list");
+  }
+  for (const row of rows) {
+    const occurrences = robots.split(`User-agent: ${row.ua}\n`).length - 1;
+    if (occurrences !== 1) {
+      throw new Error(
+        `robots.txt: ${row.ua} appears ${occurrences} time(s) — expected exactly once`,
+      );
+    }
+  }
+  if (!robots.includes(`Sitemap: ${SITE_URL}/sitemap.xml`)) {
+    throw new Error("robots.txt: missing the sitemap line");
+  }
+  return robots;
 }
 
 function h2Anchors(html) {
@@ -586,7 +659,7 @@ const entries = [
 
 const sitemap = buildSitemap(entries);
 const llms = buildLlmsTxt(docs);
-const robots = buildRobots();
+const robots = buildRobots(loadAiPolicy());
 const notFound = buildNotFound();
 const siteAgents = buildSiteAgents(docs);
 

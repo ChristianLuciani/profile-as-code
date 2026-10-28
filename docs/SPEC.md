@@ -378,7 +378,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco check [platform]` | run skill-declared checks before deploy; char limits accept an optional `surface` (`headline`/`bio`/`both`) so a title cap does not flag the bio (#240). **`fact-present`** is executed here (issue #283), **for the surfaces whose catalog declares the premise** (the workspace's `content/checks.yaml` ∪ the shipped `skills/<platform>/checks.yaml`; `link-in-identity` stays a separate premise): the artifact `pasco build` last wrote is compared **symmetrically** against the SSOT render — a URL the surface adds (dangling pointer) or omits (`contradiction`), a date or number either side carries and the other does not (`contradiction`), and a text difference no fact token explains (`contradiction`) are all findings. All are WARN (D12: facts warn), and a targeted surface with no artifact on disk reports the rule as **not run**, never as OK |
 | `pasco audit [--json]` | the **offline diagnostic projection** over the identity: findings only — no score, no prioritisation, no branding (issue #283). `--json` emits `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings: [{ class, severity, path, detail }] }` — `scope` makes "measured nothing" distinguishable from "clean" — with three fixed classes (`dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN); exit 1 iff any FAIL. Composes `load` (schema), `reconciledDrift` (drift + the #238 variant reconciliation), `geoCheck` (its `faq-coverage` premise gates the claim rows), the completeness `evidence` premise, and `fact-present`; it is **deliberately stricter** than `validate`/`check` on the FAIL classes (declared in §7.1) |
 | `pasco entity [--json \| --jsonld [--out <file> [--force]] [--bare]] [--lang <l>]` | the **entity projection** for surfaces this engine does not render (issue #287): the schema.org entity assembled by `structuredData()` — `@id`, `sameAs`, type and fields — plus the readiness `gaps` (geoCheck codes, verbatim). `--json` emits `{ schemaVersion: "1", entity: { id, type, name, sameAs, email }, gaps: [{ code, detail }], jsonld: null }`; `--jsonld` emits the **same assembler output** the renderers embed, as a paste-ready `<script type="application/ld+json">` block (`--bare` = the bare object, `--out <file>` writes it atomically and refuses an existing file without `--force`). **Both modes resolve one `lang`** (`--lang`, else `.pascorc defaults.lang`) so a gap and the emitted field cannot disagree. **One assembler, no CLI-local builder**: the projection never invents `@id` and never re-derives the entity (§15.4). Exit `1` when `@id` is absent (the entity has no declared home) or the `--out` write fails; `0` otherwise; `2` is usage. Offline and deterministic (D19). Contract: §7.2 |
-| `pasco export ai-policy [--out <dir> \| --check] [--json] [--lang <l>]` | the §12 M9 stance as an artifact (issue #290): `--out` writes `robots.txt` (two named groups — `ai-retrieval` allowed, `ai-training` blocked, each UA commented with its registry entry/operator/source/date), `llms.txt` (the workspace index, with a coverage assertion over every document it claims) and `AI-POLICY.md` (retrieval allowed · training blocked · who can change it · the date, quoting the M9 floor verbatim); `--check` exits `1` on an unsourced entry or an `as_of` older than 180 days, and `--out` refuses to write one. The crawler list is projected from `platforms/registry.yaml` (`ai:`) by `pnpm gen:platforms` — never a hardcoded UA list in the CLI. Offline; `--check` is the declared clock-reading path. Contract: §7.3 |
+| `pasco export ai-policy [--out <dir> \| --check] [--json] [--lang <l>]` | the §12 M9 stance as an artifact (issue #290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed `ai-retrieval` crawlers allowed, the listed `ai-training` crawlers disallowed; the file declares that an unlisted crawler is not restricted, each UA commented with its registry entry/operator/source/date), `llms.txt` (the workspace index, with a coverage assertion over every document it claims) and `AI-POLICY.md` (allowed · blocked · the explicit-list limit · who can change it · the date, quoting the M9 floor verbatim); `--check` exits `1` on an incomplete or unsourced entry, a duplicate token, an `as_of` that is malformed/future/older than 180 days, or a `policy.as_of` that is stale or predates its rows; `--out` refuses to write one. The crawler list is projected from `platforms/registry.yaml` (`ai:`) by `pnpm gen:platforms` — never a hardcoded UA list in the CLI. Offline; `--check` is the declared clock-reading path. Contract: §7.3 |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22). **The read report also ends with the derived publication truth per surface (§20.1, #242): ledger · artifact-vs-SSOT · declared cap — computed on every read, stored nowhere** |
 | `pasco skills:export <dir> [--force] [--list]` | copy the skill channels **this package ships** into a directory the user names; `--force` overlays an existing non-empty directory (nothing is deleted), `--list` shows the channels. No per-agent destination is invented. Skill lookup reads only the package's own `skills/`, an explicit `PASCO_SKILLS_DIR`, or the marked workspace checkout (developers) — #253/#254 |
@@ -581,9 +581,12 @@ names; it never touches the workspace itself.
 `operator` · `source` · `as_of`). `pnpm gen:platforms` projects it into
 `packages/core/src/generated/ai-policy.gen.ts` and the table below; the CLI reads
 the projection and never keeps its own UA list. `gen.mjs` refuses an entry with no
-`source`, an unknown `family`, a duplicate `ua`, a malformed `as_of`, or a
-`policy.stance` that is not present verbatim in this SPEC — so the position the
-artifact states cannot drift from the M9 floor it claims.
+`source`, no `operator`, an unknown `family`, a duplicate `ua` (compared
+**case-insensitively** — RFC 9309 §2.2.1 matches a product token without regard to
+case, so `GPTBot` and `gptbot` are one crawler), an `as_of` that is not a **real**
+date, a `policy.as_of` older than the newest row it seals, a policy with only one
+family, or a `policy.stance` that is not present verbatim in this SPEC — so the
+position the artifact states cannot drift from the M9 floor it claims.
 
 <!-- gen:ai-policy -->
 <!-- GENERATED by scripts/gen-platforms/gen.mjs from platforms/registry.yaml — do not edit by hand. -->
@@ -606,11 +609,24 @@ ai-policy v1 · as of 2026-10-27 · 7 retrieval (allowed) + 4 training (blocked)
 
 **`robots.txt` — two named groups, never one wildcard.** `ai-retrieval` is
 `Allow: /` (search/answer indexing and user-initiated fetches); `ai-training` is
-`Disallow: /` (foundation-model corpus crawlers — the M9 default). Each
+`Disallow: /` (the foundation-model corpus crawlers this policy names). Each
 `User-agent` line is preceded by a comment naming its registry entry, operator,
-source and `as_of`, so a reader can tell why a crawler is in a group. No bare
-`User-agent: *` allow-all is ever emitted: a wildcard group would contradict the
-training block on every resolver that prefers a specific group over a wildcard.
+source and `as_of`, so a reader can tell why a crawler is in a group.
+
+**The file is an EXPLICIT LIST and says so.** No `User-agent: *` group is emitted,
+and under RFC 9309 §2.2.1 a crawler whose token matches no group is **not
+restricted by this file** — so the artifact declares exactly that, in `robots.txt`
+and in `AI-POLICY.md`, instead of claiming a default it does not implement. The
+choice is deliberate: a wildcard `Disallow` would also block every search engine
+the list does not name, and a wildcard `Allow` would contradict the training
+entries. The engine states a policy over the crawlers whose classification it has
+verified against the operator's own documentation; it makes no claim about the
+rest of the web.
+
+**The project page derives the same policy.** `scripts/site-docs/gen.mjs` builds
+`site/robots.txt` from this same `ai:` block (it reads the registry; there is no
+second list), so the engine's own published surface cannot state the opposite
+policy from the one it ships.
 
 **`llms.txt` — the workspace index, with a coverage assertion.** Built in the
 shape `scripts/site-docs/gen.mjs` already uses for the project page (title,
@@ -631,11 +647,15 @@ carries the per-crawler table with each operator's own source URL, so the docume
 that answers "what is your AI policy?" is auditable line by line.
 
 **`--check`.** Fails (exit `1`) when any entry has no `source` (or a source that is
-not `http(s)`), no `family`/`operator`, a malformed, **future-dated** or
-**older-than-180-days** `as_of`, when a `ua` is duplicated, or when either group would be empty (a
-robots.txt with no training entry blocks nothing — the M9 floor is the point). It
-loads no workspace: the UA list is registry data, which is what makes the gate
-runnable in CI. `--out` runs the same check first and **refuses to write** a stale
+not `http(s)`), no `family`/`operator`, an `as_of` that is not a real calendar
+date, is **future-dated** or is **older than 180 days**, when a `ua` is duplicated
+(case-insensitively), or when either group would be empty (a robots.txt with no
+training entry blocks nothing). It also gates **`ai.policy.as_of` itself** — the
+date the artifacts print as their effective date: it must be a real date, inside
+the same 180-day window, not in the future, and **not older than the newest
+crawler row it seals** (a stamp that predates its own data is a leftover, not a
+review date). It loads no workspace: the list is registry data, which is what
+makes the gate runnable in CI. `--out` runs the same check first and **refuses to write** a stale
 or unsourced list; the write path is therefore deterministic (registry dates only)
 while `--check` is the engine's declared clock-reading path, alongside
 `status --verify` (§19.5).
@@ -644,8 +664,8 @@ while `--check` is the engine's declared clock-reading path, alongside
 { "version", "asOf", "stance", "maxAgeDays" }, "groups": { "retrieval": [...],
 "training": [...] }, "problems": [...], "files": [...] }` where each crawler row is
 `{ slug, ua, operator, source, asOf, ageDays }`, a problem is `{ kind, entry,
-detail }` (`unsourced` · `stale` · `future-dated` · `unknown-family` ·
-`duplicate-ua` · `empty-group`), and `files` (`{ name, path, bytes }`) is present only under
+detail }` (`incomplete` · `unsourced` · `stale` · `future-dated` · `policy-date` ·
+`unknown-family` · `duplicate-ua` · `empty-group`), and `files` (`{ name, path, bytes }`) is present only under
 `--out`. The string `"1"` is the contract version, as in §7.1/§7.2.
 
 **Exit matrix.** `0` ok (a clean `--check`, a successful write) · `1` a `--check`

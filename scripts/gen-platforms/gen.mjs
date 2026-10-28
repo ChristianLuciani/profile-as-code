@@ -63,6 +63,17 @@ const SPEC_AI_MARKER = "gen:ai-policy";
 const README_MARKER = "gen:platform-status";
 const AI_FAMILIES = ["retrieval", "training"];
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * A REAL calendar date, not just an ISO-shaped string (#290 review F5): a
+ * pattern-only check accepts `2026-13-45`, which parses to `NaN` and silently
+ * disables every age comparison downstream.
+ */
+const isRealDate = (value) => {
+  if (typeof value !== "string" || !ISO_DATE.test(value)) return false;
+  const ms = Date.parse(`${value}T00:00:00Z`);
+  return !Number.isNaN(ms) && new Date(ms).toISOString().slice(0, 10) === value;
+};
 const HTTP_URL = /^https?:\/\/[^\s]+$/;
 const CRAWLER_SLUG = /^[a-z0-9][a-z0-9-]*$/;
 const GEN_CLOSE = "<!-- /gen -->";
@@ -224,8 +235,8 @@ function loadAiPolicy(ai, specSource) {
   if (!Number.isInteger(policy.version) || policy.version < 1) {
     throw new GateError(`${REGISTRY_REL}: ai.policy.version must be a positive integer`);
   }
-  if (typeof policy.as_of !== "string" || !ISO_DATE.test(policy.as_of)) {
-    throw new GateError(`${REGISTRY_REL}: ai.policy.as_of must be an ISO date (YYYY-MM-DD)`);
+  if (!isRealDate(policy.as_of)) {
+    throw new GateError(`${REGISTRY_REL}: ai.policy.as_of must be a real ISO date (YYYY-MM-DD)`);
   }
   if (typeof policy.stance !== "string" || policy.stance.length === 0) {
     throw new GateError(`${REGISTRY_REL}: ai.policy.stance must be a non-empty string`);
@@ -244,6 +255,9 @@ function loadAiPolicy(ai, specSource) {
   if (slugs.length === 0) {
     throw new GateError(`${REGISTRY_REL}: "ai.crawlers" declares no entry`);
   }
+  // RFC 9309 §2.2.1 matches a product token case-insensitively: `GPTBot` and
+  // `gptbot` are one crawler, and two entries would render two groups for it
+  // (#290 review F4).
   const seenUa = new Map();
   const rows = slugs.map((slug) => {
     const entry = crawlers[slug];
@@ -259,12 +273,13 @@ function loadAiPolicy(ai, specSource) {
         `${REGISTRY_REL}: ai crawler "${slug}".ua must be one robots.txt token (no whitespace)`,
       );
     }
-    if (seenUa.has(ua)) {
+    const token = ua.toLowerCase();
+    if (seenUa.has(token)) {
       throw new GateError(
-        `${REGISTRY_REL}: ai crawlers "${seenUa.get(ua)}" and "${slug}" both declare ua "${ua}" — one entry per token`,
+        `${REGISTRY_REL}: ai crawlers "${seenUa.get(token)}" and "${slug}" both declare ua "${ua}" — one entry per token (robots.txt matches tokens case-insensitively)`,
       );
     }
-    seenUa.set(ua, slug);
+    seenUa.set(token, slug);
     if (!AI_FAMILIES.includes(family)) {
       throw new GateError(
         `${REGISTRY_REL}: ai crawler "${slug}".family must be one of ${AI_FAMILIES.join(" | ")}`,
@@ -280,13 +295,24 @@ function loadAiPolicy(ai, specSource) {
         `${REGISTRY_REL}: ai crawler "${slug}".source must be the operator's http(s) page — an unsourced classification does not ship`,
       );
     }
-    if (typeof asOf !== "string" || !ISO_DATE.test(asOf)) {
+    if (!isRealDate(asOf)) {
       throw new GateError(
-        `${REGISTRY_REL}: ai crawler "${slug}".as_of must be an ISO date (YYYY-MM-DD)`,
+        `${REGISTRY_REL}: ai crawler "${slug}".as_of must be a real ISO date (YYYY-MM-DD)`,
       );
     }
     return { slug, ua, family, operator, source, as_of: asOf };
   });
+  // The policy date SEALS these rows: a stamp older than the data it seals is a
+  // leftover, not a review date (#290 review F2).
+  const newest = rows
+    .map((row) => row.as_of)
+    .sort()
+    .at(-1);
+  if (newest !== undefined && policy.as_of < newest) {
+    throw new GateError(
+      `${REGISTRY_REL}: ai.policy.as_of (${policy.as_of}) predates the newest crawler review (${newest}) — the stamp cannot seal data younger than itself`,
+    );
+  }
   for (const family of AI_FAMILIES) {
     if (!rows.some((row) => row.family === family)) {
       throw new GateError(

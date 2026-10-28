@@ -357,6 +357,47 @@ try {
     );
   }
   {
+    const root = tree(aiTree({ policy: { as_of: "2020-01-01" } }));
+    const res = run(root);
+    check(
+      "a policy date that predates its own rows refuses (#290 F2)",
+      res.code === 1 && res.out.includes("predates the newest crawler review"),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree(
+      aiTree({
+        crawlers: {
+          searchbot: AI_BASE.crawlers.searchbot,
+          trainbot: { ...AI_BASE.crawlers.trainbot, ua: "SEARCHBOT" },
+        },
+      }),
+    );
+    const res = run(root);
+    check(
+      "a case-variant duplicate ua refuses (#290 F4)",
+      res.code === 1 && res.out.includes("both declare ua"),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree(
+      aiTree({
+        crawlers: {
+          searchbot: { ...AI_BASE.crawlers.searchbot, as_of: "2026-13-45" },
+          trainbot: AI_BASE.crawlers.trainbot,
+        },
+      }),
+    );
+    const res = run(root);
+    check(
+      "a date-shaped but impossible as_of refuses (#290 F5)",
+      res.code === 1 && res.out.includes("real ISO date"),
+      res.out.trim(),
+    );
+  }
+  {
     const broken = tree({ ...BASE_TREE, aiMarker: false });
     const res = run(broken);
     check(

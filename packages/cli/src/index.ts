@@ -84,9 +84,10 @@ Commands:
                                  + certification (D18/§19.5); --verify runs the opt-in C1
                                  live check (the engine's ONE network path, §19.5)
   export ai-policy              Write the AI-policy artifacts (SPEC §7.3, M9): robots.txt
-          [--out <dir> | --check] [--lang <l>]  (two named groups: retrieval allowed, training
-                                blocked) + llms.txt (the workspace index) + AI-POLICY.md, into
-                                <dir>; --check (exit 1) fails an unsourced or >180-day entry
+          [--out <dir> | --check] [--lang <l>]  (two named groups — listed retrieval crawlers
+                                allowed, listed training crawlers disallowed, no wildcard) +
+                                llms.txt (the workspace index) + AI-POLICY.md, into <dir>;
+                                --check (exit 1) fails an unsourced, stale or incomplete entry
   skills:export <dir>           Copy the skill channels this package ships into <dir>
           [--force] [--list]     (--force overlays; --list shows them); no harness paths
 
@@ -297,12 +298,17 @@ Exit: 0 when @id is present · 1 when it is absent (the entity has no declared h
 the JSON-LD is still emitted, without @id) · 2 usage error. Offline and
 deterministic: no network, no clock, no AI.`,
   export: `pasco export ai-policy [--out <dir> | --check] [--lang <l>] [--json] [--workspace <path>]
-The §12 M9 stance as an artifact: retrieval is ALLOWED, AI training is BLOCKED
-by default. Two modes, deliberately separate (one writes, one verifies):
+The §12 M9 stance as an artifact. Two modes, deliberately separate (one
+writes, one verifies):
   --out <dir>   write robots.txt + llms.txt + AI-POLICY.md into <dir>.
-                robots.txt carries TWO named groups, never a wildcard: ai-retrieval
-                (Allow: /) and ai-training (Disallow: /), each User-agent line
-                commented with its registry entry, operator, source and date.
+                robots.txt carries TWO named groups and NO wildcard: the crawlers
+                listed under ai-retrieval are allowed (Allow: /) and the ones
+                listed under ai-training are disallowed (Disallow: /), each
+                User-agent line commented with its registry entry, operator,
+                source and date. The list is EXPLICIT: a crawler that is not
+                listed is not restricted by the file — that limit is declared in
+                the file and in AI-POLICY.md, never papered over with a wildcard
+                that would also block the search engines it does not name.
                 llms.txt is the workspace index — name, definition, canonical
                 identity URL, faq[] and publications[] — and the builder ASSERTS
                 that every document it claims to index appears in the text.
@@ -311,9 +317,12 @@ by default. Two modes, deliberately separate (one writes, one verifies):
                 the M9 floor verbatim.
                 An existing file is replaced only when pasco generated it; any
                 other is refused unless --force is passed.
-  --check       validate the UA list and write nothing: exit 1 when an entry has
-                no source, a malformed as_of, an as_of older than 180 days, a
-                duplicate token, or when either group would be empty.
+  --check       validate the list and write nothing: exit 1 when an entry has no
+                source or no operator, a malformed as_of, an as_of older than
+                180 days or in the future, a duplicate token (case-insensitive,
+                RFC 9309), when either group would be empty, or when
+                ai.policy.as_of itself is malformed, stale, future-dated or older
+                than the newest crawler row it seals.
                 --check reads no workspace (the list is registry data).
 The crawler list is derived, never hardcoded here: it is projected from the
 \`ai:\` block of the platform registry by \`pnpm gen:platforms\`.

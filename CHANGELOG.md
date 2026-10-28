@@ -17,7 +17,9 @@ minor versions may contain breaking contract changes.
   One command now generates all three from the workspace and the platform
   registry: `robots.txt` with **two named groups** (`ai-retrieval` → `Allow: /`,
   `ai-training` → `Disallow: /`) and a comment per `User-agent` naming its
-  registry entry, operator, source and read date — never a wildcard allow-all;
+  registry entry, operator, source and read date — never a wildcard, and the file
+  **declares the limit** that comes with that: it restricts exactly the tokens it
+  lists, so a crawler it does not name is not restricted by it (RFC 9309 §2.2.1);
   `llms.txt`, the workspace index (name · definition · canonical `role: identity`
   URL · `faq[]` · `publications[]`) in the shape the project site already uses,
   with a **coverage assertion** that fails when a document the builder claims to
@@ -28,8 +30,12 @@ minor versions may contain breaking contract changes.
   `pnpm gen:platforms` projects it into the engine (a hardcoded UA list would rot
   without a failing command); the generator refuses an entry with no `source`, an
   unknown family, a duplicate token or a stance the SPEC does not state.
-  `--check` exits `1` on an unsourced entry or an `as_of` older than **180 days**,
-  and `--out` runs the same check before writing, so rot is a failing command.
+  `--check` exits `1` on an incomplete or unsourced entry, a duplicate token
+  (case-insensitive), an `as_of` that is malformed, future-dated or older than
+  **180 days**, or a `policy.as_of` that is stale/future-dated or predates the
+  newest row it seals — and `--out` runs the same check before writing, so rot is
+  a failing command. The project site's own `robots.txt` is generated from the
+  same `ai:` block, so the engine's published surface states the same policy.
   `--out` also refuses to truncate a file pasco did not generate without
   `--force`, and reads no clock (the stamp is the registry date, so outputs are
   byte-identical across runs). Offline; contract in SPEC §7.3. — *M9's artifact

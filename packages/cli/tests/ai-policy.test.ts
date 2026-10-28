@@ -34,6 +34,8 @@ import {
   aiPolicyArtifacts,
   assertLlmsCoverage,
   checkCrawlers,
+  checkPolicyDate,
+  isRealDate,
   llmsDocuments,
   llmsInput,
   renderAiPolicy,
@@ -117,6 +119,15 @@ describe("robots.txt — two explicit groups", () => {
     expect(text).not.toMatch(/^User-agent: \*/m);
   });
 
+  it("DECLARES the limit: the list is explicit, an unlisted crawler is not restricted", () => {
+    // Review F1: with no wildcard group, RFC 9309 leaves an unlisted crawler
+    // unrestricted. The file must say so instead of claiming a default.
+    expect(text).toContain("EXPLICIT LIST");
+    expect(text).toContain("not restricted");
+    expect(text).not.toMatch(/BLOCKED by default/i);
+    expect(text).not.toMatch(/blocked by default/i);
+  });
+
   it("allows retrieval and disallows training", () => {
     const retrieval = text.slice(text.indexOf("# ai-retrieval"), text.indexOf("# ai-training"));
     const training = text.slice(text.indexOf("# ai-training"));
@@ -193,6 +204,42 @@ describe("--check rules", () => {
     expect(problems.map((p) => p.kind)).toContain("future-dated");
   });
 
+  it("fails a duplicate token case-insensitively (RFC 9309 §2.2.1)", () => {
+    const problems = checkCrawlers(
+      [
+        crawler({ ua: "GPTBot", family: "training" }),
+        crawler({ slug: "gptbot", ua: "gptbot", family: "training" }),
+        crawler({ ua: "SearchBot" }),
+      ],
+      now,
+    );
+    expect(problems.map((p) => p.kind)).toContain("duplicate-ua");
+  });
+
+  it("fails a malformed but ISO-shaped date (2026-13-45)", () => {
+    const problems = checkCrawlers(
+      [crawler({ as_of: "2026-13-45" }), crawler({ ua: "B", family: "training" })],
+      now,
+    );
+    expect(problems).toContainEqual(
+      expect.objectContaining({ kind: "incomplete", entry: "example-bot" }),
+    );
+    expect(Number.isNaN(ageInDays("2026-13-45", now))).toBe(true);
+    expect(isRealDate("2026-13-45")).toBe(false);
+    expect(isRealDate("2026-11-31")).toBe(false);
+    expect(isRealDate("2026-10-27")).toBe(true);
+  });
+
+  it("fails a crawler with no operator (the SPEC promise, review F6)", () => {
+    const problems = checkCrawlers(
+      [crawler({ operator: "" }), crawler({ ua: "B", family: "training" })],
+      now,
+    );
+    expect(problems).toContainEqual(
+      expect.objectContaining({ kind: "incomplete", entry: "example-bot" }),
+    );
+  });
+
   it("fails a duplicate token", () => {
     const problems = checkCrawlers(
       [crawler(), crawler({ slug: "other-bot" }), crawler({ ua: "B", family: "training" })],
@@ -217,6 +264,32 @@ describe("--check rules", () => {
       now,
     );
     expect(problems.map((p) => p.kind)).toContain("unknown-family");
+  });
+});
+
+describe("the policy date is gated like every other date (review F2)", () => {
+  const rows = [crawler(), crawler({ ua: "B", family: "training" })];
+
+  it("accepts the date that seals the rows", () => {
+    expect(checkPolicyDate(AI_POLICY_AS_OF, rows, now)).toEqual([]);
+  });
+
+  it("fails a stamp older than the newest row it seals", () => {
+    const problems = checkPolicyDate("2020-01-01", rows, now);
+    expect(problems.map((p) => p.kind)).toContain("policy-date");
+    expect(problems.some((p) => p.detail.includes("predates the newest crawler review"))).toBe(
+      true,
+    );
+  });
+
+  it("fails a malformed, stale or future-dated policy date", () => {
+    expect(checkPolicyDate("2026-13-45", rows, now).map((p) => p.kind)).toEqual(["policy-date"]);
+    expect(
+      checkPolicyDate("2025-01-01", [crawler({ as_of: "2025-01-01" })], now).map((p) => p.kind),
+    ).toContain("policy-date");
+    expect(checkPolicyDate("2030-01-01", rows, now).some((p) => p.detail.includes("future"))).toBe(
+      true,
+    );
   });
 });
 
@@ -275,6 +348,10 @@ describe("llms.txt — the workspace index", () => {
     expect(text).toContain("Source: https://elenavasquez.dev/about");
   });
 
+  it("describes the policy as an explicit list", () => {
+    expect(text).toContain("explicit list, not a wildcard");
+  });
+
   it("COVERAGE: a dropped document fails instead of vanishing", () => {
     const documents = llmsDocuments(input);
     // Prove the assertion has teeth: the same documents against text missing a
@@ -317,6 +394,12 @@ describe("AI-POLICY.md", () => {
     expect(text).toContain("## Blocked — training");
     expect(text).toContain("## Who can change this");
     expect(text).toContain("The profile owner.");
+  });
+
+  it("declares the explicit-list limit (review F1)", () => {
+    expect(text).toContain("not restricted by");
+    expect(text).toContain("explicit list");
+    expect(text).not.toMatch(/blocked by default/i);
   });
 
   it("names each crawler's operator source", () => {

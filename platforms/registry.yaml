@@ -677,11 +677,21 @@ platforms:
 #   family     retrieval | training (REQUIRED). retrieval = the crawlers whose
 #              output is a citation (search/answer indexing, and fetches a user
 #              asked for); training = foundation-model corpus crawlers.
-#   ua         the robots.txt User-agent token, verbatim (REQUIRED, unique).
+#   ua         the robots.txt User-agent token, verbatim (REQUIRED). Unique
+#              CASE-INSENSITIVELY: RFC 9309 §2.2.1 matches a product token
+#              case-insensitively, so `GPTBot` and `gptbot` are one crawler.
 #   operator   the company/foundation that runs it (REQUIRED).
 #   source     that operator's OWN page documenting the token (REQUIRED, http(s)).
-#   as_of      the ISO date that page was read (REQUIRED). Classification from
-#              memory is what this block exists to prevent: no source, no entry.
+#   as_of      the real ISO date that page was read (REQUIRED). Classification
+#              from memory is what this block exists to prevent: no source, no
+#              entry.
+#
+# `policy.as_of` is the review date the artifacts print: it must be a real date,
+# be inside the 180-day window `pasco export ai-policy --check` enforces, and be
+# >= every crawler `as_of` — a stamp older than the rows it seals is a leftover.
+# The generated robots.txt is an EXPLICIT LIST (two named groups, no wildcard), so
+# a crawler it does not name is not restricted by it; that limit is declared in
+# the artifacts rather than hidden behind a wildcard.
 #
 # `policy.stance` MUST appear verbatim in docs/SPEC.md — `gen.mjs` refuses a
 # drift between the registry's stated position and the SPEC's §12 M9 floor (the
