@@ -16,9 +16,12 @@ minor versions may contain breaking contract changes.
   release uses (`pnpm`, whose `workspace:*` rewrite is the #301 mechanism) and
   asserts, offline and deterministic, the publish ORDER against the workspace
   dependency graph, the shipped manifests (public access, exact rewrite target,
-  resolvable entrypoints, `repository.url`), and release.yml's own mechanism
-  (`pnpm publish`, `id-token: write`, cohort before CLI). It publishes nothing and
-  holds no token; it runs on manifest PRs (`release-rehearsal.yml`), by hand
+  resolvable entrypoints, `repository.url`), and release.yml's own mechanism —
+  every publish invocation outside the `--dry-run` branch is `pnpm publish`, the
+  loop iterates `$ORDER`, the publish job's effective `permissions:` grants
+  `id-token: write`, the rehearsal barrier exists before the loop, cohort before
+  CLI, and every publishable workspace member is in the cohort. It publishes nothing
+  and holds no token; it runs on manifest PRs (`release-rehearsal.yml`), by hand
   (`pnpm rehearse:release`), and as a pre-publish barrier inside `release.yml`, so a
   broken manifest fails before npm consumes a version. The facts a rehearsal cannot
   create — the OIDC exchange and the five `dist.attestations` — are declared as

@@ -25,9 +25,12 @@ on:
       - pnpm-workspace.yaml
       - pnpm-lock.yaml
       - packages/*/package.json
+      - packages/*/tsconfig.json
+      - .nvmrc
       - .github/workflows/release.yml
       - .github/workflows/release-rehearsal.yml
       - scripts/release-rehearsal/**
+      - scripts/dep-gate/check.mjs
   workflow_dispatch:
 
 permissions:

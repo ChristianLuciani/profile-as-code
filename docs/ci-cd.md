@@ -385,7 +385,7 @@ What it asserts, and the failure it names:
 |---|---|
 | Order | `ORDER` in `release.yml` is a valid topological order of the cohort's runtime workspace dependencies (`paste`/`github` → `core`), covers exactly the five, and no member carries a runtime dependency on a workspace package outside the cohort |
 | Tarball | `pnpm pack` (not `npm pack`) produces a manifest whose `name`/`version` equal the source, whose `private`/`publishConfig.access` allow a public publish, whose `workspace:*` is rewritten to the exact peer version the same run publishes (#301), and whose `main`/`types`/`exports`/`files` targets exist inside the tarball |
-| Mechanism | `release.yml` still grants `id-token: write`, the cohort step still runs `pnpm publish` (only pnpm rewrites `workspace:*`), and it still precedes the CLI's `Publish` step |
+| Mechanism | the `publish` job still grants `id-token: write` (read from the job's effective `permissions:`, not as text), **every** publish invocation outside a `--dry-run` branch is `pnpm publish` (only pnpm rewrites `workspace:*`), the loop iterates `$ORDER`, the rehearsal barrier exists **before** the loop, the cohort precedes the CLI's `Publish` step, and every publishable workspace member is in the cohort |
 | Provenance precondition | each manifest's `repository.url` equals the repo the workflow runs in, and `repository.directory` its monorepo home |
 
 **What it cannot check — declared, not implied.** A rehearsal is offline: it cannot
@@ -396,18 +396,37 @@ attestation only during a successful publish. Those are the facts only a **relea
 event** creates, and the gate prints them as `NOT CHECKED` in every run rather than
 letting a green rehearsal read as publish evidence.
 
-**The premise this leaves open (issue #313).** As measured against the registry on
-2026-10-28 (read-only `curl`, no publish), all five seam versions resolve
-(`@profile-as-code/{core@0.1.1,markdown@0.1.0,paste@0.1.0,artifact@0.1.0,github@0.1.0}`
-→ 200) and `paste`/`github`'s published manifests carry `@profile-as-code/core`
-`0.1.1`, not `workspace:*` — the #301 rewrite is true on the registry doc. But none
-of the five carries `dist.attestations` (`/-/npm/v1/attestations/…` → 404 each), and
-no seam member has ever been published **by the cohort step**. A rehearsal cannot
-close that: the first real cohort publish requires a **release event that bumps at
-least one seam version**, and the tag is the operator's act (kernel AGOS ·
-`repo-governance` §release). When that run happens, its id + date and the five
-`npm view`/attestation readings land in this section, and the `CHANGELOG` records
-the shipped seam version.
+**The premise this leaves open (issue #313).** The registry state was read **once,
+on 2026-10-28**, read-only and without publishing — a dated record (`kind=record`),
+not a standing claim: the numbers move with the next publish. The commands are the
+record's source ([OFICIAL] registry.npmjs.org):
+
+```bash
+# each seam package at its manifest version → HTTP status
+for pkg in core markdown paste artifact github; do
+  v="$(node -p "require('./packages/$pkg/package.json').version")"
+  printf '%s@%s ' "$pkg" "$v"
+  curl -s -o /dev/null -w '%{http_code}\n' \
+    "https://registry.npmjs.org/@profile-as-code/$pkg/$v"
+done                                     # 2026-10-28 → 200 ×5
+# provenance attestation of that same version
+for pkg in core markdown paste artifact github; do
+  v="$(node -p "require('./packages/$pkg/package.json').version")"
+  printf '%s@%s ' "$pkg" "$v"
+  curl -s -o /dev/null -w '%{http_code}\n' \
+    "https://registry.npmjs.org/-/npm/v1/attestations/@profile-as-code/$pkg@$v"
+done                                     # 2026-10-28 → 404 ×5
+```
+
+So: all five seam versions resolve (200 ×5) and `paste`/`github`'s published
+manifests carry `@profile-as-code/core` `0.1.1`, not `workspace:*` — the #301
+rewrite is true on the registry doc. But none of the five carries
+`dist.attestations`, and no seam member has ever been published **by the cohort
+step**. A rehearsal cannot close that: the first real cohort publish requires a
+**release event that bumps at least one seam version**, and the tag is the
+operator's act (kernel AGOS · `repo-governance` §release). When that run happens,
+its id + date and a fresh reading of the commands above land in this section, and
+the `CHANGELOG` records the shipped seam version.
 
 ### npm publish auth — trusted publishing (OIDC, issue #80) — **configured and validated**
 

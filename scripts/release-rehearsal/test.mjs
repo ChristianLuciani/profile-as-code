@@ -34,12 +34,15 @@ import { fileURLToPath } from "node:url";
 import {
   check,
   expectedRepositoryUrl,
+  idTokenGranted,
   manifestViolations,
   orderViolations,
   parseSteps,
+  publishInvocations,
   runtimeDependencyViolations,
   SEAM_DIRS,
   targetPaths,
+  uncoveredPublishables,
   workflowViolations,
 } from "./check.mjs";
 
@@ -90,32 +93,95 @@ const manifest = (pkg, extra = {}) => ({
 
 const cohort = SEAM_DIRS.map((dir) => ({ dir, manifest: manifest(dir.slice("packages/".length)) }));
 
-const workflow = (cohortStep = "Publish the seam cohort (pnpm publish, in dependency order)") =>
-  [
+/**
+ * The REAL shape of release.yml's cohort step: two publish branches (a `--dry-run`
+ * smoke and the live one). A one-line fixture cannot catch a regression that mutates
+ * only the live branch — the fresh-pass F1 finding — so the fixture carries both.
+ */
+const REAL_COHORT_RUN = [
+  "          set -euo pipefail",
+  '          ORDER="core markdown paste artifact github"',
+  "          for pkg in $ORDER; do",
+  '            dir="packages/$pkg"',
+  '            name="$(node -p "require(\'./$dir/package.json\').name")"',
+  '            version="$(node -p "require(\'./$dir/package.json\').version")"',
+  '            if npm view "$name@$version" version --silent >/dev/null 2>&1; then',
+  '              echo "skip $name@$version — already live on the registry"',
+  "              continue",
+  "            fi",
+  // Concatenated so the fixture carries the workflow's literal GHA expression
+  // without tripping the template-literal lint; it must mirror release.yml exactly.
+  '            if [ "$' + '{{ inputs.dry_run }}" = "true" ]; then',
+  '              (cd "$dir" && pnpm publish --access public --no-git-checks --dry-run)',
+  "            else",
+  '              (cd "$dir" && pnpm publish --access public --no-git-checks)',
+  "            fi",
+  "          done",
+];
+
+const COHORT_STEP = "Publish the seam cohort (pnpm publish, in dependency order)";
+const BARRIER_STEP = "Rehearse the seam cohort (packs, publishes nothing) — issue #313";
+const barrierLines = [
+  `      - name: ${BARRIER_STEP}`,
+  "        run: node scripts/release-rehearsal/check.mjs",
+];
+
+const workflow = (options = {}) => {
+  const {
+    cohortStep = COHORT_STEP,
+    cohortRun = REAL_COHORT_RUN,
+    barrier = true,
+    barrierAfter = false,
+    cliFirst = false,
+    idToken = "  id-token: write",
+    publishPermissions = [],
+    extraJobs = [],
+  } = options;
+  const cohort = [`      - name: ${cohortStep}`, "        run: |", ...cohortRun];
+  const cliPublish = ["      - name: Publish", "        run: npm publish --access public"];
+  const steps = ["    steps:", "      - uses: actions/checkout@v7"];
+  if (cliFirst) {
+    steps.push(...cliPublish);
+    if (barrier) steps.push(...barrierLines);
+    steps.push(...cohort);
+  } else {
+    if (barrier && !barrierAfter) steps.push(...barrierLines);
+    steps.push(...cohort);
+    if (barrier && barrierAfter) steps.push(...barrierLines);
+    steps.push(...cliPublish);
+  }
+  return [
     "name: release",
     "permissions:",
     "  contents: read",
-    "  id-token: write",
+    ...(idToken ? [idToken] : []),
     "jobs:",
     "  publish:",
     "    runs-on: ubuntu-24.04",
-    "    steps:",
-    "      - uses: actions/checkout@v7",
-    `      - name: ${cohortStep}`,
-    "        run: |",
-    '          ORDER="core markdown paste artifact github"',
-    "          for pkg in $ORDER; do",
-    '            (cd "packages/$pkg" && pnpm publish --access public --no-git-checks)',
-    "          done",
-    "      - name: Publish",
-    "        run: npm publish --access public",
-  ].join("\n");
+    ...(publishPermissions.length > 0
+      ? ["    permissions:", ...publishPermissions.map((entry) => `      ${entry}`)]
+      : []),
+    ...steps,
+    ...extraJobs,
+  ]
+    .flat()
+    .join("\n");
+};
+
+/** Flip the LIVE publish branch (never the `--dry-run` one) to `npm publish`. */
+const mutateLiveBranch = (run) =>
+  run.map((line) =>
+    line.includes("pnpm publish") && !line.includes("--dry-run")
+      ? line.replace("pnpm publish", "npm publish")
+      : line,
+  );
 
 // ── the workflow mechanism ────────────────────────────────────────────────────
 test("parseSteps — names the steps of the cohort and CLI publish", () => {
   const steps = parseSteps(workflow());
   const names = steps.map((step) => step.name);
-  assert.ok(names.includes("Publish the seam cohort (pnpm publish, in dependency order)"));
+  assert.ok(names.includes(COHORT_STEP));
+  assert.ok(names.includes(BARRIER_STEP));
   assert.ok(names.includes("Publish"));
 });
 
@@ -125,45 +191,121 @@ test("workflowViolations — a valid workflow yields no violations", () => {
   assert.deepEqual(result.order, ["core", "markdown", "paste", "artifact", "github"]);
 });
 
-test("workflowViolations — a missing id-token is refused", () => {
-  const yaml = workflow().replace("  id-token: write\n", "");
-  refuses(workflowViolations(yaml).violations, "id-token", "no id-token");
+test("publishInvocations — the real two-branch step yields exactly one live pnpm invocation", () => {
+  const invocations = publishInvocations(REAL_COHORT_RUN.join("\n"));
+  const live = invocations.filter((invocation) => !invocation.dryRun);
+  const dry = invocations.filter((invocation) => invocation.dryRun);
+  assert.equal(live.length, 1);
+  assert.equal(dry.length, 1);
+  assert.equal(live[0].client, "pnpm");
+  assert.equal(dry[0].client, "pnpm");
 });
 
-test("workflowViolations — `npm publish` in the cohort step is refused (#301)", () => {
-  const yaml = workflow().replace(
-    "pnpm publish --access public --no-git-checks",
-    "npm publish --access public",
+test("workflowViolations — F1: mutating ONLY the live branch to npm publish is refused", () => {
+  // The finding: the dry-run branch kept its `pnpm publish`, so a whole-body match
+  // stayed green while the branch that actually publishes regressed to #301's bug.
+  const yaml = workflow({ cohortRun: mutateLiveBranch(REAL_COHORT_RUN) });
+  const violations = workflowViolations(yaml).violations;
+  refuses(violations, "live branch", "live branch npm publish");
+  assert.ok(
+    violations.some((violation) => violation.includes("npm publish")),
+    JSON.stringify(violations),
   );
-  refuses(workflowViolations(yaml).violations, "does not run `pnpm publish`", "npm publish");
+});
+
+test("workflowViolations — F1: a step with only a dry-run publish is refused", () => {
+  const run = REAL_COHORT_RUN.map((line) =>
+    line.includes("pnpm publish") && !line.includes("--dry-run")
+      ? "              echo nothing to do"
+      : line,
+  );
+  refuses(
+    workflowViolations(workflow({ cohortRun: run })).violations,
+    "outside a `--dry-run` branch",
+    "dry-run only",
+  );
+});
+
+test("workflowViolations — F1: a loop that ignores $ORDER is refused", () => {
+  const run = REAL_COHORT_RUN.map((line) =>
+    line.includes("for pkg in $ORDER")
+      ? "          for pkg in core markdown paste artifact github; do"
+      : line,
+  );
+  refuses(
+    workflowViolations(workflow({ cohortRun: run })).violations,
+    "does not iterate `$ORDER`",
+    "hardcoded loop",
+  );
+});
+
+test("workflowViolations — F2: a missing rehearsal barrier is refused", () => {
+  refuses(workflowViolations(workflow({ barrier: false })).violations, "found 0", "no barrier");
+});
+
+test("workflowViolations — F2: a barrier AFTER the cohort step is refused", () => {
+  refuses(
+    workflowViolations(workflow({ barrierAfter: true })).violations,
+    "runs AFTER the seam-cohort step",
+    "barrier after",
+  );
+});
+
+test("workflowViolations — F4: id-token only on a comment is refused", () => {
+  const yaml = workflow({ idToken: "  # id-token: write" });
+  refuses(workflowViolations(yaml).violations, "publish job does not grant", "commented id-token");
+});
+
+test("workflowViolations — F4: a job-level permissions block without id-token overrides the default", () => {
+  const yaml = workflow({ publishPermissions: ["contents: read"] });
+  const token = idTokenGranted(yaml);
+  assert.equal(token.granted, false);
+  assert.equal(token.scope, "publish job permissions");
+  refuses(workflowViolations(yaml).violations, "publish job does not grant", "job override");
+});
+
+test("idTokenGranted — the effective grant is read from the job, flow style included", () => {
+  assert.deepEqual(idTokenGranted(workflow()), {
+    granted: true,
+    scope: "top-level permissions",
+  });
+  const flow = workflow({ publishPermissions: [] }).replace(
+    "    runs-on: ubuntu-24.04",
+    "    permissions: { contents: read, id-token: write }\n    runs-on: ubuntu-24.04",
+  );
+  assert.equal(idTokenGranted(flow).granted, true);
 });
 
 test("workflowViolations — a missing ORDER is refused", () => {
-  const yaml = workflow().replace('          ORDER="core markdown paste artifact github"\n', "");
-  refuses(workflowViolations(yaml).violations, "no ORDER", "missing ORDER");
+  const run = REAL_COHORT_RUN.filter((line) => !line.includes("ORDER="));
+  refuses(workflowViolations(workflow({ cohortRun: run })).violations, "no ORDER", "missing ORDER");
 });
 
 test("workflowViolations — a missing cohort step is refused", () => {
-  const yaml = workflow().replace(
-    "      - name: Publish the seam cohort (pnpm publish, in dependency order)",
-    "      - name: Publish the seam",
-  );
+  const yaml = workflow().replace(`      - name: ${COHORT_STEP}`, "      - name: Publish the seam");
   refuses(workflowViolations(yaml).violations, "exactly one step named", "renamed step");
 });
 
 test("workflowViolations — the CLI publishing before the cohort is refused", () => {
-  const yaml = [
-    "permissions:",
-    "  id-token: write",
-    "jobs:",
-    "      - name: Publish",
-    "        run: npm publish",
-    "      - name: Publish the seam cohort (pnpm publish, in dependency order)",
-    "        run: |",
-    '          ORDER="core markdown paste artifact github"',
-    "          pnpm publish",
-  ].join("\n");
-  refuses(workflowViolations(yaml).violations, "runs before the seam-cohort", "CLI first");
+  refuses(
+    workflowViolations(workflow({ cliFirst: true })).violations,
+    "runs before the seam-cohort",
+    "CLI before cohort",
+  );
+});
+
+test("uncoveredPublishables — F3: a publishable workspace member outside the cohort is refused", () => {
+  const workspacePackages = [
+    ...cohort,
+    { dir: "packages/server", manifest: manifest("server") },
+    { dir: "packages/cli", manifest: { name: "@profile-as-code/cli", private: false } },
+    {
+      dir: "packages/renderers/kofi",
+      manifest: { name: "@profile-as-code/renderers-kofi", private: true },
+    },
+  ];
+  refuses(uncoveredPublishables(workspacePackages), "packages/server", "uncovered publishable");
+  assert.deepEqual(uncoveredPublishables(cohort), []);
 });
 
 // ── the publish ORDER ─────────────────────────────────────────────────────────
@@ -518,6 +660,28 @@ await (async () => {
         JSON.stringify(result.messages),
       );
     });
+
+    await runAsync(
+      "check — F3: a publishable workspace member outside the cohort fails",
+      async () => {
+        const root = makeFixture();
+        fixtures.push(root);
+        const server = path.join(root, "packages/server");
+        mkdirSync(server, { recursive: true });
+        writeFileSync(
+          path.join(server, "package.json"),
+          JSON.stringify(manifest("server"), null, 2),
+        );
+        const result = await check(root, { pack: stubPack(), repositoryUrl: REPO_URL });
+        assert.equal(result.status, "fail");
+        assert.ok(
+          result.messages.some(
+            (message) => message.includes("packages/server") && message.includes("publishable"),
+          ),
+          JSON.stringify(result.messages),
+        );
+      },
+    );
 
     await runAsync("check — a workspace member missing from the globs is refused", async () => {
       const root = makeFixture();

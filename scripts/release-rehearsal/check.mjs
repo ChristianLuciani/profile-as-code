@@ -23,10 +23,13 @@ import { createHash } from "node:crypto";
  *      whose `workspace:*` dependency protocol is rewritten to the peer's exact
  *      version (the #301 claim), and whose `main`/`types`/`exports`/`files`
  *      targets actually exist inside the tarball;
- *   3. MECHANISM — release.yml still grants `id-token: write`, the cohort step uses
- *      `pnpm publish` (only pnpm rewrites `workspace:*`), and it runs before the
- *      CLI's own `Publish` step; each manifest's `repository.url` matches the repo
- *      the workflow runs in (npm fails the publish on a mismatch).
+ *   3. MECHANISM — the publish JOB still grants `id-token: write`, every publish
+ *      invocation outside a `--dry-run` branch is `pnpm publish` (only pnpm rewrites
+ *      `workspace:*`), the loop iterates `$ORDER`, the rehearsal barrier exists before
+ *      the loop, the cohort runs before the CLI's own `Publish` step, every
+ *      publishable workspace member is in the cohort, and each manifest's
+ *      `repository.url` matches the repo the workflow runs in (npm fails the
+ *      publish on a mismatch).
  *
  * What it CANNOT prove, and says so in its own output: the OIDC exchange against
  * npm's trusted-publisher binding, the registry state (a live version is skipped,
@@ -359,16 +362,127 @@ export function manifestViolations({
  * The workflow-mechanism invariants, as a pure function of release.yml's text. The
  * file is the contract the real run executes; a rehearsal that packs correctly but
  * publishes with `npm publish` would still ship `workspace:*` (#301).
+ *
+ * The publish check is per INVOCATION, not a substring of the step: the real step
+ * has two branches (a `--dry-run` one and the live one), so a single `pnpm publish`
+ * match is satisfied by the branch that never publishes (fresh-pass F1). Lines with
+ * `--dry-run` are treated as the smoke branch; every other invocation must be
+ * `pnpm publish`, and at least one must exist. The loop must also iterate `$ORDER`,
+ * or the order this gate validated would be decorative.
  */
+
+/** A publish invocation found in a step body: `pnpm publish` / `npm publish`. */
+export function publishInvocations(body) {
+  const invocations = [];
+  for (const raw of body.split("\n")) {
+    const line = raw.trim();
+    // Comments in the step must not be able to satisfy the assertion.
+    if (line.startsWith("#")) continue;
+    const re = /(^|[^\w-])(pnpm|npm)\s+publish\b/g;
+    let match = re.exec(line);
+    while (match !== null) {
+      invocations.push({ client: match[2], dryRun: line.includes("--dry-run"), line });
+      match = re.exec(line);
+    }
+  }
+  return invocations;
+}
+
+/** The `publish` job's line range, or null when the job (or `jobs:`) is absent. */
+function jobBlock(lines, name) {
+  const jobsAt = lines.findIndex((line) => /^jobs:\s*$/.test(line));
+  if (jobsAt < 0) return null;
+  let start = -1;
+  for (let i = jobsAt + 1; i < lines.length; i += 1) {
+    if (new RegExp(`^ {2}${name}:\\s*$`).test(lines[i])) {
+      start = i;
+      break;
+    }
+  }
+  if (start < 0) return null;
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i += 1) {
+    if (/^ {2}[A-Za-z0-9_.-]+:\s*$/.test(lines[i])) {
+      end = i;
+      break;
+    }
+  }
+  return { start, end };
+}
+
+/** The entries of a `permissions:` block at `indent` spaces, flow style included. */
+function permissionEntries(lines, from, to, indent) {
+  const pad = " ".repeat(indent);
+  for (let i = from; i < to; i += 1) {
+    const flow = lines[i].match(/^permissions:\s*\{(.*)\}\s*$/);
+    if (flow) {
+      return flow[1].split(",").map((entry) => entry.replace(/\s+#.*$/, "").trim());
+    }
+    if (lines[i] === `${pad}permissions:`) {
+      const entries = [];
+      for (let j = i + 1; j < to; j += 1) {
+        if (!lines[j].startsWith(`${pad}  `)) break;
+        const text = lines[j].trim().replace(/\s+#.*$/, "");
+        if (text && !text.startsWith("#")) entries.push(text);
+      }
+      return entries;
+    }
+  }
+  return null;
+}
+
+/**
+ * Whether the `publish` job can exchange an OIDC token: its own `permissions:` when
+ * declared (a job-level block REPLACES the workflow default), the top-level block
+ * otherwise. A comment, or the `site` job's permission, no longer satisfies it
+ * (fresh-pass F4).
+ */
+export function idTokenGranted(yaml) {
+  const lines = yaml.split("\n");
+  const jobsAt = lines.findIndex((line) => /^jobs:\s*$/.test(line));
+  if (jobsAt < 0) return { granted: false, scope: "no jobs: block" };
+  const job = jobBlock(lines, "publish");
+  if (!job) return { granted: false, scope: "no publish job" };
+  const jobPermissions = permissionEntries(lines, job.start, job.end, 4);
+  if (jobPermissions !== null) {
+    return {
+      granted: jobPermissions.includes("id-token: write"),
+      scope: "publish job permissions",
+    };
+  }
+  const topPermissions = permissionEntries(lines, 0, jobsAt, 0);
+  if (topPermissions === null) return { granted: false, scope: "no permissions block" };
+  return { granted: topPermissions.includes("id-token: write"), scope: "top-level permissions" };
+}
+
+/** A workspace member that is publishable (`private !== true`) must be in the cohort. */
+export function uncoveredPublishables(workspacePackages, cohortDirs = SEAM_DIRS) {
+  const violations = [];
+  const cohort = new Set(cohortDirs);
+  for (const { dir, manifest } of workspacePackages) {
+    if (dir === "packages/cli" || cohort.has(dir)) continue;
+    if (manifest.private === true) continue;
+    violations.push(
+      `E-REHEARSAL: ${dir} (${manifest.name}) is publishable (private is not true) but is not ` +
+        "in the seam cohort — it would never be published by the release, with every gate green " +
+        "(the #313 class one level up). Add it to the cohort and to release.yml's ORDER",
+    );
+  }
+  return violations;
+}
+
 export function workflowViolations(yaml) {
   const violations = [];
   const steps = parseSteps(yaml);
-  if (!/id-token:\s*write/.test(yaml)) {
+
+  const token = idTokenGranted(yaml);
+  if (!token.granted) {
     violations.push(
-      "E-REHEARSAL: release.yml no longer grants `id-token: write` — trusted publishing " +
-        "(OIDC) cannot exchange a token",
+      `E-REHEARSAL: the publish job does not grant \`id-token: write\` (${token.scope}) — ` +
+        "trusted publishing (OIDC) cannot exchange a token",
     );
   }
+
   let cohortStep;
   try {
     cohortStep = findStep(steps, "Publish the seam cohort (pnpm publish, in dependency order)");
@@ -385,12 +499,30 @@ export function workflowViolations(yaml) {
     .split("\n")
     .filter((line) => !/^\s*-\s*name:/.test(line))
     .join("\n");
-  if (!/\bpnpm publish\b/.test(command)) {
+
+  const invocations = publishInvocations(command);
+  const live = invocations.filter((invocation) => !invocation.dryRun);
+  if (live.length === 0) {
     violations.push(
-      "E-REHEARSAL: the cohort step does not run `pnpm publish` — `npm publish` does not rewrite " +
+      "E-REHEARSAL: the cohort step has no publish invocation outside a `--dry-run` branch — " +
+        "the rehearsal would vet a step that only smokes",
+    );
+  }
+  for (const invocation of live) {
+    if (invocation.client === "pnpm") continue;
+    violations.push(
+      `E-REHEARSAL: the cohort step publishes with \`${invocation.client} publish\` ` +
+        `(live branch): ${JSON.stringify(invocation.line)} — \`npm publish\` does not rewrite ` +
         "`workspace:*`, so the published manifests would be uninstallable (#301)",
     );
   }
+  if (!/for\s+\w+\s+in\s+"?\$\{?ORDER\}?"?/.test(command)) {
+    violations.push(
+      "E-REHEARSAL: the cohort step does not iterate `$ORDER` — the publish order this gate " +
+        "validates would be decorative",
+    );
+  }
+
   const order = command.match(/ORDER="([^"]+)"/);
   if (!order) {
     violations.push(
@@ -398,6 +530,30 @@ export function workflowViolations(yaml) {
         "unverifiable from the workflow",
     );
   }
+
+  // The barrier is part of the mechanism: a release that does not rehearse before the
+  // loop is exactly the first contact #313 is about (fresh-pass F2).
+  const barrier = steps
+    .map((step, index) => ({ index, step }))
+    .filter(({ step }) => {
+      const body = step.body
+        .split("\n")
+        .filter((line) => !/^\s*-\s*name:/.test(line) && !line.trim().startsWith("#"))
+        .join("\n");
+      return body.includes("scripts/release-rehearsal/check.mjs");
+    });
+  if (barrier.length !== 1) {
+    violations.push(
+      `E-REHEARSAL: expected exactly one step invoking \`scripts/release-rehearsal/check.mjs\` ` +
+        `before the cohort (the pre-publish barrier), found ${barrier.length}`,
+    );
+  } else if (barrier[0].index > steps.indexOf(cohortStep)) {
+    violations.push(
+      "E-REHEARSAL: the rehearsal barrier runs AFTER the seam-cohort step — the release would " +
+        "publish before rehearsing",
+    );
+  }
+
   let cliPublish;
   try {
     cliPublish = findStep(steps, "Publish");
@@ -506,10 +662,13 @@ export async function check(root, options = {}) {
         .map((dir) => path.relative(root, dir).split(path.sep).join("/")),
     );
     const workspaceNames = new Set();
+    const workspacePackages = [];
     for (const member of members) {
       const memberManifest = readManifestFile(path.join(root, member, "package.json"));
       if (typeof memberManifest.name === "string") workspaceNames.add(memberManifest.name);
+      workspacePackages.push({ dir: member, manifest: memberManifest });
     }
+    violations.push(...uncoveredPublishables(workspacePackages));
     for (const dir of SEAM_DIRS) {
       if (!members.has(dir)) {
         violations.push(
