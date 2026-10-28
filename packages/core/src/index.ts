@@ -25,6 +25,18 @@ export {
   DEFAULT_COMPLETENESS_POLICY,
 } from "./completeness.js";
 export { driftCheck } from "./drift.js";
+/**
+ * The AI crawler policy, projected from the `ai:` block of
+ * `platforms/registry.yaml` (#290) — `pasco export ai-policy` renders it and
+ * never keeps a UA list of its own.
+ */
+export type { AiCrawler, AiCrawlerFamily } from "./generated/ai-policy.gen.js";
+export {
+  AI_CRAWLERS,
+  AI_POLICY_AS_OF,
+  AI_POLICY_STANCE,
+  AI_POLICY_VERSION,
+} from "./generated/ai-policy.gen.js";
 /** The creator-monetization paste set, projected from `platforms/registry.yaml`
  *  (#154) — the derived test enumeration, never a hand-extended list. */
 export { PASTE_PLATFORMS } from "./generated/platforms.gen.js";

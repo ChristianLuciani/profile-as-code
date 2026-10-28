@@ -23,6 +23,7 @@ import { stringify as toYaml } from "yaml";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GEN = join(HERE, "gen.mjs");
 const OUT_REL = join("packages", "core", "src", "generated", "platforms.gen.ts");
+const AI_OUT_REL = join("packages", "core", "src", "generated", "ai-policy.gen.ts");
 const SPEC_REL = join("docs", "SPEC.md");
 const README_REL = "README.md";
 
@@ -76,7 +77,10 @@ function makeTree({
   families = {},
   renderers = [],
   fixtures = [],
+  ai = AI_BASE,
+  stance = AI_STANCE,
   specMarker = true,
+  aiMarker = true,
   readmeMarker = true,
 }) {
   const root = mkdtempSync(join(tmpdir(), "gen-platforms-"));
@@ -107,12 +111,12 @@ function makeTree({
   write(
     root,
     join("platforms", "registry.yaml"),
-    toYaml({ version: 1, postiz, families, platforms }),
+    toYaml({ version: 1, postiz, families, platforms, ...(ai === undefined ? {} : { ai }) }),
   );
   write(
     root,
     SPEC_REL,
-    specMarker ? "# SPEC\n\n<!-- gen:platform-families -->\n<!-- /gen -->\n" : "# SPEC\n",
+    `# SPEC\n\n${stance}\n\n${specMarker ? "<!-- gen:platform-families -->\n<!-- /gen -->\n" : ""}${aiMarker ? "<!-- gen:ai-policy -->\n<!-- /gen -->\n" : ""}`,
   );
   write(
     root,
@@ -165,6 +169,26 @@ const BASE_PLATFORMS = {
   gofundme: BACKLOG({ note: "deferred" }),
 };
 const BASE_POSTIZ = { count: 1, source: "[OFICIAL] test" };
+const AI_STANCE = "**private-first default**: block training crawlers; opt-in to corpora.";
+const AI_BASE = {
+  policy: { version: 1, as_of: "2026-10-27", stance: AI_STANCE },
+  crawlers: {
+    searchbot: {
+      ua: "SearchBot",
+      family: "retrieval",
+      operator: "Example",
+      source: "https://example.com/searchbot",
+      as_of: "2026-10-27",
+    },
+    trainbot: {
+      ua: "TrainBot",
+      family: "training",
+      operator: "Example",
+      source: "https://example.com/trainbot",
+      as_of: "2026-10-27",
+    },
+  },
+};
 const ALPHA_RENDERER = {
   dir: "alpha",
   name: "@profile-as-code/renderers-alpha",
@@ -213,6 +237,20 @@ try {
       readme.includes("**2** (1 Postiz + 1 operator extras)"),
       readme,
     );
+    const aiModule = readFileSync(join(root, AI_OUT_REL), "utf8");
+    check(
+      "emits the ai-policy module",
+      aiModule.includes('ua: "SearchBot"') &&
+        aiModule.includes('family: "training"') &&
+        aiModule.includes(`AI_POLICY_STANCE = ${JSON.stringify(AI_STANCE)};`),
+      aiModule,
+    );
+    check(
+      "emits the SPEC ai-policy table",
+      spec.includes("1 retrieval (allowed) + 1 training (blocked) = **2** crawler(s).") &&
+        spec.includes("| `searchbot` | `SearchBot` | retrieval | Example |"),
+      spec,
+    );
     const inSync = run(root, ["--check"]);
     check("--check passes on the fresh projection", inSync.code === 0, inSync.out.trim());
     const again = run(root);
@@ -231,7 +269,13 @@ try {
     write(
       root,
       join("platforms", "registry.yaml"),
-      toYaml({ version: 1, postiz: BASE_POSTIZ, families: BASE_FAMILIES, platforms: registry }),
+      toYaml({
+        version: 1,
+        postiz: BASE_POSTIZ,
+        families: BASE_FAMILIES,
+        platforms: registry,
+        ai: AI_BASE,
+      }),
     );
     const stale = run(root, ["--check"]);
     check(
@@ -240,6 +284,139 @@ try {
       stale.out.trim(),
     );
     check("staleness names the fix", stale.out.includes("pnpm gen:platforms"), stale.out.trim());
+  }
+
+  // ── refusals: the ai policy (#290) ────────────────────────────────────────
+  const aiTree = (over) => ({
+    ...BASE_TREE,
+    ai: {
+      policy: { ...AI_BASE.policy, ...(over.policy ?? {}) },
+      crawlers: over.crawlers ?? AI_BASE.crawlers,
+    },
+  });
+  {
+    const root = tree(aiTree({}));
+    const res = run(root);
+    check("a fresh ai policy generates", res.code === 0, res.out.trim());
+  }
+  {
+    const root = tree(
+      aiTree({
+        crawlers: {
+          searchbot: { ...AI_BASE.crawlers.searchbot, source: "" },
+          trainbot: AI_BASE.crawlers.trainbot,
+        },
+      }),
+    );
+    const res = run(root);
+    check(
+      "an unsourced crawler refuses (the artifact would be worthless)",
+      res.code === 1 && res.out.includes("source must be the operator"),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree(
+      aiTree({
+        crawlers: {
+          searchbot: { ...AI_BASE.crawlers.searchbot, family: "scraping" },
+          trainbot: AI_BASE.crawlers.trainbot,
+        },
+      }),
+    );
+    const res = run(root);
+    check(
+      "an unknown family refuses",
+      res.code === 1 && res.out.includes("family must be one of"),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree(
+      aiTree({
+        crawlers: {
+          searchbot: AI_BASE.crawlers.searchbot,
+          trainbot: { ...AI_BASE.crawlers.trainbot, ua: "SearchBot" },
+        },
+      }),
+    );
+    const res = run(root);
+    check(
+      "a duplicate ua refuses",
+      res.code === 1 && res.out.includes("both declare ua"),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree(aiTree({ policy: { stance: "a different position" } }));
+    const res = run(root);
+    check(
+      "a stance the SPEC does not state refuses (no second copy can drift)",
+      res.code === 1 && res.out.includes("not present verbatim"),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree(aiTree({ policy: { as_of: "2020-01-01" } }));
+    const res = run(root);
+    check(
+      "a policy date that predates its own rows refuses (#290 F2)",
+      res.code === 1 && res.out.includes("predates the newest crawler review"),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree(
+      aiTree({
+        crawlers: {
+          searchbot: AI_BASE.crawlers.searchbot,
+          trainbot: { ...AI_BASE.crawlers.trainbot, ua: "SEARCHBOT" },
+        },
+      }),
+    );
+    const res = run(root);
+    check(
+      "a case-variant duplicate ua refuses (#290 F4)",
+      res.code === 1 && res.out.includes("both declare ua"),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree(
+      aiTree({
+        crawlers: {
+          searchbot: { ...AI_BASE.crawlers.searchbot, as_of: "2026-13-45" },
+          trainbot: AI_BASE.crawlers.trainbot,
+        },
+      }),
+    );
+    const res = run(root);
+    check(
+      "a date-shaped but impossible as_of refuses (#290 F5)",
+      res.code === 1 && res.out.includes("real ISO date"),
+      res.out.trim(),
+    );
+  }
+  {
+    const broken = tree({ ...BASE_TREE, aiMarker: false });
+    const res = run(broken);
+    check(
+      "a SPEC without the ai-policy marker refuses",
+      res.code === 1 && res.out.includes("missing <!-- gen:ai-policy -->"),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree({
+      ...BASE_TREE,
+      ai: { policy: AI_BASE.policy, crawlers: { searchbot: AI_BASE.crawlers.searchbot } },
+    });
+    const res = run(root);
+    check(
+      "a policy with only one group refuses",
+      res.code === 1 && res.out.includes('declares no "training" crawler'),
+      res.out.trim(),
+    );
   }
 
   // ── refusals: registry ↔ enum ─────────────────────────────────────────────

@@ -1,0 +1,18 @@
+- id: what-does-she-do
+  q:
+    en: What does Elena Vasquez do?
+    es: ¿A qué se dedica Elena Vasquez?
+  a:
+    en: She builds local-first LLM infrastructure for teams that want provider independence.
+    es: Construye infraestructura LLM local-first para equipos que buscan independencia de proveedor.
+- id: where-is-she-based
+  q:
+    en: Where is Elena Vasquez based?
+  a:
+    en: Quito, Ecuador — she works remotely with teams across the Americas.
+  source: https://elenavasquez.dev/about
+- id: how-to-reach-her
+  q:
+    en: How can I reach Elena Vasquez?
+  a:
+    en: Through the contact links on her canonical page.

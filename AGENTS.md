@@ -19,7 +19,7 @@ per-user private repo (`profile-data`), scaffolded from the template
 |---|---|---|
 | `docs/SPEC.md` | The contract — read first | §5 decisions, §7 interfaces, §12 roadmap |
 | `schema/profile.schema.json` | Contract source (D3) | additive + reviewed; never hand-write Zod |
-| `platforms/registry.yaml` | Platform METADATA — one home (#154) | family · deploy · hosts · status · sources; generates the derived surfaces |
+| `platforms/registry.yaml` | Platform METADATA — one home (#154) | family · deploy · hosts · status · sources, plus the `ai:` crawler policy (#290); generates the derived surfaces |
 | `packages/core/` | Engine: load · drift · geo · compile | vitest; fixtures in `packages/core/tests/fixtures/` |
 | `packages/cli/` | `pasco` CLI | consumes core; never re-implements it |
 | `packages/markdown/` | CommonMark escaping (`mdHref` destinations · `mdText` labels) | shared by every markdown renderer — never re-implement in an adapter |
