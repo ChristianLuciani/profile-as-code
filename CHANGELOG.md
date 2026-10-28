@@ -11,6 +11,23 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **The seam-cohort publish is rehearsed before it is irreversible (#313)** —
+  `scripts/release-rehearsal/` packs the five seam packages with the same client the
+  release uses (`pnpm`, whose `workspace:*` rewrite is the #301 mechanism) and
+  asserts, offline and deterministic, the publish ORDER against the workspace
+  dependency graph, the shipped manifests (public access, exact rewrite target,
+  resolvable entrypoints, `repository.url`), and release.yml's own mechanism —
+  every publish invocation outside the `--dry-run` branch is `pnpm publish`, the
+  loop iterates `$ORDER`, the publish job's effective `permissions:` grants
+  `id-token: write`, the rehearsal barrier exists before the loop, cohort before
+  CLI, and every publishable workspace member except the CLI itself (which has its
+  own publish step) is in the cohort. It publishes nothing
+  and holds no token; it runs on manifest PRs (`release-rehearsal.yml`), by hand
+  (`pnpm rehearse:release`), and as a pre-publish barrier inside `release.yml`, so a
+  broken manifest fails before npm consumes a version. The facts a rehearsal cannot
+  create — the OIDC exchange and the five `dist.attestations` — are declared as
+  #313's open evidence in `docs/ci-cd.md` §"Rehearsing the cohort publish".
+
 - **`pasco cite-check [<answers.ndjson>]` — the deterministic citation matcher
   (#291)** — every GEO offer is priced in "prompts monitored per month", and the
   half that decides whether the number is true is one question: **did this answer

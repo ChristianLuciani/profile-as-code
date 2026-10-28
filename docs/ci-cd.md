@@ -71,7 +71,7 @@ One job, **`ci`**, required on every PR and push to `main`:
    `<!-- evidence: <type> as_of=<sha> kind=<record|current> -->`, and the gate
    resolves the sha, asserts it is still an ancestor of the reference, and diffs
    the claim type's relevant paths (`tests` → `packages`; `links` → the Markdown
-   corpus). `stale` **warns** (exit 0); `unreachable` **fails** (a citation
+   corpus; `registry` → the package manifests). `stale` **warns** (exit 0); `unreachable` **fails** (a citation
    nobody can resolve is a claim without a source). The reference is the commit
    being checked (`--ref HEAD`, #342 F6): on a pull request that is the PR's own
    head, so a `kind=current` anchor living on the unmerged branch is reachable —
@@ -378,6 +378,77 @@ tool), and the typed packages are **ESM-only by design**, hence the `esm-only`
 profile — the default strict profile counts CJS-resolves-to-ESM as a problem,
 which is exactly the state the engine intends.
 
+### Rehearsing the cohort publish — packs, publishes nothing (issue #313)
+
+The cohort step (`pnpm publish` × 5, dependency order) is irreversible and, until a
+seam version bump, it has only ever **skipped**: the `v0.3.6` run logged five skips
+because every seam version was already live (§the publish chain). The first release
+that actually publishes a seam member is therefore first contact with the whole
+chain — order, the `workspace:*` rewrite, public access, the `repository.url` npm
+validates — at the one moment it cannot be undone. `scripts/release-rehearsal/`
+rehearses that moment offline and deterministically, with the same client the
+publish uses:
+
+```bash
+pnpm rehearse:release            # packs the five, asserts, publishes nothing
+```
+
+It runs in three places: on PRs that touch a manifest, the workspace or
+`release.yml` (`.github/workflows/release-rehearsal.yml`, which deliberately does
+**not** hold `id-token: write`), by hand via
+`gh workflow run release-rehearsal.yml --ref main` before preparing a release, and
+as a barrier inside `release.yml` **immediately before** the cohort loop — so the
+tagged run fails before npm, not after a version is consumed.
+
+What it asserts, and the failure it names:
+
+| Subject | Assertion |
+|---|---|
+| Order | `ORDER` in `release.yml` is a valid topological order of the cohort's runtime workspace dependencies (`paste`/`github` → `core`), covers exactly the five, and no member carries a runtime dependency on a workspace package outside the cohort |
+| Tarball | `pnpm pack` (not `npm pack`) produces a manifest whose `name`/`version` equal the source, whose `private`/`publishConfig.access` allow a public publish, whose `workspace:*` is rewritten to the exact peer version the same run publishes (#301), and whose `main`/`types`/`exports`/`files` targets exist inside the tarball |
+| Mechanism | the `publish` job still grants `id-token: write` (read from the job's effective `permissions:`, not as text), **every** publish invocation outside a `--dry-run` branch is `pnpm publish` (only pnpm rewrites `workspace:*`), the loop iterates `$ORDER`, the rehearsal barrier exists **before** the loop, the cohort precedes the CLI's `Publish` step, and every publishable workspace member **except `packages/cli`** (which publishes from its own step) is in the cohort |
+| Provenance precondition | each manifest's `repository.url` equals the repo the workflow runs in, and `repository.directory` its monorepo home |
+
+**What it cannot check — declared, not implied.** A rehearsal is offline: it cannot
+perform the OIDC exchange, so it cannot prove the trusted-publisher binding, npm's
+acceptance of the token, or that a version is already live (the loop then skips, and
+npm cannot republish). It also cannot produce `dist.attestations`: npm generates the
+attestation only during a successful publish. Those are the facts only a **release
+event** creates, and the gate prints them as `NOT CHECKED` in every run rather than
+letting a green rehearsal read as publish evidence.
+
+**The premise this leaves open (issue #313).** The registry state was read **once,
+on 2026-10-28**, read-only and without publishing — a dated record (`kind=record`),
+not a standing claim: the numbers move with the next publish. The commands are the
+record's source ([OFICIAL] registry.npmjs.org):
+
+```bash
+# each seam package at its manifest version → HTTP status
+for pkg in core markdown paste artifact github; do
+  v="$(node -p "require('./packages/$pkg/package.json').version")"
+  printf '%s@%s ' "$pkg" "$v"
+  curl -s -o /dev/null -w '%{http_code}\n' \
+    "https://registry.npmjs.org/@profile-as-code/$pkg/$v"
+done                                     # 2026-10-28 → 200 ×5
+# provenance attestation of that same version
+for pkg in core markdown paste artifact github; do
+  v="$(node -p "require('./packages/$pkg/package.json').version")"
+  printf '%s@%s ' "$pkg" "$v"
+  curl -s -o /dev/null -w '%{http_code}\n' \
+    "https://registry.npmjs.org/-/npm/v1/attestations/@profile-as-code/$pkg@$v"
+done                                     # 2026-10-28 → 404 ×5
+```
+
+So: all five seam versions resolve (200 ×5) and `paste`/`github`'s published
+manifests carry `@profile-as-code/core` `0.1.1`, not `workspace:*` — the #301
+rewrite is true on the registry doc. <!-- evidence: registry as_of=aa29880 kind=record --> But none of the five carries
+`dist.attestations`, and no seam member has ever been published **by the cohort
+step**. A rehearsal cannot close that: the first real cohort publish requires a
+**release event that bumps at least one seam version**, and the tag is the
+operator's act (kernel AGOS · `repo-governance` §release). When that run happens,
+its id + date and a fresh reading of the commands above land in this section, and
+the `CHANGELOG` records the shipped seam version.
+
 ### npm publish auth — trusted publishing (OIDC, issue #80) — **configured and validated**
 
 **State as of the 0.3.0 publish (verified 2026-10-11, re-verified 2026-10-12):**
@@ -668,7 +739,11 @@ know whether it is *complete*, so this preparation is a human step:
    unchanged: `packages/cli/package.json` `version` must equal the tag (enforced by
    the release guard). The five seam packages version independently — bump each
    changed one in the same preparation commit; a package whose version is already
-   on the registry is skipped at publish (issue #301).
+   on the registry is skipped at publish (issue #301). **A seam bump is also what
+   makes a release exercise the cohort publish**: without one, all five are skipped
+   again and no seam member gains the attestation #313 is waiting on. Run
+   `pnpm rehearse:release` on the prepared commit; it packs the bumped tarballs and
+   asserts the order/manifests before the tag exists.
 2. Move the release-worthy `[Unreleased]` entries under a new
    `## [<version>] - <date>` heading; keep forward-looking `### Planned` items under
    `[Unreleased]`.

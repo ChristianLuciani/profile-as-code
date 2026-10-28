@@ -102,6 +102,15 @@ const CLAIM_TYPES = {
   // CLI package's code and manifest; the package's own README is a doc and
   // cannot add a command.
   cli: { paths: ["packages/cli", ":(exclude)*.md"], what: "the CLI command inventory" },
+  // #313: a reading of what npm actually serves for the cohort. Its subject is the
+  // published manifest, so the package manifests are the relevant set — a version
+  // bump is what makes an old reading describe a different artefact. Publication
+  // itself is external: a `kind=record` reading (the honest form for "measured on
+  // <date>") never goes stale, and a `current` claim says so explicitly here.
+  registry: {
+    paths: ["packages/*/package.json", "pnpm-workspace.yaml"],
+    what: "the registry state of the published cohort",
+  },
 };
 
 const RULES = {
