@@ -1,0 +1,13 @@
+name: Elena Vasquez
+definition:
+  en: Elena Vasquez is a sovereign AI infrastructure engineer.
+  es: Elena Vasquez es ingeniera de infraestructura de IA soberana.
+location: Quito, Ecuador
+links:
+  - platform: github
+    label: GitHub
+    url: https://github.com/elenavasquez
+    role: identity
+  - platform: linkedin
+    label: LinkedIn
+    url: https://www.linkedin.com/in/elenavasquez

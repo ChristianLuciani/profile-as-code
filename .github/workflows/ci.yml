@@ -260,6 +260,16 @@ jobs:
         if: hashFiles('package.json') != ''
         run: pnpm build
 
+      # Issue #290: the AI crawler policy (`platforms/registry.yaml` → `ai:`) is
+      # derived data whose generator refuses an unsourced entry — and whose
+      # `--check` fails an entry older than 180 days. CI dogfoods the command on
+      # the engine's own registry, so a classification nobody has re-verified
+      # fails here instead of shipping to a customer site. `--check` loads no
+      # workspace by construction: the UA list is registry data.
+      - name: AI policy is sourced and fresh (#290)
+        if: hashFiles('package.json') != ''
+        run: node packages/cli/dist/index.js export ai-policy --check
+
       # Issue #43: npm pack --json does not reflect the bin — pack, extract and
       # install the tarball, then smoke-run the linked `pasco` bin.
       - name: Verify tarball exposes bin pasco

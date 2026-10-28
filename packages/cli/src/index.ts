@@ -6,7 +6,8 @@
  *
  * Consumes @profile-as-code/core (load/driftCheck/geoCheck/compile); never
  * re-implements them. Exit codes: 0 ok · 1 schema/workspace failure or a data
- * finding that blocks the command (edit · audit · entity) · 2 usage.
+ * finding that blocks the command (edit · audit · entity · export ai-policy) ·
+ * 2 usage.
  * Human output EN by default (D8/§11); `--json` machine-readable on every
  * command that reports data.
  */
@@ -19,6 +20,7 @@ import { runCheck } from "./commands/check.js";
 import { runDiff } from "./commands/diff.js";
 import { runEdit } from "./commands/edit.js";
 import { runEntity } from "./commands/entity.js";
+import { runAiPolicyCheck, runAiPolicyExport } from "./commands/export.js";
 import { runInit } from "./commands/init.js";
 import { runPost } from "./commands/post.js";
 import { runRefine } from "./commands/refine.js";
@@ -81,6 +83,10 @@ Commands:
   status [platform] [--verify]   Per-entry deploy report — origin · surfaces · in-sync/stale/never
                                  + certification (D18/§19.5); --verify runs the opt-in C1
                                  live check (the engine's ONE network path, §19.5)
+  export ai-policy              Write the AI-policy artifacts (SPEC §7.3, M9): robots.txt
+          [--out <dir> | --check] [--lang <l>]  (two named groups: retrieval allowed, training
+                                blocked) + llms.txt (the workspace index) + AI-POLICY.md, into
+                                <dir>; --check (exit 1) fails an unsourced or >180-day entry
   skills:export <dir>           Copy the skill channels this package ships into <dir>
           [--force] [--list]     (--force overlays; --list shows them); no harness paths
 
@@ -91,8 +97,8 @@ Common flags (after the command):
 
 Exit codes: 0 ok · 1 schema/workspace failure, or a data finding that blocks the
 command (edit: the address is not one row or the edit does not change the
-published artifact; audit: at least one FAIL finding; entity: no canonical @id)
-· 2 usage error. Drift warnings exit 0 (D12: facts warn, schema fails).
+published artifact; audit: at least one FAIL finding; entity: no canonical @id;
+export ai-policy: an unsourced or stale UA list, or a refused write) · 2 usage error. Drift warnings exit 0 (D12: facts warn, schema fails).
 
 pasco is free (MIT). Consider a tip ;)
   https://ko-fi.com/christianluciani · https://github.com/sponsors/ChristianLuciani
@@ -290,6 +296,32 @@ the schema.org entity the renderers embed, exposed as an artifact.
 Exit: 0 when @id is present · 1 when it is absent (the entity has no declared home;
 the JSON-LD is still emitted, without @id) · 2 usage error. Offline and
 deterministic: no network, no clock, no AI.`,
+  export: `pasco export ai-policy [--out <dir> | --check] [--lang <l>] [--json] [--workspace <path>]
+The §12 M9 stance as an artifact: retrieval is ALLOWED, AI training is BLOCKED
+by default. Two modes, deliberately separate (one writes, one verifies):
+  --out <dir>   write robots.txt + llms.txt + AI-POLICY.md into <dir>.
+                robots.txt carries TWO named groups, never a wildcard: ai-retrieval
+                (Allow: /) and ai-training (Disallow: /), each User-agent line
+                commented with its registry entry, operator, source and date.
+                llms.txt is the workspace index — name, definition, canonical
+                identity URL, faq[] and publications[] — and the builder ASSERTS
+                that every document it claims to index appears in the text.
+                AI-POLICY.md is the statement a client can be sent: what is
+                allowed, what is blocked, who can change it, the date, quoting
+                the M9 floor verbatim.
+                An existing file is replaced only when pasco generated it; any
+                other is refused unless --force is passed.
+  --check       validate the UA list and write nothing: exit 1 when an entry has
+                no source, a malformed as_of, an as_of older than 180 days, a
+                duplicate token, or when either group would be empty.
+                --check reads no workspace (the list is registry data).
+The crawler list is derived, never hardcoded here: it is projected from the
+\`ai:\` block of the platform registry by \`pnpm gen:platforms\`.
+--lang        the language of the llms.txt text (default: .pascorc defaults.lang,
+              else 'en').
+Exit: 0 ok · 1 a --check problem, a schema/load failure or a write failure ·
+2 usage (no ai-policy subcommand, --out with --check, --force without --out).
+Offline; --out reads no clock and two runs produce byte-identical files.`,
   "skills:export": `pasco skills:export <dir> [--force] [--json]
 pasco skills:export --list [--json]
 Copies the skill channels this package ships (SPEC §16) into a directory you
@@ -653,6 +685,53 @@ async function runMain(): Promise<number> {
         // passed here — `artifactUrl` reads this workspace's URL SSOT. Tests
         // inject both through `deps`.
         deps: { fetchText: httpFetchText },
+      });
+    }
+    case "export": {
+      const { flags, positionals } = parseCommandFlags(rest, {
+        out: { type: "string" },
+        check: { type: "boolean" },
+        force: { type: "boolean" },
+        lang: { type: "string" },
+      });
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.export}\n`);
+        return EXIT.OK;
+      }
+      if (positionals.length !== 1 || positionals[0] !== "ai-policy") {
+        throw new UsageError("usage: pasco export ai-policy [--out <dir> | --check] [--lang <l>]");
+      }
+      if (flags.out === undefined && flags.check !== true) {
+        throw new UsageError(
+          "usage: pasco export ai-policy needs --out <dir> (write) or --check (verify)",
+        );
+      }
+      // One mode writes and one verifies: combining them would make a failing
+      // check silently produce files, which is the rot this command exists to stop.
+      if (flags.out !== undefined && flags.check === true) {
+        throw new UsageError("usage: --out writes and --check verifies — run them separately");
+      }
+      if (flags.force === true && flags.out === undefined) {
+        throw new UsageError("usage: --force only applies to --out <dir>");
+      }
+      if (flags.lang !== undefined && flags.out === undefined) {
+        throw new UsageError(
+          "usage: --lang only applies to --out <dir> (--check loads no workspace)",
+        );
+      }
+      setJsonMode(flags.json === true);
+      if (flags.out === undefined) {
+        return runAiPolicyCheck({ now: new Date() });
+      }
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      const pascorc = readWorkspacePascorc(workspace);
+      return runAiPolicyExport({
+        workspace,
+        out: flags.out,
+        force: flags.force === true,
+        lang: flags.lang !== undefined ? parseLang(flags.lang) : defaultsLang(pascorc),
+        pascorc,
+        now: new Date(),
       });
     }
     case "skills:export": {

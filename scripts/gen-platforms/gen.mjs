@@ -21,7 +21,9 @@ import { realpathSync } from "node:fs";
  *
  * Derived surfaces (all committed, never hand-edited):
  *   packages/core/src/generated/platforms.gen.ts  slug list + host maps + tests
+ *   packages/core/src/generated/ai-policy.gen.ts  the `ai:` crawler policy (#290)
  *   docs/SPEC.md    between `<!-- gen:platform-families -->` … `<!-- /gen -->`
+ *                   and between `<!-- gen:ai-policy -->` … `<!-- /gen -->`
  *   README.md       between `<!-- gen:platform-status -->` … `<!-- /gen -->`
  *
  * The renderer walk is REUSED, not re-implemented: `collectRenderers` is
@@ -55,8 +57,14 @@ const SKILLS_REL = "skills";
 const DEPLOY_KINDS = ["git", "api", "manual"];
 const STATUSES = ["member", "backlog"];
 const ORIGINS = ["postiz", "extra"];
+const AI_OUT_REL = path.join("packages", "core", "src", "generated", "ai-policy.gen.ts");
 const SPEC_MARKER = "gen:platform-families";
+const SPEC_AI_MARKER = "gen:ai-policy";
 const README_MARKER = "gen:platform-status";
+const AI_FAMILIES = ["retrieval", "training"];
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const HTTP_URL = /^https?:\/\/[^\s]+$/;
+const CRAWLER_SLUG = /^[a-z0-9][a-z0-9-]*$/;
 const GEN_CLOSE = "<!-- /gen -->";
 
 const rel = (root, target) => path.relative(root, target) || ".";
@@ -192,7 +200,104 @@ async function loadRegistry(root) {
       }
     }
   }
-  return { families, platforms, postiz };
+  return { families, platforms, postiz, ai: registry.ai };
+}
+
+/** Whitespace-normalized comparison (a SPEC paragraph wraps; the stance is one sentence). */
+const normalize = (value) => value.replace(/\s+/g, " ").trim();
+
+/**
+ * The `ai:` block (#290): the crawler policy the `pasco export ai-policy`
+ * artifact is generated from. It is data, and UNSOURCED DATA IS THE FAILURE MODE
+ * this gate exists for — a UA classified from memory makes the whole artifact
+ * worthless, so every entry must name the operator's own page and the date it
+ * was read, and the policy stance must appear verbatim in the SPEC.
+ */
+function loadAiPolicy(ai, specSource) {
+  if (ai === null || typeof ai !== "object" || Array.isArray(ai)) {
+    throw new GateError(`${REGISTRY_REL}: "ai" must be a mapping (the AI crawler policy, #290)`);
+  }
+  const policy = ai.policy;
+  if (policy === null || typeof policy !== "object" || Array.isArray(policy)) {
+    throw new GateError(`${REGISTRY_REL}: "ai.policy" must be a mapping`);
+  }
+  if (!Number.isInteger(policy.version) || policy.version < 1) {
+    throw new GateError(`${REGISTRY_REL}: ai.policy.version must be a positive integer`);
+  }
+  if (typeof policy.as_of !== "string" || !ISO_DATE.test(policy.as_of)) {
+    throw new GateError(`${REGISTRY_REL}: ai.policy.as_of must be an ISO date (YYYY-MM-DD)`);
+  }
+  if (typeof policy.stance !== "string" || policy.stance.length === 0) {
+    throw new GateError(`${REGISTRY_REL}: ai.policy.stance must be a non-empty string`);
+  }
+  if (!normalize(specSource).includes(normalize(policy.stance))) {
+    throw new GateError(
+      `${REGISTRY_REL}: ai.policy.stance is not present verbatim in ${SPEC_REL} — the artifact quotes it, so the stated position cannot drift from the SPEC`,
+    );
+  }
+
+  const crawlers = ai.crawlers;
+  if (crawlers === null || typeof crawlers !== "object" || Array.isArray(crawlers)) {
+    throw new GateError(`${REGISTRY_REL}: "ai.crawlers" must be a mapping of slug → metadata`);
+  }
+  const slugs = Object.keys(crawlers);
+  if (slugs.length === 0) {
+    throw new GateError(`${REGISTRY_REL}: "ai.crawlers" declares no entry`);
+  }
+  const seenUa = new Map();
+  const rows = slugs.map((slug) => {
+    const entry = crawlers[slug];
+    if (!CRAWLER_SLUG.test(slug)) {
+      throw new GateError(`${REGISTRY_REL}: ai crawler "${slug}" must be a kebab-case slug`);
+    }
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new GateError(`${REGISTRY_REL}: ai crawler "${slug}" must be a mapping`);
+    }
+    const { ua, family, operator, source, as_of: asOf } = entry;
+    if (typeof ua !== "string" || ua.length === 0 || /\s/.test(ua)) {
+      throw new GateError(
+        `${REGISTRY_REL}: ai crawler "${slug}".ua must be one robots.txt token (no whitespace)`,
+      );
+    }
+    if (seenUa.has(ua)) {
+      throw new GateError(
+        `${REGISTRY_REL}: ai crawlers "${seenUa.get(ua)}" and "${slug}" both declare ua "${ua}" — one entry per token`,
+      );
+    }
+    seenUa.set(ua, slug);
+    if (!AI_FAMILIES.includes(family)) {
+      throw new GateError(
+        `${REGISTRY_REL}: ai crawler "${slug}".family must be one of ${AI_FAMILIES.join(" | ")}`,
+      );
+    }
+    if (typeof operator !== "string" || operator.length === 0) {
+      throw new GateError(
+        `${REGISTRY_REL}: ai crawler "${slug}".operator must be a non-empty string`,
+      );
+    }
+    if (typeof source !== "string" || !HTTP_URL.test(source)) {
+      throw new GateError(
+        `${REGISTRY_REL}: ai crawler "${slug}".source must be the operator's http(s) page — an unsourced classification does not ship`,
+      );
+    }
+    if (typeof asOf !== "string" || !ISO_DATE.test(asOf)) {
+      throw new GateError(
+        `${REGISTRY_REL}: ai crawler "${slug}".as_of must be an ISO date (YYYY-MM-DD)`,
+      );
+    }
+    return { slug, ua, family, operator, source, as_of: asOf };
+  });
+  for (const family of AI_FAMILIES) {
+    if (!rows.some((row) => row.family === family)) {
+      throw new GateError(
+        `${REGISTRY_REL}: the ai policy declares no "${family}" crawler — a robots.txt without that group does not express the policy`,
+      );
+    }
+  }
+  return {
+    policy: { version: policy.version, as_of: policy.as_of, stance: policy.stance },
+    crawlers: rows,
+  };
 }
 
 /** Renderer platforms from the manifests — the #165 walk, reused. */
@@ -211,7 +316,8 @@ async function rendererIndex(root) {
 /** Build the projection model + refuse every registry ↔ enum ↔ renderer mismatch. */
 async function buildModel(root) {
   const enumPlatforms = await schemaPlatforms(root);
-  const { families, platforms, postiz } = await loadRegistry(root);
+  const { families, platforms, postiz, ai } = await loadRegistry(root);
+  const aiPolicy = loadAiPolicy(ai, await readText(path.join(root, SPEC_REL), SPEC_REL));
   const renderers = await rendererIndex(root);
 
   const enumSet = new Set(enumPlatforms);
@@ -350,6 +456,7 @@ async function buildModel(root) {
 
   return {
     enumPlatforms,
+    ai: aiPolicy,
     families,
     platforms,
     memberSlugs,
@@ -430,6 +537,79 @@ ${paste}
 `;
 }
 
+/** `packages/core/src/generated/ai-policy.gen.ts` — the AI crawler policy projection (#290). */
+export function renderAiPolicyModule(model) {
+  const { policy, crawlers } = model.ai;
+  const rows = crawlers
+    .map(
+      (crawler) =>
+        `  { slug: ${JSON.stringify(crawler.slug)}, ua: ${JSON.stringify(crawler.ua)}, family: ${JSON.stringify(crawler.family)}, operator: ${JSON.stringify(crawler.operator)}, source: ${JSON.stringify(crawler.source)}, as_of: ${JSON.stringify(crawler.as_of)} },`,
+    )
+    .join("\n");
+  return `/**
+ * GENERATED by scripts/gen-platforms/gen.mjs from platforms/registry.yaml — DO NOT EDIT BY HAND (#290).
+ *
+ * The AI crawler policy has exactly one data home: the \`ai:\` block of
+ * \`platforms/registry.yaml\`, where every entry names the operator's own page
+ * and the date it was read. \`pasco export ai-policy\` renders these rows into
+ * robots.txt / llms.txt / AI-POLICY.md; a UA list kept in the CLI would rot
+ * without a failing command. Run \`pnpm gen:platforms\` after editing the
+ * registry; CI asserts this file is fresh.
+ */
+
+/** The two robots.txt groups the policy is expressed as — never one wildcard. */
+export type AiCrawlerFamily = "retrieval" | "training";
+
+/** One robots.txt token and the evidence behind its classification. */
+export interface AiCrawler {
+  /** Registry slug — the entry a reader is pointed at. */
+  readonly slug: string;
+  /** The robots.txt \`User-agent\` token, verbatim. */
+  readonly ua: string;
+  /** retrieval = the output is a citation · training = foundation-model corpus. */
+  readonly family: AiCrawlerFamily;
+  /** The company/foundation that runs it. */
+  readonly operator: string;
+  /** That operator's own page documenting the token. */
+  readonly source: string;
+  /** ISO date \`source\` was read (the \`--check\` staleness anchor). */
+  readonly as_of: string;
+}
+
+/** The policy contract version (a consumer refuses a version it does not know). */
+export const AI_POLICY_VERSION = ${policy.version};
+
+/** The date the policy was last reviewed (the generated files' dated stamp). */
+export const AI_POLICY_AS_OF = ${JSON.stringify(policy.as_of)};
+
+/** The stated position, verbatim from the SPEC §12 M9 floor (gate-checked). */
+export const AI_POLICY_STANCE = ${JSON.stringify(policy.stance)};
+
+/** The crawler rows, in registry order (retrieval first, then training). */
+export const AI_CRAWLERS: readonly AiCrawler[] = [
+${rows}
+];
+`;
+}
+
+/** `docs/SPEC.md` §7.3 block — the crawler table the artifact is generated from. */
+export function renderSpecAiBlock(model) {
+  const { policy, crawlers } = model.ai;
+  const count = (family) => crawlers.filter((crawler) => crawler.family === family).length;
+  const rows = crawlers.map(
+    (crawler) =>
+      `| \`${crawler.slug}\` | \`${crawler.ua}\` | ${crawler.family} | ${crawler.operator} | [source](${crawler.source}) | ${crawler.as_of} |`,
+  );
+  return [
+    "<!-- GENERATED by scripts/gen-platforms/gen.mjs from platforms/registry.yaml — do not edit by hand. -->",
+    `ai-policy v${policy.version} · as of ${policy.as_of} · ${count("retrieval")} retrieval (allowed) + ${count("training")} training (blocked) = **${crawlers.length}** crawler(s).`,
+    "",
+    "| Registry entry | User-agent | Family | Operator | Source | As of |",
+    "|---|---|---|---|---|---|",
+    ...rows,
+  ].join("\n");
+}
+
 /** `docs/SPEC.md` §6 block — the family table + the count arithmetic. */
 export function renderSpecBlock(model) {
   const { counts } = model;
@@ -492,7 +672,9 @@ async function project(root) {
   const model = await buildModel(root);
   const generated = {
     module: renderPlatformsModule(model),
+    ai: renderAiPolicyModule(model),
     spec: renderSpecBlock(model),
+    specAi: renderSpecAiBlock(model),
     readme: renderReadmeBlock(model),
   };
   return { model, generated };
@@ -518,11 +700,24 @@ async function main() {
         generated: generated.module,
       },
       {
+        name: "ai-policy.gen.ts",
+        out: path.join(root, AI_OUT_REL),
+        rel: rel(root, path.join(root, AI_OUT_REL)),
+        generated: generated.ai,
+      },
+      {
         name: "SPEC.md block",
         out: path.join(root, SPEC_REL),
         rel: SPEC_REL,
         marker: SPEC_MARKER,
         generated: generated.spec,
+      },
+      {
+        name: "SPEC.md ai block",
+        out: path.join(root, SPEC_REL),
+        rel: SPEC_REL,
+        marker: SPEC_AI_MARKER,
+        generated: generated.specAi,
       },
       {
         name: "README.md block",
@@ -565,8 +760,10 @@ async function main() {
 
     await mkdir(path.dirname(path.join(root, OUT_REL)), { recursive: true });
     await writeFile(path.join(root, OUT_REL), generated.module);
+    await writeFile(path.join(root, AI_OUT_REL), generated.ai);
     for (const [relPath, marker, inner] of [
       [SPEC_REL, SPEC_MARKER, generated.spec],
+      [SPEC_REL, SPEC_AI_MARKER, generated.specAi],
       [README_REL, README_MARKER, generated.readme],
     ]) {
       const target = path.join(root, relPath);
@@ -575,7 +772,7 @@ async function main() {
       await writeFile(target, rendered);
     }
     console.log(
-      `gen-platforms: wrote ${rel(root, path.join(root, OUT_REL))}, ${SPEC_REL} + ${README_REL} (` +
+      `gen-platforms: wrote ${rel(root, path.join(root, OUT_REL))}, ${rel(root, path.join(root, AI_OUT_REL))}, ${SPEC_REL} + ${README_REL} (` +
         `${model.counts.total} platforms, ${model.renderers} renderer(s), ${model.skills} skill(s))`,
     );
   } catch (error) {

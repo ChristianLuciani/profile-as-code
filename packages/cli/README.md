@@ -66,6 +66,7 @@ commands above are the standalone path.
 | `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) + offline `max-chars`/`min-chars` over headlines/bios (#240) + `fact-present` (the built surface's fact tokens vs the SSOT render, #283) | 🚧 offline rules today (limits + registry + media + fact-present; remaining catalog M3/M4) |
 | `pasco audit [--json]` | Offline **diagnostic projection**, findings only (no score/prioritisation/branding, #283): three fixed classes — `dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN — exit 1 iff any FAIL; `--json` carries `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings }` | ✅ v1 |
 | `pasco entity [--json \| --jsonld [--out <file>] [--bare]]` | The **entity projection** for surfaces the engine does not render (#287): `--json` is the frozen view — `entity { id, type, name, sameAs, email }`, the structured-data `gaps` (geoCheck codes verbatim) and `jsonld: null`; `--jsonld` is the **same assembler output** the renderers embed, as a paste-ready `<script type="application/ld+json">` block. Exit 1 when `@id` is absent (never invented) | ✅ v1 |
+| `pasco export ai-policy [--out <dir> \| --check] [--lang <l>]` | The M9 stance as an artifact (#290): `--out` writes `robots.txt` (two named groups — retrieval allowed, AI training blocked — each UA commented with its registry entry, operator, source and date), `llms.txt` (the workspace index: name, definition, canonical identity, `faq[]`, `publications[]`, with a coverage assertion) and `AI-POLICY.md` (allowed · blocked · who can change it · the date, quoting the stance verbatim). `--check` exits 1 on an unsourced entry or an `as_of` older than 180 days, and `--out` refuses to write one. The UA list is projected from the platform registry — never hardcoded in the CLI | ✅ v1 |
 | `pasco post <seed\|task\|choose\|check\|export\|import\|list>` | Week-1 post MVP (#264): a seed at `posts/<seed>/seed.md` → task bundle → chosen variant → check → optional Postiz draft payload; the CLI never calls an LLM | 🚧 experiment (not in the v1 contract; `docs/post-mvp.md`) |
 | `pasco skills:export <dir> [--force] [--list]` | Copy the platform skills this package ships into a directory you name (`--list` shows them; no per-agent paths are invented — #254) | ✅ |
 
@@ -218,6 +219,45 @@ envelope at exit `1`, never a stack.
 Exit `0` when `@id` is present, `1` when it is absent (the entity has no declared
 home; the JSON-LD is still emitted, without `@id`) or the `--out` write failed, `2`
 for usage. It is offline and deterministic: no network, no clock, no AI.
+
+### The AI policy artifacts (`pasco export ai-policy`, #290)
+
+A profile publishes into a web where two kinds of machine reader arrive: the ones
+whose output is a **citation** (search and answer indexing, a fetch a user asked
+for) and the ones collecting material for **foundation-model training**. The
+project's stance (SPEC §12 M9) blocks the second by default and wants the first —
+and until this command there was no file that said so. One command now emits all
+three, from the workspace and the platform registry:
+
+```sh
+pasco export ai-policy --out ./public   # robots.txt + llms.txt + AI-POLICY.md
+pasco export ai-policy --check          # exit 1 when the UA list is stale or unsourced
+```
+
+- **`robots.txt`** carries two *named* groups and never a wildcard: `ai-retrieval`
+  is `Allow: /`, `ai-training` is `Disallow: /`. Every `User-agent` line is
+  preceded by a comment naming its registry entry, operator, source URL and the
+  date that source was read, so a reader can tell **why** a crawler is in a group.
+- **`llms.txt`** is the workspace index in the shape the project site already
+  uses: name, one-line definition, the canonical identity URL, the `faq[]`
+  answers, the citable `publications[]`, and a dated stamp. The builder asserts
+  that **every document it claims to index appears in the text** — a document
+  missing from the index is a silent hole, not a cosmetic bug.
+- **`AI-POLICY.md`** is the statement you send when a client asks "what is your AI
+  policy": what is allowed, what is blocked, who can change it, the date, and the
+  per-crawler table with each operator's own documentation URL.
+
+The crawler list is **derived data**: it lives in the `ai:` block of the platform
+registry, `pnpm gen:platforms` projects it into the engine, and the generator
+refuses an entry with no `source` or no `as_of`. `--check` fails an unsourced
+entry or a source older than **180 days** — and `--out` runs the same check first,
+so a stale list becomes a failing command instead of a file that rots. No clock is
+read when writing: the stamp is the registry's review date, so two runs on
+different days produce byte-identical files.
+
+`--out` never truncates a file it did not generate: an existing `robots.txt` that
+is not ours needs `--force`. A refused write or a failed `--check` is exit `1`, a
+usage error is exit `2`. The `--json` contract is frozen in SPEC §7.3.
 
 ### Contract paths (`pasco edit`, epic #247 — read · preview · write)
 
@@ -452,6 +492,8 @@ pasco post task demo --channel linkedin,x   # task bundles (no LLM call)
 pasco post choose demo --channel linkedin --variant linkedin-1
 pasco post check demo                        # limits + URLs + {{fact:...}} refs
 pasco post export demo --target postiz       # POST /posts draft payload
+pasco export ai-policy --out ./public        # robots.txt + llms.txt + AI-POLICY.md (M9)
+pasco export ai-policy --check               # exit 1 on an unsourced or >180-day UA list
 pasco skills:export --list                   # skill channels shipped with this package
 pasco skills:export ./pasco-skills           # copy them to a directory you choose
 ```
@@ -491,7 +533,7 @@ written to the workspace; only this policy is stored.
 | Code | Meaning |
 |---|---|
 | `0` | OK — schema valid. Drift warnings still exit 0 (D12: facts warn, schema fails). |
-| `1` | Schema or operational failure (workspace not found, bad YAML, not a git repo for `diff`), **or a data finding that blocks the command** (`edit`: the address is not exactly one row, or the edit does not change the published artifact; `audit`: at least one `FAIL` finding). |
+| `1` | Schema or operational failure (workspace not found, bad YAML, not a git repo for `diff`), **or a data finding that blocks the command** (`edit`: the address is not exactly one row, or the edit does not change the published artifact; `audit`: at least one `FAIL` finding; `export ai-policy`: an unsourced or stale UA list, or a refused write). |
 | `2` | Usage error (unknown command/platform/lang, bad flags). |
 
 Human output is EN by default (D8/§11); `--json` prints a machine-readable

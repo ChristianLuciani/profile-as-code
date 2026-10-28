@@ -378,6 +378,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco check [platform]` | run skill-declared checks before deploy; char limits accept an optional `surface` (`headline`/`bio`/`both`) so a title cap does not flag the bio (#240). **`fact-present`** is executed here (issue #283), **for the surfaces whose catalog declares the premise** (the workspace's `content/checks.yaml` ∪ the shipped `skills/<platform>/checks.yaml`; `link-in-identity` stays a separate premise): the artifact `pasco build` last wrote is compared **symmetrically** against the SSOT render — a URL the surface adds (dangling pointer) or omits (`contradiction`), a date or number either side carries and the other does not (`contradiction`), and a text difference no fact token explains (`contradiction`) are all findings. All are WARN (D12: facts warn), and a targeted surface with no artifact on disk reports the rule as **not run**, never as OK |
 | `pasco audit [--json]` | the **offline diagnostic projection** over the identity: findings only — no score, no prioritisation, no branding (issue #283). `--json` emits `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings: [{ class, severity, path, detail }] }` — `scope` makes "measured nothing" distinguishable from "clean" — with three fixed classes (`dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN); exit 1 iff any FAIL. Composes `load` (schema), `reconciledDrift` (drift + the #238 variant reconciliation), `geoCheck` (its `faq-coverage` premise gates the claim rows), the completeness `evidence` premise, and `fact-present`; it is **deliberately stricter** than `validate`/`check` on the FAIL classes (declared in §7.1) |
 | `pasco entity [--json \| --jsonld [--out <file> [--force]] [--bare]] [--lang <l>]` | the **entity projection** for surfaces this engine does not render (issue #287): the schema.org entity assembled by `structuredData()` — `@id`, `sameAs`, type and fields — plus the readiness `gaps` (geoCheck codes, verbatim). `--json` emits `{ schemaVersion: "1", entity: { id, type, name, sameAs, email }, gaps: [{ code, detail }], jsonld: null }`; `--jsonld` emits the **same assembler output** the renderers embed, as a paste-ready `<script type="application/ld+json">` block (`--bare` = the bare object, `--out <file>` writes it atomically and refuses an existing file without `--force`). **Both modes resolve one `lang`** (`--lang`, else `.pascorc defaults.lang`) so a gap and the emitted field cannot disagree. **One assembler, no CLI-local builder**: the projection never invents `@id` and never re-derives the entity (§15.4). Exit `1` when `@id` is absent (the entity has no declared home) or the `--out` write fails; `0` otherwise; `2` is usage. Offline and deterministic (D19). Contract: §7.2 |
+| `pasco export ai-policy [--out <dir> \| --check] [--json] [--lang <l>]` | the §12 M9 stance as an artifact (issue #290): `--out` writes `robots.txt` (two named groups — `ai-retrieval` allowed, `ai-training` blocked, each UA commented with its registry entry/operator/source/date), `llms.txt` (the workspace index, with a coverage assertion over every document it claims) and `AI-POLICY.md` (retrieval allowed · training blocked · who can change it · the date, quoting the M9 floor verbatim); `--check` exits `1` on an unsourced entry or an `as_of` older than 180 days, and `--out` refuses to write one. The crawler list is projected from `platforms/registry.yaml` (`ai:`) by `pnpm gen:platforms` — never a hardcoded UA list in the CLI. Offline; `--check` is the declared clock-reading path. Contract: §7.3 |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22). **The read report also ends with the derived publication truth per surface (§20.1, #242): ledger · artifact-vs-SSOT · declared cap — computed on every read, stored nowhere** |
 | `pasco skills:export <dir> [--force] [--list]` | copy the skill channels **this package ships** into a directory the user names; `--force` overlays an existing non-empty directory (nothing is deleted), `--list` shows the channels. No per-agent destination is invented. Skill lookup reads only the package's own `skills/`, an explicit `PASCO_SKILLS_DIR`, or the marked workspace checkout (developers) — #253/#254 |
@@ -557,6 +558,107 @@ assembles), together with the §18.9 `hasCredential` / `CreativeWork` entries
 `structured-data.ts` already builds. `FAQPage` / `Service` / `BreadcrumbList`
 arrive with the schema issue, not here. Offline, no clock, no AI (D19).
 
+### 7.3 `pasco export ai-policy` — retrieval allowed, training blocked (issue #290)
+
+The §12 M9 floor (private-first: published surfaces block AI-training crawlers)
+had no artifact, and the opposite half — allowing the retrieval/answer crawlers,
+which is what makes a profile citable — had no expression either. This command
+ships both as three generated files plus the stated position.
+
+```bash
+pasco export ai-policy --out ./public   # robots.txt + llms.txt + AI-POLICY.md
+pasco export ai-policy --check          # exit 1 when the UA list is stale or unsourced
+```
+
+**Derived data, never a committed workspace artifact** (the ADR-lite of #290). A
+committed `robots.txt` rots silently; a generator with a staleness gate turns rot
+into a failing command — the same reason `CHECKLIST.md` is a view (§19.3) and the
+site root is generated (#279). The command writes into a directory the caller
+names; it never touches the workspace itself.
+
+**The registry is the one home.** `platforms/registry.yaml` gains an `ai:` block —
+`policy` (version · as_of · stance) and `crawlers` (slug → `ua` · `family` ·
+`operator` · `source` · `as_of`). `pnpm gen:platforms` projects it into
+`packages/core/src/generated/ai-policy.gen.ts` and the table below; the CLI reads
+the projection and never keeps its own UA list. `gen.mjs` refuses an entry with no
+`source`, an unknown `family`, a duplicate `ua`, a malformed `as_of`, or a
+`policy.stance` that is not present verbatim in this SPEC — so the position the
+artifact states cannot drift from the M9 floor it claims.
+
+<!-- gen:ai-policy -->
+<!-- GENERATED by scripts/gen-platforms/gen.mjs from platforms/registry.yaml — do not edit by hand. -->
+ai-policy v1 · as of 2026-10-27 · 7 retrieval (allowed) + 4 training (blocked) = **11** crawler(s).
+
+| Registry entry | User-agent | Family | Operator | Source | As of |
+|---|---|---|---|---|---|
+| `googlebot` | `Googlebot` | retrieval | Google | [source](https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers) | 2026-10-27 |
+| `oai-searchbot` | `OAI-SearchBot` | retrieval | OpenAI | [source](https://developers.openai.com/api/docs/bots) | 2026-10-27 |
+| `chatgpt-user` | `ChatGPT-User` | retrieval | OpenAI | [source](https://developers.openai.com/api/docs/bots) | 2026-10-27 |
+| `perplexitybot` | `PerplexityBot` | retrieval | Perplexity | [source](https://docs.perplexity.ai/docs/resources/perplexity-crawlers) | 2026-10-27 |
+| `perplexity-user` | `Perplexity-User` | retrieval | Perplexity | [source](https://docs.perplexity.ai/docs/resources/perplexity-crawlers) | 2026-10-27 |
+| `claude-searchbot` | `Claude-SearchBot` | retrieval | Anthropic | [source](https://privacy.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler) | 2026-10-27 |
+| `claude-user` | `Claude-User` | retrieval | Anthropic | [source](https://privacy.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler) | 2026-10-27 |
+| `gptbot` | `GPTBot` | training | OpenAI | [source](https://developers.openai.com/api/docs/bots) | 2026-10-27 |
+| `claudebot` | `ClaudeBot` | training | Anthropic | [source](https://privacy.claude.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler) | 2026-10-27 |
+| `google-extended` | `Google-Extended` | training | Google | [source](https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers) | 2026-10-27 |
+| `ccbot` | `CCBot` | training | Common Crawl | [source](https://commoncrawl.org/ccbot) | 2026-10-27 |
+<!-- /gen -->
+
+**`robots.txt` — two named groups, never one wildcard.** `ai-retrieval` is
+`Allow: /` (search/answer indexing and user-initiated fetches); `ai-training` is
+`Disallow: /` (foundation-model corpus crawlers — the M9 default). Each
+`User-agent` line is preceded by a comment naming its registry entry, operator,
+source and `as_of`, so a reader can tell why a crawler is in a group. No bare
+`User-agent: *` allow-all is ever emitted: a wildcard group would contradict the
+training block on every resolver that prefers a specific group over a wildcard.
+
+**`llms.txt` — the workspace index, with a coverage assertion.** Built in the
+shape `scripts/site-docs/gen.mjs` already uses for the project page (title,
+one-line definition, link list), from the **workspace**: the entity name, the
+canonical `role: identity` URL, the citable `faq[]`, the `publications[]` and a
+dated stamp. The builder assembles the document list first and then **asserts that
+every document it claims to index appears in the emitted text** — a document
+missing from `llms.txt` is a silent hole, not a cosmetic bug, and the assertion is
+exported so a test can prove it fails when a section is dropped. The stamp is the
+`ai.policy.as_of` registry date, never the wall clock (D19); the identity line is
+omitted, with a WARNING, when no link declares `role: identity` — the engine never
+invents a canonical URL (§7.2).
+
+**`AI-POLICY.md` — the human-readable statement.** What is allowed, what is
+blocked, who can change it, and the date. It quotes `ai.policy.stance` verbatim —
+the registry's copy of the §12 M9 floor, gate-checked against this SPEC — and
+carries the per-crawler table with each operator's own source URL, so the document
+that answers "what is your AI policy?" is auditable line by line.
+
+**`--check`.** Fails (exit `1`) when any entry has no `source` (or a source that is
+not `http(s)`), no `family`/`operator`, a malformed, **future-dated** or
+**older-than-180-days** `as_of`, when a `ua` is duplicated, or when either group would be empty (a
+robots.txt with no training entry blocks nothing — the M9 floor is the point). It
+loads no workspace: the UA list is registry data, which is what makes the gate
+runnable in CI. `--out` runs the same check first and **refuses to write** a stale
+or unsourced list; the write path is therefore deterministic (registry dates only)
+while `--check` is the engine's declared clock-reading path, alongside
+`status --verify` (§19.5).
+
+**`--json` contract (v1, frozen).** `data` is `{ "schemaVersion": "1", "policy":
+{ "version", "asOf", "stance", "maxAgeDays" }, "groups": { "retrieval": [...],
+"training": [...] }, "problems": [...], "files": [...] }` where each crawler row is
+`{ slug, ua, operator, source, asOf, ageDays }`, a problem is `{ kind, entry,
+detail }` (`unsourced` · `stale` · `future-dated` · `unknown-family` ·
+`duplicate-ua` · `empty-group`), and `files` (`{ name, path, bytes }`) is present only under
+`--out`. The string `"1"` is the contract version, as in §7.1/§7.2.
+
+**Exit matrix.** `0` ok (a clean `--check`, a successful write) · `1` a `--check`
+problem, a schema/load failure (D12) or a write failure · `2` usage (no
+`ai-policy` subcommand, `--out` and `--check` together, `--force` without `--out`).
+`--out` validates all three targets before writing any, writes each atomically
+(temp file + rename), and **refuses to replace a file it did not generate** unless `--force` is passed: an
+existing foreign `robots.txt` is the user's, and a typo in `--out` must not eat it.
+
+**Non-goals in v1.** No hosting, no deploy, no DNS, no CMS plugin, and no claim
+about how any engine actually behaves — that belongs to the measurement module.
+The command states a position and ships it; it does not audit the world.
+
 ## 8. GEO as a cross-cutting layer
 
 GEO is not a renderer — it is enforced in four places:
@@ -727,7 +829,10 @@ Two different "templates" (previous confusion):
 6. **M6 (brand flavor)**: schema v1.1 brand additions (§17) + `pasco init --flavor brand` + renderer `github-org` + handle-matrix checks + `skills/github-org/` + dogfood `profile-data-topia` (private).
 7. **M7 (evidence core)**: schema v1.4 — `credentials[]`/`artifacts[]` + cross-refs (§18) · `pasco check`: `credential-expiry`, registry live-links, `no-private-in-public-output` · JSON-LD `hasCredential` · compact registry section in `github-readme` · template: `media/` scaffold + `docs/evidence-packs.md` + power-user symlink/stow doc (issue #48).
 8. **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable, checksummed bundling — Q9 resolved as D19: one `assets/` dir per platform output) · deploy playbooks publish media to the public surface · git-lfs guidance · portfolio-site consumption lands **with M5** (the web renderer does not exist yet — engine-side contract ships first).
-9. **M9 (training-time corpus presence — deferred, Q10)**: outputs are designed not only for inference-time citation (GEO, layer 2) but — for owners who explicitly consent — for entry into future model training corpora (layer 3). Inputs + documented levers: `docs/research/03-training-time-visibility.md` (sourced + dated). Floor regardless of the Q10 resolution — **private-first default**: `robots.txt` on published surfaces **blocks** AI-training crawlers (CCBot / vendor AI crawlers) and user data ships **without** an open license; entering corpora or open-licensing data requires the profile owner's explicit opt-in (consent field — schema work deferred with Q10). The operator's own profiles may opt in: that consent is theirs to give. Decision (Q10): a `huggingface-dataset` renderer/exporter vs contributing to existing open datasets vs both — decided when the M3 platform SOTA research closes.
+9. **M9 (training-time corpus presence — deferred, Q10)**: outputs are designed not only for inference-time citation (GEO, layer 2) but — for owners who explicitly consent — for entry into future model training corpora (layer 3). Inputs + documented levers: `docs/research/03-training-time-visibility.md` (sourced + dated). Floor regardless of the Q10 resolution — **private-first default**: `robots.txt` on published surfaces **blocks** AI-training crawlers (CCBot / vendor AI crawlers) and user data ships **without** an open license; entering corpora or open-licensing data requires the profile owner's explicit opt-in (consent field — schema work deferred with Q10). The operator's own profiles may opt in: that consent is theirs to give. The floor has an artifact as of
+2026-10-27: `pasco export ai-policy` (§7.3, issue #290) generates `robots.txt` + `llms.txt` +
+`AI-POLICY.md` from the `ai:` block of the platform registry, and refuses a UA list that is unsourced or
+older than 180 days. Decision (Q10): a `huggingface-dataset` renderer/exporter vs contributing to existing open datasets vs both — decided when the M3 platform SOTA research closes.
 10. **M10 (fact selection, D22/§21 — issue #235)**: `.pascorc` → `selection.views` + `selectFacts()` in core + `build --view` + `status --selection` + the five selection findings; Phase 1 is **schema-free** (selection by §19.2 key, and `artifacts[].tags` finally read as §18.9 declared). Phase 2 adds optional `tags[]` to six entry blocks (not `skills`); **Phase 3** (several views per platform, `profiles/<view>/`) needs a D19 amendment and stays out of scope until asked for.
 11. **Answer-engine surface (schema v1.10 — issues #288 → #289 → #287)**: `identity.definition` + `faq[]` (the citable facts, #288) · the `structuredData()` projection **of `definition`/`faq[]`** (`description` from `definition` + a separate `FAQPage` JSON-LD node, only when the fields exist) is **pending in #316** — the brand `description` from `mission` already ships · geoCheck v2 citability codes (#289 — freshness INFO, honest name-collision) · `pasco entity --json/--jsonld` (#287 — ✅ shipped, §7.2), the entity projection for surfaces the engine does not render: it emits `structuredData()`'s own output, never a second assembler.
 12. **M11 (presence audit — issue #283)**: `pasco audit --json` (§7.1) — the offline findings projection (three fixed classes, exit 1 on FAIL) over `load`/schema, `reconciledDrift`, `geoCheck`'s `faq-coverage` premise, the completeness `evidence` premise and the `fact-present` rule; `fact-present` executes in `pasco check` and compares the artifact `pasco build` last wrote against the SSOT render symmetrically. Scoring/prioritisation/branding stay in the consuming layer; the presence unit itself is #262 (D23 — operator-ratified 2026-10-23, and its normative entry into this SPEC, with its §5 register row, is pending there).
