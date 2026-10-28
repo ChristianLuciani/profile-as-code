@@ -229,6 +229,23 @@ flavor-conditional), the value validates, and the Organization branch emits no n
 Surfacing that drop as a runtime finding is **not** part of v1.13; it would be new
 drift/geoCheck behavior, reopened only with a concrete consumer.
 
+**Publication classification (issue #349 — additive, v1.14):** `publications[].kind` is
+the **structured** answer to *what kind of output is this* — a closed enum
+`journal-article` | `preprint` | `conference-abstract` (the minimum set that covers the
+real workspace; extensible in a future minor). It exists because classification was
+living outside the contract as per-consumer `venue`-string heuristics ("Carbon Trends" →
+peer-reviewed, "SSRN Electronic Journal" → preprint, "… (abstract)" → abstract), the
+exact drift the engine exists to prevent: a new venue must never fail a consumer's check
+nor be classified by prose. **`peerReviewed` is derived, never stored:** it is exactly
+`kind == journal-article`, the same derive-never-store discipline as
+published-vs-in-development (§15.3/§20.1); a real exception is documented here *before*
+a boolean is added. **Additive:** `kind` is optional — a row without it validates and
+renders byte-identically to a pre-v1.14 workspace, and the existing row fields keep
+their meaning. Consumers that need counts (arbitrated / preprints / abstracts, a year
+window, co-authorship) MUST require the field explicitly instead of inferring it; the
+engine does not guess. `publications.counts` on the compiled profile is deliberately
+**not** part of this minor — it is #348's follow-up.
+
 **Platform set (D16 — additive, v1.2):** ONE shared enum for both flavors — the union of
 Postiz's 34 supported networks ([OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02) plus
 **15 operator extras**: the six v1 non-Postiz surfaces (`github-readme`, `upwork`,
@@ -301,7 +318,7 @@ headlines:     [ { platform, lang, text } ]                   # per-platform, pe
 skills:        [ { name, level, keywords[], geoKeywords[], platformWeights{} } ]
 experience:    [ { id?, origin?, role, org, start, end, highlights{lang} } ]   # id/origin — D18 §19
 projects:      [ { id?, origin?, name, status, description{lang}, links, keywords{}, evidence[], artifactRefs[]? } ]   # artifactRefs — v1.12, #333
-publications:  [ { id?, origin?, title, venue, year, doi, orcidId, artifactRefs[]? } ]
+publications:  [ { id?, origin?, title, venue, year, kind?, doi, orcidId, artifactRefs[]? } ]   # kind — v1.14, #349
 credentials:   [ { id, kind, title, issuer, credentialId?, verifyUrl, issued, expires?, visibility } ]
 artifacts:     [ { id, kind, title, description{lang}?, locator, checksum?, license?, tags[], visibility } ]
 keywords:      { seo: { platform: [] }, geo: { associations: [], claims: [] } }

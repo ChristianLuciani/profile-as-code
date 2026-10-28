@@ -4,9 +4,15 @@
 workspace (JSON Schema, draft 2020-12). Per D3, JSON Schema is the contract source and
 **Zod schemas are generated from it** in `packages/core` — never hand-written in parallel.
 
-> Status: **v1.13** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
+> Status: **v1.14** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
 > v1.x is **additive** (semver minor): every earlier workspace still validates unchanged. New
-> in v1.13 (issue #334): `identity.nationality` — the ISO 3166-1 alpha-2 code (uppercase, e.g.
+> in v1.14 (issue #349): `publication.kind` — the closed output classification
+> (`journal-article` | `preprint` | `conference-abstract`). `peerReviewed` is **derived**
+> from `kind == journal-article` and never stored; a row without `kind` validates and renders
+> exactly as before, and a consumer that needs counts requires the field rather than
+> inferring it from the free-string `venue`.
+>
+> New in v1.13 (issue #334): `identity.nationality` — the ISO 3166-1 alpha-2 code (uppercase, e.g.
 > `VE`), asserted by `^[A-Z]{2}$`; emitted on the Person entity JSON-LD as
 > `nationality: { "@type": "Country", identifier }`. A `flavor: brand` workspace may declare
 > it (identity is shared) but the Organization JSON-LD carries no `nationality` property —

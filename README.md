@@ -104,7 +104,7 @@ Plataformas (enum D16): **49** (34 Postiz + 15 operator extras) · renderers: **
 | Prior-art research | ✅ `docs/research/01-prior-art.md` |
 | Spec (decisiones en §5) | ✅ `docs/SPEC.md` (GEO, i18n, profile-data, Substack, **brand flavor D15/§17**) |
 | Investigación SOTA por plataforma | 🚧 `skills/github-readme` + `skills/github-org` + `skills/kofi` + `skills/hotmart`; resto: asistente **SOTA Research**, ver `docs/research/RUN.md` |
-| Schema JSON v1.13 (contrato) | ✅ `schema/profile.schema.json` (person + brand flavor) |
+| Schema JSON v1.14 (contrato) | ✅ `schema/profile.schema.json` (person + brand flavor) |
 | Core engine (load · drift · geo · compile) | ✅ `packages/core` (tests, CI) |
 | CLI `pasco` | ✅ init·validate·build·diff·status; check ejecuta reglas offline M6/M7/M8 + `fact-present` (#283); `audit --json` ✅ (hallazgos: `dangling-ref` · `contradiction` · `unsourced-claim`, sin score); `entity --json/--jsonld` ✅ (proyección schema.org + bloque JSON-LD paste-ready, #287); refine 🚧; skills:export ✅ — detalle en [`packages/cli/README.md`](packages/cli/README.md) |
 | Renderer GitHub (dogfood) | ✅ `github-readme` + `github-org` (brand) + la familia paste (`kofi` v1.7; `buymeacoffee`/`liberapay`/`gumroad`/`payhip` v1.8; `hotmart` v1.9) |

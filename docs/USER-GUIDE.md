@@ -349,7 +349,7 @@ holds the value **directly**, with no wrapper key. `bios.yaml` contains the
 | `skills.yaml` | `skills` | name, level, keywords, `geoKeywords`, `platformWeights{}` |
 | `experience.yaml` | `experience` | role, org, start/end, highlights (per lang) |
 | `projects.yaml` | `projects` | name, status, description, links, keywords, `evidence[]` |
-| `publications.yaml` | `publications` | title, venue, year, doi / url / authors |
+| `publications.yaml` | `publications` | title, venue, year, doi / url / authors, optional `kind` |
 | `keywords.yaml` | `keywords` | `seo{platform:[]}` and `geo{associations, claims}` |
 | `education.yaml` *(v1.1)* | `education` | formal education (degree, field, institution) |
 | `languages.yaml` *(v1.1)* | `languages` | spoken languages + level |
@@ -554,9 +554,21 @@ have one; otherwise use `url` (with `authors`, a single string):
     title: Agentic OSS Harness Readiness
     venue: arXiv
     year: 2026
+    kind: preprint                    # journal-article | preprint | conference-abstract
     doi: 10.48550/arXiv.2608.xxxxx  # or: url: https://arxiv.org/abs/...
     authors: "Luciani, C."           # single string, not an array
 ```
+
+**Classify the output, do not store "peer reviewed"** (v1.14/#349). `kind` is the
+structured answer to *what kind of output is this*: `journal-article` (peer-reviewed /
+arbitrated), `preprint` (not yet peer-reviewed), `conference-abstract` (extended
+abstract). There is no `peerReviewed` boolean — it is **derived** from
+`kind == journal-article`, the same derive-never-store rule the engine applies to
+published-vs-in-development; if you ever need an exception, the SPEC documents it
+before a field exists. The field is optional: a publication without `kind` still
+validates and renders exactly as before, and a new venue never fails a check — only a
+consumer that needs counts (for example "5 arbitrated, 2 preprints, 1 abstract")
+requires the field explicitly instead of guessing from `venue`.
 
 **Add a project** (`projects.yaml`) — description per lang, links from
 `identity.links` values, evidence for verifiable claims:

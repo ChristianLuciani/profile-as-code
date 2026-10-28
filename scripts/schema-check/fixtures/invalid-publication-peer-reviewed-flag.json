@@ -1,0 +1,13 @@
+{
+  "identity": { "name": "Ada Example" },
+  "flavor": "person",
+  "publications": [
+    {
+      "title": "A Paper",
+      "venue": "Journal of Examples",
+      "year": 2024,
+      "kind": "journal-article",
+      "peerReviewed": true
+    }
+  ]
+}
