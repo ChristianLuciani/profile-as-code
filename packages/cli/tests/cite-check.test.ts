@@ -199,6 +199,15 @@ describe("the JSON payload (SPEC §7.4)", () => {
     expect(result.code).toBe(0);
     expect((envelope(result.stdout).data as CiteCheckReport).answers).toEqual([]);
   });
+
+  it("carries url-invalid through the seam instead of a clean 'not cited' (F9)", () => {
+    const input = '{"answer":"No mention here.","citations":[{"url":"github.com/pascocli"}]}\n';
+    const result = run(["cite-check", "--json", "--workspace", PERSON], input);
+    expect(result.code).toBe(0);
+    const data = envelope(result.stdout).data as CiteCheckReport;
+    expect(data.answers[0]).toMatchObject({ cited: false, confidence: "low" });
+    expect(data.answers[0]?.reasons).toEqual(["url-invalid:github.com/pascocli"]);
+  });
 });
 
 describe("the exit matrix (SPEC §7.4)", () => {
@@ -279,8 +288,12 @@ describe("the published surface", () => {
     expect(result.stdout).toContain("that path or a descendant");
     // F7: the partial rung is every multi-token prefix, not only the longest.
     expect(result.stdout).toContain("any contiguous multi-token prefix");
+    // F10: the dedupe clause matches SPEC §7.4 and the README.
+    expect(result.stdout).toContain("higher rung already claims");
     // F3: the input contract names citations as required.
     expect(result.stdout).toContain('"citations" are required');
+    // F9: the same rule for a citation URL that does not parse.
+    expect(result.stdout).toContain("url-invalid");
   });
 
   it("human output reports per answer and no citation rate", () => {

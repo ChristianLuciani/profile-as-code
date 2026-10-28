@@ -17,8 +17,9 @@
  *            one derivation, never a second)
  *   partial  a contiguous multi-token prefix of the name (low confidence)
  *
- * Normalization and word-boundary matching live in `normalize.ts` — the same
- * fold `geoCheck` reads, so the two sides cannot disagree about a name.
+ * Normalization and word-boundary matching live in `normalize.ts`. It is
+ * `cite-check`'s fold, not `geoCheck`'s: `geoCheck` keeps its own case-only
+ * comparison so this matcher cannot move a published GEO score (§8).
  *
  * Guards make a text hit NOT a citation (`cited: false`): a shorter term
  * contained in a longer declared one (`longer-name`), a one-word name with no
@@ -156,6 +157,7 @@ const REASON_ORDER: readonly string[] = [
   "citation-url",
   "identity-domain",
   "sameAs-domain",
+  "url-invalid",
   "exact-name",
   "alias",
   "handle",
@@ -402,7 +404,13 @@ export function citeMatch(profile: Profile, answer: CiteAnswer): CiteMatch {
   for (const citation of answer.citations) {
     const host = hostOf(citation.url);
     const path = pathOf(citation.url);
-    if (host === undefined || path === undefined) continue;
+    if (host === undefined || path === undefined) {
+      // A citation the URL parser rejects (a missing scheme is the common case)
+      // is NOT a silent "not cited": it is named, and the scheme is never
+      // guessed — a dropped citation would change the rate (SPEC §7.4 limit f).
+      reasons.push(`url-invalid:${citation.url}`);
+      continue;
+    }
     const declared = vocab.targets.find(
       (target) => sameSite(host, target.host) && pathMatches(path, target.path),
     );

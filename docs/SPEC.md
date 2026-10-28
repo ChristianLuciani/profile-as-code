@@ -725,8 +725,9 @@ claimed-handle URLs, the `structuredData()` set, never a second derivation).
 | `handle` | a declared handle occurs word-bounded | `handle` | **medium** |
 | `partial` | **any** contiguous multi-token **prefix** of the name (≥ 2 tokens, shorter than the name) occurs word-bounded — `DA SEO` and `DA SEO Digital` for `DA SEO Digital Studio` (a term already claimed by a higher rung is not repeated) | `partial` | **low** |
 
-Matching goes through the **one normalizer** (`core/src/normalize.ts`, shared with
-`geoCheck`): case- and accent-insensitive (`Domínguez` = `Dominguez`) and
+Matching goes through the matcher's normalizer (`core/src/normalize.ts`; `geoCheck`
+keeps its own case-only comparison — see §8): case- and accent-insensitive
+(`Domínguez` = `Dominguez`) and
 **word-bounded** — `pasco` does not match inside `pascoño`. A citation has no
 character span in the answer, so its span is `{ start: 0, end: 0, kind:
 "citation-url", url }`; every text span is an offset pair into the **original**
@@ -769,7 +770,7 @@ treat it as not-cited, and the field exists so that refusal is explicit rather
 than a substring accident. A report consisting only of guarded hits is
 `confidence: "low"`, `cited: false`. `reasons[]` is a **set in a fixed order**
 (the rung reasons, then the guard reasons): `citation-url` · `identity-domain` ·
-`sameAs-domain` · `exact-name` · `alias` · `handle` · `partial` · `longer-name:<t>`
+`sameAs-domain` · `url-invalid:<url>` · `exact-name` · `alias` · `handle` · `partial` · `longer-name:<t>`
 · `competing:<phrase>` · `ambiguous-term:<t>` · `no-qualifier` ·
 `contrast-context`. **Two axes, never one**: a citation span answers "was there a
 link?", a name span answers "was the entity named?" — `named without citing` is
@@ -819,7 +820,11 @@ declares; a general per-language alias list would be an **additive schema change
 not a v1 feature. (e) `partial` reads **every** contiguous multi-token prefix of
 the name, but never a single-token one — a single-token prefix of a multi-token
 name is a common word and would overreport, which is the exact failure this
-command exists to prevent.
+command exists to prevent. (f) A `citations[].url` the URL parser rejects — a
+missing scheme (`github.com/pascocli`) is the common case — is **never repaired
+or guessed**: the row is reported with `url-invalid:<url>` in `reasons[]`, so a
+dropped citation cannot read as a clean `cited: false`. A URL that parses but is
+not a declared target is a legitimate "cited elsewhere" and adds no reason.
 
 **Non-goals in v1.** No engine calls, no browser automation, no scheduling, no
 leaderboard, no score, no storage, no report and no aggregation (the runner's and
@@ -856,14 +861,17 @@ not a bad profile.
 | `geo/sameas-coverage` | a `claimed` handle resolving to a URL that is NOT in the emitted `sameAs` set (e.g. its URL is the `@id`, excluded by the assembler), or fewer than 3 `role: realization` links | WARN | 0.04 |
 | `geo/name-collision` | a one-word entity name whose `definition` carries no disambiguating qualifier (`location` or an `experience[].role` title — matched case-insensitively, like the name containment above) — homonyms cannot be detected offline: the code reports the risk it can observe, marks the unobservable as `[?]`, and never claims a collision it did not see | INFO | 0.01 |
 
-**One normalizer, two readers (#291).** `core/src/normalize.ts` is the single
-case- and accent-folding used by both `geoCheck` (its name-containment, semantic
-anchor and qualifier comparisons — so `Domínguez` and `Dominguez` are one reading)
-and `pasco cite-check` (§7.4), which matches the same declared vocabularies
-offline. The measurement side therefore cannot disagree with the diagnostic side
-about what the entity's name IS. `cite-check` scores nothing: it reads the answers
-the runner saved and reports, per answer, whether the entity was cited — the GEO
-codes above stay the profile-side readiness signals.
+**cite-check's fold is its own (#291).** `core/src/normalize.ts` is the case- and
+accent-folding used by `pasco cite-check` (§7.4), which matches the declared
+vocabularies offline. `geoCheck` keeps its own case-only comparisons **by
+decision**: its published score and findings (`geo/canonical-definition`,
+`geo/name-collision`, the semantic anchors) are a separate contract, and this PR
+does not move them — the regression test pins `Sofía Domínguez` + an unaccented
+definition at the pre-PR reading, so an accent-insensitive GEO check would be its
+own SPEC change. The two sides may therefore disagree about a folded name, and
+that is declared rather than hidden. `cite-check` scores nothing: it reads the
+answers the runner saved and reports, per answer, whether the entity was cited —
+the GEO codes above stay the profile-side readiness signals.
 
 ## 9. the profile-data workspace (folder-first; a repo is recommended)
 

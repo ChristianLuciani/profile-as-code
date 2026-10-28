@@ -1,13 +1,13 @@
 /**
- * normalize.ts — the ONE case- and accent-folding used by every engine string
- * comparison (SPEC §8 "One normalizer, two readers", issue #291).
+ * normalize.ts — the case- and accent-folding for the citation matcher
+ * (SPEC §7.4, issue #291).
  *
- * Why a module: `geoCheck` compared names and anchors with a bare
- * `toLowerCase()` while `cite-check` needs an accent-insensitive, word-bounded
- * matcher over text the workspace does not control. Two normalizers would let
- * the diagnostic and measurement sides disagree about whether `Domínguez` and
- * `Dominguez` are the same name — the two-emitters drift class the repo already
- * closed for structured data (§15.4) and markdown (one home, `packages/markdown`).
+ * One reader today: `cite-check` needs an accent-insensitive, word-bounded
+ * matcher over text the workspace does not control. `geoCheck` keeps its bare
+ * `toLowerCase()` comparisons **by decision** — its published score is a
+ * separate contract (§8), and an accent-insensitive GEO check would be its own
+ * SPEC change. The two sides may disagree about a folded name; that is
+ * declared, not hidden, and the regression test pins the pre-PR reading.
  *
  * The fold is deliberately DUMB and deterministic (D19): NFKD, combining marks
  * dropped, lowercased, a few typographic characters mapped to ASCII. No locale,

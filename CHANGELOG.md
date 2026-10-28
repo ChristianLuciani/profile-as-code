@@ -21,16 +21,20 @@ minor versions may contain breaking contract changes.
   the entity's own page or its `sameAs` set — host plus the declared path, so
   `github.com/<you>` does not match `github.com/someone-else`) and `exact-name`
   (word-bounded, case- and accent-normalized through the new
-  `core/src/normalize.ts`, which `geoCheck` now shares) are **high**; `alias`
+  `core/src/normalize.ts`; `geoCheck` keeps its case-only comparison and its
+  published score is unchanged) are **high**; `alias`
   (`identity.orgName`) and `handle` (declared handles; claimed `socialHandles`) are
   **medium**; `partial` (a multi-token prefix of the name) is **low**, and low is
-  **never** a citation downstream. It refuses to guess: a hit inside a longer
-  capitalised phrase the text carries (`competing:…`), a one-word name whose
-  sentence has no declared disambiguator (`ambiguous-term:…` + `no-qualifier`), a
+  **never** a citation downstream. It refuses to guess: a one-word name whose
+  sentence has no declared disambiguator (`ambiguous-term:…` + `no-qualifier`,
+  with the longer capitalised phrase the text carries named as `competing:…`), a
   mention after a contrast marker (`contrast-context`), and a shorter declared term
-  inside a longer one (`longer-name:…`) all come back `cited: false` with the
-  competing reading named. Malformed NDJSON is exit `2`, naming the 1-based line
+  inside a longer one (`longer-name:…`) come back `cited: false` — a declared
+  qualifier or an adjacent capital never disqualifies a hit by itself. Malformed
+  NDJSON is exit `2`, naming the 1-based line
   and the field — never a silent skip, because a skipped line changes a rate —
+  and a citation URL that does not parse (a missing scheme is the common case) is
+  named `url-invalid:<url>` rather than dropped, for the same reason;
   while a non-citation is exit `0`: this is a measurement, not a gate. No network,
   no model, no clock (D19). Contract in SPEC §7.4. — *The engine half of
   answer-engine citation measurement.*

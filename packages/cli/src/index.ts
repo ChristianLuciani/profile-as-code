@@ -323,7 +323,8 @@ The match ladder is fixed (SPEC §7.4), one rung per kind:
   alias         identity.orgName                                           MEDIUM
   handle        a declared handle (identity.handle, claimed socialHandles)  MEDIUM
   partial       any contiguous multi-token prefix (>= 2 tokens, shorter
-                than the name)                                                LOW
+                than the name); a term a higher rung already claims is
+                not repeated                                                     LOW
 Matching is accent-insensitive (Domínguez = Dominguez) and word-bounded, so
 "pasco" does not match inside "pascoño". confidence "low" is NEVER a citation
 in a downstream report; the engine may say cited: true with low, and the
@@ -333,7 +334,10 @@ disambiguator (ambiguous-term:<term> + no-qualifier; the longer capitalised
 reading the text carries is then quoted as competing:<phrase>), a mention after
 a contrast marker (contrast-context) and a term contained in a longer declared
 term (longer-name:<term>) are all quoted in reasons[] as NOT citations. A
-declared qualifier or an adjacent capital never disqualifies a hit by itself.
+declared qualifier or an adjacent capital never disqualifies a hit by itself. A
+citation URL the parser rejects (a missing scheme is the common case) is named as
+url-invalid:<url>: never repaired, never dropped — a dropped citation would read
+as a clean "not cited" and change the rate.
 --json emits the frozen contract { schemaVersion: "1", entity: { name, aliases,
 handles, partials, hosts }, answers: [ { line, engine, askedAt, question, cited,
 confidence, spans, reasons } ] } inside the usual envelope — one row per input

@@ -165,6 +165,30 @@ describe("the ladder (SPEC §7.4)", () => {
     const result = match(brand(), "No mention here.", [{ url: "https://www.x.com/daseo" }]);
     expect(result.cited).toBe(true);
   });
+
+  it("a citation URL without a scheme is named, never silently dropped (review F9)", () => {
+    // The URL parser rejects `github.com/pascocli`; before F9 this returned a
+    // clean `cited: false` with no reason, the same silent-skip class as F3.
+    const result = match(person(), "No mention here.", [{ url: "github.com/pascocli" }]);
+    expect(result.cited).toBe(false);
+    expect(result.spans).toEqual([]);
+    expect(result.reasons).toEqual(["url-invalid:github.com/pascocli"]);
+  });
+
+  it("an unparseable citation is reported even when another citation counts", () => {
+    const result = match(person(), "No mention here.", [
+      { url: "github.com/pascocli" },
+      { url: "https://github.com/pascocli" },
+    ]);
+    expect(result.cited).toBe(true);
+    expect(result.reasons).toEqual(
+      expect.arrayContaining([
+        "citation-url",
+        "identity-domain",
+        "url-invalid:github.com/pascocli",
+      ]),
+    );
+  });
 });
 
 describe("the guards (SPEC §7.4 — it refuses to guess)", () => {

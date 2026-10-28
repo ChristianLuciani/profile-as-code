@@ -262,8 +262,10 @@ exists so that refusal is explicit. The matcher also refuses to guess: a one-wor
 name whose sentence has no declared disambiguator (`ambiguous-term:pasco` +
 `no-qualifier`, with the longer capitalised reading the text carries named as
 `competing:Pasco County School District`), a mention after a contrast marker
-(`contrast-context`) and a shorter declared term inside a longer one
-(`longer-name:…`) are all reported in `reasons[]` as **not** citations.
+(`contrast-context`), a shorter declared term inside a longer one
+(`longer-name:…`) and a citation URL the parser rejects (`url-invalid:<url>`, a
+missing scheme being the common case — named, never dropped) are all reported in
+`reasons[]` as **not** citations.
 
 ```json
 {
