@@ -391,6 +391,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco validate` | schema (fail) + drift/geo checks (facts warn). Text mode renders one line per GEO code that scored 0, prefixed by its severity tier — `warn: [code] …` is a warning, `info: [geo/freshness]`-style lines are NOTES, never warnings (v1.10 tiers, #322); a code that scored above 0 renders no finding line, and `absent` tier = `warn`. `--json` carries every check (with its `severity` and `detail`) — a check whose detail holds an anomaly note (future-dated freshness) is always fully visible there |
 | `pasco doctor [--json]` | the **engine · schema · workspace** reading on ONE line (issue #348): the installed CLI version, the profile-contract version this build validates (derived from the schema `$id` by `pnpm gen:zod`, never a literal), the resolved workspace path and whether it loads, plus the `.pascorc` engine requirement (`no engine requirement` · `met` · `NOT MET` with the upgrade command · `INVALID` with the syntax problem). Chosen over overloading `--version` because `--version` describes the binary and must work with no workspace, while `doctor` describes the pair. `--json` emits `{ engine: { name, version }, schema: { version }, workspace: { path, valid, error? }, requirement: { declared, met, problem?, source? } }` in the standard envelope. Exit `0` healthy · `1` unhealthy (workspace fails to load, requirement unmet or malformed) · `2` usage. Offline, no clock, no writes. Contract: §7.6 |
 | `pasco build [platform] [--view <name>] [--lang]` | render deterministic base texts; `--view` resolves a declared view's platform/lang + fact selection (D22, §21); a manual-paste surface without a renderer writes `profiles/<platform>.md` via the shared paste core (#239); an active variant body is written verbatim as the platform artifact (#238) |
+| `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso8601>] [--json]` | the **local view** of the data without publishing it (issue #282): **one** self-contained HTML file — inline CSS, no `<script>`, no external asset, no HTTP server — whose sections are the surfaces `pasco build` would write (`#github-readme`, `#linkedin`, …), each with the check state, plus every surface this language does **not** publish (named with its reason, never dropped). Default `<workspace>/.pasco/preview/index.html`, then opened in the browser; `--out <dir>` writes `<dir>/index.html` and opens **nothing** (the CI-artifact transport, uploaded by the workspace template's opt-in workflow). The text is `renderArtifact`'s — the same active-variant → renderer → paste-source tree `build` writes, selection gate included — and the check state is the same report `pasco check` prints: no second renderer, no second rule engine. A **privacy gate** refuses the write (exit 1) on an absolute machine path, a credential shape, an external asset, active content, or a source outside the workspace (evidence-root media is never inlined; a remote image becomes a note, not a fetch). `--now` pins the freshness stamp — the document is the one declared clock read, and pinning it makes two runs byte-identical. Contract: §7.8 |
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
 | `pasco edit <contract-path> [--set <text> [--check]]` | read **or write** **one contract field** by contract path — `positioning.statement.<lang>`, `headlines[platform=<p>,lang=<l>].text`, `bios[platform=<p>,lang=<l>,length=<len>].text`, `identity.links[platform=<p>,label=<l>].url` (read-only, `label` optional). `--set` writes it: **byte-range splice over the original text** (the CST locates; it never re-serializes, so comments/layout survive and the diff is one line), block, multi-line and anchored/aliased scalars **refused** in v1, the file's node must still match the resolved value (staleness → exit 1, never a silent wrong-row write), no-op = 0 + `noop`, temp file + `load()`/schema over a temp copy + **atomic rename** (an invalid edit never reaches disk), concurrent writers serialized by an advisory `content/.pasco-edit.lock` plus a re-read immediately before the rename (an external editor is the residual window). `--set --check` previews instead: it renders the surface the way `pasco build` does (active variant → renderer → shared paste source, current vs proposed) and prints **the published lines the edit changes**, reporting an edit that does not reach the artifact with its reason instead of asserting it. It also reports the edited unit's **surface impact** from the §19 ledger — every recorded surface prints `stale` after an edit that changes the unit hash (or `in-sync` when the record still matches), and a unit with no record rolls up to `never` — derived on every run and stored nowhere (§20). A headline/bio value is pre-flighted against the catalog's own `max-chars` cap — the workspace's `content/checks.yaml` when it declares checks, else the caps shipped with pasco (#240) with its cited source and tier — over-cap is a WARN, never a block (D12), and a platform with no sourced cap reads `cap: unknown`; `--json` carries `{ address, current, proposed, rendered, ok, noop, written, warnings, stale, state, drift, limit, over, variant, reason }` inside the standard envelope (a D22/§21 selection error the write proceeds through is a warning, not a block: the SSOT write is valid even when `build` refuses); a read-only target or a file that changes under the command is exit 1 (`refused` / `stale`, nothing written); its machine contract is frozen for agents (S5, #252): the `--json` field set and the 0/1/2 exit matrix are documented in the CLI README, one test per exit row; `edit` never chooses the live variant (#238 non-goal); epic #247, S1–S5 |
 | `pasco check [platform]` | run skill-declared checks before deploy; char limits accept an optional `surface` (`headline`/`bio`/`both`) so a title cap does not flag the bio (#240). **`fact-present`** is executed here (issue #283), **for the surfaces whose catalog declares the premise** (the workspace's `content/checks.yaml` ∪ the shipped `skills/<platform>/checks.yaml`; `link-in-identity` stays a separate premise): the artifact `pasco build` last wrote is compared **symmetrically** against the SSOT render — a URL the surface adds (dangling pointer) or omits (`contradiction`), a date or number either side carries and the other does not (`contradiction`), and a text difference no fact token explains (`contradiction`) are all findings. All are WARN (D12: facts warn), and a targeted surface with no artifact on disk reports the rule as **not run**, never as OK |
@@ -1086,6 +1087,71 @@ an immutable artifact identified by **URL + sha256**, recorded in
   those need the engine.
 - The reading page for consumers is [`docs/SCHEMA-CONTRACT.md`](SCHEMA-CONTRACT.md);
   the manifest is the machine-readable copy of the same facts.
+
+### 7.8 `pasco preview` — one file, two transports (issue #282)
+
+**The contract is the artifact, not the hosting.** A `profile-data` fork is
+private because its data is personal; the missing capability was never hosting
+but a **view**. Pages cannot supply it: on personal Free/Pro plans the published
+site is public (there is no access control), so a private fork with Pages on
+publishes the data by default. `pasco preview` renders the same surfaces
+`pasco build` writes into a single file the operator opens locally — or uploads
+as a CI artifact — and nothing is published.
+
+**Why one file.** A single self-contained document has no base URL to resolve,
+so the class of bug #279 hit (a page served at an arbitrary depth breaking every
+relative URL) cannot occur, and there is nothing to compress before moving it.
+The consequence is deliberate: **no separate pages** per platform or language —
+one page with sections and anchors. The rejected alternative (a folder with one
+page per surface) is more "browsable" and reintroduces the base problem.
+
+**Contract.**
+
+| | |
+|---|---|
+| input | the workspace `build` reads (`.pascorc` + `content/`), same `load()` |
+| output | one file, stable name `index.html`, no external dependency (no font, no CDN) |
+| default | `<workspace>/.pasco/preview/index.html`, then opened with the platform opener |
+| `--out <dir>` | writes `<dir>/index.html` and opens nothing (transport B: CI artifact) |
+| `--no-open` | writes the default location, opens nothing |
+| `--lang <l>` | the language rendered (default `.pascorc → defaults.lang`, else `en`) |
+| `--now <iso8601>` | pins the `generated <date>` stamp instead of reading the clock |
+| header | `generated <date> from <N> facts` — freshness, not a version (`N` = the non-empty scalar leaves of the normalized profile, derived on every run) |
+| no server | `file://` is enough for one file and leaves no port listening |
+| no JS | raw HTML in the data is **escaped** by the renderer, not emitted; the gate proves it |
+
+**The privacy gate is the preview's own, and the site does not need it.** The
+public site publishes public entries the ledger already vetted; the preview
+carries the operator's own working data, so it refuses rather than filters — a
+refused preview writes **no file** (there is nothing left on disk to clean up):
+
+| rule | what it refuses |
+|---|---|
+| `absolute-path` | a machine path (`/Users/…`, `C:\…`, `file:///…`) printed in the document — the trigger is real: `check`'s media/registry findings embed absolute source paths, so the assembler relativizes them |
+| `credential` | a pasted token/private key (token shapes + `secret: <16+ non-space>` assignments; narrow on purpose — see below) |
+| `external-asset` | a `<link>`, a remote `src`, a remote `url(…)`, a stylesheet import: the "no network" invariant as a check |
+| `active-content` | a `<script>`, an `on*=` handler, an `<iframe>`, a `javascript:` URL |
+| `source-outside-declared-roots` | a file the preview read that resolves outside the workspace (a symlink escape, or evidence-root media with `origin: "external"`) |
+| `source-missing` · `credential-file` | a declared source that is gone; a dotfile/credential-shaped asset (`.env`, `.netrc`, `id_rsa`, `*.pem`) |
+
+Media policy: workspace media inside the workspace is inlined as `data:` URIs
+(per-file and total budgets); **evidence-root** media is never inlined (D14: a
+per-machine path never reaches a render); a remote image (a shields.io badge)
+becomes a text note — a preview that fetched it would stop being offline and
+would tell a third party the operator opened their own data.
+
+**Exit matrix:** `0` written (warnings do not block) · `1` the workspace fails to
+load, a selection error makes `build` refuse the surface, the privacy gate
+refused, or the write failed · `2` usage. Offline; the only clock read is the
+document's own stamp, and `--now` removes it.
+
+**What it does not do.** Transport B's workflow lives in the workspace template
+(`profile-data-template`), not in the engine (multi-tenant rule §9); it is
+`workflow_dispatch` only, uploads the artifact, uses no Pages, and states that
+the artifact is readable by anyone with repository access. The preview does not
+edit (it is a read), does not encrypt (that breaks the no-JS invariant and the
+passphrase is the weak link), and does not judge: the check state is reported,
+not enforced — `pasco check` remains the gate.
 
 ## 8. GEO as a cross-cutting layer
 

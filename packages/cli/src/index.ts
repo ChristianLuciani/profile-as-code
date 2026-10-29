@@ -28,6 +28,7 @@ import { runAiPolicyCheck, runAiPolicyExport } from "./commands/export.js";
 import { runExportProfile } from "./commands/export-profile.js";
 import { runInit } from "./commands/init.js";
 import { runPost } from "./commands/post.js";
+import { runPreview } from "./commands/preview.js";
 import { runRefine } from "./commands/refine.js";
 import { runSkillsExport } from "./commands/skills-export.js";
 import { runStatus } from "./commands/status.js";
@@ -68,6 +69,10 @@ Commands:
                                 and whether the workspace loads; also reports the
                                 .pascorc engine requirement (unmet ⇒ exit 1)
   build [platform] [--lang]     Deterministic base texts per platform+lang
+  preview [--out <dir>]         ONE self-contained HTML page of the rendered surfaces
+          [--no-open] [--lang <l>]  (inline CSS, no JS, no external asset) written outside the
+                                versioned tree and opened locally; --out writes elsewhere and
+                                never opens (the CI-artifact transport). Not a publication
   edit <contract-path>          Resolve one contract field; --set writes it (comment-preserving,
           [--set <text> [--check]]  validated, atomic) and --set --check previews the published lines
   diff [--json]                 Changes since the last release tag (git-based → CHANGELOG hint)
@@ -162,6 +167,7 @@ interface FlagOptions {
   jsonld?: boolean;
   bare?: boolean;
   now?: string;
+  "no-open"?: boolean;
 }
 
 function parseCommandFlags(
@@ -220,6 +226,21 @@ It writes nothing, reads no clock and touches no network. Exit: 0 healthy
 (workspace loads and any declared engine requirement is met) · 1 unhealthy (the
 workspace fails to load, or the requirement is unmet/malformed) · 2 usage. It
 reports the same truth the gate enforces; it does not replace the gate.`,
+  preview: `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso8601>] [--json] [--workspace <path>]
+Render every surface ONCE into a single self-contained HTML file (SPEC §7.8, #282):
+inline CSS, no <script>, no external asset, no HTTP server. Open it with a
+browser; nothing is published.
+  default          <workspace>/.pasco/preview/index.html, then opened in the browser
+  --out <dir>      write <dir>/index.html and open nothing (the CI-artifact transport)
+  --no-open        write the default location without opening anything
+  --lang <l>       the language rendered (default: .pascorc defaults.lang or en)
+  --now <iso8601>  pin the "generated <date>" stamp instead of reading the clock
+The text per platform is the SAME artifact pasco build writes (active variant
+-> renderer -> paste source), and the check state is the same report pasco check
+prints. A privacy gate refuses the write (exit 1) when the document would carry
+an absolute machine path, a credential, an external asset, active content, or a
+source outside the workspace. Media outside the workspace (evidence-root bytes)
+is never inlined; a remote image becomes a link instead of a fetch.`,
   build: `pasco build [platform] [--view <name>] [--lang <l>] [--json] [--workspace <path>]
 Deterministic base texts per platform+lang (compile() slices). No platform =
 all platforms. lang defaults to .pascorc defaults.lang or 'en'.
@@ -616,6 +637,42 @@ async function runMain(): Promise<number> {
         viewArg: flags.view,
         langArg: flags.lang,
         pascorc,
+      });
+    }
+    case "preview": {
+      const { flags, positionals } = parseCommandFlags(rest, {
+        out: { type: "string" },
+        "no-open": { type: "boolean" },
+        lang: { type: "string" },
+        now: { type: "string" },
+      });
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.preview}\n`);
+        return EXIT.OK;
+      }
+      if (positionals.length > 0) {
+        throw new UsageError(
+          "usage: pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso8601>] [--json]",
+        );
+      }
+      if (flags.now !== undefined && !/^\d{4}-\d{2}-\d{2}T/u.test(flags.now)) {
+        throw new UsageError(
+          "usage: --now takes an ISO 8601 timestamp (e.g. 2026-10-29T12:00:00Z)",
+        );
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      const pascorc = readWorkspacePascorc(workspace);
+      const engineSources = readEnginePascorcSources(process.cwd(), flags.workspace, workspace);
+      const engineGate = enforceEngineRequirement("preview", engineSources);
+      if (engineGate !== null) return engineGate;
+      return runPreview({
+        workspace,
+        pascorc,
+        outArg: flags.out,
+        noOpen: flags["no-open"] === true,
+        langArg: flags.lang,
+        nowArg: flags.now,
       });
     }
     case "edit": {

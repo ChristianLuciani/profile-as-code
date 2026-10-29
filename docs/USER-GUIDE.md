@@ -497,6 +497,7 @@ If the profile is live and your edit does not show up, you skipped step 4 of
 ```sh
 pasco validate [--json]              # schema (FAIL, exit 1) + drift/geo (WARN, exit 0)
 pasco build [platform] [--lang]      # deterministic base texts per platform+lang
+pasco preview [--out <dir>] [--no-open]  # ONE self-contained HTML page, opened locally (#282)
 pasco edit <contract-path> [--set <text> [--check]]  # read / preview / write one field (epic #247)
 pasco diff [--json]                  # what changed since the last release tag
 ```
@@ -523,6 +524,40 @@ pasco diff [--json]                  # what changed since the last release tag
 
 All commands accept `--json` for machine-readable output, and `--workspace <path>`
 to target a workspace other than the one in `.pascorc`.
+
+---
+
+### See it without publishing it (`pasco preview`, #282)
+
+Your workspace is private, and Pages is not the answer: on personal plans the
+published site is public, so a fork with Pages on publishes your data. What you
+want is to **look** at the result, not to host it:
+
+```sh
+pasco preview                 # writes .pasco/preview/index.html and opens it
+pasco preview --no-open       # writes it, opens nothing
+pasco preview --out ./dist    # writes ./dist/index.html, opens nothing
+```
+
+It produces **one** self-contained HTML file — inline CSS, no `<script>`, no
+external asset, no server — so it opens straight from disk with the network
+unplugged, and nothing leaves your machine. The page has one section per surface
+(`#github-readme`, `#linkedin`, …), each showing the text exactly as `pasco
+build` would publish it (same variant → renderer → paste decision), the surfaces
+your language does **not** publish (named with the reason), and the offline check
+state. The header says when it was generated and from how many facts, so you can
+tell a stale preview from a fresh one.
+
+A **privacy gate** runs before the file is written and refuses the write (exit 1,
+no file left behind) if the document would carry an absolute path from your
+machine, a token or private key, an external asset, executable content, or a file
+from outside your workspace. Media inside your workspace is embedded in the
+file; media that lives outside it is never embedded.
+
+`--out` is how CI produces the same file without publishing: the workflow
+upload is **opt-in** (`workflow_dispatch`), uses no Pages, and the resulting
+artifact is readable by anyone with access to the repository. Delete it if the
+repository ever becomes public.
 
 ---
 
@@ -1015,6 +1050,7 @@ One workspace per identity, same engine (D14/D15):
 pasco init [dir] [--flavor person|brand]   # scaffold a workspace (never overwrites)
 pasco validate [--json]                    # schema FAIL + drift/geo WARN (D12)
 pasco build [platform] [--lang] [--json]   # base texts; renderers write profiles/
+pasco preview [--out <dir>] [--no-open]    # one self-contained HTML page, opened locally (#282)
 pasco edit <contract-path> [--set <text> [--check]]  # read / preview / write one contract field (#247)
 pasco diff [--json]                        # changes since last release-* tag
 pasco refine <platform> [--lang] [--variants N]   # emit the agent task template (full flow M3)

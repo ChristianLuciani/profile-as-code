@@ -1,0 +1,288 @@
+/**
+ * `pasco preview` — one self-contained HTML file, and the privacy gate that
+ * refuses to write it when it would leak (issue #282, SPEC §7.8).
+ *
+ * What this file pins:
+ *  - the artifact shape: ONE file, doctype + inline <style>, no `<script>`, no
+ *    `<link>`, no external `src` — the "opens with no network and no JS" claim;
+ *  - the two transports: the default writes outside the versioned tree, `--out`
+ *    writes where it is told and opens NOTHING;
+ *  - the gate: each refusal class is seeded (a token, an absolute path) and the
+ *    write must NOT happen — a refused preview leaves no file to clean up;
+ *  - escaping: raw HTML in content is shown as text, never executed (the renderer
+ *    override, proven on the built CLI);
+ *  - determinism: the same workspace plus the same `--now` is byte-identical.
+ *
+ * The unit half (`scanPreviewHtml`, `checkSources`, `countFacts`) seeds the
+ * defect directly: a gate whose failure mode cannot be reproduced is folklore.
+ */
+
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { afterEach, describe, expect, it } from "vitest";
+import { countFacts } from "../src/commands/preview.js";
+import { markdownToHtml } from "../src/preview/document.js";
+import { checkSources, isInside, scanPreviewHtml } from "../src/preview/privacy.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const CLI = join(__dirname, "..", "dist", "index.js");
+const FIXTURE = join(__dirname, "fixtures", "export-profile");
+const NOW = "2026-10-29T12:00:00Z";
+
+interface RunResult {
+  code: number;
+  stdout: string;
+  stderr: string;
+}
+
+function run(args: string[], cwd?: string): RunResult {
+  const res = spawnSync(process.execPath, [CLI, ...args], {
+    encoding: "utf8",
+    cwd,
+    timeout: 60_000,
+  });
+  if (res.error !== undefined) throw res.error;
+  return { code: res.status ?? -1, stdout: res.stdout ?? "", stderr: res.stderr ?? "" };
+}
+
+const tempDirs: string[] = [];
+
+/** A throwaway COPY of the fixture workspace (never write into the fixture). */
+function workspaceCopy(seed?: { file: string; from: string; to: string }): string {
+  const dir = mkdtempSync(join(tmpdir(), "pasco-preview-"));
+  tempDirs.push(dir);
+  spawnSync("cp", ["-R", FIXTURE, dir], { encoding: "utf8" });
+  const workspace = join(dir, "export-profile");
+  if (seed !== undefined) {
+    const path = join(workspace, "content", seed.file);
+    const text = readFileSync(path, "utf8");
+    expect(text).toContain(seed.from);
+    writeFileSync(path, text.replace(seed.from, seed.to));
+  }
+  return workspace;
+}
+
+afterEach(() => {
+  for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
+
+describe("pasco preview — the artifact", () => {
+  it("writes ONE self-contained file: inline style, no script, no link, no remote src", () => {
+    const workspace = workspaceCopy();
+    const out = join(workspace, "out");
+    const result = run(["preview", "--workspace", workspace, "--out", out, "--now", NOW]);
+    expect(result.code).toBe(0);
+    const html = readFileSync(join(out, "index.html"), "utf8");
+    expect(html.startsWith("<!doctype html>")).toBe(true);
+    expect(html).toMatch(/<style>/u);
+    expect(html).not.toMatch(/<script/iu);
+    expect(html).not.toMatch(/<link\b/iu);
+    expect(html).not.toMatch(/\bsrc\s*=\s*["']?(?!data:image\/)/iu);
+    expect(html).not.toMatch(/@import/iu);
+    // The surfaces that publish for this language are sections; the rest are
+    // LISTED, never silently dropped.
+    expect(html).toContain('id="github-readme"');
+    expect(html).toContain('id="linkedin"');
+    expect(html).toContain('id="not-published"');
+    expect(html).toContain('id="checks"');
+    // Freshness, not a version.
+    expect(html).toMatch(/generated 2026-10-29T12:00:00\.000Z from \d+ facts/u);
+    expect(html).toContain('name="robots" content="noindex, nofollow, noarchive"');
+  });
+
+  it("turns a remote badge into text instead of a fetch, and keeps the profile's own links", () => {
+    const workspace = workspaceCopy();
+    const out = join(workspace, "out");
+    expect(run(["preview", "--workspace", workspace, "--out", out, "--now", NOW]).code).toBe(0);
+    const html = readFileSync(join(out, "index.html"), "utf8");
+    expect(html).toMatch(/<span class="asset-note" title="https:\/\/img\.shields\.io/u);
+    expect(html).not.toMatch(/<img[^>]*src="https?:/iu);
+    expect(html).toMatch(/<a href="https:\/\/github\.com\/elenavasquez"/u);
+  });
+
+  it("escapes raw HTML from the content — never executes it", () => {
+    const workspace = workspaceCopy({
+      file: "identity.yaml",
+      from: "Elena Vasquez",
+      to: "Elena <script>alert(1)</script>",
+    });
+    const out = join(workspace, "out");
+    const result = run(["preview", "--workspace", workspace, "--out", out, "--now", NOW]);
+    expect(result.code).toBe(0);
+    const html = readFileSync(join(out, "index.html"), "utf8");
+    expect(html).not.toMatch(/<script/iu);
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("defaults to <workspace>/.pasco/preview/index.html and --no-open opens nothing", () => {
+    const workspace = workspaceCopy();
+    const result = run(["preview", "--workspace", workspace, "--no-open", "--now", NOW]);
+    expect(result.code).toBe(0);
+    expect(existsSync(join(workspace, ".pasco", "preview", "index.html"))).toBe(true);
+    expect(result.stdout).toContain("privacy gate");
+  });
+
+  it("--json carries the path, the surfaces and the gate result", () => {
+    const workspace = workspaceCopy();
+    const out = join(workspace, "out");
+    const result = run(["preview", "--workspace", workspace, "--out", out, "--now", NOW, "--json"]);
+    expect(result.code).toBe(0);
+    const envelope = JSON.parse(result.stdout);
+    expect(envelope.command).toBe("preview");
+    expect(envelope.ok).toBe(true);
+    expect(envelope.exitCode).toBe(0);
+    expect(envelope.data.written).toBe(true);
+    expect(envelope.data.path).toBe(join(out, "index.html"));
+    expect(envelope.data.opened).toBe(false);
+    expect(envelope.data.generatedAt).toBe("2026-10-29T12:00:00.000Z");
+    expect(envelope.data.privacy.findings).toEqual([]);
+    expect(
+      envelope.data.sections.some((s: { platform: string }) => s.platform === "github-readme"),
+    ).toBe(true);
+  });
+
+  it("is byte-identical for the same workspace and the same --now", () => {
+    const workspace = workspaceCopy();
+    const a = join(workspace, "a");
+    const b = join(workspace, "b");
+    expect(run(["preview", "--workspace", workspace, "--out", a, "--now", NOW]).code).toBe(0);
+    expect(run(["preview", "--workspace", workspace, "--out", b, "--now", NOW]).code).toBe(0);
+    expect(readFileSync(join(a, "index.html"), "utf8")).toBe(
+      readFileSync(join(b, "index.html"), "utf8"),
+    );
+  });
+
+  it("warns when --out lands inside a git work tree that does not ignore it", () => {
+    const workspace = workspaceCopy();
+    const out = join(workspace, "out");
+    expect(spawnSync("git", ["init", "-q", workspace], { encoding: "utf8" }).status).toBe(0);
+    const result = run(["preview", "--workspace", workspace, "--out", out, "--now", NOW]);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain("not ignored");
+  });
+
+  it("refuses a positional argument and a malformed --now (usage, exit 2)", () => {
+    const workspace = workspaceCopy();
+    expect(run(["preview", "github", "--workspace", workspace]).code).toBe(2);
+    expect(run(["preview", "--workspace", workspace, "--now", "yesterday"]).code).toBe(2);
+  });
+});
+
+describe("pasco preview — the privacy gate refuses the write", () => {
+  it("refuses a credential pasted into the data (and leaves no file behind)", () => {
+    const workspace = workspaceCopy({
+      file: "identity.yaml",
+      from: "Elena Vasquez",
+      to: "Elena ghp_0123456789abcdefghijklmnop",
+    });
+    const out = join(workspace, "out");
+    const result = run(["preview", "--workspace", workspace, "--out", out, "--now", NOW]);
+    expect(result.code).toBe(1);
+    expect(existsSync(join(out, "index.html"))).toBe(false);
+    expect(result.stderr).toContain("privacy");
+    expect(result.stderr).toContain("credential");
+  });
+
+  it("refuses an absolute local path in the data", () => {
+    const workspace = workspaceCopy({
+      file: "identity.yaml",
+      from: "Elena Vasquez",
+      to: "Elena /Users/secret/private/profile.yaml",
+    });
+    const out = join(workspace, "out");
+    const result = run(["preview", "--workspace", workspace, "--out", out, "--now", NOW]);
+    expect(result.code).toBe(1);
+    expect(existsSync(join(out, "index.html"))).toBe(false);
+    expect(result.stderr).toContain("absolute-path");
+  });
+
+  it("refuses with --json too: written false, the findings enumerated", () => {
+    const workspace = workspaceCopy({
+      file: "identity.yaml",
+      from: "Elena Vasquez",
+      to: "Elena AKIAIOSFODNN7EXAMPLE",
+    });
+    const out = join(workspace, "out");
+    const result = run(["preview", "--workspace", workspace, "--out", out, "--now", NOW, "--json"]);
+    expect(result.code).toBe(1);
+    const envelope = JSON.parse(result.stdout);
+    expect(envelope.ok).toBe(false);
+    expect(envelope.data.written).toBe(false);
+    expect(envelope.data.path).toBe(null);
+    expect(envelope.data.privacy.findings[0].rule).toBe("credential");
+    expect(envelope.error.kind).toBe("privacy");
+  });
+});
+
+describe("preview privacy — the gate's own teeth (seeded)", () => {
+  it("catches each byte-level class", () => {
+    expect(scanPreviewHtml("<p>/Users/eva/data/x.yaml</p>")[0]?.rule).toBe("absolute-path");
+    expect(scanPreviewHtml("<p>file:///etc/passwd</p>")[0]?.rule).toBe("absolute-path");
+    expect(scanPreviewHtml("<p>C:\\Users\\eva\\x</p>")[0]?.rule).toBe("absolute-path");
+    expect(scanPreviewHtml("<p>ghp_0123456789abcdefghijklmnop</p>")[0]?.rule).toBe("credential");
+    expect(scanPreviewHtml("<p>-----BEGIN RSA PRIVATE KEY-----</p>")[0]?.rule).toBe("credential");
+    expect(scanPreviewHtml('<img src="https://cdn.example/x.png">')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ rule: "external-asset" })]),
+    );
+    expect(scanPreviewHtml('<link rel="stylesheet" href="x.css">')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ rule: "external-asset" })]),
+    );
+    expect(scanPreviewHtml("<p>a { url(https://x/y.png) }</p>")).toEqual(
+      expect.arrayContaining([expect.objectContaining({ rule: "external-asset" })]),
+    );
+    expect(scanPreviewHtml("<script>alert(1)</script>")).toEqual(
+      expect.arrayContaining([expect.objectContaining({ rule: "active-content" })]),
+    );
+    expect(scanPreviewHtml('<a href="javascript:alert(1)">x</a>')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ rule: "active-content" })]),
+    );
+    expect(scanPreviewHtml('<div onclick="x()">x</div>')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ rule: "active-content" })]),
+    );
+    expect(scanPreviewHtml("<!doctype html><p>clean, inline data:image only</p>")).toEqual([]);
+  });
+
+  it("refuses a source outside the workspace, a missing source and a credential-shaped asset", () => {
+    const root = mkdtempSync(join(tmpdir(), "pasco-gate-"));
+    tempDirs.push(root);
+    const workspace = join(root, "ws");
+    mkdirSync(join(workspace, "content"), { recursive: true });
+    writeFileSync(join(workspace, "content", "identity.yaml"), "name: x\n");
+    const inside = join(workspace, "content", "identity.yaml");
+    const outside = join(root, "outside.png");
+    writeFileSync(outside, "bytes");
+    writeFileSync(join(workspace, "content", ".env"), "TOKEN=1");
+
+    expect(checkSources([{ role: "content", path: inside }], workspace)).toEqual([]);
+    expect(checkSources([{ role: "asset", path: outside }], workspace)[0]?.rule).toBe(
+      "source-outside-declared-roots",
+    );
+    expect(
+      checkSources(
+        [{ role: "content", path: join(workspace, "content", "nope.yaml") }],
+        workspace,
+      )[0]?.rule,
+    ).toBe("source-missing");
+    expect(
+      checkSources([{ role: "asset", path: join(workspace, "content", ".env") }], workspace)[0]
+        ?.rule,
+    ).toBe("credential-file");
+    expect(isInside(workspace, inside)).toBe(true);
+    expect(isInside(workspace, outside)).toBe(false);
+  });
+
+  it("counts facts as the non-empty scalar leaves (derived, never typed)", () => {
+    expect(countFacts({ a: "x", b: "", c: 1, d: [true, null, "y"], e: { f: "z" } })).toBe(5);
+    expect(countFacts(null)).toBe(0);
+  });
+
+  it("markdownToHtml keeps no <script> and refuses javascript: links", () => {
+    const html = markdownToHtml("<script>alert(1)</script>\n\n[x](javascript:alert(1))", new Map());
+    expect(html).not.toMatch(/<script/iu);
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toMatch(/href="javascript:/iu);
+  });
+});
