@@ -15,6 +15,14 @@ profiles; `zhiweio/resume-as-code` proves the YAML + agent-skills pattern for jo
 nobody combines **SSOT versioning + multi-platform renderers + intent-driven AI optimization + per-platform
 skills + deploy playbooks**.
 
+**The product is presence, not the profile** (D23, §22). A profile is one kind of
+surface among several: the repo's own metadata, the npm page, the project site and
+the channels where a release is announced are presence surfaces too, and they have
+no profile body to render. The unit that makes presence happen is the **release**:
+an event with a changed set and a fan-out. Asking "which surfaces does this
+publication still owe, and in what order?" is the question the engine answers —
+not only "is my profile consistent?".
+
 ## 2. Goals / Non-goals
 
 ### Goals
@@ -29,6 +37,10 @@ skills + deploy playbooks**.
    (consistent cross-platform facts, structured data, semantic associations).
 6. **i18n**: content per language (EN essential, ES native, FR desirable); docs in EN.
 7. **CLI-first**, TypeScript, zero infra. Data always owned by the user (private repo / local).
+8. **Presence over profile** (D23, §22): a release is a first-class event, every
+   surface carries a `kind` (`profile` · `repo-meta` · `distribution`), and the
+   engine can say which surfaces a publication still owes — deterministically and
+   without a second state model.
 
 ### Non-goals (v1)
 
@@ -111,6 +123,7 @@ skills + deploy playbooks**.
 | D20 | **`pasco serve` is a minimal reference adapter over `Core`** (§7), exposed as a **local HTTP contract**. It is minimal **by construction**: no access control, no multi-tenancy, no billing, no persistent storage, no hosting orchestration. Dependency rule: `server` depends on `core`, and only the CLI's `serve` subcommand depends on `server` | Keeps the published surface **small, auditable and dependency-light** — the engine's job is the contract, not the deployment. The **contract is the integration point**, so any consumer (a UI, an editor, a script, a service) may implement its own adapter against it instead of adopting ours. Alternatives: a **feature-rich bundled server** (rejected — bloats the published package and couples the engine to deployment concerns it does not own); **no server at all** (rejected — leaves the engine drivable only from the CLI, so every consumer re-invents the boundary, and there is no reference implementation to test the contract against) |
 | D21 | **Contributions are accepted under the Developer's Certificate of Origin 1.1 — no CLA** (issue #95, 2026-10-03): every non-bot, non-merge commit in a PR must carry a `Signed-off-by:` trailer whose email matches the commit author; the canonical text is the root `DCO` file, and the gate is `scripts/dco-check/` (self-test first, `dep-gate` shape) wired as the `dco` workflow | The licence stays **MIT** (`packages/*/package.json`), and with a permissive licence there is nothing left to relicense — so a CLA's only real value (an express sublicense/relicensing grant) would buy permanent contributor friction, a third-party signature-collection app and a legal document to maintain, in exchange for optionality the project has decided not to exercise. The DCO certifies *provenance* of the contribution at zero infrastructure and zero data beyond the git trailer. Alternatives: **CLA** (rejected — friction and upkeep for optionality we don't want); **DCO + relicensing grant** (deferred — cheaper than a CLA and keeps the option open, but a sign-off is weaker evidence of assent than a signature; revisit only if the licence question reopens, and never retroactively for an already-published version). Bot authors are exempt by design: Dependabot cannot sign off, and blocking it would block every dependency PR |
 | D22 | **Fact selection is a workspace policy, and it is subset-only** (issue #235, 2026-10-19): a named **view** selects which SSOT entries a rendered profile emits — `.pascorc` → `selection.views` (`mode: all\|tags`, `tags`, `excludeTags`, `excludeKeys`); **exclusion always wins**; **no policy ⇒ byte-identical output**. A view **removes entries and never edits one**, so the GEO invariant (Goal 2/3, §15.4) is untouched: it constrains what a fact *says* when it appears, not that it appear everywhere, and `geo.ts:21` already scores absence as neutral. **Every view that omits entries WARNS** (operator's G1 amendment, §21.4) and `pasco status --selection` names each omission and its reason | Selection is the one per-surface adaptation the engine was missing beside `lang` (text) and `refine` (storytelling); §18.9 had already *declared* tag selection with no implementation. One identity, several faces — without duplicating facts. Alternatives: **per-entry `platforms[]` in the SSOT** (rejected — couples the platform-agnostic data to the platform enum, turns it into an N×M matrix, and forces every new platform to edit every entry); **renderer-side filtering** (rejected — every adapter re-implements it, and `check`/`status` would see a different slice than `build`, against the `markdown`/`paste`/`artifact` one-home rule); **overlay files** (rejected — a second source of truth for the same fact, so drift becomes "which overlay won?"); **a workspace per audience** (correct for *separate identities* — §18.9/D15 keeps that — wrong for subsets of one identity, where it recreates cross-repo drift) |
+| D23 | **The unit of first class is the presence surface, not the profile** (issue #262, 2026-10-23; restated 2026-10-28 as option B): `surface.kind: profile \| repo-meta \| distribution` is an **additive** dimension on `platforms/registry.yaml` (absent = `profile`; the 49-slug profile enum is untouched), and `releases[]` is the **event** — `{id, version, date, summary, changedUnits[], surfaces[]}` — whose fan-out **reuses** the §19 ledger vocabulary (`in-sync`/`stale`/`never`), derived at read time and stored nowhere. `pasco presence` is the daily board; `pasco release plan` is the launch view (`--json`), ordering surfaces `repo-meta → profile → distribution` and emitting a per-kind factual spine; the announcement copy per channel lives in `skills/` (rule 7 + D9) | A published artifact could appear on **none** of its own operator's surfaces with no representation: no event, no distribution surfaces, no way to ask "which surfaces still owe this publication?". Alternatives: **keep the profile as the unit** (rejected — that question stays unanswerable and every non-rendered surface is unmodeled); **a second state model for releases** (rejected — staleness is already exact and release-tag-independent in §19); **`release` as a top-level command** (rejected by the operator on 2026-10-28: `presence` is the daily board, the plan hangs off it as a view) |
 
 > **Decision note — the release path (2026-10-24, issue #307).** The release path is the **tag
 > run** (guard → build/tests → cohort + CLI over OIDC → GitHub Release → pages deploy);
@@ -289,6 +302,8 @@ research notes ([MI] issue #138, 2026-10-05).
 |---|---|---|---|---|
 | `creator-monetization` | Creator monetization platforms | audience pays for content, memberships or works (declared v1.8, #133) | `patreon`, `kofi`, `buymeacoffee`, `liberapay`, `gumroad`, `payhip`, `hotmart` (v1.9, #137 — EC payout `[?]` carried per the #133 precedent), `substack`, `whop` (Postiz parity) | `gofundme` (deferred — no EC organizer payout, #133) |
 | `freelance` | Freelance marketplaces | client-facing surfaces — the product is the operator's professional time | `upwork` (v1, retroactive) | `freelancer` (freelancer.com, global), `workana` (Brazil-founded, LatAm-wide ES/PT — EC-priority candidate), `fiverr` (boundary: gig **storefronts** of services — filed here with that note) |
+| `presence-repo` | Repository presence surfaces | the metadata of the code artifact itself — repo description/topics/social preview, release notes, the npm package page and the project site (D23) | — (no enum entries) | `github-repo-meta` (repo description, topics and social preview — the GitHub artifact's own metadata), `release-notes` (the GitHub Release body for a tag — the canonical record of what shipped), `npm` (the published package page (README + package.json derived) — not a profile body), `site` (the project page under site/ (generated at deploy, #277) — HTML, never an enum slug) |
+| `presence-distribution` | Presence distribution channels | where a release is announced, not where an identity body lives (D23) — the copy per channel lives in skills/, never in the engine | — (no enum entries) | `hacker-news` (Show HN / launch thread — one announcement per release, judged by the community), `reddit-post` (subreddit post (r/opensource, niche subs) — distinct from the reddit PROFILE slug), `x-post` (launch thread/post — distinct from the x PROFILE slug), `linkedin-post` (feed post — distinct from the linkedin PROFILE slug), `devto-post` (cross-posted article — distinct from the devto PROFILE slug), `awesome-lists` (curated-list inclusion (awesome-*) — a distribution surface with its own contribution rules) |
 | `job-boards` | Recruiting surfaces | recruiter-facing CV surfaces — the buyer is a recruiter and the native content is the structured CV the SSOT already models (`experience[]` / `education[]` / `skills[]`); GEO hook = name-reputation in search results only | — (no enum entries) | `infojobs` (Spain + LatAm), `computrabajo` (Ecuador-founded + LatAm-wide — `[MI] — verify` the whole descriptor; in-session corroboration inconclusive, PR #140 review F1), `indeed` (aggregator) |
 <!-- /gen -->
 
@@ -326,6 +341,7 @@ checks:        [ { platform, rule, value, surface? } ]         # declarative; su
 active:        { platform: { lang, variantId, chosenAt } }    # which variant is live
 deployments:   { <ledgerKey>: { <surface>: { deployedAt, contentHash, source } } }   # per-entry deploy ledger (D18, §19)
 faq:           [ { id, q{lang ≤90, unique}, a{lang ≤320}, source? } ]   # the citable answer surface, 3–20 entries (v1.10, #288)
+releases:      [ { id, version, date, summary{lang}?, changedUnits[], surfaces[] } ]   # the release event and its fan-out (v1.15, D23 §22)
 ```
 
 **Evidence registry (D17, §18 — additive, v1.4):** `credentials[]` and `artifacts[]` are
@@ -499,11 +515,10 @@ skills tree says so (`scope.catalog: "not-shipped"`), never "nothing declared".
 `faq` is outside the `factRef` grammar, so a claim finding addresses the row and the
 FIELD that carries the claim with the index (`faq[1].a`), never a row id.
 
-**D23 is ratified; its entry into this SPEC is pending.** The operator ratified the
-presence unit on 2026-10-23 (#262: `surface.kind`, `releases[]`, the presence-first
-unit). The decision is closed; what is missing is its normative entry (§21, next id
-after D22), owned by that issue. Until it lands, `audit` ships against today's
-contract — the workspace identity — and does not pre-empt it.
+**D23 is ratified and normative (§5, §22).** `surface.kind`, `releases[]`,
+`pasco presence` and `pasco release plan` ship against it (issue #262). `audit`
+stays the workspace-identity diagnostic: the presence layer does not add audit
+classes, it composes the same §19 state and prints a plan.
 
 ### 7.2 `pasco entity` — the entity projection (issue #287)
 
@@ -1012,7 +1027,7 @@ workspace at all; `doctor` describes the **pair** (engine + workspace) and must
 therefore resolve one. It prints **one line**:
 
 ```
-engine 0.3.6 · schema v1.14 · workspace /path/to/workspace (valid) · requires engine >= 0.4.0 (NOT MET — upgrade: npm i -g @profile-as-code/cli@latest)
+engine 0.3.6 · schema v1.15 · workspace /path/to/workspace (valid) · requires engine >= 0.4.0 (NOT MET — upgrade: npm i -g @profile-as-code/cli@latest)
 ```
 
 - **engine** — the installed CLI version; **schema** — the profile-contract
@@ -1044,7 +1059,7 @@ an immutable artifact identified by **URL + sha256**, recorded in
 | | Artifact | Identity |
 |---|---|---|
 | **Released** | `schema/profile.schema.json` at a published release tag | tag-pinned raw URL + sha256 + `$id` version (today `v0.3.6`, schema v1.13) |
-| **Current** | the committed `schema/profile.schema.json` on this branch | `$id` version + sha256, **no published artifact** (today v1.14; `published: false`, `artifact: null`) |
+| **Current** | the committed `schema/profile.schema.json` on this branch | `$id` version + sha256, **no published artifact** (today v1.15; `published: false`, `artifact: null`) |
 
 - **Tag-pinned, public repo only.** The released URL is exactly
   `https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/<tag>/schema/profile.schema.json`.
@@ -1058,8 +1073,8 @@ an immutable artifact identified by **URL + sha256**, recorded in
   cannot claim a joinable artifact it does not have, and every shipped surface
   repeats that exact state. **The released v0.3.6 artifact is schema v1.13 and
   rejects `publication.kind`** (`$defs.publication` has `additionalProperties:
-  false`); a consumer that needs `kind` must use a v1.14 checkout (verify its
-  sha256) until the next release tags it. The reading guide says so where it
+  false`); a consumer that needs `kind` (or `releases[]`) must use a
+  v1.15 checkout (verify its sha256) until the next release tags it. The reading guide says so where it
   tells a consumer how to validate.
 - **No network in the gate (D19).** `node scripts/schema-contract/check.mjs
   --check` recomputes the sha256 of the committed file, reads the immutable copy
@@ -1086,6 +1101,38 @@ an immutable artifact identified by **URL + sha256**, recorded in
   those need the engine.
 - The reading page for consumers is [`docs/SCHEMA-CONTRACT.md`](SCHEMA-CONTRACT.md);
   the manifest is the machine-readable copy of the same facts.
+
+### 7.8 `pasco presence` and `pasco release plan` — the presence contract (D23, issue #262)
+
+`presence` is the daily board and `release plan` is the launch view (operator
+decision 2026-10-28, option B). Both are **derived reads** over `releases[]` and
+the §19 ledger; neither writes, fetches or reads a clock.
+
+```jsonc
+// pasco release plan <id> --json  (envelope data; schemaVersion "1")
+{
+  "release": { "id": "v0-3-0", "version": "0.3.0", "date": "2026-10-28",
+               "summary": "…", "changedUnits": ["identity"] },
+  "surfaces": [ { "surface": "github-repo-meta", "kind": "repo-meta",
+                  "state": "never", "missingUnits": [] } ],
+  "baseText": [ { "kind": "repo-meta", "text": "What shipped: v0.3.0 (…)" } ]
+}
+```
+
+- **State is the ledger's**: for each changed unit on the surface, a missing
+  record → `never`; any record whose `contentHash` differs from the unit's
+  current hash → `stale`; otherwise `in-sync` (the §19.3 rollup, reused).
+- **Order** is kind rank `repo-meta` → `profile` → `distribution`, then slug. The
+  artifact's metadata precedes the identity bodies, which precede the
+  announcements.
+- **`baseText`** is the per-kind FACTUAL SPINE (`version · date · summary`) — not
+  announcement copy. The copy per channel lives in `skills/` (rule 7 + D9).
+- **Refusals**: a workspace with no `releases[]`, an unknown release id or a
+  surface absent from `platforms/registry.yaml` is exit 1 with the exact reason
+  (a typo never silently builds a plan). A subcommand other than `plan` is exit 2.
+
+`presence` lists one row per surface at the NEWEST release that declares it, with
+`{ kind, state, releaseId, version }` and the `in-sync`/`stale`/`never` counts.
 
 ## 8. GEO as a cross-cutting layer
 
@@ -1264,8 +1311,8 @@ Two different "templates" (previous confusion):
 1. **M1 (now)**: spec + profile-data template (done) + schema v1 ✅ (`schema/profile.schema.json`) + core (validate/drift/geo) + CLI skeleton ✅.
 2. **M2**: renderer `github-readme` + CI + dogfood (Christian's real GitHub README) — detailed in §15.
 3. **M3**: SOTA research per platform (GitHub→LinkedIn→Upwork→X→ResearchGate→Substack) → skills v1 + `pasco refine`.
-4. **M4**: renderers linkedin/upwork/x/researchgate/substack + playbooks + `pasco check` + checks.yaml per skill + per-entry deploy ledger (D18 — `deployments` + `pasco status`: deploy state becomes data, CHECKLIST becomes a generated view) + profile-completeness checklist and `%` (§20, issue #102 — `completeness()` in core, `pasco status --completeness`, the `github-readme` progress line).
-5. **M5**: web renderer (cv-cluciani consumes generated profiles), template release, CONTRIBUTING. **Scope boundary:** M5 is a **consumption** renderer — it renders profiles that already live in a workspace (§9); it is **not** a hosted onboarding. The hosted on-ramp stays a **v1 non-goal** with an explicit reopening trigger (§2, issue #122).
+4. **M4 (presence surfaces — profile bodies)**: renderers linkedin/upwork/x/researchgate/substack + playbooks + `pasco check` + checks.yaml per skill + per-entry deploy ledger (D18 — `deployments` + `pasco status`: deploy state becomes data, CHECKLIST becomes a generated view) + profile-completeness checklist and `%` (§20, issue #102 — `completeness()` in core, `pasco status --completeness`, the `github-readme` progress line).
+5. **M5 (presence consumption — web renderer)**: web renderer (cv-cluciani consumes generated profiles), template release, CONTRIBUTING. **Scope boundary:** M5 is a **consumption** renderer — it renders profiles that already live in a workspace (§9); it is **not** a hosted onboarding. The hosted on-ramp stays a **v1 non-goal** with an explicit reopening trigger (§2, issue #122).
 6. **M6 (brand flavor)**: schema v1.1 brand additions (§17) + `pasco init --flavor brand` + renderer `github-org` + handle-matrix checks + `skills/github-org/` + dogfood `profile-data-topia` (private).
 7. **M7 (evidence core)**: schema v1.4 — `credentials[]`/`artifacts[]` + cross-refs (§18) · `pasco check`: `credential-expiry`, registry live-links, `no-private-in-public-output` · JSON-LD `hasCredential` · compact registry section in `github-readme` · template: `media/` scaffold + `docs/evidence-packs.md` + power-user symlink/stow doc (issue #48).
 8. **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable, checksummed bundling — Q9 resolved as D19: one `assets/` dir per platform output) · deploy playbooks publish media to the public surface · git-lfs guidance · portfolio-site consumption lands **with M5** (the web renderer does not exist yet — engine-side contract ships first).
@@ -1275,7 +1322,7 @@ Two different "templates" (previous confusion):
 older than 180 days. Decision (Q10): a `huggingface-dataset` renderer/exporter vs contributing to existing open datasets vs both — decided when the M3 platform SOTA research closes.
 10. **M10 (fact selection, D22/§21 — issue #235)**: `.pascorc` → `selection.views` + `selectFacts()` in core + `build --view` + `status --selection` + the five selection findings; Phase 1 is **schema-free** (selection by §19.2 key, and `artifacts[].tags` finally read as §18.9 declared). Phase 2 adds optional `tags[]` to six entry blocks (not `skills`); **Phase 3** (several views per platform, `profiles/<view>/`) needs a D19 amendment and stays out of scope until asked for.
 11. **Answer-engine surface (schema v1.10 — issues #288 → #289 → #287)**: `identity.definition` + `faq[]` (the citable facts, #288) · the `structuredData()` projection **of `definition`/`faq[]`** (`description` from `definition` + a separate `FAQPage` JSON-LD node, only when the fields exist) is **pending in #316** — the brand `description` from `mission` already ships · geoCheck v2 citability codes (#289 — freshness INFO, honest name-collision) · `pasco entity --json/--jsonld` (#287 — ✅ shipped, §7.2), the entity projection for surfaces the engine does not render: it emits `structuredData()`'s own output, never a second assembler.
-12. **M11 (presence audit — issue #283)**: `pasco audit --json` (§7.1) — the offline findings projection (three fixed classes, exit 1 on FAIL) over `load`/schema, `reconciledDrift`, `geoCheck`'s `faq-coverage` premise, the completeness `evidence` premise and the `fact-present` rule; `fact-present` executes in `pasco check` and compares the artifact `pasco build` last wrote against the SSOT render symmetrically. Scoring/prioritisation/branding stay in the consuming layer; the presence unit itself is #262 (D23 — operator-ratified 2026-10-23, and its normative entry into this SPEC, with its §5 register row, is pending there).
+12. **M11 (presence audit — issue #283)**: `pasco audit --json` (§7.1) — the offline findings projection (three fixed classes, exit 1 on FAIL) over `load`/schema, `reconciledDrift`, `geoCheck`'s `faq-coverage` premise, the completeness `evidence` premise and the `fact-present` rule; `fact-present` executes in `pasco check` and compares the artifact `pasco build` last wrote against the SSOT render symmetrically. Scoring/prioritisation/branding stay in the consuming layer; the presence unit itself is **D23 (§5, §22, #262)** — every surface carries a `kind`, `releases[]` is the event, and `pasco presence` / `pasco release plan` derive the fan-out from the §19 ledger.
 
 ## 13. Resolved decisions (former open questions)
 
@@ -2405,3 +2452,83 @@ Phase 2 adds optional `tags[]` to six entry blocks (additive; `pnpm gen:zod`).
 **Phase 3** (several views on one platform, `profiles/<view>/`) needs a D19 amendment
 and is **not** implied by this section. View-aware `geoCheck`/`driftCheck` scoring is
 out of scope: both keep reading the SSOT.
+
+
+## 22. Presence surfaces and the release event (D23 detail, issue #262)
+
+D23 answers a question the profile unit could not: *"which surfaces does this
+publication still owe, and in what order?"* It does so without a second state
+model and without touching the 49-slug profile enum.
+
+### 22.1 A surface carries a kind
+
+`platforms/registry.yaml` gains an additive `kind` dimension (`profile` ·
+`repo-meta` · `distribution`; absent = `profile`). Every enum member is
+`profile` — the enum IS the identity bodies. `repo-meta` is metadata of the code
+artifact (repo description/topics/social preview, release notes, the npm package
+page, the project site) and `distribution` is where a release is announced
+(HN, Reddit post, X post, LinkedIn post, dev.to post, awesome lists). Those
+surfaces are declared `status: backlog`, so they never enter the profile enum;
+they are the first non-profile surfaces the model can name.
+
+`pnpm gen:platforms` projects the dimension into `PLATFORM_KINDS` (all registry
+entries, members and backlog) and refuses two disagreements in CI:
+
+- a `status: member` whose `kind` is not `profile` (a profile renderer must not
+  claim to emit repo metadata);
+- a renderer manifest's `pasco.surface` that differs from the registry `kind` —
+  the "renderer emits repo metadata with `kind: profile`" failure the issue asks
+  CI to close.
+
+### 22.2 A release is the event
+
+Schema v1.15 adds `releases[]` (additive; a pre-v1.15 workspace validates
+unchanged):
+
+```yaml
+- id: v0-3-0
+  version: 0.3.0
+  date: 2026-10-28
+  summary: { en: "…", es: "…" }
+  changedUnits: [identity, projects:pasco]   # §19.2 ledger keys
+  surfaces: [github-repo-meta, github-readme, hacker-news]
+```
+
+A release stores **what changed and where it must go** — never the state of that
+fan-out. The state is derived per surface from `deployments` (the §19 ledger):
+
+| condition | state |
+|---|---|
+| no changed unit has a record on the surface | `never` |
+| some record's `contentHash` differs from the unit's current hash | `stale` |
+| every record matches | `in-sync` |
+
+A surface the ledger cannot address (a `repo-meta`/`distribution` slug outside
+the platform enum) therefore reads `never` — the honest v1 answer: the plan names
+what must be touched, and extending the ledger's surface key to non-profile
+surfaces is a separate contract change, never a state invented here.
+
+### 22.3 The commands
+
+`pasco presence [--json]` — the daily board (option B): one row per surface at
+the newest release that declares it, with kind, derived state, release id and
+version, plus the state counts. `pasco release plan [<id>] [--json]` — the launch
+view: the ordered fan-out (`repo-meta` → `profile` → `distribution`, then slug),
+each surface's state, and the per-kind factual spine. Both are offline,
+deterministic and read-only (contract: §7.8).
+
+### 22.4 Where the copy lives
+
+The engine emits the factual spine and the order; the **judgment** per channel —
+angles, character budgets, membership/announcement norms — lives in `skills/`
+(rule 7 + D9). The first distribution skill is `skills/github-repo-meta/`
+(`playbook.md` + `checks.yaml`), covering the repo's own metadata surface.
+
+### 22.5 Scope boundary (v1)
+
+- No publishing, no network, no scheduler: the plan is a read, `--mark` remains
+  the only fan-out closer (and only for profile-platform surfaces).
+- `releases[]` composes the ledger; it does not replace `deployments`.
+- Milestone naming follows the decision: M4 is the **presence surfaces (profile
+  bodies)** milestone and M5 the **presence consumption** milestone (§12) — no
+  new loose milestone.

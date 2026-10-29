@@ -1,0 +1,50 @@
+# checks.yaml — criterios de la superficie `github-repo-meta` (D23, #262)
+# Misma forma que el catálogo de `pasco check` (rule + value + note). v1: el
+# engine no renderiza esta superficie y `pasco check` no la ejecuta (no está en
+# el enum de perfiles); el catálogo queda declarado y la verificación es la del
+# playbook. Los caps citados son límites oficiales de GitHub.
+
+- id: repo-description-max
+  platform: github-repo-meta
+  rule: max-chars
+  value: 350
+  surface: bio
+  note: "La descripción del repositorio se trunca a 350 caracteres en la UI. [OFICIAL] docs.github.com (customizing-your-repository), leído 2026-10-29."
+
+- id: repo-description-min
+  platform: github-repo-meta
+  rule: min-chars
+  value: 40
+  surface: bio
+  note: "Una descripción de menos de 40 chars no dice qué hace el artefacto; el piso es juicio de esta skill, no un límite de GitHub."
+
+- id: repo-topics-max
+  platform: github-repo-meta
+  rule: max-chars
+  value: 20
+  surface: headline
+  note: "GitHub permite hasta 20 topics por repositorio. [OFICIAL] docs.github.com (customizing-your-repository), leído 2026-10-29."
+
+- id: repo-facts-ssot
+  platform: github-repo-meta
+  rule: fact-present
+  value: true
+  note: "La versión, la fecha y el link de la metadata salen del release row (`pasco release plan`) y del SSOT; un dato que la superficie agrega y el SSOT no tiene es un FAIL de revisión (no lo ejecuta pasco check en v1)."
+
+- id: repo-links-identity
+  platform: github-repo-meta
+  rule: link-in-identity
+  value: true
+  note: "Toda URL escrita en la descripción o las notas vive en `identity.links` (regla drift §15.4)."
+
+- id: repo-geo-consistent
+  platform: github-repo-meta
+  rule: geo-consistent
+  value: true
+  note: "Los hechos de la metadata coinciden con el resto de superficies (README, npm): misma versión, mismo nombre, mismo link canónico."
+
+- id: repo-lang-en
+  platform: github-repo-meta
+  rule: lang-present
+  value: en
+  note: "La metadata del artefacto va en EN (D8/§11) aunque las notas del release puedan traducirse; el repo es la superficie internacional."

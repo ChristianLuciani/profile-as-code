@@ -10,19 +10,23 @@ A consumer that only validates a profile does not need the CLI. The released
 identity of this schema is **URL + sha256**, recorded in
 [`consumer-contract.json`](consumer-contract.json): the immutable copy at a
 published tag (tag-pinned raw URL) and the committed `current` bytes (sha256 +
-`$id` version). **The current v1.14 bytes have no published artifact** — no tag
+`$id` version). **The current v1.15 bytes have no published artifact** — no tag
 contains them (`current.published: false`, `current.artifact: null`); the only
 released artifact is schema **v1.13 at `v0.3.6`**, which rejects
-`publication.kind`. A consumer that needs `kind` must use a v1.14 checkout and
-verify the sha256 until the next release. `node
+`publication.kind` and has no `releases[]`. A consumer that needs either must use
+a v1.15 checkout and verify the sha256 until the next release. `node
 scripts/schema-contract/check.mjs --check` verifies both blocks offline; a schema
 edit that forgets the manifest fails CI. The reading guide — how to fetch/verify,
 and what structural validation does **not** cover — is
 [`docs/SCHEMA-CONTRACT.md`](../docs/SCHEMA-CONTRACT.md) (SPEC §7.7).
 
-> Status: **v1.14** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
-> v1.x is **additive** (semver minor): every earlier workspace still validates unchanged. New
-> in v1.14 (issue #349): `publication.kind` — the closed output classification
+> Status: **v1.15** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
+> v1.x is **additive** (semver minor): every earlier workspace still validates unchanged.
+> New in v1.15 (D23, issue #262): `releases[]` — the release event (`id`, `version`,
+> `date`, `summary`, `changedUnits[]`, `surfaces[]`) that `pasco presence` and
+> `pasco release plan` read. Optional: a workspace without it validates unchanged.
+>
+> New in v1.14 (issue #349): `publication.kind` — the closed output classification
 > (`journal-article` | `preprint` | `conference-abstract`). `peerReviewed` is **derived**
 > from `kind == journal-article` and never stored; a row without `kind` validates and renders
 > exactly as before, and a consumer that needs counts requires the field rather than
@@ -102,6 +106,7 @@ validates the result against this schema. File → root property mapping:
 | `credentials.yaml` | `credentials[]` | v1.4 (D17): third-party attestations (certificate/title/award/patent) — issuer, verifyUrl, issued/expires, visibility (§18). Naming discipline: never called evidence (§18.1) |
 | `artifacts.yaml` | `artifacts[]` | v1.4 (D17): works/media (portfolio/gallery/showreel/dataset/document/code) — `locator: {url \| path}` (capability matrix §18.3), checksum, license, tags, visibility |
 | `faq.yaml` | `faq[]` | v1.10 (issue #288): the citable answer surface — 3–20 fact pairs (`id` §19.2 shape; `q` ≤ 90 per value + unique per workspace, core-check in geoCheck v2 #289; `a` ≤ 320; optional http(s) `source` = an answer with no pointer is a claim). The `FAQPage` JSON-LD projection is **pending in #316** — only a present `faq[]` will produce it |
+| `releases.yaml` | `releases[]` | v1.15 (D23, #262): the release events — `{id, version, date, summary?, changedUnits[], surfaces[]}`. `changedUnits` are §19.2 ledger keys, `surfaces` are `platforms/registry.yaml` slugs of any `kind` (profile · repo-meta · distribution). The fan-out state is DERIVED from the ledger at read time; a workspace without `releases[]` validates unchanged |
 
 Files are optional (a fresh user may start with `identity.yaml` only); the schema only
 requires `identity`. Unknown top-level properties **fail validation** (`additionalProperties:

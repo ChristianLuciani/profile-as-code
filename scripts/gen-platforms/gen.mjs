@@ -42,7 +42,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse as parseYaml } from "yaml";
-import { collectRenderers } from "../renderer-map/gen.mjs";
+import { collectRenderers, SURFACE_KINDS } from "../renderer-map/gen.mjs";
 
 /** Configuration/shape error: the gate cannot verify what it was asked to verify. */
 class GateError extends Error {}
@@ -179,12 +179,31 @@ async function loadRegistry(root) {
       );
     }
     if (entry.status === "backlog") {
-      // A backlog slug is NOT an enum entry: it carries only its family and the
-      // sourced descriptor — no deploy/hosts/renderer until it is promoted.
+      // A backlog slug is NOT an enum entry: it carries only its family, its kind
+      // and the sourced descriptor — no deploy/hosts/renderer until it is promoted.
       if (typeof entry.family !== "string" || entry.family.length === 0) {
         throw new GateError(`${REGISTRY_REL}: backlog "${slug}" must declare a family`);
       }
+      if (entry.kind !== undefined && !SURFACE_KINDS.includes(entry.kind)) {
+        throw new GateError(
+          `${REGISTRY_REL}: "${slug}".kind must be one of ${SURFACE_KINDS.join(" | ")} (D23)`,
+        );
+      }
       continue;
+    }
+    // D23: the enum is the PROFILE bodies. A member with any other kind would
+    // claim that a profile renderer emits repo metadata — the exact confusion
+    // this axis exists to end.
+    const kind = entry.kind ?? "profile";
+    if (!SURFACE_KINDS.includes(kind)) {
+      throw new GateError(
+        `${REGISTRY_REL}: "${slug}".kind must be one of ${SURFACE_KINDS.join(" | ")} (D23)`,
+      );
+    }
+    if (kind !== "profile") {
+      throw new GateError(
+        `${REGISTRY_REL}: member "${slug}" declares kind "${kind}" — the enum is the profile bodies; declare a non-profile surface as status: backlog (D23)`,
+      );
     }
     if (!ORIGINS.includes(entry.origin)) {
       throw new GateError(
@@ -396,6 +415,15 @@ async function buildModel(root) {
         `${REGISTRY_REL}: "${slug}".deploy is "${platforms[slug].deploy}" but ${manifest.where} declares pasco.deploySpec "${manifest.deploySpec}" (D9 must agree)`,
       );
     }
+    // D23 gate: a renderer that emits REPO METADATA while the registry calls it a
+    // profile body (or the mirror) would put repo description/topics through a
+    // profile renderer. The manifest's declared surface and the registry kind must
+    // be one value; absent pasco.surface keeps its pre-D23 meaning, `profile`.
+    if (manifest !== undefined && manifest.surface !== (platforms[slug].kind ?? "profile")) {
+      throw new GateError(
+        `${REGISTRY_REL}: "${slug}".kind is "${platforms[slug].kind ?? "profile"}" but ${manifest.where} declares pasco.surface "${manifest.surface}" — a repo-metadata emitter cannot be kind: profile (D23)`,
+      );
+    }
   }
 
   // Fixture check: a declared fixture must exist (the "slugs have fixtures" CI check).
@@ -509,6 +537,9 @@ const stringArray = (values) => `[${values.map((v) => JSON.stringify(v)).join(",
 /** `packages/core/src/generated/platforms.gen.ts` — the code projection. */
 export function renderPlatformsModule(model) {
   const slugs = model.enumPlatforms.map((slug) => `  ${JSON.stringify(slug)},`).join("\n");
+  const kinds = Object.entries(model.platforms)
+    .map(([slug, entry]) => `  ${key(slug)}: ${JSON.stringify(entry.kind ?? "profile")},`)
+    .join("\n");
   const hosts = model.hosts.map((host) => `  ${JSON.stringify(host)},`).join("\n");
   const subdomains = Object.entries(model.subdomainHosts)
     .map(([slug, values]) => `  ${key(slug)}: ${stringArray(values)},`)
@@ -539,6 +570,17 @@ ${slugs}
 export const PLATFORM_HOSTS: readonly string[] = [
 ${hosts}
 ];
+
+/**
+ * D23 (issue #262): the surface KIND of every registry entry — the enum members
+ * (always \`profile\`) plus the declared non-profile backlog (repo metadata and
+ * distribution channels). \`PLATFORM_SLUGS\` stays the 49-slug profile contract;
+ * this map is the axis a release plan orders by, never a second enum.
+ */
+export type SurfaceKind = "profile" | "repo-meta" | "distribution";
+export const PLATFORM_KINDS: Readonly<Record<string, SurfaceKind>> = {
+${kinds}
+};
 
 /** Platform → hosts whose SUBDOMAINS are profile surfaces (\`user.substack.com\`). */
 export const PLATFORM_SUBDOMAIN_HOSTS: Readonly<Record<string, readonly string[]>> = {

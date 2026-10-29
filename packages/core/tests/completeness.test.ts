@@ -241,10 +241,17 @@ describe("completeness(profile, policy)", () => {
     ) as Record<string, unknown>;
     // Count `$ref` occurrences that land on the two langMap defs, anywhere.
     const refs = JSON.stringify(schema).match(/#\/\$defs\/langMap(List)?/g) ?? [];
+    // v1.15 (D23, #262): `release.summary` is langMap-SHAPED but it is the factual
+    // spine of an EVENT, not workspace text — completeness scores the workspace, so
+    // it is the one DECLARED exclusion from the walk (counted, never silently lost).
+    const releaseDef = (schema.$defs as Record<string, unknown>).release;
+    const releaseSummaryRefs =
+      JSON.stringify(releaseDef).match(/#\/\$defs\/langMap(List)?/g)?.length ?? 0;
+    expect(releaseSummaryRefs).toBe(1);
     // If this fails: the schema gained/lost a langMap location. Update the walk in
     // `src/completeness.ts` (langMaps) AND this number — the body below then proves
     // the new location is actually read.
-    expect(refs.length).toBe(22);
+    expect(refs.length - releaseSummaryRefs).toBe(22);
 
     // And prove the walk actually READS the previously-missed spots by putting
     // content there: if any silently disappears, langCoverage cannot reach 100%.
