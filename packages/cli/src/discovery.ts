@@ -1,5 +1,5 @@
 /**
- * Discovery — a PROVISIONAL Profile built from public surfaces (SPEC §7.2,
+ * Discovery — a PROVISIONAL Profile built from public surfaces (SPEC §7.10,
  * issue #329), so `pasco audit`'s checks can run for a prospect who has no
  * workspace yet.
  *
@@ -265,19 +265,33 @@ export function provisionalProfile(
   };
 }
 
-/** Rows that share a role+org key (the same key `driftCheck` groups by). */
-function duplicatedExperience(profile: LoadedProfile): { id?: string }[] {
-  const groups = new Map<string, { id?: string }[]>();
-  for (const row of profile.experience) {
-    const key = `${typeof row.role === "string" ? row.role : row.role.en}/${row.org}`.toLowerCase();
-    groups.set(key, [...(groups.get(key) ?? []), row]);
-  }
-  return [...groups.values()].filter((rows) => rows.length > 1).flat();
+/** The role+org key `driftCheck` groups experience rows by. */
+function experienceKey(row: LoadedProfile["experience"][number]): string {
+  const role = typeof row.role === "string" ? row.role : row.role.en;
+  return `${role}/${row.org}`.toLowerCase();
+}
+
+/**
+ * ONLY the rows that share the conflicting row's key. Returning every duplicated
+ * group would name an unrelated (and agreeing) role as "asserted by" this
+ * conflict — a false attribution, worse than no citation.
+ */
+function conflictRows(profile: LoadedProfile, path: string): { id?: string }[] {
+  const match = /^experience\[(\d+)\]/.exec(path);
+  const index = match?.[1];
+  if (index === undefined) return [];
+  const row = profile.experience[Number(index)];
+  if (row === undefined) return [];
+  const key = experienceKey(row);
+  return profile.experience.filter((item) => experienceKey(item) === key);
 }
 
 /** Classes the SURFACES own (the drift side comes from `driftCheck`). */
 export interface UnresolvedLink {
   surface: string;
+  /** Position of this probe within its surface (0-based), so two dead links on
+   *  one surface are two distinguishable findings. */
+  index: number;
   url: string;
   /** 404/410 only: the pointer was answered and is gone. Every other non-2xx is
    *  a failed probe (rate limit, transport, server error), never evidence that
@@ -314,7 +328,7 @@ export function discoveryFindings(
     // cannot go check both claims.
     const cited =
       issue.code === "drift/duplicate-experience"
-        ? duplicatedExperience(profile)
+        ? conflictRows(profile, issue.path)
             .map((row) => provenanceOf(`experience[${row.id}]`))
             .join(" · ")
         : provenanceOf(ref);
@@ -326,21 +340,21 @@ export function discoveryFindings(
     findings.push(
       finding(
         "dangling-ref",
-        `links[${link.surface}]`,
+        `links[${link.surface}][${link.index}]`,
         `${link.url} did not resolve (status ${link.status}) — a pointer a reader would hit and not find`,
       ),
     );
   }
 
   for (const observation of observations) {
-    for (const sentence of observation.text.split(/(?<=[.!?])\s+|\n/)) {
+    for (const [index, sentence] of observation.text.split(/(?<=[.!?])\s+|\n/).entries()) {
       const text = sentence.trim();
       if (!isQuantitativeClaim(text)) continue;
       if (/source:|evidence:|https?:\/\//i.test(text)) continue;
       findings.push(
         finding(
           "unsourced-claim",
-          `surface[${observation.surface}].text`,
+          `surface[${observation.surface}].text[${index}]`,
           `${observation.surface} asserts a quantitative claim with no source on the surface: "${text.slice(0, 160)}"`,
         ),
       );

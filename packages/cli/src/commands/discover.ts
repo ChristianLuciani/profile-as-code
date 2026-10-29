@@ -217,14 +217,19 @@ export async function discover(options: DiscoverOptions): Promise<DiscoverResult
     const candidates = observation.links
       .filter((link) => hostOf(link) === own && keyOf(link) !== keyOf(observation.url))
       .slice(0, 5);
-    for (const link of candidates) {
+    for (const [index, link] of candidates.entries()) {
       const response = await fetchText(link);
       if (response.status >= 200 && response.status < 300) continue;
       // A rate limit, a transport failure or a 5xx is NOT a dangling pointer:
       // it is a probe that did not complete, and grading it FAIL would let a
       // stranger's 429 block our exit code. Only "answered and gone" counts.
       if (response.status !== 404 && response.status !== 410) continue;
-      unresolved.push({ surface: observation.surface, url: link, status: response.status });
+      unresolved.push({
+        surface: observation.surface,
+        index,
+        url: link,
+        status: response.status,
+      });
     }
   }
 

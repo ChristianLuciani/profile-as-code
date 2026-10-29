@@ -1240,7 +1240,7 @@ budget it does not have.
 **What is read.** Only facts a surface itself declares: schema.org JSON-LD
 (`Person`/`Organization`: `name`, `jobTitle`, `worksFor`/`startDate`/`endDate`,
 `sameAs`) and the page's `<a href>` links. No prose mining — free-text year
-extraction is the same fragility drift refuses (§7.1-adjacent scope note), so a
+extraction is the same fragility drift refuses, so a
 surface without JSON-LD yields links and claims, not invented identity — a page
 `<title>` is not a declared name, and when no surface declares `name` the
 command refuses (exit 1) rather than guessing. A
@@ -1263,12 +1263,18 @@ discovery's own, stated here rather than implied: `dangling-ref` is a live
 pointer answered 404/410 (not the audit's offline referential check — a
 `network-error` or a `429` is a probe that did not complete and is never
 graded), and `unsourced-claim` is a sentence on a surface with no source on it
-(not the audit's SSOT row without an evidence pointer). A consumer that needs
-one meaning must not read the two reports as interchangeable.
+(not the audit's SSOT row without an evidence pointer). Those two classes address
+the SURFACE corpus, not the factRef space: `links[<surface>][<n>]` is the n-th
+same-host probe and `surface[<surface>].text[<n>]` the n-th sentence, so two dead
+links (or two claims) on one surface are two distinguishable addresses. A
+factRef-shaped path is always a provenance key; a surface-corpus path never is,
+and both are declared here so a consumer can join without guessing. A consumer
+that needs one meaning must not read the two reports as interchangeable.
 
 **Write rule.** Nothing is written: no `content/`, no ledger, no artifact; the
-report carries `wrote: false` and a test snapshots a working tree before/after a
-run and asserts it is unchanged (the flag alone would be a claim, not a check).
+report carries `wrote: false` and a test snapshots a working tree's directory
+listing before/after a run and asserts it is unchanged (the flag alone would be
+a claim, not a check).
 The provisional shape is **not** the persisted contract: it borrows the Profile
 geometry to reuse the checks, and it never enters a workspace or a schema
 version (§6/D3 untouched by design — promoting it would be its own decision).

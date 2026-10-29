@@ -12,6 +12,7 @@
 import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { normalizeProfile, validateProfile } from "@profile-as-code/core";
 import { describe, expect, it, vi } from "vitest";
 import { discover } from "../src/commands/discover.js";
 import {
@@ -330,5 +331,64 @@ describe("discover — write rule and CLI layer", () => {
       const { setJsonMode: reset } = await import("../src/output.js");
       reset(false);
     }
+  });
+});
+
+describe("discovery — address honesty (round-2 majors)", () => {
+  it("cites only the conflicting group, never an agreeing sibling group", () => {
+    const profile = normalizeProfile(
+      validateProfile({
+        identity: { name: "Ada", links: [{ url: "https://github.com/ada" }] },
+        experience: [
+          { id: "s1-x", role: "X", org: "Acme", start: "2020-01-01" },
+          { id: "s2-x", role: "X", org: "Acme", start: "2019-01-01" },
+          { id: "s1-y", role: "Y", org: "Beta", start: "2021-01-01" },
+          { id: "s2-y", role: "Y", org: "Beta", start: "2022-01-01" },
+        ],
+      }),
+    );
+    const provenance = Object.fromEntries(
+      ["s1-x", "s2-x", "s1-y", "s2-y"].map((id) => [
+        `experience[${id}]`,
+        {
+          surface: id.startsWith("s1") ? "github.com" : "linkedin.com",
+          url: `https://${id.startsWith("s1") ? "github.com" : "linkedin.com"}/ada`,
+          retrieved: RETRIEVED,
+          attested: false as const,
+        },
+      ]),
+    );
+    const findings = discoveryFindings({ profile, provenance, absent: [] }, []);
+    const xConflict = findings.find((item) => item.detail.includes("x @ acme"));
+    const yConflict = findings.find((item) => item.detail.includes("y @ beta"));
+    expect(xConflict).toBeDefined();
+    expect(yConflict).toBeDefined();
+    // The false-attribution bug: citing Beta rows for the Acme conflict.
+    expect(xConflict?.detail).not.toContain("Beta");
+    expect(yConflict?.detail).not.toContain("Acme");
+  });
+
+  it("gives each dead link and each unsourced sentence its own address", async () => {
+    const result = await discover({
+      urls: ["https://github.com/ada"],
+      retrieved: RETRIEVED,
+      fetchText: stubFetch({
+        "https://github.com/ada": {
+          status: 200,
+          text: page(
+            person(),
+            '<a href="https://github.com/ada/one">1</a><a href="https://github.com/ada/two">2</a><p>Grew 40%.</p><p>Saved $500.</p>',
+          ),
+        },
+        "https://github.com/ada/one": { status: 404, text: "" },
+        "https://github.com/ada/two": { status: 410, text: "" },
+      }),
+    });
+    const dangling = result.findings.filter((item) => item.class === "dangling-ref");
+    const claims = result.findings.filter((item) => item.class === "unsourced-claim");
+    expect(new Set(dangling.map((item) => item.path)).size).toBe(dangling.length);
+    expect(new Set(claims.map((item) => item.path)).size).toBe(claims.length);
+    expect(dangling[0]?.path).toMatch(/^links\[github\.com\]\[\d+\]$/);
+    expect(claims[0]?.path).toMatch(/^surface\[github\.com\]\.text\[\d+\]$/);
   });
 });
