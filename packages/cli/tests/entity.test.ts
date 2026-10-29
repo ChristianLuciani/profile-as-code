@@ -116,7 +116,7 @@ function entityJsonLd(
 /**
  * A brand workspace whose only populated `mission` is `es` (`en: ""` counts as
  * absent at the text accessor). It is the F1 regression: `--json` must not report
- * `description(mission): no` while `--jsonld` emits the `es` description.
+ * `description(definition|mission): no` while `--jsonld` emits the `es` description.
  */
 function brandWorkspace(): string {
   const dir = tempDir();
@@ -187,7 +187,7 @@ describe("pasco entity --json", () => {
     expect(es.data.gaps.map((gap) => gap.code)).not.toContain("geo/structured-person");
     expect(en.data.gaps.map((gap) => gap.code)).toContain("geo/structured-person");
     expect(en.data.gaps.find((gap) => gap.code === "geo/structured-person")?.detail).toContain(
-      "description(mission): no",
+      "description(definition|mission): no",
     );
   });
 

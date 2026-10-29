@@ -11,6 +11,21 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **Answer-engine surface, consumer half — `structuredData()` projects
+  `identity.definition` + `faq[]` (#316)** — the v1.10 contract shipped in v0.3.6
+  without an emitter; `structuredData()` now reads the fields. Person:
+  `fields.description` + `jsonLd.description` from `identity.definition`
+  (`[lang]` falling to `en`), emitted **only** when declared — never invented — and
+  `description` joins the Person `considered` list, whose denominator is now fixed
+  at 8 (counted as populated only when declared, so a person declaring the seven
+  pre-v1.10 fields and no definition moves to 7/8: the declared, honestly-accounted
+  delta). Brand: `definition` wins over `mission` in the same description slot —
+  a definition-less brand keeps the v1.9 mission output byte-identical. The
+  `FAQPage` JSON-LD node (`StructuredDataReadiness.faqJsonLd`) exists **iff**
+  root `faq[]` exists — never an empty one — and carries no `@id` (the engine never
+  invents an anchor); a `faq[].source` travels as `Answer.citation`. No consumer
+  embeds `faqJsonLd` yet (renderers embed `jsonLd` only): the emitted node is the
+  readiness surface the M5 web renderer will consume.
 - **`pasco preview` — see the data without publishing it (#282)** — a private
   workspace had no way to *look* at the rendered result; the only options were to
   publish it or to read the base texts one by one, and Pages is not the missing

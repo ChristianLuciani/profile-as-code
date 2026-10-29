@@ -59,9 +59,11 @@ describe("geoCheck(profile)", () => {
     const { readiness } = report.sections.structuredData;
 
     expect(readiness.ready).toBe(true);
-    // name + sameAs + image + address + jobTitle + worksFor = 6 of 7 (v1.5 counts
-    // identity.email in the completeness denominator — issue #71; the fixture has none).
-    expect(readiness.completeness).toBeCloseTo(6 / 7, 5);
+    // name + sameAs + image + address + jobTitle + worksFor = 6 of 8 (v1.5 counts
+    // identity.email in the completeness denominator — issue #71; the fixture has
+    // none; v1.10, #288: `description` is the 8th considered field — emitted only
+    // when `identity.definition` exists, which this fixture does not declare).
+    expect(readiness.completeness).toBeCloseTo(6 / 8, 5);
     expect(readiness.fields.name).toBe(true);
     expect(readiness.fields.sameAs).toHaveLength(5);
     expect(readiness.fields.jobTitle).toBe("Senior AI Engineer");
@@ -99,7 +101,7 @@ describe("geoCheck(profile)", () => {
     profile.identity.email = "elena@example.com";
     const { readiness } = geoCheck(profile).sections.structuredData;
 
-    expect(readiness.completeness).toBe(1); // … + email = 7/7
+    expect(readiness.completeness).toBe(7 / 8); // … + email = 7/8 (v1.10: description is the 8th considered field, #288)
     expect(readiness.fields.email).toBe("elena@example.com");
     expect(readiness.jsonLd?.email).toBe("elena@example.com");
     // sameAs stays page-URLs-only: the mailto: href is output-only (renderer), never sameAs.
@@ -115,8 +117,9 @@ describe("geoCheck(profile)", () => {
 
     expect(readiness.jsonLd?.nationality).toEqual({ "@type": "Country", identifier: "VE" });
     expect(readiness.fields.nationality).toBe("VE");
-    // Optional, outside the gate: same 6/7 as without the field (no new denominator).
-    expect(readiness.completeness).toBeCloseTo(6 / 7, 5);
+    // Optional, outside the gate: same 6/8 as without the field (no new denominator;
+    // v1.10 #288 added `description` as the 8th considered field).
+    expect(readiness.completeness).toBeCloseTo(6 / 8, 5);
     expect(readiness.ready).toBe(true);
     // And the weighted GEO score is untouched: no check reads the field (#334).
     expect(report.score).toBe(baseline.score);
