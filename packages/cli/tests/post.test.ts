@@ -8,7 +8,15 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -445,6 +453,158 @@ describe("pasco post — long-form (#266)", () => {
       expect(checklist).toContain("title: Repeatable work");
       expect(checklist).toContain("dek: What compounds.");
     }
+  });
+
+  it("maps publication into the API settings and warns on an undeclared front-matter field", () => {
+    const ws = workspace();
+    longformSeed(ws, "essay5");
+    expect(
+      run([
+        "post",
+        "task",
+        "essay5",
+        "--format",
+        "longform",
+        "--channel",
+        "medium",
+        "--workspace",
+        ws,
+      ]).code,
+    ).toBe(0);
+    variant(
+      ws,
+      "essay5",
+      "medium",
+      "medium-1",
+      frontMatter(
+        {
+          title: "Repeatable work",
+          dek: "What compounds.",
+          publication: "my-publication",
+          imprint: "not-a-declared-field",
+        },
+        words(650),
+      ),
+    );
+    const check = run(["post", "check", "essay5", "--json", "--workspace", ws]);
+    expect(check.code, check.stdout).toBe(0);
+    const envelope = JSON.parse(check.stdout) as {
+      data: {
+        warnings: number;
+        channels: { findings: { code: string; message: string }[] }[];
+      };
+    };
+    const findings = envelope.data.channels.flatMap((channel) => channel.findings);
+    expect(envelope.data.warnings).toBe(1);
+    expect(findings.map((finding) => finding.code)).toContain("unknown-field");
+    expect(findings.find((finding) => finding.code === "unknown-field")?.message).toContain(
+      "imprint",
+    );
+
+    writeFileSync(join(ws, "postiz.yaml"), "channels:\n  medium: md-9\n");
+    expect(run(["post", "export", "essay5", "--workspace", ws]).code).toBe(0);
+    const payload = JSON.parse(
+      readFileSync(join(ws, "posts", "essay5", "postiz.json"), "utf8"),
+    ) as {
+      posts: { settings: Record<string, unknown> }[];
+    };
+    expect(payload.posts[0]?.settings.publication).toBe("my-publication");
+    expect(payload.posts[0]?.settings.imprint).toBeUndefined();
+  });
+
+  it("treats empty front matter as no fields and counts only the body", () => {
+    const ws = workspace();
+    longformSeed(ws, "essay6");
+    expect(
+      run([
+        "post",
+        "task",
+        "essay6",
+        "--format",
+        "longform",
+        "--channel",
+        "medium",
+        "--workspace",
+        ws,
+      ]).code,
+    ).toBe(0);
+    variant(ws, "essay6", "medium", "medium-1", `---\n---\n${words(650)}\n`);
+    const check = run(["post", "check", "essay6", "--json", "--workspace", ws]);
+    expect(check.code).toBe(1);
+    const codes = (
+      JSON.parse(check.stdout) as {
+        data: { channels: { findings: { code: string }[] }[] };
+      }
+    ).data.channels.flatMap((channel) => channel.findings.map((finding) => finding.code));
+    expect(codes.filter((code) => code === "missing-field")).toHaveLength(2);
+    expect(codes).not.toContain("front-matter");
+    expect(codes).not.toContain("word-count");
+  });
+
+  it("writes nothing when a task would fail, and rejects a derived child without --from", () => {
+    const ws = workspace();
+    longformSeed(ws, "essay7");
+    // Unknown channel: validated before the ledger/seed/task is written.
+    const badChannel = run([
+      "post",
+      "task",
+      "fresh",
+      "--format",
+      "longform",
+      "--channel",
+      "nosuch",
+      "--workspace",
+      ws,
+    ]);
+    expect(badChannel.code).toBe(2);
+    expect(existsSync(join(ws, "posts", "fresh"))).toBe(false);
+
+    expect(
+      run([
+        "post",
+        "task",
+        "child7",
+        "--format",
+        "short",
+        "--from",
+        "essay7",
+        "--channel",
+        "x",
+        "--workspace",
+        ws,
+      ]).code,
+    ).toBe(0);
+    const noFrom = run(["post", "task", "child7", "--channel", "x", "--workspace", ws]);
+    expect(noFrom.code).toBe(2);
+    expect(noFrom.stderr).toContain("derived from");
+  });
+
+  it("refuses --out with only paste channels before writing any checklist", () => {
+    const ws = workspace();
+    longformSeed(ws, "essay8");
+    expect(
+      run([
+        "post",
+        "task",
+        "essay8",
+        "--format",
+        "longform",
+        "--channel",
+        "substack",
+        "--workspace",
+        ws,
+      ]).code,
+    ).toBe(0);
+    variant(
+      ws,
+      "essay8",
+      "substack",
+      "substack-1",
+      frontMatter({ title: "Repeatable work", dek: "What compounds." }, words(650)),
+    );
+    const out = run(["post", "export", "essay8", "--out", join(ws, "out.json"), "--workspace", ws]);
+    expect(out.code).toBe(2);
+    expect(existsSync(join(ws, "posts", "essay8", "substack", "paste-checklist.md"))).toBe(false);
   });
 
   it("rejects --from with a non-essay parent and with --format longform", () => {

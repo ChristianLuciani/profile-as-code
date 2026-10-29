@@ -15,6 +15,7 @@ fields:
     - dek
   optional:
     - preview
+    - publication
     - list
 limits:
   words:

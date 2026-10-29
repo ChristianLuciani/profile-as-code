@@ -43,7 +43,8 @@ The format is a property of the **seed**, not of the channel:
 The **short family** is derived from the essay: `post task <child> --format
 short --from <essay> --channel linkedin,x` creates a child seed whose
 `post.yaml` carries `derivedFrom: <essay>`, with **no `seed.md` of its own** (the
-essay is canonical; `post.yaml.seed` points at `../<essay>/seed.md`). One essay
+essay is canonical; `post.yaml.seed` points at `../<essay>/seed.md`, and
+`seedText()` follows `derivedFrom` to read the essay's text). One essay
 can spawn as many short children as it has channels/angles; all of them link
 back by `derivedFrom`. The essay itself derives from nothing.
 
@@ -67,13 +68,17 @@ The body in markdown…
 | `format: longform` | self-declares the file's shape (a `posting.yaml` must not) |
 | `export: api \| paste` | API channel (Postiz settings mapping) vs paste surface (checklist, no body API) |
 | `fields.required` | must include `title` and `dek`; a missing one fails `check` |
-| `fields.optional` | `preview`, `tags`, `canonical`, `list` (images are **not** a v0 field — D17 `artifacts[].locator` owns pointers) |
+| `fields.optional` | `preview`, `tags`, `canonical`, `publication`, `list` (images are **not** a v0 field — D17 `artifacts[].locator` owns pointers) |
 | `limits.words` | editorial band (`min`/`max`), enforced by `check` |
 | `structure` · `sources` | judgment + evidence, same shape as `posting.yaml` |
 
 v1 channels: `substack`, `ghost` (paste) · `medium`, `devto`, `hashnode`,
 `wordpress`, `listmonk` (API). Ghost's Admin API exists but v1 keeps it a paste
-surface, like Substack (#266). Images are out of scope in v0.
+surface, like Substack (#266). Images are out of scope in v0. `check` reports a
+front-matter field the channel does not declare (`unknown-field`, warn) instead
+of letting the export drop it silently; `title`, `tags`, `canonical`,
+`publication` and `list` are the fields an API channel maps into its Postiz
+settings.
 
 ## Commands
 
@@ -107,7 +112,7 @@ pasco post check <seed-id> --workspace <profile-data>
 #              warns  hashtags · unsourced-claim
 #    longform: errors missing-field (title/dek) · word-count · url-not-in-ssot
 #              (canonical included) · dangling-ref · front-matter
-#              warns  unsourced-claim
+#              warns  unsourced-claim · unknown-field (not exported)
 #    both:     derivedFrom must resolve to a long-form parent (dangling-derived-from)
 
 # 5. Build the Postiz payload / paste checklist (optional)

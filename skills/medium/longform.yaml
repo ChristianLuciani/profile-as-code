@@ -16,6 +16,7 @@ fields:
   optional:
     - tags
     - canonical
+    - publication
 limits:
   words:
     min: 600

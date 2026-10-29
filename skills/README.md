@@ -64,6 +64,9 @@ The week-1 post experiment uses a **different shape** from the profile skills:
   `hashnode`, `wordpress`, `listmonk` — required fields (`title`/`dek`), an
   editorial word band, and `export: api | paste` (Substack/Ghost are paste
   surfaces). The word band is house style, not a platform limit: cite a source
-  before encoding a hard cap.
+  before encoding a hard cap. These channels carry **no `SKILL.md` and no
+  `post.md` yet**: `longform.yaml` is the whole contract for now, and the
+  editorial judgment (voice, structure, examples) is deliberately deferred —
+  add it as `post.md` when the channel is used in earnest.
 
 Neither shape is projected to harnesses yet — see `docs/post-mvp.md`.

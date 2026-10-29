@@ -56,7 +56,7 @@ export const POST_OWNER =
  *  extend it, but it must at least require these two. */
 const LONGFORM_REQUIRED_FIELDS = ["title", "dek"] as const;
 /** Front-matter fields that travel into an API platform's settings. */
-const LONGFORM_SETTING_FIELDS = ["tags", "canonical", "list"] as const;
+const LONGFORM_SETTING_FIELDS = ["tags", "canonical", "publication", "list"] as const;
 
 interface WordLimits {
   min?: number;
@@ -338,7 +338,7 @@ interface FrontMatter {
  *  without front matter is not an error at parse time: `check` reports the
  *  missing required fields, which is what the reader needs to fix. */
 export function parseFrontMatter(text: string): FrontMatter {
-  const match = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/.exec(text);
+  const match = /^---[ \t]*\r?\n([\s\S]*?)\r?\n?---[ \t]*(?:\r?\n|$)/.exec(text);
   if (match === null) {
     if (/^---[ \t]*\r?\n/.test(text)) {
       return { body: text, error: "unterminated front matter (no closing --- line)" };
@@ -485,10 +485,24 @@ export function checkLongform(
     }
   }
 
+  const declared = new Set([
+    ...(rules.fields?.required ?? [...LONGFORM_REQUIRED_FIELDS]),
+    ...(rules.fields?.optional ?? []),
+  ]);
+  const channel = rules.platform ?? "channel";
+  for (const name of Object.keys(fields)) {
+    if (!declared.has(name)) {
+      findings.push({
+        code: "unknown-field",
+        severity: "warn",
+        message: `front-matter field "${name}" is not declared in skills/${channel}/longform.yaml — it is not exported`,
+      });
+    }
+  }
+
   const words = countWords(front.body);
   const min = rules.limits?.words?.min;
   const max = rules.limits?.words?.max;
-  const channel = rules.platform ?? "channel";
   if (max !== undefined && words > max) {
     findings.push({
       code: "word-count",
@@ -805,6 +819,37 @@ function handleTask(args: PostArgs): number {
   );
   const lang = parseLang(defaultsLang(args.pascorc));
 
+  // Validate everything that can fail BEFORE writing (no orphan ledger/task and
+  // no usage error after a side effect): the ledger shape, the profile, and
+  // every channel rule. A derived child with no --from is a usage error here.
+  const existing = existsSync(ledgerPath(args.workspace, seedId))
+    ? readLedger(args.workspace, seedId)
+    : undefined;
+  if (existing !== undefined) {
+    if (existing.format !== format) {
+      throw new UsageError(
+        `seed ${seedId} is format "${existing.format}"; a seed's format is fixed — rerun with --format ${existing.format}, or use a new seed id`,
+      );
+    }
+    if (existing.derivedFrom !== from) {
+      throw new UsageError(
+        existing.derivedFrom === undefined
+          ? `seed ${seedId} is a root seed; --from needs a new short seed id`
+          : `seed ${seedId} is derived from "${existing.derivedFrom}", not "${from ?? "(none)"}" — pass --format short --from ${existing.derivedFrom}`,
+      );
+    }
+  }
+
+  const loaded = loadProfile(args.workspace);
+  if (typeof loaded === "number") return loaded;
+  const profile = loaded;
+
+  const channelRules = channels.map((channel) => ({
+    channel,
+    rules: readRules(channel, format),
+    skill: skillFile(channel, "post.md"),
+  }));
+
   let seed: string;
   if (from !== undefined) {
     if (!existsSync(ledgerPath(args.workspace, from))) {
@@ -823,32 +868,13 @@ function handleTask(args: PostArgs): number {
     seed = seedText(args.workspace, seedId);
   }
 
-  const existing = existsSync(ledgerPath(args.workspace, seedId))
-    ? readLedger(args.workspace, seedId)
-    : undefined;
-  if (existing !== undefined) {
-    if (existing.format !== format) {
-      throw new UsageError(
-        `seed ${seedId} is format "${existing.format}"; a seed's format is fixed — rerun with --format ${existing.format}, or use a new seed id`,
-      );
-    }
-    if (existing.derivedFrom !== from) {
-      throw new UsageError(
-        existing.derivedFrom === undefined
-          ? `seed ${seedId} is a root seed; --from needs a new short seed id`
-          : `seed ${seedId} is derived from "${existing.derivedFrom}", not "${from ?? "(none)"}"`,
-      );
-    }
-  } else {
+  if (existing === undefined) {
     createSeed(args.workspace, seedId, from === undefined ? seed : undefined, "authored", {
       format,
       ...(from !== undefined ? { derivedFrom: from } : {}),
     });
   }
 
-  const loaded = loadProfile(args.workspace);
-  if (typeof loaded === "number") return loaded;
-  const profile = loaded;
   const results: {
     channel: string;
     format: PostFormat;
@@ -858,9 +884,7 @@ function handleTask(args: PostArgs): number {
     maxChars?: number;
     words?: WordLimits;
   }[] = [];
-  for (const channel of channels) {
-    const rules = readRules(channel, format);
-    const skill = skillFile(channel, "post.md");
+  for (const { channel, rules, skill } of channelRules) {
     const task =
       format === "longform"
         ? buildLongformTask({ seedId, channel, seed, profile, rules, skill, variants, lang })
@@ -1112,8 +1136,22 @@ function handleExport(args: PostArgs): number {
   const profile = loaded;
   const ledger = readLedger(args.workspace, seedId);
   const integrationIds = readPostizConfig(args.workspace);
-  const posts: PostizPost[] = [];
-  const checklists: { channel: string; path: string }[] = [];
+  // Two passes: PLAN everything that can fail (rules, front matter, required
+  // fields, `--out` vs the channel mix) and only then write. A usage error must
+  // never leave a paste-checklist behind.
+  interface PlannedPost {
+    kind: "post";
+    channel: string;
+    post: PostizPost;
+  }
+  interface PlannedChecklist {
+    kind: "checklist";
+    channel: string;
+    fields: Record<string, unknown>;
+    body: string;
+    rules: PostingRules;
+  }
+  const planned: (PlannedPost | PlannedChecklist)[] = [];
   for (const [channel, state] of Object.entries(ledger.channels)) {
     if (state.chosen === undefined) continue;
     const chosen = chosenVariant(args.workspace, ledger, channel);
@@ -1150,42 +1188,71 @@ function handleExport(args: PostArgs): number {
         );
       }
       if (rules.export === "paste") {
-        const path = join(seedDir(args.workspace, ledger.id), channel, "paste-checklist.md");
-        mkdirSync(dirname(path), { recursive: true });
-        writeFileSync(
-          path,
-          buildPasteChecklist({ seedId, channel, fields, body: front.body, rules }),
-        );
-        checklists.push({ channel, path });
+        planned.push({ kind: "checklist", channel, fields, body: front.body, rules });
         continue;
       }
       settings.title = fieldString(fields.title);
       for (const key of LONGFORM_SETTING_FIELDS) {
         if (fields[key] !== undefined) settings[key] = fields[key];
       }
-      posts.push({
-        integration: { id: integrationIds[channel] ?? "REPLACE_ME" },
-        value: [{ content: front.body.trim(), image: [] }],
-        settings,
+      planned.push({
+        kind: "post",
+        channel,
+        post: {
+          integration: { id: integrationIds[channel] ?? "REPLACE_ME" },
+          value: [{ content: front.body.trim(), image: [] }],
+          settings,
+        },
       });
       continue;
     }
 
-    posts.push({
-      integration: { id: integrationIds[channel] ?? "REPLACE_ME" },
-      value: [{ content: rendered.text.trim(), image: [] }],
-      settings,
+    planned.push({
+      kind: "post",
+      channel,
+      post: {
+        integration: { id: integrationIds[channel] ?? "REPLACE_ME" },
+        value: [{ content: rendered.text.trim(), image: [] }],
+        settings,
+      },
     });
+  }
+  if (planned.length === 0) {
+    return report("post", false, EXIT.FAIL, {
+      error: { kind: "empty", message: `${seedId} has no chosen variant to export` },
+    });
+  }
+  if (args.outArg !== undefined && !planned.some((item) => item.kind === "post")) {
+    throw new UsageError(
+      `--out needs an API channel: ${seedId} only has paste channels (checklists are written next to each channel)`,
+    );
+  }
+
+  const posts: PostizPost[] = [];
+  const checklists: { channel: string; path: string }[] = [];
+  for (const item of planned) {
+    if (item.kind === "post") {
+      posts.push(item.post);
+      continue;
+    }
+    const path = join(seedDir(args.workspace, ledger.id), item.channel, "paste-checklist.md");
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(
+      path,
+      buildPasteChecklist({
+        seedId,
+        channel: item.channel,
+        fields: item.fields,
+        body: item.body,
+        rules: item.rules,
+      }),
+    );
+    checklists.push({ channel: item.channel, path });
   }
   if (posts.length === 0 && checklists.length === 0) {
     return report("post", false, EXIT.FAIL, {
       error: { kind: "empty", message: `${seedId} has no chosen variant to export` },
     });
-  }
-  if (posts.length === 0 && args.outArg !== undefined) {
-    throw new UsageError(
-      `--out needs an API channel: ${seedId} only has paste channels (checklists are written next to each channel)`,
-    );
   }
   const payload: PostizPayload = { type, date, shortLink: false, tags: [], posts };
   const out = args.outArg ?? join(seedDir(args.workspace, seedId), "postiz.json");

@@ -154,7 +154,16 @@ export function writeLedger(workspace: string, ledger: PostLedger): void {
   writeFileSync(ledgerPath(workspace, ledger.id), stringify(ledger));
 }
 
-export function seedText(workspace: string, id: string): string {
+/** The canonical text of a seed. A derived seed has no seed.md: follow
+ *  `derivedFrom` to the essay that owns it (the cycle guard refuses a
+ *  hand-edited loop). */
+export function seedText(workspace: string, id: string, seen: Set<string> = new Set()): string {
+  if (seen.has(id)) throw new Error(`derivedFrom cycle at seed ${id}`);
+  seen.add(id);
+  if (existsSync(ledgerPath(workspace, id))) {
+    const ledger = readLedger(workspace, id);
+    if (ledger.derivedFrom !== undefined) return seedText(workspace, ledger.derivedFrom, seen);
+  }
   const path = seedPath(workspace, id);
   if (!existsSync(path)) throw new Error(`no seed at ${path}`);
   return readFileSync(path, "utf8");
