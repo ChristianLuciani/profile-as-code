@@ -343,6 +343,42 @@ test("workflowViolations — F3: a command AFTER the barrier is refused", () => 
   );
 });
 
+test("workflowViolations — F3: a barrier PIPED into another command is refused", () => {
+  // `bash -e -c 'false | cat'` exits 0: the pipeline status is the LAST command's, so
+  // piping the rehearsal away discards exactly the failure the gate propagates.
+  const yaml = workflow().replace(
+    "        run: node scripts/release-rehearsal/check.mjs",
+    "        run: node scripts/release-rehearsal/check.mjs | tee /tmp/rehearsal.log",
+  );
+  refuses(
+    workflowViolations(yaml).violations,
+    "last effective command with the exit code kept",
+    "piped barrier",
+  );
+});
+
+test("workflowViolations — F3: a BACKGROUNDED barrier (`&`) is refused", () => {
+  // `bash -e -c 'false &'` exits 0 — the background job's status is never observed.
+  const yaml = workflow().replace(
+    "        run: node scripts/release-rehearsal/check.mjs",
+    "        run: node scripts/release-rehearsal/check.mjs &",
+  );
+  refuses(
+    workflowViolations(yaml).violations,
+    "last effective command with the exit code kept",
+    "backgrounded barrier",
+  );
+});
+
+test("workflowViolations — F3: redirections on the barrier are NOT read as a pipe", () => {
+  // `> file 2>&1` keeps the exit status; the operator scan must not over-reject it.
+  const yaml = workflow().replace(
+    "        run: node scripts/release-rehearsal/check.mjs",
+    "        run: node scripts/release-rehearsal/check.mjs > /tmp/rehearsal.log 2>&1",
+  );
+  assert.deepEqual(workflowViolations(yaml).violations, []);
+});
+
 test("workflowViolations — F3: a barrier that ENDS the script (with `set -e`) is accepted", () => {
   const yaml = workflow().replace(
     "        run: node scripts/release-rehearsal/check.mjs",
@@ -505,6 +541,60 @@ test("idTokenGranted — F1: a scalar job override is read, not skipped to the d
     scope: "publish job permissions (unrecognized scalar `read-none`)",
   });
   refuses(workflowViolations(unknown).violations, "publish job does not grant", "unknown scalar");
+});
+
+test("F2 — a key with a space before the colon is still that key", () => {
+  // YAML allows `permissions : read-all`; a matcher anchored on `permissions:` read
+  // nothing, fell through to the workflow default and re-opened F1. Same for the
+  // step/job settings the barrier depends on.
+  const flow = workflow({ publishExtra: ["    permissions : { contents: read }"] });
+  assert.deepEqual(idTokenGranted(flow), {
+    granted: false,
+    scope: "publish job permissions",
+  });
+  refuses(workflowViolations(flow).violations, "publish job does not grant", "spaced flow block");
+
+  const scalar = workflow({ publishExtra: ["    permissions : read-all"] });
+  assert.deepEqual(idTokenGranted(scalar), {
+    granted: false,
+    scope: "publish job permissions (`read-all`)",
+  });
+
+  const swallow = workflow().replace(
+    `      - name: ${BARRIER_STEP}`,
+    `      - name: ${BARRIER_STEP}\n        continue-on-error : true`,
+  );
+  refuses(workflowViolations(swallow).violations, "continue-on-error", "spaced swallow key");
+
+  const gated = workflow().replace(
+    `      - name: ${BARRIER_STEP}`,
+    `      - name: ${BARRIER_STEP}\n        if : \${{ false }}`,
+  );
+  refuses(workflowViolations(gated).violations, "never true", "spaced if key");
+});
+
+test("F3 — a constant-false `if:` with a trailing comment still gates the barrier", () => {
+  // `staticallyFalseIf` did not strip the comment (unlike `staticallyTrue`), so the
+  // condition read as `false }} # disabled` and never matched — the barrier stayed
+  // green while never running.
+  const step = workflow().replace(
+    `      - name: ${BARRIER_STEP}`,
+    `      - name: ${BARRIER_STEP}\n        if: \${{ false }} # disabled`,
+  );
+  refuses(workflowViolations(step).violations, "never true", "commented false step if");
+
+  const job = workflow({
+    barrier: false,
+    preJobs: [
+      "  rehearse:",
+      "    runs-on: ubuntu-24.04",
+      ["    if: ", "$", "{{ false }} # disabled"].join(""),
+      "    steps:",
+      ...barrierLines,
+    ],
+    publishExtra: ["    needs: rehearse"],
+  });
+  refuses(workflowViolations(job).violations, "never true", "commented false job if");
 });
 
 test("idTokenGranted — F1: a scalar TOP-LEVEL default is read too", () => {

@@ -115,15 +115,15 @@ export function parseJobs(yaml) {
   if (jobsAt < 0) return [];
   const jobs = [];
   for (let i = jobsAt + 1; i < lines.length; i += 1) {
-    const match = lines[i].match(/^ {2}(['"]?)([A-Za-z0-9_.-]+)\1:\s*$/);
+    const match = lines[i].match(/^ {2}(['"]?)([A-Za-z0-9_.-]+)\1\s*:\s*$/);
     if (match) jobs.push({ index: i, name: match[2], start: i, end: lines.length, needs: [] });
   }
   for (let i = 0; i < jobs.length; i += 1) {
     if (i + 1 < jobs.length) jobs[i].end = jobs[i + 1].index;
     const block = lines.slice(jobs[i].start, jobs[i].end);
-    const needsAt = block.findIndex((line) => /^ {4}needs:/.test(line));
+    const needsAt = block.findIndex((line) => /^ {4}needs\s*:/.test(line));
     if (needsAt < 0) continue;
-    const inline = block[needsAt].match(/^ {4}needs:\s*(.+)$/);
+    const inline = block[needsAt].match(/^ {4}needs\s*:\s*(.+)$/);
     if (inline) {
       jobs[i].needs = inline[1]
         .replace(/^\[/, "")
@@ -162,7 +162,7 @@ export function parseSteps(yaml) {
     if (/^ {6}- /.test(line)) {
       current = { name: null, job: jobAt(i), lines: [line] };
       steps.push(current);
-      const name = line.match(/^ {6}- name:\s*(.+)$/);
+      const name = line.match(/^ {6}- name\s*:\s*(.+)$/);
       if (name) current.name = name[1].trim().replace(/^['"]|['"]$/g, "");
     } else if (current) {
       current.lines.push(line);
@@ -181,7 +181,7 @@ export function runCommands(body) {
   const lines = body.split("\n");
   const commands = [];
   for (let i = 0; i < lines.length; i += 1) {
-    const inline = lines[i].match(/^(\s*)run:\s*(.*)$/);
+    const inline = lines[i].match(/^(\s*)run\s*:\s*(.*)$/);
     if (!inline) continue;
     const value = inline[2].trim();
     if (value && !/^[|>][+-]?\s*(?:#.*)?$/.test(value)) {
@@ -219,17 +219,92 @@ export function invokesScript(commands, scriptPath) {
   return commands.some((command) => isNodeScript(command, scriptPath));
 }
 
+/** Blank out single-/double-quoted spans and escapes so operators can be found. */
+function stripQuotes(text) {
+  let out = "";
+  let quote = null;
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (quote) {
+      if (char === quote) quote = null;
+      out += " ";
+    } else if (char === '"' || char === "'") {
+      quote = char;
+      out += " ";
+    } else if (char === "\\") {
+      out += " ";
+      i += 1;
+    } else {
+      out += char;
+    }
+  }
+  return out;
+}
+
+/**
+ * The operators that discard or transform a command's exit status in POSIX shell:
+ * a single `|` (the pipeline status is the LAST command's), `|&`, and a background
+ * `&`. Redirections (`>&`, `&>`), `&&`, `||` and quoted text are not included —
+ * `&&`/`||`/`;` are handled by `runCommands` splitting, not here.
+ */
+export function statusDiscardingOperators(script) {
+  const text = stripQuotes(script);
+  const operators = [];
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (char === "|") {
+      if (text[i + 1] === "|") {
+        i += 1;
+        continue;
+      }
+      if (text[i + 1] === "&") {
+        operators.push("|&");
+        i += 1;
+        continue;
+      }
+      operators.push("|");
+    } else if (char === "&") {
+      if (text[i + 1] === "&" || text[i + 1] === ">") {
+        i += 1;
+        continue;
+      }
+      if (i > 0 && (text[i - 1] === ">" || text[i - 1] === "<")) continue;
+      operators.push("&");
+    }
+  }
+  return operators;
+}
+
 /**
  * Whether the step runs the rehearsal as its LAST effective command, with the exit
  * code kept. `commands` are the step's shell segments in order (`runCommands`): the
- * final one must be `node <scriptPath>`, and no segment may disable errexit
- * (`set +e`). A trailing `|| true` / `; true`, any command after the barrier, or a
- * `set +e` before it discards the failure the gate exists to propagate (F3).
+ * final one must be `node <scriptPath>`, it must not be piped or backgrounded (a
+ * `| tee` or a `&` discards the status — `bash -e -c 'false | cat'` exits 0), and no
+ * segment may disable errexit (`set +e`). A trailing `|| true` / `; true`, any
+ * command after the barrier, a pipe/background on it, or a `set +e` before it
+ * discards the failure the gate exists to propagate (F3, third pass).
  */
 export function executesScript(commands, scriptPath) {
   if (commands.length === 0) return false;
   if (commands.some((command) => /^set\s+\+/.test(command.trim()))) return false;
-  return isNodeScript(commands[commands.length - 1], scriptPath);
+  const last = commands[commands.length - 1];
+  if (!isNodeScript(last, scriptPath)) return false;
+  return statusDiscardingOperators(last).length === 0;
+}
+
+/**
+ * A YAML/expression value normalized once: trailing comment, quotes, a `${{ }}`
+ * wrapper and case are all removed. Shared by `staticallyTrue` and
+ * `staticallyFalseIf` so the two cannot disagree about which spellings they read.
+ */
+function normalizedValue(raw) {
+  return raw
+    .replace(/\s+#.*$/, "")
+    .trim()
+    .replace(/^['"]|['"]$/g, "")
+    .replace(/^\$\{\{\s*/, "")
+    .replace(/\s*\}\}$/, "")
+    .trim();
 }
 
 /**
@@ -239,23 +314,15 @@ export function executesScript(commands, scriptPath) {
  * `TRUE` and `true # comment` passed (F2).
  */
 export function staticallyTrue(raw) {
-  const expression = raw
-    .replace(/\s+#.*$/, "")
-    .trim()
-    .replace(/^['"]|['"]$/g, "")
-    .replace(/^\$\{\{\s*/, "")
-    .replace(/\s*\}\}$/, "")
-    .trim()
-    .toLowerCase();
-  return expression === "true";
+  return normalizedValue(raw).toLowerCase() === "true";
 }
 
 /** A step-level setting value (`continue-on-error`, `if`), or null when absent. */
 function stepSetting(body, key) {
   for (const line of body.split("\n")) {
     const match =
-      line.match(new RegExp(`^ {6}- ${key}:\\s*(.+)$`)) ??
-      line.match(new RegExp(`^ {8}${key}:\\s*(.+)$`));
+      line.match(new RegExp(`^ {6}- ${key}\\s*:\\s*(.+)$`)) ??
+      line.match(new RegExp(`^ {8}${key}\\s*:\\s*(.+)$`));
     if (match) return match[1].trim();
   }
   return null;
@@ -267,21 +334,19 @@ export function jobSetting(yaml, name, key) {
   const job = parseJobs(yaml).find((entry) => entry.name === name);
   if (!job) return null;
   for (let i = job.start + 1; i < job.end; i += 1) {
-    const match = lines[i].match(new RegExp(`^ {4}${key}:\\s*(.+)$`));
+    const match = lines[i].match(new RegExp(`^ {4}${key}\\s*:\\s*(.+)$`));
     if (match) return match[1].trim();
   }
   return null;
 }
 
-/** A step `if:` that can never be true — `false`, `0`, `null`, or an empty string. */
+/**
+ * A step `if:` that can never be true — `false`, `0`, `null`, or an empty string,
+ * with the same normalization as `staticallyTrue`. Reading the comment as the
+ * condition let `if: ${{ false }} # disabled` keep the gate green (F3, pass 3).
+ */
 export function staticallyFalseIf(condition) {
-  const expression = condition
-    .trim()
-    .replace(/^\$\{\{\s*/, "")
-    .replace(/\s*\}\}$/, "")
-    .trim();
-  if (/^(false|0|null)$/i.test(expression)) return true;
-  return /^(['"])\s*\1$/.test(expression);
+  return /^(false|0|null)?$/.test(normalizedValue(condition).toLowerCase());
 }
 
 /** The step's `if:` condition, or null. Step keys sit at 6 spaces (`- if:`) or 8. */
@@ -579,7 +644,7 @@ function jobBlock(lines, name) {
   if (jobsAt < 0) return null;
   let start = -1;
   for (let i = jobsAt + 1; i < lines.length; i += 1) {
-    if (new RegExp(`^ {2}${name}:\\s*$`).test(lines[i])) {
+    if (new RegExp(`^ {2}${name}\\s*:\\s*$`).test(lines[i])) {
       start = i;
       break;
     }
@@ -608,11 +673,11 @@ function jobBlock(lines, name) {
  */
 function permissionOverride(lines, from, to, indent) {
   const pad = " ".repeat(indent);
-  const blockPattern = `${pad}permissions:`;
-  const flowPattern = new RegExp(`^${pad}permissions:\\s*\\{(.*)\\}\\s*(?:#.*)?$`);
-  const scalarPattern = new RegExp(`^${pad}permissions:\\s*([^#{}]+?)\\s*(?:#.*)?$`);
+  const blockLine = new RegExp(`^${pad}permissions\\s*:\\s*(?:#.*)?$`);
+  const flowPattern = new RegExp(`^${pad}permissions\\s*:\\s*\\{(.*)\\}\\s*(?:#.*)?$`);
+  const scalarPattern = new RegExp(`^${pad}permissions\\s*:\\s*([^#{}]+?)\\s*(?:#.*)?$`);
   for (let i = from; i < to; i += 1) {
-    if (lines[i] === blockPattern) {
+    if (blockLine.test(lines[i])) {
       const entries = [];
       for (let j = i + 1; j < to; j += 1) {
         if (!lines[j].startsWith(`${pad}  `)) break;
