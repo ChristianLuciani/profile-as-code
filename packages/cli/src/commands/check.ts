@@ -20,7 +20,7 @@
  * reported as NOT RUN, never as OK — an unmeasured surface is not a green one.
  */
 
-import type { LoadedProfile } from "@profile-as-code/core";
+import type { LoadedProfile, Platform } from "@profile-as-code/core";
 import {
   collectMedia,
   driftCheck,
@@ -55,28 +55,51 @@ export interface CheckArgs {
   pascorc: Pascorc;
 }
 
-export function runCheck(args: CheckArgs): number {
-  const platform = args.platformArg !== undefined ? parsePlatform(args.platformArg) : undefined;
+/**
+ * The check COMPUTATION, separated from its presentation (issue #282): `pasco
+ * preview` shows "the state of check when it exists", and a second copy of these
+ * rules is exactly the drift this repo keeps paying for. One builder, two
+ * commands — `check` prints it, `preview` embeds it.
+ */
+export interface CheckReport {
+  workspace: string;
+  platform: string;
+  flavor: LoadedProfile["flavor"];
+  implemented: {
+    handleMatrix: boolean;
+    registry: boolean;
+    media: boolean;
+    limits: boolean;
+    factPresent: boolean;
+  };
+  checks: LoadedProfile["checks"];
+  handleMatrix: {
+    platform: string;
+    handle: string;
+    status: string;
+    url?: string;
+    note?: string;
+  }[];
+  handleIssues: ReturnType<typeof driftCheck>;
+  registry: ReturnType<typeof registryCheck>;
+  media: ReturnType<typeof collectMedia>["findings"];
+  limits: ReturnType<typeof limitFindings>;
+  factPresent: ReturnType<typeof factPresentFindings>;
+  ownedBy: string;
+  /** `false` when a §18.5 leak error must fail the command. */
+  ok: boolean;
+}
 
-  let profile: LoadedProfile;
-  try {
-    profile = load(args.workspace);
-  } catch (err) {
-    if (err instanceof SchemaValidationError) {
-      return report("check", false, EXIT.FAIL, {
-        error: {
-          kind: "schema",
-          message: `schema validation failed (D12 fail-on-schema) — ${err.issues.length} violation(s)`,
-          violations: [...err.issues],
-        },
-      });
-    }
-    if (err instanceof LoadError) {
-      return report("check", false, EXIT.FAIL, { error: { kind: "load", message: err.message } });
-    }
-    throw err;
-  }
-
+/** Build the report over an ALREADY-LOADED profile (one load per command). */
+export function buildCheckReport(args: {
+  workspace: string;
+  profile: LoadedProfile;
+  platform?: Platform;
+  pascorc: Pascorc;
+  /** Pinned date (YYYY-MM-DD) for the clock-keyed rules — `preview --now`. */
+  today?: string;
+}): CheckReport {
+  const { workspace, profile, platform } = args;
   // A workspace that predates the catalog (or deliberately has no file) still
   // gets the conservative defaults; the dogfood case must not stay silent.
   const baseChecks = profile.checks.length > 0 ? profile.checks : DEFAULT_CHECKS;
@@ -99,45 +122,91 @@ export function runCheck(args: CheckArgs): number {
   // Evidence registry (v1.4/D17, §18.8): offline, deterministic. Warn findings
   // report; ERROR findings (the §18.5 leak gate `no-private-in-public-output`)
   // fail the check — renderers emit only public, so a leak must block, not warn.
-  const registry = registryCheck(profile);
+  const registry = registryCheck(profile, args.today === undefined ? {} : { today: args.today });
   // M8 (§18.6 media transport): same severity contract — a broken in-workspace
   // SSOT (missing/unsafe file, declared-checksum mismatch) is an error; per-
   // machine external state (no evidence root, symlink escape, oversize) warns.
-  const media = collectMedia(profile, args.workspace).findings;
+  const media = collectMedia(profile, workspace).findings;
   const limits = limitFindings(profile, checks, platform);
   const facts = factPresentFindings({
-    workspace: args.workspace,
+    workspace,
     profile,
     ...(platform === undefined ? {} : { platform }),
     pascorc: args.pascorc,
     checks: profile.checks,
   });
-  const failErrors = [...registry, ...media].filter((f) => f.severity === "error");
+
+  return {
+    workspace,
+    platform: platform ?? "all",
+    flavor: profile.flavor,
+    // Per-rule, machine-readable: handle rules exist for brand only (D15/§17),
+    // registry rules run for every flavor (D17/§18.8). A single boolean would
+    // overload two different facts.
+    implemented: {
+      handleMatrix: profile.flavor === "brand",
+      registry: true,
+      media: true,
+      limits: true,
+      factPresent: true,
+    },
+    checks,
+    handleMatrix,
+    handleIssues,
+    registry,
+    media,
+    limits,
+    factPresent: facts,
+    ownedBy: CHECK_OWNER,
+    ok: [...registry, ...media].every((f) => f.severity !== "error"),
+  };
+}
+
+export function runCheck(args: CheckArgs): number {
+  const platform = args.platformArg !== undefined ? parsePlatform(args.platformArg) : undefined;
+
+  let profile: LoadedProfile;
+  try {
+    profile = load(args.workspace);
+  } catch (err) {
+    if (err instanceof SchemaValidationError) {
+      return report("check", false, EXIT.FAIL, {
+        error: {
+          kind: "schema",
+          message: `schema validation failed (D12 fail-on-schema) — ${err.issues.length} violation(s)`,
+          violations: [...err.issues],
+        },
+      });
+    }
+    if (err instanceof LoadError) {
+      return report("check", false, EXIT.FAIL, { error: { kind: "load", message: err.message } });
+    }
+    throw err;
+  }
+
+  const report_ = buildCheckReport({
+    workspace: args.workspace,
+    profile,
+    ...(platform === undefined ? {} : { platform }),
+    pascorc: args.pascorc,
+  });
+  const { checks, handleIssues, registry, media, limits, factPresent: facts } = report_;
 
   if (isJsonMode()) {
-    return report("check", failErrors.length === 0, failErrors.length === 0 ? EXIT.OK : EXIT.FAIL, {
+    return report("check", report_.ok, report_.ok ? EXIT.OK : EXIT.FAIL, {
       data: {
-        workspace: args.workspace,
-        platform: platform ?? "all",
-        flavor: profile.flavor,
-        // Per-rule, machine-readable: handle rules exist for brand only (D15/§17),
-        // registry rules run for every flavor (D17/§18.8). A single boolean would
-        // overload two different facts.
-        implemented: {
-          handleMatrix: profile.flavor === "brand",
-          registry: true,
-          media: true,
-          limits: true,
-          factPresent: true,
-        },
-        checks,
-        handleMatrix,
-        handleIssues,
-        registry,
-        media,
-        limits,
-        factPresent: facts,
-        ownedBy: CHECK_OWNER,
+        workspace: report_.workspace,
+        platform: report_.platform,
+        flavor: report_.flavor,
+        implemented: report_.implemented,
+        checks: report_.checks,
+        handleMatrix: report_.handleMatrix,
+        handleIssues: report_.handleIssues,
+        registry: report_.registry,
+        media: report_.media,
+        limits: report_.limits,
+        factPresent: report_.factPresent,
+        ownedBy: report_.ownedBy,
       },
     });
   }
@@ -243,5 +312,5 @@ export function runCheck(args: CheckArgs): number {
   );
   line(`  owner: ${CHECK_OWNER}`);
 
-  return failErrors.length === 0 ? EXIT.OK : EXIT.FAIL;
+  return report_.ok ? EXIT.OK : EXIT.FAIL;
 }

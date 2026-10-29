@@ -219,19 +219,26 @@ function todayIso(): string {
 
 /**
  * §18.8 checks — offline (no network, no randomness). Deterministic for a
- * given machine date: `credential-expiry` is keyed to today (time is an INPUT,
- * not a defect — but it is not reproducible across days).
+ * given date: `credential-expiry` is keyed to `options.today` when the caller
+ * supplies one (a pinned `--now`), else to the machine's date — time is an
+ * INPUT, never a defect, and a caller that pins it gets reproducible bytes.
  * - `check/credential-expired` (warn): `expires` in the past.
  * - `check/private-in-public-output` (error, §18.5): a public-rendered surface
  *   (evidence claims — rendered on public platforms) references a credential or
  *   artifact with visibility `private`/`unlisted`. Renderers emit only public;
  *   this is the gate that fails the build on a leak instead of hiding silently.
  */
-export function registryCheck(profile: LoadedProfile | Profile): RegistryFinding[] {
+export function registryCheck(
+  profile: LoadedProfile | Profile,
+  options: { today?: string } = {},
+): RegistryFinding[] {
   const findings: RegistryFinding[] = [];
   const credentials = profile.credentials ?? [];
   const artifacts = profile.artifacts ?? [];
-  const today = todayIso();
+  // The expiry date is an INPUT: a caller that pinned a date (a preview's
+  // `--now`) must not receive a finding dated by the machine's clock, or the
+  // document contradicts itself (fresh review of #354, F1).
+  const today = options.today ?? todayIso();
 
   for (const [index, credential] of credentials.entries()) {
     if (credential.expires !== undefined && credential.expires < today) {
