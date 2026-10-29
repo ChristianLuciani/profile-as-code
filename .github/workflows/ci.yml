@@ -80,6 +80,27 @@ jobs:
           node scripts/link-check/test.mjs
           node scripts/link-check/check.mjs --check
 
+      # Issue #274 (AGENTS rule 9): a published surface may only reference what
+      # its reader can open. The class came in by copy — private repo/tooling
+      # names and absolute checkout paths across docs, CI comments, tests and
+      # session artifacts — so the sweep is a predicate now, not a manual pass.
+      # `private-targets.json` is the declared inventory (private names, private
+      # repo targets, operator path shapes) and `allowlist.json` exempts DATED
+      # RECORDS by PATH (CHANGELOG history, build-session records, synthesized
+      # test fixtures) — never by phrase; an entry that suppresses nothing warns.
+      # The repo-target rule is the #273 clause: a PR that links a family repo
+      # declared `private` fails here. OFFLINE and deterministic by design —
+      # visibility is verified out of band and recorded in the inventory; a
+      # probe would make a required check depend on a third party (#132, the same
+      # reason link-check never fetches). Zero deps, so it runs before
+      # `pnpm install`; the fixture self-test runs first and proves every refusal
+      # (each rule, the path-vs-phrase distinction, malformed/overlapping
+      # entries, hidden-dir scope).
+      - name: Public-surface agnostic gate (offline, self-tested)
+        run: |
+          node scripts/agnostic-check/test.mjs
+          node scripts/agnostic-check/check.mjs
+
       # Issue #226 (R2): a status row still rests on a RUN — "… at `<sha>`
       # (`<date>`) → 553 tests, 33 files". The staleness of that citation is
       # computable, not opinionable: the gate resolves the anchored sha, checks
@@ -117,8 +138,8 @@ jobs:
       # `pasco check` echoes), `templates/**/*.md`, the package READMEs,
       # `schema/README.md`, `platforms/registry.yaml` and the PR + issue
       # templates must resolve to a §5 row, and no surface may type the
-      # register's extent as a range. Declared OUT by class: `CHANGELOG.md` and
-      # `.sota/**` (dated records), `site/**` (projection), `.github/workflows/**`
+      # register's extent as a range. Declared OUT by class: `CHANGELOG.md` (a
+      # dated record), hidden trees (gitignored session state), `site/**` (projection), `.github/workflows/**`
       # (CI annotations/step labels) and source/machine data (`*.ts`, `*.js`,
       # `*.json`, `DCO`, `*.cff` — code annotations). A
       # duplicated §5 row is refused. The register file itself is scanned; a

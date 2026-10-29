@@ -1,0 +1,9 @@
+{
+  "exit": 1,
+  "contains": [
+    "E-AGNOSTIC",
+    "README.md:1",
+    "private repo target \"ChristianLuciani/profile-data\"",
+    "agnostic-check: FAIL"
+  ]
+}

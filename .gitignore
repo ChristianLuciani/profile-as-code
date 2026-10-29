@@ -35,17 +35,24 @@ docs/research/_drafts/
 # Harness artifacts (pi/AionUi session skills)
 .pi/
 
-# Session worktrees (AGOS W3: {repo}/.worktrees/{branch}/)
+# Session worktrees ({repo}/.worktrees/{branch}/) — one per agent session.
 .worktrees/
 
-# AGOS session state — per-session/per-operator, never tracked. Each piece has
-# its own home; this line only keeps all of them out of git:
+# In-repo session state — per-session/per-operator, never tracked. Each piece
+# has its own home; this line only keeps all of them out of git:
 #   sprints/      sprint boards (in-repo by design, #310)
-#   outbox/       TASKHUB outbox drain
-#   worktrees/    W3 index + symlinks (the worktrees themselves are above)
-#   maintenance/  the ledger a dsh sprint declares inside the repo — the
-#                 canonical default stays ~/.agos/maintenance/
+#   outbox/       maintenance-ledger outbox drain
+#   worktrees/    worktree index + symlinks (the worktrees themselves are above)
+#   maintenance/  the maintenance ledger a sprint declares inside the repo
 .agos/
+
+# Session artifacts are never versioned in this public repo (issue #274): the
+# evidence of a past session lives in its PR, not in the checkout. The blobs of
+# these directories remain in git history; see CONTRIBUTING §What stays out of
+# the tree.
+.sota/
+.e2e/
+.e2e-agentic/
 
 # vitest JSON reporter output (generated; contains absolute paths)
 .vitest/

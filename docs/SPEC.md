@@ -1412,8 +1412,9 @@ older than 180 days. Decision (Q10): a `huggingface-dataset` renderer/exporter v
   the platform skill) produces variants, the user picks, the chosen variant is committed.
 - **Q2 → D12 (RESOLVED):** drift-check **warns on facts, fails on schema** — users may legitimately
   have different intents per platform; facts warn (visibility), schema violations fail (integrity).
-- **Q3 → D13 (RESOLVED):** model-agnostic by default — uses the executing agent's model. When `sah`
-  (sovereign-agentic-hub) matures, revisit as default path.
+- **Q3 → D13 (RESOLVED):** model-agnostic by default — uses the executing agent's model. A dedicated
+  model router is optional infrastructure a user may bring, never a dependency or the default path:
+  revisit only if routing becomes something every user can run without extra setup.
 - **Q4 → D14 (RESOLVED):** **separate workspace** `profile-data` (a folder; a repo is the
   recommended home, not a requirement — §9, amended by #200); integration by **configured path**
   (`.pascorc → workspace`), no symlink in the normal flow; symlink mount only as engine-CI option.

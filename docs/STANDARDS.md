@@ -29,9 +29,10 @@
 This repository **started** private under this policy and **flipped public** — measured 2026-10-24
 (`gh repo view … --json visibility` → `PUBLIC`, row `Visibility`). The policy is unchanged for new
 repositories: they **start and stay private** until they pass the Public-Readiness Checklists below,
-with the maintainer's explicit sign-off. Policy ratified in the operator's global contract
-(`repo-governance` §5, prompt-studio). The visibility flip and PR merges are **human-only** actions;
-agents prepare, verify and leave everything ready, but never publish or merge on their own.
+with the maintainer's explicit sign-off. The rule stands on its own: a public repo is a commitment,
+so a new project earns it rather than starting there. The visibility flip and PR merges are
+**human-only** actions; agents prepare, verify and leave everything ready, but never publish or
+merge on their own.
 
 Rationale: a public repo is a commitment — anyone can fork, file issues and judge it. It must not
 expose unfinished, unverified or untested work. This product must prove itself on **real user data**
@@ -84,7 +85,7 @@ Two conditions are part of the sequence, not optional:
 ## Community-first checklist (operator contract v1.1.0)
 
 The repo-gate checklist answers "is the product ready"; this one answers "is the repo ready for a
-community" (source: prompt-studio `registry/specs/community-first.md`).
+community" (inlined here so the checklist stands on its own, without the operator's private notes).
 
 | # | Item | Status | Evidence (date) |
 |---|---|---|---|
@@ -144,10 +145,10 @@ The era-while-private workarounds (this repo, until the flip — measured public
 ## Applying this policy to new projects
 
 When creating a new repository: `gh repo create <name> --private --source .` (or private in the
-UI). Record both checklist statuses in the new repo's `docs/STANDARDS.md` copy (reference:
-prompt-studio's own STANDARDS.md). Do not flip to public until all items are ✅ (or carry tracked,
-non-blocking issues) and the maintainer signs off. **Re-evidence** this table before every flip
-decision: each row must name a dated, reproducible run (`command` at `<sha>`) or read a generated
+UI). Record both checklist statuses in the new repo's `docs/STANDARDS.md` copy. Do not flip to
+public until all items are ✅ (or carry tracked, non-blocking issues) and the maintainer signs
+off. **Re-evidence** this table before every flip decision: each row must name a dated,
+reproducible run (`command` at `<sha>`) or read a generated
 block (the `gen:doc-links` census). Editing a number in place is not re-evidencing it — a runtime
 figure is superseded by a newer run's record, never silently updated. A table whose rows cannot
 name their run is not a sign-off basis.

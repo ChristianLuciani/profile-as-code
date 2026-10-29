@@ -1,0 +1,45 @@
+{
+  "$comment": "Path-based exemptions for scripts/agnostic-check (issue #274). An entry exempts a FILE or DIRECTORY PREFIX, never a phrase: a dated record keeps its historical text (AGENTS rule 8), and a synthesized test fixture is an input rather than a reference. Each entry declares WHY it is exempt and the TRIGGER that removes it; an entry that suppresses no reference is reported as W-ALLOWLIST-UNUSED so the registry cannot rot silently (same shape as scripts/link-check/allowlist.json).",
+  "entries": [
+    {
+      "path": "docs/build/",
+      "reason": "dated build-session records (M1/M2 prompts, 2026-09): historical text kept as evidence, including the author's checkout path and the tooling names the sessions ran under. Rewriting them would falsify what was executed.",
+      "removalTrigger": "when the build-prompt records are retired (or moved to a dated archive of their own) — not before the milestone history stops being cited"
+    },
+    {
+      "path": "packages/cli/scripts/verify-pack.mjs",
+      "reason": "negative assertion: `verify:pack` reads the published --help and FAILS when it names one of these private tools. The file must name the class to prohibit it (#254).",
+      "removalTrigger": "when `verify:pack` is replaced by this gate (the assertion moves here)"
+    },
+    {
+      "path": "packages/cli/tests/cli.test.ts",
+      "reason": "negative assertions: the CLI tests prove that --help and skill resolution do NOT surface the private projection command (#254). Naming the class is the test.",
+      "removalTrigger": "when the CLI surfaces no longer need a prohibiting assertion (#254 closes the class)"
+    },
+    {
+      "path": "packages/cli/tests/audit.test.ts",
+      "reason": "synthesized test data: the fixture workspace uses a fictional profile and a fictional project URL; it is not a reference to the operator's repo.",
+      "removalTrigger": "when the audit fixtures stop using that project name"
+    },
+    {
+      "path": "packages/cli/tests/preview.test.ts",
+      "reason": "synthesized test input: the absolute path is the INPUT that proves the privacy scanner flags absolute paths — the gate would be untested without a path to detect.",
+      "removalTrigger": "when the privacy scanner's absolute-path case is driven from a fixture file instead"
+    },
+    {
+      "path": "packages/cli/tests/fixtures/",
+      "reason": "synthesized workspace fixtures (fictional persona and project) — inputs, not references.",
+      "removalTrigger": "when the fixtures stop naming a project that collides with a declared private name"
+    },
+    {
+      "path": "packages/core/tests/fixtures/",
+      "reason": "synthesized workspace fixtures (fictional persona and project) — inputs, not references.",
+      "removalTrigger": "when the fixtures stop naming a project that collides with a declared private name"
+    },
+    {
+      "path": "packages/renderers/github-readme/tests/",
+      "reason": "synthesized render expectations: the golden output names the same fictional project as the shared fixtures.",
+      "removalTrigger": "when the render tests stop using that project name"
+    }
+  ]
+}

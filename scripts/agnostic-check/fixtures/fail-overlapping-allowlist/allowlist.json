@@ -1,0 +1,14 @@
+{
+  "entries": [
+    {
+      "path": "docs",
+      "reason": "first entry owns the directory.",
+      "removalTrigger": "never"
+    },
+    {
+      "path": "docs/history.md",
+      "reason": "second entry overlaps the first — one entry must own a hit.",
+      "removalTrigger": "never"
+    }
+  ]
+}

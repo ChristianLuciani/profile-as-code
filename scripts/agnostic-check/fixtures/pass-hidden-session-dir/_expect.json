@@ -1,0 +1,5 @@
+{
+  "exit": 0,
+  "contains": ["agnostic-check: PASS", "0 private references"],
+  "notContains": ["E-AGNOSTIC", "skills-studio"]
+}

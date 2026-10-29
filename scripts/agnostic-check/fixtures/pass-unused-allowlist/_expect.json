@@ -1,0 +1,4 @@
+{
+  "exit": 0,
+  "contains": ["W-ALLOWLIST-UNUSED", "docs/history.md", "agnostic-check: PASS"]
+}

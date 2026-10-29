@@ -17,12 +17,7 @@ indent_size = 2
 [*.py]
 indent_size = 4
 
-# Immutable artifacts: review records and test fixtures are not rewritten by an
-# editor on save (14 tracked files currently lack a final newline).
-[.sota/**]
-insert_final_newline = false
-trim_trailing_whitespace = false
-
+# Immutable artifacts: test fixtures are not rewritten by an editor on save.
 [**/fixtures/**]
 insert_final_newline = false
 trim_trailing_whitespace = false

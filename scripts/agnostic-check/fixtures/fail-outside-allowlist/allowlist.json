@@ -1,0 +1,9 @@
+{
+  "entries": [
+    {
+      "path": "CHANGELOG.md",
+      "reason": "dated release record: historical text keeps the name it shipped under (rule 8).",
+      "removalTrigger": "never — a dated record is correct forever"
+    }
+  ]
+}

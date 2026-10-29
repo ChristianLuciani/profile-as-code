@@ -1,0 +1,55 @@
+{
+  "$comment": "Private-target inventory for scripts/agnostic-check (issue #274, AGENTS rule 9). This file is DATA, not prose: the gate refuses a reference to any name/repo/path declared here. `privateRepos` covers the #273 clause — a public surface that links a repo declared `private` fails the gate. Visibility is verified OUT OF BAND (release / pre-merge, where the network is acceptable) and recorded here; the gate never probes, because a required check must not depend on a third party's uptime or rate limits (#132). `operatorPaths` are absolute local paths no reader can open; the generic documentation placeholder `/Users/…` (ellipsis) is NOT a match by construction. Add a target with its reason; remove one when the repo becomes public or the name stops being private.",
+  "privateNames": [
+    {
+      "name": "skills-studio",
+      "reason": "operator's private skills registry repo — not openable by a reader of this repo"
+    },
+    {
+      "name": "prompt-studio",
+      "reason": "operator's private prompts/contracts repo — not openable by a reader of this repo"
+    },
+    {
+      "name": "AGOS",
+      "reason": "operator's private agent-os kernel, distributed only on the operator's machines"
+    },
+    {
+      "name": "agos-sop",
+      "reason": "private contract of the operator's agent-os kernel"
+    },
+    {
+      "name": "OpenBao",
+      "reason": "operator's credential store, inside the operator's private network"
+    },
+    {
+      "name": "CLHUB",
+      "reason": "operator's private environment index"
+    },
+    {
+      "name": "TASKHUB",
+      "reason": "operator's private task board — not a surface a reader can follow"
+    },
+    {
+      "name": "sovereign-agentic-hub",
+      "reason": "operator's private model-routing system; the public repo must not depend on it"
+    }
+  ],
+  "privateRepos": [
+    {
+      "repo": "ChristianLuciani/profile-data",
+      "reason": "the operator's real workspace (private by design, SPEC §9) — dogfood only, never linked from a public surface"
+    }
+  ],
+  "operatorPaths": [
+    {
+      "pattern": "/Users/[A-Za-z0-9._-]+/",
+      "label": "absolute macOS home path",
+      "reason": "a checkout path on the author's machine — a reader cannot open it"
+    },
+    {
+      "pattern": "PROJECTOS/GitHub",
+      "label": "operator checkout root",
+      "reason": "the operator's projects root — a reader cannot open it"
+    }
+  ]
+}

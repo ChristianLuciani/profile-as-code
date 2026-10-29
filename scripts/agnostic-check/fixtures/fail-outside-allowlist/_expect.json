@@ -1,0 +1,9 @@
+{
+  "exit": 1,
+  "contains": [
+    "E-AGNOSTIC",
+    "docs/live.md:3",
+    "private name \"prompt-studio\"",
+    "1 suppressed by 1 dated-record path(s)"
+  ]
+}

@@ -1,0 +1,4 @@
+{
+  "exit": 1,
+  "contains": ["E-GATE", "E-ALLOWLIST-INVALID", "overlapping"]
+}
