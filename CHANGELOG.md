@@ -294,18 +294,25 @@ minor versions may contain breaking contract changes.
 
 ### Fixed
 
-- **The release rehearsal no longer passes on three non-barriers (#313)** — the
-  fresh pass on #347 found the gate's own checks tautological. A job-level
-  `permissions: {contents: read}` in flow style fell through to the workflow default
-  and the gate read `id-token: write` from a grant the job had overridden; the
-  barrier was located by "does the step text contain the path", so
-  `run: echo "<path>"` and an `if: ${{ false }}` step passed green; and a flat step
+- **The release rehearsal no longer passes on non-barriers (#313)** — two fresh
+  passes (#347, #363) found the gate's own checks tautological, each time by
+  mutation rather than by reading its output. A job-level `permissions:` override
+  fell through to the workflow default and the gate read `id-token: write` from a
+  grant the job had replaced: first flow style (`{contents: read}`), then the scalar
+  spellings (`read-all` / `write-all`). The barrier was located by "does the step
+  text contain the path", so an `echo`, a constant-false `if:`, and a
+  `continue-on-error` (`true`, `TRUE`, `${{ true }}`, trailing comment — on the step
+  or on the barrier's job) passed green; a shell tail that discards the exit code
+  (`|| true`, a command after the barrier, `set +e`) also passed; and a flat step
   index counted a barrier in a prior job without `needs:` as "before the cohort".
-  The gate now reads the job's effective permissions at the job's own indent, reads
-  the barrier's `run:` commands (not its text), refuses a constant-false `if:` and a
-  `continue-on-error: true` that would swallow the rehearsal, and requires the
-  barrier in the `publish` job or in a job `publish` transitively `needs:`. Each
-  class has a self-test that fails against the previous revision.
+  The gate now reads the effective `permissions:` in all three spellings at the
+  job's own indent (an unreadable scalar fails closed), requires `node <path>` as
+  the step's LAST command with its exit code kept, reads the barrier's `run:`
+  commands rather than its text, and requires the barrier in the `publish` job or in
+  a job `publish` transitively `needs:`. Each class has a self-test that fails
+  against the revision it closes; the last one is a fixture defect, so its test
+  pins the fixture shape (the barrier job must land BEFORE `publish:`) as well as
+  the refusal.
 
 ### Planned (roadmap)
 

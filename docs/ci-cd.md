@@ -428,16 +428,22 @@ What it asserts, and the failure it names:
 |---|---|
 | Order | `ORDER` in `release.yml` is a valid topological order of the cohort's runtime workspace dependencies (`paste`/`github` → `core`), covers exactly the five, and no member carries a runtime dependency on a workspace package outside the cohort |
 | Tarball | `pnpm pack` (not `npm pack`) produces a manifest whose `name`/`version` equal the source, whose `private`/`publishConfig.access` allow a public publish, whose `workspace:*` is rewritten to the exact peer version the same run publishes (#301), and whose `main`/`types`/`exports`/`files` targets exist inside the tarball |
-| Mechanism | the `publish` job still grants `id-token: write` (read from the job's effective `permissions:`, block **and** flow style — a job-level block replaces the workflow default and must not fall through to it), **every** publish invocation outside a `--dry-run` branch is `pnpm publish` (only pnpm rewrites `workspace:*`), the loop iterates `$ORDER`, the rehearsal barrier **executes** `node scripts/release-rehearsal/check.mjs` before the loop, the cohort precedes the CLI's `Publish` step, and every publishable workspace member **except `packages/cli`** (which publishes from its own step) is in the cohort |
+| Mechanism | the `publish` job still grants `id-token: write`, read from the job's effective `permissions:` in every spelling Actions accepts — block, flow (`{…}`) and scalar (`read-all` / `write-all`) — because a job-level override replaces the workflow default and must never fall through to it; **every** publish invocation outside a `--dry-run` branch is `pnpm publish` (only pnpm rewrites `workspace:*`); the loop iterates `$ORDER`; the rehearsal barrier **executes** `node scripts/release-rehearsal/check.mjs` as its **last** effective command with the exit code kept; the cohort precedes the CLI's `Publish` step; and every publishable workspace member **except `packages/cli`** (which publishes from its own step) is in the cohort |
 | Provenance precondition | each manifest's `repository.url` equals the repo the workflow runs in, and `repository.directory` its monorepo home |
 
-The barrier assertion is about **execution**, not about the step's text: a `run:` that
-merely mentions the path (`echo "<path>"`) is refused, as is a step gated by a
-constant-false `if:` (`false`, `0`, `null`, an empty string), or one whose failure is
-swallowed (`continue-on-error: true`). It must sit in the `publish` job before the
-cohort step, or in a job that `publish` transitively `needs:` — a prior job without
-`needs:` would let the publish start before the rehearsal ends. All of these were
-false positives in the first revision of the gate, found by the fresh pass on #347.
+The barrier assertion is about **execution and failure propagation**, not about the
+step's text. Refused: a `run:` that merely mentions the path (`echo "<path>"`); a
+barrier the shell does not treat as the step's last command or whose exit code is
+discarded (`node <path> || true`, a command after it, a `set +e` before it); a step
+gated by a constant-false `if:` (`false`, `0`, `null`, an empty string); and a
+`continue-on-error` that swallows the failure in any spelling — `true`, `TRUE`,
+`${{ true }}`, a trailing comment — whether set on the step or on the barrier's job.
+It must sit in the `publish` job before the cohort step, or in a job that `publish`
+transitively `needs:` — a prior job without `needs:` would let the publish start
+before the rehearsal ends. The permission read covers all three `permissions:`
+spellings for the same reason: a spelling the gate cannot read is a grant it cannot
+prove, so an unreadable scalar fails closed. Every one of these was a false positive
+in an earlier revision of the gate, found by the fresh passes on #347 and #363.
 
 **What it cannot check — declared, not implied.** A rehearsal is offline: it cannot
 perform the OIDC exchange, so it cannot prove the trusted-publisher binding, npm's

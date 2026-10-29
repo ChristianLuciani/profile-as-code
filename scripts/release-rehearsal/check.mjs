@@ -203,22 +203,74 @@ export function runCommands(body) {
     .filter(Boolean);
 }
 
+/** Whether one shell segment is `node <scriptPath>` (leading `VAR=value` allowed). */
+function isNodeScript(segment, scriptPath) {
+  const tokens = segment
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((token) => token.replace(/^['"]|['"]$/g, ""));
+  let at = 0;
+  while (at < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[at])) at += 1;
+  return tokens[at] === "node" && tokens[at + 1] === scriptPath;
+}
+
+/** Whether a step's `run:` mentions `node <scriptPath>` at all (any position). */
+export function invokesScript(commands, scriptPath) {
+  return commands.some((command) => isNodeScript(command, scriptPath));
+}
+
 /**
- * Whether a command segment EXECUTES `node <scriptPath>` (optionally after leading
- * `VAR=value` assignments). `echo`, `printf`, `:`, a quoted string — anything in
- * front of `node` — is a mention, not a rehearsal (F2b).
+ * Whether the step runs the rehearsal as its LAST effective command, with the exit
+ * code kept. `commands` are the step's shell segments in order (`runCommands`): the
+ * final one must be `node <scriptPath>`, and no segment may disable errexit
+ * (`set +e`). A trailing `|| true` / `; true`, any command after the barrier, or a
+ * `set +e` before it discards the failure the gate exists to propagate (F3).
  */
 export function executesScript(commands, scriptPath) {
-  return commands.some((command) => {
-    const tokens = command
-      .split(/\s+/)
-      .filter(Boolean)
-      .map((token) => token.replace(/^['"]|['"]$/g, ""));
-    let at = 0;
-    while (at < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[at])) at += 1;
-    if (tokens[at] !== "node") return false;
-    return tokens[at + 1] === scriptPath;
-  });
+  if (commands.length === 0) return false;
+  if (commands.some((command) => /^set\s+\+/.test(command.trim()))) return false;
+  return isNodeScript(commands[commands.length - 1], scriptPath);
+}
+
+/**
+ * Whether a YAML/expression value is statically `true`: the literal in any case,
+ * quoted, inside a `${{ }}` expression, or followed by a YAML comment. The step
+ * swallow check matched only a bare `true` at end of line, so `${{ true }}`,
+ * `TRUE` and `true # comment` passed (F2).
+ */
+export function staticallyTrue(raw) {
+  const expression = raw
+    .replace(/\s+#.*$/, "")
+    .trim()
+    .replace(/^['"]|['"]$/g, "")
+    .replace(/^\$\{\{\s*/, "")
+    .replace(/\s*\}\}$/, "")
+    .trim()
+    .toLowerCase();
+  return expression === "true";
+}
+
+/** A step-level setting value (`continue-on-error`, `if`), or null when absent. */
+function stepSetting(body, key) {
+  for (const line of body.split("\n")) {
+    const match =
+      line.match(new RegExp(`^ {6}- ${key}:\\s*(.+)$`)) ??
+      line.match(new RegExp(`^ {8}${key}:\\s*(.+)$`));
+    if (match) return match[1].trim();
+  }
+  return null;
+}
+
+/** A job-level setting value (`continue-on-error`, `if`), or null when absent. */
+export function jobSetting(yaml, name, key) {
+  const lines = yaml.split("\n");
+  const job = parseJobs(yaml).find((entry) => entry.name === name);
+  if (!job) return null;
+  for (let i = job.start + 1; i < job.end; i += 1) {
+    const match = lines[i].match(new RegExp(`^ {4}${key}:\\s*(.+)$`));
+    if (match) return match[1].trim();
+  }
+  return null;
 }
 
 /** A step `if:` that can never be true — `false`, `0`, `null`, or an empty string. */
@@ -234,11 +286,7 @@ export function staticallyFalseIf(condition) {
 
 /** The step's `if:` condition, or null. Step keys sit at 6 spaces (`- if:`) or 8. */
 export function stepCondition(body) {
-  for (const line of body.split("\n")) {
-    const match = line.match(/^ {6}- if:\s*(.+)$/) ?? line.match(/^ {8}if:\s*(.+)$/);
-    if (match) return match[1].trim();
-  }
-  return null;
+  return stepSetting(body, "if");
 }
 
 /** Every job the named job transitively `needs:` (empty when it needs nothing). */
@@ -257,14 +305,7 @@ export function jobAncestors(jobs, name) {
 
 /** The job-level `if:` of a named job (4-space key), or null when it has none. */
 export function jobCondition(yaml, name) {
-  const lines = yaml.split("\n");
-  const job = parseJobs(yaml).find((entry) => entry.name === name);
-  if (!job) return null;
-  for (let i = job.start + 1; i < job.end; i += 1) {
-    const match = lines[i].match(/^ {4}if:\s*(.+)$/);
-    if (match) return match[1].trim();
-  }
-  return null;
+  return jobSetting(yaml, name, "if");
 }
 
 function findStep(steps, name) {
@@ -555,24 +596,22 @@ function jobBlock(lines, name) {
 }
 
 /**
- * The entries of a `permissions:` block at `indent` spaces, flow style included.
- * The flow pattern is anchored on the SAME indent as the block form: an unanchored
- * `/^permissions:/` matched only column 0, so a job-level
- * `permissions: {contents: read}` fell through to the top-level default instead of
- * being read as the job's narrower, overriding grant (F4b).
+ * The `permissions:` override at `indent`, in all three spellings GitHub Actions
+ * accepts: block (`permissions:` + `key: value` lines), flow (`permissions: {…}`),
+ * and scalar (`permissions: read-all` / `write-all`). Returns null when no
+ * `permissions:` is declared at that indent.
+ *
+ * Every pattern is anchored on the SAME indent as the block form. An unanchored
+ * `/^permissions:/` matched only column 0, so a job-level override fell through to
+ * the workflow default and the gate read a grant the job had overridden — first for
+ * flow style (F4b), then for the scalar spellings (F1).
  */
-function permissionEntries(lines, from, to, indent) {
+function permissionOverride(lines, from, to, indent) {
   const pad = " ".repeat(indent);
-  const flowPattern = new RegExp(`^${pad}permissions:\\s*\\{(.*)\\}\\s*(?:#.*)?$`);
   const blockPattern = `${pad}permissions:`;
+  const flowPattern = new RegExp(`^${pad}permissions:\\s*\\{(.*)\\}\\s*(?:#.*)?$`);
+  const scalarPattern = new RegExp(`^${pad}permissions:\\s*([^#{}]+?)\\s*(?:#.*)?$`);
   for (let i = from; i < to; i += 1) {
-    const flow = lines[i].match(flowPattern);
-    if (flow) {
-      return flow[1]
-        .split(",")
-        .map((entry) => entry.replace(/\s+#.*$/, "").trim())
-        .filter(Boolean);
-    }
     if (lines[i] === blockPattern) {
       const entries = [];
       for (let j = i + 1; j < to; j += 1) {
@@ -580,17 +619,51 @@ function permissionEntries(lines, from, to, indent) {
         const text = lines[j].trim().replace(/\s+#.*$/, "");
         if (text && !text.startsWith("#")) entries.push(text);
       }
-      return entries;
+      return { style: "block", entries };
     }
+    const flow = lines[i].match(flowPattern);
+    if (flow) {
+      return {
+        style: "flow",
+        entries: flow[1]
+          .split(",")
+          .map((entry) => entry.replace(/\s+#.*$/, "").trim())
+          .filter(Boolean),
+      };
+    }
+    const scalar = lines[i].match(scalarPattern);
+    if (scalar) return { style: "scalar", scalar: scalar[1].trim() };
   }
   return null;
 }
 
 /**
+ * Whether an override grants OIDC. `write-all` sets every available scope to write
+ * (`id-token` included); `read-all` cannot grant it (`id-token` has no read value),
+ * and any other scalar is unreadable by this gate, so it fails closed
+ * ([OFICIAL] GitHub Docs, workflow syntax §permissions, checked 2026-10-29).
+ */
+function overrideGrant(override) {
+  if (override.style === "scalar") {
+    if (override.scalar === "write-all") return { granted: true };
+    if (override.scalar === "read-all") return { granted: false };
+    return { granted: false, note: `unrecognized scalar \`${override.scalar}\`` };
+  }
+  return { granted: override.entries.includes("id-token: write") };
+}
+
+/** The `{granted, scope}` verdict for one effective `permissions:` override. */
+function permissionVerdict(override, base) {
+  const grant = overrideGrant(override);
+  const detail = grant.note ?? (override.style === "scalar" ? `\`${override.scalar}\`` : null);
+  return { granted: grant.granted, scope: detail ? `${base} (${detail})` : base };
+}
+
+/**
  * Whether the `publish` job can exchange an OIDC token: its own `permissions:` when
  * declared (a job-level block REPLACES the workflow default), the top-level block
- * otherwise. A comment, or the `site` job's permission, no longer satisfies it
- * (fresh-pass F4).
+ * otherwise. Block, flow and scalar spellings are all read at the job's own indent;
+ * a comment, or another job's permission, never satisfies it (fresh-pass F4/F4b/F1).
  */
 export function idTokenGranted(yaml) {
   const lines = yaml.split("\n");
@@ -598,16 +671,11 @@ export function idTokenGranted(yaml) {
   if (jobsAt < 0) return { granted: false, scope: "no jobs: block" };
   const job = jobBlock(lines, "publish");
   if (!job) return { granted: false, scope: "no publish job" };
-  const jobPermissions = permissionEntries(lines, job.start, job.end, 4);
-  if (jobPermissions !== null) {
-    return {
-      granted: jobPermissions.includes("id-token: write"),
-      scope: "publish job permissions",
-    };
-  }
-  const topPermissions = permissionEntries(lines, 0, jobsAt, 0);
-  if (topPermissions === null) return { granted: false, scope: "no permissions block" };
-  return { granted: topPermissions.includes("id-token: write"), scope: "top-level permissions" };
+  const jobOverride = permissionOverride(lines, job.start, job.end, 4);
+  if (jobOverride !== null) return permissionVerdict(jobOverride, "publish job permissions");
+  const topOverride = permissionOverride(lines, 0, jobsAt, 0);
+  if (topOverride === null) return { granted: false, scope: "no permissions block" };
+  return permissionVerdict(topOverride, "top-level permissions");
 }
 
 /** A workspace member that is publishable (`private !== true`) must be in the cohort. */
@@ -688,23 +756,38 @@ export function workflowViolations(yaml) {
 
   // The barrier is part of the mechanism: a release that does not rehearse before the
   // loop is exactly the first contact #313 is about (fresh-pass F2). A text match let
-  // three non-barriers through, all closed here (fresh-pass F2b):
+  // several non-barriers through, all closed here (F2b/F3):
   //   - `run: echo "<path>"` mentions the script without executing it;
-  //   - `if: ${{ false }}` keeps the step from ever running;
+  //   - the exit code is discarded — `node <path> || true`, a `set +e`, or another
+  //     command after the barrier, so a failing rehearsal does not stop the publish;
+  //   - `if: ${{ false }}` (or a constant-false job `if:`) keeps the step from running;
+  //   - `continue-on-error: true` (literal, any case, `${{ true }}`, or job level on
+  //     the barrier job) swallows the failure;
   //   - a barrier moved into a prior job WITHOUT `needs:` still precedes in a flat
   //     step index while the publish job goes live unrehearsed.
   const BARRIER = "scripts/release-rehearsal/check.mjs";
+  // Three widening sets: steps that MENTION the path anywhere in a command, steps
+  // that INVOKE `node <path>`, and the one that executes it as the last effective
+  // command with the exit code kept. The first two exist so a near-miss names its
+  // own reason instead of collapsing into "found 0" (F2b/F3).
   const barrierCandidates = steps
     .map((step, index) => ({ index, step, commands: runCommands(step.body) }))
     .filter(({ commands }) => commands.some((command) => command.includes(BARRIER)));
+  const invoking = barrierCandidates.filter(({ commands }) => invokesScript(commands, BARRIER));
   const executing = barrierCandidates.filter(({ commands }) => executesScript(commands, BARRIER));
-  const mentionedOnly = barrierCandidates.filter((candidate) => !executing.includes(candidate));
-  for (const { index, step, commands } of mentionedOnly) {
+  for (const { index, step } of barrierCandidates.filter((entry) => !invoking.includes(entry))) {
     const label = step.name ? ` (${JSON.stringify(step.name)})` : "";
     violations.push(
       `E-REHEARSAL: step ${index + 1}${label} mentions \`${BARRIER}\` but does not EXECUTE it — ` +
-        `${JSON.stringify(commands[0])} is not a \`run:\` of \`node ${BARRIER}\`, so the publish ` +
-        "would not be rehearsed",
+        `not a \`run:\` of \`node ${BARRIER}\`, so the publish would not be rehearsed`,
+    );
+  }
+  for (const { index, step } of invoking.filter((entry) => !executing.includes(entry))) {
+    const label = step.name ? ` (${JSON.stringify(step.name)})` : "";
+    violations.push(
+      `E-REHEARSAL: step ${index + 1}${label} runs \`node ${BARRIER}\` but not as its last ` +
+        "effective command with the exit code kept — a trailing `|| true`/`;`, a command after " +
+        "it, or a `set +e` swallows the failure the gate must propagate (F3)",
     );
   }
   if (executing.length !== 1) {
@@ -721,10 +804,12 @@ export function workflowViolations(yaml) {
           `(${JSON.stringify(condition)}) — the step exists but never runs`,
       );
     }
-    if (/^ {6}(?:- | {2})continue-on-error:\s*true\s*$/m.test(step.body)) {
+    const stepSwallow = stepSetting(step.body, "continue-on-error");
+    if (stepSwallow !== null && staticallyTrue(stepSwallow)) {
       violations.push(
-        "E-REHEARSAL: the rehearsal barrier has `continue-on-error: true` — a failing rehearsal " +
-          "would not stop the publish it is supposed to gate",
+        "E-REHEARSAL: the rehearsal barrier has `continue-on-error: " +
+          `${stepSwallow}\` — a failing rehearsal would not stop the publish it is supposed ` +
+          "to gate",
       );
     }
     if (step.job === "publish") {
@@ -747,6 +832,13 @@ export function workflowViolations(yaml) {
         violations.push(
           `E-REHEARSAL: the barrier job "${step.job}" is gated by a condition that is never ` +
             `true (${JSON.stringify(jobIf)}) — the rehearsal never runs`,
+        );
+      }
+      const jobSwallow = jobSetting(yaml, step.job, "continue-on-error");
+      if (jobSwallow !== null && staticallyTrue(jobSwallow)) {
+        violations.push(
+          `E-REHEARSAL: the barrier job "${step.job}" has \`continue-on-error: ${jobSwallow}\` — ` +
+            "a failing rehearsal would not stop the `publish` job that only `needs:` it",
         );
       }
     }
