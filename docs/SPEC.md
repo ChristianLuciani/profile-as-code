@@ -1453,8 +1453,8 @@ Two different "templates" (previous confusion):
   docs, and repeating it on a second page is a second place to forget every release
   (`scripts/site-check/version-check.mjs` enforces the claim-free surface for the two canonical claim
   forms — the `@<pkg>@<version>` string and JSON-LD `softwareVersion` — not for free prose). Docs stay
-  EN except `docs/ROADMAP.md`, the declared Spanish document (`lang: "es"` in `scripts/site-docs/
-  site-config.mjs`); a full ES corpus would need its own parity gate and is not shipped.
+  EN except `docs/ROADMAP.md`, the declared Spanish document (`lang: "es"` in
+  `scripts/site-docs/site-config.mjs`); a full ES corpus would need its own parity gate and is not shipped.
 - **Content**: every text field is `{ lang: value }`; EN required (recruiters), ES native, FR optional.
 - **Proper nouns are invariant**: organization/institution names (`org`, `institution`), venue names
   and people names are **never a langMap** — they are plain strings, identical in every language.

@@ -726,8 +726,20 @@ for (const landing of LANDINGS) {
       `${landing.file} declares ${trios.length} hreflang alternative(s); expected ${LANDINGS.length} languages + x-default`,
     );
   }
+  // The assertion is PER URL BLOCK, not a document-wide substring: alternates
+  // emitted only on the EN <url> would pass a substring check (#308 review 2).
+  const start = sitemap.indexOf(`<loc>${escapeXml(loc)}</loc>`);
+  if (start === -1) throw new Error(`sitemap is missing the declared landing ${loc}`);
+  const end = sitemap.indexOf("</url>", start);
+  const block = sitemap.slice(start, end);
+  const emitted = [...block.matchAll(/hreflang="([^"]+)" href="([^"]+)"/g)].map(
+    (match) => `${match[1]} ${match[2]}`,
+  );
+  if (emitted.length !== trios.length || new Set(emitted).size !== trios.length) {
+    throw new Error(`sitemap alternates for ${loc} are not exactly the page's trio`);
+  }
   for (const [lang, href] of trios) {
-    if (!sitemap.includes(`hreflang="${lang}" href="${href}"`)) {
+    if (!emitted.includes(`${lang} ${href}`)) {
       throw new Error(`sitemap alternates do not match ${landing.file}: ${lang} → ${href}`);
     }
   }
