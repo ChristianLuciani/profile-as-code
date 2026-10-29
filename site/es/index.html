@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>profile-as-code — tu identidad profesional, como código</title>
+  <meta name="description" content="Una fuente de verdad versionada para tu identidad profesional. Un workspace YAML y textos por plataforma para GitHub, LinkedIn, Upwork, X y más. CLI-first, open source, código con licencia MIT.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="canonical" href="https://christianluciani.github.io/profile-as-code/es/">
+  <link rel="alternate" hreflang="en" href="https://christianluciani.github.io/profile-as-code/">
+  <link rel="alternate" hreflang="es" href="https://christianluciani.github.io/profile-as-code/es/">
+  <link rel="alternate" hreflang="x-default" href="https://christianluciani.github.io/profile-as-code/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="profile-as-code — tu identidad profesional, como código">
+  <meta property="og:description" content="Un workspace YAML y textos por plataforma para GitHub, LinkedIn, Upwork, X y más. CLI-first, open source, código con licencia MIT.">
+  <meta property="og:url" content="https://christianluciani.github.io/profile-as-code/es/">
+  <meta property="og:site_name" content="profile-as-code">
+  <meta property="og:locale" content="es_ES">
+  <meta property="og:locale:alternate" content="en_US">
+  <meta property="og:image" content="https://christianluciani.github.io/profile-as-code/brand/identity.png">
+  <meta property="og:image:width" content="1120">
+  <meta property="og:image:height" content="720">
+  <meta property="og:image:alt" content="profile-as-code">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="profile-as-code — tu identidad profesional, como código">
+  <meta name="twitter:description" content="Un workspace YAML, textos por plataforma. CLI-first, open source, código con licencia MIT.">
+  <meta name="twitter:image" content="https://christianluciani.github.io/profile-as-code/brand/identity.png">
+  <!-- Este espejo NO porta un version claim (ni `softwareVersion` ni
+       `@profile-as-code/cli@X`): la versión se publica en la landing EN y en los
+       docs, ambos gateados por `scripts/site-check/version-check.mjs`. Un segundo
+       lugar que mantener por release es exactamente el drift que el engine evita
+       (issue #308). -->
+  <link rel="icon" href="../brand/mark-tile.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+   <a class="skip-link" href="#main">Saltar al contenido</a>
+  <!-- Vendored decorative mark: GitHub octocat (taken verbatim from simple-icons,
+       2026-10-24). It flags links whose destination is github.com; usage follows
+       GitHub's own logo guidelines for linking to GitHub. Same sprite is emitted
+       by the docs shell (scripts/site-docs/gen.mjs). -->
+  <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" width="0" height="0"><symbol id="icon-github" viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></symbol></svg>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="../" aria-label="profile-as-code — inicio">
+        <svg class="mark" width="28" height="28" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <defs>
+            <mask id="pasco-cut">
+              <rect width="32" height="32" fill="#fff"/>
+              <path fill="#000" fill-rule="evenodd" d="M9.2 8A2 2 0 0 1 11.2 6H13.2A6.8 6.8 0 1 1 13.2 16.384V22.4A2 2 0 0 1 9.2 22.4Z M17.6 7.76a3.44 3.44 0 1 0 0 6.88 3.44 3.44 0 1 0 0-6.88Z"/>
+              <circle cx="16.6" cy="10.2" r="1.15" fill="#000"/>
+              <path d="M16.4 20.6c.9 1.8 2.2 2.7 3.7 2.7s2.8-.9 3.7-2.7" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round"/>
+            </mask>
+          </defs>
+          <circle cx="16" cy="16" r="13" fill="currentColor" mask="url(#pasco-cut)"/>
+        </svg>
+        <span>profile-as-code</span>
+      </a>
+      <nav class="site-nav" aria-label="Principal">
+        <a href="#what">Qué hace</a>
+        <a href="#on-ramps">Por dónde empezar</a>
+        <a href="#status">Estado</a>
+        <a href="../docs/">Docs</a>
+        <a href="../" hreflang="en" lang="en">EN</a>
+        <a class="nav-github" href="https://github.com/ChristianLuciani/profile-as-code"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-github"/></svg>GitHub <span aria-hidden="true">↗</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="wrap hero">
+      <div class="hero-copy">
+        <p class="eyebrow">CLI-first · TypeScript · MIT</p>
+        <h1>Tu identidad profesional, <em>como código.</em></h1>
+        <p class="lede">
+          profile-as-code es una fuente de verdad versionada para tu identidad profesional: tus datos
+          viven una sola vez en YAML y el engine renderiza textos consistentes y específicos por
+          plataforma para GitHub, LinkedIn, Upwork, X y otras superficies. Es para gente técnica que
+          prefiere mantener una carpeta antes que ocho perfiles a mano. Instalás la CLI, corrés
+          <code>pasco init</code> y mantenés todos tus perfiles en sincronía desde un solo lugar.
+        </p>
+        <div class="actions">
+          <a class="button primary" href="https://www.npmjs.com/package/@profile-as-code/cli">Instalar desde npm</a>
+          <a class="button primary" href="../docs/start-here.html">Empezar acá</a>
+          <a class="button" href="../docs/user-guide.html">Leer la guía de usuario</a>
+        </div>
+        <p class="fineprint">Node.js ≥ 22. Las opciones B y C no requieren cuenta ni repositorio.</p>
+      </div>
+
+      <figure class="terminal">
+        <figcaption class="sr-only">Inicio rápido: instalá la CLI, creá un workspace y validalo.</figcaption>
+        <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
+        <pre><code><span class="t-prompt">$</span> npm i -g @profile-as-code/cli
+<span class="t-prompt">$</span> pasco init my-profile
+<span class="t-comment"># un workspace mínimo que valida</span>
+<span class="t-prompt">$</span> cd my-profile
+<span class="t-prompt">$</span> pasco validate
+<span class="t-comment"># el schema es el juez</span></code></pre>
+      </figure>
+    </section>
+
+    <section class="wrap section" id="what">
+      <div class="section-head">
+        <p class="kicker">Por qué</p>
+        <h2>Una fuente de verdad. Todas las superficies.</h2>
+        <p class="section-intro">
+          El mismo perfil vive en muchas plataformas, cada una con sus reglas, límites y audiencia.
+          Editadas a mano, las copias se desincronizan y los datos (fechas, roles, publicaciones)
+          empiezan a contradecirse. profile-as-code les da a esos datos un hogar versionado y
+          convierte los textos renderizados en una salida determinista de ese hogar.
+        </p>
+      </div>
+
+      <div class="grid-3">
+        <article class="card">
+          <p class="card-index" aria-hidden="true">01</p>
+          <h3>Los datos siguen siendo datos</h3>
+          <p>
+            Fechas, roles, proyectos y publicaciones son datos estructurados validados contra un JSON
+            Schema. Los chequeos de drift avisan cuando un dato no coincide entre plataformas; las
+            violaciones de schema fallan.
+          </p>
+        </article>
+        <article class="card">
+          <p class="card-index" aria-hidden="true">02</p>
+          <h3>Los textos son ángulos, no copias</h3>
+          <p>
+            Bios y titulares se escriben por plataforma e idioma, y se renderizan como textos base
+            deterministas. El engine no inventa datos: renderiza los que declaraste; el selector de
+            variantes todavía es parcial.
+          </p>
+        </article>
+        <article class="card">
+          <p class="card-index" aria-hidden="true">03</p>
+          <h3>La consistencia es citabilidad</h3>
+          <p>
+            Los buscadores y los modelos de lenguaje leen y citan perfiles. Datos idénticos entre
+            superficies, anclas semánticas y datos estructurados son lo que hace citable un perfil.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section class="wrap section" id="on-ramps">
+      <div class="section-head">
+        <p class="kicker">Empezar</p>
+        <h2>Tres entradas. El mismo engine.</h2>
+        <p class="section-intro">
+          Tu workspace es <strong>una carpeta</strong>; un repositorio es el lugar recomendado para
+          guardarla, no un requisito. Elegí la que coincida con lo que ya tenés. Las tres comparten el
+          mismo contrato de carpeta y los mismos comandos <code>pasco</code>; difieren en automatización,
+          historial y en si hay una cuenta involucrada.
+        </p>
+      </div>
+
+      <div class="ramps">
+        <article class="ramp featured">
+          <p class="tag">Recomendada</p>
+          <h3><span class="ramp-letter">A</span> Repositorio template</h3>
+          <p class="ramp-copy">
+            El workspace de ejemplo completo, la documentación operativa, la licencia y un
+            <code>.pascorc</code> listo — con automatización e historial de git hosteado desde el
+            primer commit.
+          </p>
+          <ul class="checks">
+            <li>Ejemplo completo y automatización del repositorio</li>
+            <li>Historial de cada cambio</li>
+            <li>Requiere cuenta y repositorio</li>
+          </ul>
+          <a class="text-link" href="https://github.com/ChristianLuciani/profile-data-template">Abrir el template <span aria-hidden="true">→</span></a>
+          <p class="ramp-note">
+            El template es público: <em>Use this template</em> funciona para cualquiera. ¿Preferís sin
+            repositorio? B y C funcionan desde el paquete público de npm sin acceso a repos.
+          </p>
+        </article>
+
+        <article class="ramp">
+          <p class="tag tag-quiet">Sin cuenta</p>
+          <h3><span class="ramp-letter">B</span> Local, <code>pasco init</code></h3>
+          <p class="ramp-copy">
+            Una carpeta mínima, limpia para <code>pasco validate</code>, en segundos y en la ruta que
+            elijas. Nada corre ante un cambio y nada la versiona por vos.
+          </p>
+          <ul class="checks">
+            <li>Todo el set de comandos salvo <code>diff</code> (necesita historial de git)</li>
+            <li>Sin workflow, sin repo, sin cuenta</li>
+            <li><code>git init</code> queda de tu lado</li>
+          </ul>
+          <a class="text-link" href="../docs/user-guide.html">Leer la opción B <span aria-hidden="true">→</span></a>
+        </article>
+
+        <article class="ramp">
+          <p class="tag tag-quiet">Sin cuenta</p>
+          <h3><span class="ramp-letter">C</span> Tu propio almacenamiento</h3>
+          <p class="ramp-copy">
+            El mismo scaffold de <code>pasco init</code>, escrito donde ya vive tu almacenamiento — un
+            disco local, una carpeta sincronizada u otro host de git.
+          </p>
+          <ul class="checks">
+            <li>Las mismas capacidades que B</li>
+            <li>Tu almacenamiento, tu backup y tu sincronización</li>
+            <li>Sin host, sin cuenta</li>
+          </ul>
+          <a class="text-link" href="../docs/user-guide.html">Leer la opción C <span aria-hidden="true">→</span></a>
+        </article>
+      </div>
+    </section>
+
+    <section class="wrap section" id="status">
+      <div class="section-head">
+        <p class="kicker">Estado</p>
+        <h2>Pre-1.0. Publicado. Honesto.</h2>
+        <p class="section-intro">
+          El engine ya es usable y sigue creciendo. Esta página dice qué funciona y qué no, para que
+          puedas decidir antes de invertir tiempo.
+        </p>
+      </div>
+
+      <div class="status-grid">
+        <div class="status-item">
+          <h3 class="status-label">Paquete</h3>
+          <p>El paquete <code>@profile-as-code/cli</code> está publicado en npm y se instala con <code>npm i -g @profile-as-code/cli</code>.</p>
+        </div>
+        <div class="status-item">
+          <h3 class="status-label">Funciona</h3>
+          <p><code>init</code>, <code>validate</code>, <code>build</code>, <code>diff</code>, <code>status</code> y las reglas offline de <code>check</code>. Renderers: perfil y organización de GitHub, más la familia de paste.</p>
+        </div>
+        <div class="status-item">
+          <h3 class="status-label">Parcial</h3>
+          <p><code>refine</code> emite la tarea del agente y registra la variante elegida; el flujo completo de variantes sigue en el roadmap. El catálogo de reglas por plataforma sigue creciendo.</p>
+        </div>
+        <div class="status-item">
+          <h3 class="status-label">Fuera de v1</h3>
+          <p>Un perfil hosteado sin cuenta y sin terminal es un non-goal declarado, con un disparador explícito de reapertura en la especificación.</p>
+        </div>
+      </div>
+
+      <p class="status-foot">
+        La tabla autoritativa de comandos vive en el
+        <a href="https://github.com/ChristianLuciani/profile-as-code/blob/main/packages/cli/README.md">README de la CLI</a>;
+        el plan de hitos vive en el
+        <a href="../docs/roadmap.html">roadmap</a>.
+      </p>
+    </section>
+
+    <section class="wrap section" id="docs">
+      <div class="section-head">
+        <p class="kicker">Leer después</p>
+        <h2>Todo está a la vista.</h2>
+      </div>
+      <ul class="doc-links">
+        <li><a href="../docs/start-here.html"><span>Empezar acá</span><small>Tres lectores, tres rutas y el error que comete cada uno.</small></a></li>
+        <li><a href="../docs/user-guide.html"><span>Guía de usuario</span><small>Instalar, crear el workspace, cargar tus datos y mantenerlos al día.</small></a></li>
+        <li><a href="../docs/spec.html"><span>Especificación</span><small>El contrato: decisiones, modelo de datos, interfaces, roadmap.</small></a></li>
+        <li><a href="../docs/contributing.html"><span>Contribuir</span><small>Dirección, higiene y la tabla de latencia medida.</small></a></li>
+        <li><a href="https://github.com/ChristianLuciani/profile-as-code/blob/main/LICENSE"><span><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-github"/></svg>Licencia</span><small>MIT para el código; el nombre y la marca quedan reservados.</small></a></li>
+        <li><a href="https://github.com/ChristianLuciani/profile-as-code/discussions"><span><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-github"/></svg>Discusiones</span><small>Preguntas, ideas y la discusión de diseño ocasional.</small></a></li>
+        <li><a href="https://github.com/ChristianLuciani/profile-as-code"><span><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-github"/></svg>Código</span><small>El engine, el schema, los renderers y las skills.</small></a></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <p><strong>profile-as-code</strong> — tu identidad profesional, como código.</p>
+      <p class="footer-meta">Código MIT · <a href="https://github.com/ChristianLuciani/profile-as-code/blob/main/TRADEMARK.md">marcas reservadas</a> · pre-1.0 · <a href="https://github.com/ChristianLuciani/profile-as-code"><svg class="icon" aria-hidden="true" focusable="false"><use href="#icon-github"/></svg>GitHub</a></p>
+    </div>
+  </footer>
+</body>
+</html>

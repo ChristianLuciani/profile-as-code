@@ -135,8 +135,9 @@ One job, **`ci`**, required on every PR and push to `main`:
    first (`scripts/site-docs/gen.mjs`), then checks ids, in-page anchors and
    local paths on **every** page, refuses `<script>`, inline event handlers and
    `http://`, and a companion `version-check.mjs` asserts that every published
-   surface — the landing plus each projected document — states the version in
-   `packages/cli/package.json`) →
+   surface that carries the release claim — the EN landing plus each projected
+   document — states the version in `packages/cli/package.json`, and that a
+   declared claim-free surface (the `/es/` mirror) states none) →
    **`pnpm lint`** (Biome: lint + format + import order, issue #59) →
    **D3 freshness** (`pnpm gen:zod` then `git diff --exit-code` on the committed Zod, so a
    schema edit without regeneration fails here) →
@@ -750,10 +751,10 @@ know whether it is *complete*, so this preparation is a human step:
 3. If the release changes what the page claims (status, command set, version), update
    `site/index.html` **and** the version claim in `docs/USER-GUIDE.md` in the same preparation
    commit — the page is deployed from the released commit (#277), so a stale claim goes public.
-   The pre-publish barrier scans every published surface (the landing plus each document
-   projected into `site/docs/`) and fails when any `@profile-as-code/cli@<version>` disagrees
-   with `packages/cli/package.json`. A version stated in another form is not gated: keep it
-   canonical.
+   The pre-publish barrier scans the landing pair plus each document projected into `site/docs/`,
+   fails when any `@profile-as-code/cli@<version>` disagrees with `packages/cli/package.json`, and
+   fails when a declared claim-free surface (the `/es/` mirror) states a version at all. A version
+   stated in another form is not gated: keep it canonical.
 4. Commit that preparation to `main`, then `git tag v<version> && git push origin v<version>` —
    the tag push IS the publish (reconciled 2026-10-24; the order of the next steps is
    [§Releasing — the primary path](#releasing--the-primary-path-issue-208): the tag run

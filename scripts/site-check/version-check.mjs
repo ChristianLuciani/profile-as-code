@@ -21,7 +21,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import { DOCS, SITE } from "../site-docs/site-config.mjs";
+import { DOCS, LANDINGS, SITE } from "../site-docs/site-config.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..", "..");
@@ -45,6 +45,12 @@ function check(files, version) {
   let claims = 0;
   for (const file of files) {
     for (const claim of new Set(claimedVersions(file.text))) {
+      if (file.claims === false) {
+        // A declared claim-free surface (the /es/ mirror, #308): repeating the
+        // version here would be a second place to forget on every release.
+        errors.push(`${file.label} must not state a version (it is a claim-free mirror)`);
+        continue;
+      }
       claims += 1;
       if (claim !== version) {
         errors.push(
@@ -55,6 +61,10 @@ function check(files, version) {
   }
   for (const file of files) {
     for (const match of file.text.matchAll(/"softwareVersion"\s*:\s*"([^"]+)"/g)) {
+      if (file.claims === false) {
+        errors.push(`${file.label} must not carry softwareVersion (claim-free mirror)`);
+        continue;
+      }
       claims += 1;
       if (match[1] !== version) {
         errors.push(
@@ -100,6 +110,25 @@ function selfTest() {
   if (!staleErrors.some((e) => e.includes("docs/USER-GUIDE.md")))
     failures.push("did not name the stale document");
 
+  const mirrorClaim = check(
+    [
+      { label: "site/es/index.html", text: `${PKG}@0.3.0`, claims: false },
+      { label: "site/index.html", text: `${PKG}@0.3.0`, claims: true },
+    ],
+    "0.3.0",
+  );
+  if (mirrorClaim.length === 0)
+    failures.push("did not catch a version claim on a claim-free mirror");
+  const mirrorJsonLd = check(
+    [
+      { label: "site/es/index.html", text: `{"softwareVersion":"0.3.0"}`, claims: false },
+      { label: "site/index.html", text: `${PKG}@0.3.0`, claims: true },
+    ],
+    "0.3.0",
+  );
+  if (mirrorJsonLd.length === 0)
+    failures.push("did not catch softwareVersion on a claim-free mirror");
+
   if (failures.length > 0) throw new Error(`self-test failed: ${failures.join("; ")}`);
   console.log("site version-check self-test: PASS");
 }
@@ -109,7 +138,11 @@ selfTest();
 const version = JSON.parse(readFileSync(path.join(ROOT, SITE.versionManifest), "utf8")).version;
 
 const files = [
-  { label: "site/index.html", text: readFileSync(path.join(ROOT, "site", "index.html"), "utf8") },
+  ...LANDINGS.map((landing) => ({
+    label: landing.file,
+    text: readFileSync(path.join(ROOT, landing.file), "utf8"),
+    claims: landing.claims,
+  })),
   ...DOCS.map((doc) => ({
     label: doc.file,
     text: readFileSync(path.join(ROOT, doc.file), "utf8"),

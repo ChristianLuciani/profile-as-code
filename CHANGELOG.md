@@ -11,6 +11,14 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **Bilingual landing `/es/` (#308)** — the project page mirrors the EN landing
+  in Spanish at `/es/`, with reciprocal `hreflang` (`en` · `es` · `x-default`) on
+  both pages and the same alternates in `sitemap.xml`. The mirror carries **no
+  version claim** — a second place to forget on every release — and
+  `version-check` now enforces "claim-free surfaces" from the `LANDINGS` list in
+  `site-config.mjs`, which is also the one home the sitemap reads. Docs stay EN
+  (decision #280-B; the roadmap remains the declared ES document); `site-check` gates the new page
+  like every other.
 - **`pasco discover` — a provisional Profile from public surfaces (#329)** —
   `pasco audit` needs a `Profile`; a prospect has none. Discovery reads only what
   a surface itself declares (schema.org JSON-LD + its links), attaches per-fact
