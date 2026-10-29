@@ -11,6 +11,13 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **Bilingual landing `/es/` (#308)** — the project page mirrors the EN landing
+  in Spanish at `/es/`, with reciprocal `hreflang` (`en` · `es` · `x-default`) on
+  both pages and the same alternates in `sitemap.xml`. The mirror carries **no
+  version claim** — a second place to forget on every release — and
+  `version-check` now enforces "claim-free surfaces" from the `LANDINGS` list in
+  `site-config.mjs`, which is also the one home the sitemap reads. Docs stay EN
+  (decision #280-B); `site-check` gates the new page like every other.
 - **Answer-engine surface, consumer half — `structuredData()` projects
   `identity.definition` + `faq[]` (#316)** — the v1.10 contract shipped in v0.3.6
   without an emitter; `structuredData()` now reads the fields. Person:

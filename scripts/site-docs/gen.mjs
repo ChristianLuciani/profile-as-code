@@ -37,7 +37,7 @@ import { marked } from "marked";
 import { gfmHeadingId } from "marked-gfm-heading-id";
 import { parse as parseYaml } from "yaml";
 /** Site config + reading set: one home, also what the release barrier scans. */
-import { DOCS, SITE } from "./site-config.mjs";
+import { DOCS, LANDINGS, SITE } from "./site-config.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..", "..");
@@ -443,14 +443,20 @@ function buildNotFound() {
 const escapeXml = (text) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 function buildSitemap(entries) {
+  const hasAlternates = entries.some((entry) => entry.alternates !== undefined);
   const urls = entries
-    .map(
-      ({ loc, lastmod }) =>
-        `  <url>\n    <loc>${escapeXml(loc)}</loc>${lastmod ? `\n    <lastmod>${escapeXml(lastmod.slice(0, 10))}</lastmod>` : ""}\n  </url>`,
-    )
+    .map(({ loc, lastmod, alternates }) => {
+      const alt = (alternates ?? [])
+        .map(
+          (item) =>
+            `\n    <xhtml:link rel="alternate" hreflang="${escapeXml(item.hreflang)}" href="${escapeXml(item.href)}"/>`,
+        )
+        .join("");
+      return `  <url>\n    <loc>${escapeXml(loc)}</loc>${lastmod ? `\n    <lastmod>${escapeXml(lastmod.slice(0, 10))}</lastmod>` : ""}${alt}\n  </url>`;
+    })
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"${hasAlternates ? '\n        xmlns:xhtml="http://www.w3.org/1999/xhtml"' : ""}>
 ${urls}
 </urlset>
 `;
@@ -648,8 +654,21 @@ writeFileSync(path.join(OUT, "index.html"), renderIndex(docs));
 
 const mostRecent = (dates) => dates.filter(Boolean).sort().pop() ?? null;
 const docsUpdated = mostRecent(docs.map((doc) => lastModified(doc.file)));
+// The landing pair declares its own alternates (issue #308): the sitemap states
+// the same en/es/x-default trio the pages carry, so a crawler and a reader see
+// one story. `LANDINGS` is the one home of "which page is in which language".
+const landingAlternates = LANDINGS.map(({ slug, lang }) => ({
+  hreflang: lang,
+  href: `${SITE_URL}/${slug}`,
+}));
+landingAlternates.push({ hreflang: "x-default", href: `${SITE_URL}/` });
+
 const entries = [
-  { loc: `${SITE_URL}/`, lastmod: lastModified("site/index.html") },
+  ...LANDINGS.map(({ slug, file }) => ({
+    loc: `${SITE_URL}/${slug}`,
+    lastmod: lastModified(file),
+    alternates: landingAlternates,
+  })),
   { loc: `${SITE_URL}/docs/`, lastmod: docsUpdated },
   ...docs.map((doc) => ({
     loc: `${SITE_URL}/docs/${doc.slug}.html`,

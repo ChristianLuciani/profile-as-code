@@ -1378,6 +1378,12 @@ Two different "templates" (previous confusion):
 
 - **Repo docs/README/SPEC**: EN (open-source lingua franca). User-facing summaries may be ES/FR.
 - **CLI output**: EN with `--lang` for generated texts.
+- **Project page**: the landing is EN with a Spanish mirror at `/es/` (decision #280-B, issue #308) —
+  reciprocal `hreflang` (`en` · `es` · `x-default`) and the same alternates in `sitemap.xml`. The
+  mirror carries **no version claim**: the release claim lives on the EN landing and in the projected
+  docs, and repeating it on a second page is a second place to forget every release
+  (`scripts/site-check/version-check.mjs` enforces the claim-free surface). Docs stay EN: a full ES
+  corpus would need its own parity gate and is not shipped.
 - **Content**: every text field is `{ lang: value }`; EN required (recruiters), ES native, FR optional.
 - **Proper nouns are invariant**: organization/institution names (`org`, `institution`), venue names
   and people names are **never a langMap** — they are plain strings, identical in every language.
