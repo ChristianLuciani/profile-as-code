@@ -112,7 +112,7 @@ export const AUDIT_SEVERITY: Record<AuditClass, "FAIL" | "WARN"> = {
  * back to `contradiction` (FAIL, visible) rather than disappearing: a new drift
  * code must never be silently dropped from the audit.
  */
-const DRIFT_CLASS: Record<string, AuditClass | null> = {
+export const DRIFT_CLASS: Record<string, AuditClass | null> = {
   // Canonicalization, NOT a broken pointer: the URL resolves, it is simply not
   // mirrored in `identity.links`. `validate` warns (D12); the audit gives it no
   // class and does not report it — the same treatment `geoCheck` gets, declared in
@@ -174,7 +174,7 @@ export function factRef(profile: LoadedProfile, path: string): string {
   return `${block}[${id}]${rest}`;
 }
 
-function finding(cls: AuditClass, path: string, detail: string): AuditFinding {
+export function finding(cls: AuditClass, path: string, detail: string): AuditFinding {
   return { class: cls, severity: AUDIT_SEVERITY[cls], path, detail };
 }
 
@@ -244,7 +244,7 @@ const CLASS_ORDER: Record<AuditClass, number> = {
 };
 
 /** Deterministic order: class, then address, then detail. Same input, same bytes. */
-function ordered(findings: AuditFinding[]): AuditFinding[] {
+export function ordered(findings: AuditFinding[]): AuditFinding[] {
   return [...findings].sort(
     (a, b) =>
       CLASS_ORDER[a.class] - CLASS_ORDER[b.class] ||
