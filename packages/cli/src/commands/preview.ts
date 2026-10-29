@@ -341,6 +341,21 @@ export function runPreview(args: PreviewArgs): number {
     );
   }
 
+  // Output location FIRST: `--out <dir>` (transport B) or
+  // `<workspace>/.pasco/preview` (transport A, outside the versioned tree when
+  // the workspace ignores it). Resolving it before the render means the warning
+  // travels in the page's own notes and not only in the terminal (review F7).
+  const outDir =
+    args.outArg === undefined
+      ? join(args.workspace, ".pasco", "preview")
+      : resolve(process.cwd(), args.outArg);
+  const file = join(outDir, "index.html");
+  if (outIsUnignoredInRepo(outDir, file)) {
+    warnings.push(
+      `--out lands inside a git work tree and is not ignored — commit only if you mean to publish it (add "${relative(resolve(args.workspace), file)}" to .gitignore)`,
+    );
+  }
+
   const facts = countFacts(profile);
   const html = renderPreviewDocument({
     title: `profile preview — ${basename(resolve(args.workspace))}`,
@@ -361,19 +376,6 @@ export function runPreview(args: PreviewArgs): number {
     })),
     warnings,
   });
-
-  // Output location: `--out <dir>` (transport B) or `<workspace>/.pasco/preview`
-  // (transport A, outside the versioned tree when the template ignores it).
-  const outDir =
-    args.outArg === undefined
-      ? join(args.workspace, ".pasco", "preview")
-      : resolve(process.cwd(), args.outArg);
-  const file = join(outDir, "index.html");
-  if (outIsUnignoredInRepo(outDir, file)) {
-    warnings.push(
-      `--out lands inside a git work tree and is not ignored — commit only if you mean to publish it (add "${relative(resolve(args.workspace), file)}" to .gitignore)`,
-    );
-  }
 
   // The gate runs BEFORE the write: a refused preview leaves no file behind, so
   // the operator never finds a leaking artifact on disk to clean up.

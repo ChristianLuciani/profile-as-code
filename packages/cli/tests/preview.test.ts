@@ -168,6 +168,24 @@ describe("pasco preview — the artifact", () => {
     const workspace = workspaceCopy();
     expect(run(["preview", "github", "--workspace", workspace]).code).toBe(2);
     expect(run(["preview", "--workspace", workspace, "--now", "yesterday"]).code).toBe(2);
+    // ISO-prefixed but not a real instant: still usage, never exit 1 (review F4).
+    expect(run(["preview", "--workspace", workspace, "--now", "2026-13-01T00:00:00Z"]).code).toBe(
+      2,
+    );
+    expect(run(["preview", "--workspace", workspace, "--now", "2026-10-29T99:99:99Z"]).code).toBe(
+      2,
+    );
+    expect(
+      run([
+        "preview",
+        "--workspace",
+        workspace,
+        "--out",
+        join(workspace, "o2"),
+        "--now",
+        "2026-10-29T12:00:00-05:00",
+      ]).code,
+    ).toBe(0);
   });
 });
 
@@ -230,7 +248,7 @@ describe("preview privacy — the gate's own teeth (seeded)", () => {
     expect(scanPreviewHtml('<link rel="stylesheet" href="x.css">')).toEqual(
       expect.arrayContaining([expect.objectContaining({ rule: "external-asset" })]),
     );
-    expect(scanPreviewHtml("<p>a { url(https://x/y.png) }</p>")).toEqual(
+    expect(scanPreviewHtml("<style>a{background:url(https://x/y.png)}</style>")).toEqual(
       expect.arrayContaining([expect.objectContaining({ rule: "external-asset" })]),
     );
     expect(scanPreviewHtml("<script>alert(1)</script>")).toEqual(
@@ -243,6 +261,63 @@ describe("preview privacy — the gate's own teeth (seeded)", () => {
       expect.arrayContaining([expect.objectContaining({ rule: "active-content" })]),
     );
     expect(scanPreviewHtml("<!doctype html><p>clean, inline data:image only</p>")).toEqual([]);
+  });
+
+  it("admits a QUOTED data: URI and every inline form the page emits (review F1)", () => {
+    // The defect: an optional quote before the lookahead backtracks, so
+    // `src="data:image/..."` matched "not inline" and inlined workspace media
+    // (the feature) made the gate refuse the write.
+    expect(scanPreviewHtml('<img src="data:image/png;base64,AAAA">')).toEqual([]);
+    expect(scanPreviewHtml("<img src='data:image/png;base64,AAAA'>")).toEqual([]);
+    expect(scanPreviewHtml('<img src="data:image/svg+xml;base64,AAAAEEE=" alt="x">')).toEqual([]);
+    expect(
+      scanPreviewHtml('<img src="data:image/png;base64,AA" srcset="data:image/png;base64,BB 2x">'),
+    ).toEqual([]);
+    expect(
+      scanPreviewHtml('<style>a{background:url("data:image/svg+xml;base64,AA")}</style>'),
+    ).toEqual([]);
+    expect(scanPreviewHtml('<a href="#github-readme">jump</a>')).toEqual([]);
+    // …and the real renderer + the real gate agree on an inlined asset.
+    const assets = new Map([
+      [
+        "assets/logo/logo.png",
+        { target: "assets/logo/logo.png", dataUri: "data:image/png;base64,AAAA", bytes: 3 },
+      ],
+    ]);
+    const html = markdownToHtml("![logo](assets/logo/logo.png)", assets);
+    expect(html).toContain('src="data:image/png;base64,AAAA"');
+    expect(scanPreviewHtml(html)).toEqual([]);
+  });
+
+  it("does not judge ESCAPED html as markup (review F2)", () => {
+    // The renderer escapes raw HTML; inert text must not be refused as a live
+    // element, or a bio that merely mentions an <img> cannot be previewed.
+    const escaped = [
+      "&lt;img src=&quot;https://example.com/x.png&quot; alt=&quot;a&quot;&gt;",
+      "&lt;script&gt;alert(1)&lt;/script&gt;",
+      "&lt;div onclick=&quot;x()&quot;&gt;y&lt;/div&gt;",
+      "&lt;link rel=&quot;stylesheet&quot; href=&quot;x.css&quot;&gt;",
+    ];
+    for (const text of escaped) {
+      expect(scanPreviewHtml(`<pre class="raw-html">${text}</pre>`)).toEqual([]);
+    }
+    // A REAL tag of the same shape is still refused.
+    expect(scanPreviewHtml('<pre>&lt;x&gt;</pre><img src="https://example.com/x.png">')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ rule: "external-asset" })]),
+    );
+    // Same through the renderer: raw HTML in the data is escaped and passes.
+    const html = markdownToHtml('<img src="https://example.com/x.png">', new Map());
+    expect(html).toContain("&lt;img");
+    expect(scanPreviewHtml(html)).toEqual([]);
+  });
+
+  it("never echoes the secret it refused (review F3)", () => {
+    const token = "ghp_0123456789abcdefghijklmnop";
+    const [finding] = scanPreviewHtml(`<p>${token}</p>`);
+    expect(finding?.rule).toBe("credential");
+    expect(finding?.detail).not.toContain(token);
+    expect(finding?.detail).not.toContain("ghp_");
+    expect(finding?.detail).toContain("redacted");
   });
 
   it("refuses a source outside the workspace, a missing source and a credential-shaped asset", () => {

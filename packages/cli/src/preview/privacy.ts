@@ -8,36 +8,42 @@
  * public entries only and lets the ledger decide; the preview must refuse to
  * carry anything the operator did not intend to put on screen.
  *
- * Four refusal classes, each with a defect it exists for:
+ * Two families of checks, and the split is the point (fresh review of #354, F2):
+ *
+ *   TEXT    rules run over the whole document — a path or a token leaks in prose
+ *           exactly as it leaks in markup.
+ *   MARKUP  rules run over the document's real TAGS (extracted) and over the CSS
+ *           of its `<style>` blocks, never over plain text. Escaped HTML (the
+ *           renderer emits `&lt;img src=&quot;…&quot;&gt;`) is inert and must not
+ *           be judged as a live element — the review found the gate refusing a
+ *           bio that merely *mentioned* an `<img>`, while an escaped `<script>`
+ *           passed. Markup rules on markup only.
+ *
+ * Refusal classes:
  *
  *   absolute-path     a machine path (`/Users/<name>/…`, `C:\…`, `file:///…`)
  *                     printed in the document discloses the host and its tree.
- *                     Real trigger: `pasco check`'s media/registry findings embed
- *                     absolute source paths — the assembler must relativize them.
- *   credential        a pasted token/private key is a leak independent of who
- *                     receives the file. The class is deliberately narrow
- *                     (token shapes + `secret: <16+ non-space>` assignments) so
- *                     prose about tokens is not flagged.
- *   external-asset    the invariant the preview sells is "one file, opens with
- *                     no network": a `<link rel=stylesheet>`, a remote `<img>`
- *                     or a `url(https:…)` breaks it (fonts, CDNs, badges).
+ *                     Real trigger: `pasco check`'s findings embed absolute
+ *                     source paths — the assembler must relativize them.
+ *   credential        a pasted token/private key. The DETAIL IS REDACTED (shape
+ *                     + length, never the secret): a gate that echoes the token
+ *                     into stderr, `--json` and CI logs leaks exactly what it
+ *                     refused to write (review F3).
+ *   external-asset    the invariant the preview sells is "one file, opens with no
+ *                     network": a `<link>`, a non-`data:` `src`, a remote CSS
+ *                     `url()` breaks it (fonts, CDNs, badge fetches).
  *   active-content    "no JS" is not a preference: a `<script>`/`on*=`/`<iframe>`
- *                     in the markdown would execute on `file://`. The renderer
- *                     escapes raw HTML (see `document.ts`) and this rule proves
- *                     it did.
+ *                     would execute on `file://`. The renderer escapes raw HTML
+ *                     (see `document.ts`) and this rule proves it did.
+ *   source-outside-declared-roots  a file the preview READ resolves outside the
+ *                     workspace (a symlink escape). Evidence-root media never
+ *                     reaches the gate: it is left out of the page before this
+ *                     point (review F5 — the docs say so now).
+ *   source-missing    a declared source that no longer exists.
+ *   credential-file   a media source shaped like a dotfile/credential.
  *
- * Plus one provenance class, checked over the SOURCES the preview read rather
- * than over the bytes:
- *
- *   source-outside-declared-roots  the preview may read the workspace (`content/`,
- *                     `.pascorc`) and media whose resolved path stays inside it.
- *                     A symlink escaping the workspace, or evidence-root media
- *                     (`origin: "external"`), is refused rather than inlined:
- *                     the declared set is what the workspace owns.
- *
- * Everything here is pure and offline: the gate takes the final document plus
- * the source list and returns findings. `preview` refuses on any finding (exit
- * 1) because a preview that silently drops a rule is a preview that leaks.
+ * Everything here is pure and offline. `preview` refuses on any finding (exit 1)
+ * because a preview that silently drops a rule is a preview that leaks.
  */
 
 import { existsSync, realpathSync } from "node:fs";
@@ -54,7 +60,7 @@ export type PrivacyRule =
 
 export interface PrivacyFinding {
   rule: PrivacyRule;
-  /** What was found — the offending excerpt, never the surrounding payload. */
+  /** What was found — a readable excerpt, REDACTED for credentials. */
   detail: string;
 }
 
@@ -76,7 +82,7 @@ const ABSOLUTE_PATHS: readonly { name: string; re: RegExp }[] = [
 
 /**
  * Credential shapes. Narrow on purpose: a general "looks secret" heuristic turns
- * every sentence about API keys into a refusal, and a gate that cries wolf is
+ * every sentence about API keys into a refusal, and a gate that cries wolf gets
  * turned off (the class would then protect nothing).
  */
 const CREDENTIALS: readonly { name: string; re: RegExp }[] = [
@@ -96,30 +102,63 @@ const CREDENTIALS: readonly { name: string; re: RegExp }[] = [
   },
 ];
 
-/**
- * References a self-contained document may not carry. `data:image/` is the one
- * admitted `src`: it is inline bytes, not a fetch.
- */
-const EXTERNAL_ASSETS: readonly { name: string; re: RegExp }[] = [
-  // The document's own <style> is fine; an imported or linked one is not.
-  { name: "stylesheet-link", re: /<link\b[^>]*\brel\s*=\s*["']?stylesheet/iu },
-  { name: "any-link-element", re: /<link\b/iu },
-  { name: "css-import", re: /@import\b/u },
-  { name: "css-url", re: /\burl\(\s*["']?(?!#|data:image\/)/iu },
-  { name: "remote-or-relative-src", re: /\b(?:src|srcset)\s*=\s*["']?(?!#|data:image\/)/iu },
-  { name: "poster", re: /\bposter\s*=/iu },
+/** Elements/attributes the document may not contain, each with its own class. */
+const FORBIDDEN_MARKUP: readonly { name: string; rule: PrivacyRule; re: RegExp }[] = [
+  { name: "any-link-element", rule: "external-asset", re: /<link\b/iu },
+  { name: "script-element", rule: "active-content", re: /<script\b/iu },
+  {
+    name: "iframe-or-embed",
+    rule: "active-content",
+    re: /<(?:iframe|object|embed|frame|frameset|applet|base)\b/iu,
+  },
+  { name: "form", rule: "active-content", re: /<form\b[^>]*\baction\s*=/iu },
+  {
+    name: "meta-refresh",
+    rule: "active-content",
+    re: /<meta\b[^>]*http-equiv\s*=\s*["']?refresh/iu,
+  },
+  { name: "svg", rule: "active-content", re: /<svg\b/iu },
+  { name: "event-handler", rule: "active-content", re: /\son[a-z]+\s*=/iu },
 ];
 
-/** Executable or navigable content a preview never needs. */
-const ACTIVE_CONTENT: readonly { name: string; re: RegExp }[] = [
-  { name: "script-element", re: /<script\b/iu },
-  { name: "iframe-or-embed", re: /<(?:iframe|object|embed|frame|frameset|applet|base)\b/iu },
-  { name: "form", re: /<form\b[^>]*\baction\s*=/iu },
-  { name: "event-handler", re: /\son[a-z]+\s*=\s*["']?[^\s>]/iu },
-  { name: "javascript-url", re: /\b(?:href|src)\s*=\s*["']?\s*javascript:/iu },
-  { name: "meta-refresh", re: /<meta\b[^>]*http-equiv\s*=\s*["']?refresh/iu },
-  { name: "svg", re: /<svg\b/iu },
-];
+/** Real tags only: an escaped `&lt;img …&gt;` never matches (see the header). */
+const TAG = /<\/?[a-zA-Z][a-zA-Z0-9-]*\b[^>]*>/gu;
+/** The CSS of a `<style>` block — where a `url(...)`/import would live. */
+const STYLE_BLOCK = /<style\b[^>]*>([\s\S]*?)<\/style>/giu;
+/** `name="…" | name='…' | name=bare` inside a tag. */
+const attribute = (name: string): RegExp =>
+  new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, "iu");
+const SRC = attribute("src");
+const SRCSET = attribute("srcset");
+const HREF = attribute("href");
+const POSTER = attribute("poster");
+/** `url(...)` inside CSS, value captured (never judged through backtracking). */
+const CSS_URL = /\burl\(\s*(?:"([^"]*)"|'([^']*)'|([^)"']*?))\s*\)/giu;
+
+function attr(re: RegExp, source: string): string | undefined {
+  const match = re.exec(source);
+  if (match === null) return undefined;
+  return (match[1] ?? match[2] ?? match[3] ?? "").trim();
+}
+
+/** A value that is inline bytes or an in-page anchor — never a fetch. */
+function isInlineValue(value: string): boolean {
+  return /^data:image\//iu.test(value) || value.startsWith("#");
+}
+
+/**
+ * `srcset` is a comma-separated candidate list, and a `data:` URI CONTAINS
+ * commas — splitting first corrupts it. So: strip the inline candidates, then
+ * every remaining token must be a descriptor (`2x` / `100w`) or an anchor; any
+ * URL or relative path left is a fetch.
+ */
+function srcsetIsInlineOnly(value: string): boolean {
+  const stripped = value.replace(/data:image\/[^\s,]*,[^\s]*/giu, " ").trim();
+  if (stripped === "") return true;
+  return stripped
+    .split(/[\s,]+/u)
+    .every((part) => part === "" || /^(?:#|[\d.]+[wx])$/iu.test(part));
+}
 
 /**
  * Basenames a media source may never be inlined from — the "dotfiles/tokens"
@@ -153,29 +192,75 @@ function excerpt(text: string, re: RegExp): string | undefined {
   return found.length > 120 ? `${found.slice(0, 117)}…` : found;
 }
 
-/** Scan the FINAL document (markup included) for the byte-level classes. */
+/**
+ * Scan the FINAL document: text rules over the whole bytes, markup rules over its
+ * real tags and its `<style>` CSS — never over escaped text as if it were markup
+ * (the defect this split exists to prevent).
+ */
 export function scanPreviewHtml(html: string): PrivacyFinding[] {
   const findings: PrivacyFinding[] = [];
+
+  // ── TEXT: a path or a token leaks in prose exactly as it leaks in markup.
   for (const rule of ABSOLUTE_PATHS) {
     const found = excerpt(html, rule.re);
-    if (found !== undefined)
+    if (found !== undefined) {
       findings.push({ rule: "absolute-path", detail: `${rule.name}: ${found}` });
+    }
   }
   for (const rule of CREDENTIALS) {
-    const found = excerpt(html, rule.re);
-    if (found !== undefined)
-      findings.push({ rule: "credential", detail: `${rule.name}: ${found}` });
+    const found = rule.re.exec(html);
+    if (found !== null) {
+      // Redacted: echoing the secret into stderr/--json/CI logs would leak it.
+      findings.push({
+        rule: "credential",
+        detail: `${rule.name}: <redacted, ${found[0].length} chars>`,
+      });
+    }
   }
-  for (const rule of EXTERNAL_ASSETS) {
-    const found = excerpt(html, rule.re);
-    if (found !== undefined)
-      findings.push({ rule: "external-asset", detail: `${rule.name}: ${found}` });
+
+  // ── MARKUP: element/attribute presence, judged on tags only.
+  const tags = html.match(TAG) ?? [];
+  for (const rule of FORBIDDEN_MARKUP) {
+    const tag = tags.find((candidate) => rule.re.test(candidate));
+    if (tag !== undefined) {
+      findings.push({ rule: rule.rule, detail: `${rule.name}: ${tag.slice(0, 100)}` });
+    }
   }
-  for (const rule of ACTIVE_CONTENT) {
-    const found = excerpt(html, rule.re);
-    if (found !== undefined)
-      findings.push({ rule: "active-content", detail: `${rule.name}: ${found}` });
+
+  // ── MARKUP: attribute values, EXTRACTED first and judged after. Never a
+  // lookahead behind an optional quote — that is the backtracking bug of F1.
+  for (const tag of tags) {
+    const src = attr(SRC, tag);
+    if (src !== undefined && !isInlineValue(src)) {
+      findings.push({ rule: "external-asset", detail: `src: ${src.slice(0, 80)}` });
+    }
+    const srcset = attr(SRCSET, tag);
+    if (srcset !== undefined && !srcsetIsInlineOnly(srcset)) {
+      findings.push({ rule: "external-asset", detail: `srcset: ${srcset.slice(0, 80)}` });
+    }
+    if (attr(POSTER, tag) !== undefined) {
+      findings.push({ rule: "external-asset", detail: "poster attribute" });
+    }
+    const href = attr(HREF, tag);
+    if (href !== undefined && /^javascript:/iu.test(href)) {
+      findings.push({ rule: "active-content", detail: "javascript: URL" });
+    }
   }
+
+  // ── CSS: the `<style>` block's own text (not tags) — imports and url().
+  for (const block of html.matchAll(STYLE_BLOCK)) {
+    const css = block[1] ?? "";
+    if (/@import\b/iu.test(css)) {
+      findings.push({ rule: "external-asset", detail: "stylesheet import in the inline CSS" });
+    }
+    for (const match of css.matchAll(CSS_URL)) {
+      const value = (match[1] ?? match[2] ?? match[3] ?? "").trim();
+      if (value !== "" && !isInlineValue(value)) {
+        findings.push({ rule: "external-asset", detail: `css url(): ${value.slice(0, 80)}` });
+      }
+    }
+  }
+
   return findings;
 }
 

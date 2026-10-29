@@ -70,9 +70,11 @@ Commands:
                                 .pascorc engine requirement (unmet ⇒ exit 1)
   build [platform] [--lang]     Deterministic base texts per platform+lang
   preview [--out <dir>]         ONE self-contained HTML page of the rendered surfaces
-          [--no-open] [--lang <l>]  (inline CSS, no JS, no external asset) written outside the
-                                versioned tree and opened locally; --out writes elsewhere and
-                                never opens (the CI-artifact transport). Not a publication
+          [--no-open] [--lang <l>]  (inline CSS, no JS, no external asset) written to
+                                <workspace>/.pasco/preview and opened locally; --out writes
+                                elsewhere and never opens (the CI-artifact transport). Warns when
+                                the destination sits in a repo without an ignore entry.
+                                Not a publication
   edit <contract-path>          Resolve one contract field; --set writes it (comment-preserving,
           [--set <text> [--check]]  validated, atomic) and --set --check previews the published lines
   diff [--json]                 Changes since the last release tag (git-based → CHANGELOG hint)
@@ -240,7 +242,7 @@ The text per platform is the SAME artifact pasco build writes (active variant
 prints. A privacy gate refuses the write (exit 1) when the document would carry
 an absolute machine path, a credential, an external asset, active content, or a
 source outside the workspace. Media outside the workspace (evidence-root bytes)
-is never inlined; a remote image becomes a link instead of a fetch.`,
+is left out of the page and listed (never inlined); a remote image becomes a text note instead of a fetch.`,
   build: `pasco build [platform] [--view <name>] [--lang <l>] [--json] [--workspace <path>]
 Deterministic base texts per platform+lang (compile() slices). No platform =
 all platforms. lang defaults to .pascorc defaults.lang or 'en'.
@@ -655,10 +657,16 @@ async function runMain(): Promise<number> {
           "usage: pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso8601>] [--json]",
         );
       }
-      if (flags.now !== undefined && !/^\d{4}-\d{2}-\d{2}T/u.test(flags.now)) {
-        throw new UsageError(
-          "usage: --now takes an ISO 8601 timestamp (e.g. 2026-10-29T12:00:00Z)",
-        );
+      if (flags.now !== undefined) {
+        // A malformed flag is USAGE (exit 2), not a config failure: the test is
+        // the full shape AND a real calendar instant, so `2026-13-01T00:00:00Z`
+        // cannot slip past a prefix check and land as exit 1 (fresh review F4).
+        const iso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/u;
+        if (!iso.test(flags.now) || Number.isNaN(Date.parse(flags.now))) {
+          throw new UsageError(
+            "usage: --now takes an ISO 8601 timestamp (e.g. 2026-10-29T12:00:00Z)",
+          );
+        }
       }
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);

@@ -1111,7 +1111,7 @@ page per surface) is more "browsable" and reintroduces the base problem.
 |---|---|
 | input | the workspace `build` reads (`.pascorc` + `content/`), same `load()` |
 | output | one file, stable name `index.html`, no external dependency (no font, no CDN) |
-| default | `<workspace>/.pasco/preview/index.html`, then opened with the platform opener |
+| default | `<workspace>/.pasco/preview/index.html`, then opened with the platform opener — outside the versioned tree when the workspace ignores `.pasco/`, and a warning when the destination sits in a git work tree that does not |
 | `--out <dir>` | writes `<dir>/index.html` and opens nothing (transport B: CI artifact) |
 | `--no-open` | writes the default location, opens nothing |
 | `--lang <l>` | the language rendered (default `.pascorc → defaults.lang`, else `en`) |
@@ -1131,12 +1131,13 @@ refused preview writes **no file** (there is nothing left on disk to clean up):
 | `credential` | a pasted token/private key (token shapes + `secret: <16+ non-space>` assignments; narrow on purpose — see below) |
 | `external-asset` | a `<link>`, a remote `src`, a remote `url(…)`, a stylesheet import: the "no network" invariant as a check |
 | `active-content` | a `<script>`, an `on*=` handler, an `<iframe>`, a `javascript:` URL |
-| `source-outside-declared-roots` | a file the preview read that resolves outside the workspace (a symlink escape, or evidence-root media with `origin: "external"`) |
+| `source-outside-declared-roots` | a file the preview read that resolves outside the workspace (a symlink escape) |
 | `source-missing` · `credential-file` | a declared source that is gone; a dotfile/credential-shaped asset (`.env`, `.netrc`, `id_rsa`, `*.pem`) |
 
 Media policy: workspace media inside the workspace is inlined as `data:` URIs
-(per-file and total budgets); **evidence-root** media is never inlined (D14: a
-per-machine path never reaches a render); a remote image (a shields.io badge)
+(per-file and total budgets); **evidence-root** media (`origin: "external"`) is
+left out of the page and listed in it, so it never reaches the gate at all (D14:
+a per-machine path never reaches a render); a remote image (a shields.io badge)
 becomes a text note — a preview that fetched it would stop being offline and
 would tell a third party the operator opened their own data.
 

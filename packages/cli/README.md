@@ -426,8 +426,10 @@ version — and `--now <iso8601>` pins that stamp so two runs are byte-identical
 **What it composes.** The text per platform comes from the same decision tree
 `build` uses (active variant → renderer → shared paste source, with `build`'s
 selection gate), and the checks come from the same report `pasco check` prints.
-`preview` writes nothing into the versioned tree by default and never touches
-`profiles/`.
+`preview` never touches `profiles/` and writes outside the versioned tree by
+default — `<workspace>/.pasco/preview/`, which is untracked as long as the
+workspace ignores `.pasco/`; a destination inside a git work tree that does not
+gets a warning.
 
 **The privacy gate.** The public site publishes public entries only; the preview
 carries your working data, so it **refuses** and writes **no file**:
@@ -438,7 +440,7 @@ carries your working data, so it **refuses** and writes **no file**:
 | `credential` | a pasted token or private key (token shapes, `secret: <16+ non-space>` assignments) |
 | `external-asset` | a `<link>`, a remote `src`, `url(https:…)`, `@import` |
 | `active-content` | a `<script>`, an `on*=` handler, an `<iframe>`, a `javascript:` URL |
-| `source-outside-declared-roots` | a source that resolves outside the workspace (a symlink escape, evidence-root media) |
+| `source-outside-declared-roots` | a source that resolves outside the workspace (a symlink escape) |
 | `source-missing` · `credential-file` | a declared source that is gone; a dotfile-shaped asset (`.env`, `.netrc`, `id_rsa`, `*.pem`) |
 
 Evidence-root media is never inlined (a per-machine path never reaches a render);
