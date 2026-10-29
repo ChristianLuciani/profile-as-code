@@ -29,5 +29,6 @@ export const DOCS = [
   { slug: "user-guide", file: "docs/USER-GUIDE.md", lang: "en" },
   { slug: "spec", file: "docs/SPEC.md", lang: "en" },
   { slug: "contributing", file: "CONTRIBUTING.md", lang: "en" },
+  { slug: "schema-contract", file: "docs/SCHEMA-CONTRACT.md", lang: "en" },
   { slug: "roadmap", file: "docs/ROADMAP.md", lang: "es" },
 ];

@@ -55,6 +55,9 @@ export {
 /** The creator-monetization paste set, projected from `platforms/registry.yaml`
  *  (#154) — the derived test enumeration, never a hand-extended list. */
 export { PASTE_PLATFORMS } from "./generated/platforms.gen.js";
+/** The profile-contract version this build validates — generated from the schema
+ *  `$id` (D3, issue #348); `pasco doctor` reports it. */
+export { PROFILE_SCHEMA_VERSION } from "./generated/schema.zod.js";
 export { geoCheck } from "./geo.js";
 export type {
   CertificationRollup,

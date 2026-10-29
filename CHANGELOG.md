@@ -42,8 +42,41 @@ minor versions may contain breaking contract changes.
   fixture carrying `projects[].artifactRefs` (the v1.12/#333 witness) is accepted
   by both, and an injected unknown row field is refused by both with identical
   violations (`export profile` shares that load path and is asserted with them).
-  — *The `.pascorc` engine-version gate, `pasco doctor` and the publishable schema
-  URL+hash remain open in #348.*
+
+- **The `.pascorc` engine gate and `pasco doctor` (#348)** — a workspace can now
+  declare the **minimum engine** it requires, and the commands that do work refuse
+  early instead of failing on a contract they do not know. `.pascorc` gains an
+  optional `"engine": "MAJOR.MINOR.PATCH"` field (a **lower bound**, exactly three
+  numeric components — no `v`, range operator or wildcard; the repo stays
+  dependency-light, so there is no semver range engine). `validate`, `build` and
+  `export profile` check it **before loading or rendering**: an older install exits
+  `1` with the required version, the installed version and the upgrade command
+  (`npm i -g @profile-as-code/cli@latest`); a malformed value exits `1` naming the
+  field, the value and the accepted syntax. Absent means no requirement, so every
+  existing workspace keeps working. **`pasco doctor [--json]`** is the reading
+  surface — chosen over overloading `--version`, which describes the binary and must
+  work with no workspace, while `doctor` describes the pair: one line with the
+  installed engine, the profile-contract version this build validates (derived from
+  the schema `$id` at `pnpm gen:zod`, never a literal), the resolved workspace and
+  whether it loads, plus the declared requirement (`met`/`NOT MET`/`INVALID`). Exit
+  `0` healthy · `1` unhealthy · `2` usage; offline, no clock, no writes. Contract in
+  SPEC §7.6; the `.pascorc` field in USER-GUIDE and the package README.
+
+- **The published schema contract for consumers without the engine (#348)** — a
+  consumer that only validates a profile no longer has to install the CLI or read a
+  sibling workspace. `schema/consumer-contract.json` records the contract's
+  **URL + sha256**: the immutable copy at a released tag
+  (`https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.3.6/schema/profile.schema.json`,
+  schema v1.13, sha256 `275340ff…`) and the current committed bytes (v1.14, sha256
+  `1745ac…`). `node scripts/schema-contract/check.mjs --check` runs in CI with **no
+  network**: it recomputes the committed hash, reads the tag copy from local git, and
+  refuses a stale/moved artifact, a malformed tag/hash, or any URL that is not the
+  exact public repo's tag-pinned raw file (never a floating ref or a private path,
+  AGENTS.md rule 9). The self-test proves each refusal; a pin that is no longer the
+  newest tag only warns. The reading guide (`docs/SCHEMA-CONTRACT.md`, SPEC §7.7)
+  states where to fetch it and what structural validation does **not** cover (the
+  cross-file invariants core re-checks, engine behavior, `.pascorc`, the payload
+  envelope).
 
 - **`publication.kind` — the output classification moves into the contract (schema
   v1.14, #349)** — `publications[].kind` is an optional, closed enum

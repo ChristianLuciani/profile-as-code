@@ -317,6 +317,7 @@ same absence of automation and history unless your storage provides them.
 ```json
 {
   "workspace": ".",
+  "engine": "0.3.6",
   "defaults": { "lang": "en", "variants": 3 },
   "diff": { "tagPattern": "release-*" }
 }
@@ -325,6 +326,20 @@ same absence of automation and history unless your storage provides them.
 - `defaults.lang` — language used when `--lang` is not passed.
 - `defaults.variants` — default for `pasco refine --variants N`.
 - `diff.tagPattern` — the git tag pattern that marks a release (used by `pasco diff`).
+- `engine` — **optional**: the minimum `pasco` version this workspace requires,
+  written as exactly `MAJOR.MINOR.PATCH` (no `v`, `^`, `~`, `>=` or `*` — a
+  lower bound only, not a semver range). `validate`, `build` and
+  `export profile` check it **before doing any work**: an older installed CLI
+  exits `1` with the required version, the installed version and the upgrade
+  command; a malformed value exits `1` naming the accepted syntax. Absent means
+  no requirement. `pasco doctor` reports the same in one line without gating:
+
+  ```sh
+  pasco doctor
+  # engine 0.3.6 · schema v1.14 · workspace /home/me/profile-data (valid) · no engine requirement
+  ```
+
+  Contract: SPEC §7.6.
 
 Workspace resolution order (D14): `--workspace <path>` flag → `.pascorc` →
 current directory. With `workspace: "."`, run `pasco` from the workspace root and

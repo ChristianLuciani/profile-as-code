@@ -215,6 +215,21 @@ jobs:
           node scripts/publishable-gate/test.mjs
           node scripts/publishable-gate/check.mjs
 
+      # Issue #348: the profile contract is published for consumers WITHOUT the
+      # engine — a released tag URL + sha256, in schema/consumer-contract.json.
+      # This gate makes the manifest honest OFFLINE (D19): it recomputes the hash
+      # of the committed schema (a schema edit without regenerating the manifest
+      # fails), verifies the immutable copy at the released tag from local git,
+      # and refuses any URL that is not the public repo's tag-pinned raw file — a
+      # floating ref or a private path can never ship (AGENTS.md rule 9). The
+      # self-test first proves every refusal it claims. Zero deps, no network,
+      # runs before install.
+      - name: Consumer schema contract is release-pinned and hash-fresh (#348)
+        if: hashFiles('package.json') != ''
+        run: |
+          node scripts/schema-contract/test.mjs
+          node scripts/schema-contract/check.mjs --check
+
       - name: Install dependencies
         if: hashFiles('package.json') != ''
         run: pnpm install --frozen-lockfile

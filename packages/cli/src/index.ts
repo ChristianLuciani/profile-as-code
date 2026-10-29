@@ -5,7 +5,8 @@
  * rest).
  *
  * Consumes @profile-as-code/core (load/driftCheck/geoCheck/compile); never
- * re-implements them. Exit codes: 0 ok · 1 schema/workspace failure or a data
+ * re-implements them. Exit codes: 0 ok · 1 schema/workspace failure, an unmet
+ * `.pascorc` engine requirement (validate · build · export profile), or a data
  * finding that blocks the command (edit · audit · entity · export ai-policy ·
  * a malformed export profile --now) · 2 usage.
  * Human output EN by default (D8/§11); `--json` machine-readable on every
@@ -14,11 +15,13 @@
 
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
+import { PROFILE_SCHEMA_VERSION } from "@profile-as-code/core";
 import { runAudit } from "./commands/audit.js";
 import { runBuild } from "./commands/build.js";
 import { runCheck } from "./commands/check.js";
 import { runCiteCheck } from "./commands/cite-check.js";
 import { runDiff } from "./commands/diff.js";
+import { runDoctor } from "./commands/doctor.js";
 import { runEdit } from "./commands/edit.js";
 import { runEntity } from "./commands/entity.js";
 import { runAiPolicyCheck, runAiPolicyExport } from "./commands/export.js";
@@ -30,9 +33,11 @@ import { runSkillsExport } from "./commands/skills-export.js";
 import { runStatus } from "./commands/status.js";
 import { runValidate } from "./commands/validate.js";
 import { parseFlavor, parseLang, UsageError } from "./contract.js";
+import { engineGateError, evaluateEngineRequirement } from "./engine-gate.js";
 import { EXIT } from "./exit.js";
 import { httpFetchText } from "./fetch-http.js";
-import { setJsonMode } from "./output.js";
+import { report, setJsonMode } from "./output.js";
+import type { Pascorc } from "./workspace.js";
 import {
   ConfigError,
   defaultsLang,
@@ -57,6 +62,10 @@ const GLOBAL_HELP = `pasco — profile-as-code CLI v${VERSION}
 Commands:
   init [dir]                    Scaffold a ${WORKSPACE_NAME} workspace (content/, README.md, .pascorc)
   validate [--json]             Schema (FAIL, exit 1) + drift/geo (WARN, exit 0) — D12
+  doctor [--json]               Engine · schema · workspace on one line (SPEC §7.6, #348):
+                                installed version, the profile contract it validates,
+                                and whether the workspace loads; also reports the
+                                .pascorc engine requirement (unmet ⇒ exit 1)
   build [platform] [--lang]     Deterministic base texts per platform+lang
   edit <contract-path>          Resolve one contract field; --set writes it (comment-preserving,
           [--set <text> [--check]]  validated, atomic) and --set --check previews the published lines
@@ -108,7 +117,9 @@ Common flags (after the command):
   --json              Machine-readable output
   --help, -h          Command help
 
-Exit codes: 0 ok · 1 schema/workspace failure, or a data finding that blocks the
+Exit codes: 0 ok · 1 schema/workspace failure, a .pascorc engine requirement that
+the installed CLI does not meet (validate · build · export profile), or a data
+finding that blocks the
 command (edit: the address is not one row or the edit does not change the
 published artifact; audit: at least one FAIL finding; entity: no canonical @id;
 export ai-policy: an unsourced or stale UA list, or a refused write;
@@ -192,10 +203,23 @@ README.md, .pascorc. Minimal but pasco validate-clean. Refuses to overwrite.
   dir   target directory (default: current directory)`,
   validate: `pasco validate [--json] [--workspace <path>]
 Load + validate the workspace (D12): schema violations FAIL (exit 1); drift and
-GEO are warnings (exit 0). See schema/README.md "Validation semantics".`,
+GEO are warnings (exit 0). See schema/README.md "Validation semantics".
+A .pascorc "engine" requirement is enforced BEFORE the load: an installed engine
+older than the declared minimum fails with the installed version, the required
+version and the upgrade command (SPEC §7.6).`,
+  doctor: `pasco doctor [--json] [--workspace <path>]
+Engine · schema · workspace on one line (SPEC §7.6, #348):
+  engine    the installed pasco version
+  schema    the profile contract version this build validates (from the schema $id)
+  workspace the resolved path, whether it loads, and the .pascorc engine
+            requirement (declared minimum · met / NOT MET · upgrade command)
+It writes nothing, reads no clock and touches no network. Exit: 0 healthy
+(workspace loads and any declared engine requirement is met) · 1 unhealthy (the
+workspace fails to load, or the requirement is unmet/malformed) · 2 usage.`,
   build: `pasco build [platform] [--view <name>] [--lang <l>] [--json] [--workspace <path>]
 Deterministic base texts per platform+lang (compile() slices). No platform =
 all platforms. lang defaults to .pascorc defaults.lang or 'en'.
+A .pascorc "engine" requirement is enforced before any render (SPEC §7.6).
 --view resolves a declared view (D22/§21): its rule may carry the platform, the
 lang and the fact selection, so the surface shows a SUBSET of the SSOT. Every
 omission is reported as a warning; an addressed key that resolves to nothing is
@@ -472,6 +496,20 @@ warnings carry their source). Derived, never stored: nothing here writes.
         never silent.`,
 };
 
+/**
+ * Issue #348 — the `.pascorc` engine gate (SPEC §7.6). Returns the exit code to
+ * use when the workspace's declared minimum engine is not satisfied (or the
+ * declaration is malformed), or `null` when the command may proceed. The report
+ * goes through the standard envelope, so `--json` gets `{ error: { kind, message } }`
+ * with the same three facts the human line carries.
+ */
+function enforceEngineRequirement(command: string, pascorc: Pascorc): number | null {
+  const requirement = evaluateEngineRequirement(pascorc, VERSION);
+  const error = engineGateError(requirement, VERSION);
+  if (error === null) return null;
+  return report(command, false, EXIT.FAIL, { error });
+}
+
 async function runMain(): Promise<number> {
   const argv = process.argv.slice(2);
   if (argv.length === 0) {
@@ -518,7 +556,31 @@ async function runMain(): Promise<number> {
         throw new UsageError("usage: pasco validate [--json] [--workspace <path>]");
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      const pascorc = readWorkspacePascorc(workspace);
+      // Issue #348: the `.pascorc` engine gate runs BEFORE the command does any
+      // work, so a workspace written for a newer contract fails with the three
+      // facts (installed · required · upgrade) instead of a confusing load error.
+      const engineGate = enforceEngineRequirement("validate", pascorc);
+      if (engineGate !== null) return engineGate;
       return runValidate({ workspace });
+    }
+    case "doctor": {
+      const { flags, positionals } = parseCommandFlags(rest);
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.doctor}\n`);
+        return EXIT.OK;
+      }
+      if (positionals.length > 0) {
+        throw new UsageError("usage: pasco doctor [--json] [--workspace <path>]");
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      return runDoctor({
+        workspace,
+        engineVersion: VERSION,
+        schemaVersion: PROFILE_SCHEMA_VERSION,
+        pascorc: readWorkspacePascorc(workspace),
+      });
     }
     case "build": {
       const { flags, positionals } = parseCommandFlags(rest, {
@@ -534,6 +596,8 @@ async function runMain(): Promise<number> {
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       const pascorc = readWorkspacePascorc(workspace);
+      const engineGate = enforceEngineRequirement("build", pascorc);
+      if (engineGate !== null) return engineGate;
       return runBuild({
         workspace,
         platformArg: positionals[0],
@@ -828,8 +892,12 @@ async function runMain(): Promise<number> {
           );
         }
         setJsonMode(flags.json === true);
+        const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+        const pascorc = readWorkspacePascorc(workspace);
+        const engineGate = enforceEngineRequirement("export profile", pascorc);
+        if (engineGate !== null) return engineGate;
         return runExportProfile({
-          workspace: resolveWorkspace(process.cwd(), flags.workspace),
+          workspace,
           engineVersion: VERSION,
           ...(flags.now !== undefined ? { nowArg: flags.now } : {}),
         });

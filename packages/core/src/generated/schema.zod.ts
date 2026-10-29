@@ -11,6 +11,12 @@ export const profileSchema = z.object({ "identity": z.object({ "name": z.string(
 /** Platform ids in schema order — generated from `$defs.platform.enum` (D3/D16). */
 export const PLATFORM_VALUES = ["github-readme", "linkedin", "upwork", "x", "researchgate", "substack", "patreon", "github-org", "bluesky", "instagram", "tiktok", "youtube", "spotify", "reddit", "mastodon", "soundcloud", "facebook", "linkedin-page", "instagram-standalone", "warpcast", "lemmy", "discord", "slack", "skool", "whop", "pinterest", "dribbble", "medium", "devto", "hashnode", "wordpress", "gmb", "listmonk", "twitch", "threads", "telegram", "nostr", "vk", "kick", "moltbook", "ghost", "mewe", "tumblr", "kofi", "buymeacoffee", "liberapay", "gumroad", "payhip", "hotmart"] as const;
 
+/** The profile-contract version this build validates — generated from the schema
+ *  `$id` (issue #348). `pasco doctor` reports it; the published package ships no
+ *  `schema/` directory, so this constant is the runtime's copy of the contract
+ *  label. Never hand-edit: regenerate with `pnpm gen:zod`. */
+export const PROFILE_SCHEMA_VERSION = "1.14";
+
 /* ---------------------------------------------------------------------------
  * Generated helper — contract fidelity (D3).
  * JSON Schema `propertyNames: { enum: [en, es, fr] }` has no Zod equivalent, so

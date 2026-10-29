@@ -231,6 +231,21 @@ const platformValues = (platformDef.enum as unknown[]).map((value) => {
   return value;
 });
 
+// The profile-contract version is codegen-owned as a VALUE too (issue #348):
+// `pasco doctor` must report the schema the CLI was built against, and the
+// published package ships no `schema/` directory — so the version is derived
+// from the schema's own `$id` (`.../schema/v1.14/profile.schema.json`) into the
+// generated module. The `$id` stays the single hand-authored home; the gate is
+// `pnpm gen:zod` freshness (CI), never a hand-kept constant.
+const schemaId = typeof raw.$id === "string" ? raw.$id : "";
+const schemaVersionMatch = /\/v(\d+\.\d+)\/profile\.schema\.json$/.exec(schemaId);
+if (schemaVersionMatch === null) {
+  throw new Error(
+    `gen-zod: cannot derive the schema version from $id ${JSON.stringify(schemaId)} (expected .../v<MAJOR.MINOR>/profile.schema.json)`,
+  );
+}
+const schemaVersion = schemaVersionMatch[1] as string;
+
 let droppedRequiredOnlyOneOf = 0;
 const inlined = inlineDefs(normalizedRoot, normalizedDefs) as JsonNode;
 const generated = jsonSchemaToZod(inlined, { module: "esm", name: "profileSchema", zodVersion: 4 });
@@ -338,13 +353,19 @@ const BANNER = `/**
 const PLATFORM_VALUES_BLOCK = `
 /** Platform ids in schema order — generated from \`$defs.platform.enum\` (D3/D16). */
 export const PLATFORM_VALUES = [${platformValues.map((value) => JSON.stringify(value)).join(", ")}] as const;
+
+/** The profile-contract version this build validates — generated from the schema
+ *  \`$id\` (issue #348). \`pasco doctor\` reports it; the published package ships no
+ *  \`schema/\` directory, so this constant is the runtime's copy of the contract
+ *  label. Never hand-edit: regenerate with \`pnpm gen:zod\`. */
+export const PROFILE_SCHEMA_VERSION = ${JSON.stringify(schemaVersion)};
 `;
 
 mkdirSync(OUT_DIR, { recursive: true });
 writeFileSync(OUT_PATH, `${BANNER}${withKeyGuard}${PLATFORM_VALUES_BLOCK}${FOOTER}`, "utf8");
 console.log(
   `gen-zod: wrote ${OUT_PATH} (${langMapCount} langMap key-guards applied, ` +
-    `${platformValues.length} platform values exported)` +
+    `${platformValues.length} platform values exported, schema v${schemaVersion})` +
     (droppedRequiredOnlyOneOf > 0
       ? ` — ${droppedRequiredOnlyOneOf} required-only oneOf occurrence(s) dropped from Zod (the XOR must be re-checked in core post-Zod — D12 fail class; the JSON Schema keeps it)`
       : ""),

@@ -4,6 +4,17 @@
 workspace (JSON Schema, draft 2020-12). Per D3, JSON Schema is the contract source and
 **Zod schemas are generated from it** in `packages/core` — never hand-written in parallel.
 
+## Published contract for consumers without the engine (#348)
+
+A consumer that only validates a profile does not need the CLI or this repository
+checked out. The published identity of this schema is **URL + sha256**, recorded in
+[`consumer-contract.json`](consumer-contract.json) — the immutable copy at a released
+tag (tag-pinned raw URL) and the current committed bytes (sha256 + `$id` version).
+`node scripts/schema-contract/check.mjs --check` verifies both offline; a schema edit
+that forgets the manifest fails CI. The reading guide — how to fetch/verify, and what
+structural validation does **not** cover — is
+[`docs/SCHEMA-CONTRACT.md`](../docs/SCHEMA-CONTRACT.md) (SPEC §7.7).
+
 > Status: **v1.14** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
 > v1.x is **additive** (semver minor): every earlier workspace still validates unchanged. New
 > in v1.14 (issue #349): `publication.kind` — the closed output classification

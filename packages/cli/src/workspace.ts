@@ -63,6 +63,15 @@ export interface SelectionPolicyConfig {
 export interface Pascorc {
   /** Workspace path relative to the .pascorc file location. */
   workspace?: string;
+  /**
+   * Issue #348: the MINIMUM engine version this workspace requires, written as
+   * `MAJOR.MINOR.PATCH` (e.g. `"0.4.0"`). `validate`, `build` and
+   * `export profile` fail early when the running CLI is older; absent means no
+   * requirement (every existing workspace keeps working). The accepted syntax
+   * and the failure modes are the declared contract in SPEC §7.6 — a semver
+   * range is deliberately not accepted (the repo is dependency-light).
+   */
+  engine?: string;
   defaults?: PascorcDefaults;
   diff?: { tagPattern?: string };
   /** Issue #102: completeness policy (weights/target/langs) — optional. */

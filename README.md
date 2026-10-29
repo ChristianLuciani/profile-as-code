@@ -132,6 +132,7 @@ pnpm gen:platforms   # regenera las superficies derivadas desde platforms/regist
 - [`docs/SPEC.md`](docs/SPEC.md) — el contrato del motor: goals, decisiones (§5), data model, core interfaces, GEO, roadmap, brand flavor (§17).
 - [`docs/research/`](docs/research/) — prior-art + prompts de investigación SOTA por plataforma.
 - [`schema/README.md`](schema/README.md) — el contrato de datos: mapping de archivos, semántica de validación.
+- [`docs/SCHEMA-CONTRACT.md`](docs/SCHEMA-CONTRACT.md) — el contrato publicado para consumidores **sin** el engine: URL tag-pinned + sha256 del schema (y qué **no** cubre).
 - [`docs/ci-cd.md`](docs/ci-cd.md) — protección de main, CI, dependabot (cómo y por qué).
 - [`packages/core/README.md`](packages/core/README.md) — el motor: APIs, tests.
 
