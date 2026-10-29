@@ -29,7 +29,15 @@
  * Then:  node scripts/site-check/check.mjs   (or: pnpm site)
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -697,6 +705,41 @@ for (const doc of docs) {
   }
   if (!siteAgents.includes(`/docs/${doc.slug}.html`)) {
     throw new Error(`AGENTS.md does not list ${doc.slug}`);
+  }
+}
+// The landing alternates are ASSERTED against the pages, never trusted: a page
+// whose hreflang trio drifts from the sitemap is a broken alternative set, and a
+// gate that only counts `<loc>` would stay green while it happens (#308 review
+// F2). Every landing directory must also be declared here, or a future mirror
+// would silently miss the sitemap and the version gate (F7).
+for (const landing of LANDINGS) {
+  const html = readFileSync(path.join(ROOT, landing.file), "utf8");
+  const loc = `${SITE_URL}/${landing.slug}`;
+  if (!sitemap.includes(`<loc>${escapeXml(loc)}</loc>`)) {
+    throw new Error(`sitemap is missing the declared landing ${loc}`);
+  }
+  const trios = [...html.matchAll(/rel="alternate" hreflang="([^"]+)" href="([^"]+)"/g)].map(
+    (match) => [match[1], match[2]],
+  );
+  if (trios.length !== LANDINGS.length + 1) {
+    throw new Error(
+      `${landing.file} declares ${trios.length} hreflang alternative(s); expected ${LANDINGS.length} languages + x-default`,
+    );
+  }
+  for (const [lang, href] of trios) {
+    if (!sitemap.includes(`hreflang="${lang}" href="${href}"`)) {
+      throw new Error(`sitemap alternates do not match ${landing.file}: ${lang} → ${href}`);
+    }
+  }
+}
+for (const entry of readdirSync(SITE_DIR, { withFileTypes: true })) {
+  // `site/docs/` is the generated documentation index, not a landing.
+  if (!entry.isDirectory() || entry.name === "docs") continue;
+  if (!existsSync(path.join(SITE_DIR, entry.name, "index.html"))) continue;
+  if (!LANDINGS.some((landing) => landing.slug === `${entry.name}/`)) {
+    throw new Error(
+      `site/${entry.name}/index.html is an undeclared landing — add it to LANDINGS (sitemap + version gate)`,
+    );
   }
 }
 if (!robots.includes(`Sitemap: ${SITE_URL}/sitemap.xml`))

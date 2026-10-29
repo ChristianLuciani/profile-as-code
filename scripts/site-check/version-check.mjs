@@ -117,7 +117,17 @@ function selfTest() {
     ],
     "0.3.0",
   );
-  if (mirrorClaim.length === 0) failures.push("did not catch a version claim on a claim-free mirror");
+  if (mirrorClaim.length === 0)
+    failures.push("did not catch a version claim on a claim-free mirror");
+  const mirrorJsonLd = check(
+    [
+      { label: "site/es/index.html", text: `{"softwareVersion":"0.3.0"}`, claims: false },
+      { label: "site/index.html", text: `${PKG}@0.3.0`, claims: true },
+    ],
+    "0.3.0",
+  );
+  if (mirrorJsonLd.length === 0)
+    failures.push("did not catch softwareVersion on a claim-free mirror");
 
   if (failures.length > 0) throw new Error(`self-test failed: ${failures.join("; ")}`);
   console.log("site version-check self-test: PASS");
