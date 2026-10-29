@@ -49,6 +49,9 @@ importers:
 
   packages/cli:
     dependencies:
+      marked:
+        specifier: ^18.1.1
+        version: 18.1.1
       yaml:
         specifier: ^2.9.1
         version: 2.9.1

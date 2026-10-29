@@ -26,6 +26,30 @@ minor versions may contain breaking contract changes.
   invents an anchor); a `faq[].source` travels as `Answer.citation`. No consumer
   embeds `faqJsonLd` yet (renderers embed `jsonLd` only): the emitted node is the
   readiness surface the M5 web renderer will consume.
+- **`pasco preview` — see the data without publishing it (#282)** — a private
+  workspace had no way to *look* at the rendered result; the only options were to
+  publish it or to read the base texts one by one, and Pages is not the missing
+  piece (on personal plans the published site is public, so a private fork with
+  Pages on publishes the data). The new command renders **one self-contained HTML
+  file** — inline CSS, no `<script>`, no external asset, no HTTP server — whose
+  sections are the surfaces `pasco build` would write (`#github-readme`,
+  `#linkedin`, …), each with the check state, plus every surface this language
+  does not publish (named with its reason, never dropped). The default writes
+  `<workspace>/.pasco/preview/index.html` and opens it; `--out <dir>` writes and
+  opens nothing, which is the CI-artifact transport (the workflow itself lives in
+  the workspace template, not in the engine). **One artifact, not a second
+  implementation:** the text is `renderArtifact`'s decision tree (active variant →
+  renderer → shared paste source, with `build`'s selection gate) and the checks are
+  the report `pasco check` prints — that report is now a `buildCheckReport()`
+  function instead of a private body inside `runCheck`, so the two commands cannot
+  drift. A **privacy gate** refuses the write (exit 1, and no file is left behind)
+  on an absolute machine path, a credential shape, an external asset, active
+  content, or a source that resolves outside the workspace: evidence-root media is
+  never inlined, a remote image becomes a text note instead of a fetch, and raw
+  HTML in the data is escaped rather than executed. `--now <iso8601>` pins the
+  `generated <date>` stamp, so the page is byte-identical across runs. Contract in
+  SPEC §7.9 (command row in §7); `--help`, the package README and the User Guide
+  document it, and the privacy gate has its own seeded tests.
 - **`pasco export profile --json` — the normalized profile for programmatic
   consumers (#348)** — the engine exposed `build <platform>` (text slices) and
   `validate`, but

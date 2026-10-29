@@ -60,6 +60,7 @@ commands above are the standalone path.
 | `pasco validate [--json]` | Schema **fail** (exit 1) + drift/geo **warn** (exit 0) — D12 | ✅ |
 | `pasco doctor [--json]` | **Engine · schema · workspace** on one line (#348): the installed CLI version, the profile-contract version this build validates (from the schema `$id`), the resolved workspace and whether it loads, plus the **effective** `.pascorc` engine requirement (the strictest declaration in every config the resolution consulted, with its file). `--json` emits `{ engine, schema, workspace, requirement: { declared, met, problem?, source? } }`. Exit 0 healthy · 1 unhealthy · 2 usage; offline, no clock, no writes | ✅ v1 |
 | `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (the eight registered in the generated renderer map) write `profiles/<platform>/README.md` + bundled media; renderer-less manual surfaces with a bio row write `profiles/<platform>.md` (#239). Empty render = no-trace unbuild of the generated output, preserving `profiles/<platform>/variants/` (chosen-variant input, #238; pure profiles/, §15.1 — v1.7). Media in `profiles/<platform>/assets/` + `assets/manifest.json` (M8/§18.6 — see `docs/media-pipeline.md`) | ✅ |
+| `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso>] [--json]` | The **local view** (#282): **one** self-contained HTML file of the surfaces `pasco build` writes — inline CSS, no `<script>`, no external asset, no HTTP server. Sections are the published surfaces (`#github-readme`, `#linkedin`, …) plus the ones this language does not publish, named with their reason; the check state is the same report `pasco check` prints, and the text is `build`'s own render decision tree. Default `<workspace>/.pasco/preview/index.html`, then opened in the browser; `--out <dir>` writes and opens **nothing** (the CI-artifact transport). A privacy gate refuses the write (exit 1) on an absolute machine path, a credential shape, an external asset, active content, or a source outside the workspace | ✅ v1 |
 | `pasco edit <contract-path> [--set <text> [--check]]` | Resolve **one** contract field by contract path; `--set` **writes it** (comment-preserving range splice, validated, atomic) and `--set --check` previews the **published lines the edit changes** (or says it changes nothing). Epic #247, S1–S5 landed | ✅ S1–S5 (read · preview · write · surface impact · cap pre-flight · machine contract) |
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never · **certification** (verified/attested/unverifiable/out-of-band-drift, §19.5) + the derived **publication truth** per surface (§20.1, #242) + ledger write paths (D18, §19) | ✅ |
@@ -404,6 +405,60 @@ including what structural validation does **not** cover (the cross-file
 invariants core re-checks, engine behavior, `.pascorc` and this payload's
 envelope).
 
+### The local view (`pasco preview`, #282)
+
+`profile-data` is private because its data is personal, so there is no way to
+*see* the result without publishing something — and a private fork with Pages on
+publishes the data by default (personal plans have no access control). What was
+missing is a **view**, not hosting:
+
+```sh
+pasco preview                 # <workspace>/.pasco/preview/index.html, then opened
+pasco preview --no-open       # write it, open nothing
+pasco preview --out ./dist    # write ./dist/index.html, open nothing (CI)
+```
+
+**One file, two transports.** The artifact is the contract: one HTML document,
+inline CSS, no `<script>`, no external asset (no font, no CDN, no badge fetch),
+no HTTP server — it opens from `file://`, so nothing is published. A single file
+has no base URL to resolve, which is why there are no per-platform or
+per-language pages: one page with sections and anchors (`#github-readme`,
+`#linkedin`, …). A remote image in an artifact (a shields.io badge) is rendered
+as a text note instead of being fetched; workspace media is inlined as `data:`
+URIs. The header reads `generated <date> from <N> facts` — freshness, not a
+version — and `--now <iso8601>` pins that stamp so two runs are byte-identical.
+
+**What it composes.** The text per platform comes from the same decision tree
+`build` uses (active variant → renderer → shared paste source, with `build`'s
+selection gate), and the checks come from the same report `pasco check` prints.
+`preview` never touches `profiles/`; its default destination is
+`<workspace>/.pasco/preview/`, untracked as long as the workspace ignores
+`.pasco/` — a destination inside a git work tree that does not gets a warning
+that also travels in the page's own notes.
+
+**The privacy gate.** The public site publishes public entries only; the preview
+carries your working data, so it **refuses** and writes **no file**:
+
+| Rule | Refuses |
+|---|---|
+| `absolute-path` | a machine path (`/Users/…`, `C:\…`, `file:///…`) in the document |
+| `credential` | a pasted token or private key (token shapes, `secret: <16+ non-space>` assignments) |
+| `external-asset` | a `<link>`, a remote `src`, `url(https:…)`, `@import` |
+| `active-content` | a `<script>`, an `on*=` handler, an `<iframe>`, a `javascript:` URL |
+| `source-outside-declared-roots` | a source that resolves outside the workspace (a symlink escape) |
+| `source-missing` · `credential-file` | a declared source that is gone; a dotfile-shaped asset (`.env`, `.netrc`, `id_rsa`, `*.pem`) |
+
+Evidence-root media is never inlined (a per-machine path never reaches a render);
+an oversized image is left out and listed, never silently dropped. The gate's
+own refusal classes are exercised by the package test suite.
+
+**Limits, stated.** `--out` into a git work tree without an ignore entry warns —
+a preview committed by accident is the leak the command exists to avoid. The
+preview does not edit, does not encrypt (that breaks the no-JS invariant), and
+does not enforce: it reports the check state, `pasco check` remains the gate. The
+CI-artifact transport is a workflow in your workspace template, `workflow_dispatch`
+only, with no Pages; the artifact is readable by anyone with repository access.
+
 ### Contract paths (`pasco edit`, epic #247 — read · preview · write)
 
 One command answers *"what will the published text be?"* and, when asked, **writes
@@ -674,7 +729,7 @@ file) > current directory.
 
 The `engine` field is the **minimum** CLI version this workspace requires
 (#348, SPEC §7.6), written as exactly `MAJOR.MINOR.PATCH` (a lower bound, not a
-semver range). `validate`, `build` and `export profile` check it before doing
+semver range). `validate`, `build`, `export profile` and `preview` check it before doing
 any work: an older install exits `1` with the required version, the installed
 version and the upgrade command; a malformed value exits `1` with the accepted
 syntax. Absent means no requirement. Every `.pascorc` the resolution consulted is
@@ -696,7 +751,7 @@ written to the workspace; only this policy is stored.
 | Code | Meaning |
 |---|---|
 | `0` | OK — schema valid. Drift warnings still exit 0 (D12: facts warn, schema fails). |
-| `1` | Schema or operational failure (workspace not found, bad YAML, not a git repo for `diff`), **an unmet or malformed `.pascorc` `engine` requirement** (`validate` · `build` · `export profile`, before any work), **or a data finding that blocks the command** (`edit`: the address is not exactly one row, or the edit does not change the published artifact; `audit`: at least one `FAIL` finding; `export ai-policy`: an unsourced or stale UA list, or a refused write). |
+| `1` | Schema or operational failure (workspace not found, bad YAML, not a git repo for `diff`), **an unmet or malformed `.pascorc` `engine` requirement** (`validate` · `build` · `export profile` · `preview`, before any work), **or a data finding that blocks the command** (`edit`: the address is not exactly one row, or the edit does not change the published artifact; `audit`: at least one `FAIL` finding; `export ai-policy`: an unsourced or stale UA list, or a refused write; `preview`: the privacy gate refused a document, or the write failed). |
 | `2` | Usage error (unknown command/platform/lang, bad flags). |
 
 Human output is EN by default (D8/§11); `--json` prints a machine-readable
