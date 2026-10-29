@@ -6,7 +6,7 @@
  *
  * Consumes @profile-as-code/core (load/driftCheck/geoCheck/compile); never
  * re-implements them. Exit codes: 0 ok · 1 schema/workspace failure, an unmet
- * `.pascorc` engine requirement (validate · build · export profile), or a data
+ * `.pascorc` engine requirement (validate · build · export profile · preview), or a data
  * finding that blocks the command (edit · audit · entity · export ai-policy ·
  * a malformed export profile --now) · 2 usage.
  * Human output EN by default (D8/§11); `--json` machine-readable on every
@@ -25,7 +25,7 @@ import { runDoctor } from "./commands/doctor.js";
 import { runEdit } from "./commands/edit.js";
 import { runEntity } from "./commands/entity.js";
 import { runAiPolicyCheck, runAiPolicyExport } from "./commands/export.js";
-import { runExportProfile } from "./commands/export-profile.js";
+import { resolveNow, runExportProfile } from "./commands/export-profile.js";
 import { runInit } from "./commands/init.js";
 import { runPost } from "./commands/post.js";
 import { runPreview } from "./commands/preview.js";
@@ -126,7 +126,7 @@ Common flags (after the command):
   --help, -h          Command help
 
 Exit codes: 0 ok · 1 schema/workspace failure, a .pascorc engine requirement that
-the installed CLI does not meet (validate · build · export profile), or a data
+the installed CLI does not meet (validate · build · export profile · preview), or a data
 finding that blocks the
 command (edit: the address is not one row or the edit does not change the
 published artifact; audit: at least one FAIL finding; entity: no canonical @id;
@@ -657,16 +657,14 @@ async function runMain(): Promise<number> {
           "usage: pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso8601>] [--json]",
         );
       }
-      if (flags.now !== undefined) {
-        // A malformed flag is USAGE (exit 2), not a config failure: the test is
-        // the full shape AND a real calendar instant, so `2026-13-01T00:00:00Z`
-        // cannot slip past a prefix check and land as exit 1 (fresh review F4).
-        const iso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/u;
-        if (!iso.test(flags.now) || Number.isNaN(Date.parse(flags.now))) {
-          throw new UsageError(
-            "usage: --now takes an ISO 8601 timestamp (e.g. 2026-10-29T12:00:00Z)",
-          );
-        }
+      if (flags.now !== undefined && !resolveNow(flags.now).ok) {
+        // A malformed flag is USAGE (exit 2), tested by the SAME calendar-strict
+        // resolver `export profile` uses: `Date.parse` alone normalizes
+        // `2026-02-30` and `T24:00:00` into a different instant (fresh reviews
+        // of #354, F4 then F3).
+        throw new UsageError(
+          "usage: --now takes a real ISO 8601 instant (e.g. 2026-10-29T12:00:00Z)",
+        );
       }
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);

@@ -80,7 +80,9 @@ describe("pasco preview — the artifact", () => {
     expect(html).toMatch(/<style>/u);
     expect(html).not.toMatch(/<script/iu);
     expect(html).not.toMatch(/<link\b/iu);
-    expect(html).not.toMatch(/\bsrc\s*=\s*["']?(?!data:image\/)/iu);
+    // Assert with the gate itself: a second copy of the attribute regex is how
+    // the round-1 bug survived its own test (round-2 F5).
+    expect(scanPreviewHtml(html)).toEqual([]);
     expect(html).not.toMatch(/@import/iu);
     // The surfaces that publish for this language are sections; the rest are
     // LISTED, never silently dropped.
@@ -89,7 +91,7 @@ describe("pasco preview — the artifact", () => {
     expect(html).toContain('id="not-published"');
     expect(html).toContain('id="checks"');
     // Freshness, not a version.
-    expect(html).toMatch(/generated 2026-10-29T12:00:00\.000Z from \d+ facts/u);
+    expect(html).toMatch(/generated 2026-10-29T12:00:00Z from \d+ facts/u);
     expect(html).toContain('name="robots" content="noindex, nofollow, noarchive"');
   });
 
@@ -137,11 +139,34 @@ describe("pasco preview — the artifact", () => {
     expect(envelope.data.written).toBe(true);
     expect(envelope.data.path).toBe(join(out, "index.html"));
     expect(envelope.data.opened).toBe(false);
-    expect(envelope.data.generatedAt).toBe("2026-10-29T12:00:00.000Z");
+    expect(envelope.data.generatedAt).toBe("2026-10-29T12:00:00Z");
     expect(envelope.data.privacy.findings).toEqual([]);
     expect(
       envelope.data.sections.some((s: { platform: string }) => s.platform === "github-readme"),
     ).toBe(true);
+  });
+
+  it("dates the check rules from --now, not from the machine clock (round-2 F1)", () => {
+    // A credential expiring 2023-01-01: under a 2022 pin it is NOT expired, under
+    // a 2024 pin it is. Reading the machine clock would print "expired" in both
+    // runs — and change the bytes from one day to the next.
+    const workspace = workspaceCopy({
+      file: "credentials.yaml",
+      from: "  issued: 2021-06-01",
+      to: "  issued: 2021-06-01\n  expires: 2023-01-01",
+    });
+    const past = join(workspace, "past");
+    const future = join(workspace, "future");
+    expect(
+      run(["preview", "--workspace", workspace, "--out", past, "--now", "2022-01-01T00:00:00Z"])
+        .code,
+    ).toBe(0);
+    expect(
+      run(["preview", "--workspace", workspace, "--out", future, "--now", "2024-01-01T00:00:00Z"])
+        .code,
+    ).toBe(0);
+    expect(readFileSync(join(past, "index.html"), "utf8")).not.toContain("expired 2023-01-01");
+    expect(readFileSync(join(future, "index.html"), "utf8")).toContain("expired 2023-01-01");
   });
 
   it("is byte-identical for the same workspace and the same --now", () => {
@@ -162,6 +187,9 @@ describe("pasco preview — the artifact", () => {
     const result = run(["preview", "--workspace", workspace, "--out", out, "--now", NOW]);
     expect(result.code).toBe(0);
     expect(result.stdout).toContain("not ignored");
+    // …and in the page's own notes: resolving the destination before the render
+    // is what keeps the two surfaces from disagreeing (round-2 F7).
+    expect(readFileSync(join(out, "index.html"), "utf8")).toContain("not ignored");
   });
 
   it("refuses a positional argument and a malformed --now (usage, exit 2)", () => {
@@ -173,6 +201,13 @@ describe("pasco preview — the artifact", () => {
       2,
     );
     expect(run(["preview", "--workspace", workspace, "--now", "2026-10-29T99:99:99Z"]).code).toBe(
+      2,
+    );
+    // Date.parse normalizes these into another instant; the contract does not.
+    expect(run(["preview", "--workspace", workspace, "--now", "2026-02-30T00:00:00Z"]).code).toBe(
+      2,
+    );
+    expect(run(["preview", "--workspace", workspace, "--now", "2026-10-29T24:00:00Z"]).code).toBe(
       2,
     );
     expect(
@@ -202,6 +237,10 @@ describe("pasco preview — the privacy gate refuses the write", () => {
     expect(existsSync(join(out, "index.html"))).toBe(false);
     expect(result.stderr).toContain("privacy");
     expect(result.stderr).toContain("credential");
+    // Redacted at creation: the token must not survive in the message or stdout
+    // (round-2 F8).
+    expect(result.stderr).not.toContain("ghp_");
+    expect(result.stdout).not.toContain("ghp_");
   });
 
   it("refuses an absolute local path in the data", () => {
@@ -260,6 +299,17 @@ describe("preview privacy — the gate's own teeth (seeded)", () => {
     expect(scanPreviewHtml('<div onclick="x()">x</div>')).toEqual(
       expect.arrayContaining([expect.objectContaining({ rule: "active-content" })]),
     );
+    // Round-2 F2: a `>` inside a quoted attribute does not end the tag, and an
+    // inline `style` is CSS in a tag — both used to slip past the gate.
+    expect(scanPreviewHtml('<img alt="a>b" src="https://evil.example/x.png">')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ rule: "external-asset" })]),
+    );
+    expect(
+      scanPreviewHtml('<div style="background:url(https://evil.example/x.png)">x</div>'),
+    ).toEqual(expect.arrayContaining([expect.objectContaining({ rule: "external-asset" })]));
+    expect(
+      scanPreviewHtml('<div style="background:url(data:image/svg+xml;base64,AA)">x</div>'),
+    ).toEqual([]);
     expect(scanPreviewHtml("<!doctype html><p>clean, inline data:image only</p>")).toEqual([]);
   });
 

@@ -96,6 +96,8 @@ export function buildCheckReport(args: {
   profile: LoadedProfile;
   platform?: Platform;
   pascorc: Pascorc;
+  /** Pinned date (YYYY-MM-DD) for the clock-keyed rules — `preview --now`. */
+  today?: string;
 }): CheckReport {
   const { workspace, profile, platform } = args;
   // A workspace that predates the catalog (or deliberately has no file) still
@@ -120,7 +122,7 @@ export function buildCheckReport(args: {
   // Evidence registry (v1.4/D17, §18.8): offline, deterministic. Warn findings
   // report; ERROR findings (the §18.5 leak gate `no-private-in-public-output`)
   // fail the check — renderers emit only public, so a leak must block, not warn.
-  const registry = registryCheck(profile);
+  const registry = registryCheck(profile, args.today === undefined ? {} : { today: args.today });
   // M8 (§18.6 media transport): same severity contract — a broken in-workspace
   // SSOT (missing/unsafe file, declared-checksum mismatch) is an error; per-
   // machine external state (no evidence root, symlink escape, oversize) warns.

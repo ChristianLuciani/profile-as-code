@@ -121,8 +121,13 @@ const FORBIDDEN_MARKUP: readonly { name: string; rule: PrivacyRule; re: RegExp }
   { name: "event-handler", rule: "active-content", re: /\son[a-z]+\s*=/iu },
 ];
 
-/** Real tags only: an escaped `&lt;img …&gt;` never matches (see the header). */
-const TAG = /<\/?[a-zA-Z][a-zA-Z0-9-]*\b[^>]*>/gu;
+/**
+ * Real tags only: an escaped `&lt;img …&gt;` never matches (see the header), and
+ * a `>` INSIDE a quoted attribute value does not end the tag — a naive `[^>]*`
+ * stopped there, so `<img alt="a>b" src="https://…">` was never judged (round-2
+ * F2). Quoted runs are consumed as units; the tag ends at the first bare `>`.
+ */
+const TAG = /<[a-zA-Z][^>"']*(?:(?:"[^"]*"|'[^']*')[^>"']*)*>/gu;
 /** The CSS of a `<style>` block — where a `url(...)`/import would live. */
 const STYLE_BLOCK = /<style\b[^>]*>([\s\S]*?)<\/style>/giu;
 /** `name="…" | name='…' | name=bare` inside a tag. */
@@ -132,6 +137,7 @@ const SRC = attribute("src");
 const SRCSET = attribute("srcset");
 const HREF = attribute("href");
 const POSTER = attribute("poster");
+const STYLE_ATTR = attribute("style");
 /** `url(...)` inside CSS, value captured (never judged through backtracking). */
 const CSS_URL = /\burl\(\s*(?:"([^"]*)"|'([^']*)'|([^)"']*?))\s*\)/giu;
 
@@ -184,12 +190,14 @@ export const PRIVACY_RULES: readonly PrivacyRule[] = [
   "credential-file",
 ];
 
-/** First match of `re` in `text`, trimmed to a readable excerpt (≤120 chars). */
-function excerpt(text: string, re: RegExp): string | undefined {
-  const match = re.exec(text);
-  if (match === null) return undefined;
-  const found = match[0].replace(/\s+/gu, " ").trim();
-  return found.length > 120 ? `${found.slice(0, 117)}…` : found;
+/** `true` when a CSS fragment carries no import and no non-inline `url()`. */
+function cssIsSelfContained(css: string): boolean {
+  if (/@import\b/iu.test(css)) return false;
+  for (const match of css.matchAll(CSS_URL)) {
+    const value = (match[1] ?? match[2] ?? match[3] ?? "").trim();
+    if (value !== "" && !isInlineValue(value)) return false;
+  }
+  return true;
 }
 
 /**
@@ -202,9 +210,15 @@ export function scanPreviewHtml(html: string): PrivacyFinding[] {
 
   // ── TEXT: a path or a token leaks in prose exactly as it leaks in markup.
   for (const rule of ABSOLUTE_PATHS) {
-    const found = excerpt(html, rule.re);
-    if (found !== undefined) {
-      findings.push({ rule: "absolute-path", detail: `${rule.name}: ${found}` });
+    // Redacted like a credential (round-2 F8): a refusal message that echoes the
+    // path into stderr/--json/CI logs reproduces the leak it refused to write.
+    // The offset is what makes it findable in the data.
+    const match = rule.re.exec(html);
+    if (match !== null) {
+      findings.push({
+        rule: "absolute-path",
+        detail: `${rule.name}: <redacted, ${match[0].length} chars at offset ${match.index ?? 0}>`,
+      });
     }
   }
   for (const rule of CREDENTIALS) {
@@ -245,19 +259,24 @@ export function scanPreviewHtml(html: string): PrivacyFinding[] {
     if (href !== undefined && /^javascript:/iu.test(href)) {
       findings.push({ rule: "active-content", detail: "javascript: URL" });
     }
+    // An inline `style` is CSS in a tag: the same fetch rules apply (round-2 F2).
+    const inlineStyle = attr(STYLE_ATTR, tag);
+    if (inlineStyle !== undefined && !cssIsSelfContained(inlineStyle)) {
+      findings.push({
+        rule: "external-asset",
+        detail: `style attribute: ${inlineStyle.slice(0, 80)}`,
+      });
+    }
   }
 
-  // ── CSS: the `<style>` block's own text (not tags) — imports and url().
+  // ── CSS: the `<style>` blocks' own text (not tags) — imports and url().
   for (const block of html.matchAll(STYLE_BLOCK)) {
     const css = block[1] ?? "";
-    if (/@import\b/iu.test(css)) {
-      findings.push({ rule: "external-asset", detail: "stylesheet import in the inline CSS" });
-    }
-    for (const match of css.matchAll(CSS_URL)) {
-      const value = (match[1] ?? match[2] ?? match[3] ?? "").trim();
-      if (value !== "" && !isInlineValue(value)) {
-        findings.push({ rule: "external-asset", detail: `css url(): ${value.slice(0, 80)}` });
-      }
+    if (!cssIsSelfContained(css)) {
+      findings.push({
+        rule: "external-asset",
+        detail: "stylesheet import or remote url() in the inline CSS",
+      });
     }
   }
 

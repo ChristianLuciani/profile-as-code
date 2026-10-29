@@ -426,10 +426,10 @@ version — and `--now <iso8601>` pins that stamp so two runs are byte-identical
 **What it composes.** The text per platform comes from the same decision tree
 `build` uses (active variant → renderer → shared paste source, with `build`'s
 selection gate), and the checks come from the same report `pasco check` prints.
-`preview` never touches `profiles/` and writes outside the versioned tree by
-default — `<workspace>/.pasco/preview/`, which is untracked as long as the
-workspace ignores `.pasco/`; a destination inside a git work tree that does not
-gets a warning.
+`preview` never touches `profiles/`; its default destination is
+`<workspace>/.pasco/preview/`, untracked as long as the workspace ignores
+`.pasco/` — a destination inside a git work tree that does not gets a warning
+that also travels in the page's own notes.
 
 **The privacy gate.** The public site publishes public entries only; the preview
 carries your working data, so it **refuses** and writes **no file**:
@@ -721,7 +721,7 @@ file) > current directory.
 
 The `engine` field is the **minimum** CLI version this workspace requires
 (#348, SPEC §7.6), written as exactly `MAJOR.MINOR.PATCH` (a lower bound, not a
-semver range). `validate`, `build` and `export profile` check it before doing
+semver range). `validate`, `build`, `export profile` and `preview` check it before doing
 any work: an older install exits `1` with the required version, the installed
 version and the upgrade command; a malformed value exits `1` with the accepted
 syntax. Absent means no requirement. Every `.pascorc` the resolution consulted is
@@ -743,7 +743,7 @@ written to the workspace; only this policy is stored.
 | Code | Meaning |
 |---|---|
 | `0` | OK — schema valid. Drift warnings still exit 0 (D12: facts warn, schema fails). |
-| `1` | Schema or operational failure (workspace not found, bad YAML, not a git repo for `diff`), **an unmet or malformed `.pascorc` `engine` requirement** (`validate` · `build` · `export profile`, before any work), **or a data finding that blocks the command** (`edit`: the address is not exactly one row, or the edit does not change the published artifact; `audit`: at least one `FAIL` finding; `export ai-policy`: an unsourced or stale UA list, or a refused write; `preview`: the privacy gate refused a document, or the write failed). |
+| `1` | Schema or operational failure (workspace not found, bad YAML, not a git repo for `diff`), **an unmet or malformed `.pascorc` `engine` requirement** (`validate` · `build` · `export profile` · `preview`, before any work), **or a data finding that blocks the command** (`edit`: the address is not exactly one row, or the edit does not change the published artifact; `audit`: at least one `FAIL` finding; `export ai-policy`: an unsourced or stale UA list, or a refused write; `preview`: the privacy gate refused a document, or the write failed). |
 | `2` | Usage error (unknown command/platform/lang, bad flags). |
 
 Human output is EN by default (D8/§11); `--json` prints a machine-readable

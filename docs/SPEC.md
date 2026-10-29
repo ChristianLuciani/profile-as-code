@@ -943,7 +943,7 @@ added. The witness is `projects[].artifactRefs` (#333/v1.12): a workspace carryi
 it must be accepted by both, and a workspace carrying an unknown row field must be
 refused by both **with identical violations**. A CLI test pins both directions —
 the artifactRefs fixture plus an injected unknown key, asserting equal error
-payloads across `validate`, `build` and `export profile` — so a second schema or a
+payloads across `validate`, `build`, `export profile` and `preview` — so a second schema or a
 different policy cannot be introduced on one command without failing CI. The new
 command's own schema-failure row (`kind: "schema"` + `violations`, e.g. a dangling
 `artifactRefs` target) is tested separately, because it shares the same load path
@@ -963,7 +963,7 @@ contracts. No renderer, no visibility filtering, no platform slice, no writes.
 
 A workspace written for a newer contract must fail with the facts a user needs,
 not with a confusing parse/load error. `.pascorc` declares the **minimum engine**
-the workspace requires; `validate`, `build` and `export profile` check it
+the workspace requires; `validate`, `build`, `export profile` and `preview` check it
 **before doing any work**:
 
 ```json
@@ -993,7 +993,7 @@ the workspace requires; `validate`, `build` and `export profile` check it
   accepted syntax — it is never coerced, dropped, or read as "no requirement".
   The JSON envelope carries the same refusal as `error: { kind: "engine" | "config",
   message }`; `2` remains usage.
-- **Scope of the gate is exact:** `validate`, `build` and `export profile`.
+- **Scope of the gate is exact:** `validate`, `build`, `export profile` and `preview`.
   Other commands keep their own semantics; `.pascorc` is not re-read as a global
   policy engine.
 - **Every consulted `.pascorc` counts (fresh-review F1).** With no `--workspace`
@@ -1142,8 +1142,9 @@ becomes a text note — a preview that fetched it would stop being offline and
 would tell a third party the operator opened their own data.
 
 **Exit matrix:** `0` written (warnings do not block) · `1` the workspace fails to
-load, a selection error makes `build` refuse the surface, the privacy gate
-refused, or the write failed · `2` usage. Offline; the only clock read is the
+load, the `.pascorc` engine requirement is unmet (§7.6 — `preview` is in the
+gate's scope), a selection error makes `build` refuse the surface, the privacy
+gate refused, or the write failed · `2` usage. Offline; the only clock read is the
 document's own stamp, and `--now` removes it.
 
 **What it does not do.** Transport B's workflow lives in the workspace template

@@ -9,8 +9,9 @@
  *
  * Two transports, one renderer (the issue's A/B):
  *   A. local, the default — `<workspace>/.pasco/preview/index.html`, then opened
- *      in the browser. Writes outside the versioned tree; `--out` warns when the
- *      destination falls inside a git work tree without an ignore entry.
+ *      in the browser. Untracked as long as the workspace ignores `.pasco/`;
+ *      `--out` warns when the destination falls inside a git work tree without
+ *      an ignore entry.
  *   B. a CI artifact — the same command with `--out` (which never opens
  *      anything), uploaded by a workflow. That half lives in the workspace
  *      template, not in the engine (multi-tenant rule §9).
@@ -60,6 +61,7 @@ import { PRIVACY_RULES, privacyFindings } from "../preview/privacy.js";
 import { artifactPath } from "../publication.js";
 import { ConfigError, defaultsLang, type Pascorc } from "../workspace.js";
 import { buildCheckReport } from "./check.js";
+import { resolveNow } from "./export-profile.js";
 
 export interface PreviewArgs {
   workspace: string;
@@ -230,14 +232,20 @@ function openFile(file: string): boolean {
   return result.status === 0;
 }
 
+/**
+ * `--now` goes through the SAME calendar-strict resolver `export profile` uses
+ * (`resolveNow`): `Date.parse` normalizes `2026-02-30` and `T24:00:00` into a
+ * different instant, which would stamp a date that does not exist (fresh review
+ * of #354, F3 — one validator, two commands, never a weaker second copy).
+ */
 function parseNow(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime()) || !/^\d{4}-\d{2}-\d{2}T/u.test(value)) {
+  const resolved = resolveNow(value);
+  if (!resolved.ok || resolved.generatedAt === null) {
     throw new ConfigError(
-      `--now "${value}" is not an ISO 8601 timestamp (expected 2026-10-29T12:00:00Z)`,
+      `--now "${value}" is not a real ISO 8601 instant (expected 2026-10-29T12:00:00Z)`,
     );
   }
-  return date.toISOString();
+  return resolved.generatedAt;
 }
 
 export function runPreview(args: PreviewArgs): number {
@@ -323,7 +331,14 @@ export function runPreview(args: PreviewArgs): number {
   // The check state the issue asks for ("when it exists"): the same report
   // `pasco check` prints, with every path made workspace-relative so the
   // document passes its own absolute-path rule.
-  const checks = buildCheckReport({ workspace: args.workspace, profile, pascorc: args.pascorc });
+  const checks = buildCheckReport({
+    workspace: args.workspace,
+    profile,
+    pascorc: args.pascorc,
+    // The pinned date governs the clock-keyed rules too, so the page cannot say
+    // "generated 2026-01-01" beside "expired 2026-06-01" (round-2 F1).
+    today: generatedAt.slice(0, 10),
+  });
   const checkFindings = [
     ...checks.registry,
     ...checks.media,
