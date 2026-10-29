@@ -171,6 +171,8 @@ interface FlagOptions {
   out?: string;
   type?: string;
   date?: string;
+  format?: string;
+  from?: string;
   list?: boolean;
   force?: boolean;
   jsonld?: boolean;
@@ -480,19 +482,27 @@ name. --list shows them; an existing non-empty directory needs --force (files ar
 overlaid, nothing is deleted). No harness-specific destination is invented.`,
   post: `pasco post <seed|task|choose|check|export|import|list> [...] [--json] [--workspace <path>]
 MVP (week-1 experiment): a post is a PROJECTION of a seed, not an identity fact.
-  seed <id> --text <file>          create posts/<id>/seed.md + post.yaml
-  task <id> --channel <c1,c2> [--variants N]
+Two seed formats (#266): short (distribution) and longform (the essay/newsletter).
+  seed <id> --text <file> [--format short|longform]
+                                   create posts/<id>/seed.md + post.yaml
+  task <id> --channel <c1,c2> [--variants N] [--format short|longform]
                                    emit posts/<id>/<channel>/task.md (agent task:
                                    seed + facts + skill + channel rules); no LLM call
+       task <id> --format short --from <essay-id> --channel <c1,c2>
+                                   derive the short family from a long-form seed
+                                   (each child records derivedFrom: <essay-id>)
   choose <id> --channel <c> --variant <v> [--text <file>]
                                    record the chosen variant in post.yaml
-  check <id>                       max-chars, URLs only from the SSOT, {{fact:...}}
-                                   refs resolve; unsourced numeric claims warn
+  check <id>                       short: max-chars, URLs only from the SSOT,
+                                   {{fact:...}} refs resolve, claims warn;
+                                   longform: title/dek, word count, SSOT URLs
+                                   (canonical included), refs, claims
   export <id> [--target postiz] [--out <file>] [--type draft|schedule|now] [--date <iso>]
-                                   build a Postiz POST /posts payload (integration
-                                   IDs from postiz.yaml; REPLACE_ME when missing)
+                                   API channels → Postiz POST /posts payload
+                                   (integration IDs from postiz.yaml; REPLACE_ME
+                                   when missing); paste channels → paste-checklist.md
   import <dir> --channel <c>       import historical .md posts as seeds
-  list                             list seeds and their chosen variants`,
+  list                             list seeds, formats, derivedFrom and chosen variants`,
   status: `pasco status [platform] [--mark <ledgerKey> <surface>] [--at <iso8601>] [--verify] [--write-checklist] [--completeness] [--json] [--workspace <path>]
 Per-entry deploy-status report (D18, §19): ledger key · origin (template/user) ·
 surfaces published · sync state (in-sync / stale / never) · certification
@@ -877,6 +887,8 @@ async function runMain(): Promise<number> {
         out: { type: "string" },
         type: { type: "string" },
         date: { type: "string" },
+        format: { type: "string" },
+        from: { type: "string" },
       });
       if (flags.help === true) {
         process.stdout.write(`${COMMAND_HELP.post}\n`);
@@ -902,6 +914,8 @@ async function runMain(): Promise<number> {
         outArg: flags.out,
         typeArg: flags.type,
         dateArg: flags.date,
+        formatArg: flags.format,
+        fromArg: flags.from,
         pascorc,
       });
     }

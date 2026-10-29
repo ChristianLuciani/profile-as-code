@@ -1,0 +1,36 @@
+# substack long-form rules — machine-readable (#266)
+#
+# Read by `pasco post task|check|export` when the seed is `format: longform`.
+# The word range is an EDITORIAL default (the operator's house style), NOT a
+# platform limit: cite a platform source before encoding a hard cap here.
+# `export: paste` because Substack exposes no body-publish API — the post is
+# pasted into the editor (#266 decision).
+
+platform: substack
+format: longform
+export: paste
+settings:
+  __type: substack
+fields:
+  required:
+    - title
+    - dek
+  optional:
+    - preview
+    - tags
+    - canonical
+    - list
+limits:
+  words:
+    min: 600
+    max: 3000
+links:
+  policy: identity-ssot-only
+structure:
+  - title
+  - dek
+  - sections
+sources:
+  - url: https://support.substack.com/
+    date: 2026-10-29
+    note: "Substack publishes from its editor and has no public post-publish API; v1 treats it as a paste surface (#266)."

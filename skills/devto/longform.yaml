@@ -1,0 +1,33 @@
+# devto long-form rules — machine-readable (#266)
+#
+# Read by `pasco post task|check|export` when the seed is `format: longform`.
+# The word range is an EDITORIAL default (the operator's house style), NOT a
+# platform limit: cite a platform source before encoding a hard cap here.
+
+platform: devto
+format: longform
+export: api
+settings:
+  __type: devto
+fields:
+  required:
+    - title
+    - dek
+  optional:
+    - tags
+    - canonical
+    - publication
+limits:
+  words:
+    min: 600
+    max: 3000
+links:
+  policy: identity-ssot-only
+structure:
+  - title
+  - dek
+  - sections
+sources:
+  - url: https://developers.forem.com/api
+    date: 2026-10-29
+    note: "The Forem/DEV articles API takes title, tags and canonical_url; the body is markdown."

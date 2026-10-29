@@ -53,10 +53,20 @@ skills/<plataforma>/
 marca (≠ voz personal), handle-matrix checks (`handle-claimed`/`handle-consistent`,
 offline en `pasco check`), trademark/impersonación. Ver `skills/github-org/`.
 
-## Post skills (MVP, #264)
+## Post skills (MVP, #264/#266)
 
 The week-1 post experiment uses a **different shape** from the profile skills:
-`skills/<platform>/post.md` (judgment) + `skills/<platform>/posting.yaml`
-(machine-readable limits/settings). `pasco post` reads them; `pasco refine` keeps
-reading `SKILL.md`. They cover two channels only (`linkedin`, `x`) and are not
-projected to harnesses yet — see `docs/post-mvp.md`.
+`skills/<platform>/post.md` (judgment) + a machine-readable rule file.
+`pasco post` reads them; `pasco refine` keeps reading `SKILL.md`.
+
+- **Short** (`posting.yaml`): `linkedin`, `x` — char limits, hashtags.
+- **Long-form** (`longform.yaml`, #266): `substack`, `ghost`, `medium`, `devto`,
+  `hashnode`, `wordpress`, `listmonk` — required fields (`title`/`dek`), an
+  editorial word band, and `export: api | paste` (Substack/Ghost are paste
+  surfaces). The word band is house style, not a platform limit: cite a source
+  before encoding a hard cap. These channels carry **no `SKILL.md` and no
+  `post.md` yet**: `longform.yaml` is the whole contract for now, and the
+  editorial judgment (voice, structure, examples) is deliberately deferred —
+  add it as `post.md` when the channel is used in earnest.
+
+Neither shape is projected to harnesses yet — see `docs/post-mvp.md`.

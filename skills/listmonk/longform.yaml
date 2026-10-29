@@ -1,0 +1,33 @@
+# listmonk long-form rules — machine-readable (#266)
+#
+# Read by `pasco post task|check|export` when the seed is `format: longform`.
+# The word range is an EDITORIAL default (the operator's house style), NOT a
+# platform limit: cite a platform source before encoding a hard cap here.
+
+platform: listmonk
+format: longform
+export: api
+settings:
+  __type: listmonk
+fields:
+  required:
+    - title
+    - dek
+  optional:
+    - preview
+    - publication
+    - list
+limits:
+  words:
+    min: 400
+    max: 1500
+links:
+  policy: identity-ssot-only
+structure:
+  - title
+  - dek
+  - sections
+sources:
+  - url: https://listmonk.app/docs/apis/apis/
+    date: 2026-10-29
+    note: "listmonk's API creates a campaign with a body and one or more list ids; the audience is the list, not a channel."

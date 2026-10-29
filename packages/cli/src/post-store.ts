@@ -8,6 +8,10 @@
  *   sync:          local-only | published | diverged | deleted-remote
  *   certification: verified | attested | unverifiable
  *
+ * #266 adds the two shapes: `format: short | longform` is a property of the
+ * seed, and a short post derived from an essay carries `derivedFrom: <seed-id>`
+ * (the essay owns the canonical text; the derived seed has no seed.md).
+ *
  * The store is deliberately OUTSIDE `content/` and outside the profile schema:
  * a post is an event/projection, not an identity fact, and it must never enter
  * `artifacts[]` (D17 is immutable-work scoped). Only this module writes it.
@@ -21,6 +25,9 @@ import { parseDocument, stringify } from "yaml";
 export type PostSyncState = "local-only" | "published" | "diverged" | "deleted-remote";
 export type PostCertification = "verified" | "attested" | "unverifiable";
 export type PostSource = "authored" | "imported";
+/** The seed's native shape (#266). Long-form is the essay/newsletter; short is
+ *  the distribution projection. The format belongs to the SEED, not the channel. */
+export type PostFormat = "short" | "longform";
 
 export interface PostChannelState {
   chosen?: string;
@@ -40,8 +47,17 @@ export interface PostLedger {
   createdAt: string;
   source: PostSource;
   seed: string;
+  /** Native shape of this seed (#266). Absent in a pre-#266 ledger = "short". */
+  format: PostFormat;
+  /** Parent long-form seed this short post is derived from (#266). */
+  derivedFrom?: string;
   status: "draft" | "published" | "archived";
   channels: Record<string, PostChannelState>;
+}
+
+export interface SeedOptions {
+  format?: PostFormat;
+  derivedFrom?: string;
 }
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -84,15 +100,19 @@ export function hashText(text: string): string {
   return createHash("sha256").update(text).digest("hex");
 }
 
-function defaultLedger(id: string, source: PostSource): PostLedger {
-  return {
+function defaultLedger(id: string, source: PostSource, options: SeedOptions = {}): PostLedger {
+  const ledger: PostLedger = {
     id,
     createdAt: new Date().toISOString(),
     source,
-    seed: "seed.md",
+    // A derived seed keeps its canonical text in the parent essay's dir.
+    seed: options.derivedFrom === undefined ? "seed.md" : `../${options.derivedFrom}/seed.md`,
+    format: options.format ?? "short",
+    ...(options.derivedFrom !== undefined ? { derivedFrom: options.derivedFrom } : {}),
     status: "draft",
     channels: {},
   };
+  return ledger;
 }
 
 /** Read a ledger. A missing ledger is an error for read paths; createSeed writes one. */
@@ -118,6 +138,10 @@ export function readLedger(workspace: string, id: string): PostLedger {
     createdAt: typeof obj.createdAt === "string" ? obj.createdAt : new Date().toISOString(),
     source: obj.source === "imported" ? "imported" : "authored",
     seed: typeof obj.seed === "string" ? obj.seed : "seed.md",
+    format: obj.format === "longform" ? "longform" : "short",
+    ...(typeof obj.derivedFrom === "string" && isSafeSeedId(obj.derivedFrom)
+      ? { derivedFrom: obj.derivedFrom }
+      : {}),
     status:
       obj.status === "published" || obj.status === "archived" ? obj.status : ("draft" as const),
     channels,
@@ -130,27 +154,44 @@ export function writeLedger(workspace: string, ledger: PostLedger): void {
   writeFileSync(ledgerPath(workspace, ledger.id), stringify(ledger));
 }
 
-export function seedText(workspace: string, id: string): string {
+/** The canonical text of a seed. A derived seed has no seed.md: follow
+ *  `derivedFrom` to the essay that owns it (the cycle guard refuses a
+ *  hand-edited loop). */
+export function seedText(workspace: string, id: string, seen: Set<string> = new Set()): string {
+  if (seen.has(id)) throw new Error(`derivedFrom cycle at seed ${id}`);
+  seen.add(id);
+  if (existsSync(ledgerPath(workspace, id))) {
+    const ledger = readLedger(workspace, id);
+    if (ledger.derivedFrom !== undefined) return seedText(workspace, ledger.derivedFrom, seen);
+  }
   const path = seedPath(workspace, id);
   if (!existsSync(path)) throw new Error(`no seed at ${path}`);
   return readFileSync(path, "utf8");
 }
 
-/** Create a seed if it does not exist. Existing seeds are never overwritten. */
+/** Create a seed if it does not exist. Existing seeds are never overwritten.
+ *  A DERIVED seed (`derivedFrom`) passes no `text`: the parent essay owns the
+ *  canonical text, so the child dir carries the ledger + projections only. */
 export function createSeed(
   workspace: string,
   id: string,
-  text: string,
+  text: string | undefined,
   source: PostSource = "authored",
+  options: SeedOptions = {},
 ): PostLedger {
   if (!isSafeSeedId(id)) throw new Error(`unsafe seed id ${JSON.stringify(id)}`);
+  if (options.derivedFrom !== undefined && !isSafeSeedId(options.derivedFrom)) {
+    throw new Error(`unsafe derivedFrom id ${JSON.stringify(options.derivedFrom)}`);
+  }
   const dir = seedDir(workspace, id);
   mkdirSync(dir, { recursive: true });
-  const seed = seedPath(workspace, id);
-  if (!existsSync(seed)) writeFileSync(seed, text);
+  if (text !== undefined) {
+    const seed = seedPath(workspace, id);
+    if (!existsSync(seed)) writeFileSync(seed, text);
+  }
   const ledgerFile = ledgerPath(workspace, id);
   if (existsSync(ledgerFile)) return readLedger(workspace, id);
-  const ledger = defaultLedger(id, source);
+  const ledger = defaultLedger(id, source, options);
   writeLedger(workspace, ledger);
   return ledger;
 }

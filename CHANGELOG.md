@@ -258,6 +258,18 @@ minor versions may contain breaking contract changes.
   warn) and classified by `pasco audit` (a URL the surface adds is `dangling-ref`;
   every other disagreement is `contradiction`). No artifact = **not run**, and
   `declared: []` = no premise declared — never a silent OK.
+- **`pasco post` — long-form seeds and the short family (#266)** — `post.yaml`
+  gains `format: short | longform` (the format belongs to the seed) and
+  `derivedFrom: <seed-id>`; a short child derived from an essay via
+  `post task <child> --format short --from <essay>` has no `seed.md` and links
+  back to the parent. New `skills/<channel>/longform.yaml` for `substack`,
+  `ghost`, `medium`, `devto`, `hashnode`, `wordpress`, `listmonk` carries
+  `fields` (required `title`/`dek`), an editorial word band, and
+  `export: api | paste`. `post check` validates the long-form front matter,
+  word count, SSOT URLs (canonical included), dangling fact refs and a dangling
+  `derivedFrom`; `post export` writes the Postiz settings mapping for API
+  channels and a `paste-checklist.md` for Substack/Ghost. Posts stay outside
+  `profile.schema.json` (D17); images are not a v0 field.
 
 ### Planned (roadmap)
 
