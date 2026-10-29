@@ -292,6 +292,37 @@ minor versions may contain breaking contract changes.
   channels and a `paste-checklist.md` for Substack/Ghost. Posts stay outside
   `profile.schema.json` (D17); images are not a v0 field.
 
+### Fixed
+
+- **The release rehearsal no longer passes on non-barriers (#313)** — four fresh
+  passes (#347, #363 and its second and third rounds) found the gate's own checks
+  tautological, each time by mutation rather than by reading its output. A job-level
+  `permissions:` override fell through to the workflow default and the gate read
+  `id-token: write` from a grant the job had replaced: flow style
+  (`{contents: read}`), the scalar spellings (`read-all` / `write-all`), a key
+  written with a space before the colon, and finally any shape the gate could not
+  read (a multi-line flow mapping, an anchor, an alias) — which is now **denied**
+  instead of resolving through the default. The barrier was located by "does the
+  step text contain the path", so an `echo`, a constant-false `if:` (with or without
+  a trailing comment), and a `continue-on-error` (`true`, `TRUE`, `${{ true }}`, a
+  trailing comment — on the step or on the barrier's job) passed green; a shell tail
+  that discards the status (`|| true`, a command after the barrier, `set +e`, a pipe
+  into `tee`, a background `&`) also passed, as did a barrier reached only through
+  `cmd || node <path>`; and a flat step index counted a barrier in a prior job
+  without `needs:` as "before the cohort". The gate now reads the job's own
+  `permissions:` in the three single-key spellings at the job's indent (normalizing
+  whitespace in the entries, so `id-token : write` still grants), requires
+  `node <path>` as the step's last **unconditional** shell segment with the status
+  observable, reads the barrier's `run:` commands (compact `- run:` form included)
+  rather than its text, and requires the barrier in the `publish` job or in a job
+  `publish` transitively `needs:`. It is not a YAML or shell parser:
+  docs/ci-cd.md §"Rehearsing the cohort publish" declares the three outcomes
+  (refused, unreadable-and-denied, unproven-and-accepted) and names the residual —
+  an `if:`/`continue-on-error` resolved only at runtime is accepted, not proved.
+  Each class has a self-test that fails against the revision it closes; the fixture
+  case pins the fixture shape (the barrier job must land BEFORE `publish:`) as well
+  as the refusal.
+
 ### Planned (roadmap)
 
 - Renderers: linkedin, upwork, x, researchgate, substack (M4)

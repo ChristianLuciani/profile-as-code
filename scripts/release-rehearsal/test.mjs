@@ -33,12 +33,14 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import {
   check,
+  executesScript,
   expectedRepositoryUrl,
   idTokenGranted,
   manifestViolations,
   orderViolations,
   parseSteps,
   publishInvocations,
+  runCommands,
   runtimeDependencyViolations,
   SEAM_DIRS,
   targetPaths,
@@ -135,6 +137,8 @@ const workflow = (options = {}) => {
     cliFirst = false,
     idToken = "  id-token: write",
     publishPermissions = [],
+    publishExtra = [],
+    preJobs = [],
     extraJobs = [],
   } = options;
   const cohort = [`      - name: ${cohortStep}`, "        run: |", ...cohortRun];
@@ -156,11 +160,17 @@ const workflow = (options = {}) => {
     "  contents: read",
     ...(idToken ? [idToken] : []),
     "jobs:",
+    // preJobs land BEFORE `publish:` — the only way to fixture the "barrier in an
+    // earlier job" shape. Appending the job after the publish steps (the old
+    // `extraJobs` only) fixtures a LATER job, which fails for the ordering reason
+    // and never exercises the `needs:` rule it claims to pin (F4).
+    ...preJobs,
     "  publish:",
     "    runs-on: ubuntu-24.04",
     ...(publishPermissions.length > 0
       ? ["    permissions:", ...publishPermissions.map((entry) => `      ${entry}`)]
       : []),
+    ...publishExtra,
     ...steps,
     ...extraJobs,
   ]
@@ -251,6 +261,251 @@ test("workflowViolations — F2: a barrier AFTER the cohort step is refused", ()
   );
 });
 
+test("workflowViolations — F2b: a barrier that only ECHOES the script path is refused", () => {
+  // The finding: the barrier was located by "does this step's text contain the path",
+  // so `run: echo "node scripts/release-rehearsal/check.mjs"` passed green without
+  // executing anything.
+  const yaml = workflow().replace(
+    "        run: node scripts/release-rehearsal/check.mjs",
+    '        run: echo "node scripts/release-rehearsal/check.mjs"',
+  );
+  const violations = workflowViolations(yaml).violations;
+  refuses(violations, "does not EXECUTE it", "echo barrier");
+  refuses(violations, "found 0", "echo barrier count");
+});
+
+test("workflowViolations — F2b: a barrier gated by a constant-false if-expression is refused", () => {
+  const yaml = workflow().replace(
+    `      - name: ${BARRIER_STEP}`,
+    `      - name: ${BARRIER_STEP}\n        if: \${{ false }}`,
+  );
+  refuses(workflowViolations(yaml).violations, "never true", "false-gated barrier");
+});
+
+test("workflowViolations — F2: every spelling of `continue-on-error: true` is refused", () => {
+  // The finding: only the bare literal at end of line matched, so an expression, a
+  // different case and an inline comment all left the swallow in place.
+  // The expression form is assembled so the fixture carries the literal Actions
+  // syntax without tripping the template-placeholder lint (same idiom as above).
+  const expressionTrue = ["$", "{{ true }}"].join("");
+  for (const value of ["true", "TRUE", "True", expressionTrue, "true # comment", "'true'"]) {
+    const yaml = workflow().replace(
+      `      - name: ${BARRIER_STEP}`,
+      `      - name: ${BARRIER_STEP}\n        continue-on-error: ${value}`,
+    );
+    refuses(
+      workflowViolations(yaml).violations,
+      "continue-on-error",
+      `swallowed barrier failure (${value})`,
+    );
+  }
+});
+
+test("workflowViolations — F3: `node <path> || true` is refused (exit code discarded)", () => {
+  const yaml = workflow().replace(
+    "        run: node scripts/release-rehearsal/check.mjs",
+    "        run: node scripts/release-rehearsal/check.mjs || true",
+  );
+  const violations = workflowViolations(yaml).violations;
+  refuses(violations, "last effective command with the exit code kept", "|| true barrier");
+  refuses(violations, "found 0", "|| true barrier count");
+});
+
+test("workflowViolations — F3: a barrier after `set +e` is refused (errexit disabled)", () => {
+  const yaml = workflow().replace(
+    "        run: node scripts/release-rehearsal/check.mjs",
+    [
+      "        run: |",
+      "          set +e",
+      "          node scripts/release-rehearsal/check.mjs",
+    ].join("\n"),
+  );
+  refuses(
+    workflowViolations(yaml).violations,
+    "last effective command with the exit code kept",
+    "set +e barrier",
+  );
+});
+
+test("workflowViolations — F3: a command AFTER the barrier is refused", () => {
+  const yaml = workflow().replace(
+    "        run: node scripts/release-rehearsal/check.mjs",
+    [
+      "        run: |",
+      "          node scripts/release-rehearsal/check.mjs",
+      "          echo done",
+    ].join("\n"),
+  );
+  refuses(
+    workflowViolations(yaml).violations,
+    "last effective command with the exit code kept",
+    "command after barrier",
+  );
+});
+
+test("workflowViolations — F3: a barrier PIPED into another command is refused", () => {
+  // `bash -e -c 'false | cat'` exits 0: the pipeline status is the LAST command's, so
+  // piping the rehearsal away discards exactly the failure the gate propagates.
+  const yaml = workflow().replace(
+    "        run: node scripts/release-rehearsal/check.mjs",
+    "        run: node scripts/release-rehearsal/check.mjs | tee /tmp/rehearsal.log",
+  );
+  refuses(
+    workflowViolations(yaml).violations,
+    "last effective command with the exit code kept",
+    "piped barrier",
+  );
+});
+
+test("workflowViolations — F3: a BACKGROUNDED barrier (`&`) is refused", () => {
+  // `bash -e -c 'false &'` exits 0 — the background job's status is never observed.
+  const yaml = workflow().replace(
+    "        run: node scripts/release-rehearsal/check.mjs",
+    "        run: node scripts/release-rehearsal/check.mjs &",
+  );
+  refuses(
+    workflowViolations(yaml).violations,
+    "last effective command with the exit code kept",
+    "backgrounded barrier",
+  );
+});
+
+test("workflowViolations — F2: a CONDITIONAL barrier (`cmd || node`) is refused", () => {
+  // `true || node <path>` exits 0 without running the rehearsal: splitting on `||`
+  // and keeping only the last segment read it as unconditional.
+  for (const prefix of ["true", '[ -n "$X" ]']) {
+    const yaml = workflow().replace(
+      "        run: node scripts/release-rehearsal/check.mjs",
+      `        run: ${prefix} || node scripts/release-rehearsal/check.mjs`,
+    );
+    refuses(
+      workflowViolations(yaml).violations,
+      "last effective command with the exit code kept",
+      `conditional barrier (${prefix} ||)`,
+    );
+  }
+});
+
+test("workflowViolations — F2: `cmd && node` is refused too (not the last unconditional step)", () => {
+  const yaml = workflow().replace(
+    "        run: node scripts/release-rehearsal/check.mjs",
+    "        run: cd . && node scripts/release-rehearsal/check.mjs",
+  );
+  refuses(
+    workflowViolations(yaml).violations,
+    "last effective command with the exit code kept",
+    "&& chain",
+  );
+});
+
+test("workflowViolations — F5: the compact `- run: node <path>` form is read", () => {
+  const yaml = workflow().replace(
+    [`      - name: ${BARRIER_STEP}`, "        run: node scripts/release-rehearsal/check.mjs"].join(
+      "\n",
+    ),
+    "      - run: node scripts/release-rehearsal/check.mjs",
+  );
+  assert.deepEqual(workflowViolations(yaml).violations, []);
+});
+
+test("workflowViolations — F3: redirections on the barrier are NOT read as a pipe", () => {
+  // `> file 2>&1` keeps the exit status; the operator scan must not over-reject it.
+  const yaml = workflow().replace(
+    "        run: node scripts/release-rehearsal/check.mjs",
+    "        run: node scripts/release-rehearsal/check.mjs > /tmp/rehearsal.log 2>&1",
+  );
+  assert.deepEqual(workflowViolations(yaml).violations, []);
+});
+
+test("workflowViolations — F3: a barrier that ENDS the script (with `set -e`) is accepted", () => {
+  const yaml = workflow().replace(
+    "        run: node scripts/release-rehearsal/check.mjs",
+    [
+      "        run: |",
+      "          set -euo pipefail",
+      "          node scripts/release-rehearsal/check.mjs",
+    ].join("\n"),
+  );
+  assert.deepEqual(workflowViolations(yaml).violations, []);
+});
+
+const priorBarrierJob = ["  rehearse:", "    runs-on: ubuntu-24.04", "    steps:", ...barrierLines];
+
+test("F4 — the fixture really emits the barrier job BEFORE `publish:`", () => {
+  // The finding this pins: the old fixture appended the extra job after the publish
+  // steps, so it fixtured a LATER job and the `needs:` rule was never exercised.
+  const steps = parseSteps(workflow({ barrier: false, preJobs: priorBarrierJob }));
+  assert.equal(steps[0].job, "rehearse");
+  assert.equal(steps[0].name, BARRIER_STEP);
+  assert.ok(steps.findIndex((step) => step.name === COHORT_STEP) > 0);
+});
+
+test("workflowViolations — F4: a barrier in a prior job WITHOUT `needs:` is refused", () => {
+  // A flat step index made the prior job's barrier "before the cohort" while the
+  // publish job could start in parallel (or first) — the gate was decorative. The
+  // job must come BEFORE `publish:` for this to test `needs:` and not "runs AFTER".
+  const yaml = workflow({ barrier: false, preJobs: priorBarrierJob });
+  const violations = workflowViolations(yaml).violations;
+  refuses(violations, "does not `needs:`", "prior job no needs");
+  assert.ok(
+    !violations.some((violation) => violation.includes("runs AFTER")),
+    `the prior-job case must not fail for the ordering reason: ${JSON.stringify(violations)}`,
+  );
+});
+
+test("workflowViolations — a barrier in a prior job the publish job `needs:` is accepted", () => {
+  const yaml = workflow({
+    barrier: false,
+    preJobs: priorBarrierJob,
+    publishExtra: ["    needs: rehearse"],
+  });
+  assert.deepEqual(workflowViolations(yaml).violations, []);
+});
+
+test("workflowViolations — F2: a barrier JOB with `continue-on-error: true` is refused", () => {
+  const yaml = workflow({
+    barrier: false,
+    preJobs: [
+      "  rehearse:",
+      "    runs-on: ubuntu-24.04",
+      "    continue-on-error: true",
+      "    steps:",
+      ...barrierLines,
+    ],
+    publishExtra: ["    needs: rehearse"],
+  });
+  refuses(
+    workflowViolations(yaml).violations,
+    "continue-on-error",
+    "job-level swallowed barrier failure",
+  );
+});
+
+test("runCommands — reads only the `run:` value, never `env:`/`with:` or comments", () => {
+  const body = [
+    "      - name: x",
+    "        env:",
+    "          HINT: node scripts/release-rehearsal/check.mjs",
+    "        # run: node scripts/release-rehearsal/check.mjs",
+    "        run: |",
+    "          # a comment inside the script",
+    "          set -euo pipefail",
+    "          node scripts/release-rehearsal/check.mjs --root .",
+  ].join("\n");
+  const commands = runCommands(body);
+  assert.deepEqual(commands, [
+    "set -euo pipefail",
+    "node scripts/release-rehearsal/check.mjs --root .",
+  ]);
+  const script = "scripts/release-rehearsal/check.mjs";
+  assert.equal(executesScript(commands, script), true);
+  assert.equal(executesScript([...commands, "echo done"], script), false);
+  assert.equal(executesScript(["set +e", `node ${script}`], script), false);
+  assert.equal(executesScript(runCommands(`        run: node ${script} || true`), script), false);
+  assert.equal(executesScript([`echo "node ${script}"`], script), false);
+  assert.equal(executesScript([`SITE_REF=x node ${script}`], script), true);
+});
+
 test("workflowViolations — F4: id-token only on a comment is refused", () => {
   const yaml = workflow({ idToken: "  # id-token: write" });
   refuses(workflowViolations(yaml).violations, "publish job does not grant", "commented id-token");
@@ -269,11 +524,172 @@ test("idTokenGranted — the effective grant is read from the job, flow style in
     granted: true,
     scope: "top-level permissions",
   });
-  const flow = workflow({ publishPermissions: [] }).replace(
-    "    runs-on: ubuntu-24.04",
-    "    permissions: { contents: read, id-token: write }\n    runs-on: ubuntu-24.04",
+  const flow = workflow({
+    publishExtra: ["    permissions: { contents: read, id-token: write }"],
+  });
+  // The SCOPE is asserted, not only the grant: a job-level flow block that fell
+  // through to the top-level default also reads `granted: true` — the tautology that
+  // let F4b hide (the finding: this case passed by the fallback it should catch).
+  assert.deepEqual(idTokenGranted(flow), {
+    granted: true,
+    scope: "publish job permissions",
+  });
+});
+
+test("idTokenGranted — F4b: a job-level flow block without id-token is NOT the top-level default", () => {
+  // The false positive: the flow branch matched only column 0, so this job-level
+  // `permissions: {contents: read}` fell through to the workflow default (which
+  // grants `id-token: write`) and the rehearsal read a grant the job does not have.
+  const flow = workflow({ publishExtra: ["    permissions: {contents: read}"] });
+  assert.deepEqual(idTokenGranted(flow), {
+    granted: false,
+    scope: "publish job permissions",
+  });
+  refuses(workflowViolations(flow).violations, "publish job does not grant", "flow job override");
+});
+
+test("idTokenGranted — F1: a scalar job override is read, not skipped to the default", () => {
+  // `permissions: read-all` / `write-all` is valid GitHub Actions syntax and REPLACES
+  // the workflow default, exactly like the block form. Matching only block/flow let it
+  // fall through to the top-level grant — F4b one spelling over.
+  const readAll = workflow({ publishExtra: ["    permissions: read-all"] });
+  assert.deepEqual(idTokenGranted(readAll), {
+    granted: false,
+    scope: "publish job permissions (`read-all`)",
+  });
+  refuses(workflowViolations(readAll).violations, "publish job does not grant", "scalar read-all");
+
+  const writeAll = workflow({ publishExtra: ["    permissions: write-all"] });
+  assert.deepEqual(idTokenGranted(writeAll), {
+    granted: true,
+    scope: "publish job permissions (`write-all`)",
+  });
+
+  const empty = workflow({ publishExtra: ["    permissions: {}"] });
+  assert.deepEqual(idTokenGranted(empty), {
+    granted: false,
+    scope: "publish job permissions",
+  });
+  refuses(workflowViolations(empty).violations, "publish job does not grant", "empty flow");
+
+  // An unreadable scalar fails closed and says so; it never falls back to the default.
+  const unknown = workflow({ publishExtra: ["    permissions: read-none"] });
+  assert.deepEqual(idTokenGranted(unknown), {
+    granted: false,
+    scope: "publish job permissions (unrecognized scalar `read-none`)",
+  });
+  refuses(workflowViolations(unknown).violations, "publish job does not grant", "unknown scalar");
+});
+
+test("F2 — a key with a space before the colon is still that key", () => {
+  // YAML allows `permissions : read-all`; a matcher anchored on `permissions:` read
+  // nothing, fell through to the workflow default and re-opened F1. Same for the
+  // step/job settings the barrier depends on.
+  const flow = workflow({ publishExtra: ["    permissions : { contents: read }"] });
+  assert.deepEqual(idTokenGranted(flow), {
+    granted: false,
+    scope: "publish job permissions",
+  });
+  refuses(workflowViolations(flow).violations, "publish job does not grant", "spaced flow block");
+
+  const scalar = workflow({ publishExtra: ["    permissions : read-all"] });
+  assert.deepEqual(idTokenGranted(scalar), {
+    granted: false,
+    scope: "publish job permissions (`read-all`)",
+  });
+
+  const swallow = workflow().replace(
+    `      - name: ${BARRIER_STEP}`,
+    `      - name: ${BARRIER_STEP}\n        continue-on-error : true`,
   );
-  assert.equal(idTokenGranted(flow).granted, true);
+  refuses(workflowViolations(swallow).violations, "continue-on-error", "spaced swallow key");
+
+  const gated = workflow().replace(
+    `      - name: ${BARRIER_STEP}`,
+    `      - name: ${BARRIER_STEP}\n        if : \${{ false }}`,
+  );
+  refuses(workflowViolations(gated).violations, "never true", "spaced if key");
+});
+
+test("F3 — a constant-false `if:` with a trailing comment still gates the barrier", () => {
+  // `staticallyFalseIf` did not strip the comment (unlike `staticallyTrue`), so the
+  // condition read as `false }} # disabled` and never matched — the barrier stayed
+  // green while never running.
+  const step = workflow().replace(
+    `      - name: ${BARRIER_STEP}`,
+    `      - name: ${BARRIER_STEP}\n        if: \${{ false }} # disabled`,
+  );
+  refuses(workflowViolations(step).violations, "never true", "commented false step if");
+
+  const job = workflow({
+    barrier: false,
+    preJobs: [
+      "  rehearse:",
+      "    runs-on: ubuntu-24.04",
+      ["    if: ", "$", "{{ false }} # disabled"].join(""),
+      "    steps:",
+      ...barrierLines,
+    ],
+    publishExtra: ["    needs: rehearse"],
+  });
+  refuses(workflowViolations(job).violations, "never true", "commented false job if");
+});
+
+test("F1 — an UNREADABLE job permissions shape fails closed, never the default", () => {
+  // The BLOCKER: a flow mapping split across lines (valid YAML) matched none of the
+  // patterns, `permissionOverride` returned null and the grant was read from the
+  // WORKFLOW default — green while the job had replaced it.
+  const multiLineFlow = workflow({
+    publishExtra: ["    permissions: {", "      contents: read", "    }"],
+  });
+  const verdict = idTokenGranted(multiLineFlow);
+  assert.equal(verdict.granted, false);
+  assert.equal(verdict.scope, 'publish job permissions (unreadable `permissions:` "{")');
+  refuses(
+    workflowViolations(multiLineFlow).violations,
+    "publish job does not grant",
+    "multiline flow",
+  );
+
+  const anchored = workflow({ publishExtra: ["    permissions: &p { contents: read }"] });
+  assert.equal(idTokenGranted(anchored).granted, false);
+  assert.match(idTokenGranted(anchored).scope, /unreadable/);
+  refuses(workflowViolations(anchored).violations, "publish job does not grant", "anchored flow");
+
+  const aliased = workflow({ publishExtra: ["    permissions: *alias"] });
+  assert.equal(idTokenGranted(aliased).granted, false);
+  assert.match(idTokenGranted(aliased).scope, /unreadable/);
+  refuses(workflowViolations(aliased).violations, "publish job does not grant", "aliased block");
+});
+
+test("F4 — an `id-token : write` grant written with spaces still counts", () => {
+  // Rejecting it was a false RED on valid YAML the docs say the gate tolerates.
+  const block = workflow({ publishPermissions: ["id-token : write"] });
+  assert.deepEqual(idTokenGranted(block), {
+    granted: true,
+    scope: "publish job permissions",
+  });
+  const flow = workflow({
+    publishExtra: ["    permissions: { contents: read, id-token : write }"],
+  });
+  assert.deepEqual(idTokenGranted(flow), {
+    granted: true,
+    scope: "publish job permissions",
+  });
+  const doubleSpace = workflow({ publishPermissions: ["id-token:  write"] });
+  assert.equal(idTokenGranted(doubleSpace).granted, true);
+});
+
+test("idTokenGranted — F1: a scalar TOP-LEVEL default is read too", () => {
+  const yaml = workflow().replace(
+    ["permissions:", "  contents: read", "  id-token: write"].join("\n"),
+    "permissions: read-all",
+  );
+  assert.deepEqual(idTokenGranted(yaml), {
+    granted: false,
+    scope: "top-level permissions (`read-all`)",
+  });
+  refuses(workflowViolations(yaml).violations, "publish job does not grant", "top scalar");
 });
 
 test("workflowViolations — a missing ORDER is refused", () => {
