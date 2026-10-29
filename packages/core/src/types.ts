@@ -38,6 +38,7 @@ export type LoadedProfile = Omit<
   | "deployments"
   | "credentials"
   | "artifacts"
+  | "faq"
 > & {
   flavor: Flavor;
   bios: NonNullable<Profile["bios"]>;
@@ -54,6 +55,7 @@ export type LoadedProfile = Omit<
   deployments: NonNullable<Profile["deployments"]>;
   credentials: NonNullable<Profile["credentials"]>;
   artifacts: NonNullable<Profile["artifacts"]>;
+  faq: NonNullable<Profile["faq"]>;
 };
 
 /**

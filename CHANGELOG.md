@@ -11,6 +11,40 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **`pasco export profile --json` — the normalized profile for programmatic
+  consumers (#348)** — the engine exposed `build <platform>` (text slices) and
+  `validate`, but
+  no stable object a consumer could read without **re-implementing** `load()` +
+  `normalize()`. Both real consumers paid for that copy and drifted: the CV syncer
+  read 9 of 14 roots (`education`, `languages`, `credentials`, `artifacts`
+  hardcoded to `[]`), dropped an explicit `publications[].url` in favour of a
+  DOI-derived link, and treated the invariant `experience[].org` as a langMap.
+  The new command emits
+  `{ schemaVersion, engine, source: { commit, generatedAt }, profile }`, where
+  `profile` is exactly the normalized `core.load()` object: **every root the
+  workspace declares, plus every *list* root defaulted to `[]`** (`faq[]` joins
+  `normalizeProfile`'s defaults, so the shape no longer depends on whether answers
+  exist); an optional *object* root (`newsletter`, `podcast`, `audiences`,
+  `active`) appears only when declared, because the contract has no valid empty
+  value for it. `artifactRefs` stay ids that resolve in `profile.artifacts[]`,
+  `publications[].url` as declared, `deployments` included — never a CLI-local
+  builder and never `compile(profile, platform)`'s platform slice (§15.4).
+  `schemaVersion` (`"1"`) is the frozen payload version a consumer refuses if it
+  does not know (the §7.1/§7.2/§7.3 key and precedent). **Deterministic by
+  construction:** no clock is read — `generatedAt` is `null` unless `--now
+  <iso8601>` pins it verbatim after a real-calendar check — and `source.commit` is
+  the workspace git `HEAD` (`null` outside a repository), so two runs over one
+  workspace are byte-identical and a committed golden fixture asserts the exact
+  bytes. Contract in SPEC §7.5 (command row in §7); the `--help` output and the
+  package README document it. **Separately, criterion 3 — validator parity** is
+  now pinned by a test: `validate` and `build` both load through `core.load()`, so
+  they resolve the same schema and the same `additionalProperties` policy; the
+  fixture carrying `projects[].artifactRefs` (the v1.12/#333 witness) is accepted
+  by both, and an injected unknown row field is refused by both with identical
+  violations (`export profile` shares that load path and is asserted with them).
+  — *The `.pascorc` engine-version gate, `pasco doctor` and the publishable schema
+  URL+hash remain open in #348.*
+
 - **`publication.kind` — the output classification moves into the contract (schema
   v1.14, #349)** — `publications[].kind` is an optional, closed enum
   `journal-article` | `preprint` | `conference-abstract`: the structured answer to

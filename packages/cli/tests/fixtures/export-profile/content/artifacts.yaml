@@ -1,0 +1,10 @@
+- id: hub-source
+  kind: code
+  title: sovereign-agentic-hub source
+  description:
+    en: The reference implementation of the sovereign hub.
+    es: La implementación de referencia del hub soberano.
+    fr: L'implémentation de référence du hub souverain.
+  locator:
+    url: https://github.com/elenavasquez/sovereign-agentic-hub
+  visibility: public

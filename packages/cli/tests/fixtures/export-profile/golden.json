@@ -1,0 +1,498 @@
+{
+  "command": "export profile",
+  "ok": true,
+  "exitCode": 0,
+  "data": {
+    "schemaVersion": "1",
+    "engine": {
+      "name": "@profile-as-code/cli",
+      "version": "<version>"
+    },
+    "source": {
+      "commit": "<commit>",
+      "generatedAt": null
+    },
+    "profile": {
+      "identity": {
+        "name": "Elena Vasquez",
+        "email": "elena@example.com",
+        "location": "Madrid, Spain",
+        "photo": "https://example.com/elena-vasquez.jpg",
+        "links": [
+          {
+            "platform": "github",
+            "label": "GitHub",
+            "url": "https://github.com/elenavasquez"
+          },
+          {
+            "platform": "linkedin",
+            "label": "LinkedIn",
+            "url": "https://linkedin.com/in/elenavasquez"
+          },
+          {
+            "platform": "orcid",
+            "label": "ORCID",
+            "url": "https://orcid.org/0000-0001-2345-6789"
+          }
+        ]
+      },
+      "positioning": {
+        "statement": {
+          "en": "AI engineer building sovereign, open-source AI infrastructure for education.",
+          "es": "Ingeniera de IA construyendo infraestructura soberana de IA para la educación.",
+          "fr": "Ingénieure en IA qui construit une infrastructure d'IA souveraine pour l'éducation."
+        },
+        "audiences": {
+          "recruiter": {
+            "en": "Senior AI engineer with 8 years in ML platforms.",
+            "es": "Ingeniera senior de IA con 8 años en plataformas de ML.",
+            "fr": "Ingénieure IA senior avec 8 ans dans les plateformes de ML."
+          },
+          "academia": {
+            "en": "Researcher in generative-engine optimization and open science.",
+            "es": "Investigadora en optimización para motores generativos y ciencia abierta.",
+            "fr": "Chercheuse en optimisation pour moteurs génératifs et science ouverte."
+          }
+        },
+        "geo": {
+          "semanticAssociations": [
+            "sovereign AI",
+            "open-source education",
+            "generative-engine optimization"
+          ],
+          "citationsGoal": {
+            "en": "Be cited by AI engines as the reference for sovereign AI infrastructure.",
+            "es": "Ser citada por motores de IA como referencia en infraestructura soberana.",
+            "fr": "Être citée par les moteurs d'IA comme référence en infrastructure souveraine."
+          }
+        }
+      },
+      "bios": [
+        {
+          "platform": "github-readme",
+          "lang": "en",
+          "length": "long",
+          "text": "Elena Vasquez builds sovereign AI infrastructure and writes about generative-engine optimization."
+        },
+        {
+          "platform": "linkedin",
+          "lang": "en",
+          "length": "medium",
+          "text": "Senior AI engineer designing local-first LLM infrastructure used by 12+ deployments."
+        },
+        {
+          "platform": "linkedin",
+          "lang": "es",
+          "length": "medium",
+          "text": "Ingeniera senior de IA diseñando infraestructura local-first para LLMs."
+        },
+        {
+          "platform": "x",
+          "lang": "en",
+          "length": "short",
+          "text": "Building sovereign AI infra. Open education. GEO for profiles."
+        }
+      ],
+      "headlines": [
+        {
+          "platform": "github-readme",
+          "lang": "en",
+          "text": "Sovereign AI infrastructure engineer"
+        },
+        {
+          "platform": "linkedin",
+          "lang": "en",
+          "text": "Senior AI Engineer · Sovereign AI Infrastructure"
+        },
+        {
+          "platform": "linkedin",
+          "lang": "es",
+          "text": "Ingeniera Senior de IA · Infraestructura Soberana de IA"
+        },
+        {
+          "platform": "x",
+          "lang": "en",
+          "text": "Sovereign AI infra · Open education"
+        }
+      ],
+      "skills": [
+        {
+          "name": "Model routing",
+          "level": "expert",
+          "keywords": [
+            "LLM routing"
+          ],
+          "geoKeywords": [
+            "sovereign AI"
+          ]
+        },
+        {
+          "name": "Open-source education",
+          "level": "advanced",
+          "keywords": [
+            "OER"
+          ],
+          "geoKeywords": [
+            "open-source education"
+          ]
+        },
+        {
+          "name": "Generative-engine optimization",
+          "level": "advanced",
+          "keywords": [
+            "GEO"
+          ],
+          "geoKeywords": [
+            "generative-engine optimization"
+          ]
+        }
+      ],
+      "experience": [
+        {
+          "id": "nimbus",
+          "role": "Senior AI Engineer",
+          "org": "Nimbus Labs",
+          "start": "2022-03-01",
+          "end": "present",
+          "highlights": {
+            "en": "Lead the sovereign inference stack; route 100k+ LLM requests per month.",
+            "es": "Lidero el stack de inferencia soberana; enruto más de 100k peticiones LLM al mes.",
+            "fr": "Je dirige la pile d'inférence souveraine ; je route plus de 100k requêtes LLM par mois."
+          }
+        },
+        {
+          "id": "dataforge",
+          "role": "ML Engineer",
+          "org": "Dataforge",
+          "start": "2019-06-01",
+          "end": "2022-02-01",
+          "highlights": {
+            "en": "Built real-time model serving pipelines for 3 production products.",
+            "es": "Construí pipelines de servicio de modelos en tiempo real para 3 productos.",
+            "fr": "J'ai construit des pipelines de service de modèles en temps réel pour 3 produits."
+          }
+        }
+      ],
+      "education": [
+        {
+          "id": "msc",
+          "degree": {
+            "en": "M.Sc. in Computer Science",
+            "es": "M.Sc. en Ciencias de la Computación",
+            "fr": "M.Sc. en informatique"
+          },
+          "institution": "Universidad Central de Venezuela",
+          "field": {
+            "en": "Machine learning",
+            "es": "Aprendizaje automático",
+            "fr": "Apprentissage automatique"
+          },
+          "start": "2015-09-01",
+          "end": "2017-07-01"
+        }
+      ],
+      "languages": [
+        {
+          "code": "es",
+          "level": "native"
+        },
+        {
+          "code": "en",
+          "level": "fluent"
+        },
+        {
+          "code": "fr",
+          "level": "advanced"
+        }
+      ],
+      "projects": [
+        {
+          "id": "sovereign-hub",
+          "name": "sovereign-agentic-hub",
+          "status": "active",
+          "description": {
+            "en": "A sovereign agentic hub routing LLM calls to local-first providers.",
+            "es": "Un hub agéntico soberano que enruta llamadas LLM a proveedores local-first.",
+            "fr": "Un hub agentique souverain qui route les appels LLM vers des fournisseurs locaux."
+          },
+          "keywords": [
+            "sovereign AI",
+            "LLM routing"
+          ],
+          "evidence": [
+            {
+              "claim": {
+                "en": "Serves 100k+ requests/month across 12 deployments.",
+                "es": "Sirve más de 100k peticiones al mes en 12 despliegues.",
+                "fr": "Sert plus de 100k requêtes par mois sur 12 déploiements."
+              },
+              "source": "https://doi.org/10.5555/sovereign-hub"
+            }
+          ],
+          "artifactRefs": [
+            "hub-source"
+          ]
+        },
+        {
+          "id": "oer-platform",
+          "name": "open-education-platform",
+          "status": "maintained",
+          "description": {
+            "en": "OER platform used by 40 universities across Latin America.",
+            "es": "Plataforma de REA usada por 40 universidades en América Latina.",
+            "fr": "Plateforme de REL utilisée par 40 universités en Amérique latine."
+          },
+          "keywords": [
+            "open-source education"
+          ],
+          "evidence": [
+            {
+              "claim": {
+                "en": "Adopted by 40 universities.",
+                "es": "Adoptada por 40 universidades.",
+                "fr": "Adoptée par 40 universités."
+              },
+              "source": "https://example.com/oer-proof"
+            }
+          ]
+        }
+      ],
+      "publications": [
+        {
+          "id": "routing-paper",
+          "title": "Routing LLM Traffic to Sovereign Providers",
+          "venue": "Journal of Open AI Infrastructure",
+          "year": 2024,
+          "doi": "10.5555/sovereign-routing",
+          "orcidId": "0000-0001-2345-6789",
+          "url": "https://example.com/papers/sovereign-routing",
+          "artifactRefs": [
+            "hub-source"
+          ]
+        }
+      ],
+      "keywords": {
+        "seo": {
+          "github-readme": [
+            "sovereign AI",
+            "LLM routing"
+          ]
+        },
+        "geo": {
+          "associations": [
+            "sovereign AI",
+            "open-source education",
+            "generative-engine optimization"
+          ],
+          "claims": [
+            "100k+ LLM requests routed per month"
+          ]
+        }
+      },
+      "deployments": {
+        "bios:github-readme:en:long": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "bios:linkedin:en:medium": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "bios:linkedin:es:medium": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "bios:x:en:short": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "education:msc": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "experience:dataforge": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "experience:nimbus": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "headlines:github-readme:en": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "headlines:linkedin:en": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "headlines:linkedin:es": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "headlines:x:en": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "identity": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "keywords": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "positioning": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "projects:oer-platform": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "projects:sovereign-hub": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "publications:routing-paper": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "skills:Generative-engine optimization": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "skills:Model routing": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        },
+        "skills:Open-source education": {
+          "github-readme": {
+            "deployedAt": "2025-01-15T09:30:00Z",
+            "contentHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "source": "git"
+          }
+        }
+      },
+      "credentials": [
+        {
+          "id": "aws-ml",
+          "kind": "certificate",
+          "title": "AWS Certified Machine Learning — Specialty",
+          "issuer": "Amazon Web Services",
+          "verifyUrl": "https://example.com/verify/aws-ml",
+          "issued": "2021-06-01",
+          "visibility": "public"
+        }
+      ],
+      "artifacts": [
+        {
+          "id": "hub-source",
+          "kind": "code",
+          "title": "sovereign-agentic-hub source",
+          "description": {
+            "en": "The reference implementation of the sovereign hub.",
+            "es": "La implementación de referencia del hub soberano.",
+            "fr": "L'implémentation de référence du hub souverain."
+          },
+          "locator": {
+            "url": "https://github.com/elenavasquez/sovereign-agentic-hub"
+          },
+          "visibility": "public"
+        }
+      ],
+      "faq": [
+        {
+          "id": "what-is-elena",
+          "q": {
+            "en": "What does Elena Vasquez do?"
+          },
+          "a": {
+            "en": "Elena Vasquez is an AI engineer building sovereign, open-source infrastructure for education."
+          },
+          "source": "https://example.com/about"
+        },
+        {
+          "id": "where-based",
+          "q": {
+            "en": "Where is Elena Vasquez based?"
+          },
+          "a": {
+            "en": "Elena Vasquez is based in Madrid, Spain."
+          }
+        },
+        {
+          "id": "routing-paper-about",
+          "q": {
+            "en": "What is the routing paper about?"
+          },
+          "a": {
+            "en": "It routes LLM traffic to sovereign providers, evaluated across 12 deployments."
+          },
+          "source": "https://doi.org/10.5555/sovereign-routing"
+        }
+      ],
+      "flavor": "person",
+      "checks": [],
+      "socialHandles": [],
+      "press": []
+    }
+  }
+}

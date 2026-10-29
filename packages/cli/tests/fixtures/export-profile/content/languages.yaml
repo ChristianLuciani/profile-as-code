@@ -1,0 +1,8 @@
+# Spoken languages (SPEC §6 root `languages[]`). Present in this fixture so the
+# compiled-profile golden covers the root a consumer previously hardcoded to [].
+- code: es
+  level: native
+- code: en
+  level: fluent
+- code: fr
+  level: advanced
