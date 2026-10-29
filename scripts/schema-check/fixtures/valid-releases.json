@@ -1,0 +1,19 @@
+{
+  "identity": { "name": "Ada Example" },
+  "releases": [
+    {
+      "id": "v0-3-0",
+      "version": "0.3.0",
+      "date": "2026-10-28",
+      "summary": { "en": "Presence surfaces ship", "es": "Superficies de presencia" },
+      "changedUnits": ["identity", "projects:pasco"],
+      "surfaces": ["github-repo-meta", "github-readme", "hacker-news"]
+    },
+    {
+      "id": "v0-2-0",
+      "version": "0.2.0-rc.1",
+      "date": "2026-10-20",
+      "surfaces": ["github-readme"]
+    }
+  ]
+}

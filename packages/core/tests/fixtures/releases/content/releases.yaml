@@ -1,0 +1,17 @@
+# D23 (issue #262): the release events — `pasco presence` / `pasco release plan`.
+# Two releases so "newest" is a real choice, not a single-row accident.
+- id: v0-3-0
+  version: 0.3.0
+  date: 2026-10-28
+  summary:
+    en: "Presence surfaces: release plan, surface kinds, distribution"
+    es: "Superficies de presencia: plan de release, kinds, distribución"
+  changedUnits: [identity]
+  surfaces: [github-readme, linkedin, github-repo-meta, hacker-news]
+- id: v0-2-0
+  version: 0.2.0
+  date: 2026-10-20
+  summary:
+    en: "The first renderer"
+  changedUnits: [identity]
+  surfaces: [github-readme, x]

@@ -63,6 +63,7 @@ commands above are the standalone path.
 | `pasco edit <contract-path> [--set <text> [--check]]` | Resolve **one** contract field by contract path; `--set` **writes it** (comment-preserving range splice, validated, atomic) and `--set --check` previews the **published lines the edit changes** (or says it changes nothing). Epic #247, S1–S5 landed | ✅ S1–S5 (read · preview · write · surface impact · cap pre-flight · machine contract) |
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never · **certification** (verified/attested/unverifiable/out-of-band-drift, §19.5) + the derived **publication truth** per surface (§20.1, #242) + ledger write paths (D18, §19) | ✅ |
+| `pasco presence [--json]` / `pasco release plan [<id>] [--json]` | **Presence board** (D23/§22, #262): every surface a release has addressed, at its newest release, with the ledger-derived state (`in-sync`/`stale`/`never`), and the **release plan** — the ordered fan-out (`repo-meta` → `profile` → `distribution`, then slug), each surface's state and the per-kind **factual spine**. Copy per channel lives in the shipped skills, not the engine | ✅ v1 |
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13); the chosen body is `profiles/<platform>/variants/<id>.md` (a complete platform artifact), rendered by `pasco build` (#238) | 🚧 template + `--choose` (full flow M3) |
 | `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) + offline `max-chars`/`min-chars` over headlines/bios (#240) + `fact-present` (the built surface's fact tokens vs the SSOT render, #283) | 🚧 offline rules today (limits + registry + media + fact-present; remaining catalog M3/M4) |
 | `pasco audit [--json]` | Offline **diagnostic projection**, findings only (no score/prioritisation/branding, #283): three fixed classes — `dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN — exit 1 iff any FAIL; `--json` carries `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings }` | ✅ v1 |
@@ -389,11 +390,11 @@ is frozen in SPEC §7.5.
 **A consumer that only needs to validate** does not need this package at all: the
 released schema is published as a tag-pinned URL + sha256 in
 [`schema/consumer-contract.json`](https://github.com/ChristianLuciani/profile-as-code/blob/main/schema/consumer-contract.json).
-The manifest's `current` block is **not** a published artifact: schema v1.14 has
+The manifest's `current` block is **not** a published artifact: schema v1.15 has
 no release tag yet (`published: false`, `artifact: null`), and the only released
 artifact is schema **v1.13 at tag v0.3.6**, which **rejects `publication.kind`**
-(`additionalProperties: false`). A consumer that needs `kind` must use a v1.14
-checkout (verify its sha256) until the next release. The reading guide is
+(`additionalProperties: false`) and has no `releases[]`. A consumer that needs
+either must use a v1.15 checkout (verify its sha256) until the next release. The reading guide is
 [docs/SCHEMA-CONTRACT.md](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SCHEMA-CONTRACT.md) —
 including what structural validation does **not** cover (the cross-file
 invariants core re-checks, engine behavior, `.pascorc` and this payload's

@@ -52,9 +52,10 @@ export {
   AI_POLICY_STANCE,
   AI_POLICY_VERSION,
 } from "./generated/ai-policy.gen.js";
+export type { SurfaceKind } from "./generated/platforms.gen.js";
 /** The creator-monetization paste set, projected from `platforms/registry.yaml`
  *  (#154) — the derived test enumeration, never a hand-extended list. */
-export { PASTE_PLATFORMS } from "./generated/platforms.gen.js";
+export { PASTE_PLATFORMS, PLATFORM_KINDS } from "./generated/platforms.gen.js";
 /** The profile-contract version this build validates — generated from the schema
  *  `$id` (D3, issue #348); `pasco doctor` reports it. */
 export { PROFILE_SCHEMA_VERSION } from "./generated/schema.zod.js";
@@ -106,6 +107,18 @@ export type { FoldedText, TermOccurrence } from "./normalize.js";
  * #291) — shared by `geoCheck` and `cite-check`, never re-implemented.
  */
 export { findTerm, foldForMatch, isWordBounded, normalizeText, termOccursIn } from "./normalize.js";
+/** D23 (issue #262): the presence board and the release fan-out — both DERIVED
+ *  from releases[] + the §19 ledger, with no second state model. */
+export type {
+  BaseText,
+  PresenceBoard,
+  PresenceRow,
+  PresenceState,
+  Release,
+  ReleasePlan,
+  ReleaseSurface,
+} from "./presence.js";
+export { PresenceError, presenceBoard, releasePlan, selectRelease } from "./presence.js";
 export type { RegistryFinding, RegistryIssue } from "./registry.js";
 export {
   checkRegistryIntegrity,

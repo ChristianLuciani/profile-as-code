@@ -341,7 +341,7 @@ same absence of automation and history unless your storage provides them.
 
   ```sh
   pasco doctor
-  # engine 0.3.6 · schema v1.14 · workspace /home/me/profile-data (valid) · requires engine >= 0.4.0 (NOT MET — upgrade: npm i -g @profile-as-code/cli@latest, declared in /home/me/profile-data/.pascorc)
+  # engine 0.3.6 · schema v1.15 · workspace /home/me/profile-data (valid) · requires engine >= 0.4.0 (NOT MET — upgrade: npm i -g @profile-as-code/cli@latest, declared in /home/me/profile-data/.pascorc)
   ```
 
   Contract: SPEC §7.6.

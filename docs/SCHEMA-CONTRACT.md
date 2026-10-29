@@ -35,18 +35,19 @@ appear on this surface (AGENTS.md rule 9).
 
 ## The current contract — no published artifact yet
 
-The repository's `main` carries schema **v1.14**, which adds `publication.kind`
-(optional). **No released tag contains it**, so there is no published URL for
+The repository's `main` carries schema **v1.15**, which adds `releases[]`
+(optional, D23) on top of v1.14's `publication.kind`. **No released tag contains
+it**, so there is no published URL for
 those bytes: the manifest records them with `current.published: false` and
 `current.artifact: null`. That is a declared condition, not a missing link.
 
 | Field | Value |
 |---|---|
-| Schema version | `v1.14` |
-| sha256 | `1745ac626ac6ef916b52f2ac34a9f2b52fdef7820e4a3e61748a8a87f60c5775` |
+| Schema version | `v1.15` |
+| sha256 | `838a14f8fe580dcfa63b2c148b6fb642d3713f3c686db00c6c49f8dd2cde97f9` |
 | Published artifact | **none** — use a repository checkout |
 
-If you need v1.14 today, check the repository out at a commit whose
+If you need v1.15 today, check the repository out at a commit whose
 `schema/profile.schema.json` hashes to that value (any commit; the hash is the
 identity) — a checkout, not a published artifact. The next release publishes it
 at a tag and the manifest's `released` block moves with it.
@@ -54,8 +55,8 @@ at a tag and the manifest's `released` block moves with it.
 **`publication.kind` cannot be validated against the released v0.3.6 artifact.**
 That file is schema v1.13, and `$defs.publication` has `additionalProperties:
 false`, so a row carrying `kind` is rejected. A profile that declares no `kind`
-validates unchanged against v1.13; a consumer that needs `kind` must use a v1.14
-checkout (verify the hash above) until the next tag.
+validates unchanged against v1.13; a consumer that needs `kind` or
+`releases[]` must use a v1.15 checkout (verify the hash above) until the next tag.
 
 ## Validating a profile
 
@@ -75,7 +76,7 @@ PY
 
 `profile.json` is the `profile` object of `pasco export profile --json` (SPEC
 §7.5) or any object in that shape. The printed `$id` names the file you fetched
-(`…/v1.13/…` for the released artifact, `…/v1.14/…` for the current checkout).
+(`…/v1.13/…` for the released artifact, `…/v1.15/…` for the current checkout).
 A consumer that uses the CLI for the payload and a standalone validator for the
 check is the intended split: the CLI produces, the schema verifies.
 

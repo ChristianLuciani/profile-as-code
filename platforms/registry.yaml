@@ -26,7 +26,15 @@
 #   status           member | backlog (REQUIRED). `member` = a real enum entry;
 #                    `backlog` = declared but NOT an enum entry (verify the
 #                    official eligibility page before any claim). Backlog entries
-#                    carry only family + note + sources.
+#                    carry only family + kind + note + sources.
+#   kind             profile | repo-meta | distribution (D23, #262) — the
+#                    presence axis, additive. `profile` (absent = profile) is the
+#                    identity body rendered per platform; `repo-meta` is metadata
+#                    of the code artifact (repo description/topics, release notes,
+#                    npm page, site); `distribution` is where a release is
+#                    announced. A backlog entry may carry any kind; an enum
+#                    `member` must be `profile` (the enum IS the profile bodies).
+#                    A renderer's `pasco.surface` must agree (gen-platforms gate).
 #   family           optional family id (see `families:`); absent = un-bucketed
 #   origin           postiz | extra — Postiz parity vs operator extra (D16)
 #                    [member only]
@@ -64,6 +72,12 @@ families:
   freelance:
     display: Freelance marketplaces
     purpose: client-facing surfaces — the product is the operator's professional time
+  presence-repo:
+    display: Repository presence surfaces
+    purpose: "the metadata of the code artifact itself — repo description/topics/social preview, release notes, the npm package page and the project site (D23)"
+  presence-distribution:
+    display: Presence distribution channels
+    purpose: "where a release is announced, not where an identity body lives (D23) — the copy per channel lives in skills/, never in the engine"
   job-boards:
     display: Recruiting surfaces
     purpose: "recruiter-facing CV surfaces — the buyer is a recruiter and the native content is the structured CV the SSOT already models (`experience[]` / `education[]` / `skills[]`); GEO hook = name-reputation in search results only"
@@ -78,6 +92,7 @@ platforms:
   # ── creator-monetization family ──────────────────────────────────────────
   patreon:
     status: member
+    kind: profile
     family: creator-monetization
     origin: extra
     since: v1
@@ -89,6 +104,7 @@ platforms:
     sources: ["SPEC §6 (D16)"]
   kofi:
     status: member
+    kind: profile
     family: creator-monetization
     origin: extra
     since: v1.7
@@ -102,6 +118,7 @@ platforms:
     sources: ["SPEC §6 (D16)", "issue #130"]
   buymeacoffee:
     status: member
+    kind: profile
     family: creator-monetization
     origin: extra
     since: v1.8
@@ -115,6 +132,7 @@ platforms:
     sources: ["SPEC §6 (D16)", "issue #133"]
   liberapay:
     status: member
+    kind: profile
     family: creator-monetization
     origin: extra
     since: v1.8
@@ -128,6 +146,7 @@ platforms:
     sources: ["SPEC §6 (D16)", "issue #133", "[WEB] liberapay.com FAQ, fetched 2026-10-05"]
   gumroad:
     status: member
+    kind: profile
     family: creator-monetization
     origin: extra
     since: v1.8
@@ -141,6 +160,7 @@ platforms:
     sources: ["SPEC §6 (D16)", "issue #133", "[WEB] gumroad.com, fetched 2026-10-05"]
   payhip:
     status: member
+    kind: profile
     family: creator-monetization
     origin: extra
     since: v1.8
@@ -157,6 +177,7 @@ platforms:
   # empty until the skill research sources the Space URL shape (issue #137).
   hotmart:
     status: member
+    kind: profile
     family: creator-monetization
     origin: extra
     since: v1.9
@@ -171,6 +192,7 @@ platforms:
     sources: ["SPEC §6 (D16)", "issue #137", "[WEB] hotmart.com ToU §B, fetched 2026-10-05"]
   substack:
     status: member
+    kind: profile
     family: creator-monetization
     origin: extra
     since: v1
@@ -182,6 +204,7 @@ platforms:
     sources: ["SPEC §6 (D16)"]
   whop:
     status: member
+    kind: profile
     family: creator-monetization
     origin: postiz
     since: v1.2
@@ -197,6 +220,7 @@ platforms:
   # ── freelance family ─────────────────────────────────────────────────────
   upwork:
     status: member
+    kind: profile
     family: freelance
     origin: extra
     since: v1
@@ -211,6 +235,7 @@ platforms:
   # ── un-bucketed (no declared family) ─────────────────────────────────────
   github-readme:
     status: member
+    kind: profile
     origin: extra
     since: v1
     deploy: git
@@ -222,6 +247,7 @@ platforms:
     sources: ["SPEC §6 (D16)"]
   linkedin:
     status: member
+    kind: profile
     origin: postiz
     since: v1
     deploy: manual
@@ -232,6 +258,7 @@ platforms:
     sources: ["SPEC §6 (D16)", "README (deploy: no API)"]
   x:
     status: member
+    kind: profile
     origin: postiz
     since: v1
     deploy: manual
@@ -242,6 +269,7 @@ platforms:
     sources: ["SPEC §6 (D16)"]
   researchgate:
     status: member
+    kind: profile
     origin: extra
     since: v1
     deploy: manual
@@ -252,6 +280,7 @@ platforms:
     sources: ["SPEC §6 (D16)"]
   github-org:
     status: member
+    kind: profile
     origin: extra
     since: v1
     deploy: git
@@ -262,6 +291,7 @@ platforms:
     sources: ["SPEC §6 (D16)", "SPEC §17 (brand)"]
   bluesky:
     status: member
+    kind: profile
     origin: postiz
     since: v1.1
     deploy: manual
@@ -272,6 +302,7 @@ platforms:
     sources: ["SPEC §6 (D16)"]
   instagram:
     status: member
+    kind: profile
     origin: postiz
     since: v1.1
     deploy: manual
@@ -282,6 +313,7 @@ platforms:
     sources: ["SPEC §6 (D16)"]
   tiktok:
     status: member
+    kind: profile
     origin: postiz
     since: v1.1
     deploy: manual
@@ -292,6 +324,7 @@ platforms:
     sources: ["SPEC §6 (D16)"]
   youtube:
     status: member
+    kind: profile
     origin: postiz
     since: v1.1
     deploy: manual
@@ -302,6 +335,7 @@ platforms:
     sources: ["SPEC §6 (D16)"]
   spotify:
     status: member
+    kind: profile
     origin: extra
     since: v1.1
     deploy: manual
@@ -312,6 +346,7 @@ platforms:
     sources: ["SPEC §6 (D16)", "SPEC §17 (brand, v1.1)"]
   reddit:
     status: member
+    kind: profile
     origin: postiz
     since: v1.1
     deploy: manual
@@ -322,6 +357,7 @@ platforms:
     sources: ["SPEC §6 (D16)"]
   mastodon:
     status: member
+    kind: profile
     origin: postiz
     since: v1.1
     deploy: manual
@@ -332,6 +368,7 @@ platforms:
     sources: ["SPEC §6 (D16)"]
   soundcloud:
     status: member
+    kind: profile
     origin: extra
     since: v1.1
     deploy: manual
@@ -342,6 +379,7 @@ platforms:
     sources: ["SPEC §6 (D16)", "SPEC §17 (brand, v1.1)"]
   facebook:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -353,6 +391,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   linkedin-page:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -364,6 +403,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   instagram-standalone:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -375,6 +415,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   warpcast:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -386,6 +427,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   lemmy:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -397,6 +439,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   discord:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -408,6 +451,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   slack:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -419,6 +463,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   skool:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -430,6 +475,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   pinterest:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -441,6 +487,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   dribbble:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -452,6 +499,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   medium:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -463,6 +511,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   devto:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -474,6 +523,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   hashnode:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -485,6 +535,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   wordpress:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -496,6 +547,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   gmb:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -507,6 +559,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   listmonk:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -518,6 +571,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   twitch:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -529,6 +583,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   threads:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -540,6 +595,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   telegram:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -551,6 +607,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   nostr:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -562,6 +619,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   vk:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -573,6 +631,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   kick:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -584,6 +643,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   moltbook:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -595,6 +655,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   ghost:
     status: member
+    kind: profile
     origin: extra
     since: v1.1
     deploy: manual
@@ -605,6 +666,7 @@ platforms:
     sources: ["SPEC §6 (D16)", "SPEC §17 (brand, v1.1)"]
   mewe:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -616,6 +678,7 @@ platforms:
     sources: ["[OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02"]
   tumblr:
     status: member
+    kind: profile
     origin: postiz
     since: v1.2
     issue: 30
@@ -630,39 +693,109 @@ platforms:
   #    before any claim, #138). Promoted to member only by the #133 chain.
   gofundme:
     status: backlog
+    kind: profile
     family: creator-monetization
     note: "deferred — no EC organizer payout, #133"
     sources: ["[MI] issue #138, 2026-10-05"]
   freelancer:
     status: backlog
+    kind: profile
     family: freelance
     note: "freelancer.com, global"
     sources: ["[MI] issue #138, 2026-10-05"]
   workana:
     status: backlog
+    kind: profile
     family: freelance
     note: "Brazil-founded, LatAm-wide ES/PT — EC-priority candidate"
     sources: ["[MI] issue #138, 2026-10-05"]
   fiverr:
     status: backlog
+    kind: profile
     family: freelance
     note: "boundary: gig **storefronts** of services — filed here with that note"
     sources: ["[MI] issue #138, 2026-10-05"]
   infojobs:
     status: backlog
+    kind: profile
     family: job-boards
     note: "Spain + LatAm"
     sources: ["[MI] issue #138, 2026-10-05"]
   computrabajo:
     status: backlog
+    kind: profile
     family: job-boards
     note: "Ecuador-founded + LatAm-wide — `[MI] — verify` the whole descriptor; in-session corroboration inconclusive, PR #140 review F1"
     sources: ["[MI] issue #138, 2026-10-05"]
   indeed:
     status: backlog
+    kind: profile
     family: job-boards
     note: "aggregator"
     sources: ["[MI] issue #138, 2026-10-05"]
+
+  # ── presence surfaces (D23, #262 — NOT enum entries: they are not profile
+  #    bodies. `kind` is the axis; `profile` remains the 49-slug enum.)
+  github-repo-meta:
+    status: backlog
+    kind: repo-meta
+    family: presence-repo
+    note: "repo description, topics and social preview — the GitHub artifact's own metadata"
+    sources: ["[OFICIAL] docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository, read 2026-10-29"]
+  release-notes:
+    status: backlog
+    kind: repo-meta
+    family: presence-repo
+    note: "the GitHub Release body for a tag — the canonical record of what shipped"
+    sources: ["[OFICIAL] docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository, read 2026-10-29"]
+  npm:
+    status: backlog
+    kind: repo-meta
+    family: presence-repo
+    note: "the published package page (README + package.json derived) — not a profile body"
+    sources: ["[OFICIAL] docs.npmjs.com/cli/v11/configuring-npm/package-json, read 2026-10-29"]
+  site:
+    status: backlog
+    kind: repo-meta
+    family: presence-repo
+    note: "the project page under site/ (generated at deploy, #277) — HTML, never an enum slug"
+    sources: ["[MI] this repo's site/ + SPEC §9.2, 2026-10-29"]
+  hacker-news:
+    status: backlog
+    kind: distribution
+    family: presence-distribution
+    note: "Show HN / launch thread — one announcement per release, judged by the community"
+    sources: ["[OFICIAL] news.ycombinator.com/newsguidelines.html, read 2026-10-29"]
+  reddit-post:
+    status: backlog
+    kind: distribution
+    family: presence-distribution
+    note: "subreddit post (r/opensource, niche subs) — distinct from the reddit PROFILE slug"
+    sources: ["[OFICIAL] reddit.com/wiki/selfpromotion, read 2026-10-29"]
+  x-post:
+    status: backlog
+    kind: distribution
+    family: presence-distribution
+    note: "launch thread/post — distinct from the x PROFILE slug"
+    sources: ["[MI] operator's channel list, issue #262"]
+  linkedin-post:
+    status: backlog
+    kind: distribution
+    family: presence-distribution
+    note: "feed post — distinct from the linkedin PROFILE slug"
+    sources: ["[MI] operator's channel list, issue #262"]
+  devto-post:
+    status: backlog
+    kind: distribution
+    family: presence-distribution
+    note: "cross-posted article — distinct from the devto PROFILE slug"
+    sources: ["[MI] operator's channel list, issue #262"]
+  awesome-lists:
+    status: backlog
+    kind: distribution
+    family: presence-distribution
+    note: "curated-list inclusion (awesome-*) — a distribution surface with its own contribution rules"
+    sources: ["[OFICIAL] github.com/sindresorhus/awesome, read 2026-10-29"]
 
 # ── ai — the AI crawler policy (M9 floor, issue #290) ────────────────────────
 #
