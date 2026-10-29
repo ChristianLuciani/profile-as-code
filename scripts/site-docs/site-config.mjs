@@ -32,3 +32,18 @@ export const DOCS = [
   { slug: "schema-contract", file: "docs/SCHEMA-CONTRACT.md", lang: "en" },
   { slug: "roadmap", file: "docs/ROADMAP.md", lang: "es" },
 ];
+
+/**
+ * The hand-authored landings (issue #280/#308): the ONE home of "which page is
+ * in which language", so the sitemap alternates and the version gate read the
+ * same list instead of each hard-coding `/es/`.
+ *
+ * `claims: false` means the page must NOT state a version: the release claim
+ * lives on the EN landing and in the projected docs, and a mirror that repeated
+ * it would be a second place to forget on every release (the drift class this
+ * engine exists to remove).
+ */
+export const LANDINGS = [
+  { slug: "", file: "site/index.html", lang: "en", claims: true },
+  { slug: "es/", file: "site/es/index.html", lang: "es", claims: false },
+];

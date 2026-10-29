@@ -422,6 +422,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco edit <contract-path> [--set <text> [--check]]` | read **or write** **one contract field** by contract path — `positioning.statement.<lang>`, `headlines[platform=<p>,lang=<l>].text`, `bios[platform=<p>,lang=<l>,length=<len>].text`, `identity.links[platform=<p>,label=<l>].url` (read-only, `label` optional). `--set` writes it: **byte-range splice over the original text** (the CST locates; it never re-serializes, so comments/layout survive and the diff is one line), block, multi-line and anchored/aliased scalars **refused** in v1, the file's node must still match the resolved value (staleness → exit 1, never a silent wrong-row write), no-op = 0 + `noop`, temp file + `load()`/schema over a temp copy + **atomic rename** (an invalid edit never reaches disk), concurrent writers serialized by an advisory `content/.pasco-edit.lock` plus a re-read immediately before the rename (an external editor is the residual window). `--set --check` previews instead: it renders the surface the way `pasco build` does (active variant → renderer → shared paste source, current vs proposed) and prints **the published lines the edit changes**, reporting an edit that does not reach the artifact with its reason instead of asserting it. It also reports the edited unit's **surface impact** from the §19 ledger — every recorded surface prints `stale` after an edit that changes the unit hash (or `in-sync` when the record still matches), and a unit with no record rolls up to `never` — derived on every run and stored nowhere (§20). A headline/bio value is pre-flighted against the catalog's own `max-chars` cap — the workspace's `content/checks.yaml` when it declares checks, else the caps shipped with pasco (#240) with its cited source and tier — over-cap is a WARN, never a block (D12), and a platform with no sourced cap reads `cap: unknown`; `--json` carries `{ address, current, proposed, rendered, ok, noop, written, warnings, stale, state, drift, limit, over, variant, reason }` inside the standard envelope (a D22/§21 selection error the write proceeds through is a warning, not a block: the SSOT write is valid even when `build` refuses); a read-only target or a file that changes under the command is exit 1 (`refused` / `stale`, nothing written); its machine contract is frozen for agents (S5, #252): the `--json` field set and the 0/1/2 exit matrix are documented in the CLI README, one test per exit row; `edit` never chooses the live variant (#238 non-goal); epic #247, S1–S5 |
 | `pasco check [platform]` | run skill-declared checks before deploy; char limits accept an optional `surface` (`headline`/`bio`/`both`) so a title cap does not flag the bio (#240). **`fact-present`** is executed here (issue #283), **for the surfaces whose catalog declares the premise** (the workspace's `content/checks.yaml` ∪ the shipped `skills/<platform>/checks.yaml`; `link-in-identity` stays a separate premise): the artifact `pasco build` last wrote is compared **symmetrically** against the SSOT render — a URL the surface adds (dangling pointer) or omits (`contradiction`), a date or number either side carries and the other does not (`contradiction`), and a text difference no fact token explains (`contradiction`) are all findings. All are WARN (D12: facts warn), and a targeted surface with no artifact on disk reports the rule as **not run**, never as OK |
 | `pasco audit [--json]` | the **offline diagnostic projection** over the identity: findings only — no score, no prioritisation, no branding (issue #283). `--json` emits `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings: [{ class, severity, path, detail }] }` — `scope` makes "measured nothing" distinguishable from "clean" — with three fixed classes (`dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN); exit 1 iff any FAIL. Composes `load` (schema), `reconciledDrift` (drift + the #238 variant reconciliation), `geoCheck` (its `faq-coverage` premise gates the claim rows), the completeness `evidence` premise, and `fact-present`; it is **deliberately stricter** than `validate`/`check` on the FAIL classes (declared in §7.1) |
+| `pasco discover <url>... [--json] [--allow-host <hosts>]` | the **provisional Profile** from public surfaces, for a prospect who has no workspace yet (issue #329, §7.10): reads only what a surface itself declares (schema.org JSON-LD + its links), attaches per-fact provenance (`surface` · `url` · `retrieved` · `attested: false`) and lists the fields it did not find as `absent` (never defaulted); runs `driftCheck` over the result plus the two classes discovery owns (`dangling-ref` on a same-host link the pass could not resolve, `unsourced-claim` on surface text). Closed host allowlist checked **before** any request; sequential, no retries, no credentials, redirects refused. Writes NOTHING — no `content/`, no ledger — and the provisional shape is not the persisted contract |
 | `pasco entity [--json \| --jsonld [--out <file> [--force]] [--bare]] [--lang <l>]` | the **entity projection** for surfaces this engine does not render (issue #287): the schema.org entity assembled by `structuredData()` — `@id`, `sameAs`, type and fields — plus the readiness `gaps` (geoCheck codes, verbatim). `--json` emits `{ schemaVersion: "1", entity: { id, type, name, sameAs, email }, gaps: [{ code, detail }], jsonld: null }`; `--jsonld` emits the **same assembler output** the renderers embed, as a paste-ready `<script type="application/ld+json">` block (`--bare` = the bare object, `--out <file>` writes it atomically and refuses an existing file without `--force`). **Both modes resolve one `lang`** (`--lang`, else `.pascorc defaults.lang`) so a gap and the emitted field cannot disagree. **One assembler, no CLI-local builder**: the projection never invents `@id` and never re-derives the entity (§15.4). Exit `1` when `@id` is absent (the entity has no declared home) or the `--out` write fails; `0` otherwise; `2` is usage. Offline and deterministic (D19). Contract: §7.2 |
 | `pasco export ai-policy [--out <dir> \| --check] [--json] [--lang <l>]` | the §12 M9 stance as an artifact (issue #290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed `ai-retrieval` crawlers allowed, the listed `ai-training` crawlers disallowed; the file declares that an unlisted crawler is not restricted, each UA commented with its registry entry/operator/source/date), `llms.txt` (the workspace index, with a coverage assertion over every document it claims) and `AI-POLICY.md` (allowed · blocked · the explicit-list limit · who can change it · the date, quoting the M9 floor verbatim); `--check` exits `1` on an incomplete or unsourced entry, a duplicate token, an `as_of` that is malformed/future/older than 180 days, or a `policy.as_of` that is stale or predates its rows; `--out` refuses to write one. The crawler list is projected from `platforms/registry.yaml` (`ai:`) by `pnpm gen:platforms` — never a hardcoded UA list in the CLI. Offline; `--check` is the declared clock-reading path. Contract: §7.3 |
 | `pasco cite-check [<answers.ndjson>] [--json]` | the **citation matcher** over saved answers (issue #291): reads the runner's NDJSON (stdin when no path), matches the workspace's declared entity against each answer and emits, per answer and **never aggregated**, `{ cited, confidence, spans, reasons }`. Fixed ladder — `citation-url` (a citation on the entity's own page or its `sameAs`/claimed-handle set — host, and the declared path or a descendant) and `exact-name` (word-bounded, case- and accent-normalized) are **high**; `alias` (`identity.orgName`) and `handle` (a declared handle) are **medium**; `partial` (any contiguous multi-token prefix of the name, ≥ 2 tokens) is **low**, and `low` is never a citation downstream. The matcher **refuses to guess**: a one-word name hit whose sentence carries no declared disambiguator is ambiguous (`cited: false`, with the longer capitalised reading quoted as `competing:<phrase>`), a mention inside a contrast clause is not a citation, and a declared qualifier or an adjacent capital never disqualifies a hit by itself. Offline, no model, no clock (D19). Exit `0` on a successful read (a non-citation is data, not a failure) · `1` the workspace cannot load, or the input path cannot be read · `2` usage or **malformed NDJSON** (never a silent skip). Contract: §7.4 |
@@ -1216,6 +1217,74 @@ edit (it is a read), does not encrypt (that breaks the no-JS invariant and the
 passphrase is the weak link), and does not judge: the check state is reported,
 not enforced — `pasco check` remains the gate.
 
+### 7.10 `pasco discover` — the provisional profile (issue #329)
+
+`pasco audit` scores a `Profile`; a prospect has none. Discovery produces a
+**provisional** one from the surfaces the prospect already publishes, so the
+existing checks run unchanged — and says, per fact, where it came from.
+
+**Input / transport.** `<url>...` plus an optional `--allow-host` list. The
+host allowlist is the platform hosts projected from `platforms/registry.yaml`
+(one metadata home, #154) plus what the operator declares; it is checked
+**before any request**, and a URL outside it is `host-not-allowed` with no
+request made (the same rule and the same reason as §19.5: an unvalidated fetch
+of untrusted input is an SSRF primitive). Requests are sequential and never
+retried, credential-free, cookieless, browser-automation-free; redirects are
+refused so the final hop cannot leave the allowlist. The driver is
+`httpFetchText`, the engine's one HTTP discipline — discovery does not grow a
+second one. Its request budget is DECLARED, not implied: **one page request per
+surface, plus at most five same-host link probes** on that surface (only to
+grade a pointer, never to crawl). §19.5's no-amplification rule governs the
+verification pass; discovery states the bound it needs instead of borrowing a
+budget it does not have.
+
+**What is read.** Only facts a surface itself declares: schema.org JSON-LD
+(`Person`/`Organization`: `name`, `jobTitle`, `worksFor`/`startDate`/`endDate`,
+`sameAs`) and the page's `<a href>` links. No prose mining — free-text year
+extraction is the same fragility drift refuses, so a
+surface without JSON-LD yields links and claims, not invented identity — a page
+`<title>` is not a declared name, and when no surface declares `name` the
+command refuses (exit 1) rather than guessing. A
+surface that cannot be read (`http-<code>`, `network-error`, `host-not-allowed`,
+`invalid-url`) is REPORTED in `unchecked`; it is not an empty profile.
+
+**Output.** A profile-shaped object that validates against the contract schema
+(`normalizeProfile(validateProfile(...))`) so `driftCheck` runs unchanged, plus
+`provenance: { <factRef>: { surface, url, retrieved, attested: false } }` and
+`absent[]`. One experience row per (surface, org) is kept on purpose: a prospect
+who wrote 2020 on one surface and 2019 on another must surface as
+`drift/duplicate-experience` (`contradiction`, FAIL), and deduplicating across
+surfaces would erase the only evidence of the disagreement. Discovery's own
+classes are `dangling-ref` (a same-host link, at most five per surface, that did
+not resolve) and `unsourced-claim` (a sentence that passes
+`isQuantitativeClaim` with no `source:`/`evidence:`/URL on it). Names and
+severities are §7.1's (`dangling-ref` FAIL · `contradiction` FAIL ·
+`unsourced-claim` WARN) and the ordering is §7.1's, but the PREDICATES are
+discovery's own, stated here rather than implied: `dangling-ref` is a live
+pointer answered 404/410 (not the audit's offline referential check — a
+`network-error` or a `429` is a probe that did not complete and is never
+graded), and `unsourced-claim` is a sentence on a surface with no source on it
+(not the audit's SSOT row without an evidence pointer). Those two classes address
+the SURFACE corpus, not the factRef space: `links[<surface>][<n>]` is the n-th
+same-host probe and `surface[<surface>].text[<n>]` the n-th sentence, so two dead
+links (or two claims) on one surface are two distinguishable addresses. A
+factRef-shaped path is always a provenance key; a surface-corpus path never is,
+and both are declared here so a consumer can join without guessing. A consumer
+that needs one meaning must not read the two reports as interchangeable.
+
+**Write rule.** Nothing is written: no `content/`, no ledger, no artifact; the
+report carries `wrote: false` and a test snapshots a working tree's directory
+listing before/after a run and asserts it is unchanged (the flag alone would be
+a claim, not a check).
+The provisional shape is **not** the persisted contract: it borrows the Profile
+geometry to reuse the checks, and it never enters a workspace or a schema
+version (§6/D3 untouched by design — promoting it would be its own decision).
+
+**Exit matrix:** `0` report produced with no FAIL finding · `1` a FAIL finding
+(`dangling-ref`/`contradiction`), no surface readable, or no surface declared a
+name (never invented) · `2` usage. `--json` is the envelope of §7.1 with
+`schemaVersion: "1"`, `surfaces`, `unchecked`, `provisional`, `findings`.
+
 ## 8. GEO as a cross-cutting layer
 
 GEO is not a renderer — it is enforced in four places:
@@ -1379,6 +1448,14 @@ Two different "templates" (previous confusion):
 
 - **Repo docs/README/SPEC**: EN (open-source lingua franca). User-facing summaries may be ES/FR.
 - **CLI output**: EN with `--lang` for generated texts.
+- **Project page**: the landing is EN with a Spanish mirror at `/es/` (decision #280-B, issue #308) —
+  reciprocal `hreflang` (`en` · `es` · `x-default`) and the same alternates in `sitemap.xml`. The
+  mirror carries **no version claim**: the release claim lives on the EN landing and in the projected
+  docs, and repeating it on a second page is a second place to forget every release
+  (`scripts/site-check/version-check.mjs` enforces the claim-free surface for the two canonical claim
+  forms — the `@<pkg>@<version>` string and JSON-LD `softwareVersion` — not for free prose). Docs stay
+  EN except `docs/ROADMAP.md`, the declared Spanish document (`lang: "es"` in
+  `scripts/site-docs/site-config.mjs`); a full ES corpus would need its own parity gate and is not shipped.
 - **Content**: every text field is `{ lang: value }`; EN required (recruiters), ES native, FR optional.
 - **Proper nouns are invariant**: organization/institution names (`org`, `institution`), venue names
   and people names are **never a langMap** — they are plain strings, identical in every language.

@@ -21,6 +21,7 @@ import { runBuild } from "./commands/build.js";
 import { runCheck } from "./commands/check.js";
 import { runCiteCheck } from "./commands/cite-check.js";
 import { runDiff } from "./commands/diff.js";
+import { runDiscover } from "./commands/discover.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runEdit } from "./commands/edit.js";
 import { runEntity } from "./commands/entity.js";
@@ -92,6 +93,10 @@ Commands:
                                 no prioritisation) in three fixed classes — dangling-ref,
                                 contradiction, unsourced-claim; stricter than
                                 validate/check on those classes; exit 1 iff any FAIL
+  discover <url>... [--json]    Provisional profile from public surfaces: reads each
+                                surface's schema.org JSON-LD + links, writes nothing and
+                                marks every fact unattested; reports the audit classes
+                                (dangling-ref · contradiction · unsourced-claim)
   entity [--json] [--jsonld]    The schema.org entity projection: facts, @id, sameAs and
           [--out <file> [--force]] [--bare] [--lang <l>]
                                 readiness gaps as JSON, or the paste-ready JSON-LD block
@@ -179,6 +184,7 @@ interface FlagOptions {
   bare?: boolean;
   now?: string;
   "no-open"?: boolean;
+  "allow-host"?: string;
 }
 
 function parseCommandFlags(
@@ -212,6 +218,21 @@ function parseCommandFlags(
 }
 
 const COMMAND_HELP: Record<string, string> = {
+  discover: `pasco discover <url>... [--json] [--allow-host <hosts>]
+Read public surfaces and build a PROVISIONAL profile so the audit's checks can
+run for a prospect who has no workspace. Every populated fact carries its
+source (surface, URL, retrieval time) and attested:false; fields that could not
+be discovered are listed as absent, never defaulted. Facts come only from the
+surfaces' schema.org JSON-LD and their links - never prose mining.
+Requests are sequential, never retried, credential-free and confined to a
+closed host allowlist: the platform hosts the engine ships, plus --allow-host
+(comma-separated). A URL outside it is reported as
+host-not-allowed with NO request made. Nothing is written: no content/, no
+ledger, no artifact.
+  --json        machine-readable report: surfaces, unchecked URLs, the
+                provisional profile, its per-fact provenance and the findings
+  --allow-host  extra hostnames the operator declares, comma-separated
+Exit 1 iff a FAIL finding exists (dangling-ref or contradiction).`,
   init: `pasco init [dir] [--flavor person|brand]
 Scaffold a ${WORKSPACE_NAME} workspace skeleton (SPEC §9): content/identity.yaml,
 README.md, .pascorc. Minimal but pasco validate-clean. Refuses to overwrite.
@@ -800,6 +821,29 @@ async function runMain(): Promise<number> {
         workspace,
         platformArg: positionals[0],
         pascorc: readWorkspacePascorc(workspace),
+      });
+    }
+    case "discover": {
+      const { flags, positionals } = parseCommandFlags(rest, {
+        "allow-host": { type: "string" },
+      });
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.discover}\n`);
+        return EXIT.OK;
+      }
+      if (positionals.length === 0)
+        throw new UsageError("usage: pasco discover <url>... [--json] [--allow-host <hosts>]");
+      setJsonMode(flags.json === true);
+      const allowHosts =
+        typeof flags["allow-host"] === "string"
+          ? flags["allow-host"]
+              .split(",")
+              .map((host) => host.trim())
+              .filter((host) => host !== "")
+          : undefined;
+      return await runDiscover({
+        urls: positionals,
+        ...(allowHosts !== undefined ? { allowHosts } : {}),
       });
     }
     case "audit": {
