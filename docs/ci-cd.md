@@ -428,33 +428,45 @@ What it asserts, and the failure it names:
 |---|---|
 | Order | `ORDER` in `release.yml` is a valid topological order of the cohort's runtime workspace dependencies (`paste`/`github` → `core`), covers exactly the five, and no member carries a runtime dependency on a workspace package outside the cohort |
 | Tarball | `pnpm pack` (not `npm pack`) produces a manifest whose `name`/`version` equal the source, whose `private`/`publishConfig.access` allow a public publish, whose `workspace:*` is rewritten to the exact peer version the same run publishes (#301), and whose `main`/`types`/`exports`/`files` targets exist inside the tarball |
-| Mechanism | the `publish` job still grants `id-token: write`, read from the job's own `permissions:` when it declares one — in the three spellings the gate reads (block, flow `{…}`, scalar `read-all` / `write-all`), with optional whitespace before the colon — because a job-level override replaces the workflow default and must not fall through to it; **every** publish invocation outside a `--dry-run` branch is `pnpm publish` (only pnpm rewrites `workspace:*`); the loop iterates `$ORDER`; the rehearsal barrier **executes** `node scripts/release-rehearsal/check.mjs` as the step's last shell segment with the status observable (no pipe, background `&`, `set +e`, `||`/`;` tail, or command after it); the cohort precedes the CLI's `Publish` step; and every publishable workspace member **except `packages/cli`** (which publishes from its own step) is in the cohort |
+| Mechanism | the `publish` job still grants `id-token: write`, read from the job's own `permissions:` when it declares one — in the three single-key spellings the gate reads (block, one-line flow `{…}`, scalar `read-all` / `write-all`), with optional whitespace around the colon in both the key and the entries; a job-level override replaces the workflow default, and a `permissions` key the gate cannot read (a flow mapping split across lines, an anchor or alias) is **denied**, never resolved through that default; **every** publish invocation outside a `--dry-run` branch is `pnpm publish` (only pnpm rewrites `workspace:*`); the loop iterates `$ORDER`; the rehearsal barrier **executes unconditionally** `node scripts/release-rehearsal/check.mjs` as the step's last shell segment with the status observable (no pipe, background `&`, `set +e`, `||`/`&&` chain, `;` tail, or command after it); the cohort precedes the CLI's `Publish` step; and every publishable workspace member **except `packages/cli`** (which publishes from its own step) is in the cohort |
 | Provenance precondition | each manifest's `repository.url` equals the repo the workflow runs in, and `repository.directory` its monorepo home |
 
 The barrier assertion is about **execution and failure propagation**, not about the
 step's text. Refused: a `run:` that merely mentions the path (`echo "<path>"`); a
-barrier that is not the step's last shell segment or whose status is discarded —
-`node <path> || true`, a command after it, a `set +e` before it, a pipe
-(`| tee …`, whose status is the last command's) or a background `&`; a step gated by
-a constant-false `if:` (`false`, `0`, `null`, an empty string — quotes, `${{ }}` and
-a trailing comment aside); and a `continue-on-error` that swallows the failure in
-the spellings the gate reads (`true`, `TRUE`, `${{ true }}`, a trailing comment),
-whether set on the step or on the barrier's job. It must sit in the `publish` job
-before the cohort step, or in a job that `publish` transitively `needs:` — a prior
-job without `needs:` would let the publish start before the rehearsal ends. The
-permission read covers the same three `permissions:` spellings for the same reason:
-a spelling the gate cannot read is a grant it cannot prove, so an unreadable scalar
-fails closed.
+barrier that is not the step's last shell segment, is reached conditionally
+(`cmd || node <path>` runs only when `cmd` fails; `cmd && node <path>` only when it
+succeeds), or whose status is discarded — `node <path> || true`, a command after
+it, a `set +e` before it, a pipe (`| tee …`, whose status is the last command's) or
+a background `&`; a step gated by a constant-false `if:` (`false`, `0`, `null`, an
+empty string — quotes, `${{ }}` and a trailing comment aside); and a
+`continue-on-error` that swallows the failure in the spellings the gate reads
+(`true`, `TRUE`, `${{ true }}`, a trailing comment), whether set on the step or on
+the barrier's job. It must sit in the `publish` job before the cohort step, or in a
+job that `publish` transitively `needs:` — a prior job without `needs:` would let
+the publish start before the rehearsal ends.
 
 **Scope of the mechanism check.** The gate is not a YAML parser and not a shell
-parser. It reads a fixed set of shapes — job and step keys at the indentation this
-workflow uses (optional whitespace before the colon), `permissions:` in the three
-spellings above, a `run:` whose barrier is the last segment after splitting on
-`;`/`&&`/`||` — and refuses the spellings it recognizes as unreadable. A construct
-outside that set is **not proven** by this gate: it is either refused (when it
-mentions the script) or unexamined (when it never does). That set grew on every
-fresh pass (#347, #363, and the third) precisely because the prose here had claimed
-more than the code read; the mutation loop is what keeps the two aligned.
+parser: it is a lexical reader over a fixed set of shapes — job and step keys at the
+indentation this workflow uses (optional whitespace before the colon), `permissions:`
+in the three single-key spellings above, a `run:` whose barrier is the last
+unconditional segment after splitting on `;`/`&&`/`||`. Every construct lands in one
+of three outcomes, and only one of them is silent:
+
+1. **recognized and refused** when it contradicts the claim (a mention, a
+   conditional or status-discarding barrier, a narrowing `permissions:`, a
+   constant-false `if:`, a constant-true `continue-on-error`, a missing `needs:`);
+2. **unreadable and denied** when a `permissions` key sits at the job's indent in a
+   shape the gate does not parse — a multi-line flow mapping, an anchor or alias —
+   because a grant it cannot read is a grant it cannot prove;
+3. **unproven and accepted** when the construct is outside the read set or only
+   resolvable at runtime: an `if:`/`continue-on-error` whose value is an expression
+   (`github.event_name == …`, `${{ inputs.x }}`) is accepted by a lexical gate and is
+   **not** evidence that the step runs or that its failure propagates. So is a
+   `run:` line the reader cannot attribute to a step key.
+
+The set grew on every fresh pass (#347, #363, its second and third rounds) precisely
+because the prose here had claimed more than the code read; what is left in outcome
+3 is declared residual, not coverage.
 
 **What it cannot check — declared, not implied.** A rehearsal is offline: it cannot
 perform the OIDC exchange, so it cannot prove the trusted-publisher binding, npm's

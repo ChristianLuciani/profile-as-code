@@ -172,20 +172,26 @@ export function parseSteps(yaml) {
 }
 
 /**
- * The shell commands a step actually runs, one per segment. Reads the step's `run:`
- * value only (inline or block scalar), drops comment lines and splits on `&&`/`||`/
- * `;`. `env:`, `with:` and YAML comments never yield a command — matching the script
- * path anywhere in the step text let an `echo "<path>"` pass as a barrier (F2b).
+ * The shell commands a step runs, each with the operator that introduces it
+ * (`start`, `;`, `&&`, `||`). Reads the step's `run:` value only — inline, the
+ * compact `- run: …` form, or a block scalar — drops comment lines and splits on
+ * `&&`/`||`/`;`, keeping the operator. `env:`, `with:` and YAML comments never
+ * yield a command: matching the script path anywhere in the step text let an
+ * `echo "<path>"` pass as a barrier (F2b), and discarding the operator let
+ * `cmd || node <path>` pass as unconditional (F2, fourth pass).
  */
-export function runCommands(body) {
+export function runSegments(body) {
   const lines = body.split("\n");
-  const commands = [];
+  const collected = [];
   for (let i = 0; i < lines.length; i += 1) {
-    const inline = lines[i].match(/^(\s*)run\s*:\s*(.*)$/);
+    // The key must sit at the STEP indentation (8 spaces, or 6 + `- ` for the
+    // compact form). Anchoring at 8 also keeps a literal `run: …` line inside a
+    // block scalar/heredoc from being read as a key (F2, fourth pass).
+    const inline = lines[i].match(/^( {6}- | {8})run\s*:\s*(.*)$/);
     if (!inline) continue;
     const value = inline[2].trim();
     if (value && !/^[|>][+-]?\s*(?:#.*)?$/.test(value)) {
-      commands.push(value);
+      collected.push(value);
       continue;
     }
     const runIndent = inline[1].length;
@@ -193,14 +199,39 @@ export function runCommands(body) {
       if (lines[j].trim() === "") continue;
       const indent = lines[j].match(/^ */)[0].length;
       if (indent <= runIndent) break;
-      commands.push(lines[j]);
+      collected.push(lines[j]);
     }
   }
-  return commands
-    .filter((line) => !line.trim().startsWith("#"))
-    .flatMap((line) => line.split(/&&|\|\||;/))
-    .map((command) => command.trim())
-    .filter(Boolean);
+  const segments = [];
+  let lineStart = "start";
+  for (const raw of collected) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const pieces = line.split(/(\|\||&&|;)/);
+    let pending = lineStart;
+    for (const piece of pieces) {
+      if (piece === "||" || piece === "&&" || piece === ";") {
+        pending = piece;
+        continue;
+      }
+      const command = piece.trim();
+      if (!command) continue;
+      segments.push({ operator: pending, command });
+      pending = ";";
+    }
+    lineStart = ";";
+  }
+  return segments;
+}
+
+/**
+ * The shell commands of a step in order, without their operators (`runSegments`
+ * keeps them). Both are exported because the mention/invocation checks only need
+ * the text, while the execution check needs to know whether the barrier is
+ * conditional (`cmd || node <path>` skips the barrier when `cmd` succeeds — F2).
+ */
+export function runCommands(body) {
+  return runSegments(body).map((segment) => segment.command);
 }
 
 /** Whether one shell segment is `node <scriptPath>` (leading `VAR=value` allowed). */
@@ -285,11 +316,17 @@ export function statusDiscardingOperators(script) {
  * discards the failure the gate exists to propagate (F3, third pass).
  */
 export function executesScript(commands, scriptPath) {
-  if (commands.length === 0) return false;
-  if (commands.some((command) => /^set\s+\+/.test(command.trim()))) return false;
-  const last = commands[commands.length - 1];
-  if (!isNodeScript(last, scriptPath)) return false;
-  return statusDiscardingOperators(last).length === 0;
+  const segments = commands.map((entry) =>
+    typeof entry === "string" ? { operator: "start", command: entry } : entry,
+  );
+  if (segments.length === 0) return false;
+  if (segments.some(({ command }) => /^set\s+\+/.test(command.trim()))) return false;
+  const last = segments[segments.length - 1];
+  if (!isNodeScript(last.command, scriptPath)) return false;
+  // It must run UNCONDITIONALLY: `cmd || node <path>` skips the barrier when `cmd`
+  // succeeds, and `cmd && node <path>` only runs it on success (F2, fourth pass).
+  if (last.operator === "||" || last.operator === "&&") return false;
+  return statusDiscardingOperators(last.command).length === 0;
 }
 
 /**
@@ -661,23 +698,30 @@ function jobBlock(lines, name) {
 }
 
 /**
- * The `permissions:` override at `indent`, in all three spellings GitHub Actions
- * accepts: block (`permissions:` + `key: value` lines), flow (`permissions: {…}`),
- * and scalar (`permissions: read-all` / `write-all`). Returns null when no
- * `permissions:` is declared at that indent.
+ * The `permissions:` override at `indent`, in the three single-key spellings this
+ * gate reads: block (`permissions:` + `key: value` lines), flow (`permissions: {…}`
+ * on one line), and scalar (`permissions: read-all` / `write-all`). Returns null
+ * when no `permissions:` is declared at that indent.
+ *
+ * A `permissions` KEY at that indent that does not match one of those shapes — a
+ * flow mapping split across lines, a YAML anchor/alias, anything else — is returned
+ * as `{style: "unreadable"}` and DENIED by the caller. Falling back to the workflow
+ * default there was the worst failure of the gate: it asserted the top-level grant
+ * while the job had replaced it (F1, fourth pass).
  *
  * Every pattern is anchored on the SAME indent as the block form. An unanchored
  * `/^permissions:/` matched only column 0, so a job-level override fell through to
- * the workflow default and the gate read a grant the job had overridden — first for
- * flow style (F4b), then for the scalar spellings (F1).
+ * the workflow default — first for flow style (F4b), then the scalar spellings (F1),
+ * then any shape the gate could not read (F1, pass 4).
  */
 function permissionOverride(lines, from, to, indent) {
   const pad = " ".repeat(indent);
-  const blockLine = new RegExp(`^${pad}permissions\\s*:\\s*(?:#.*)?$`);
-  const flowPattern = new RegExp(`^${pad}permissions\\s*:\\s*\\{(.*)\\}\\s*(?:#.*)?$`);
-  const scalarPattern = new RegExp(`^${pad}permissions\\s*:\\s*([^#{}]+?)\\s*(?:#.*)?$`);
+  const keyLine = new RegExp(`^${pad}permissions\\s*:(.*)$`);
   for (let i = from; i < to; i += 1) {
-    if (blockLine.test(lines[i])) {
+    const key = lines[i].match(keyLine);
+    if (!key) continue;
+    const rest = key[1].replace(/\s+#.*$/, "").trim();
+    if (rest === "") {
       const entries = [];
       for (let j = i + 1; j < to; j += 1) {
         if (!lines[j].startsWith(`${pad}  `)) break;
@@ -686,35 +730,43 @@ function permissionOverride(lines, from, to, indent) {
       }
       return { style: "block", entries };
     }
-    const flow = lines[i].match(flowPattern);
+    const flow = rest.match(/^\{(.*)\}$/);
     if (flow) {
       return {
         style: "flow",
         entries: flow[1]
           .split(",")
-          .map((entry) => entry.replace(/\s+#.*$/, "").trim())
+          .map((entry) => entry.trim())
           .filter(Boolean),
       };
     }
-    const scalar = lines[i].match(scalarPattern);
-    if (scalar) return { style: "scalar", scalar: scalar[1].trim() };
+    if (/^[A-Za-z][A-Za-z0-9_-]*$/.test(rest)) return { style: "scalar", scalar: rest };
+    return { style: "unreadable", raw: rest };
   }
   return null;
 }
 
 /**
  * Whether an override grants OIDC. `write-all` sets every available scope to write
- * (`id-token` included); `read-all` cannot grant it (`id-token` has no read value),
- * and any other scalar is unreadable by this gate, so it fails closed
- * ([OFICIAL] GitHub Docs, workflow syntax §permissions, checked 2026-10-29).
+ * (`id-token` included); `read-all` cannot grant it (`id-token` has no read value);
+ * an unreadable shape or an unrecognized scalar fails closed, naming what could not
+ * be read ([OFICIAL] GitHub Docs, workflow syntax §permissions, checked 2026-10-29).
  */
 function overrideGrant(override) {
+  if (override.style === "unreadable") {
+    return { granted: false, note: `unreadable \`permissions:\` ${JSON.stringify(override.raw)}` };
+  }
   if (override.style === "scalar") {
     if (override.scalar === "write-all") return { granted: true };
     if (override.scalar === "read-all") return { granted: false };
     return { granted: false, note: `unrecognized scalar \`${override.scalar}\`` };
   }
-  return { granted: override.entries.includes("id-token: write") };
+  // `id-token : write` / `id-token:  write` are the same grant as `id-token: write`.
+  const grants = override.entries.some((entry) => {
+    const pair = entry.match(/^([^:]+?)\s*:\s*(.+)$/);
+    return pair !== null && pair[1].trim() === "id-token" && pair[2].trim() === "write";
+  });
+  return { granted: grants };
 }
 
 /** The `{granted, scope}` verdict for one effective `permissions:` override. */
@@ -836,10 +888,13 @@ export function workflowViolations(yaml) {
   // command with the exit code kept. The first two exist so a near-miss names its
   // own reason instead of collapsing into "found 0" (F2b/F3).
   const barrierCandidates = steps
-    .map((step, index) => ({ index, step, commands: runCommands(step.body) }))
+    .map((step, index) => {
+      const segments = runSegments(step.body);
+      return { index, step, segments, commands: segments.map((entry) => entry.command) };
+    })
     .filter(({ commands }) => commands.some((command) => command.includes(BARRIER)));
   const invoking = barrierCandidates.filter(({ commands }) => invokesScript(commands, BARRIER));
-  const executing = barrierCandidates.filter(({ commands }) => executesScript(commands, BARRIER));
+  const executing = barrierCandidates.filter(({ segments }) => executesScript(segments, BARRIER));
   for (const { index, step } of barrierCandidates.filter((entry) => !invoking.includes(entry))) {
     const label = step.name ? ` (${JSON.stringify(step.name)})` : "";
     violations.push(

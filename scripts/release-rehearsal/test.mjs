@@ -370,6 +370,44 @@ test("workflowViolations — F3: a BACKGROUNDED barrier (`&`) is refused", () =>
   );
 });
 
+test("workflowViolations — F2: a CONDITIONAL barrier (`cmd || node`) is refused", () => {
+  // `true || node <path>` exits 0 without running the rehearsal: splitting on `||`
+  // and keeping only the last segment read it as unconditional.
+  for (const prefix of ["true", '[ -n "$X" ]']) {
+    const yaml = workflow().replace(
+      "        run: node scripts/release-rehearsal/check.mjs",
+      `        run: ${prefix} || node scripts/release-rehearsal/check.mjs`,
+    );
+    refuses(
+      workflowViolations(yaml).violations,
+      "last effective command with the exit code kept",
+      `conditional barrier (${prefix} ||)`,
+    );
+  }
+});
+
+test("workflowViolations — F2: `cmd && node` is refused too (not the last unconditional step)", () => {
+  const yaml = workflow().replace(
+    "        run: node scripts/release-rehearsal/check.mjs",
+    "        run: cd . && node scripts/release-rehearsal/check.mjs",
+  );
+  refuses(
+    workflowViolations(yaml).violations,
+    "last effective command with the exit code kept",
+    "&& chain",
+  );
+});
+
+test("workflowViolations — F5: the compact `- run: node <path>` form is read", () => {
+  const yaml = workflow().replace(
+    [`      - name: ${BARRIER_STEP}`, "        run: node scripts/release-rehearsal/check.mjs"].join(
+      "\n",
+    ),
+    "      - run: node scripts/release-rehearsal/check.mjs",
+  );
+  assert.deepEqual(workflowViolations(yaml).violations, []);
+});
+
 test("workflowViolations — F3: redirections on the barrier are NOT read as a pipe", () => {
   // `> file 2>&1` keeps the exit status; the operator scan must not over-reject it.
   const yaml = workflow().replace(
@@ -595,6 +633,51 @@ test("F3 — a constant-false `if:` with a trailing comment still gates the barr
     publishExtra: ["    needs: rehearse"],
   });
   refuses(workflowViolations(job).violations, "never true", "commented false job if");
+});
+
+test("F1 — an UNREADABLE job permissions shape fails closed, never the default", () => {
+  // The BLOCKER: a flow mapping split across lines (valid YAML) matched none of the
+  // patterns, `permissionOverride` returned null and the grant was read from the
+  // WORKFLOW default — green while the job had replaced it.
+  const multiLineFlow = workflow({
+    publishExtra: ["    permissions: {", "      contents: read", "    }"],
+  });
+  const verdict = idTokenGranted(multiLineFlow);
+  assert.equal(verdict.granted, false);
+  assert.equal(verdict.scope, 'publish job permissions (unreadable `permissions:` "{")');
+  refuses(
+    workflowViolations(multiLineFlow).violations,
+    "publish job does not grant",
+    "multiline flow",
+  );
+
+  const anchored = workflow({ publishExtra: ["    permissions: &p { contents: read }"] });
+  assert.equal(idTokenGranted(anchored).granted, false);
+  assert.match(idTokenGranted(anchored).scope, /unreadable/);
+  refuses(workflowViolations(anchored).violations, "publish job does not grant", "anchored flow");
+
+  const aliased = workflow({ publishExtra: ["    permissions: *alias"] });
+  assert.equal(idTokenGranted(aliased).granted, false);
+  assert.match(idTokenGranted(aliased).scope, /unreadable/);
+  refuses(workflowViolations(aliased).violations, "publish job does not grant", "aliased block");
+});
+
+test("F4 — an `id-token : write` grant written with spaces still counts", () => {
+  // Rejecting it was a false RED on valid YAML the docs say the gate tolerates.
+  const block = workflow({ publishPermissions: ["id-token : write"] });
+  assert.deepEqual(idTokenGranted(block), {
+    granted: true,
+    scope: "publish job permissions",
+  });
+  const flow = workflow({
+    publishExtra: ["    permissions: { contents: read, id-token : write }"],
+  });
+  assert.deepEqual(idTokenGranted(flow), {
+    granted: true,
+    scope: "publish job permissions",
+  });
+  const doubleSpace = workflow({ publishPermissions: ["id-token:  write"] });
+  assert.equal(idTokenGranted(doubleSpace).granted, true);
 });
 
 test("idTokenGranted — F1: a scalar TOP-LEVEL default is read too", () => {
