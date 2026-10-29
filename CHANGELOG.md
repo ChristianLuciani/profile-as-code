@@ -18,6 +18,19 @@ minor versions may contain breaking contract changes.
   `version-check` now enforces "claim-free surfaces" from the `LANDINGS` list in
   `site-config.mjs`, which is also the one home the sitemap reads. Docs stay EN
   (decision #280-B); `site-check` gates the new page like every other.
+- **`pasco discover` — a provisional Profile from public surfaces (#329)** —
+  `pasco audit` needs a `Profile`; a prospect has none. Discovery reads only what
+  a surface itself declares (schema.org JSON-LD + its links), attaches per-fact
+  provenance (`surface` · `url` · `retrieved` · `attested: false`), lists `absent`
+  fields instead of defaulting them, and runs `driftCheck` over the result plus
+  the two classes discovery owns: `dangling-ref` (a same-host link that did not
+  resolve) and `unsourced-claim` (a numeric claim with no source on the surface).
+  One row per surface is kept on purpose, so a cross-surface date disagreement
+  surfaces as `drift/duplicate-experience` instead of being averaged away.
+  Transport is §19.5's: closed host allowlist checked **before** any request
+  (registry platform hosts + `--allow-host`), sequential, no retries, no
+  credentials, redirects refused. It writes nothing, and the provisional shape is
+  not a schema version (SPEC §7.10).
 - **Answer-engine surface, consumer half — `structuredData()` projects
   `identity.definition` + `faq[]` (#316)** — the v1.10 contract shipped in v0.3.6
   without an emitter; `structuredData()` now reads the fields. Person:
