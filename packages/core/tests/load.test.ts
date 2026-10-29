@@ -53,6 +53,13 @@ describe("load(workspace)", () => {
       expect(profile.projects).toEqual([]);
       expect(profile.publications).toEqual([]);
       expect(profile.checks).toEqual([]);
+      // #348: every list root, `faq[]` included — the compiled profile's shape
+      // must not depend on whether a workspace declares answers.
+      expect(profile.faq).toEqual([]);
+      expect(profile.education).toEqual([]);
+      expect(profile.languages).toEqual([]);
+      expect(profile.credentials).toEqual([]);
+      expect(profile.artifacts).toEqual([]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

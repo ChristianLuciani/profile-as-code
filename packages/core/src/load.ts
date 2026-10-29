@@ -79,6 +79,12 @@ export function normalizeProfile(profile: Profile): LoadedProfile {
     deployments: profile.deployments ?? {},
     credentials: profile.credentials ?? [],
     artifacts: profile.artifacts ?? [],
+    // #348: `faq[]` is the one list root added after `normalizeProfile` was
+    // written; leaving it undefined made the loaded shape depend on whether the
+    // workspace declares answers. Every list root defaults here, so the one
+    // assembler (`load()`, §15.4) returns a shape a consumer reads without a
+    // per-root null check.
+    faq: profile.faq ?? [],
   };
 }
 
