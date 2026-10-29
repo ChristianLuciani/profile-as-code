@@ -136,6 +136,17 @@ function hasCredentialLd(profile: Profile): EducationalOccupationalCredentialLd[
  * UNDEFINED when the workspace declares no `faq`: a FAQPage with zero questions
  * is not an answer surface, so an empty one is never emitted — the node exists
  * only when the SSOT owns answers.
+ *
+ * `faq[].source` is projected as `Answer.citation` (schema.org `Answer` is a
+ * `CreativeWork`, so `citation` is the standard's own pointer property): the
+ * SSOT declares the pointer as the answer's backing, and dropping it would emit
+ * the assertion without its source (an answer with no pointer is a claim, §8).
+ *
+ * NO CONSUMER YET: neither renderer embeds this node (they embed `jsonLd` only)
+ * and `pasco entity --json/--jsonld` projects the entity node — `faqJsonLd` is
+ * the readiness surface the M5 web renderer will consume. The consumer/renderer
+ * follow-up is declared in SPEC §15.4 and is pending the operator's OK (ADR-025);
+ * do not "fix" the missing embedding here — that is separate, declared scope.
  */
 function faqNode(profile: Profile, lang: Lang): StructuredDataReadiness["faqJsonLd"] {
   const rows = profile.faq;
@@ -149,6 +160,7 @@ function faqNode(profile: Profile, lang: Lang): StructuredDataReadiness["faqJson
       acceptedAnswer: {
         "@type": "Answer" as const,
         text: row.a[lang] || row.a.en,
+        ...(row.source ? { citation: row.source } : {}),
       },
     })),
   };

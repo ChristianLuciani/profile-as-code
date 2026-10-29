@@ -403,6 +403,14 @@ export function geoCheck(profile: Profile, lang: Lang = "en"): GeoReport {
       // called it absent. Parity holds for every schema-valid populated value:
       // logo/established/photo are url/date-typed (non-empty), location is a plain
       // string where "" is falsy in both readings.
+      //
+      // The two branches are NOT symmetric on `description` (v1.10 review F3), and
+      // that is deliberate: the brand set has always scored `description` because a
+      // brand always has one (mission in v1.9, definition-or-mission now). The Person
+      // `description` is v1.10-OPTIONAL, so adding it to the denominator would move
+      // every pre-v1.10 person score (a pinned contract: `cite.test` pins the GEO
+      // score) — an additive field must never shrink a published number. It is still
+      // NAMED in the detail below and measured by the readiness completeness ratio.
       score:
         profile.flavor === "brand"
           ? (Number(Boolean(sd.fields.logo)) +
@@ -416,7 +424,7 @@ export function geoCheck(profile: Profile, lang: Lang = "en"): GeoReport {
       detail:
         profile.flavor === "brand"
           ? `logo: ${sd.fields.logo ? "yes" : "no"} · description(definition|mission): ${sd.fields.description ? "yes" : "no"} · foundingDate: ${sd.fields.foundingDate ? "yes" : "no"}`
-          : `photo: ${sd.fields.image ? "yes" : "no"} · location: ${sd.fields.address ? "yes" : "no"} · jobTitle: ${sd.fields.jobTitle ? "yes" : "no"}`,
+          : `photo: ${sd.fields.image ? "yes" : "no"} · location: ${sd.fields.address ? "yes" : "no"} · jobTitle: ${sd.fields.jobTitle ? "yes" : "no"} · description(optional): ${sd.fields.description ? "yes" : "no"}`,
     },
     {
       code: "geo/semantic-anchors",

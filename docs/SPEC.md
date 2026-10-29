@@ -222,9 +222,14 @@ fallback byte-identical (same slot, same key order). The answer surface is a sep
 `FAQPage` JSON-LD node (`StructuredDataReadiness.faqJsonLd`), emitted only when `faq[]`
 exists — never an empty one; it is its own field, never folded into `jsonLd` (a different
 schema.org `@type`), and it carries no `@id` (the engine never invents an anchor, §15.4).
-The Person completeness denominator grows 7 → 8 (`description` is a considered field,
-counted only when populated — the declared, honestly-accounted delta, same class as the
-v1.6 entity-id move).
+`description` joins the Person `considered` list, whose denominator is now **fixed at 8**;
+it counts as *populated* only when declared, so a person declaring the seven pre-v1.10
+fields and no definition moves from 1.0 to 7/8 — the declared, honestly-accounted delta
+(same class as the v1.6 entity-id move), not a shrink of what the workspace declares.
+The node has **no consumer yet**: renderers embed `jsonLd` only and `pasco entity` projects
+the entity node, so `faqJsonLd` is the readiness surface the M5 web renderer consumes; the
+consumer follow-up is declared, not opened here (emitting an issue needs the operator's OK,
+ADR-025).
 The competitive split measured
 2026-10-23 (`[WEB]`, #288 evidence: a GEO competitor ships 12 question-shaped H2s and
 zero structured answers) is engine-ownable: the SSOT, not the renderers, is the surface.
@@ -1536,9 +1541,15 @@ neither is a score.
   `FAQPage` node (`StructuredDataReadiness.faqJsonLd`) iff root `faq[]` exists — never an
   empty FAQPage, and **no `@id`** (the engine never invents an anchor, the same rule the
   entity node follows; a fragment convention is not a declared decision). The node is a
-  different schema.org `@type`, so it is never folded into `jsonLd`. Person completeness
-  gains `description` as its 8th considered field (populated only when declared: the
-  honest 7→8 delta, same class as the v1.6 entity-id move).
+  different schema.org `@type`, so it is never folded into `jsonLd`; a row's declared
+  `faq[].source` travels as `Answer.citation` (the pointer stays with the answer it
+  backs). Person `description` joins the `considered` list — **fixed denominator 8** —
+  and is populated only when declared (the honest 7→8 delta, same class as the v1.6
+  entity-id move: upgrading CAN move the number). **No consumer emits `faqJsonLd` yet**:
+  both renderers embed `jsonLd` and `pasco entity` projects the entity node, so the
+  emitted node is the readiness surface the M5 web renderer will consume — the
+  consumer/renderer follow-up is declared, not opened here (ADR-025: issuing it needs
+  the operator's OK).
 - Entity assembly lives in **one** place: `core/src/structured-data.ts` — the single source for
   `@id`, `sameAs` and the entity fields, consumed by `geoCheck`, every renderer and
   `pasco entity` (§7.2). Renderers and the CLI never re-derive structured-data identity (the

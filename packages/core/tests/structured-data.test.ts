@@ -1,7 +1,7 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { load, SchemaValidationError, structuredData } from "../src/index.js";
 
 /**
@@ -13,9 +13,15 @@ import { load, SchemaValidationError, structuredData } from "../src/index.js";
  * tests.
  */
 
+const tempDirs: string[] = [];
+afterAll(() => {
+  for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
+});
+
 let counter = 0;
 function workspace(content: Record<string, string>): string {
   const dir = mkdtempSync(join(tmpdir(), `pasco-structured-data-${counter++}-`));
+  tempDirs.push(dir);
   mkdirSync(join(dir, "content"), { recursive: true });
   for (const [name, text] of Object.entries(content)) {
     writeFileSync(join(dir, "content", name), text);
@@ -101,6 +107,12 @@ describe("structuredData — the answer-engine surface (#288/#316)", () => {
       expect(typeof question.acceptedAnswer.text).toBe("string");
       expect(question.acceptedAnswer.text.length).toBeGreaterThan(0);
     }
+    // A declared `faq[].source` travels with the answer as `Answer.citation`
+    // (schema.org `Answer` is a `CreativeWork`); a row without one carries none.
+    expect(sd.faqJsonLd?.mainEntity[0]?.acceptedAnswer.citation).toBe(
+      "https://example.com/ada-spec",
+    );
+    expect(sd.faqJsonLd?.mainEntity[1]?.acceptedAnswer).not.toHaveProperty("citation");
   });
 
   it("counts description in the person readiness budget (v1.10 delta)", () => {
@@ -115,12 +127,14 @@ describe("structuredData — the answer-engine surface (#288/#316)", () => {
         }),
       ),
     );
-    // 7 old considered fields stay; description is the 8th — populated grows
-    // only when the definition is declared (HONEST ACCOUNTING, like the v1.6
-    // entity-id delta: upgrading CAN move the number).
+    // 7 old considered fields stay; description joins as the 8th, so the DENOMINATOR
+    // is FIXED at 8 — populated grows only when the definition is declared (HONEST
+    // ACCOUNTING, like the v1.6 entity-id delta: upgrading CAN move the number).
+    // This person declares only name + @id: 1/8 without a definition, 2/8 with one.
     expect(without.fields.description).toBeUndefined();
+    expect(without.completeness).toBeCloseTo(1 / 8, 5);
     expect(with_.fields.description).toBeDefined();
-    expect(with_.completeness).toBeGreaterThan(without.completeness);
+    expect(with_.completeness).toBeCloseTo(2 / 8, 5);
   });
 
   it("brand: definition wins over mission; without one, the v1.9 mission fallback is unchanged", () => {

@@ -232,14 +232,21 @@ export interface StructuredDataReadiness {
    *  schema.org @type than the entity, so it is its own field, never folded into
    *  `jsonLd`. Emitted iff root `faq[]` exists (never an empty FAQPage). No `@id`
    *  by design: the engine never invents an anchor (the same rule the entity node
-   *  follows, §15.4), and a URL fragment convention is not a declared decision. */
+   *  follows, §15.4), and a URL fragment convention is not a declared decision.
+   *  A declared `faq[].source` travels as `Answer.citation` (schema.org `Answer`
+   *  is a `CreativeWork`). */
   faqJsonLd?: {
     "@context": "https://schema.org";
     "@type": "FAQPage";
     mainEntity: Array<{
       "@type": "Question";
       name: string;
-      acceptedAnswer: { "@type": "Answer"; text: string };
+      acceptedAnswer: {
+        "@type": "Answer";
+        text: string;
+        /** The declared pointer backing this answer (v1.10, #288/#316). */
+        citation?: string;
+      };
     }>;
   };
 }
