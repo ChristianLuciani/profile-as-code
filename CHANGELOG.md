@@ -23,9 +23,9 @@ minor versions may contain breaking contract changes.
   before a boolean exists. Additive: a row without `kind` validates and renders
   byte-identically, every existing workspace stays valid, and no renderer output
   changes. Consumers that need counts must require the field explicitly. Contract in
-  SPEC §6; `Zod` regenerated from the schema (D3). — *The claims sidecar's last
-  heuristic becomes a schema fact (#10/#14); `publications.counts` in the compiled
-  profile remains #348's follow-up.*
+  SPEC §6; `Zod` regenerated from the schema (D3). — *The consumer workspace's
+  claim-sidecar heuristic becomes a schema fact (#349); `publications.counts` in the
+  compiled profile remains #348's follow-up.*
 
 - **The seam-cohort publish is rehearsed before it is irreversible (#313)** —
   `scripts/release-rehearsal/` packs the five seam packages with the same client the

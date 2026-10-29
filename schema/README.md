@@ -78,7 +78,7 @@ validates the result against this schema. File → root property mapping:
 | `education.yaml` | `education[]` | v1.1: formal education (degree/institution/start/end/note) |
 | `languages.yaml` | `languages[]` | v1.1: spoken languages (code + level) |
 | `projects.yaml` | `projects[]` | With `evidence[]` (verifiable claims); v1.12 (issue #333): `artifactRefs[]` names the work behind the row — publication truth is derived from `artifacts[]` (§15.3), never stored |
-| `publications.yaml` | `publications[]` | DOI/ORCID resolvable → GEO citability |
+| `publications.yaml` | `publications[]` | DOI/ORCID resolvable → GEO citability; v1.14 (issue #349): optional `kind` (`journal-article` \| `preprint` \| `conference-abstract`) classifies the output — `peerReviewed` is derived from `kind == journal-article`, never stored |
 | `keywords.yaml` | `keywords` | SEO per platform + GEO associations/claims |
 | `checks.yaml` | `checks[]` | User-level rules; unioned with skill `checks.yaml` |
 | `active.yaml` | `active` | Which variant is LIVE per platform (D11) |

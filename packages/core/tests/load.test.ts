@@ -317,7 +317,9 @@ describe("identity.email (v1.5, issue #71 — the contact email is a fact, not a
       rmSync(dir, { recursive: true, force: true });
     }
   });
+});
 
+describe("publication.kind (v1.14 — a derived, never-stored classification)", () => {
   it("accepts every publication.kind value (v1.14, #349)", () => {
     for (const kind of ["journal-article", "preprint", "conference-abstract"]) {
       const dir = makeWorkspace({
@@ -361,8 +363,16 @@ describe("identity.email (v1.5, issue #71 — the contact email is a fact, not a
       const legacy = load(dir);
       // Additive means the loader does not materialize a default for an absent field.
       expect("kind" in (legacy.publications[0] ?? {})).toBe(false);
-      // The compiled slice carries the row untouched — no derived kind, no flag.
-      expect(JSON.stringify(compile(legacy, "github-readme", "en"))).not.toContain("kind");
+      // The compiled slice carries the row UNTOUCHED: the collection still has the one
+      // row the fixture declared, and that row deep-equals the input (no derived kind,
+      // no peerReviewed flag) — so a dropped row could not pass this assertion.
+      const compiled = compile(legacy, "github-readme", "en");
+      expect(compiled.publications).toHaveLength(1);
+      expect(compiled.publications[0]).toEqual({
+        title: "A Paper",
+        venue: "Somewhere",
+        year: 2024,
+      });
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
