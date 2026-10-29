@@ -26,10 +26,16 @@
  *   - a clean tree, including the generic `/Users/…` documentation placeholder,
  *     passes (`pass-clean`).
  *
+ * Fixtures are part of the CI contract: a fixture whose path falls under an
+ * ignore pattern (`build/`, `dist/`, `.sota/`, …) never reaches a clean clone,
+ * so the suite would pass on the author's machine and fail in CI with ENOENT —
+ * a gate tested with a ghost. The runner therefore asserts the tree exists and
+ * names the trap instead of surfacing a raw ENOENT.
+ *
  * Zero dependencies, `node scripts/agnostic-check/test.mjs`.
  */
 import { spawnSync } from "node:child_process";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -54,9 +60,17 @@ for (const name of cases) {
     failed += 1;
     continue;
   }
+  const treeDir = path.join(dir, "tree");
+  if (!existsSync(treeDir)) {
+    failed += 1;
+    console.error(
+      `FAIL ${name}: fixture tree is missing (${treeDir}) — a fixture under an ignored path never reaches a clean clone`,
+    );
+    continue;
+  }
   const result = spawnSync(
     process.execPath,
-    [checkPath, "--root", path.join(dir, "tree"), "--allowlist", path.join(dir, "allowlist.json")],
+    [checkPath, "--root", treeDir, "--allowlist", path.join(dir, "allowlist.json")],
     { encoding: "utf8" },
   );
   const output = `${result.stdout}${result.stderr}`;
