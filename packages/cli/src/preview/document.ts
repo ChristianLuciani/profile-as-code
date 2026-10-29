@@ -1,5 +1,5 @@
 /**
- * The preview DOCUMENT (issue #282, SPEC §7.8).
+ * The preview DOCUMENT (issue #282, SPEC §7.9).
  *
  * One file, no JS, no external asset: the artifact `pasco build` would write for
  * each platform, projected into ONE HTML page whose sections are its anchors

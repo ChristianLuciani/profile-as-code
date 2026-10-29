@@ -85,6 +85,9 @@ export function normalizeProfile(profile: Profile): LoadedProfile {
     // assembler (`load()`, §15.4) returns a shape a consumer reads without a
     // per-root null check.
     faq: profile.faq ?? [],
+    // v1.15 (D23): the release events a workspace declares. Optional and additive
+    // — an old workspace without it reads the same, now with an empty list.
+    releases: profile.releases ?? [],
   };
 }
 

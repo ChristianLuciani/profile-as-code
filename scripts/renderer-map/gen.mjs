@@ -72,6 +72,10 @@ const WORKSPACE_REL = "pnpm-workspace.yaml";
  * test (`packages/cli/tests/renderer-map.test.ts`); an out-of-union value is
  * refused here by the check above. */
 const DEPLOY_SPECS = ["git", "api", "manual"];
+/** D23 (issue #262): the `surface.kind` axis. A renderer may DECLARE the kind it
+ *  emits (`pasco.surface`); gen-platforms refuses a disagreement with the
+ *  registry, so a repo-metadata emitter can never masquerade as kind: profile. */
+export const SURFACE_KINDS = ["profile", "repo-meta", "distribution"];
 
 const rel = (root, target) => path.relative(root, target) || ".";
 
@@ -235,9 +239,16 @@ export async function collectRenderers(root) {
     if (pasco.assets !== undefined && typeof pasco.assets !== "boolean") {
       throw new GateError(`${where}: pasco.assets must be a boolean when present`);
     }
+    if (pasco.surface !== undefined && !SURFACE_KINDS.includes(pasco.surface)) {
+      throw new GateError(
+        `${where}: pasco.surface must be one of ${SURFACE_KINDS.join(" | ")} when present (D23)`,
+      );
+    }
     entries.push({
       platform: pasco.platform,
       deploySpec: pasco.deploySpec,
+      // Absent = `profile`: the pre-D23 manifests keep their meaning.
+      surface: pasco.surface ?? "profile",
       assets: pasco.assets === true,
       name: manifest.name,
       where,

@@ -1,5 +1,5 @@
 /**
- * `pasco preview` — see the data without publishing it (issue #282, SPEC §7.8).
+ * `pasco preview` — see the data without publishing it (issue #282, SPEC §7.9).
  *
  * The artifact is the contract, not the hosting: ONE self-contained HTML file
  * that opens from `file://` with no server, no network and no JS. The issue's

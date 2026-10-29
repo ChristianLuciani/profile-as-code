@@ -1,0 +1,23 @@
+- name: sovereign-agentic-hub
+  status: active
+  description:
+    en: A sovereign agentic hub routing LLM calls to local-first providers.
+  links:
+    - https://github.com/elenavasquez
+  keywords:
+    - sovereign AI
+    - LLM routing
+  evidence:
+    - claim:
+        en: Serves 100k+ requests/month across 12 deployments.
+      source: https://doi.org/10.5555/sovereign-hub
+      verified: 2025-01-10
+- name: open-education-platform
+  status: maintained
+  description:
+    en: OER platform used by 40 universities across Latin America.
+  links:
+    - https://example.com/oer-platform
+  keywords:
+    - open-source education
+    - OER

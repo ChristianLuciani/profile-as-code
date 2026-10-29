@@ -33,7 +33,7 @@ minor versions may contain breaking contract changes.
   never inlined, a remote image becomes a text note instead of a fetch, and raw
   HTML in the data is escaped rather than executed. `--now <iso8601>` pins the
   `generated <date>` stamp, so the page is byte-identical across runs. Contract in
-  SPEC §7.8 (command row in §7); `--help`, the package README and the User Guide
+  SPEC §7.9 (command row in §7); `--help`, the package README and the User Guide
   document it, and the privacy gate has its own seeded tests.
 - **`pasco export profile --json` — the normalized profile for programmatic
   consumers (#348)** — the engine exposed `build <platform>` (text slices) and

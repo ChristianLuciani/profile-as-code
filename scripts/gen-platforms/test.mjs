@@ -102,7 +102,14 @@ function makeTree({
       root,
       join("packages", "renderers", r.dir, "package.json"),
       JSON.stringify(
-        { name: r.name, pasco: { platform: r.platform, deploySpec: r.deploySpec } },
+        {
+          name: r.name,
+          pasco: {
+            platform: r.platform,
+            deploySpec: r.deploySpec,
+            ...(r.surface === undefined ? {} : { surface: r.surface }),
+          },
+        },
         null,
         2,
       ),
@@ -222,6 +229,11 @@ try {
       module.includes('{ platform: "alpha", host: "alpha.com" },'),
       module,
     );
+    check(
+      "emits PLATFORM_KINDS for members and backlog (D23)",
+      module.includes('alpha: "profile",') && module.includes('beta: "profile",'),
+      module,
+    );
     const spec = readFileSync(join(root, SPEC_REL), "utf8");
     check("fills the SPEC count arithmetic", spec.includes("1 = 1 extras; 1 + 1 = **2**."), spec);
     check(
@@ -257,6 +269,81 @@ try {
     check(
       "regeneration is byte-stable",
       again.code === 0 && readFileSync(join(root, OUT_REL), "utf8") === module,
+    );
+  }
+
+  // ── surface kind (D23, #262) ──────────────────────────────────────────────
+  {
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        npm: BACKLOG({ kind: "repo-meta", family: "creator-monetization" }),
+        hn: BACKLOG({ kind: "distribution", family: "creator-monetization" }),
+      },
+    });
+    const res = run(root);
+    check("a backlog with a non-profile kind generates", res.code === 0, res.out.trim());
+    const module = readFileSync(join(root, OUT_REL), "utf8");
+    check(
+      "projects the backlog kinds into PLATFORM_KINDS",
+      module.includes('npm: "repo-meta",') &&
+        module.includes('hn: "distribution",') &&
+        module.includes('export type SurfaceKind = "profile" | "repo-meta" | "distribution";'),
+      module,
+    );
+    check(
+      "the family table names the non-profile backlog",
+      readFileSync(join(root, SPEC_REL), "utf8").includes("`npm`") &&
+        readFileSync(join(root, SPEC_REL), "utf8").includes("`hn`"),
+      readFileSync(join(root, SPEC_REL), "utf8"),
+    );
+  }
+  {
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: PLATFORM({
+          family: "creator-monetization",
+          since: "v1.8",
+          hosts: ["alpha.com"],
+          handle_hosts: ["alpha.com"],
+          renderer: true,
+          fixture: "alpha-ws",
+          kind: "repo-meta",
+        }),
+      },
+    });
+    const res = run(root);
+    check(
+      "a member with kind != profile refuses (the enum is the profile bodies)",
+      res.code === 1 && res.out.includes("the enum is the profile bodies"),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree({
+      ...BASE_TREE,
+      platforms: { ...BASE_PLATFORMS, alpha: PLATFORM({ ...BASE_PLATFORMS.alpha, kind: "bogus" }) },
+    });
+    const res = run(root);
+    check(
+      "an unknown kind refuses",
+      res.code === 1 && res.out.includes("kind must be one of"),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree({
+      ...BASE_TREE,
+      renderers: [{ ...ALPHA_RENDERER, surface: "repo-meta" }],
+    });
+    const res = run(root);
+    check(
+      "a renderer emitting repo metadata under kind: profile refuses (D23 CI gate)",
+      res.code === 1 && res.out.includes("a repo-metadata emitter cannot be kind: profile"),
+      res.out.trim(),
     );
   }
 

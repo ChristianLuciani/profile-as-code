@@ -1,5 +1,5 @@
 /**
- * The PREVIEW privacy gate (issue #282, SPEC §7.8).
+ * The PREVIEW privacy gate (issue #282, SPEC §7.9).
  *
  * `pasco preview` renders the user's own data into ONE file that a webserver is
  * never asked to serve with an access-control check — the file is opened from

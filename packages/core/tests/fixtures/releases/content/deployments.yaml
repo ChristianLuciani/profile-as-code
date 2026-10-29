@@ -1,0 +1,13 @@
+# D23 fixture: github-readme is in-sync with the CURRENT identity unit; linkedin
+# records a hash that no longer matches → stale. github-repo-meta / hacker-news
+# have no record at all (the ledger cannot address a non-profile surface in v1)
+# → never, derived.
+identity:
+  github-readme:
+    deployedAt: 2026-10-28T12:00:00Z
+    contentHash: 26e000f19736bbabf6f8a9740ad1cdec38d1f79323f0bfb91e14676d4b6c84a8
+    source: git
+  linkedin:
+    deployedAt: 2026-10-20T12:00:00Z
+    contentHash: "0000000000000000000000000000000000000000000000000000000000000000"
+    source: manual

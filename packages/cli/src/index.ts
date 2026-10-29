@@ -28,6 +28,7 @@ import { runAiPolicyCheck, runAiPolicyExport } from "./commands/export.js";
 import { resolveNow, runExportProfile } from "./commands/export-profile.js";
 import { runInit } from "./commands/init.js";
 import { runPost } from "./commands/post.js";
+import { runPresence, runReleasePlan } from "./commands/presence.js";
 import { runPreview } from "./commands/preview.js";
 import { runRefine } from "./commands/refine.js";
 import { runSkillsExport } from "./commands/skills-export.js";
@@ -106,6 +107,12 @@ Commands:
   status [platform] [--verify]   Per-entry deploy report — origin · surfaces · in-sync/stale/never
                                  + certification (D18/§19.5); --verify runs the opt-in C1
                                  live check (the engine's ONE network path, §19.5)
+  presence [--json]             The presence board (D23/§22): every surface a release
+                                has addressed, at its newest release, with the
+                                ledger-derived state (in-sync/stale/never)
+  release plan [id] [--json]    One release's ordered fan-out (repo-meta → profile →
+                                distribution), each surface's state and the per-kind
+                                factual spine; the copy lives in the shipped skills
   export ai-policy              Write the AI-policy artifacts (SPEC §7.3, M9): robots.txt
           [--out <dir> | --check] [--lang <l>]  (two named groups — listed retrieval crawlers
                                 allowed, listed training crawlers disallowed, no wildcard) +
@@ -229,7 +236,7 @@ It writes nothing, reads no clock and touches no network. Exit: 0 healthy
 workspace fails to load, or the requirement is unmet/malformed) · 2 usage. It
 reports the same truth the gate enforces; it does not replace the gate.`,
   preview: `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso8601>] [--json] [--workspace <path>]
-Render every surface ONCE into a single self-contained HTML file (SPEC §7.8, #282):
+Render every surface ONCE into a single self-contained HTML file (SPEC §7.9, #282):
 inline CSS, no <script>, no external asset, no HTTP server. Open it with a
 browser; nothing is published.
   default          <workspace>/.pasco/preview/index.html, then opened in the browser
@@ -521,6 +528,32 @@ warnings carry their source). Derived, never stored: nothing here writes.
         emits, every entry it omits and WHY. Read-only. Policy from .pascorc
         "selection". Subset-only by design — the report exists so an omission is
         never silent.`,
+  presence: `pasco presence [--json] [--workspace <path>]
+The presence board (D23, SPEC §22, issue #262): every surface the workspace's
+releases have addressed, at its NEWEST release, with the ledger-derived state —
+in-sync / stale / never (§19 vocabulary, never a second state model). One row
+per surface: kind (repo-meta · profile · distribution), surface slug, state and
+the release that addressed it. Derived from releases[] + content/deployments.yaml
+and stored nowhere; offline and deterministic (D19).
+--json emits { schemaVersion: "1", releases, latest, counts, surfaces } inside
+the usual envelope.
+Exit: 0 a successful read (a workspace with no releases[] renders an EMPTY
+board — absence is not an error) · 1 the workspace does not load, or a release
+names a surface the registry does not know · 2 usage.`,
+  release: `pasco release plan [<release-id>] [--json] [--workspace <path>]
+One release's ordered fan-out (D23, SPEC §22, issue #262). Order is kind rank —
+repo-meta (the artifact's metadata) → profile (the identity bodies) →
+distribution (the announcements) — then slug. Each surface reports the
+ledger-derived state for the release's changedUnits (in-sync/stale/never), and
+the command prints the per-kind FACTUAL SPINE derived from the release row
+(version · date · summary). The announcement copy per channel lives in the
+shipped per-platform skills, never in the engine (rule 7).
+<release-id> selects a release; absent = the newest by date (then id).
+--json emits { schemaVersion: "1", release, surfaces, baseText } inside the
+usual envelope.
+Exit: 0 a successful read · 1 the workspace does not load, declares no
+releases[], the id is not declared, or a surface is not in the registry ·
+2 usage (a subcommand other than plan).`,
 };
 
 /**
@@ -871,6 +904,36 @@ async function runMain(): Promise<number> {
         dateArg: flags.date,
         pascorc,
       });
+    }
+    case "presence": {
+      const { flags, positionals } = parseCommandFlags(rest);
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.presence}\n`);
+        return EXIT.OK;
+      }
+      if (positionals.length > 0) {
+        throw new UsageError("usage: pasco presence [--json] [--workspace <path>]");
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      return runPresence({ workspace });
+    }
+    case "release": {
+      const { flags, positionals } = parseCommandFlags(rest);
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.release}\n`);
+        return EXIT.OK;
+      }
+      // `release` has exactly one view today: the plan (D23 item 3). Anything
+      // else is a usage error, never a silently different command.
+      if (positionals[0] !== "plan" || positionals.length > 2) {
+        throw new UsageError(
+          "usage: pasco release plan [<release-id>] [--json] [--workspace <path>]",
+        );
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      return runReleasePlan({ workspace, releaseArg: positionals[1] });
     }
     case "status": {
       const { flags, positionals } = parseCommandFlags(rest, {
