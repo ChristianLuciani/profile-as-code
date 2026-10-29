@@ -94,11 +94,12 @@ Commands:
                                 allowed, listed training crawlers disallowed, no wildcard) +
                                 llms.txt (the workspace index) + AI-POLICY.md, into <dir>;
                                 --check (exit 1) fails an unsourced, stale or incomplete entry
-  export profile [--json]       The compiled profile for programmatic consumers (SPEC §7.5,
-          [--now <iso8601>]     #348): { contract, engine, source: { commit, generatedAt },
-                                profile } — every schema root, from the same load() the other
-                                commands use. No clock is read: generatedAt is null unless
-                                --now pins it. Offline; byte-identical across runs
+  export profile [--json]       The normalized profile for programmatic consumers (SPEC §7.5,
+          [--now <iso8601>]     #348): { schemaVersion, engine, source: { commit, generatedAt },
+                                profile } — every root the workspace declares, plus every list
+                                root defaulted to [], from the same load() the other commands
+                                use. No clock is read: generatedAt is null unless --now pins
+                                it. Offline; byte-identical across runs
   skills:export <dir>           Copy the skill channels this package ships into <dir>
           [--force] [--list]     (--force overlays; --list shows them); no harness paths
 
@@ -391,21 +392,26 @@ Exit: 0 ok · 1 a --check problem, a schema/load failure or a write failure ·
 Offline; --out reads no clock and two runs produce byte-identical files.
 
 --- export profile ------------------------------------------------------------------
-The compiled profile for programmatic consumers (SPEC §7.5, #348). One payload,
+The normalized profile for programmatic consumers (SPEC §7.5, #348). One payload,
 the same for a script, a site build or a service:
-  { contract, engine, source: { commit, generatedAt }, profile: { …all roots… } }
+  { schemaVersion, engine, source: { commit, generatedAt }, profile }
   --json        emit the payload inside the standard envelope (command · ok ·
                 exitCode · data). Human mode prints a summary of the same object.
-  --now <iso>   pin source.generatedAt to this ISO 8601 date-time, verbatim. Without
+  --now <iso>   pin source.generatedAt to this ISO 8601 date-time, verbatim, after a
+                real-calendar check (2026-02-31 and T24:00:00 are refused). Without
                 it the command reads NO clock: generatedAt is null, so two runs over
                 one workspace produce byte-identical output.
-profile is exactly what core's load() returns — schema-validated and normalized,
-every list root present ([], never absent), artifactRefs kept as the ids they are
-(a consumer joins them to profile.artifacts[] by id; load() already refuses a
-dangling ref), publications[].url exactly as declared, deployments included. It is
-the SSOT, not a rendered surface: no visibility filtering (that is §18.5, owned by
-the renderers) and no platform slice (that is pasco build). source.commit is the
-workspace's git HEAD; null means the workspace is not inside a git repository.
+profile is exactly what core's load() returns — schema-validated and normalized:
+every root the workspace DECLARES, plus every LIST root defaulted to [] (never
+absent). An optional object root (newsletter, podcast, audiences, active) appears
+only when declared, because the contract has no valid empty value for it. It is
+NOT a platform slice: compile(profile, platform) produces that other object, and
+this command never calls it. artifactRefs stay ids (a consumer joins them to
+profile.artifacts[] by id; load() already refuses a dangling ref),
+publications[].url is exactly as declared, deployments is included. It is the
+SSOT, not a rendered surface: no visibility filtering (that is §18.5, owned by
+the renderers). source.commit is the workspace's git HEAD; null means the
+workspace is not inside a git repository.
 Exit: 0 ok · 1 the workspace fails to load (schema/ledger/registry — D12) or --now
 is malformed · 2 usage (unknown export subcommand, --out/--check/--force/--lang).
 Offline and deterministic: no network, no clock unless --now pins one.`,

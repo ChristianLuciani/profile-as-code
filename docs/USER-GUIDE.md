@@ -1002,7 +1002,7 @@ pasco refine <platform> --choose <id>      # record chosen variant in content/ac
 pasco check [platform]                     # offline rules + checks catalog + fact-present (rest M4)
 pasco audit [--json]                       # findings only: dangling-ref · contradiction · unsourced-claim
 pasco entity [--json | --jsonld]           # schema.org entity view / paste-ready JSON-LD block (#287)
-pasco export profile --json [--now <iso>]  # the compiled profile object for scripts/sites (#348)
+pasco export profile --json [--now <iso>]  # the normalized profile object for scripts/sites (#348)
 pasco skills:export --list                 # platform skills shipped with this package
 pasco skills:export <dir> [--force]        # copy them; --force overlays a non-empty dir
 pasco --workspace <path> <cmd>             # target a workspace explicitly

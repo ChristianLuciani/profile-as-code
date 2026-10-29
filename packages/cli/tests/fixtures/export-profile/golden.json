@@ -3,10 +3,10 @@
   "ok": true,
   "exitCode": 0,
   "data": {
-    "contract": "1",
+    "schemaVersion": "1",
     "engine": {
       "name": "@profile-as-code/cli",
-      "version": "0.3.6"
+      "version": "<version>"
     },
     "source": {
       "commit": "<commit>",

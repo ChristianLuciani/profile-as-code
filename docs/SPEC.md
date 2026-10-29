@@ -397,7 +397,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco entity [--json \| --jsonld [--out <file> [--force]] [--bare]] [--lang <l>]` | the **entity projection** for surfaces this engine does not render (issue #287): the schema.org entity assembled by `structuredData()` — `@id`, `sameAs`, type and fields — plus the readiness `gaps` (geoCheck codes, verbatim). `--json` emits `{ schemaVersion: "1", entity: { id, type, name, sameAs, email }, gaps: [{ code, detail }], jsonld: null }`; `--jsonld` emits the **same assembler output** the renderers embed, as a paste-ready `<script type="application/ld+json">` block (`--bare` = the bare object, `--out <file>` writes it atomically and refuses an existing file without `--force`). **Both modes resolve one `lang`** (`--lang`, else `.pascorc defaults.lang`) so a gap and the emitted field cannot disagree. **One assembler, no CLI-local builder**: the projection never invents `@id` and never re-derives the entity (§15.4). Exit `1` when `@id` is absent (the entity has no declared home) or the `--out` write fails; `0` otherwise; `2` is usage. Offline and deterministic (D19). Contract: §7.2 |
 | `pasco export ai-policy [--out <dir> \| --check] [--json] [--lang <l>]` | the §12 M9 stance as an artifact (issue #290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed `ai-retrieval` crawlers allowed, the listed `ai-training` crawlers disallowed; the file declares that an unlisted crawler is not restricted, each UA commented with its registry entry/operator/source/date), `llms.txt` (the workspace index, with a coverage assertion over every document it claims) and `AI-POLICY.md` (allowed · blocked · the explicit-list limit · who can change it · the date, quoting the M9 floor verbatim); `--check` exits `1` on an incomplete or unsourced entry, a duplicate token, an `as_of` that is malformed/future/older than 180 days, or a `policy.as_of` that is stale or predates its rows; `--out` refuses to write one. The crawler list is projected from `platforms/registry.yaml` (`ai:`) by `pnpm gen:platforms` — never a hardcoded UA list in the CLI. Offline; `--check` is the declared clock-reading path. Contract: §7.3 |
 | `pasco cite-check [<answers.ndjson>] [--json]` | the **citation matcher** over saved answers (issue #291): reads the runner's NDJSON (stdin when no path), matches the workspace's declared entity against each answer and emits, per answer and **never aggregated**, `{ cited, confidence, spans, reasons }`. Fixed ladder — `citation-url` (a citation on the entity's own page or its `sameAs`/claimed-handle set — host, and the declared path or a descendant) and `exact-name` (word-bounded, case- and accent-normalized) are **high**; `alias` (`identity.orgName`) and `handle` (a declared handle) are **medium**; `partial` (any contiguous multi-token prefix of the name, ≥ 2 tokens) is **low**, and `low` is never a citation downstream. The matcher **refuses to guess**: a one-word name hit whose sentence carries no declared disambiguator is ambiguous (`cited: false`, with the longer capitalised reading quoted as `competing:<phrase>`), a mention inside a contrast clause is not a citation, and a declared qualifier or an adjacent capital never disqualifies a hit by itself. Offline, no model, no clock (D19). Exit `0` on a successful read (a non-citation is data, not a failure) · `1` the workspace cannot load, or the input path cannot be read · `2` usage or **malformed NDJSON** (never a silent skip). Contract: §7.4 |
-| `pasco export profile [--json] [--now <iso8601>]` | the **compiled profile** for programmatic consumers (issue #348): `{ contract, engine, source: { commit, generatedAt }, profile }`, where `profile` is exactly what `core.load()` returns — every schema root, list roots always arrays, `artifactRefs` kept as ids a consumer joins to `profile.artifacts[]` (`load()` already refuses a dangling ref), `publications[].url` as declared, `deployments` included — never a CLI-local rebuild and never `compile(profile, platform)`'s platform slice (§15.4). `contract` (`"1"`) is the frozen payload version a consumer refuses if it does not know (§7.5); `source.commit` is the workspace git `HEAD` (`null` outside a git repository); **no clock is read** — `generatedAt` is `null` unless `--now` pins it verbatim, so two runs over one workspace are byte-identical. Exit `1` on a load/schema failure (D12) or a malformed `--now` · `2` usage. Contract: §7.5 |
+| `pasco export profile [--json] [--now <iso8601>]` | the **normalized profile** for programmatic consumers (issue #348): `{ schemaVersion, engine, source: { commit, generatedAt }, profile }`, where `profile` is exactly what `core.load()` returns — **every root the workspace declares, plus every *list* root defaulted to `[]`; an optional *object* root (`newsletter`, `podcast`, `audiences`, `active`) appears only when declared** (no valid empty value exists — §7.5). `artifactRefs` stay ids a consumer joins to `profile.artifacts[]` (`load()` already refuses a dangling ref), `publications[].url` as declared, `deployments` included — never a CLI-local rebuild and never `compile(profile, platform)`'s platform slice (§15.4). `schemaVersion` (`"1"`) is the frozen payload version a consumer refuses if it does not know (§7.5); `source.commit` is the workspace git `HEAD` (`null` outside a git repository); **no clock is read** — `generatedAt` is `null` unless `--now` pins it verbatim after a real-calendar check, so two runs over one workspace are byte-identical. Exit `1` on a load/schema failure (D12) or a malformed `--now` · `2` usage. Contract: §7.5 |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22). **The read report also ends with the derived publication truth per surface (§20.1, #242): ledger · artifact-vs-SSOT · declared cap — computed on every read, stored nowhere** |
 | `pasco skills:export <dir> [--force] [--list]` | copy the skill channels **this package ships** into a directory the user names; `--force` overlays an existing non-empty directory (nothing is deleted), `--list` shows the channels. No per-agent destination is invented. Skill lookup reads only the package's own `skills/`, an explicit `PASCO_SKILLS_DIR`, or the marked workspace checkout (developers) — #253/#254 |
@@ -849,7 +849,7 @@ leaderboard, no score, no storage, no report and no aggregation (the runner's an
 the report module's). "Am I visible?" is not this command: it answers "was I
 cited?" over bytes already saved.
 
-### 7.5 `pasco export profile` — the compiled profile (issue #348)
+### 7.5 `pasco export profile` — the normalized profile (issue #348)
 
 The engine exposed `build <platform>` (deterministic text slices per surface) and
 `validate`, but no object a consumer could read without re-implementing `load()` +
@@ -868,18 +868,19 @@ pasco export profile --json          # the payload, inside the standard envelope
 
 ```json
 {
-  "contract": "1",
+  "schemaVersion": "1",
   "engine": { "name": "@profile-as-code/cli", "version": "<cli version>" },
   "source": { "commit": "…40-hex sha or null…", "generatedAt": null },
-  "profile": { "identity": {}, "…": "every schema root" }
+  "profile": { "identity": {}, "…": "the normalized profile (see the promise below)" }
 }
 ```
 
-- **`contract`** is the frozen contract version of THIS payload — the same
-  precedent as §7.1/§7.2: a consumer **refuses a version it does not know rather
-  than guessing**. It is bumped when the payload's shape changes; the `profile`
-  object's own shape is the contract schema (`schema/profile.schema.json`), so a
-  major schema change bumps `contract` with it.
+- **`schemaVersion`** is the frozen contract version of THIS payload — literally
+  the same key and the same precedent as §7.1/§7.2/§7.3: a consumer **refuses a
+  version it does not know rather than guessing**. It is bumped when the payload's
+  shape changes; the `profile` object's own shape is the contract schema
+  (`schema/profile.schema.json`), so a major schema change bumps `schemaVersion`
+  with it.
 - **`engine`** names what produced the bytes (`name` + `version` of the CLI), so a
   consumer can explain a difference instead of re-deriving it.
 - **`source.commit`** is the workspace's git `HEAD` (`git -C <workspace> rev-parse
@@ -892,21 +893,34 @@ pasco export profile --json          # the payload, inside the standard envelope
   `--now <iso8601>`, else `null`. There is no other clock path — the command reads
   no clock, touches no network, and two runs over one workspace produce
   **byte-identical output** (§15.1 byte-parity). A malformed `--now` is refused
-  (exit `1`) instead of silently becoming `null` or "now".
+  (exit `1`) instead of silently becoming `null` or "now" — and the check is
+  **calendar-strict**, because `Date.parse` normalizes an impossible date
+  (`2026-02-31T00:00:00Z`, `T24:00:00Z`): those are refused, not blessed.
 
 **One assembler, never a CLI-local builder (§15.4).** `profile` is exactly the
-normalized object `core.load()` returns — schema-validated (D12), every list root
-defined (an absent root reads `[]`, never a missing key), and the payload is not
-filtered, re-derived or re-ordered by the CLI. `compile(profile, platform)` is
-deliberately NOT reused: it is the per-platform `PlatformProfile` slice, a
-different object for a different job.
+normalized object `core.load()` returns — schema-validated (D12), not filtered,
+re-derived or re-ordered by the CLI. **The precise promise** (this is the single
+statement; every other surface repeats it): the object carries **every root the
+workspace declares, plus every *list* root defaulted to `[]`**; an optional
+**object** root (`newsletter`, `podcast`, `audiences`, `active`) appears **only
+when the workspace declares it**, because the contract has no valid empty value
+for it (`$defs` require `platform`+`url`, `title`, `lang`+`variantId`+`chosenAt`),
+and inventing `{}` would fail D12. `compile(profile, platform)` is deliberately
+NOT reused: it is the per-platform `PlatformProfile` slice, a different object for
+a different job — the reason this command is described as the *normalized* profile,
+never the "compiled" one.
 
 **What the object guarantees, and what it does not.**
 
-- **All roots.** `education`, `languages`, `credentials`, `artifacts`, `faq`,
-  `press`, `socialHandles`, `checks`, … are included; list roots are arrays even
-  when the workspace declares nothing (`normalizeProfile` defaults every list
-  root, `faq[]` included, so the shape does not depend on whether answers exist).
+- **Declared roots.** Every root the workspace declares is present
+  (`education`, `languages`, `credentials`, `artifacts`, `faq`, `press`,
+  `socialHandles`, `checks`, …).
+- **List roots are arrays even when undeclared** — `normalizeProfile` defaults
+  every list root (this PR adds `faq[]`), so the shape does not depend on whether
+  a workspace declares answers.
+- **Optional object roots are absent when undeclared** (`newsletter`, `podcast`,
+  `audiences`, `active`). A consumer that needs one applies its own default; the
+  payload does not invent a half-valid block.
 - **`artifactRefs` stay ids**, which is what the contract declares: the referenced
   object is present in `profile.artifacts[]`, so a consumer joins by `id` and
   never re-derives. A dangling ref is already a load failure (D17 §18), so every
@@ -915,9 +929,9 @@ different object for a different job.
   link; both fields travel and the consumer chooses.
 - **`deployments` is included** (not declared out of scope): it is a schema root,
   `load()` normalizes it, and a consumer that does not need the ledger ignores it.
-- **Visibility is not filtered.** The compiled profile is the SSOT, not a rendered
-  surface: `visibility` (§18.5) is a renderer-owned rule, and a consumer that
-  emits publicly applies it. This is the reason the command is not `build`.
+- **Visibility is not filtered.** The normalized profile is the SSOT, not a
+  rendered surface: `visibility` (§18.5) is a renderer-owned rule, and a consumer
+  that emits publicly applies it. This is the reason the command is not `build`.
 
 **Validator parity — `validate` and `build` resolve one schema (issue #348).**
 Both commands load through `core.load()`, so they resolve the same generated Zod
@@ -927,8 +941,11 @@ added. The witness is `projects[].artifactRefs` (#333/v1.12): a workspace carryi
 it must be accepted by both, and a workspace carrying an unknown row field must be
 refused by both **with identical violations**. A CLI test pins both directions —
 the artifactRefs fixture plus an injected unknown key, asserting equal error
-payloads — so a second schema or a different policy cannot be introduced on one
-command without failing CI.
+payloads across `validate`, `build` and `export profile` — so a second schema or a
+different policy cannot be introduced on one command without failing CI. The new
+command's own schema-failure row (`kind: "schema"` + `violations`, e.g. a dangling
+`artifactRefs` target) is tested separately, because it shares the same load path
+and therefore the same promise.
 
 **Exit matrix.** `0` ok · `1` the workspace fails to load (schema/ledger/registry —
 D12) or `--now` is malformed · `2` usage (unknown `export` subcommand, or the
@@ -937,8 +954,8 @@ summary of the same object; `--json` is the contract.
 
 **Not here (still open in #348).** The `.pascorc` engine-version gate and
 `pasco doctor`, and the publishable schema URL+hash for consumers without the
-engine — the `contract` string above gates THIS payload, and those two are the
-issue's remaining criteria. No renderer, no visibility filtering, no platform
+engine — the `schemaVersion` string above gates THIS payload, and those two are
+the issue's remaining criteria. No renderer, no visibility filtering, no platform
 slice, no writes.
 
 ## 8. GEO as a cross-cutting layer
