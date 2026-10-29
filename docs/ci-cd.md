@@ -70,11 +70,17 @@ One job, **`ci`**, required on every PR and push to `main`:
    (`scripts/agnostic-check`, issue #274, AGENTS rule 9): no tracked text file may
    name a private repo, tool or absolute checkout path. The inventory lives in
    `scripts/agnostic-check/private-targets.json` (private names, private repo
-   targets, operator path shapes) and `allowlist.json` exempts dated records **by
-   path** — CHANGELOG history, the build-session records under `docs/build/`, and
-   synthesized test fixtures — never by phrase; an entry that suppresses nothing
-   warns (`W-ALLOWLIST-UNUSED`). The repo-target rule is the #273 clause: a PR
-   that links a family repo declared `private` fails here. Visibility is verified
+   targets, operator path shapes, including the private router's short alias).
+   AGENTS rule 8 dated records are **out of scope by class**, enforced in the
+   walker: `CHANGELOG.md` and the sourced research under `docs/research/` are
+   history, and history is not rewritten. `allowlist.json` is for historical
+   copies that live OUTSIDE those classes — the dated build-session records under
+   `docs/build/`, one FILE at a time so a new file cannot inherit an old
+   exemption — and for synthesized test fixtures; exemption is never by phrase,
+   and an entry that suppresses nothing warns (`W-ALLOWLIST-UNUSED`) and rides
+   the status as `warnings[]`. The repo-target rule is the #273 clause: a PR
+   that links a family repo declared `private` fails here, in every clone form
+   (`https`, `git@…:`, `ssh://git@…`, `.git`). Visibility is verified
    out of band (release / pre-merge) and recorded in the inventory — the gate is
    offline and never probes, because a required check cannot depend on a third
    party's uptime or rate limits (#132, same reasoning as the link gate). The

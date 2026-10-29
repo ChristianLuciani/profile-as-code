@@ -13,7 +13,9 @@
  *        absolute home paths). The list is DATA, not a paragraph, so adding a
  *        family target is a reviewable one-line change.
  *   R2 — no tracked text file links a repo target declared `private` in the
- *        same registry (`github.com/<owner>/<repo>`). That is the #273 clause:
+ *        same registry, in EVERY clone form: `github.com/<owner>/<repo>`,
+ *        `<owner>/<repo>.git`, `git@github.com:<owner>/<repo>` and
+ *        `ssh://git@github.com/<owner>/<repo>`. That is the #273 clause:
  *        a PR that links a private family repo fails the gate. Visibility is
  *        verified OUT OF BAND (release/pre-merge, where the network is
  *        acceptable) and recorded in the registry; this gate is OFFLINE and
@@ -27,18 +29,25 @@
  *        reported (`W-ALLOWLIST-UNUSED`) so the registry cannot rot silently —
  *        the same shape as `scripts/link-check/allowlist.json`.
  *
- * The exemption is AGENTS rule 8: dated records (CHANGELOG history, sourced
- * research, issue/PR bodies) and their in-repo copies keep their historical
- * text. Synthesized test fixtures are exempt by path for a different reason:
- * they are not references at all, they are inputs.
+ * Two exemptions, each with its own mechanism:
+ *   - AGENTS rule 8 dated records are OUT OF SCOPE BY CLASS and the walker
+ *     enforces it (`CHANGELOG.md`, `docs/research/`): history is not rewritten,
+ *     so a reference there is evidence, not a live pointer. Issue/PR bodies are
+ *     not in the tree at all.
+ *   - Historical copies kept OUTSIDE those classes (the dated build-session
+ *     records under `docs/build/`) and synthesized test fixtures are exempt by
+ *     PATH in `allowlist.json`, one FILE at a time — a directory prefix would
+ *     let a new file inherit an old exemption. A fixture is not a reference at
+ *     all: it is an input.
  *
  * Scope: every tracked-by-construction text file in the checkout (`.md`,
  * `.json`, `.yml`, `.ts`, … — see TEXT_EXTENSIONS), including `.github/`.
  * Hidden directories are skipped because they are gitignored session state
  * (#274 removed `.sota/`, `.e2e/`, `.e2e-agentic/` from the tree and put them
  * in `.gitignore`): a local copy of another session's artifacts must not fail
- * the gate. Generated projections (`site/docs/`, `packages/cli/skills/`) and
- * this gate's own fixtures are excluded by construction, never by silence.
+ * the gate. Generated projections (`site/docs/`, `packages/cli/skills/`), the
+ * dated-record class (AGENTS rule 8) and this gate's own fixtures/data are
+ * excluded by construction, never by silence.
  *
  * Zero dependencies, `node >=22` — runs on a fresh checkout before any install.
  * A file or JSON shape the gate cannot read is an explicit failure (E-GATE),
@@ -125,6 +134,19 @@ const SKIP_PATH_PREFIXES = [
   "scripts/agnostic-check/fixtures",
 ];
 
+/**
+ * AGENTS rule 8: dated records are exempt AS A CLASS, not per file — history is
+ * not rewritten, so a private name inside it is evidence, not a live pointer.
+ * This is a scope exclusion (like the generated projections above), NOT an
+ * allowlist entry: an allowlist is for historical copies that live outside the
+ * class, and an entry that suppresses nothing would only warn forever.
+ *   - `CHANGELOG.md`         the released history, source of the release record;
+ *   - `docs/research/`       the sourced + dated prior-art corpus (its value is
+ *                            the source and its date).
+ * Issue/PR bodies are exempt too; they are not in the checkout.
+ */
+const SCOPE_EXCLUDED_BY_CLASS = ["CHANGELOG.md", "docs/research"];
+
 /** Escape a literal for use inside a RegExp. */
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -135,9 +157,16 @@ function tokenMatcher(name) {
   return new RegExp(`(?<![A-Za-z0-9_-])${escapeRegExp(name)}(?![A-Za-z0-9_-])`, "g");
 }
 
-/** A GitHub repo-target matcher: `github.com/<owner>/<repo>` (optionally `.git`). */
+/**
+ * A repo-target matcher for every clone form a reader can paste: web
+ * (`github.com/…`), bare `<owner>/<repo>` is NOT matched (it is a name, not a
+ * target), and the three URL forms a git client accepts —
+ * `https://github.com/<repo>(.git)`, `git@github.com:<repo>(.git)` and
+ * `ssh://git@github.com/<repo>(.git)`.
+ */
 function repoTargetMatcher(repo) {
-  return new RegExp(`github\\.com/${escapeRegExp(repo)}(?:\\.git)?(?![A-Za-z0-9_.-])`, "g");
+  const target = `${escapeRegExp(repo)}(?:\\.git)?(?![A-Za-z0-9_.-])`;
+  return new RegExp(`(?:git@github\\.com:|ssh://git@github\\.com/|github\\.com/)${target}`, "g");
 }
 
 function requireString(value, label, rule = RULES.targetsInvalid) {
@@ -307,6 +336,11 @@ function walkFiles(root) {
       if (SKIP_PATH_PREFIXES.some((prefix) => rel === prefix || rel.startsWith(`${prefix}/`))) {
         continue;
       }
+      if (
+        SCOPE_EXCLUDED_BY_CLASS.some((prefix) => rel === prefix || rel.startsWith(`${prefix}/`))
+      ) {
+        continue;
+      }
       if (entry.isDirectory()) {
         if (SKIP_DIR_NAMES.has(entry.name)) continue;
         if (entry.name.startsWith(".") && rel !== ".github") continue;
@@ -336,9 +370,12 @@ function snippet(line) {
 }
 
 /**
- * Run the gate. Returns `{ status, messages, findings, suppressed }` where
- * `status` is `"pass"` or `"fail"`; `messages` is the ordered report the CLI
- * prints. Exported so the self-test exercises the production path directly.
+ * Run the gate. Returns the machine-readable status
+ * `{ status, messages, findings, suppressed, warnings }`: `status` is `"pass"`
+ * or `"fail"`; `findings` is the failing set; `warnings` is the non-failing set
+ * (an allowlist entry that suppresses nothing — it warns, it does not pass
+ * silently); `messages` is the ordered report the CLI prints. Exported so the
+ * self-test exercises the production path directly.
  */
 export function check({ root, allowlistPath, targetsPath }) {
   const matchers = loadTargets(targetsPath);
@@ -383,11 +420,12 @@ export function check({ root, allowlistPath, targetsPath }) {
       `${RULES.agnostic}  ${finding.file}:${finding.line}  ${finding.label} — ${finding.snippet}`,
     );
   }
+  const warnings = [];
   for (const entry of allowlist) {
     if (entry.hits === 0) {
-      messages.push(
-        `${RULES.allowlistUnused}: allowlist entry ${JSON.stringify(entry.path)} suppresses no reference — remove it or fix its path`,
-      );
+      const warning = `${RULES.allowlistUnused}: allowlist entry ${JSON.stringify(entry.path)} suppresses no reference — remove it or fix its path`;
+      warnings.push(warning);
+      messages.push(warning);
     }
   }
   const status = reported.length === 0 ? "pass" : "fail";
@@ -404,7 +442,7 @@ export function check({ root, allowlistPath, targetsPath }) {
       `agnostic-check: FAIL — ${reported.length} private reference(s) in ${hitFiles} file(s)${suppressedNote}`,
     );
   }
-  return { status, messages, findings: reported, suppressed };
+  return { status, messages, findings: reported, suppressed, warnings };
 }
 
 function parseArgs(argv) {
@@ -442,7 +480,10 @@ function main() {
     result = check(parseArgs(process.argv.slice(2)));
   } catch (error) {
     if (error instanceof GateError) {
-      console.error(`${RULES.gate}: ${error.message}`);
+      const message = error.message.startsWith("E-")
+        ? error.message
+        : `${RULES.gate}: ${error.message}`;
+      console.error(message);
       process.exit(1);
     }
     throw error;

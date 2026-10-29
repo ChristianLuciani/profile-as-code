@@ -39,10 +39,12 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { check } from "./check.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixturesDir = path.join(here, "fixtures");
 const checkPath = path.join(here, "check.mjs");
+const targetsPath = path.join(here, "private-targets.json");
 
 const cases = readdirSync(fixturesDir, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
@@ -83,6 +85,18 @@ for (const name of cases) {
   }
   for (const needle of expect.notContains ?? []) {
     if (output.includes(needle)) problems.push(`output must not contain ${JSON.stringify(needle)}`);
+  }
+  if (typeof expect.warnings === "number") {
+    const inProcess = check({
+      root: treeDir,
+      allowlistPath: path.join(dir, "allowlist.json"),
+      targetsPath,
+    });
+    if (inProcess.warnings.length !== expect.warnings) {
+      problems.push(
+        `machine-readable warnings ${inProcess.warnings.length} != expected ${expect.warnings}`,
+      );
+    }
   }
   if (problems.length > 0) {
     failed += 1;

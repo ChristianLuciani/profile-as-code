@@ -1,0 +1,9 @@
+{
+  "entries": [
+    {
+      "path": "docs/build/01-core-build.md",
+      "reason": "historical copy: a dated build-session record.",
+      "removalTrigger": "when the record is retired"
+    }
+  ]
+}

@@ -66,7 +66,8 @@ not only "is my profile consistent?".
   warns on drift/geo (facts); `pasco check` runs skill-declared checks (char limits, live links, fact presence).
 - `pasco refine <platform> [--lang] [--variants N]` produces N text variants, **agent-driven and
   model-agnostic** (the executing agent's model — AionUi, OpenHands, Claude Code, Cursor…). The chosen
-  variant is committed and marked as active. Sah/hub may become the default path once it matures (D13).
+  variant is committed and marked as active. A dedicated model router stays a user choice: the engine
+  neither requires one nor prefers it (D13).
 - GitHub profile README + web are fully git/API-driven (dogfood: Christian's real profile).
 - Every quantitative claim in every skill has a dated source (claims-evidence enforced).
 - A fresh user can reach a validating workspace in under 10 minutes through **any** on-ramp:
@@ -110,10 +111,10 @@ not only "is my profile consistent?".
 | D7 | GEO is a cross-cutting layer | LLMs read/cite profiles today; consistency IS citability. Enforced in core, skills, renderers. |
 | D8 | Docs in EN, content multilingual (EN/ES/FR) | Open-source convention + international recruiters; user's native ES. |
 | D9 | Deploy via checklist for no-API platforms; git/API for GitHub/web | Reality of platform APIs (verified in prior art). |
-| D10 | `pasco refine` is **model-agnostic** (executing agent's model); sah/hub as future opt-in | User decision; revisit when sah matures. |
+| D10 | `pasco refine` is **model-agnostic** (executing agent's model); no routing layer is bundled, required or preferred | User decision; revisit only if routing becomes runnable by every user without extra setup. |
 | D11 | Refinement is **agnostic agent-driven** (AionUi, OpenHands, Claude Code, Cursor…) | Skills drive, `pasco` executes; user picks variant. No closed CLI picker. |
 | D12 | Drift-check: **warn on facts, fail on schema** | Users may have different intents per platform; integrity vs flexibility. |
-| D13 | Model-agnostic default; sah as future default path | Revisit when sovereign hub matures (Q3→RESOLVED). |
+| D13 | Model-agnostic default; a user may bring a router, the engine never depends on one | Revisit only if routing becomes available without extra setup (Q3→RESOLVED). |
 | D14 | User data in a **separate workspace** `profile-data` (a folder; a repo is the recommended home, not a requirement — §9; wording amended by #200, originally "separate repo"), integrated by configured path, no symlink in normal flow | Symlink mount only as advanced CI option (Q4→RESOLVED). |
 | D15 | **Brand flavor** (`flavor: brand`): the same engine models commercial/brand identities — org schema, `socialHandles` matrix, brand surfaces. Workspace flavor is a **contract field**, not a separate product | The Topia brand needs the same SSOT→validate→refine→check→deploy machinery; one engine, one schema, one CLI — flavor only changes which blocks/checks apply (Q8→RESOLVED). |
 | D16 | **Platform set = Postiz parity + operator extras** (union, 49 — v1.9 adds `hotmart` (operator extra #15, issue #137 — storefront + memberships for the Spanish/Portuguese-speaking markets, EC payout `[?]` carried per the #133 precedent) to the `creator-monetization` family; v1.8 added `buymeacoffee`, `liberapay`, `gumroad`, `payhip` as operator extras #11–#14, issue #133; v1.7 added `kofi` as #10, issue #130; issue #138 declares the remaining families docs-first — `freelance` covers the pre-existing v1 `upwork`, `job-boards` stays backlog-only — no enum change): ONE shared enum for person + brand flavors; new slugs Postiz verbatim (`linkedin-page`, `instagram-standalone`, `devto`, `gmb`, `warpcast`, `moltbook`, `mewe`, `tumblr`); single-source discipline enforced by contract self-tests (schema-check asserts `check.platform == ['all', ...platform]`; vitest asserts core `PLATFORMS` == schema enum) | The operator's surfaces must cover every network a cross-posting tool can reach (Postiz's 34 — [OFICIAL] docs.postiz.com llms.txt, fetched 2026-09-02; the API intro page's own "32" header undercounts its tables); `ghost` is an operator extra Postiz lacks; the family completes the creator monetization platforms slice (canonical industry term — see the issue #133 naming note): memberships, tips, donations, storefronts; the v1.8 members and `hotmart` are paste platforms (D9) and the family is declared docs-first, not as a hard schema field; issue #138 adds the families `freelance` (covers the v1 `upwork`, retroactive) and backlog-only `job-boards` under the same docs-first discipline. Schema parity ≠ skill coverage — per-platform skills are separate follow-ups (issue #30). |
@@ -1677,7 +1678,7 @@ First platform: **`github-readme`** — the only 100% git/API-deployable surface
 
 1. `pasco refine <platform> [--lang] [--variants N]` emits the agent task: the facts
    (compile slice) + a pointer to `skills/<platform>/SKILL.md`. The CLI never calls an
-   LLM and never wires the hub (D13). The skills **ship inside the npm package**
+   LLM and never wires a model router (D13). The skills **ship inside the npm package**
    (`files: ["dist","skills"]`) and resolve from the package root; a repo checkout is
    only the second probe, so an install never depends on the engine repo (#253).
 2. The executing agent (AionUi, OpenHands, Claude Code, Cursor, pi…) reads the skill
