@@ -259,10 +259,14 @@ minor versions may contain breaking contract changes.
 - **Answer-engine surface — `identity.definition` + `faq[]` (schema v1.10, #288)** —
   the two things an answer engine can quote: a canonical per-language definition
   (≤ 160 chars per value, must contain the entity name) and 3–20 citable Q&A pairs
-  (`q` ≤ 90 and unique per workspace, `a` ≤ 320, optional http(s) `source`). This
-  release ships the **contract**; the `structuredData()` projection of these fields
-  (Person `description` + the `FAQPage` JSON-LD node) is tracked in #316 and is not
-  emitted yet.
+  (`q` ≤ 90 and unique per workspace, `a` ≤ 320, optional http(s) `source`). The
+  consumer half ships too (#316): `structuredData()` emits the Person `description`
+  from `definition` (brand: `definition` wins over `mission` in the same slot — a
+  definition-less brand keeps the mission output byte-identical) and a separate
+  `FAQPage` JSON-LD node **only** when `faq[]` exists (never an empty one, no `@id`:
+  the engine never invents an anchor). The Person completeness denominator grows
+  7 → 8 — a declared, honestly-accounted delta, populated only when a definition is
+  declared.
 - **Funding rails — the project is now easy to fund** — `funding` field in the CLI
   manifest (GitHub Sponsors · Ko-fi · Patreon; `npm fund` and the npmjs.com package
   page surface it natively), a `--help` footer tip line, a Support section on the

@@ -415,7 +415,7 @@ export function geoCheck(profile: Profile, lang: Lang = "en"): GeoReport {
             3,
       detail:
         profile.flavor === "brand"
-          ? `logo: ${sd.fields.logo ? "yes" : "no"} · description(mission): ${sd.fields.description ? "yes" : "no"} · foundingDate: ${sd.fields.foundingDate ? "yes" : "no"}`
+          ? `logo: ${sd.fields.logo ? "yes" : "no"} · description(definition|mission): ${sd.fields.description ? "yes" : "no"} · foundingDate: ${sd.fields.foundingDate ? "yes" : "no"}`
           : `photo: ${sd.fields.image ? "yes" : "no"} · location: ${sd.fields.address ? "yes" : "no"} · jobTitle: ${sd.fields.jobTitle ? "yes" : "no"}`,
     },
     {

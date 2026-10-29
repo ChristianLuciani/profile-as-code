@@ -228,12 +228,11 @@ export interface StructuredDataReadiness {
      *  (Person and Organization both carry hasCredential in schema.org). */
     hasCredential?: EducationalOccupationalCredentialLd[];
   };
-  /** v1.10 (issue #288): the `FAQPage` node — a DIFFERENT schema.org @type than
-   *  the entity, so it is its own field, never folded into `jsonLd`. DECLARED for
-   *  the pending #316 emitter: when root `faq[]` exists it will be emitted (never
-   *  an empty FAQPage) — nothing writes this field today. No `@id` by design: the
-   *  engine never invents an anchor (the same rule the entity node follows, §15.4),
-   *  and a URL fragment convention is not a declared decision. */
+  /** v1.10 (issue #288, consumer half #316): the `FAQPage` node — a DIFFERENT
+   *  schema.org @type than the entity, so it is its own field, never folded into
+   *  `jsonLd`. Emitted iff root `faq[]` exists (never an empty FAQPage). No `@id`
+   *  by design: the engine never invents an anchor (the same rule the entity node
+   *  follows, §15.4), and a URL fragment convention is not a declared decision. */
   faqJsonLd?: {
     "@context": "https://schema.org";
     "@type": "FAQPage";

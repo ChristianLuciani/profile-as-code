@@ -214,13 +214,17 @@ dropped by cite-aware systems, §8): `q` ≤ 90 chars per value and unique per w
 (JSON Schema cannot express it — duplicates collapse into one answer surface), `a` ≤ 320
 chars (beyond that it is prose, not an answer), optional `source` = the `$defs/url`
 scheme boundary (an answer with no pointer is a claim), 3–20 entries (below 3 there is no
-surface; above 20 it is a page, not a profile). Consumers: the projection **of these two
-fields** is pending in #316 — when it lands, `structuredData()` will expose
-`description` from `definition` (the brand branch already emits `description` from
-`mission`) and a separate `FAQPage` JSON-LD node, emitted only when `faq[]` exists,
-never an empty one — the node is its own field, never folded into `jsonLd`, which only
-gains `description` on the Person branch when #316 lands. The schema contract ships
-independently of that emitter.
+surface; above 20 it is a page, not a profile). Consumers: `structuredData()` exposes
+`description` from `definition` on the Person branch (emitted **only** when declared,
+never invented; EN fallback, §11) and as the canonical description on the brand branch,
+where it **wins over `mission`** — a brand without a definition keeps the v1.9 mission
+fallback byte-identical (same slot, same key order). The answer surface is a separate
+`FAQPage` JSON-LD node (`StructuredDataReadiness.faqJsonLd`), emitted only when `faq[]`
+exists — never an empty one; it is its own field, never folded into `jsonLd` (a different
+schema.org `@type`), and it carries no `@id` (the engine never invents an anchor, §15.4).
+The Person completeness denominator grows 7 → 8 (`description` is a considered field,
+counted only when populated — the declared, honestly-accounted delta, same class as the
+v1.6 entity-id move).
 The competitive split measured
 2026-10-23 (`[WEB]`, #288 evidence: a GEO competitor ships 12 question-shaped H2s and
 zero structured answers) is engine-ownable: the SSOT, not the renderers, is the surface.
@@ -1325,7 +1329,7 @@ Two different "templates" (previous confusion):
 `AI-POLICY.md` from the `ai:` block of the platform registry, and refuses a UA list that is unsourced or
 older than 180 days. Decision (Q10): a `huggingface-dataset` renderer/exporter vs contributing to existing open datasets vs both — decided when the M3 platform SOTA research closes.
 10. **M10 (fact selection, D22/§21 — issue #235)**: `.pascorc` → `selection.views` + `selectFacts()` in core + `build --view` + `status --selection` + the five selection findings; Phase 1 is **schema-free** (selection by §19.2 key, and `artifacts[].tags` finally read as §18.9 declared). Phase 2 adds optional `tags[]` to six entry blocks (not `skills`); **Phase 3** (several views per platform, `profiles/<view>/`) needs a D19 amendment and stays out of scope until asked for.
-11. **Answer-engine surface (schema v1.10 — issues #288 → #289 → #287)**: `identity.definition` + `faq[]` (the citable facts, #288) · the `structuredData()` projection **of `definition`/`faq[]`** (`description` from `definition` + a separate `FAQPage` JSON-LD node, only when the fields exist) is **pending in #316** — the brand `description` from `mission` already ships · geoCheck v2 citability codes (#289 — freshness INFO, honest name-collision) · `pasco entity --json/--jsonld` (#287 — ✅ shipped, §7.2), the entity projection for surfaces the engine does not render: it emits `structuredData()`'s own output, never a second assembler.
+11. **Answer-engine surface (schema v1.10 — issues #288 → #289 → #287)**: `identity.definition` + `faq[]` (the citable facts, #288) · the `structuredData()` projection **of `definition`/`faq[]`** ✅ shipped (#316: `description` from `definition` + a separate `FAQPage` JSON-LD node, only when the fields exist) · geoCheck v2 citability codes (#289 — ✅ shipped, freshness INFO, honest name-collision) · `pasco entity --json/--jsonld` (#287 — ✅ shipped, §7.2), the entity projection for surfaces the engine does not render: it emits `structuredData()`'s own output, never a second assembler.
 12. **M11 (presence audit — issue #283)**: `pasco audit --json` (§7.1) — the offline findings projection (three fixed classes, exit 1 on FAIL) over `load`/schema, `reconciledDrift`, `geoCheck`'s `faq-coverage` premise, the completeness `evidence` premise and the `fact-present` rule; `fact-present` executes in `pasco check` and compares the artifact `pasco build` last wrote against the SSOT render symmetrically. Scoring/prioritisation/branding stay in the consuming layer; the presence unit itself is **D23 (§5, §22, #262)** — every surface carries a `kind`, `releases[]` is the event, and `pasco presence` / `pasco release plan` derive the fan-out from the §19 ledger.
 
 ## 13. Resolved decisions (former open questions)
@@ -1525,6 +1529,16 @@ neither is a score.
   in tension:** "missing data is neutral" (§8) governs *fact* checks (a sparse profile is not
   penalized for what it does not claim); `geo/entity-id` is a *readiness* check, so it does
   score 0 when the anchor is absent — which is why upgrading costs up to 5 points (delta (c)).
+- **Answer-engine surface (v1.10 / #288, consumer half #316).** `structuredData()` emits
+  `description` from `identity.definition` — Person: only when declared (never invented),
+  brand: `definition` wins over `mission` in the same emission slot (a definition-less brand
+  keeps the v1.9 mission output byte-identical). It also assembles the separate
+  `FAQPage` node (`StructuredDataReadiness.faqJsonLd`) iff root `faq[]` exists — never an
+  empty FAQPage, and **no `@id`** (the engine never invents an anchor, the same rule the
+  entity node follows; a fragment convention is not a declared decision). The node is a
+  different schema.org `@type`, so it is never folded into `jsonLd`. Person completeness
+  gains `description` as its 8th considered field (populated only when declared: the
+  honest 7→8 delta, same class as the v1.6 entity-id move).
 - Entity assembly lives in **one** place: `core/src/structured-data.ts` — the single source for
   `@id`, `sameAs` and the entity fields, consumed by `geoCheck`, every renderer and
   `pasco entity` (§7.2). Renderers and the CLI never re-derive structured-data identity (the

@@ -1,5 +1,6 @@
 /**
- * structured-data.ts — the entity's structured-data identity (SPEC §15.4, #103).
+ * structured-data.ts — the entity's structured-data identity (SPEC §15.4, #103) and,
+ * since v1.10 (#288), the `FAQPage` answer-surface node.
  *
  * ONE home for assembling the `schema.org` view of the entity: its canonical `@id`,
  * the `sameAs` set, and the entity fields. Consumers are `geoCheck` (readiness +
@@ -128,6 +129,32 @@ function hasCredentialLd(profile: Profile): EducationalOccupationalCredentialLd[
 }
 
 /**
+ * v1.10 (#288): the `FAQPage` node over root `faq[]` — the citable Q&A pairs,
+ * lang-sliced by the same rule the entity fields use (`[lang]` falling back to
+ * `en`; the empty-string value falls through too, the #84 empty=absent rule).
+ *
+ * UNDEFINED when the workspace declares no `faq`: a FAQPage with zero questions
+ * is not an answer surface, so an empty one is never emitted — the node exists
+ * only when the SSOT owns answers.
+ */
+function faqNode(profile: Profile, lang: Lang): StructuredDataReadiness["faqJsonLd"] {
+  const rows = profile.faq;
+  if (!rows || rows.length === 0) return undefined;
+  return {
+    "@context": "https://schema.org" as const,
+    "@type": "FAQPage" as const,
+    mainEntity: rows.map((row) => ({
+      "@type": "Question" as const,
+      name: row.q[lang] || row.q.en,
+      acceptedAnswer: {
+        "@type": "Answer" as const,
+        text: row.a[lang] || row.a.en,
+      },
+    })),
+  };
+}
+
+/**
  * Assemble the entity's structured-data readiness AND its ready-to-embed JSON-LD.
  *
  * Single source for `@id` + `sameAs` + entity fields: `geoCheck` scores what this
@@ -147,7 +174,14 @@ export function structuredData(profile: Profile, lang: Lang = "en"): StructuredD
     // Empty = absent (issue #84/#86): `||` falls through at BOTH levels, and the readiness
     // entity-field check below reads these same values, so there is one accessor rule.
     const slogan = identity.tagline?.[lang] || identity.tagline?.en || undefined;
-    const description = identity.mission?.[lang] || identity.mission?.en || undefined;
+    // v1.10 (#288): the definition IS the canonical description when declared —
+    // it wins over `mission` (the answer-engine sentence an LLM can quote); a
+    // brand without definition keeps the v1.9 behavior byte-identical
+    // (mission fallback, same emission slot, same key order).
+    const definition = identity.definition?.[lang] || identity.definition?.en || undefined;
+    const mission = identity.mission?.[lang] || identity.mission?.en || undefined;
+    const description = definition || mission;
+    const faq = faqNode(profile, lang);
     // NB: `lang` is the COMPILE-time language. A renderer that overrides `opts.lang`
     // cannot make the JSON-LD follow (it is assembled here, not there) — see the
     // silent-divergence guard in both renderers.
@@ -217,10 +251,16 @@ export function structuredData(profile: Profile, lang: Lang = "en"): StructuredD
       completeness: populated / considered.length,
       fields,
       ...(jsonLd ? { jsonLd } : {}),
+      ...(faq ? { faqJsonLd: faq } : {}),
     };
   }
 
   const role = currentRole(profile);
+  // v1.10 (#288): the answer-engine surface for the PERSON flavor — the canonical
+  // "X is a …" sentence. Person had NO description source in v1.9: it is emitted
+  // ONLY when `identity.definition` exists, never invented (absent = absent).
+  const definition = identity.definition?.[lang] || identity.definition?.en || undefined;
+  const faq = faqNode(profile, lang);
   const fields = {
     name: Boolean(identity.name),
     sameAs,
@@ -232,10 +272,20 @@ export function structuredData(profile: Profile, lang: Lang = "en"): StructuredD
     // absent nationality leaves the completeness ratio (and every pre-v1.13 score)
     // untouched. It is optional, never a `ready` gate.
     ...(identity.nationality !== undefined ? { nationality: identity.nationality } : {}),
+    ...(definition ? { description: definition } : {}),
     ...(role.jobTitle ? { jobTitle: role.jobTitle } : {}),
     ...(role.worksFor ? { worksFor: role.worksFor } : {}),
   };
-  const considered = ["name", "sameAs", "email", "image", "address", "jobTitle", "worksFor"];
+  const considered = [
+    "name",
+    "sameAs",
+    "email",
+    "image",
+    "address",
+    "jobTitle",
+    "worksFor",
+    "description",
+  ];
   const populated =
     1 +
     (sameAs.length > 0 ? 1 : 0) +
@@ -243,7 +293,8 @@ export function structuredData(profile: Profile, lang: Lang = "en"): StructuredD
     (identity.photo ? 1 : 0) +
     (identity.location ? 1 : 0) +
     (role.jobTitle ? 1 : 0) +
-    (role.worksFor ? 1 : 0);
+    (role.worksFor ? 1 : 0) +
+    (definition ? 1 : 0);
   // Same rule as the brand branch: `name` gates emission, nothing else (Option A).
   const ready = Boolean(identity.name);
   // Key order mirrors the pre-v1.6 github-readme emission (name → email → image →
@@ -258,6 +309,7 @@ export function structuredData(profile: Profile, lang: Lang = "en"): StructuredD
         "@type": "Person" as const,
         ...(entityIdValue !== undefined ? { "@id": entityIdValue } : {}),
         name: identity.name,
+        ...(definition ? { description: definition } : {}),
         ...(identity.email !== undefined ? { email: identity.email } : {}),
         ...(identity.photo ? { image: identity.photo } : {}),
         ...(identity.location ? { address: identity.location } : {}),
@@ -284,5 +336,6 @@ export function structuredData(profile: Profile, lang: Lang = "en"): StructuredD
     completeness: populated / considered.length,
     fields,
     ...(jsonLd ? { jsonLd } : {}),
+    ...(faq ? { faqJsonLd: faq } : {}),
   };
 }
