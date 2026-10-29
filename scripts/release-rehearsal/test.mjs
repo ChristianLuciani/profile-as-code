@@ -33,12 +33,14 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import {
   check,
+  executesScript,
   expectedRepositoryUrl,
   idTokenGranted,
   manifestViolations,
   orderViolations,
   parseSteps,
   publishInvocations,
+  runCommands,
   runtimeDependencyViolations,
   SEAM_DIRS,
   targetPaths,
@@ -251,6 +253,88 @@ test("workflowViolations — F2: a barrier AFTER the cohort step is refused", ()
   );
 });
 
+test("workflowViolations — F2b: a barrier that only ECHOES the script path is refused", () => {
+  // The finding: the barrier was located by "does this step's text contain the path",
+  // so `run: echo "node scripts/release-rehearsal/check.mjs"` passed green without
+  // executing anything.
+  const yaml = workflow().replace(
+    "        run: node scripts/release-rehearsal/check.mjs",
+    '        run: echo "node scripts/release-rehearsal/check.mjs"',
+  );
+  const violations = workflowViolations(yaml).violations;
+  refuses(violations, "does not EXECUTE it", "echo barrier");
+  refuses(violations, "found 0", "echo barrier count");
+});
+
+test("workflowViolations — F2b: a barrier gated by a constant-false `if:` is refused", () => {
+  const yaml = workflow().replace(
+    `      - name: ${BARRIER_STEP}`,
+    `      - name: ${BARRIER_STEP}\n        if: \${{ false }}`,
+  );
+  refuses(workflowViolations(yaml).violations, "never true", "false-gated barrier");
+});
+
+test("workflowViolations — F2b: a barrier with `continue-on-error: true` is refused", () => {
+  const yaml = workflow().replace(
+    `      - name: ${BARRIER_STEP}`,
+    `      - name: ${BARRIER_STEP}\n        continue-on-error: true`,
+  );
+  refuses(workflowViolations(yaml).violations, "continue-on-error", "swallowed barrier failure");
+});
+
+test("workflowViolations — F2b: a barrier in a prior job WITHOUT `needs:` is refused", () => {
+  // A flat step index made the prior job's barrier "before the cohort" while the
+  // publish job could start in parallel (or first) — the gate was decorative.
+  const yaml = workflow({
+    barrier: false,
+    extraJobs: ["  rehearse:", "    runs-on: ubuntu-24.04", "    steps:", ...barrierLines],
+  });
+  refuses(workflowViolations(yaml).violations, "does not `needs:`", "prior job no needs");
+});
+
+test("workflowViolations — a barrier in a prior job the publish job `needs:` is accepted", () => {
+  const yaml = workflow({
+    barrier: false,
+    extraJobs: ["  rehearse:", "    runs-on: ubuntu-24.04", "    steps:", ...barrierLines],
+  }).replace("    runs-on: ubuntu-24.04", "    runs-on: ubuntu-24.04\n    needs: rehearse");
+  assert.deepEqual(workflowViolations(yaml).violations, []);
+});
+
+test("runCommands — reads only the `run:` value, never `env:`/`with:` or comments", () => {
+  const body = [
+    "      - name: x",
+    "        env:",
+    "          HINT: node scripts/release-rehearsal/check.mjs",
+    "        # run: node scripts/release-rehearsal/check.mjs",
+    "        run: |",
+    "          # a comment inside the script",
+    "          set -euo pipefail",
+    "          node scripts/release-rehearsal/check.mjs --root .",
+    "          echo done",
+  ].join("\n");
+  const commands = runCommands(body);
+  assert.deepEqual(commands, [
+    "set -euo pipefail",
+    "node scripts/release-rehearsal/check.mjs --root .",
+    "echo done",
+  ]);
+  assert.equal(executesScript(commands, "scripts/release-rehearsal/check.mjs"), true);
+  assert.equal(
+    executesScript(
+      ['echo "node scripts/release-rehearsal/check.mjs"'],
+      "scripts/release-rehearsal/check.mjs",
+    ),
+    false,
+  );
+  assert.equal(
+    executesScript(
+      ["SITE_REF=x node scripts/release-rehearsal/check.mjs"],
+      "scripts/release-rehearsal/check.mjs",
+    ),
+    true,
+  );
+});
+
 test("workflowViolations — F4: id-token only on a comment is refused", () => {
   const yaml = workflow({ idToken: "  # id-token: write" });
   refuses(workflowViolations(yaml).violations, "publish job does not grant", "commented id-token");
@@ -273,7 +357,28 @@ test("idTokenGranted — the effective grant is read from the job, flow style in
     "    runs-on: ubuntu-24.04",
     "    permissions: { contents: read, id-token: write }\n    runs-on: ubuntu-24.04",
   );
-  assert.equal(idTokenGranted(flow).granted, true);
+  // The SCOPE is asserted, not only the grant: a job-level flow block that fell
+  // through to the top-level default also reads `granted: true` — the tautology that
+  // let F4b hide (the finding: this case passed by the fallback it should catch).
+  assert.deepEqual(idTokenGranted(flow), {
+    granted: true,
+    scope: "publish job permissions",
+  });
+});
+
+test("idTokenGranted — F4b: a job-level flow block without id-token is NOT the top-level default", () => {
+  // The false positive: the flow branch matched only column 0, so this job-level
+  // `permissions: {contents: read}` fell through to the workflow default (which
+  // grants `id-token: write`) and the rehearsal read a grant the job does not have.
+  const flow = workflow({ publishPermissions: [] }).replace(
+    "    runs-on: ubuntu-24.04",
+    "    permissions: {contents: read}\n    runs-on: ubuntu-24.04",
+  );
+  assert.deepEqual(idTokenGranted(flow), {
+    granted: false,
+    scope: "publish job permissions",
+  });
+  refuses(workflowViolations(flow).violations, "publish job does not grant", "flow job override");
 });
 
 test("workflowViolations — a missing ORDER is refused", () => {

@@ -102,17 +102,65 @@ function readManifestFile(file) {
 }
 
 /**
+ * The jobs of the workflow, with their line range and `needs:`. Job-level keys sit
+ * at two spaces; everything at zero indent is workflow-level (`name`, `on`,
+ * `permissions`, `concurrency`). A step belongs to the job whose range contains it
+ * — the barrier's JOB matters, not only its position in a flat step list (a barrier
+ * moved into a previous job without `needs:` still precedes in a flat index while
+ * the publish job goes live unrehearsed).
+ */
+export function parseJobs(yaml) {
+  const lines = yaml.split("\n");
+  const jobsAt = lines.findIndex((line) => /^jobs:\s*$/.test(line));
+  if (jobsAt < 0) return [];
+  const jobs = [];
+  for (let i = jobsAt + 1; i < lines.length; i += 1) {
+    const match = lines[i].match(/^ {2}(['"]?)([A-Za-z0-9_.-]+)\1:\s*$/);
+    if (match) jobs.push({ index: i, name: match[2], start: i, end: lines.length, needs: [] });
+  }
+  for (let i = 0; i < jobs.length; i += 1) {
+    if (i + 1 < jobs.length) jobs[i].end = jobs[i + 1].index;
+    const block = lines.slice(jobs[i].start, jobs[i].end);
+    const needsAt = block.findIndex((line) => /^ {4}needs:/.test(line));
+    if (needsAt < 0) continue;
+    const inline = block[needsAt].match(/^ {4}needs:\s*(.+)$/);
+    if (inline) {
+      jobs[i].needs = inline[1]
+        .replace(/^\[/, "")
+        .replace(/\]\s*$/, "")
+        .split(",")
+        .map((entry) => entry.trim().replace(/^['"]|['"]$/g, ""))
+        .filter(Boolean);
+    } else {
+      for (let j = needsAt + 1; j < block.length; j += 1) {
+        const item = block[j].match(/^ {6}- ([A-Za-z0-9_.-]+)\s*$/);
+        if (!item) break;
+        jobs[i].needs.push(item[1]);
+      }
+    }
+  }
+  return jobs;
+}
+
+/**
  * Split `.github/workflows/release.yml` into named steps (6-space `- ` items) so the
  * mechanism assertions read a step, not a line window. Steps without a `name:` are
- * kept (their `uses:` is the identity) and never match a name lookup.
+ * kept (their `uses:` is the identity) and never match a name lookup. Each step
+ * carries the `job:` it belongs to (null outside `jobs:`).
  */
 export function parseSteps(yaml) {
   const lines = yaml.split("\n");
+  const jobs = parseJobs(yaml);
+  const jobAt = (lineIndex) => {
+    const owner = jobs.find((job) => lineIndex > job.index && lineIndex < job.end);
+    return owner ? owner.name : null;
+  };
   const steps = [];
   let current = null;
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
     if (/^ {6}- /.test(line)) {
-      current = { name: null, lines: [line] };
+      current = { name: null, job: jobAt(i), lines: [line] };
       steps.push(current);
       const name = line.match(/^ {6}- name:\s*(.+)$/);
       if (name) current.name = name[1].trim().replace(/^['"]|['"]$/g, "");
@@ -120,7 +168,103 @@ export function parseSteps(yaml) {
       current.lines.push(line);
     }
   }
-  return steps.map((step) => ({ name: step.name, body: step.lines.join("\n") }));
+  return steps.map((step) => ({ name: step.name, job: step.job, body: step.lines.join("\n") }));
+}
+
+/**
+ * The shell commands a step actually runs, one per segment. Reads the step's `run:`
+ * value only (inline or block scalar), drops comment lines and splits on `&&`/`||`/
+ * `;`. `env:`, `with:` and YAML comments never yield a command — matching the script
+ * path anywhere in the step text let an `echo "<path>"` pass as a barrier (F2b).
+ */
+export function runCommands(body) {
+  const lines = body.split("\n");
+  const commands = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const inline = lines[i].match(/^(\s*)run:\s*(.*)$/);
+    if (!inline) continue;
+    const value = inline[2].trim();
+    if (value && !/^[|>][+-]?\s*(?:#.*)?$/.test(value)) {
+      commands.push(value);
+      continue;
+    }
+    const runIndent = inline[1].length;
+    for (let j = i + 1; j < lines.length; j += 1) {
+      if (lines[j].trim() === "") continue;
+      const indent = lines[j].match(/^ */)[0].length;
+      if (indent <= runIndent) break;
+      commands.push(lines[j]);
+    }
+  }
+  return commands
+    .filter((line) => !line.trim().startsWith("#"))
+    .flatMap((line) => line.split(/&&|\|\||;/))
+    .map((command) => command.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Whether a command segment EXECUTES `node <scriptPath>` (optionally after leading
+ * `VAR=value` assignments). `echo`, `printf`, `:`, a quoted string — anything in
+ * front of `node` — is a mention, not a rehearsal (F2b).
+ */
+export function executesScript(commands, scriptPath) {
+  return commands.some((command) => {
+    const tokens = command
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((token) => token.replace(/^['"]|['"]$/g, ""));
+    let at = 0;
+    while (at < tokens.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[at])) at += 1;
+    if (tokens[at] !== "node") return false;
+    return tokens[at + 1] === scriptPath;
+  });
+}
+
+/** A step `if:` that can never be true — `false`, `0`, `null`, or an empty string. */
+export function staticallyFalseIf(condition) {
+  const expression = condition
+    .trim()
+    .replace(/^\$\{\{\s*/, "")
+    .replace(/\s*\}\}$/, "")
+    .trim();
+  if (/^(false|0|null)$/i.test(expression)) return true;
+  return /^(['"])\s*\1$/.test(expression);
+}
+
+/** The step's `if:` condition, or null. Step keys sit at 6 spaces (`- if:`) or 8. */
+export function stepCondition(body) {
+  for (const line of body.split("\n")) {
+    const match = line.match(/^ {6}- if:\s*(.+)$/) ?? line.match(/^ {8}if:\s*(.+)$/);
+    if (match) return match[1].trim();
+  }
+  return null;
+}
+
+/** Every job the named job transitively `needs:` (empty when it needs nothing). */
+export function jobAncestors(jobs, name) {
+  const byName = new Map(jobs.map((job) => [job.name, job]));
+  const seen = new Set();
+  const stack = [...(byName.get(name)?.needs ?? [])];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (seen.has(current)) continue;
+    seen.add(current);
+    stack.push(...(byName.get(current)?.needs ?? []));
+  }
+  return seen;
+}
+
+/** The job-level `if:` of a named job (4-space key), or null when it has none. */
+export function jobCondition(yaml, name) {
+  const lines = yaml.split("\n");
+  const job = parseJobs(yaml).find((entry) => entry.name === name);
+  if (!job) return null;
+  for (let i = job.start + 1; i < job.end; i += 1) {
+    const match = lines[i].match(/^ {4}if:\s*(.+)$/);
+    if (match) return match[1].trim();
+  }
+  return null;
 }
 
 function findStep(steps, name) {
@@ -410,15 +554,26 @@ function jobBlock(lines, name) {
   return { start, end };
 }
 
-/** The entries of a `permissions:` block at `indent` spaces, flow style included. */
+/**
+ * The entries of a `permissions:` block at `indent` spaces, flow style included.
+ * The flow pattern is anchored on the SAME indent as the block form: an unanchored
+ * `/^permissions:/` matched only column 0, so a job-level
+ * `permissions: {contents: read}` fell through to the top-level default instead of
+ * being read as the job's narrower, overriding grant (F4b).
+ */
 function permissionEntries(lines, from, to, indent) {
   const pad = " ".repeat(indent);
+  const flowPattern = new RegExp(`^${pad}permissions:\\s*\\{(.*)\\}\\s*(?:#.*)?$`);
+  const blockPattern = `${pad}permissions:`;
   for (let i = from; i < to; i += 1) {
-    const flow = lines[i].match(/^permissions:\s*\{(.*)\}\s*$/);
+    const flow = lines[i].match(flowPattern);
     if (flow) {
-      return flow[1].split(",").map((entry) => entry.replace(/\s+#.*$/, "").trim());
+      return flow[1]
+        .split(",")
+        .map((entry) => entry.replace(/\s+#.*$/, "").trim())
+        .filter(Boolean);
     }
-    if (lines[i] === `${pad}permissions:`) {
+    if (lines[i] === blockPattern) {
       const entries = [];
       for (let j = i + 1; j < to; j += 1) {
         if (!lines[j].startsWith(`${pad}  `)) break;
@@ -532,26 +687,69 @@ export function workflowViolations(yaml) {
   }
 
   // The barrier is part of the mechanism: a release that does not rehearse before the
-  // loop is exactly the first contact #313 is about (fresh-pass F2).
-  const barrier = steps
-    .map((step, index) => ({ index, step }))
-    .filter(({ step }) => {
-      const body = step.body
-        .split("\n")
-        .filter((line) => !/^\s*-\s*name:/.test(line) && !line.trim().startsWith("#"))
-        .join("\n");
-      return body.includes("scripts/release-rehearsal/check.mjs");
-    });
-  if (barrier.length !== 1) {
+  // loop is exactly the first contact #313 is about (fresh-pass F2). A text match let
+  // three non-barriers through, all closed here (fresh-pass F2b):
+  //   - `run: echo "<path>"` mentions the script without executing it;
+  //   - `if: ${{ false }}` keeps the step from ever running;
+  //   - a barrier moved into a prior job WITHOUT `needs:` still precedes in a flat
+  //     step index while the publish job goes live unrehearsed.
+  const BARRIER = "scripts/release-rehearsal/check.mjs";
+  const barrierCandidates = steps
+    .map((step, index) => ({ index, step, commands: runCommands(step.body) }))
+    .filter(({ commands }) => commands.some((command) => command.includes(BARRIER)));
+  const executing = barrierCandidates.filter(({ commands }) => executesScript(commands, BARRIER));
+  const mentionedOnly = barrierCandidates.filter((candidate) => !executing.includes(candidate));
+  for (const { index, step, commands } of mentionedOnly) {
+    const label = step.name ? ` (${JSON.stringify(step.name)})` : "";
     violations.push(
-      `E-REHEARSAL: expected exactly one step invoking \`scripts/release-rehearsal/check.mjs\` ` +
-        `before the cohort (the pre-publish barrier), found ${barrier.length}`,
+      `E-REHEARSAL: step ${index + 1}${label} mentions \`${BARRIER}\` but does not EXECUTE it — ` +
+        `${JSON.stringify(commands[0])} is not a \`run:\` of \`node ${BARRIER}\`, so the publish ` +
+        "would not be rehearsed",
     );
-  } else if (barrier[0].index > steps.indexOf(cohortStep)) {
+  }
+  if (executing.length !== 1) {
     violations.push(
-      "E-REHEARSAL: the rehearsal barrier runs AFTER the seam-cohort step — the release would " +
-        "publish before rehearsing",
+      `E-REHEARSAL: expected exactly one step EXECUTING \`${BARRIER}\` before the cohort ` +
+        `(the pre-publish barrier), found ${executing.length}`,
     );
+  } else {
+    const { index, step } = executing[0];
+    const condition = stepCondition(step.body);
+    if (condition !== null && staticallyFalseIf(condition)) {
+      violations.push(
+        "E-REHEARSAL: the rehearsal barrier is gated by a condition that is never true " +
+          `(${JSON.stringify(condition)}) — the step exists but never runs`,
+      );
+    }
+    if (/^ {6}(?:- | {2})continue-on-error:\s*true\s*$/m.test(step.body)) {
+      violations.push(
+        "E-REHEARSAL: the rehearsal barrier has `continue-on-error: true` — a failing rehearsal " +
+          "would not stop the publish it is supposed to gate",
+      );
+    }
+    if (step.job === "publish") {
+      if (index > steps.indexOf(cohortStep)) {
+        violations.push(
+          "E-REHEARSAL: the rehearsal barrier runs AFTER the seam-cohort step — the release " +
+            "would publish before rehearsing",
+        );
+      }
+    } else if (step.job === null || !jobAncestors(parseJobs(yaml), "publish").has(step.job)) {
+      const where = step.job === null ? "no job" : `job "${step.job}"`;
+      violations.push(
+        `E-REHEARSAL: the rehearsal barrier sits in ${where}, which the \`publish\` job does not ` +
+          "`needs:` — the publish job can start before the rehearsal finishes, so the gate is " +
+          "decorative",
+      );
+    } else {
+      const jobIf = jobCondition(yaml, step.job);
+      if (jobIf !== null && staticallyFalseIf(jobIf)) {
+        violations.push(
+          `E-REHEARSAL: the barrier job "${step.job}" is gated by a condition that is never ` +
+            `true (${JSON.stringify(jobIf)}) — the rehearsal never runs`,
+        );
+      }
+    }
   }
 
   let cliPublish;
