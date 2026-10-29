@@ -71,7 +71,7 @@ commands above are the standalone path.
 | `pasco cite-check [<answers.ndjson>] [--json]` | The **citation matcher** over saved answer-engine answers (#291): reads the runner's NDJSON (stdin when no path), matches the workspace's declared entity and emits, **per answer and never aggregated**, `{ cited, confidence, spans, reasons }`. Ladder: `citation-url` (a citation on the entity's own page or its `sameAs` set — host, and the declared path or a descendant) and `exact-name` → **high**; `alias` (`identity.orgName`) and `handle` → **medium**; `partial` (any contiguous multi-token prefix, ≥ 2 tokens) → **low**, and low is never citable downstream. Refuses to guess: a one-word name with no declared disambiguator (`cited: false`, the longer capitalised reading named as `competing`), or a contrast mention, is not a citation; a declared qualifier or an adjacent capital never disqualifies a hit by itself | ✅ v1 |
 | `pasco export ai-policy [--out <dir> \| --check] [--lang <l>]` | The M9 stance as an artifact (#290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed retrieval crawlers allowed, the listed training crawlers disallowed, each UA commented with its registry entry/operator/source/date; the file declares that a crawler it does not name is **not restricted**), `llms.txt` (the workspace index: name, definition, canonical identity, `faq[]`, `publications[]`, with a coverage assertion) and `AI-POLICY.md` (allowed · blocked · that same explicit-list limit · who can change it · the date, quoting the stance verbatim). `--check` exits 1 on an incomplete or unsourced entry, a duplicate token (case-insensitive), a malformed/future/`>180`-day `as_of`, or a `policy.as_of` that is stale or older than its newest row; `--out` refuses to write one. The UA list is projected from the platform registry — never hardcoded in the CLI | ✅ v1 |
 | `pasco export profile [--json] [--now <iso8601>]` | The **normalized profile** for programmatic consumers (#348): `{ schemaVersion, engine, source: { commit, generatedAt }, profile }` — `profile` is exactly what `core.load()` returns (**every root the workspace declares, plus every list root defaulted to `[]`**; an optional object root appears only when declared), never a platform slice (`compile()` makes that other object). `artifactRefs` ids resolve in `profile.artifacts[]`, `publications[].url` as declared, `deployments` included. No clock is read: `generatedAt` is `null` unless `--now` pins it, so two runs are byte-identical; `source.commit` is the workspace git HEAD (`null` outside a repo) | ✅ v1 |
-| `pasco post <seed\|task\|choose\|check\|export\|import\|list>` | Week-1 post MVP (#264): a seed at `posts/<seed>/seed.md` → task bundle → chosen variant → check → optional Postiz draft payload; the CLI never calls an LLM | 🚧 experiment (not in the v1 contract; `docs/post-mvp.md`) |
+| `pasco post <seed\|task\|choose\|check\|export\|import\|list>` | Post experiment (#264/#265, long-form #266): a seed at `posts/<seed>/` → task bundle → chosen variant → check → Postiz draft payload (API channels) or paste checklist (Substack/Ghost). Two seed formats (`short`/`longform`); a short child derived from an essay records `derivedFrom`. The CLI never calls an LLM | 🚧 experiment (not in the v1 contract; `docs/post-mvp.md`) |
 | `pasco skills:export <dir> [--force] [--list]` | Copy the platform skills this package ships into a directory you name (`--list` shows them; no per-agent paths are invented — #254) | ✅ |
 
 The partial commands are explicit, and each one says what still owns the rest:
@@ -102,11 +102,15 @@ The partial commands are explicit, and each one says what still owns the rest:
   `--force`). It replaces the earlier projection stub: the CLI never invents a
   per-agent destination and never points at tooling the reader cannot open
   (`src/commands/skills-export.ts`, #254).
-- **`post`** — the week-1 experiment (#264/#265): a CLI subcommand family over
-  the `posts/` store; it never calls an LLM, emits the agent task, records the
-  choice, checks limits/URLs/refs and exports a Postiz draft. It reads the
-  `skills/` bundled with the package (set `PASCO_SKILLS_DIR` only to point at a
-  custom tree), and it is **not part of the v1 contract yet** (`docs/post-mvp.md`).
+- **`post`** — the post experiment (#264/#265, long-form #266): a CLI
+  subcommand family over the `posts/` store; it never calls an LLM, emits the
+  agent task, records the choice, checks limits/URLs/refs (plus title/dek and
+  the word band for long-form) and exports a Postiz draft for API channels or a
+  paste checklist for Substack/Ghost. A seed is `format: short | longform`; a
+  short child derived from an essay records `derivedFrom: <essay-id>`. It reads
+  the `skills/` bundled with the package (set `PASCO_SKILLS_DIR` only to point
+  at a custom tree), and it is **not part of the v1 contract yet**
+  (`docs/post-mvp.md`).
 
 ### The audit (`pasco audit --json`, #283)
 
@@ -631,10 +635,13 @@ pasco entity --jsonld                        # paste-ready <script type="applica
 pasco cite-check answers.ndjson              # per answer: cited? high/medium/low + why
 pasco cite-check answers.ndjson --json       # { schemaVersion, entity, answers[] }
 pasco post seed demo --text seed.md           # week-1 experiment: posts/<seed>/seed.md
+pasco post seed essay --text essay.md --format longform   # essay/newsletter seed
 pasco post task demo --channel linkedin,x   # task bundles (no LLM call)
+pasco post task essay --format longform --channel medium,substack
+pasco post task demo-x --format short --from essay --channel x  # derived family
 pasco post choose demo --channel linkedin --variant linkedin-1
 pasco post check demo                        # limits + URLs + {{fact:...}} refs
-pasco post export demo --target postiz       # POST /posts draft payload
+pasco post export demo --target postiz       # Postiz payload, or a paste checklist
 pasco export ai-policy --out ./public        # robots.txt + llms.txt + AI-POLICY.md (M9)
 pasco export ai-policy --check               # exit 1 on an unsourced or >180-day UA list
 pasco skills:export --list                   # skill channels shipped with this package

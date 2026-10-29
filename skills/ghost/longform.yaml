@@ -1,0 +1,36 @@
+# ghost long-form rules — machine-readable (#266)
+#
+# Read by `pasco post task|check|export` when the seed is `format: longform`.
+# The word range is an EDITORIAL default (the operator's house style), NOT a
+# platform limit: cite a platform source before encoding a hard cap here.
+# `export: paste` in v1 even though Ghost has an Admin API: the issue defers the
+# API channel and keeps Ghost a paste surface like Substack (#266 decision).
+
+platform: ghost
+format: longform
+export: paste
+settings:
+  __type: ghost
+fields:
+  required:
+    - title
+    - dek
+  optional:
+    - preview
+    - tags
+    - canonical
+    - list
+limits:
+  words:
+    min: 600
+    max: 3000
+links:
+  policy: identity-ssot-only
+structure:
+  - title
+  - dek
+  - sections
+sources:
+  - url: https://ghost.org/docs/admin-api/
+    date: 2026-10-29
+    note: "Ghost ships an Admin API; v1 keeps Ghost a paste surface (paste checklist) per #266, not an API channel."

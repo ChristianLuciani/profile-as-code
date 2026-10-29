@@ -197,3 +197,289 @@ describe("pasco post (week-1 MVP)", () => {
     expect(listed.stdout).toContain("imported-two");
   });
 });
+
+/* #266 — long-form seeds (essay/newsletter) and the short family. */
+
+const ESSAY =
+  "An essay from {{fact:identity.name}} about the work that compounds.\n\nhttps://github.com/elenavasquez\n";
+
+function longformSeed(ws: string, id: string, text = ESSAY): void {
+  const file = join(ws, "essay.md");
+  writeFileSync(file, text);
+  const result = run([
+    "post",
+    "seed",
+    id,
+    "--text",
+    file,
+    "--format",
+    "longform",
+    "--workspace",
+    ws,
+  ]);
+  expect(result.code, result.stderr).toBe(0);
+}
+
+function words(n: number): string {
+  return Array.from({ length: n }, () => "repeatable").join(" ");
+}
+
+function frontMatter(fields: Record<string, string>, body: string): string {
+  const lines = Object.entries(fields).map(([key, value]) => `${key}: ${value}`);
+  return `---\n${lines.join("\n")}\n---\n${body}\n`;
+}
+
+function ledgerOf(ws: string, id: string): Record<string, unknown> {
+  const raw = readFileSync(join(ws, "posts", id, "post.yaml"), "utf8");
+  // The ledger is written by the CLI's yaml stringify; a tiny parser is enough
+  // for the two scalar fields this test asserts (format/derivedFrom).
+  const out: Record<string, unknown> = {};
+  for (const line of raw.split("\n")) {
+    const match = /^([A-Za-z_]+):\s*(.*)$/.exec(line);
+    if (match?.[1] !== undefined) out[match[1]] = match[2];
+  }
+  return out;
+}
+
+describe("pasco post — long-form (#266)", () => {
+  it("turns one essay seed into 1 long-form projection + 3 short projections linked by derivedFrom", () => {
+    const ws = workspace();
+    longformSeed(ws, "essay");
+
+    const longTask = run([
+      "post",
+      "task",
+      "essay",
+      "--format",
+      "longform",
+      "--channel",
+      "medium,substack",
+      "--workspace",
+      ws,
+    ]);
+    expect(longTask.code, longTask.stderr).toBe(0);
+    const mediumTask = readFileSync(join(ws, "posts", "essay", "medium", "task.md"), "utf8");
+    expect(mediumTask).toContain("LONG-FORM");
+    expect(mediumTask).toContain("fields required: title, dek");
+    expect(mediumTask).toContain("words: 600–3000");
+
+    variant(
+      ws,
+      "essay",
+      "medium",
+      "medium-1",
+      frontMatter(
+        {
+          title: "Repeatable work",
+          dek: "What compounds.",
+          canonical: "https://elenavasquez.substack.com",
+        },
+        words(650),
+      ),
+    );
+
+    const shorts: { id: string; channel: string }[] = [
+      { id: "essay-x", channel: "x" },
+      { id: "essay-li", channel: "linkedin" },
+      { id: "essay-x2", channel: "x" },
+    ];
+    for (const short of shorts) {
+      const task = run([
+        "post",
+        "task",
+        short.id,
+        "--format",
+        "short",
+        "--from",
+        "essay",
+        "--channel",
+        short.channel,
+        "--workspace",
+        ws,
+      ]);
+      expect(task.code, task.stderr).toBe(0);
+      const body = readFileSync(join(ws, "posts", short.id, short.channel, "task.md"), "utf8");
+      expect(body).toContain("Derived from long-form seed: essay");
+      expect(body).toContain("Source essay (canonical");
+      variant(
+        ws,
+        short.id,
+        short.channel,
+        `${short.channel}-1`,
+        "A short take from {{fact:identity.name}}.\n",
+      );
+      expect(ledgerOf(ws, short.id).format).toBe("short");
+      expect(ledgerOf(ws, short.id).derivedFrom).toBe("essay");
+    }
+
+    expect(ledgerOf(ws, "essay").format).toBe("longform");
+    expect(ledgerOf(ws, "essay").derivedFrom).toBeUndefined();
+
+    for (const id of ["essay", ...shorts.map((short) => short.id)]) {
+      const check = run(["post", "check", id, "--workspace", ws]);
+      expect(check.code, `${id}: ${check.stdout}${check.stderr}`).toBe(0);
+    }
+
+    const listed = run(["post", "list", "--json", "--workspace", ws]);
+    expect(listed.code, listed.stderr).toBe(0);
+    const rows = (
+      JSON.parse(listed.stdout) as {
+        data: { posts: { id: string; format: string; derivedFrom: string | null }[] };
+      }
+    ).data.posts;
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    expect(byId.get("essay")?.format).toBe("longform");
+    expect(byId.get("essay")?.derivedFrom).toBeNull();
+    const derived = rows.filter((row) => row.derivedFrom === "essay");
+    expect(derived).toHaveLength(3);
+    expect(derived.every((row) => row.format === "short")).toBe(true);
+  });
+
+  it("fails a long-form check on missing title/dek, word-count breach, out-of-SSOT URL and a dangling ref", () => {
+    const ws = workspace();
+    longformSeed(ws, "essay2");
+    expect(
+      run([
+        "post",
+        "task",
+        "essay2",
+        "--format",
+        "longform",
+        "--channel",
+        "medium",
+        "--workspace",
+        ws,
+      ]).code,
+    ).toBe(0);
+
+    // No front matter at all: title and dek are both missing, and the body is short.
+    variant(ws, "essay2", "medium", "medium-1", "Only a few words from {{fact:identity.name}}.\n");
+    const missing = run(["post", "check", "essay2", "--json", "--workspace", ws]);
+    expect(missing.code).toBe(1);
+    const missingCodes = (
+      JSON.parse(missing.stdout) as {
+        data: { channels: { findings: { code: string }[] }[] };
+      }
+    ).data.channels.flatMap((channel) => channel.findings.map((finding) => finding.code));
+    expect(missingCodes.filter((code) => code === "missing-field")).toHaveLength(2);
+    expect(missingCodes).toContain("word-count");
+
+    // Fields present, but the canonical URL is outside the SSOT and a fact ref dangles.
+    writeFileSync(
+      join(ws, "posts", "essay2", "medium", "medium-1.md"),
+      frontMatter(
+        {
+          title: "Repeatable work",
+          dek: "What compounds.",
+          canonical: "https://evil.example/post",
+        },
+        `${words(650)}\nFrom {{fact:identity.nope}}.`,
+      ),
+    );
+    const bad = run(["post", "check", "essay2", "--json", "--workspace", ws]);
+    expect(bad.code).toBe(1);
+    const codes = (
+      JSON.parse(bad.stdout) as {
+        data: { channels: { findings: { code: string }[] }[] };
+      }
+    ).data.channels.flatMap((channel) => channel.findings.map((finding) => finding.code));
+    expect(codes).toContain("url-not-in-ssot");
+    expect(codes).toContain("dangling-ref");
+  });
+
+  it("exports an API Postiz payload and a paste checklist for the paste channels", () => {
+    const ws = workspace();
+    longformSeed(ws, "essay3");
+    expect(
+      run([
+        "post",
+        "task",
+        "essay3",
+        "--format",
+        "longform",
+        "--channel",
+        "medium,substack,ghost",
+        "--workspace",
+        ws,
+      ]).code,
+    ).toBe(0);
+    const fields = {
+      title: "Repeatable work",
+      dek: "What compounds.",
+      tags: "[craft, work]",
+      canonical: "https://elenavasquez.substack.com",
+    };
+    variant(ws, "essay3", "medium", "medium-1", frontMatter(fields, words(650)));
+    variant(ws, "essay3", "substack", "substack-1", frontMatter(fields, words(650)));
+    variant(ws, "essay3", "ghost", "ghost-1", frontMatter(fields, words(650)));
+    writeFileSync(join(ws, "postiz.yaml"), "channels:\n  medium: md-123\n");
+
+    const exported = run(["post", "export", "essay3", "--workspace", ws]);
+    expect(exported.code, exported.stderr).toBe(0);
+    expect(exported.stdout).toContain("paste checklist");
+
+    const payload = JSON.parse(
+      readFileSync(join(ws, "posts", "essay3", "postiz.json"), "utf8"),
+    ) as {
+      posts: {
+        integration: { id: string };
+        settings: { __type: string; title?: string; canonical?: string; tags?: string[] };
+        value: { content: string }[];
+      }[];
+    };
+    expect(payload.posts).toHaveLength(1);
+    const medium = payload.posts[0];
+    expect(medium?.integration.id).toBe("md-123");
+    expect(medium?.settings.__type).toBe("medium");
+    expect(medium?.settings.title).toBe("Repeatable work");
+    expect(medium?.settings.canonical).toBe("https://elenavasquez.substack.com");
+    expect(medium?.value[0]?.content.startsWith("repeatable repeatable")).toBe(true);
+    expect(medium?.value[0]?.content).not.toContain("title:");
+
+    for (const channel of ["substack", "ghost"]) {
+      const checklist = readFileSync(
+        join(ws, "posts", "essay3", channel, "paste-checklist.md"),
+        "utf8",
+      );
+      expect(checklist).toContain("paste surface");
+      expect(checklist).toContain("title: Repeatable work");
+      expect(checklist).toContain("dek: What compounds.");
+    }
+  });
+
+  it("rejects --from with a non-essay parent and with --format longform", () => {
+    const ws = workspace();
+    longformSeed(ws, "essay4");
+    seed(ws, "short4");
+    expect(
+      run([
+        "post",
+        "task",
+        "child",
+        "--format",
+        "longform",
+        "--from",
+        "essay4",
+        "--channel",
+        "medium",
+        "--workspace",
+        ws,
+      ]).code,
+    ).toBe(2);
+    const notEssay = run([
+      "post",
+      "task",
+      "child",
+      "--format",
+      "short",
+      "--from",
+      "short4",
+      "--channel",
+      "x",
+      "--workspace",
+      ws,
+    ]);
+    expect(notEssay.code).toBe(2);
+    expect(notEssay.stderr).toContain("long-form");
+  });
+});

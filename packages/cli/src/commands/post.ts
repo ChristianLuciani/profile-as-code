@@ -1,12 +1,19 @@
 /**
- * `pasco post` — the post MVP (week-1 experiment).
+ * `pasco post` — the post MVP (week-1 experiment) + the long-form shape (#266).
  *
  * The CLI never calls an LLM. It emits the task bundle an executing agent works
  * from, records the human's choice, checks the chosen text against the channel
  * rules + the profile's URL/claim SSOT, and (optionally) builds a Postiz
- * `POST /posts` payload. A post is a projection of a seed, not an identity
- * fact: the store lives in `posts/`, outside `content/` and outside
- * `profile.schema.json`.
+ * `POST /posts` payload or a paste checklist. A post is a projection of a seed,
+ * not an identity fact: the store lives in `posts/`, outside `content/` and
+ * outside `profile.schema.json` (D17).
+ *
+ * Two seed formats (#266):
+ *   short     — the distribution post; rules in skills/<channel>/posting.yaml.
+ *   longform  — the essay/newsletter; rules in skills/<channel>/longform.yaml,
+ *               field contract in the variant's YAML front matter (title/dek/…).
+ * A short seed derived from an essay carries `derivedFrom: <essay-seed>` and
+ * reads the parent's canonical text; its own dir has no seed.md.
  *
  * Subcommands: seed · task · choose · check · export · import · list.
  */
@@ -28,6 +35,7 @@ import {
   isSafeSeedId,
   ledgerPath,
   listSeedIds,
+  type PostFormat,
   type PostLedger,
   postsDir,
   readLedger,
@@ -42,15 +50,31 @@ import type { Pascorc } from "../workspace.js";
 import { defaultsLang } from "../workspace.js";
 
 export const POST_OWNER =
-  "post MVP (week-1 experiment): seed → task bundle → choose → check → optional Postiz draft payload; no LLM call, no scheduler";
+  "post MVP (week-1 experiment): seed → task bundle → choose → check → optional Postiz draft payload or paste checklist; two seed formats (short/longform); no LLM call, no scheduler";
+
+/** The long-form field set the contract requires (#266). A longform.yaml may
+ *  extend it, but it must at least require these two. */
+const LONGFORM_REQUIRED_FIELDS = ["title", "dek"] as const;
+/** Front-matter fields that travel into an API platform's settings. */
+const LONGFORM_SETTING_FIELDS = ["tags", "canonical", "list"] as const;
+
+interface WordLimits {
+  min?: number;
+  max?: number;
+}
 
 interface PostingRules {
   platform?: string;
+  /** A longform.yaml self-declares its shape; posting.yaml must not. */
+  format?: PostFormat;
+  /** Long-form: does this channel take a body API payload, or a paste? */
+  export?: "api" | "paste";
   settings?: Record<string, unknown>;
-  limits?: { maxChars?: number; minChars?: number };
+  limits?: { maxChars?: number; minChars?: number; words?: WordLimits };
   links?: { policy?: string };
   hashtags?: { max?: number };
   structure?: string[];
+  fields?: { required?: string[]; optional?: string[] };
   sources?: { url?: string; date?: string; note?: string }[];
 }
 
@@ -72,6 +96,8 @@ export interface PostArgs {
   outArg?: string;
   typeArg?: string;
   dateArg?: string;
+  formatArg?: string;
+  fromArg?: string;
   pascorc: Pascorc;
 }
 
@@ -79,21 +105,24 @@ export interface PostArgs {
  * skills + rules
  * ------------------------------------------------------------------------- */
 
-function postSkillPath(channel: string): string | undefined {
-  return skillFile(channel, "post.md");
+function parseFormat(value: string | undefined): PostFormat {
+  if (value === undefined) return "short";
+  if (value === "short" || value === "longform") return value;
+  throw new UsageError(`--format must be short|longform (got "${value}")`);
 }
 
-function postingPath(channel: string): string | undefined {
-  return skillFile(channel, "posting.yaml");
+function rulesFile(format: PostFormat): string {
+  return format === "longform" ? "longform.yaml" : "posting.yaml";
 }
 
-function readPosting(channel: string): PostingRules {
-  const path = postingPath(channel);
+function readRules(channel: string, format: PostFormat): PostingRules {
+  const file = rulesFile(format);
+  const path = skillFile(channel, file);
   if (path === undefined) {
     throw new UsageError(
       skillsDir() === undefined
         ? NOT_SHIPPED_MESSAGE
-        : `no post skill for "${channel}" — expected skills/${channel}/posting.yaml + post.md`,
+        : `no ${format} post skill for "${channel}" — expected skills/${channel}/${file}`,
     );
   }
   const doc = parseDocument(readFileSync(path, "utf8"));
@@ -115,6 +144,22 @@ function readPosting(channel: string): PostingRules {
     throw new UsageError(
       `${path}: settings.__type "${String(type)}" does not match channel "${channel}"`,
     );
+  }
+  if (format === "longform") {
+    if (rules.format !== "longform") {
+      throw new UsageError(`${path}: format must be "longform"`);
+    }
+    if (rules.export !== "api" && rules.export !== "paste") {
+      throw new UsageError(`${path}: export must be "api" or "paste"`);
+    }
+    const required = rules.fields?.required ?? [];
+    for (const field of LONGFORM_REQUIRED_FIELDS) {
+      if (!required.includes(field)) {
+        throw new UsageError(`${path}: fields.required must include "${field}"`);
+      }
+    }
+  } else if (rules.format === "longform") {
+    throw new UsageError(`${path}: format "longform" belongs in longform.yaml, not posting.yaml`);
   }
   return rules;
 }
@@ -280,6 +325,56 @@ function factLines(profile: LoadedProfile): string[] {
 }
 
 /* ---------------------------------------------------------------------------
+ * front matter (long-form field contract)
+ * ------------------------------------------------------------------------- */
+
+interface FrontMatter {
+  fields?: Record<string, unknown>;
+  body: string;
+  error?: string;
+}
+
+/** Split `---`-delimited YAML front matter from the body. A long-form variant
+ *  without front matter is not an error at parse time: `check` reports the
+ *  missing required fields, which is what the reader needs to fix. */
+export function parseFrontMatter(text: string): FrontMatter {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*\r?\n?/.exec(text);
+  if (match === null) {
+    if (/^---[ \t]*\r?\n/.test(text)) {
+      return { body: text, error: "unterminated front matter (no closing --- line)" };
+    }
+    return { body: text };
+  }
+  const body = text.slice(match[0].length);
+  const doc = parseDocument(match[1] ?? "");
+  if (doc.errors.length > 0) {
+    return { body, error: `invalid front matter — ${doc.errors[0]?.message ?? "parse error"}` };
+  }
+  const raw = doc.toJS({ maxAliasCount: 100 }) as unknown;
+  if (raw === null) return { fields: {}, body };
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    return { body, error: "front matter must be a YAML mapping (field: value)" };
+  }
+  return { fields: raw as Record<string, unknown>, body };
+}
+
+function fieldString(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (Array.isArray(value)) return value.map((item) => String(item)).join(", ");
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function isBlankField(value: unknown): boolean {
+  return fieldString(value).trim() === "";
+}
+
+function countWords(text: string): number {
+  const words = text.trim().match(/\S+/g);
+  return words === null ? 0 : words.length;
+}
+
+/* ---------------------------------------------------------------------------
  * checks
  * ------------------------------------------------------------------------- */
 
@@ -295,6 +390,37 @@ function urlCandidates(text: string): string[] {
     out.add(raw.replace(/^https?:\/\//i, (scheme) => scheme.toLowerCase()));
   }
   return [...out];
+}
+
+function urlFindings(content: string, profile: LoadedProfile): Finding[] {
+  const findings: Finding[] = [];
+  const allowed = allowedUrls(profile);
+  for (const url of urlCandidates(content)) {
+    if (!allowed.has(url)) {
+      findings.push({
+        code: "url-not-in-ssot",
+        severity: "error",
+        message: `${url} is not in the profile URL SSOT (identity.links / projects / publications / credentials / artifacts)`,
+      });
+    }
+  }
+  return findings;
+}
+
+function claimFindings(content: string): Finding[] {
+  const findings: Finding[] = [];
+  for (const rawLine of content.split("\n")) {
+    const lineText = rawLine.trim();
+    if (lineText === "" || lineText.includes("{{fact:") || lineText.includes("evidence:")) continue;
+    if (isQuantitativeClaim(lineText)) {
+      findings.push({
+        code: "unsourced-claim",
+        severity: "warn",
+        message: `numeric claim without a {{fact:...}} or evidence: marker — "${lineText.slice(0, 80)}"`,
+      });
+    }
+  }
+  return findings;
 }
 
 export function checkText(text: string, rules: PostingRules, profile: LoadedProfile): Finding[] {
@@ -317,16 +443,7 @@ export function checkText(text: string, rules: PostingRules, profile: LoadedProf
     });
   }
 
-  const allowed = allowedUrls(profile);
-  for (const url of urlCandidates(content)) {
-    if (!allowed.has(url)) {
-      findings.push({
-        code: "url-not-in-ssot",
-        severity: "error",
-        message: `${url} is not in the profile URL SSOT (identity.links / projects / publications / credentials / artifacts)`,
-      });
-    }
-  }
+  findings.push(...urlFindings(content, profile));
 
   const maxTags = rules.hashtags?.max;
   if (maxTags !== undefined) {
@@ -340,23 +457,77 @@ export function checkText(text: string, rules: PostingRules, profile: LoadedProf
     }
   }
 
-  for (const rawLine of content.split("\n")) {
-    const lineText = rawLine.trim();
-    if (lineText === "" || lineText.includes("{{fact:") || lineText.includes("evidence:")) continue;
-    if (isQuantitativeClaim(lineText)) {
+  findings.push(...claimFindings(content));
+  return findings;
+}
+
+/** Long-form check (#266): required front-matter fields, word-count band, the
+ *  SSOT URL rule (body + field values, canonical included), claim markers. */
+export function checkLongform(
+  text: string,
+  rules: PostingRules,
+  profile: LoadedProfile,
+): Finding[] {
+  const findings: Finding[] = [];
+  const front = parseFrontMatter(text);
+  if (front.error !== undefined) {
+    findings.push({ code: "front-matter", severity: "error", message: front.error });
+  }
+  const fields = front.fields ?? {};
+  const required = rules.fields?.required ?? [...LONGFORM_REQUIRED_FIELDS];
+  for (const name of required) {
+    if (isBlankField(fields[name])) {
       findings.push({
-        code: "unsourced-claim",
-        severity: "warn",
-        message: `numeric claim without a {{fact:...}} or evidence: marker — "${lineText.slice(0, 80)}"`,
+        code: "missing-field",
+        severity: "error",
+        message: `long-form post has no "${name}" — add it to the variant's front matter`,
       });
     }
   }
+
+  const words = countWords(front.body);
+  const min = rules.limits?.words?.min;
+  const max = rules.limits?.words?.max;
+  const channel = rules.platform ?? "channel";
+  if (max !== undefined && words > max) {
+    findings.push({
+      code: "word-count",
+      severity: "error",
+      message: `body is ${words} words; ${channel} long-form allows at most ${max}`,
+    });
+  }
+  if (min !== undefined && words < min) {
+    findings.push({
+      code: "word-count",
+      severity: "error",
+      message: `body is ${words} words; ${channel} long-form requires at least ${min}`,
+    });
+  }
+
+  const urlText = [front.body, ...Object.values(fields).map((value) => fieldString(value))].join(
+    "\n",
+  );
+  findings.push(...urlFindings(urlText, profile));
+  findings.push(...claimFindings(front.body));
   return findings;
 }
 
 /* ---------------------------------------------------------------------------
  * task bundle
  * ------------------------------------------------------------------------- */
+
+function rulesSummary(rules: PostingRules): string[] {
+  return [
+    `  settings: ${JSON.stringify(rules.settings ?? {})}`,
+    `  links: ${rules.links?.policy ?? "identity-ssot-only"}`,
+    `  structure: ${(rules.structure ?? []).join(" → ") || "—"}`,
+    `  sources: ${
+      (rules.sources ?? [])
+        .map((source) => `${source.url ?? "—"} (${source.date ?? "—"})`)
+        .join("; ") || "—"
+    }`,
+  ];
+}
 
 function buildTask(args: {
   seedId: string;
@@ -367,21 +538,26 @@ function buildTask(args: {
   skill: string | undefined;
   variants: number;
   lang: string;
+  derivedFrom?: string;
 }): string {
-  const { seedId, channel, seed, profile, rules, skill, variants, lang } = args;
+  const { seedId, channel, seed, profile, rules, skill, variants, lang, derivedFrom } = args;
   const facts = factLines(profile).join("\n  ");
-  const structure = (rules.structure ?? []).join(" → ") || "—";
-  const sources = (rules.sources ?? [])
-    .map((source) => `${source.url ?? "—"} (${source.date ?? "—"})`)
-    .join("; ");
+  const derivedLine =
+    derivedFrom === undefined
+      ? []
+      : [
+          `Derived from long-form seed: ${derivedFrom} (the essay is canonical; derive, do not rewrite).`,
+          ``,
+        ];
   return [
     `# pasco post task — ${seedId} / ${channel}`,
     ``,
+    ...derivedLine,
     `Write ${variants} variant(s) of a ${channel} POST in ${lang}. You are the agent:`,
     `the CLI never calls an LLM. Read the skill FIRST:`,
     `  ${skill ?? `(missing skills/${channel}/post.md)`}`,
     ``,
-    `Seed (canonical — do not rewrite its meaning):`,
+    `${derivedFrom === undefined ? "Seed" : "Source essay"} (canonical — do not rewrite its meaning):`,
     seed.trim(),
     ``,
     `Facts (byte-identical; cite with {{fact:<pointer>}}):`,
@@ -389,11 +565,8 @@ function buildTask(args: {
     ``,
     `Channel rules (from skills/${channel}/posting.yaml):`,
     `  maxChars: ${rules.limits?.maxChars ?? "—"}`,
-    `  settings: ${JSON.stringify(rules.settings ?? {})}`,
-    `  links: ${rules.links?.policy ?? "identity-ssot-only"}`,
     `  hashtags (max): ${rules.hashtags?.max ?? "—"}`,
-    `  structure: ${structure}`,
-    `  sources: ${sources || "—"}`,
+    ...rulesSummary(rules),
     ``,
     `Output: save each variant as ONE text block at`,
     `  posts/${seedId}/${channel}/${channel}-<n>.md`,
@@ -410,8 +583,79 @@ function buildTask(args: {
   ].join("\n");
 }
 
+function buildLongformTask(args: {
+  seedId: string;
+  channel: Platform;
+  seed: string;
+  profile: LoadedProfile;
+  rules: PostingRules;
+  skill: string | undefined;
+  variants: number;
+  lang: string;
+}): string {
+  const { seedId, channel, seed, profile, rules, skill, variants, lang } = args;
+  const facts = factLines(profile).join("\n  ");
+  const required = (rules.fields?.required ?? [...LONGFORM_REQUIRED_FIELDS]).join(", ");
+  const optional = (rules.fields?.optional ?? []).join(", ") || "—";
+  const min = rules.limits?.words?.min;
+  const max = rules.limits?.words?.max;
+  const words =
+    min !== undefined && max !== undefined
+      ? `${min}–${max}`
+      : min !== undefined
+        ? `at least ${min}`
+        : max !== undefined
+          ? `at most ${max}`
+          : "—";
+  const fieldsTemplate = [
+    ...(rules.fields?.required ?? [...LONGFORM_REQUIRED_FIELDS]).map((name) =>
+      name === "tags" ? "tags: [tag-one, tag-two]" : `${name}: <${name}>`,
+    ),
+    ...(rules.fields?.optional ?? []).map((name) => `# ${name}: <optional>`),
+  ];
+  return [
+    `# pasco post task — ${seedId} / ${channel} (longform)`,
+    ``,
+    `Write ${variants} variant(s) of a ${channel} LONG-FORM piece in ${lang} (essay/newsletter).`,
+    `You are the agent: the CLI never calls an LLM. Read the rules FIRST:`,
+    `  contract: skills/${channel}/longform.yaml`,
+    `  judgment: ${skill ?? `skills/${channel}/post.md is not shipped for this channel yet`}`,
+    ``,
+    `Seed (canonical essay — do not rewrite its meaning):`,
+    seed.trim(),
+    ``,
+    `Facts (byte-identical; cite with {{fact:<pointer>}}):`,
+    `  ${facts}`,
+    ``,
+    `Long-form contract (from skills/${channel}/longform.yaml):`,
+    `  fields required: ${required}`,
+    `  fields optional: ${optional}`,
+    `  words: ${words}`,
+    `  export: ${rules.export ?? "—"} (${rules.export === "paste" ? "paste surface — no body API" : "API platform — Postiz settings mapping"})`,
+    `  maxChars: ${rules.limits?.maxChars ?? "—"}`,
+    ...rulesSummary(rules),
+    ``,
+    `Output: save each variant at`,
+    `  posts/${seedId}/${channel}/${channel}-<n>.md`,
+    `as YAML front matter + a markdown body (the front matter IS the field contract):`,
+    `  ---`,
+    ...fieldsTemplate.map((field) => `  ${field}`),
+    `  ---`,
+    `  <body in markdown>`,
+    `Then record the choice:`,
+    `  pasco post choose ${seedId} --channel ${channel} --variant ${channel}-<n>`,
+    ``,
+    `Constraints:`,
+    `  - The title and dek are fields, never the first lines of the body.`,
+    `  - Facts never change (D4). Quote them as {{fact:<pointer>}}; do not paraphrase a number, date or URL.`,
+    `  - Links (canonical included) only from the identity SSOT — never invent URLs.`,
+    `  - Keep the channel's native long-form shape; the skill is the strategy, not the template.`,
+    ``,
+  ].join("\n");
+}
+
 /* ---------------------------------------------------------------------------
- * postiz
+ * postiz + paste
  * ------------------------------------------------------------------------- */
 
 function readPostizConfig(workspace: string): Record<string, string> {
@@ -446,50 +690,43 @@ interface PostizPayload {
   posts: PostizPost[];
 }
 
-function buildPostizPayload(args: {
-  workspace: string;
-  ledger: PostLedger;
-  profile: LoadedProfile;
-  type: string;
-  date: string;
-}): PostizPayload {
-  const integrationIds = readPostizConfig(args.workspace);
-  const posts: PostizPost[] = [];
-  for (const [channel, state] of Object.entries(args.ledger.channels)) {
-    if (state.chosen === undefined) continue;
-    const chosen = chosenVariant(args.workspace, args.ledger, channel);
-    if (chosen === undefined) {
-      throw new Error(
-        `channel ${channel}: chosen variant "${state.chosen}" has no body at ${variantPath(
-          args.workspace,
-          args.ledger.id,
-          channel,
-          state.chosen,
-        )}`,
-      );
-    }
-    const rendered = renderFacts(chosen.text, args.profile);
-    if (rendered.dangling.length > 0) {
-      throw new Error(`channel ${channel}: dangling fact ref(s): ${rendered.dangling.join(", ")}`);
-    }
-    const rules = readPosting(channel);
-    const settings: Record<string, unknown> = {
-      ...(rules.settings ?? {}),
-      __type: rules.settings?.__type ?? channel,
-    };
-    posts.push({
-      integration: { id: integrationIds[channel] ?? "REPLACE_ME" },
-      value: [{ content: rendered.text.trim(), image: [] }],
-      settings,
-    });
-  }
-  return {
-    type: args.type,
-    date: args.date,
-    shortLink: false,
-    tags: [],
-    posts,
-  };
+function buildPasteChecklist(args: {
+  seedId: string;
+  channel: string;
+  fields: Record<string, unknown>;
+  body: string;
+  rules: PostingRules;
+}): string {
+  const { seedId, channel, fields, body, rules } = args;
+  const declared = [
+    ...(rules.fields?.required ?? [...LONGFORM_REQUIRED_FIELDS]),
+    ...(rules.fields?.optional ?? []),
+  ];
+  const fieldLines = declared
+    .filter((name) => fields[name] !== undefined)
+    .map((name) => `- ${name}: ${fieldString(fields[name])}`);
+  return [
+    `# Paste checklist — ${seedId} / ${channel}`,
+    ``,
+    `This channel is a **paste surface** (no body API): the body and the fields go`,
+    `into the platform's own editor. Facts are already rendered (no {{fact:...}} left).`,
+    ``,
+    `## Fields`,
+    ``,
+    ...(fieldLines.length > 0 ? fieldLines : ["- (no fields declared)"]),
+    ``,
+    `## Body`,
+    ``,
+    body.trim(),
+    ``,
+    `## After pasting`,
+    ``,
+    `- [ ] Title and dek are in the platform's own fields, not duplicated in the body.`,
+    `- [ ] The body rendered with zero placeholders (search for "{{fact:").`,
+    `- [ ] Every link (canonical included) is an SSOT URL.`,
+    `- [ ] Tags/list match the front matter above.`,
+    ``,
+  ].join("\n");
 }
 
 /* ---------------------------------------------------------------------------
@@ -510,8 +747,14 @@ function requireSeed(args: PostArgs): string {
 
 function handleSeed(args: PostArgs): number {
   const seedId = requireSeed(args);
+  const format = parseFormat(args.formatArg);
+  if (args.fromArg !== undefined) {
+    throw new UsageError("--from only applies to `pasco post task --format short`");
+  }
   if (args.textArg === undefined) {
-    throw new UsageError("usage: pasco post seed <seed-id> --text <file>");
+    throw new UsageError(
+      "usage: pasco post seed <seed-id> --text <file> [--format short|longform]",
+    );
   }
   if (!existsSync(args.textArg)) {
     throw new UsageError(`seed file not found: ${args.textArg}`);
@@ -523,58 +766,147 @@ function handleSeed(args: PostArgs): number {
       `seed ${seedId} already exists at ${seedPath(args.workspace, seedId)}; edit it directly`,
     );
   }
-  const ledger = createSeed(args.workspace, seedId, text);
+  const ledger = createSeed(args.workspace, seedId, text, "authored", { format });
   if (isJsonMode()) {
     return report("post", true, EXIT.OK, {
-      data: { mode: "seed", seedId, seedPath: seedPath(args.workspace, seedId), ledger },
+      data: {
+        mode: "seed",
+        seedId,
+        format,
+        seedPath: seedPath(args.workspace, seedId),
+        ledger,
+      },
     });
   }
-  line(`seeded ${seedId} at ${seedPath(args.workspace, seedId)}`);
+  line(`seeded ${seedId} (${format}) at ${seedPath(args.workspace, seedId)}`);
   return EXIT.OK;
 }
 
 function handleTask(args: PostArgs): number {
   const seedId = requireSeed(args);
+  const format = parseFormat(args.formatArg);
+  const from = args.fromArg;
+  if (from !== undefined) {
+    if (format !== "short") {
+      throw new UsageError("--from only applies to --format short (the derived family)");
+    }
+    if (!isSafeSeedId(from)) {
+      throw new UsageError(
+        "--from must be a safe seed id (letters, digits, dot, underscore, dash)",
+      );
+    }
+    if (from === seedId) throw new UsageError("--from must name a different seed than <seed-id>");
+  }
   const channels = splitChannels(args.channelArg);
-  const variants = parseVariants(args.variantsArg, args.pascorc.defaults?.variants ?? 3);
+  // A long-form piece is usually one projection; a short family wants variants.
+  const variants = parseVariants(
+    args.variantsArg,
+    format === "longform" ? 1 : (args.pascorc.defaults?.variants ?? 3),
+  );
   const lang = parseLang(defaultsLang(args.pascorc));
-  const seed = seedText(args.workspace, seedId);
+
+  let seed: string;
+  if (from !== undefined) {
+    if (!existsSync(ledgerPath(args.workspace, from))) {
+      throw new UsageError(
+        `--from ${from}: no post ledger at ${ledgerPath(args.workspace, from)} — seed the essay first`,
+      );
+    }
+    const parent = readLedger(args.workspace, from);
+    if (parent.format !== "longform") {
+      throw new UsageError(
+        `--from ${from} is a "${parent.format}" seed; the derived family needs a long-form (essay) seed`,
+      );
+    }
+    seed = seedText(args.workspace, from);
+  } else {
+    seed = seedText(args.workspace, seedId);
+  }
+
+  const existing = existsSync(ledgerPath(args.workspace, seedId))
+    ? readLedger(args.workspace, seedId)
+    : undefined;
+  if (existing !== undefined) {
+    if (existing.format !== format) {
+      throw new UsageError(
+        `seed ${seedId} is format "${existing.format}"; a seed's format is fixed — rerun with --format ${existing.format}, or use a new seed id`,
+      );
+    }
+    if (existing.derivedFrom !== from) {
+      throw new UsageError(
+        existing.derivedFrom === undefined
+          ? `seed ${seedId} is a root seed; --from needs a new short seed id`
+          : `seed ${seedId} is derived from "${existing.derivedFrom}", not "${from ?? "(none)"}"`,
+      );
+    }
+  } else {
+    createSeed(args.workspace, seedId, from === undefined ? seed : undefined, "authored", {
+      format,
+      ...(from !== undefined ? { derivedFrom: from } : {}),
+    });
+  }
+
   const loaded = loadProfile(args.workspace);
   if (typeof loaded === "number") return loaded;
   const profile = loaded;
-  if (!existsSync(ledgerPath(args.workspace, seedId))) {
-    createSeed(args.workspace, seedId, seed);
-  }
   const results: {
     channel: string;
+    format: PostFormat;
+    derivedFrom?: string;
     taskPath: string;
     skill: string | undefined;
     maxChars?: number;
+    words?: WordLimits;
   }[] = [];
   for (const channel of channels) {
-    const rules = readPosting(channel);
-    const skill = postSkillPath(channel);
-    const task = buildTask({
-      seedId,
-      channel,
-      seed,
-      profile,
-      rules,
-      skill,
-      variants,
-      lang,
-    });
+    const rules = readRules(channel, format);
+    const skill = skillFile(channel, "post.md");
+    const task =
+      format === "longform"
+        ? buildLongformTask({ seedId, channel, seed, profile, rules, skill, variants, lang })
+        : buildTask({
+            seedId,
+            channel,
+            seed,
+            profile,
+            rules,
+            skill,
+            variants,
+            lang,
+            ...(from !== undefined ? { derivedFrom: from } : {}),
+          });
     const taskPath = join(seedDir(args.workspace, seedId), channel, "task.md");
     mkdirSync(dirname(taskPath), { recursive: true });
     writeFileSync(taskPath, task);
-    results.push({ channel, taskPath, skill, maxChars: rules.limits?.maxChars });
-    line(`task: ${taskPath}`);
+    results.push({
+      channel: String(channel),
+      format,
+      ...(from !== undefined ? { derivedFrom: from } : {}),
+      taskPath,
+      skill,
+      maxChars: rules.limits?.maxChars,
+      ...(rules.limits?.words !== undefined ? { words: rules.limits.words } : {}),
+    });
+    line(`task: ${taskPath} (${format}${from !== undefined ? `, derivedFrom ${from}` : ""})`);
     line(`  skill: ${skill ?? "(missing)"}`);
-    line(`  maxChars: ${rules.limits?.maxChars ?? "—"}`);
+    if (format === "longform") {
+      line(`  words: ${rules.limits?.words?.min ?? "—"}–${rules.limits?.words?.max ?? "—"}`);
+      line(`  export: ${rules.export ?? "—"}`);
+    } else {
+      line(`  maxChars: ${rules.limits?.maxChars ?? "—"}`);
+    }
   }
   if (isJsonMode()) {
     return report("post", true, EXIT.OK, {
-      data: { mode: "task", seedId, lang, variants, channels: results },
+      data: {
+        mode: "task",
+        seedId,
+        format,
+        derivedFrom: from ?? null,
+        lang,
+        variants,
+        channels: results,
+      },
     });
   }
   return EXIT.OK;
@@ -586,7 +918,8 @@ function handleChoose(args: PostArgs): number {
   if (args.variantArg === undefined || args.variantArg === "") {
     throw new UsageError("--variant is required");
   }
-  readPosting(channel);
+  const ledger = readLedger(args.workspace, seedId);
+  readRules(channel, ledger.format);
   if (args.textArg !== undefined) {
     if (!existsSync(args.textArg)) throw new UsageError(`variant file not found: ${args.textArg}`);
     const target = variantPath(args.workspace, seedId, channel, args.variantArg);
@@ -622,15 +955,54 @@ function handleChoose(args: PostArgs): number {
   return EXIT.OK;
 }
 
+function derivedFindings(workspace: string, ledger: PostLedger): Finding[] {
+  const findings: Finding[] = [];
+  // A root seed (long-form essay, or a standalone short) derives from nothing.
+  if (ledger.derivedFrom === undefined) return findings;
+  if (ledger.format !== "short") {
+    findings.push({
+      code: "derived-from",
+      severity: "error",
+      message: `a ${ledger.format} seed cannot be derived; derivedFrom is for the short family`,
+    });
+  }
+  const parentLedger = ledgerPath(workspace, ledger.derivedFrom);
+  if (!existsSync(parentLedger)) {
+    findings.push({
+      code: "dangling-derived-from",
+      severity: "error",
+      message: `derivedFrom "${ledger.derivedFrom}" has no post ledger at ${parentLedger}`,
+    });
+    return findings;
+  }
+  const parent = readLedger(workspace, ledger.derivedFrom);
+  if (parent.format !== "longform") {
+    findings.push({
+      code: "derived-from",
+      severity: "error",
+      message: `derivedFrom "${ledger.derivedFrom}" is a "${parent.format}" seed; the parent must be long-form`,
+    });
+  }
+  return findings;
+}
+
 function handleCheck(args: PostArgs): number {
   const seedId = requireSeed(args);
   const loaded = loadProfile(args.workspace);
   if (typeof loaded === "number") return loaded;
   const profile = loaded;
   const ledger = readLedger(args.workspace, seedId);
+  const seedFindings = derivedFindings(args.workspace, ledger);
   const findingsByChannel: { channel: string; findings: Finding[] }[] = [];
   let errors = 0;
   let warnings = 0;
+  const count = (findings: Finding[]): void => {
+    for (const finding of findings) {
+      if (finding.severity === "error") errors += 1;
+      else warnings += 1;
+    }
+  };
+  count(seedFindings);
   for (const channel of Object.keys(ledger.channels)) {
     const state = ledger.channels[channel];
     if (state?.chosen === undefined) continue;
@@ -662,7 +1034,7 @@ function handleCheck(args: PostArgs): number {
     }));
     let rules: PostingRules | undefined;
     try {
-      rules = readPosting(channel);
+      rules = readRules(channel, ledger.format);
     } catch (err) {
       findings.push({
         code: "unsupported-channel",
@@ -670,24 +1042,42 @@ function handleCheck(args: PostArgs): number {
         message: (err as Error).message,
       });
     }
-    if (rules !== undefined) findings.push(...checkText(rendered.text, rules, profile));
-    for (const finding of findings) {
-      if (finding.severity === "error") errors += 1;
-      else warnings += 1;
+    if (rules !== undefined) {
+      findings.push(
+        ...(ledger.format === "longform"
+          ? checkLongform(rendered.text, rules, profile)
+          : checkText(rendered.text, rules, profile)),
+      );
     }
+    count(findings);
     findingsByChannel.push({ channel, findings });
   }
-  if (findingsByChannel.length === 0) {
+  if (findingsByChannel.length === 0 && seedFindings.length === 0) {
     return report("post", false, EXIT.FAIL, {
       error: { kind: "empty", message: `${seedId} has no chosen variant` },
     });
   }
   if (isJsonMode()) {
     return report("post", errors === 0, errors === 0 ? EXIT.OK : EXIT.FAIL, {
-      data: { mode: "check", seedId, errors, warnings, channels: findingsByChannel },
+      data: {
+        mode: "check",
+        seedId,
+        format: ledger.format,
+        derivedFrom: ledger.derivedFrom ?? null,
+        errors,
+        warnings,
+        findings: seedFindings,
+        channels: findingsByChannel,
+      },
     });
   }
-  section(`post check — ${seedId}`);
+  section(`post check — ${seedId} (${ledger.format})`);
+  if (seedFindings.length > 0) {
+    line("seed:");
+    for (const finding of seedFindings) {
+      line(`  error [${finding.code}] ${finding.message}`);
+    }
+  }
   for (const entry of findingsByChannel) {
     line(`${entry.channel}:`);
     if (entry.findings.length === 0) line("  ok");
@@ -721,38 +1111,122 @@ function handleExport(args: PostArgs): number {
   if (typeof loaded === "number") return loaded;
   const profile = loaded;
   const ledger = readLedger(args.workspace, seedId);
-  const payload = buildPostizPayload({
-    workspace: args.workspace,
-    ledger,
-    profile,
-    type,
-    date,
-  });
-  if (payload.posts.length === 0) {
+  const integrationIds = readPostizConfig(args.workspace);
+  const posts: PostizPost[] = [];
+  const checklists: { channel: string; path: string }[] = [];
+  for (const [channel, state] of Object.entries(ledger.channels)) {
+    if (state.chosen === undefined) continue;
+    const chosen = chosenVariant(args.workspace, ledger, channel);
+    if (chosen === undefined) {
+      throw new Error(
+        `channel ${channel}: chosen variant "${state.chosen}" has no body at ${variantPath(
+          args.workspace,
+          ledger.id,
+          channel,
+          state.chosen,
+        )}`,
+      );
+    }
+    const rendered = renderFacts(chosen.text, profile);
+    if (rendered.dangling.length > 0) {
+      throw new Error(`channel ${channel}: dangling fact ref(s): ${rendered.dangling.join(", ")}`);
+    }
+    const rules = readRules(channel, ledger.format);
+    const settings: Record<string, unknown> = {
+      ...(rules.settings ?? {}),
+      __type: rules.settings?.__type ?? channel,
+    };
+
+    if (ledger.format === "longform") {
+      const front = parseFrontMatter(rendered.text);
+      if (front.error !== undefined) throw new UsageError(`channel ${channel}: ${front.error}`);
+      const fields = front.fields ?? {};
+      const missing = (rules.fields?.required ?? [...LONGFORM_REQUIRED_FIELDS]).filter((name) =>
+        isBlankField(fields[name]),
+      );
+      if (missing.length > 0) {
+        throw new UsageError(
+          `channel ${channel}: long-form field(s) missing: ${missing.join(", ")} — run pasco post check ${seedId}`,
+        );
+      }
+      if (rules.export === "paste") {
+        const path = join(seedDir(args.workspace, ledger.id), channel, "paste-checklist.md");
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(
+          path,
+          buildPasteChecklist({ seedId, channel, fields, body: front.body, rules }),
+        );
+        checklists.push({ channel, path });
+        continue;
+      }
+      settings.title = fieldString(fields.title);
+      for (const key of LONGFORM_SETTING_FIELDS) {
+        if (fields[key] !== undefined) settings[key] = fields[key];
+      }
+      posts.push({
+        integration: { id: integrationIds[channel] ?? "REPLACE_ME" },
+        value: [{ content: front.body.trim(), image: [] }],
+        settings,
+      });
+      continue;
+    }
+
+    posts.push({
+      integration: { id: integrationIds[channel] ?? "REPLACE_ME" },
+      value: [{ content: rendered.text.trim(), image: [] }],
+      settings,
+    });
+  }
+  if (posts.length === 0 && checklists.length === 0) {
     return report("post", false, EXIT.FAIL, {
       error: { kind: "empty", message: `${seedId} has no chosen variant to export` },
     });
   }
-  const out = args.outArg ?? join(seedDir(args.workspace, seedId), "postiz.json");
-  mkdirSync(dirname(out), { recursive: true });
-  writeFileSync(out, `${JSON.stringify(payload, null, 2)}\n`);
-  if (isJsonMode()) {
-    return report("post", true, EXIT.OK, { data: { mode: "export", seedId, out, payload } });
-  }
-  line(`wrote ${out}`);
-  line(
-    `  ${payload.posts.length} channel(s); integration IDs: ${payload.posts
-      .map((post) => post.integration.id)
-      .join(", ")}`,
-  );
-  if (payload.posts.some((post) => post.integration.id === "REPLACE_ME")) {
-    warn(
-      "some integration IDs are REPLACE_ME — add postiz.yaml (channels: {linkedin: <id>, x: <id>})",
+  if (posts.length === 0 && args.outArg !== undefined) {
+    throw new UsageError(
+      `--out needs an API channel: ${seedId} only has paste channels (checklists are written next to each channel)`,
     );
   }
-  line(
-    `  POST it: curl -X POST "$POSTIZ_API_URL/posts" -H "Authorization: $POSTIZ_API_KEY" -H "Content-Type: application/json" -d @${out}`,
-  );
+  const payload: PostizPayload = { type, date, shortLink: false, tags: [], posts };
+  const out = args.outArg ?? join(seedDir(args.workspace, seedId), "postiz.json");
+  if (posts.length > 0) {
+    mkdirSync(dirname(out), { recursive: true });
+    writeFileSync(out, `${JSON.stringify(payload, null, 2)}\n`);
+  }
+  if (isJsonMode()) {
+    return report("post", true, EXIT.OK, {
+      data: {
+        mode: "export",
+        seedId,
+        format: ledger.format,
+        out: posts.length > 0 ? out : null,
+        payload,
+        pasteChecklists: checklists,
+      },
+    });
+  }
+  if (posts.length > 0) {
+    line(`wrote ${out}`);
+    line(
+      `  ${payload.posts.length} channel(s); integration IDs: ${payload.posts
+        .map((post) => post.integration.id)
+        .join(", ")}`,
+    );
+    if (payload.posts.some((post) => post.integration.id === "REPLACE_ME")) {
+      warn("some integration IDs are REPLACE_ME — add postiz.yaml (channels: {<platform>: <id>})");
+    }
+    line(
+      `  POST it: curl -X POST "$POSTIZ_API_URL/posts" -H "Authorization: $POSTIZ_API_KEY" -H "Content-Type: application/json" -d @${out}`,
+    );
+  }
+  for (const checklist of checklists) {
+    line(`wrote paste checklist: ${checklist.path}`);
+  }
+  if (checklists.length > 0) {
+    line(
+      `  ${checklists.map((checklist) => checklist.channel).join(", ")}: paste surface (no body API) — paste the body, then the fields`,
+    );
+  }
   return EXIT.OK;
 }
 
@@ -773,7 +1247,7 @@ function handleImport(args: PostArgs): number {
     throw new UsageError(`import dir not found: ${sourceDir}`);
   }
   const channel = parsePlatform(args.channelArg ?? "");
-  readPosting(channel);
+  readRules(channel, "short");
   const files = readdirSync(sourceDir)
     .filter((name) => name.endsWith(".md"))
     .sort();
@@ -824,9 +1298,23 @@ function handleList(args: PostArgs): number {
       const channels = Object.entries(ledger.channels)
         .map(([channel, state]) => `${channel}:${state.chosen ?? "—"}`)
         .join(" ");
-      return { id, source: ledger.source, status: ledger.status, channels };
+      return {
+        id,
+        source: ledger.source,
+        status: ledger.status,
+        format: ledger.format,
+        derivedFrom: ledger.derivedFrom ?? null,
+        channels,
+      };
     } catch {
-      return { id, source: "?", status: "?", channels: "?" };
+      return {
+        id,
+        source: "?",
+        status: "?",
+        format: "?",
+        derivedFrom: null,
+        channels: "?",
+      };
     }
   });
   if (isJsonMode()) {
@@ -837,7 +1325,8 @@ function handleList(args: PostArgs): number {
     return EXIT.OK;
   }
   for (const row of rows) {
-    line(`${row.id}  [${row.source}/${row.status}]  ${row.channels}`);
+    const derived = row.derivedFrom === null ? "" : `  derivedFrom=${row.derivedFrom}`;
+    line(`${row.id}  [${row.source}/${row.status}/${row.format}]  ${row.channels}${derived}`);
   }
   return EXIT.OK;
 }
