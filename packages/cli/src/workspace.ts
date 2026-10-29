@@ -63,6 +63,15 @@ export interface SelectionPolicyConfig {
 export interface Pascorc {
   /** Workspace path relative to the .pascorc file location. */
   workspace?: string;
+  /**
+   * Issue #348: the MINIMUM engine version this workspace requires, written as
+   * `MAJOR.MINOR.PATCH` (e.g. `"0.4.0"`). `validate`, `build` and
+   * `export profile` fail early when the running CLI is older; absent means no
+   * requirement (every existing workspace keeps working). The accepted syntax
+   * and the failure modes are the declared contract in SPEC §7.6 — a semver
+   * range is deliberately not accepted (the repo is dependency-light).
+   */
+  engine?: string;
   defaults?: PascorcDefaults;
   diff?: { tagPattern?: string };
   /** Issue #102: completeness policy (weights/target/langs) — optional. */
@@ -220,6 +229,42 @@ export function resolveWorkspace(cwd: string, flag?: string): string {
 export function readWorkspacePascorc(workspace: string): Pascorc {
   const found = readPascorc(workspace);
   return found?.pascorc ?? {};
+}
+
+/** One `.pascorc` the resolution consulted, with the path it was read from. */
+export interface WorkspacePascorcSource {
+  pascorc: Pascorc;
+  pascorcPath: string;
+}
+
+/**
+ * Every `.pascorc` the workspace resolution actually consulted (issue #348, F1).
+ *
+ * `resolveWorkspace` reads the cwd `.pascorc` to resolve a `"workspace"` pointer;
+ * commands then read the resolved workspace's own `.pascorc` for defaults. The
+ * engine gate must read the SAME chain: the pointer file's `engine` is a
+ * declaration the user invoked and dropping it is a silent bypass. With an
+ * explicit `--workspace` the cwd config is not part of the resolution (D14), so
+ * only the workspace's own file applies. Deduped by absolute path: the common
+ * no-pointer case reads one file, not two.
+ */
+export function readEnginePascorcSources(
+  cwd: string,
+  workspaceFlag: string | undefined,
+  workspace: string,
+): WorkspacePascorcSource[] {
+  const sources: WorkspacePascorcSource[] = [];
+  if (workspaceFlag === undefined) {
+    const resolution = readPascorc(cwd);
+    if (resolution !== null) {
+      sources.push({ pascorc: resolution.pascorc, pascorcPath: resolution.pascorcPath });
+    }
+  }
+  const own = readPascorc(workspace);
+  if (own !== null && !sources.some((source) => source.pascorcPath === own.pascorcPath)) {
+    sources.push({ pascorc: own.pascorc, pascorcPath: own.pascorcPath });
+  }
+  return sources;
 }
 
 export function defaultsLang(pascorc: Pascorc, requested?: string): "en" | "es" | "fr" {
