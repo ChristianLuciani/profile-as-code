@@ -6,9 +6,10 @@
  * this workspace load?" without doing work: it loads the workspace once to
  * report validity, but writes nothing, reads no clock and touches no network.
  * It is deliberately separate from `--version` (which describes the binary, not
- * the workspace) and it does NOT gate: when the `.pascorc` requirement is unmet
- * it reports the same three facts the gate refuses with, but exits `1` because
- * the workspace is unhealthy.
+ * the workspace) and it does not replace the gate: when the `.pascorc`
+ * requirement is unmet it reports the same three facts the gate refuses with,
+ * and exits `1` because the workspace is unhealthy. The three commands still
+ * refuse before doing any work.
  *
  * Exit matrix (the repo's): `0` healthy (workspace loads and any declared engine
  * requirement is met) · `1` unhealthy (the workspace fails to load, the engine
@@ -16,23 +17,24 @@
  */
 
 import { LoadError, load, SchemaValidationError } from "@profile-as-code/core";
-import type { EngineRequirement } from "../engine-gate.js";
+import type { EngineConfigSource, EngineRequirement } from "../engine-gate.js";
 import {
   ENGINE_UPGRADE_COMMAND,
   engineGateError,
-  evaluateEngineRequirement,
+  evaluateEngineRequirements,
 } from "../engine-gate.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report } from "../output.js";
-import type { Pascorc } from "../workspace.js";
 
 /** The engine that produced the line — the CLI package, not the workspace. */
 export const DOCTOR_ENGINE = "@profile-as-code/cli";
 
 /** The frozen report shape (`--json` `data`). `workspace.error` is present only
  *  when the workspace cannot load; `requirement.problem` only when the field is
- *  malformed. A consumer reads `workspace.valid` and `requirement.met`; the
- *  envelope's `ok`/`exitCode` carry the same verdict. */
+ *  malformed; `requirement.source` names the `.pascorc` that produced the
+ *  effective (strictest) declaration, so doctor and the gate cannot disagree. A
+ *  consumer reads `workspace.valid` and `requirement.met`; the envelope's
+ *  `ok`/`exitCode` carry the same verdict. */
 export interface DoctorReport {
   engine: { name: typeof DOCTOR_ENGINE; version: string };
   schema: { version: string };
@@ -45,6 +47,7 @@ export interface DoctorReport {
     declared: string | null;
     met: boolean;
     problem?: string;
+    source?: string;
   };
 }
 
@@ -55,7 +58,9 @@ export interface DoctorArgs {
   /** The profile-contract version the CLI was built against (core's generated
    *  `PROFILE_SCHEMA_VERSION`, derived from the schema `$id`). */
   schemaVersion: string;
-  pascorc: Pascorc;
+  /** Every `.pascorc` the workspace resolution consulted (cwd pointer +
+   *  workspace), so the report matches what the gate enforces. */
+  engineSources: readonly EngineConfigSource[];
 }
 
 function loadWorkspace(workspace: string): {
@@ -84,14 +89,15 @@ function loadWorkspace(workspace: string): {
 }
 
 function requirementOf(
-  pascorc: Pascorc,
+  sources: readonly EngineConfigSource[],
   engineVersion: string,
 ): DoctorReport["requirement"] & EngineRequirement {
-  const requirement = evaluateEngineRequirement(pascorc, engineVersion);
+  const requirement = evaluateEngineRequirements(sources, engineVersion);
   return {
     declared: requirement.declared,
     met: requirement.met,
     ...(requirement.problem === undefined ? {} : { problem: requirement.problem }),
+    ...(requirement.source === undefined ? {} : { source: requirement.source }),
   };
 }
 
@@ -103,22 +109,25 @@ function describe(reportData: DoctorReport): string {
         reportData.workspace.error?.message ?? "cannot load"
       }`;
   const requirement = reportData.requirement;
+  const from = requirement.source === undefined ? "" : `, declared in ${requirement.source}`;
   let requirementText: string;
-  if (requirement.declared === null) {
+  // `problem` wins: a malformed declaration keeps `declared` null (never the
+  // string "null"), and reporting "no requirement" here would be false.
+  if (requirement.problem !== undefined) {
+    requirementText = `engine requirement INVALID: ${requirement.problem}${from}`;
+  } else if (requirement.declared === null) {
     requirementText = "no engine requirement";
-  } else if (requirement.problem !== undefined) {
-    requirementText = `engine requirement INVALID: ${requirement.problem}`;
   } else if (requirement.met) {
-    requirementText = `requires engine >= ${requirement.declared} (met)`;
+    requirementText = `requires engine >= ${requirement.declared} (met${from})`;
   } else {
-    requirementText = `requires engine >= ${requirement.declared} (NOT MET — upgrade: ${ENGINE_UPGRADE_COMMAND})`;
+    requirementText = `requires engine >= ${requirement.declared} (NOT MET — upgrade: ${ENGINE_UPGRADE_COMMAND}${from})`;
   }
   return `engine ${reportData.engine.version} · schema v${reportData.schema.version} · workspace ${reportData.workspace.path} (${workspaceState}) · ${requirementText}`;
 }
 
 export function runDoctor(args: DoctorArgs): number {
   const workspace = loadWorkspace(args.workspace);
-  const requirement = requirementOf(args.pascorc, args.engineVersion);
+  const requirement = requirementOf(args.engineSources, args.engineVersion);
   const data: DoctorReport = {
     engine: { name: DOCTOR_ENGINE, version: args.engineVersion },
     schema: { version: args.schemaVersion },

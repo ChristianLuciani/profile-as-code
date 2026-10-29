@@ -33,14 +33,15 @@ import { runSkillsExport } from "./commands/skills-export.js";
 import { runStatus } from "./commands/status.js";
 import { runValidate } from "./commands/validate.js";
 import { parseFlavor, parseLang, UsageError } from "./contract.js";
-import { engineGateError, evaluateEngineRequirement } from "./engine-gate.js";
+import type { EngineConfigSource } from "./engine-gate.js";
+import { engineGateError, evaluateEngineRequirements } from "./engine-gate.js";
 import { EXIT } from "./exit.js";
 import { httpFetchText } from "./fetch-http.js";
 import { report, setJsonMode } from "./output.js";
-import type { Pascorc } from "./workspace.js";
 import {
   ConfigError,
   defaultsLang,
+  readEnginePascorcSources,
   readWorkspacePascorc,
   resolveWorkspace,
   WORKSPACE_NAME,
@@ -211,11 +212,14 @@ version and the upgrade command (SPEC §7.6).`,
 Engine · schema · workspace on one line (SPEC §7.6, #348):
   engine    the installed pasco version
   schema    the profile contract version this build validates (from the schema $id)
-  workspace the resolved path, whether it loads, and the .pascorc engine
-            requirement (declared minimum · met / NOT MET · upgrade command)
+  workspace the resolved path, whether it loads, and the effective .pascorc
+            engine requirement (the strictest declaration in every config the
+            resolution consulted, with the file it came from · met / NOT MET /
+            INVALID · upgrade command)
 It writes nothing, reads no clock and touches no network. Exit: 0 healthy
 (workspace loads and any declared engine requirement is met) · 1 unhealthy (the
-workspace fails to load, or the requirement is unmet/malformed) · 2 usage.`,
+workspace fails to load, or the requirement is unmet/malformed) · 2 usage. It
+reports the same truth the gate enforces; it does not replace the gate.`,
   build: `pasco build [platform] [--view <name>] [--lang <l>] [--json] [--workspace <path>]
 Deterministic base texts per platform+lang (compile() slices). No platform =
 all platforms. lang defaults to .pascorc defaults.lang or 'en'.
@@ -498,13 +502,18 @@ warnings carry their source). Derived, never stored: nothing here writes.
 
 /**
  * Issue #348 — the `.pascorc` engine gate (SPEC §7.6). Returns the exit code to
- * use when the workspace's declared minimum engine is not satisfied (or the
- * declaration is malformed), or `null` when the command may proceed. The report
- * goes through the standard envelope, so `--json` gets `{ error: { kind, message } }`
- * with the same three facts the human line carries.
+ * use when the workspace's declared minimum engine is not satisfied (or a
+ * declaration is malformed), or `null` when the command may proceed. `sources`
+ * is every `.pascorc` the resolution consulted (the cwd pointer AND the
+ * workspace's own file), so resolution cannot drop a declaration. The report
+ * goes through the standard envelope, so `--json` gets
+ * `{ error: { kind, message } }` with the same three facts the human line carries.
  */
-function enforceEngineRequirement(command: string, pascorc: Pascorc): number | null {
-  const requirement = evaluateEngineRequirement(pascorc, VERSION);
+function enforceEngineRequirement(
+  command: string,
+  sources: readonly EngineConfigSource[],
+): number | null {
+  const requirement = evaluateEngineRequirements(sources, VERSION);
   const error = engineGateError(requirement, VERSION);
   if (error === null) return null;
   return report(command, false, EXIT.FAIL, { error });
@@ -556,11 +565,13 @@ async function runMain(): Promise<number> {
         throw new UsageError("usage: pasco validate [--json] [--workspace <path>]");
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
-      const pascorc = readWorkspacePascorc(workspace);
       // Issue #348: the `.pascorc` engine gate runs BEFORE the command does any
       // work, so a workspace written for a newer contract fails with the three
       // facts (installed · required · upgrade) instead of a confusing load error.
-      const engineGate = enforceEngineRequirement("validate", pascorc);
+      // Every config the resolution consulted is read (cwd pointer + workspace),
+      // so a declaration cannot disappear with the pointer file (fresh review F1).
+      const engineSources = readEnginePascorcSources(process.cwd(), flags.workspace, workspace);
+      const engineGate = enforceEngineRequirement("validate", engineSources);
       if (engineGate !== null) return engineGate;
       return runValidate({ workspace });
     }
@@ -579,7 +590,7 @@ async function runMain(): Promise<number> {
         workspace,
         engineVersion: VERSION,
         schemaVersion: PROFILE_SCHEMA_VERSION,
-        pascorc: readWorkspacePascorc(workspace),
+        engineSources: readEnginePascorcSources(process.cwd(), flags.workspace, workspace),
       });
     }
     case "build": {
@@ -596,7 +607,8 @@ async function runMain(): Promise<number> {
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       const pascorc = readWorkspacePascorc(workspace);
-      const engineGate = enforceEngineRequirement("build", pascorc);
+      const engineSources = readEnginePascorcSources(process.cwd(), flags.workspace, workspace);
+      const engineGate = enforceEngineRequirement("build", engineSources);
       if (engineGate !== null) return engineGate;
       return runBuild({
         workspace,
@@ -893,8 +905,8 @@ async function runMain(): Promise<number> {
         }
         setJsonMode(flags.json === true);
         const workspace = resolveWorkspace(process.cwd(), flags.workspace);
-        const pascorc = readWorkspacePascorc(workspace);
-        const engineGate = enforceEngineRequirement("export profile", pascorc);
+        const engineSources = readEnginePascorcSources(process.cwd(), flags.workspace, workspace);
+        const engineGate = enforceEngineRequirement("export profile", engineSources);
         if (engineGate !== null) return engineGate;
         return runExportProfile({
           workspace,

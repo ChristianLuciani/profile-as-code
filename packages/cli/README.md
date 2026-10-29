@@ -58,7 +58,7 @@ commands above are the standalone path.
 |---|---|---|
 | `pasco init [dir]` | Scaffold a profile-data workspace (`content/identity.yaml`, `README.md`, `.pascorc`) — `pasco validate`-clean | ✅ |
 | `pasco validate [--json]` | Schema **fail** (exit 1) + drift/geo **warn** (exit 0) — D12 | ✅ |
-| `pasco doctor [--json]` | **Engine · schema · workspace** on one line (#348): the installed CLI version, the profile-contract version this build validates (from the schema `$id`), the resolved workspace and whether it loads, plus the `.pascorc` engine requirement. `--json` emits `{ engine, schema, workspace, requirement }`. Exit 0 healthy · 1 unhealthy · 2 usage; offline, no clock, no writes | ✅ v1 |
+| `pasco doctor [--json]` | **Engine · schema · workspace** on one line (#348): the installed CLI version, the profile-contract version this build validates (from the schema `$id`), the resolved workspace and whether it loads, plus the **effective** `.pascorc` engine requirement (the strictest declaration in every config the resolution consulted, with its file). `--json` emits `{ engine, schema, workspace, requirement: { declared, met, problem?, source? } }`. Exit 0 healthy · 1 unhealthy · 2 usage; offline, no clock, no writes | ✅ v1 |
 | `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (the eight registered in the generated renderer map) write `profiles/<platform>/README.md` + bundled media; renderer-less manual surfaces with a bio row write `profiles/<platform>.md` (#239). Empty render = no-trace unbuild of the generated output, preserving `profiles/<platform>/variants/` (chosen-variant input, #238; pure profiles/, §15.1 — v1.7). Media in `profiles/<platform>/assets/` + `assets/manifest.json` (M8/§18.6 — see `docs/media-pipeline.md`) | ✅ |
 | `pasco edit <contract-path> [--set <text> [--check]]` | Resolve **one** contract field by contract path; `--set` **writes it** (comment-preserving range splice, validated, atomic) and `--set --check` previews the **published lines the edit changes** (or says it changes nothing). Epic #247, S1–S5 landed | ✅ S1–S5 (read · preview · write · surface impact · cap pre-flight · machine contract) |
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
@@ -387,10 +387,13 @@ Exit `0` ok · `1` the workspace fails to load or `--now` is malformed · `2` us
 is frozen in SPEC §7.5.
 
 **A consumer that only needs to validate** does not need this package at all: the
-released schema is published as a tag-pinned URL + sha256 (and the current
-contract by commit + sha256) in
+released schema is published as a tag-pinned URL + sha256 in
 [`schema/consumer-contract.json`](https://github.com/ChristianLuciani/profile-as-code/blob/main/schema/consumer-contract.json).
-The reading guide is
+The manifest's `current` block is **not** a published artifact: schema v1.14 has
+no release tag yet (`published: false`, `artifact: null`), and the only released
+artifact is schema **v1.13 at tag v0.3.6**, which **rejects `publication.kind`**
+(`additionalProperties: false`). A consumer that needs `kind` must use a v1.14
+checkout (verify its sha256) until the next release. The reading guide is
 [docs/SCHEMA-CONTRACT.md](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SCHEMA-CONTRACT.md) —
 including what structural validation does **not** cover (the cross-file
 invariants core re-checks, engine behavior, `.pascorc` and this payload's
@@ -647,7 +650,7 @@ file) > current directory.
 ```json
 {
   "workspace": ".",
-  "engine": "0.3.6",
+  "engine": "0.4.0",
   "defaults": { "lang": "en", "variants": 3 },
   "diff": { "tagPattern": "release-*" },
   "completeness": {
@@ -666,8 +669,12 @@ The `engine` field is the **minimum** CLI version this workspace requires
 semver range). `validate`, `build` and `export profile` check it before doing
 any work: an older install exits `1` with the required version, the installed
 version and the upgrade command; a malformed value exits `1` with the accepted
-syntax. Absent means no requirement. `pasco doctor` reports it in one line
-without gating.
+syntax. Absent means no requirement. Every `.pascorc` the resolution consulted is
+read — with no `--workspace` flag, the cwd `.pascorc` that resolved the workspace
+AND the workspace's own file — and the **stricter** declaration wins; a malformed
+one in either file is refused. `pasco doctor` reports the same effective
+requirement in one line (with the file it came from); it does not replace the
+gate, and it exits `1` when the workspace is unhealthy.
 
 The `completeness` block is the policy for `pasco status --completeness` (issue
 #102): `target` names the milestone; `langs` sets which languages text coverage is

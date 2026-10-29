@@ -6,13 +6,18 @@ workspace (JSON Schema, draft 2020-12). Per D3, JSON Schema is the contract sour
 
 ## Published contract for consumers without the engine (#348)
 
-A consumer that only validates a profile does not need the CLI or this repository
-checked out. The published identity of this schema is **URL + sha256**, recorded in
-[`consumer-contract.json`](consumer-contract.json) — the immutable copy at a released
-tag (tag-pinned raw URL) and the current committed bytes (sha256 + `$id` version).
-`node scripts/schema-contract/check.mjs --check` verifies both offline; a schema edit
-that forgets the manifest fails CI. The reading guide — how to fetch/verify, and what
-structural validation does **not** cover — is
+A consumer that only validates a profile does not need the CLI. The released
+identity of this schema is **URL + sha256**, recorded in
+[`consumer-contract.json`](consumer-contract.json): the immutable copy at a
+published tag (tag-pinned raw URL) and the committed `current` bytes (sha256 +
+`$id` version). **The current v1.14 bytes have no published artifact** — no tag
+contains them (`current.published: false`, `current.artifact: null`); the only
+released artifact is schema **v1.13 at `v0.3.6`**, which rejects
+`publication.kind`. A consumer that needs `kind` must use a v1.14 checkout and
+verify the sha256 until the next release. `node
+scripts/schema-contract/check.mjs --check` verifies both blocks offline; a schema
+edit that forgets the manifest fails CI. The reading guide — how to fetch/verify,
+and what structural validation does **not** cover — is
 [`docs/SCHEMA-CONTRACT.md`](../docs/SCHEMA-CONTRACT.md) (SPEC §7.7).
 
 > Status: **v1.14** · The schema implements §6 of `docs/SPEC.md` as an executable contract.

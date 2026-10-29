@@ -53,30 +53,43 @@ minor versions may contain breaking contract changes.
   `1` with the required version, the installed version and the upgrade command
   (`npm i -g @profile-as-code/cli@latest`); a malformed value exits `1` naming the
   field, the value and the accepted syntax. Absent means no requirement, so every
-  existing workspace keeps working. **`pasco doctor [--json]`** is the reading
-  surface — chosen over overloading `--version`, which describes the binary and must
-  work with no workspace, while `doctor` describes the pair: one line with the
-  installed engine, the profile-contract version this build validates (derived from
-  the schema `$id` at `pnpm gen:zod`, never a literal), the resolved workspace and
-  whether it loads, plus the declared requirement (`met`/`NOT MET`/`INVALID`). Exit
-  `0` healthy · `1` unhealthy · `2` usage; offline, no clock, no writes. Contract in
-  SPEC §7.6; the `.pascorc` field in USER-GUIDE and the package README.
+  existing workspace keeps working. Every `.pascorc` the resolution consulted is
+  read — the cwd `.pascorc` that pointed at the workspace AND the workspace's own
+  file — and the **stricter** declaration wins (a malformed one in either file is
+  refused); an explicit `--workspace` uses only the workspace's file. **`pasco
+  doctor [--json]`** is the reading surface — chosen over overloading `--version`,
+  which describes the binary and must work with no workspace, while `doctor`
+  describes the pair: one line with the installed engine, the profile-contract
+  version this build validates (derived from the schema `$id` at `pnpm gen:zod`,
+  never a literal), the resolved workspace and whether it loads, plus the
+  effective requirement and its `.pascorc` (`met`/`NOT MET`/`INVALID`). Exit `0`
+  healthy · `1` unhealthy · `2` usage; offline, no clock, no writes. It reports
+  the same truth the gate enforces; it does not replace the gate. Contract in SPEC
+  §7.6; the `.pascorc` field in USER-GUIDE and the package README.
 
 - **The published schema contract for consumers without the engine (#348)** — a
-  consumer that only validates a profile no longer has to install the CLI or read a
-  sibling workspace. `schema/consumer-contract.json` records the contract's
-  **URL + sha256**: the immutable copy at a released tag
+  consumer that only validates a profile no longer has to install the CLI.
+  `schema/consumer-contract.json` records the contract's **URL + sha256**: the
+  immutable copy at a released tag
   (`https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.3.6/schema/profile.schema.json`,
-  schema v1.13, sha256 `275340ff…`) and the current committed bytes (v1.14, sha256
-  `1745ac…`). `node scripts/schema-contract/check.mjs --check` runs in CI with **no
-  network**: it recomputes the committed hash, reads the tag copy from local git, and
-  refuses a stale/moved artifact, a malformed tag/hash, or any URL that is not the
-  exact public repo's tag-pinned raw file (never a floating ref or a private path,
-  AGENTS.md rule 9). The self-test proves each refusal; a pin that is no longer the
-  newest tag only warns. The reading guide (`docs/SCHEMA-CONTRACT.md`, SPEC §7.7)
-  states where to fetch it and what structural validation does **not** cover (the
-  cross-file invariants core re-checks, engine behavior, `.pascorc`, the payload
-  envelope).
+  schema v1.13, sha256 `275340ff…`) and the committed `current` bytes (v1.14,
+  sha256 `1745ac…`) with an explicit publication truth — **no published artifact
+  yet** (`published: false`, `artifact: null`), because no tag carries v1.14. The
+  released v1.13 artifact **rejects `publication.kind`** (`additionalProperties:
+  false`), so a consumer that needs `kind` must use a v1.14 checkout and verify
+  the sha256 until the next release; the manifest notes and the reading guide say
+  so where they tell a consumer how to validate. `node
+  scripts/schema-contract/check.mjs --check` runs in CI with **no network**: it
+  recomputes the committed hash, reads the tag copy from local git, refuses a
+  `current` publication claim it cannot join, a stale/moved artifact, a malformed
+  tag/hash, or any URL that is not the exact public repo's tag-pinned raw file
+  (never a floating ref or a private path, AGENTS.md rule 9). `--write [--tag]`
+  enforces the same tag existence and reachability as `--check` and derives
+  publication instead of inventing it. The self-test proves each refusal,
+  including the CLI rows end-to-end; a pin that is no longer the newest tag only
+  warns. The reading guide (`docs/SCHEMA-CONTRACT.md`, SPEC §7.7) states where to
+  fetch it and what structural validation does **not** cover (the cross-file
+  invariants core re-checks, engine behavior, `.pascorc`, the payload envelope).
 
 - **`publication.kind` — the output classification moves into the contract (schema
   v1.14, #349)** — `publications[].kind` is an optional, closed enum

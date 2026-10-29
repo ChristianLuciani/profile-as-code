@@ -14,7 +14,15 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -22,9 +30,11 @@ import { afterAll, describe, expect, it } from "vitest";
 import {
   compareEngineVersions,
   evaluateEngineRequirement,
+  evaluateEngineRequirements,
   parseEngineVersion,
   parseInstalledVersion,
 } from "../src/engine-gate.js";
+import type { Pascorc } from "../src/workspace.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI = join(__dirname, "..", "dist", "index.js");
@@ -64,6 +74,34 @@ afterAll(() => {
   for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
 });
 
+/**
+ * A cwd `.pascorc` that RESOLVES the workspace (`"workspace": "ws"`), with the
+ * workspace in a subdirectory — the fresh-review F1 repro shape. `cwdEngine` is
+ * the pointer file's declaration; `workspaceEngine` writes the workspace's own
+ * `.pascorc` too (absent = only the pointer file declares).
+ */
+function pointerWorkspace(
+  cwdEngine?: unknown,
+  workspaceEngine?: unknown,
+): { cwd: string; ws: string } {
+  const cwd = mkdtempSync(join(tmpdir(), "pasco-doctor-pointer-"));
+  tempDirs.push(cwd);
+  const ws = join(cwd, "ws");
+  mkdirSync(ws);
+  cpSync(FIXTURE, ws, { recursive: true });
+  writeFileSync(
+    join(cwd, ".pascorc"),
+    `${JSON.stringify({ workspace: "ws", ...(cwdEngine === undefined ? {} : { engine: cwdEngine }) })}\n`,
+  );
+  if (workspaceEngine !== undefined) {
+    writeFileSync(
+      join(ws, ".pascorc"),
+      `${JSON.stringify({ workspace: ".", engine: workspaceEngine })}\n`,
+    );
+  }
+  return { cwd, ws };
+}
+
 function packageVersion(): string {
   return (
     JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8")) as {
@@ -91,7 +129,7 @@ interface Envelope {
       valid: boolean;
       error?: { kind: string; message: string; violations?: { path: string; message: string }[] };
     };
-    requirement: { declared: string | null; met: boolean; problem?: string };
+    requirement: { declared: string | null; met: boolean; problem?: string; source?: string };
   };
   error?: { kind: string; message: string };
 }
@@ -217,7 +255,11 @@ describe("the .pascorc engine-version gate", () => {
     expect(res.stdout).toContain("npm i -g @profile-as-code/cli@latest");
     const envelope = doctor([], dir);
     expect(envelope.ok).toBe(false);
-    expect(envelope.data?.requirement).toEqual({ declared: "9.0.0", met: false });
+    expect(envelope.data?.requirement).toMatchObject({
+      declared: "9.0.0",
+      met: false,
+      source: join(dir, ".pascorc"),
+    });
   });
 
   it("doctor reports a malformed requirement and exits 1", () => {
@@ -229,6 +271,84 @@ describe("the .pascorc engine-version gate", () => {
     const envelope = doctor([], dir);
     expect(envelope.data?.requirement.met).toBe(false);
     expect(envelope.data?.requirement.problem).toContain("MAJOR.MINOR.PATCH");
+  });
+
+  it('refuses a null requirement without reporting the string "null" (F1 nit)', () => {
+    const dir = workspaceCopy(null);
+    const res = run(["doctor", "--workspace", dir]);
+    expect(res.code).toBe(1);
+    expect(res.stdout).not.toContain("no engine requirement");
+    expect(res.stdout).toContain("engine requirement INVALID");
+    const envelope = doctor([], dir);
+    expect(envelope.data?.requirement.declared).toBeNull();
+    expect(envelope.data?.requirement.problem).toContain("null");
+  });
+
+  it("enforces a requirement declared in the cwd .pascorc that RESOLVED the workspace (F1)", () => {
+    // The exact repro: `.pascorc` at cwd declares the workspace AND the engine;
+    // the workspace has no `.pascorc` of its own. Reading only the workspace file
+    // silently dropped the declaration.
+    const { cwd } = pointerWorkspace("9.0.0");
+    for (const command of [["validate"], ["build"], ["export", "profile", "--json"]]) {
+      const res = run(command, cwd);
+      expect(res.code, command.join(" ")).toBe(1);
+      expect(`${res.stdout}${res.stderr}`).toContain("9.0.0");
+    }
+    const doc = run(["doctor"], cwd);
+    expect(doc.code).toBe(1);
+    expect(doc.stdout).toContain("requires engine >= 9.0.0 (NOT MET");
+    const envelope = JSON.parse(run(["doctor", "--json"], cwd).stdout) as Envelope;
+    expect(envelope.data?.requirement).toMatchObject({
+      declared: "9.0.0",
+      met: false,
+      source: realpathSync(join(cwd, ".pascorc")),
+    });
+  });
+
+  it("enforces the workspace's own declaration when the pointer file has none (F1)", () => {
+    const { cwd, ws } = pointerWorkspace(undefined, "9.0.0");
+    expect(run(["validate"], cwd).code).toBe(1);
+    const envelope = JSON.parse(run(["doctor", "--json"], cwd).stdout) as Envelope;
+    expect(envelope.data?.requirement).toMatchObject({
+      declared: "9.0.0",
+      met: false,
+      source: realpathSync(join(ws, ".pascorc")),
+    });
+  });
+
+  it("the STRICTER of two declarations wins, and doctor names that file (F1)", () => {
+    const pointerStricter = pointerWorkspace("9.0.0", "0.1.0");
+    expect(run(["validate"], pointerStricter.cwd).code).toBe(1);
+    expect(
+      (JSON.parse(run(["doctor", "--json"], pointerStricter.cwd).stdout) as Envelope).data
+        ?.requirement,
+    ).toMatchObject({
+      declared: "9.0.0",
+      source: realpathSync(join(pointerStricter.cwd, ".pascorc")),
+    });
+
+    const workspaceStricter = pointerWorkspace("0.1.0", "9.0.0");
+    expect(run(["validate"], workspaceStricter.cwd).code).toBe(1);
+    expect(
+      (JSON.parse(run(["doctor", "--json"], workspaceStricter.cwd).stdout) as Envelope).data
+        ?.requirement,
+    ).toMatchObject({
+      declared: "9.0.0",
+      source: realpathSync(join(workspaceStricter.ws, ".pascorc")),
+    });
+
+    // Both satisfied: the gate passes.
+    const bothMet = pointerWorkspace("0.0.1", "0.0.2");
+    expect(run(["validate"], bothMet.cwd).code).toBe(0);
+  });
+
+  it("an explicit --workspace bypasses the cwd pointer config (D14)", () => {
+    const { cwd, ws } = pointerWorkspace("9.0.0");
+    expect(run(["validate", "--workspace", ws], cwd).code).toBe(0);
+    const envelope = JSON.parse(
+      run(["doctor", "--json", "--workspace", ws], cwd).stdout,
+    ) as Envelope;
+    expect(envelope.data?.requirement).toEqual({ declared: null, met: true });
   });
 
   it("is usage (exit 2) for an extra positional or an unknown flag", () => {
@@ -249,5 +369,34 @@ describe("engine-gate units (the declared grammar)", () => {
     expect(evaluateEngineRequirement({ engine: "1.2.3" }, "1.2.3").met).toBe(true);
     expect(evaluateEngineRequirement({ engine: "1.2.4" }, "1.2.3").met).toBe(false);
     expect(evaluateEngineRequirement({}, "0.0.0")).toEqual({ declared: null, met: true });
+  });
+
+  it("combines every consulted .pascorc: the strictest wins, malformed refuses", () => {
+    const met = { declared: null, met: true };
+    expect(evaluateEngineRequirements([], "0.3.6")).toEqual(met);
+    expect(
+      evaluateEngineRequirements(
+        [
+          { pascorc: { engine: "0.1.0" }, pascorcPath: "/a/.pascorc" },
+          { pascorc: { engine: "9.0.0" }, pascorcPath: "/b/.pascorc" },
+        ],
+        "0.3.6",
+      ),
+    ).toEqual({ declared: "9.0.0", met: false, source: "/b/.pascorc" });
+    // A malformed declaration in ANY file is refused, even when another is met.
+    const malformed = evaluateEngineRequirements(
+      [
+        { pascorc: { engine: "0.1.0" }, pascorcPath: "/a/.pascorc" },
+        { pascorc: { engine: "nope" }, pascorcPath: "/b/.pascorc" },
+      ],
+      "0.3.6",
+    );
+    expect(malformed.met).toBe(false);
+    expect(malformed.problem).toContain("MAJOR.MINOR.PATCH");
+    expect(malformed.source).toBe("/b/.pascorc");
+    // `engine: null` is a shape error, never the string "null".
+    const nullDecl = evaluateEngineRequirement({ engine: null } as unknown as Pascorc, "0.3.6");
+    expect(nullDecl.declared).toBeNull();
+    expect(nullDecl.problem).toContain("null");
   });
 });

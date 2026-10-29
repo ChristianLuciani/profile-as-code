@@ -238,10 +238,15 @@ const platformValues = (platformDef.enum as unknown[]).map((value) => {
 // generated module. The `$id` stays the single hand-authored home; the gate is
 // `pnpm gen:zod` freshness (CI), never a hand-kept constant.
 const schemaId = typeof raw.$id === "string" ? raw.$id : "";
-const schemaVersionMatch = /\/v(\d+\.\d+)\/profile\.schema\.json$/.exec(schemaId);
+// Same grammar as `scripts/schema-contract/check.mjs` (the consumer-contract
+// gate): anchored origin + schema path. Two parsers that disagree would let the
+// generated `PROFILE_SCHEMA_VERSION` and the published manifest name different
+// contracts; keeping the regex identical makes them provably equivalent.
+const schemaVersionMatch =
+  /^https:\/\/profile-as-code\.dev\/schema\/v(\d+\.\d+)\/profile\.schema\.json$/.exec(schemaId);
 if (schemaVersionMatch === null) {
   throw new Error(
-    `gen-zod: cannot derive the schema version from $id ${JSON.stringify(schemaId)} (expected .../v<MAJOR.MINOR>/profile.schema.json)`,
+    `gen-zod: cannot derive the schema version from $id ${JSON.stringify(schemaId)} (expected https://profile-as-code.dev/schema/v<MAJOR.MINOR>/profile.schema.json)`,
   );
 }
 const schemaVersion = schemaVersionMatch[1] as string;

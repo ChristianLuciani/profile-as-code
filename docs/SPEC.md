@@ -389,7 +389,7 @@ declared renderer or an explicit "not implemented yet").
 |---|---|
 | `pasco init` | scaffold a profile-data workspace from the template |
 | `pasco validate` | schema (fail) + drift/geo checks (facts warn). Text mode renders one line per GEO code that scored 0, prefixed by its severity tier — `warn: [code] …` is a warning, `info: [geo/freshness]`-style lines are NOTES, never warnings (v1.10 tiers, #322); a code that scored above 0 renders no finding line, and `absent` tier = `warn`. `--json` carries every check (with its `severity` and `detail`) — a check whose detail holds an anomaly note (future-dated freshness) is always fully visible there |
-| `pasco doctor [--json]` | the **engine · schema · workspace** reading on ONE line (issue #348): the installed CLI version, the profile-contract version this build validates (derived from the schema `$id` by `pnpm gen:zod`, never a literal), the resolved workspace path and whether it loads, plus the `.pascorc` engine requirement (`no engine requirement` · `met` · `NOT MET` with the upgrade command · `INVALID` with the syntax problem). Chosen over overloading `--version` because `--version` describes the binary and must work with no workspace, while `doctor` describes the pair. `--json` emits `{ engine: { name, version }, schema: { version }, workspace: { path, valid, error? }, requirement: { declared, met, problem? } }` in the standard envelope. Exit `0` healthy · `1` unhealthy (workspace fails to load, requirement unmet or malformed) · `2` usage. Offline, no clock, no writes. Contract: §7.6 |
+| `pasco doctor [--json]` | the **engine · schema · workspace** reading on ONE line (issue #348): the installed CLI version, the profile-contract version this build validates (derived from the schema `$id` by `pnpm gen:zod`, never a literal), the resolved workspace path and whether it loads, plus the `.pascorc` engine requirement (`no engine requirement` · `met` · `NOT MET` with the upgrade command · `INVALID` with the syntax problem). Chosen over overloading `--version` because `--version` describes the binary and must work with no workspace, while `doctor` describes the pair. `--json` emits `{ engine: { name, version }, schema: { version }, workspace: { path, valid, error? }, requirement: { declared, met, problem?, source? } }` in the standard envelope. Exit `0` healthy · `1` unhealthy (workspace fails to load, requirement unmet or malformed) · `2` usage. Offline, no clock, no writes. Contract: §7.6 |
 | `pasco build [platform] [--view <name>] [--lang]` | render deterministic base texts; `--view` resolves a declared view's platform/lang + fact selection (D22, §21); a manual-paste surface without a renderer writes `profiles/<platform>.md` via the shared paste core (#239); an active variant body is written verbatim as the platform artifact (#238) |
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
 | `pasco edit <contract-path> [--set <text> [--check]]` | read **or write** **one contract field** by contract path — `positioning.statement.<lang>`, `headlines[platform=<p>,lang=<l>].text`, `bios[platform=<p>,lang=<l>,length=<len>].text`, `identity.links[platform=<p>,label=<l>].url` (read-only, `label` optional). `--set` writes it: **byte-range splice over the original text** (the CST locates; it never re-serializes, so comments/layout survive and the diff is one line), block, multi-line and anchored/aliased scalars **refused** in v1, the file's node must still match the resolved value (staleness → exit 1, never a silent wrong-row write), no-op = 0 + `noop`, temp file + `load()`/schema over a temp copy + **atomic rename** (an invalid edit never reaches disk), concurrent writers serialized by an advisory `content/.pasco-edit.lock` plus a re-read immediately before the rename (an external editor is the residual window). `--set --check` previews instead: it renders the surface the way `pasco build` does (active variant → renderer → shared paste source, current vs proposed) and prints **the published lines the edit changes**, reporting an edit that does not reach the artifact with its reason instead of asserting it. It also reports the edited unit's **surface impact** from the §19 ledger — every recorded surface prints `stale` after an edit that changes the unit hash (or `in-sync` when the record still matches), and a unit with no record rolls up to `never` — derived on every run and stored nowhere (§20). A headline/bio value is pre-flighted against the catalog's own `max-chars` cap — the workspace's `content/checks.yaml` when it declares checks, else the caps shipped with pasco (#240) with its cited source and tier — over-cap is a WARN, never a block (D12), and a platform with no sourced cap reads `cap: unknown`; `--json` carries `{ address, current, proposed, rendered, ok, noop, written, warnings, stale, state, drift, limit, over, variant, reason }` inside the standard envelope (a D22/§21 selection error the write proceeds through is a warning, not a block: the SSOT write is valid even when `build` refuses); a read-only target or a file that changes under the command is exit 1 (`refused` / `stale`, nothing written); its machine contract is frozen for agents (S5, #252): the `--json` field set and the 0/1/2 exit matrix are documented in the CLI README, one test per exit row; `edit` never chooses the live variant (#238 non-goal); epic #247, S1–S5 |
@@ -995,8 +995,16 @@ the workspace requires; `validate`, `build` and `export profile` check it
 - **Scope of the gate is exact:** `validate`, `build` and `export profile`.
   Other commands keep their own semantics; `.pascorc` is not re-read as a global
   policy engine.
+- **Every consulted `.pascorc` counts (fresh-review F1).** With no `--workspace`
+  flag, `resolveWorkspace` reads the cwd `.pascorc` to resolve a
+  `"workspace": "sub"` pointer, and the commands read the resolved workspace's
+  own `.pascorc` for defaults. The gate reads BOTH, deduped by path: a
+  declaration in the pointer file the user invoked cannot disappear. When both
+  declare one, the **stricter (higher minimum) wins**; a malformed declaration in
+  either file is refused. An explicit `--workspace` bypasses the cwd config (D14),
+  exactly as resolution does, so only that workspace's file applies.
 - **Offline and deterministic** (D19): the check reads two versions (the package
-  manifest and the workspace file), no clock, no network.
+  manifest and the `.pascorc` chain), no clock, no network.
 
 **`pasco doctor`** is the reading surface, chosen over overloading `--version`
 because `--version` describes the **binary** and is expected to work with no
@@ -1016,8 +1024,9 @@ engine 0.3.6 · schema v1.14 · workspace /path/to/workspace (valid) · requires
   `NOT MET` with the upgrade command, or `INVALID` with the syntax problem).
 - **`--json`** emits the same facts inside the standard envelope as
   `{ engine: { name, version }, schema: { version }, workspace: { path, valid,
-  error? }, requirement: { declared, met, problem? } }`; `error` is present only
-  when the workspace cannot load.
+  error? }, requirement: { declared, met, problem?, source? } }`; `source` names
+  the `.pascorc` that produced the effective (strictest) declaration, and
+  `error` is present only when the workspace cannot load.
 - **Exit matrix:** `0` healthy (workspace loads and any declared requirement is
   met) · `1` unhealthy (workspace fails to load, requirement unmet or malformed)
   · `2` usage. `doctor` **reports** the three facts but does not replace the
@@ -1027,35 +1036,46 @@ engine 0.3.6 · schema v1.14 · workspace /path/to/workspace (valid) · requires
 
 ### 7.7 The published schema contract for consumers without the engine (issue #348)
 
-A consumer that only needs to **validate a profile** must not install the CLI, clone
-this repository, or read a sibling workspace. The contract is published as an
-immutable artifact identified by **URL + sha256**, recorded in
+A consumer that only needs to **validate a profile** must not install the CLI or
+clone this repository to use the *released* contract. The contract is published as
+an immutable artifact identified by **URL + sha256**, recorded in
 [`schema/consumer-contract.json`](../schema/consumer-contract.json):
 
 | | Artifact | Identity |
 |---|---|---|
 | **Released** | `schema/profile.schema.json` at a published release tag | tag-pinned raw URL + sha256 + `$id` version (today `v0.3.6`, schema v1.13) |
-| **Current** | the committed `schema/profile.schema.json` on this branch | sha256 + `$id` version (today v1.14), regenerated with the manifest |
+| **Current** | the committed `schema/profile.schema.json` on this branch | `$id` version + sha256, **no published artifact** (today v1.14; `published: false`, `artifact: null`) |
 
 - **Tag-pinned, public repo only.** The released URL is exactly
   `https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/<tag>/schema/profile.schema.json`.
   A tag is immutable, so the bytes a consumer downloads never change under them;
   a floating ref (`main`) or a private repo/path is refused by the gate and may
-  never appear on this published surface (AGENTS.md rule 9). The commit-pinned
-  URL shape `<40-hex sha>` is the equivalent pin for the current, not-yet-tagged
-  bytes — the sha256, not the ref, is the identity.
+  never appear on this published surface (AGENTS.md rule 9).
+- **The current block declares its own publication truth (fresh-review F2).**
+  The manifest's `current` object carries `published` plus `artifact`: when
+  `published` is `false`, `artifact` MUST be `null` and the `note` MUST say where
+  the bytes can be obtained (a repository checkout, not a URL). The manifest
+  cannot claim a joinable artifact it does not have, and every shipped surface
+  repeats that exact state. **The released v0.3.6 artifact is schema v1.13 and
+  rejects `publication.kind`** (`$defs.publication` has `additionalProperties:
+  false`); a consumer that needs `kind` must use a v1.14 checkout (verify its
+  sha256) until the next release tags it. The reading guide says so where it
+  tells a consumer how to validate.
 - **No network in the gate (D19).** `node scripts/schema-contract/check.mjs
   --check` recomputes the sha256 of the committed file, reads the immutable copy
-  at the released tag from **local git**, and refuses: a manifest hash/version
+  at the released tag from **local git**, and refuses: a `current` hash/version
   that disagrees with the committed schema (a schema edit that forgot to
-  regenerate the manifest), a moved tag copy, a malformed tag or hash, or a URL
-  that is not the exact public tag-pinned raw URL. The generator side is the same
-  script with `--write [--tag <tag>]`: it recomputes both hashes locally and
-  refuses a tag that does not exist in the clone (a not-yet-published artifact
-  cannot be claimed). The self-test (`scripts/schema-contract/test.mjs`) proves
-  each refusal; both run in CI. A release pin that is no longer the newest
-  reachable tag only **warns** — the release prep moves it, and a dated published
-  artifact stays correct forever (#226 rule 8).
+  regenerate the manifest), a `current` publication claim it cannot join, a moved
+  tag copy, a malformed tag or hash, or a URL that is not the exact public
+  tag-pinned raw URL. The generator side is the same script with `--write [--tag
+  <tag>]`: it recomputes both hashes locally, enforces the SAME tag existence and
+  reachability as `--check`, and derives publication rather than inventing it (a
+  tag carrying the current bytes yields `published: true` + the tag URL;
+  otherwise the block stays unpublished with a note). The self-test
+  (`scripts/schema-contract/test.mjs`) proves each refusal, including the CLI
+  rows end-to-end against a synthesized git repository; both run in CI. A release
+  pin that is no longer the newest reachable tag only **warns** — the release prep
+  moves it, and a dated published artifact stays correct forever (#226 rule 8).
 - **What it does NOT cover.** This is **structural** validation only. It is not
   `load()`: the cross-file invariants core re-checks after Zod (unique entry
   ids, the `locator` XOR, dangling `artifactRefs`, ledger key/surface rules,

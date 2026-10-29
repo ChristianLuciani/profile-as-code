@@ -8,7 +8,18 @@
  * `validate`, `build` and `export profile` resolve that requirement BEFORE they
  * do any work, so a workspace written for a newer contract fails with the three
  * facts a user needs: the installed version, the required version and the exact
- * upgrade command. `pasco doctor` reports the same in one line without gating.
+ * upgrade command. `pasco doctor` reports the same facts; it is a reader, not a
+ * replacement for the gate (the three commands refuse before doing work, and
+ * `doctor` itself exits 1 when the workspace is unhealthy).
+ *
+ * **Every `.pascorc` the resolution consulted.** With no `--workspace` flag the
+ * cwd `.pascorc` may name the workspace (`"workspace": "sub"`); the gate reads
+ * BOTH that file and the resolved workspace's own `.pascorc`, deduped by path.
+ * A requirement in either file is enforced — dropping the pointer file would let
+ * a declaration in the very config the user invoked disappear silently. When
+ * both declare one, the **stricter** (higher minimum) wins; a malformed
+ * declaration in either file is refused. An explicit `--workspace` bypasses the
+ * cwd config by D14, so only that workspace's file applies.
  *
  * **Declared syntax, deliberately not semver.** The field accepts exactly three
  * dot-separated ASCII decimal components (`MAJOR.MINOR.PATCH`, no `v` prefix, no
@@ -71,25 +82,43 @@ export function compareEngineVersions(a: string, b: string): number | null {
 }
 
 export interface EngineRequirement {
-  /** The declared minimum, or `null` when `.pascorc` declares none. */
+  /** The declared minimum, or `null` when no `.pascorc` declares one (or the
+   *  declaration is not a string — `problem` then carries the value). */
   declared: string | null;
   /** Whether the running engine satisfies the declaration. A malformed
    *  declaration is `false` and carries `problem`. */
   met: boolean;
   /** The exact refusal when the field exists but is not `MAJOR.MINOR.PATCH`. */
   problem?: string;
+  /** The `.pascorc` path that produced the effective (strictest) declaration. */
+  source?: string;
+}
+
+/** One `.pascorc` the workspace resolution consulted, plus its path. */
+export interface EngineConfigSource {
+  pascorc: Pascorc;
+  pascorcPath?: string;
 }
 
 /** The expected syntax text, shared by the gate message and `pasco doctor`. */
 export const ENGINE_SYNTAX = 'MAJOR.MINOR.PATCH (e.g. "0.4.0")';
 
-/** Evaluate `.pascorc.engine` against the installed version. Pure. */
+/** Evaluate ONE `.pascorc.engine` against the installed version. Pure. */
 export function evaluateEngineRequirement(pascorc: Pascorc, installed: string): EngineRequirement {
   const declared = pascorc.engine;
   if (declared === undefined) return { declared: null, met: true };
-  if (typeof declared !== "string" || parseEngineVersion(declared) === null) {
+  if (typeof declared !== "string") {
+    // `null`/a number/a range object is a shape error, never the string "null".
+    // `declared` stays null (no valid declaration); `problem` names the value.
     return {
-      declared: typeof declared === "string" ? declared : JSON.stringify(declared),
+      declared: null,
+      met: false,
+      problem: `\`.pascorc\` field "engine" must be a minimum version written as ${ENGINE_SYNTAX}; got ${JSON.stringify(declared)}`,
+    };
+  }
+  if (parseEngineVersion(declared) === null) {
+    return {
+      declared,
       met: false,
       problem: `\`.pascorc\` field "engine" must be a minimum version written as ${ENGINE_SYNTAX}; got ${JSON.stringify(declared)}`,
     };
@@ -106,6 +135,34 @@ export function evaluateEngineRequirement(pascorc: Pascorc, installed: string): 
     };
   }
   return { declared, met: compareParsed(running, required) >= 0 };
+}
+
+/**
+ * Combine every consulted `.pascorc`: a malformed declaration in any file wins
+ * (refuse), otherwise the **strictest** declared minimum is the effective
+ * requirement. Pure; `source` names the winning file for `pasco doctor`.
+ */
+export function evaluateEngineRequirements(
+  sources: readonly EngineConfigSource[],
+  installed: string,
+): EngineRequirement {
+  let chosen: EngineRequirement | undefined;
+  for (const source of sources) {
+    const result = evaluateEngineRequirement(source.pascorc, installed);
+    const withSource =
+      source.pascorcPath === undefined ? result : { ...result, source: source.pascorcPath };
+    if (result.problem !== undefined) return withSource;
+    if (result.declared === null) continue;
+    if (chosen === undefined || chosen.declared === null) {
+      chosen = withSource;
+      continue;
+    }
+    const order = compareEngineVersions(result.declared, chosen.declared);
+    // Both declarations are valid here, so `order` is a number. Equal keeps the
+    // first source (the resolution file) — the reported path is deterministic.
+    if (order !== null && order > 0) chosen = withSource;
+  }
+  return chosen ?? { declared: null, met: true };
 }
 
 function compareParsed(left: EngineVersion, right: EngineVersion): number {

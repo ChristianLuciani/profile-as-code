@@ -33,23 +33,29 @@ same bytes forever. The tag-pinned raw URL is the only published form: a
 floating ref (`main`) or any private path is refused by the gate and may not
 appear on this surface (AGENTS.md rule 9).
 
-## The current contract (not yet tagged)
+## The current contract — no published artifact yet
 
 The repository's `main` carries schema **v1.14**, which adds `publication.kind`
-(optional). At this writing no release tag contains it — the next release will
-publish it under the same URL shape, and the manifest's `released` block moves
-with that release. Until then, pin the **current** bytes by the identity that
-does not move: the sha256.
+(optional). **No released tag contains it**, so there is no published URL for
+those bytes: the manifest records them with `current.published: false` and
+`current.artifact: null`. That is a declared condition, not a missing link.
 
 | Field | Value |
 |---|---|
 | Schema version | `v1.14` |
 | sha256 | `1745ac626ac6ef916b52f2ac34a9f2b52fdef7820e4a3e61748a8a87f60c5775` |
-| URL shape | `https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/<40-hex commit sha>/schema/profile.schema.json` |
+| Published artifact | **none** — use a repository checkout |
 
-A consumer that needs `kind` records the commit it fetched from and verifies the
-hash; the hash, not the ref, is the contract identity. A profile that never
-declares `kind` validates unchanged against the released v1.13 copy.
+If you need v1.14 today, check the repository out at a commit whose
+`schema/profile.schema.json` hashes to that value (any commit; the hash is the
+identity) — a checkout, not a published artifact. The next release publishes it
+at a tag and the manifest's `released` block moves with it.
+
+**`publication.kind` cannot be validated against the released v0.3.6 artifact.**
+That file is schema v1.13, and `$defs.publication` has `additionalProperties:
+false`, so a row carrying `kind` is rejected. A profile that declares no `kind`
+validates unchanged against v1.13; a consumer that needs `kind` must use a v1.14
+checkout (verify the hash above) until the next tag.
 
 ## Validating a profile
 
@@ -63,14 +69,15 @@ import json, jsonschema
 schema = json.load(open("profile.schema.json"))
 profile = json.load(open("profile.json"))
 jsonschema.Draft202012Validator(schema).validate(profile)
-print("profile validates against schema v1.14")
+print("profile validates against", schema["$id"])
 PY
 ```
 
 `profile.json` is the `profile` object of `pasco export profile --json` (SPEC
-§7.5) or any object in that shape. A consumer that uses the CLI for the payload
-and a standalone validator for the check is the intended split: the CLI produces,
-the schema verifies.
+§7.5) or any object in that shape. The printed `$id` names the file you fetched
+(`…/v1.13/…` for the released artifact, `…/v1.14/…` for the current checkout).
+A consumer that uses the CLI for the payload and a standalone validator for the
+check is the intended split: the CLI produces, the schema verifies.
 
 ## What this contract does NOT cover
 
@@ -95,6 +102,9 @@ the schema verifies.
 - it recomputes the sha256 of the committed `schema/profile.schema.json` and
   refuses a manifest that disagrees — a schema edit that forgot to regenerate
   `schema/consumer-contract.json` fails CI;
+- it refuses a `current` block that claims a publication it cannot join:
+  `published` must be a boolean, `published: false` must carry `artifact: null`
+  and a note, and `published: true` must carry a public raw URL;
 - it reads the immutable copy at the released tag from **local git** and refuses
   a moved tag, a wrong version label, a malformed tag/hash, or any URL that is
   not the exact public tag-pinned raw URL;
@@ -103,9 +113,13 @@ the schema verifies.
 
 After a schema edit, recompute the manifest with the same script:
 `node scripts/schema-contract/check.mjs --write` (add `--tag vX.Y.Z` when the
-release tags a newer contract). It computes both hashes locally and refuses a tag
-that does not exist in the clone, so a not-yet-published artifact is never
-claimed.
+release tags a newer contract). It computes both hashes locally, enforces the
+same tag existence AND reachability as `--check`, and derives publication rather
+than inventing it: if the tag carries the current bytes the `current` block
+becomes published with the tag URL; otherwise it stays unpublished with a note.
+A not-yet-published artifact is therefore never claimed.
 
-The self-test (`scripts/schema-contract/test.mjs`) proves each refusal. SPEC
-§7.7 is the contract; this page is the reading copy.
+The self-test (`scripts/schema-contract/test.mjs`) proves each refusal, including
+the CLI rows end-to-end against a synthesized git repository (`--write` reachable
+vs unreachable tag, drift, missing tag). SPEC §7.7 is the contract; this page is
+the reading copy.
