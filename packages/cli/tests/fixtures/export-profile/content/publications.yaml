@@ -1,0 +1,9 @@
+- id: routing-paper
+  title: Routing LLM Traffic to Sovereign Providers
+  venue: Journal of Open AI Infrastructure
+  year: 2024
+  doi: 10.5555/sovereign-routing
+  orcidId: 0000-0001-2345-6789
+  url: https://example.com/papers/sovereign-routing
+  artifactRefs:
+    - hub-source

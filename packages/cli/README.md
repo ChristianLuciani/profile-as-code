@@ -68,6 +68,7 @@ commands above are the standalone path.
 | `pasco entity [--json \| --jsonld [--out <file>] [--bare]]` | The **entity projection** for surfaces the engine does not render (#287): `--json` is the frozen view — `entity { id, type, name, sameAs, email }`, the structured-data `gaps` (geoCheck codes verbatim) and `jsonld: null`; `--jsonld` is the **same assembler output** the renderers embed, as a paste-ready `<script type="application/ld+json">` block. Exit 1 when `@id` is absent (never invented) | ✅ v1 |
 | `pasco cite-check [<answers.ndjson>] [--json]` | The **citation matcher** over saved answer-engine answers (#291): reads the runner's NDJSON (stdin when no path), matches the workspace's declared entity and emits, **per answer and never aggregated**, `{ cited, confidence, spans, reasons }`. Ladder: `citation-url` (a citation on the entity's own page or its `sameAs` set — host, and the declared path or a descendant) and `exact-name` → **high**; `alias` (`identity.orgName`) and `handle` → **medium**; `partial` (any contiguous multi-token prefix, ≥ 2 tokens) → **low**, and low is never citable downstream. Refuses to guess: a one-word name with no declared disambiguator (`cited: false`, the longer capitalised reading named as `competing`), or a contrast mention, is not a citation; a declared qualifier or an adjacent capital never disqualifies a hit by itself | ✅ v1 |
 | `pasco export ai-policy [--out <dir> \| --check] [--lang <l>]` | The M9 stance as an artifact (#290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed retrieval crawlers allowed, the listed training crawlers disallowed, each UA commented with its registry entry/operator/source/date; the file declares that a crawler it does not name is **not restricted**), `llms.txt` (the workspace index: name, definition, canonical identity, `faq[]`, `publications[]`, with a coverage assertion) and `AI-POLICY.md` (allowed · blocked · that same explicit-list limit · who can change it · the date, quoting the stance verbatim). `--check` exits 1 on an incomplete or unsourced entry, a duplicate token (case-insensitive), a malformed/future/`>180`-day `as_of`, or a `policy.as_of` that is stale or older than its newest row; `--out` refuses to write one. The UA list is projected from the platform registry — never hardcoded in the CLI | ✅ v1 |
+| `pasco export profile [--json] [--now <iso8601>]` | The **compiled profile** for programmatic consumers (#348): `{ contract, engine, source: { commit, generatedAt }, profile }` — `profile` is exactly what `core.load()` returns (every schema root, list roots always arrays, `artifactRefs` ids that resolve in `profile.artifacts[]`, `publications[].url` as declared, `deployments` included), never a platform slice. No clock is read: `generatedAt` is `null` unless `--now` pins it, so two runs are byte-identical; `source.commit` is the workspace git HEAD (`null` outside a repo) | ✅ v1 |
 | `pasco post <seed\|task\|choose\|check\|export\|import\|list>` | Week-1 post MVP (#264): a seed at `posts/<seed>/seed.md` → task bundle → chosen variant → check → optional Postiz draft payload; the CLI never calls an LLM | 🚧 experiment (not in the v1 contract; `docs/post-mvp.md`) |
 | `pasco skills:export <dir> [--force] [--list]` | Copy the platform skills this package ships into a directory you name (`--list` shows them; no per-agent paths are invented — #254) | ✅ |
 
@@ -338,6 +339,48 @@ different days produce byte-identical files.
 `--out` never truncates a file it did not generate: an existing `robots.txt` that
 is not ours needs `--force`. A refused write or a failed `--check` is exit `1`, a
 usage error is exit `2`. The `--json` contract is frozen in SPEC §7.3.
+
+### The compiled profile (`pasco export profile`, #348)
+
+`build` renders platform texts and `validate` checks the workspace, but neither
+hands a program to the **profile itself**. A site build, a service or a script
+that needs the facts used to re-implement `load()` + `normalize()` — and each copy
+drifted (roots hardcoded to `[]`, `publications[].url` dropped, `experience[].org`
+mistaken for a langMap). `export profile` is that object, assembled by the same
+`load()` every other command uses:
+
+```sh
+pasco export profile --json                                   # the payload
+pasco export profile --json --now 2026-10-28T00:00:00Z | jq .  # pin the stamp
+```
+
+```json
+{
+  "contract": "1",
+  "engine": { "name": "@profile-as-code/cli", "version": "<cli version>" },
+  "source": { "commit": "<workspace HEAD or null>", "generatedAt": null },
+  "profile": { "identity": {}, "…": "every schema root" }
+}
+```
+
+- `contract` is the payload's frozen version (the §7.1/§7.2 precedent): a consumer
+  **refuses a version it does not know** instead of guessing.
+- `source.commit` is the workspace's git `HEAD` — the value a consumer pins for
+  freshness — or `null` when the workspace is not inside a git repository.
+- `source.generatedAt` is **`null` unless you pass `--now <iso8601>`**, which is
+  emitted verbatim. The command reads no clock, so two runs over one workspace are
+  byte-identical (a malformed `--now` is exit `1`, never a silent "now").
+- `profile` is the normalized `load()` object: every schema root, list roots are
+  arrays even when empty, `artifactRefs` stay ids and resolve against
+  `profile.artifacts[]` (`load()` already refuses a dangling ref),
+  `publications[].url` is emitted as declared (never replaced by a DOI link), and
+  `deployments` is included. It is the SSOT — **not** a rendered surface, so
+  `visibility` is not filtered (renderers own §18.5) and there is no platform
+  slice (that is `pasco build`).
+
+Exit `0` ok · `1` the workspace fails to load or `--now` is malformed · `2` usage
+(`--out`/`--check`/`--force`/`--lang` belong to `export ai-policy`). The contract
+is frozen in SPEC §7.5.
 
 ### Contract paths (`pasco edit`, epic #247 — read · preview · write)
 

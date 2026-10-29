@@ -6,8 +6,8 @@
  *
  * Consumes @profile-as-code/core (load/driftCheck/geoCheck/compile); never
  * re-implements them. Exit codes: 0 ok · 1 schema/workspace failure or a data
- * finding that blocks the command (edit · audit · entity · export ai-policy) ·
- * 2 usage.
+ * finding that blocks the command (edit · audit · entity · export ai-policy ·
+ * a malformed export profile --now) · 2 usage.
  * Human output EN by default (D8/§11); `--json` machine-readable on every
  * command that reports data.
  */
@@ -22,6 +22,7 @@ import { runDiff } from "./commands/diff.js";
 import { runEdit } from "./commands/edit.js";
 import { runEntity } from "./commands/entity.js";
 import { runAiPolicyCheck, runAiPolicyExport } from "./commands/export.js";
+import { runExportProfile } from "./commands/export-profile.js";
 import { runInit } from "./commands/init.js";
 import { runPost } from "./commands/post.js";
 import { runRefine } from "./commands/refine.js";
@@ -93,6 +94,11 @@ Commands:
                                 allowed, listed training crawlers disallowed, no wildcard) +
                                 llms.txt (the workspace index) + AI-POLICY.md, into <dir>;
                                 --check (exit 1) fails an unsourced, stale or incomplete entry
+  export profile [--json]       The compiled profile for programmatic consumers (SPEC §7.5,
+          [--now <iso8601>]     #348): { contract, engine, source: { commit, generatedAt },
+                                profile } — every schema root, from the same load() the other
+                                commands use. No clock is read: generatedAt is null unless
+                                --now pins it. Offline; byte-identical across runs
   skills:export <dir>           Copy the skill channels this package ships into <dir>
           [--force] [--list]     (--force overlays; --list shows them); no harness paths
 
@@ -142,6 +148,7 @@ interface FlagOptions {
   force?: boolean;
   jsonld?: boolean;
   bare?: boolean;
+  now?: string;
 }
 
 function parseCommandFlags(
@@ -346,6 +353,9 @@ Exit: 0 a successful read, whatever the matches (a non-citation is data) ·
 1 the workspace cannot load, or the input path cannot be read · 2 usage, or
 malformed NDJSON. Offline and deterministic: no network, no model, no clock.`,
   export: `pasco export ai-policy [--out <dir> | --check] [--lang <l>] [--json] [--workspace <path>]
+pasco export profile [--json] [--now <iso8601>] [--workspace <path>]
+
+--- export ai-policy -----------------------------------------------------------------
 The §12 M9 stance as an artifact. Two modes, deliberately separate (one
 writes, one verifies):
   --out <dir>   write robots.txt + llms.txt + AI-POLICY.md into <dir>.
@@ -378,7 +388,27 @@ The crawler list is derived, never hardcoded here: it is projected from the
               else 'en').
 Exit: 0 ok · 1 a --check problem, a schema/load failure or a write failure ·
 2 usage (no ai-policy subcommand, --out with --check, --force without --out).
-Offline; --out reads no clock and two runs produce byte-identical files.`,
+Offline; --out reads no clock and two runs produce byte-identical files.
+
+--- export profile ------------------------------------------------------------------
+The compiled profile for programmatic consumers (SPEC §7.5, #348). One payload,
+the same for a script, a site build or a service:
+  { contract, engine, source: { commit, generatedAt }, profile: { …all roots… } }
+  --json        emit the payload inside the standard envelope (command · ok ·
+                exitCode · data). Human mode prints a summary of the same object.
+  --now <iso>   pin source.generatedAt to this ISO 8601 date-time, verbatim. Without
+                it the command reads NO clock: generatedAt is null, so two runs over
+                one workspace produce byte-identical output.
+profile is exactly what core's load() returns — schema-validated and normalized,
+every list root present ([], never absent), artifactRefs kept as the ids they are
+(a consumer joins them to profile.artifacts[] by id; load() already refuses a
+dangling ref), publications[].url exactly as declared, deployments included. It is
+the SSOT, not a rendered surface: no visibility filtering (that is §18.5, owned by
+the renderers) and no platform slice (that is pasco build). source.commit is the
+workspace's git HEAD; null means the workspace is not inside a git repository.
+Exit: 0 ok · 1 the workspace fails to load (schema/ledger/registry — D12) or --now
+is malformed · 2 usage (unknown export subcommand, --out/--check/--force/--lang).
+Offline and deterministic: no network, no clock unless --now pins one.`,
   "skills:export": `pasco skills:export <dir> [--force] [--json]
 pasco skills:export --list [--json]
 Copies the skill channels this package ships (SPEC §16) into a directory you
@@ -765,17 +795,47 @@ async function runMain(): Promise<number> {
         check: { type: "boolean" },
         force: { type: "boolean" },
         lang: { type: "string" },
+        now: { type: "string" },
       });
       if (flags.help === true) {
         process.stdout.write(`${COMMAND_HELP.export}\n`);
         return EXIT.OK;
       }
-      if (positionals.length !== 1 || positionals[0] !== "ai-policy") {
-        throw new UsageError("usage: pasco export ai-policy [--out <dir> | --check] [--lang <l>]");
+      const subcommand = positionals[0];
+      if (positionals.length !== 1 || (subcommand !== "ai-policy" && subcommand !== "profile")) {
+        throw new UsageError(
+          "usage: pasco export <ai-policy | profile> — ai-policy: --out <dir> | --check; profile: [--json] [--now <iso8601>]",
+        );
+      }
+      // `export profile` is a read-only projection: the writer/verifier flags of
+      // `ai-policy` would be a request it cannot honour, so they are refused
+      // instead of ignored.
+      if (subcommand === "profile") {
+        if (
+          flags.out !== undefined ||
+          flags.check === true ||
+          flags.force === true ||
+          flags.lang !== undefined
+        ) {
+          throw new UsageError(
+            "usage: pasco export profile [--json] [--now <iso8601>] — --out/--check/--force/--lang do not apply",
+          );
+        }
+        setJsonMode(flags.json === true);
+        return runExportProfile({
+          workspace: resolveWorkspace(process.cwd(), flags.workspace),
+          engineVersion: VERSION,
+          ...(flags.now !== undefined ? { nowArg: flags.now } : {}),
+        });
       }
       if (flags.out === undefined && flags.check !== true) {
         throw new UsageError(
           "usage: pasco export ai-policy needs --out <dir> (write) or --check (verify)",
+        );
+      }
+      if (flags.now !== undefined) {
+        throw new UsageError(
+          "usage: --now only applies to export profile (ai-policy reads its own dates)",
         );
       }
       // One mode writes and one verifies: combining them would make a failing

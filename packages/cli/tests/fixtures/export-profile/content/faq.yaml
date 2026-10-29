@@ -1,0 +1,19 @@
+# The answer surface (v1.10, #288) — 3 rows is the floor. Present in this fixture
+# so the compiled-profile golden pins `faq[]` as an always-defined list root.
+- id: what-is-elena
+  q:
+    en: What does Elena Vasquez do?
+  a:
+    en: Elena Vasquez is an AI engineer building sovereign, open-source infrastructure for education.
+  source: https://example.com/about
+- id: where-based
+  q:
+    en: Where is Elena Vasquez based?
+  a:
+    en: Elena Vasquez is based in Madrid, Spain.
+- id: routing-paper-about
+  q:
+    en: What is the routing paper about?
+  a:
+    en: It routes LLM traffic to sovereign providers, evaluated across 12 deployments.
+  source: https://doi.org/10.5555/sovereign-routing
