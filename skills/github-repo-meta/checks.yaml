@@ -18,12 +18,12 @@
   surface: bio
   note: "Una descripción de menos de 40 chars no dice qué hace el artefacto; el piso es juicio de esta skill, no un límite de GitHub."
 
-- id: repo-topics-max
+- id: repo-topic-max-chars
   platform: github-repo-meta
   rule: max-chars
-  value: 20
+  value: 50
   surface: headline
-  note: "GitHub permite hasta 20 topics por repositorio. [OFICIAL] docs.github.com (customizing-your-repository), leído 2026-10-29."
+  note: "Cada topic tiene un máximo de 50 caracteres (regla de largo, no de conteo). GitHub permite además hasta 20 topics por repositorio: ese tope es de CANTIDAD y el catálogo no tiene una regla de conteo — lo verifica el playbook (paso 5), no esta fila. [OFICIAL] docs.github.com (customizing-your-repository), leído 2026-10-29."
 
 - id: repo-facts-ssot
   platform: github-repo-meta

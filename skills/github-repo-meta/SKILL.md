@@ -12,10 +12,10 @@ applies_to: github-repo-meta
 projection: agent-agnostic (AionUi, OpenHands, Claude Code, Cursor, pi…)
 version: 0.1.0
 status: draft (D23, #262)
-sources: platforms/registry.yaml (kind: repo-meta) · docs/SPEC.md §22
+sources: "platforms/registry.yaml (kind: repo-meta) · docs/SPEC.md §22"
 ---
 
-# GitHub repo metadata — skill de distribución (D23)
+# GitHub repo metadata — skill de superficie repo-meta (D23)
 
 ## Misión
 

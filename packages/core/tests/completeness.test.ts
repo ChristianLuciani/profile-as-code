@@ -243,7 +243,8 @@ describe("completeness(profile, policy)", () => {
     const refs = JSON.stringify(schema).match(/#\/\$defs\/langMap(List)?/g) ?? [];
     // v1.15 (D23, #262): `release.summary` is langMap-SHAPED but it is the factual
     // spine of an EVENT, not workspace text — completeness scores the workspace, so
-    // it is the one DECLARED exclusion from the walk (counted, never silently lost).
+    // it is the one DECLARED exclusion from the walk (declared in SPEC §20, counted
+    // here, never silently lost).
     const releaseDef = (schema.$defs as Record<string, unknown>).release;
     const releaseSummaryRefs =
       JSON.stringify(releaseDef).match(/#\/\$defs\/langMap(List)?/g)?.length ?? 0;

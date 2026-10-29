@@ -1127,9 +1127,13 @@ the §19 ledger; neither writes, fetches or reads a clock.
   announcements.
 - **`baseText`** is the per-kind FACTUAL SPINE (`version · date · summary`) — not
   announcement copy. The copy per channel lives in `skills/` (rule 7 + D9).
-- **Refusals**: a workspace with no `releases[]`, an unknown release id or a
-  surface absent from `platforms/registry.yaml` is exit 1 with the exact reason
-  (a typo never silently builds a plan). A subcommand other than `plan` is exit 2.
+- **Refusals (`release plan`)**: a workspace with no `releases[]`, an unknown
+  release id, a duplicate release id, a duplicate surface or a surface absent
+  from `platforms/registry.yaml` is exit 1 with the exact reason (a typo never
+  silently builds a plan). A subcommand other than `plan` is exit 2.
+- **`presence` with no `releases[]`** renders an EMPTY board and exits 0
+  (`latest: null`, no rows, zero counts): absence of releases is not an error on
+  the daily board. It still refuses the same malformed/unknown-surface cases.
 
 `presence` lists one row per surface at the NEWEST release that declares it, with
 `{ kind, state, releaseId, version }` and the `in-sync`/`stale`/`never` counts.
@@ -2215,6 +2219,12 @@ the engine; the shipped default weights are the ones `COMPLETENESS_CATALOG` decl
 |---|---|---|
 | `presence` | 0.30 | `flavor` + the expected top-level blocks (brand expects `socialHandles`, person expects `education`); a block counts only when it **carries content** — `positioning: {}` / `keywords: {}` are valid but not "present" |
 | `langCoverage` | 0.15 | `en`/`es`/`fr` coverage of every langMap (`load`/schema) |
+
+**The one declared `langCoverage` exception is `releases[].summary` (v1.15, D23):** it is
+langMap-SHAPED but it belongs to a release EVENT, not to the workspace's text, and
+completeness measures the workspace — so the walk does not score it. The drift guard in
+`packages/core/tests/completeness.test.ts` counts it separately and asserts the exclusion,
+so a future langMap still cannot escape the walk unnoticed.
 | `geoAnchors` | 0.15 | `positioning.geo.semanticAssociations` reinforced in `keywords`/skills/projects; the score is the reinforced **share squared** — an association anchored in only some surfaces is worth less than proportionally, since the point is convergence on the same 3–5 anchors |
 | `evidence` | 0.15 | `projects[].evidence[]` claims carrying a `source` + registry entries (`evidenceItem`); no projects and an empty registry score 0 |
 | `deployment` | 0.25 | share of trackable units with a ledger record (`ledger`, §19) — **coverage only**; freshness (`stale`) is §19's report, not this item's |
@@ -2499,9 +2509,12 @@ fan-out. The state is derived per surface from `deployments` (the §19 ledger):
 
 | condition | state |
 |---|---|
-| no changed unit has a record on the surface | `never` |
-| some record's `contentHash` differs from the unit's current hash | `stale` |
-| every record matches | `in-sync` |
+| ANY changed unit has no record on the surface (or resolves to no SSOT unit) | `never` — and `missingUnits` lists it |
+| every changed unit has a record, and some record's `contentHash` differs from the unit's current hash | `stale` |
+| every changed unit has a record and every hash matches | `in-sync` |
+
+Partial coverage is **never** `in-sync`: a release that changed two units and a
+surface that confirmed only one still owes the other, and the plan says so.
 
 A surface the ledger cannot address (a `repo-meta`/`distribution` slug outside
 the platform enum) therefore reads `never` — the honest v1 answer: the plan names
@@ -2521,7 +2534,7 @@ deterministic and read-only (contract: §7.8).
 
 The engine emits the factual spine and the order; the **judgment** per channel —
 angles, character budgets, membership/announcement norms — lives in `skills/`
-(rule 7 + D9). The first distribution skill is `skills/github-repo-meta/`
+(rule 7 + D9). The first non-profile presence skill is `skills/github-repo-meta/`
 (`playbook.md` + `checks.yaml`), covering the repo's own metadata surface.
 
 ### 22.5 Scope boundary (v1)

@@ -12,9 +12,13 @@
  * `in-sync` / `stale` / `never` (§19), derived from `deployments` for the release's
  * own `changedUnits`:
  *
- *   any changed unit has no ledger record on that surface   → never
- *   any record's contentHash != the unit's current hash     → stale
- *   otherwise                                               → in-sync
+ *   ANY changed unit has no ledger record on that surface  → never
+ *   every changed unit has a record, and some record's
+ *   contentHash != the unit's current hash                  → stale
+ *   every record matches                                    → in-sync
+ *
+ * Partial coverage is NEVER in-sync: a release that changed two units and the
+ * surface confirmed only one still owes the other, and `missingUnits` names it.
  *
  * A surface the ledger cannot record (a repo-meta/distribution slug outside the
  * platform enum) therefore reads `never`: the honest v1 answer — the plan names
@@ -62,7 +66,9 @@ export interface ReleaseSurface {
   surface: string;
   kind: SurfaceKind;
   state: PresenceState;
-  /** changedUnits that resolve to no SSOT unit (a release citing a deleted key). */
+  /** changedUnits this surface still owes: no ledger record on the surface, or
+   *  no SSOT unit behind the key (a release citing a deleted key). Any entry
+   *  here means the surface is `never`, never a partial `in-sync`. */
   missingUnits: string[];
 }
 
@@ -127,7 +133,7 @@ function surfaceState(
 ): { state: PresenceState; missingUnits: string[] } {
   const missingUnits: string[] = [];
   const changed = release.changedUnits ?? [];
-  let recorded = 0;
+  if (changed.length === 0) return { state: "never", missingUnits };
   let stale = false;
   for (const key of changed) {
     const hash = unitHashes.get(key);
@@ -140,11 +146,15 @@ function surfaceState(
     const record = (profile.deployments as Record<string, Record<string, unknown>>)[key]?.[
       surface
     ] as { contentHash?: unknown } | undefined;
-    if (record === undefined) continue;
-    recorded += 1;
+    // A changed unit with no record on THIS surface is a pending fan-out, not an
+    // absence to ignore: it makes the surface `never` (SPEC §7.8/§22.2).
+    if (record === undefined) {
+      missingUnits.push(key);
+      continue;
+    }
     if (record.contentHash !== hash) stale = true;
   }
-  if (recorded === 0) return { state: "never", missingUnits };
+  if (missingUnits.length > 0) return { state: "never", missingUnits };
   return { state: stale ? "stale" : "in-sync", missingUnits };
 }
 
@@ -161,8 +171,36 @@ function compareSurfaces(a: ReleaseSurface, b: ReleaseSurface): number {
   return rank !== 0 ? rank : byText(a.surface, b.surface);
 }
 
+/**
+ * Release ids are addresses and surface lists are sets: a duplicate makes the
+ * answer ambiguous (`selectRelease` would silently return the first) and, in the
+ * ledger's own shape, duplicates are a D12 fail class. Refuse both with the exact
+ * reason, never pick a winner.
+ */
+function assertUniqueReleases(releases: readonly Release[]): void {
+  const ids = new Set<string>();
+  for (const release of releases) {
+    if (ids.has(release.id)) {
+      throw new PresenceError(
+        `release id "${release.id}" is declared more than once — release ids must be unique`,
+      );
+    }
+    ids.add(release.id);
+    const surfaces = new Set<string>();
+    for (const surface of release.surfaces) {
+      if (surfaces.has(surface)) {
+        throw new PresenceError(
+          `release "${release.id}" declares surface "${surface}" more than once — surfaces must be unique`,
+        );
+      }
+      surfaces.add(surface);
+    }
+  }
+}
+
 /** The release a caller asked for, or the newest one (no clock, no guess). */
 export function selectRelease(profile: LoadedProfile, id?: string): Release {
+  assertUniqueReleases(profile.releases);
   const releases = [...profile.releases].sort(newestFirst);
   if (releases.length === 0) {
     throw new PresenceError(
@@ -220,6 +258,7 @@ export function releasePlan(profile: LoadedProfile, id?: string): ReleasePlan {
  * releases, never a second ledger.
  */
 export function presenceBoard(profile: LoadedProfile): PresenceBoard {
+  assertUniqueReleases(profile.releases);
   const releases = [...profile.releases].sort(newestFirst);
   const unitHashes = unitHashMap(profile);
   const seen = new Map<string, PresenceRow>();

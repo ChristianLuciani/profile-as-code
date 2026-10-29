@@ -11,8 +11,11 @@
  *     the per-kind factual spine, one entry per kind present.
  *   - presenceBoard(): one row per surface at the NEWEST release that declares
  *     it, with counts.
- *   - the refusals: no releases, an unknown release id, a surface the registry
- *     does not know (a typo must not silently build a plan).
+ *   - partial coverage is never in-sync (F1): a changed unit with no record on
+ *     the surface makes it `never` and lands in `missingUnits`;
+ *   - the refusals: no releases, an unknown release id, duplicate release ids,
+ *     duplicate surfaces and a surface the registry does not know (a typo must
+ *     not silently build a plan).
  */
 
 import { describe, expect, it } from "vitest";
@@ -77,6 +80,42 @@ describe("releasePlan — the ordered fan-out", () => {
     }
     expect(plan.baseText[0]?.text.startsWith("What shipped:")).toBe(true);
     expect(plan.baseText[2]?.text.startsWith("Announcement:")).toBe(true);
+  });
+
+  it("a changed unit with no record makes the surface never, not partial in-sync (F1)", () => {
+    const profile = load(RELEASES);
+    // github-readme has a record for `identity` only; the bio unit has none.
+    profile.releases[0]!.changedUnits = ["identity", "bios:github-readme:en:long"];
+    const plan = releasePlan(profile);
+    const readme = plan.surfaces.find((row) => row.surface === "github-readme");
+    expect(readme?.state).toBe("never");
+    expect(readme?.missingUnits).toEqual(["bios:github-readme:en:long"]);
+    // The surface still carries the identity record — coverage is partial, which
+    // is exactly why it must not read in-sync.
+    expect(plan.surfaces.find((row) => row.surface === "linkedin")?.state).toBe("never");
+  });
+
+  it("refuses duplicate release ids instead of silently returning the first", () => {
+    const profile = load(RELEASES);
+    profile.releases.push({ ...profile.releases[0]! });
+    expect(() => releasePlan(profile)).toThrow(/release id "v0-3-0" is declared more than once/);
+    expect(() => presenceBoard(profile)).toThrow(/release ids must be unique/);
+  });
+
+  it("refuses duplicate surfaces inside a release", () => {
+    const profile = load(RELEASES);
+    profile.releases[0]!.surfaces.push("github-readme");
+    expect(() => releasePlan(profile)).toThrow(
+      /release "v0-3-0" declares surface "github-readme" more than once/,
+    );
+    expect(() => presenceBoard(profile)).toThrow(/surfaces must be unique/);
+  });
+
+  it("refuses a surface the registry does not know (a typo is not a kind)", () => {
+    const profile = load(RELEASES);
+    profile.releases[0]!.surfaces.push("not-a-surface");
+    expect(() => releasePlan(profile)).toThrow(/surface "not-a-surface" is not declared/);
+    expect(() => presenceBoard(profile)).toThrow(/is not declared in platforms\/registry.yaml/);
   });
 
   it("is deterministic: two reads produce identical bytes", () => {
