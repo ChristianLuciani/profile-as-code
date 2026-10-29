@@ -11,6 +11,22 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **`publication.kind` — the output classification moves into the contract (schema
+  v1.14, #349)** — `publications[].kind` is an optional, closed enum
+  `journal-article` | `preprint` | `conference-abstract`: the structured answer to
+  *what kind of output is this*, which until now lived outside the contract as
+  per-consumer `venue`-string heuristics ("Carbon Trends" → peer-reviewed, "SSRN
+  Electronic Journal" → preprint, "… (abstract)" → abstract) — a new venue failed a
+  consumer's checker and needed hand classification. **`peerReviewed` is derived, never
+  stored:** exactly `kind == journal-article`, the same derive-never-store discipline as
+  published-vs-in-development (§15.3/§20.1); an exception requires a SPEC decision
+  before a boolean exists. Additive: a row without `kind` validates and renders
+  byte-identically, every existing workspace stays valid, and no renderer output
+  changes. Consumers that need counts must require the field explicitly. Contract in
+  SPEC §6; `Zod` regenerated from the schema (D3). — *The consumer workspace's
+  claim-sidecar heuristic becomes a schema fact (#349); `publications.counts` in the
+  compiled profile remains #348's follow-up.*
+
 - **The seam-cohort publish is rehearsed before it is irreversible (#313)** —
   `scripts/release-rehearsal/` packs the five seam packages with the same client the
   release uses (`pnpm`, whose `workspace:*` rewrite is the #301 mechanism) and

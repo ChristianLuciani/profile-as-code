@@ -4,9 +4,15 @@
 workspace (JSON Schema, draft 2020-12). Per D3, JSON Schema is the contract source and
 **Zod schemas are generated from it** in `packages/core` — never hand-written in parallel.
 
-> Status: **v1.13** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
+> Status: **v1.14** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
 > v1.x is **additive** (semver minor): every earlier workspace still validates unchanged. New
-> in v1.13 (issue #334): `identity.nationality` — the ISO 3166-1 alpha-2 code (uppercase, e.g.
+> in v1.14 (issue #349): `publication.kind` — the closed output classification
+> (`journal-article` | `preprint` | `conference-abstract`). `peerReviewed` is **derived**
+> from `kind == journal-article` and never stored; a row without `kind` validates and renders
+> exactly as before, and a consumer that needs counts requires the field rather than
+> inferring it from the free-string `venue`.
+>
+> New in v1.13 (issue #334): `identity.nationality` — the ISO 3166-1 alpha-2 code (uppercase, e.g.
 > `VE`), asserted by `^[A-Z]{2}$`; emitted on the Person entity JSON-LD as
 > `nationality: { "@type": "Country", identifier }`. A `flavor: brand` workspace may declare
 > it (identity is shared) but the Organization JSON-LD carries no `nationality` property —
@@ -72,7 +78,7 @@ validates the result against this schema. File → root property mapping:
 | `education.yaml` | `education[]` | v1.1: formal education (degree/institution/start/end/note) |
 | `languages.yaml` | `languages[]` | v1.1: spoken languages (code + level) |
 | `projects.yaml` | `projects[]` | With `evidence[]` (verifiable claims); v1.12 (issue #333): `artifactRefs[]` names the work behind the row — publication truth is derived from `artifacts[]` (§15.3), never stored |
-| `publications.yaml` | `publications[]` | DOI/ORCID resolvable → GEO citability |
+| `publications.yaml` | `publications[]` | DOI/ORCID resolvable → GEO citability; v1.14 (issue #349): optional `kind` (`journal-article` \| `preprint` \| `conference-abstract`) classifies the output — `peerReviewed` is derived from `kind == journal-article`, never stored |
 | `keywords.yaml` | `keywords` | SEO per platform + GEO associations/claims |
 | `checks.yaml` | `checks[]` | User-level rules; unioned with skill `checks.yaml` |
 | `active.yaml` | `active` | Which variant is LIVE per platform (D11) |

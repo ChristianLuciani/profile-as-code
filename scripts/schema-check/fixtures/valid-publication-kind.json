@@ -1,0 +1,29 @@
+{
+  "identity": { "name": "Ada Example" },
+  "flavor": "person",
+  "publications": [
+    {
+      "title": "A Peer-Reviewed Paper",
+      "venue": "Journal of Examples",
+      "year": 2024,
+      "kind": "journal-article"
+    },
+    {
+      "title": "A Preprint",
+      "venue": "arXiv",
+      "year": 2023,
+      "kind": "preprint"
+    },
+    {
+      "title": "A Conference Abstract",
+      "venue": "Annual Meeting",
+      "year": 2022,
+      "kind": "conference-abstract"
+    },
+    {
+      "title": "An Unclassified Legacy Row",
+      "venue": "Somewhere Else",
+      "year": 2021
+    }
+  ]
+}

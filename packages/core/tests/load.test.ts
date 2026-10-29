@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { LoadError, load, SchemaValidationError } from "../src/index.js";
+import { compile, LoadError, load, SchemaValidationError } from "../src/index.js";
 
 const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
 
@@ -313,6 +313,66 @@ describe("identity.email (v1.5, issue #71 — the contact email is a fact, not a
         const e = error as SchemaValidationError;
         expect(e.issues.some((issue) => issue.path === "identity.links.0.url")).toBe(true);
       }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("publication.kind (v1.14 — a derived, never-stored classification)", () => {
+  it("accepts every publication.kind value (v1.14, #349)", () => {
+    for (const kind of ["journal-article", "preprint", "conference-abstract"]) {
+      const dir = makeWorkspace({
+        "identity.yaml": "name: X\n",
+        "publications.yaml": `- title: A Paper\n  venue: Somewhere\n  year: 2024\n  kind: ${kind}\n`,
+      });
+      try {
+        expect(load(dir).publications[0]?.kind).toBe(kind);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it("rejects a publication.kind outside the closed enum — no prose synonyms (v1.14, #349)", () => {
+    for (const kind of ["paper", "peer-reviewed", "peerReviewed", "abstract", "preprint "]) {
+      const dir = makeWorkspace({
+        "identity.yaml": "name: X\n",
+        "publications.yaml": `- title: A Paper\n  venue: Somewhere\n  year: 2024\n  kind: '${kind}'\n`,
+      });
+      try {
+        expect(() => load(dir)).toThrow(SchemaValidationError);
+        try {
+          load(dir);
+        } catch (error) {
+          const e = error as SchemaValidationError;
+          expect(e.issues.some((issue) => issue.path === "publications.0.kind")).toBe(true);
+        }
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it("keeps a workspace WITHOUT publication.kind validating and injects no default (v1.14, #349)", () => {
+    const dir = makeWorkspace({
+      "identity.yaml": "name: X\n",
+      "publications.yaml": "- title: A Paper\n  venue: Somewhere\n  year: 2024\n",
+    });
+    try {
+      const legacy = load(dir);
+      // Additive means the loader does not materialize a default for an absent field.
+      expect("kind" in (legacy.publications[0] ?? {})).toBe(false);
+      // The compiled slice carries the row UNTOUCHED: the collection still has the one
+      // row the fixture declared, and that row deep-equals the input (no derived kind,
+      // no peerReviewed flag) — so a dropped row could not pass this assertion.
+      const compiled = compile(legacy, "github-readme", "en");
+      expect(compiled.publications).toHaveLength(1);
+      expect(compiled.publications[0]).toEqual({
+        title: "A Paper",
+        venue: "Somewhere",
+        year: 2024,
+      });
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
