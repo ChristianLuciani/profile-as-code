@@ -77,8 +77,7 @@ se cita, se ignora.
 2. `pasco check` — handle-claimed / handle-consistent OK (offline) + `url-live` de
    cada handle claimed (network, verificación manual).
 3. `pasco build github-org --lang en` → `profiles/github-org/README.md`.
-4. Copiar el README al repo del org (deploySpec: git; el humano mergea —
-   repo-governance).
+4. Copiar el README al repo del org (deploySpec: git; el humano mergea).
 5. Verificación post-deploy: cada badge/link del README resuelve; los handles
    pending NO figuran como surfaces vivas.
 

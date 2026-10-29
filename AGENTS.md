@@ -89,10 +89,12 @@ per-user private repo (`profile-data`), scaffolded from the template
    tree) and, for developers only, the marked workspace checkout
    (`<repo>/pnpm-workspace.yaml` next to `<repo>/skills/`); a published install
    must never depend on either fallback. Dated records (CHANGELOG history, sourced
-   research, issue/PR bodies) are exempt — rule 8. The rule binds every tracked
-   file, not only the CLI: `node scripts/agnostic-check/check.mjs` fails CI when a
-   doc, workflow or script names a private path, repo or tool. Dated records are
-   **out of scope by class** (`CHANGELOG.md`, `docs/research/` — rule 8); a
+   research, issue/PR bodies) are exempt — rule 8. The rule binds every scanned
+   surface, not only the CLI: `node scripts/agnostic-check/check.mjs` fails CI when
+   a doc, workflow or script names a private path, repo or tool (names match
+   case-insensitively, and a private repo is caught in every clone form). Dated
+   records are **out of scope by class** (`CHANGELOG.md`, `docs/research/` — rule
+   8), except the corpus's live runbook and research prompt, which stay scanned; a
    historical copy outside those classes and a synthesized test fixture are
    exempt by FILE in `scripts/agnostic-check/allowlist.json`, never by phrase
    (#274).

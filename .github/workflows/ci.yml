@@ -84,18 +84,23 @@ jobs:
       # its reader can open. The class came in by copy — private repo/tooling
       # names and absolute checkout paths across docs, CI comments, tests and
       # session artifacts — so the sweep is a predicate now, not a manual pass.
-      # `private-targets.json` is the declared inventory (private names, private
-      # repo targets, operator path shapes) and `allowlist.json` exempts DATED
-      # RECORDS by PATH (CHANGELOG history, build-session records, synthesized
-      # test fixtures) — never by phrase; an entry that suppresses nothing warns.
+      # `private-targets.json` is the declared inventory (private names AND their
+      # aliases, private repo targets, operator path shapes; names match
+      # case-insensitively). AGENTS rule 8 records are EXCLUDED AS A CLASS by the
+      # walker (`CHANGELOG.md`, `docs/research/`), never by allowlist entry; the
+      # corpus's live runbook and research prompt stay scanned. `allowlist.json`
+      # exempts a historical copy OUTSIDE that class — one FILE at a time, so a
+      # new file cannot inherit an old exemption — and synthesized test fixtures;
+      # never by phrase, and an entry that suppresses nothing warns.
       # The repo-target rule is the #273 clause: a PR that links a family repo
-      # declared `private` fails here. OFFLINE and deterministic by design —
+      # declared `private` fails here in every clone form (web, `git@…:`,
+      # `host:owner/repo`, `ssh://`, percent-encoded). OFFLINE and deterministic —
       # visibility is verified out of band and recorded in the inventory; a
       # probe would make a required check depend on a third party (#132, the same
       # reason link-check never fetches). Zero deps, so it runs before
       # `pnpm install`; the fixture self-test runs first and proves every refusal
-      # (each rule, the path-vs-phrase distinction, malformed/overlapping
-      # entries, hidden-dir scope).
+      # (each rule, every clone form, the path-vs-phrase distinction,
+      # malformed/overlapping entries, hidden-dir scope, live-vs-dated records).
       - name: Public-surface agnostic gate (offline, self-tested)
         run: |
           node scripts/agnostic-check/test.mjs

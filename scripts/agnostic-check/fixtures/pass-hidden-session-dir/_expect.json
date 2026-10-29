@@ -1,5 +1,6 @@
 {
   "exit": 0,
   "contains": ["agnostic-check: PASS", "0 private references"],
-  "notContains": ["E-AGNOSTIC", "skills-studio"]
+  "notContains": ["E-AGNOSTIC", "skills-studio"],
+  "tree_files": 2
 }

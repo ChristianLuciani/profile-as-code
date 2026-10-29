@@ -46,6 +46,16 @@ const fixturesDir = path.join(here, "fixtures");
 const checkPath = path.join(here, "check.mjs");
 const targetsPath = path.join(here, "private-targets.json");
 
+/** Recursive file count, hidden entries included: a partial tree passes in void. */
+function countTreeFiles(dir) {
+  let count = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) count += countTreeFiles(path.join(dir, entry.name));
+    else if (entry.isFile()) count += 1;
+  }
+  return count;
+}
+
 const cases = readdirSync(fixturesDir, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
@@ -63,10 +73,18 @@ for (const name of cases) {
     continue;
   }
   const treeDir = path.join(dir, "tree");
-  if (!existsSync(treeDir)) {
+  const allowlist = path.join(dir, "allowlist.json");
+  if (!existsSync(treeDir) || !existsSync(allowlist)) {
     failed += 1;
     console.error(
-      `FAIL ${name}: fixture tree is missing (${treeDir}) — a fixture under an ignored path never reaches a clean clone`,
+      `FAIL ${name}: fixture tree or allowlist is missing (${existsSync(treeDir) ? allowlist : treeDir}) — a fixture under an ignored path never reaches a clean clone`,
+    );
+    continue;
+  }
+  if (countTreeFiles(treeDir) !== expect.tree_files) {
+    failed += 1;
+    console.error(
+      `FAIL ${name}: tree carries ${countTreeFiles(treeDir)} file(s), expected ${expect.tree_files} — a fixture file is missing or gitignored (a partial fixture can pass in void)`,
     );
     continue;
   }

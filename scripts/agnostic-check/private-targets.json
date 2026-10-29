@@ -36,6 +36,14 @@
     {
       "name": "sovereign-agentic-hub",
       "reason": "operator's private model-routing system; the public repo must not depend on it"
+    },
+    {
+      "name": "community-first",
+      "reason": "private operator contract for community readiness \u2014 the checklist is inlined where needed, the contract itself is not openable"
+    },
+    {
+      "name": "repo-governance",
+      "reason": "private operator contract for repo governance \u2014 the rule is inlined where needed, the contract itself is not openable"
     }
   ],
   "privateRepos": [
@@ -46,9 +54,19 @@
   ],
   "operatorPaths": [
     {
-      "pattern": "/Users/[A-Za-z0-9._-]+/",
+      "pattern": "/Users/[A-Za-z0-9._-]+",
       "label": "absolute macOS home path",
-      "reason": "a checkout path on the author's machine \u2014 a reader cannot open it"
+      "reason": "a checkout path on the author's machine \u2014 a reader cannot open it. No trailing slash required: a line-final `/Users/<name>` leaks the same path"
+    },
+    {
+      "pattern": "/home/(?!me\\b)[A-Za-z0-9._-]+",
+      "label": "absolute Linux home path",
+      "reason": "same class on Linux. `/home/me` is the documented generic placeholder in a CLI output example, not a real checkout, so it is not a match"
+    },
+    {
+      "pattern": "[A-Za-z]:\\\\Users",
+      "label": "absolute Windows home path",
+      "reason": "same class on Windows (`C:\\Users\\<name>`)"
     },
     {
       "pattern": "PROJECTOS/GitHub",

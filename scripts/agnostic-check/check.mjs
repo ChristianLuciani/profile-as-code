@@ -9,13 +9,17 @@
  * predicate that runs on every PR:
  *
  *   R1 — no tracked text file names a private repo/path/tool declared in
- *        `private-targets.json` (the inventory: operator repos, tooling names,
- *        absolute home paths). The list is DATA, not a paragraph, so adding a
- *        family target is a reviewable one-line change.
+ *        `private-targets.json` (the inventory: operator repos, tooling names
+ *        AND their short aliases, private contract names, absolute home paths).
+ *        Matching is case-insensitive: a capitalized or uppercase spelling is
+ *        the same leak as the declared one. The list is DATA, not a paragraph,
+ *        so adding a family target is a reviewable one-line change.
  *   R2 — no tracked text file links a repo target declared `private` in the
  *        same registry, in EVERY clone form: `github.com/<owner>/<repo>`,
  *        `<owner>/<repo>.git`, `git@github.com:<owner>/<repo>` and
- *        `ssh://git@github.com/<owner>/<repo>`. That is the #273 clause:
+ *        `ssh://[git@]github.com/<owner>/<repo>`, the `host:owner/repo`
+ *        scp-like form and percent-encoded names — case-insensitively. That is
+ *        the #273 clause:
  *        a PR that links a private family repo fails the gate. Visibility is
  *        verified OUT OF BAND (release/pre-merge, where the network is
  *        acceptable) and recorded in the registry; this gate is OFFLINE and
@@ -32,8 +36,9 @@
  * Two exemptions, each with its own mechanism:
  *   - AGENTS rule 8 dated records are OUT OF SCOPE BY CLASS and the walker
  *     enforces it (`CHANGELOG.md`, `docs/research/`): history is not rewritten,
- *     so a reference there is evidence, not a live pointer. Issue/PR bodies are
- *     not in the tree at all.
+ *     so a reference there is evidence, not a live pointer. The corpus's LIVE
+ *     instructions (`docs/research/RUN.md`, `02-prompt-investigacion.md`) are
+ *     explicit exceptions and stay scanned. Issue/PR bodies are not in the tree.
  *   - Historical copies kept OUTSIDE those classes (the dated build-session
  *     records under `docs/build/`) and synthesized test fixtures are exempt by
  *     PATH in `allowlist.json`, one FILE at a time — a directory prefix would
@@ -99,20 +104,13 @@ const TEXT_EXTENSIONS = new Set([
   ".html",
 ]);
 
-/** Never descended into: VCS, installs, build output, session state. */
-const SKIP_DIR_NAMES = new Set([
-  "node_modules",
-  ".git",
-  "dist",
-  "coverage",
-  ".turbo",
-  ".worktrees",
-  ".agos",
-  ".vitest",
-  ".sota",
-  ".e2e",
-  ".e2e-agentic",
-]);
+/**
+ * Never descended into: installs and build output (non-hidden). VCS, session
+ * state and every other hidden tree are skipped by the hidden-dir rule, which is
+ * also why this set must not name them: naming one would print a private name in
+ * this file.
+ */
+const SKIP_DIR_NAMES = new Set(["node_modules", "dist", "coverage"]);
 
 /**
  * Generated or test-corpus paths, excluded by construction:
@@ -145,28 +143,78 @@ const SKIP_PATH_PREFIXES = [
  *                            the source and its date).
  * Issue/PR bodies are exempt too; they are not in the checkout.
  */
-const SCOPE_EXCLUDED_BY_CLASS = ["CHANGELOG.md", "docs/research"];
+const SCOPE_EXCLUDED_BY_CLASS = [
+  {
+    path: "CHANGELOG.md",
+    reason: "released history — the release record itself",
+  },
+  {
+    path: "docs/research",
+    reason: "sourced + dated prior-art corpus (its value is the source and its date)",
+    // The corpus also holds LIVE instructions: a runbook the reader executes and
+    // the prompt that starts a research session. Those stay scanned, so the class
+    // exclusion cannot hide a live pointer inside a dated corpus.
+    except: ["docs/research/RUN.md", "docs/research/02-prompt-investigacion.md"],
+  },
+];
+
+/** True when `rel` is inside a dated-record class and is not a live exception. */
+function excludedByClass(rel) {
+  for (const rule of SCOPE_EXCLUDED_BY_CLASS) {
+    const inside = rel === rule.path || rel.startsWith(`${rule.path}/`);
+    if (!inside) continue;
+    const except = rule.except ?? [];
+    const isException = except.some((entry) => rel === entry || rel.startsWith(`${entry}/`));
+    const ancestorOfException = except.some((entry) => entry.startsWith(`${rel}/`));
+    if (!isException && !ancestorOfException) return true;
+  }
+  return false;
+}
 
 /** Escape a literal for use inside a RegExp. */
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** A whole-token matcher: a one-word target does not fire inside a longer word. */
+/**
+ * A whole-token matcher, CASE-INSENSITIVE: a capitalized or uppercase spelling
+ * is the same private name as its canonical one, and a one-word target does not
+ * fire inside a longer word.
+ */
 function tokenMatcher(name) {
-  return new RegExp(`(?<![A-Za-z0-9_-])${escapeRegExp(name)}(?![A-Za-z0-9_-])`, "g");
+  return new RegExp(`(?<![A-Za-z0-9_-])${escapeRegExp(name)}(?![A-Za-z0-9_-])`, "gi");
 }
 
 /**
- * A repo-target matcher for every clone form a reader can paste: web
- * (`github.com/…`), bare `<owner>/<repo>` is NOT matched (it is a name, not a
- * target), and the three URL forms a git client accepts —
- * `https://github.com/<repo>(.git)`, `git@github.com:<repo>(.git)` and
- * `ssh://git@github.com/<repo>(.git)`.
+ * A repo-target matcher for EVERY form a reader can paste, case-insensitively
+ * (hosts and GitHub paths are not case-sensitive):
+ *   - web:            `github.com/<repo>`, with/without scheme and `www.`;
+ *   - scp-like:       `git@github.com:<repo>` and `github.com:<repo>` (no user);
+ *   - URL schemes:    `ssh://[git@]github.com/<repo>`, `git://…`, `http(s)://…`;
+ *   - optional `.git`;
+ *   - percent-encoded names (`profile%2Ddata`) — the caller decodes the safe
+ *     URL escapes before matching (`decodeUrlEscapes`).
+ * A bare `<owner>/<repo>` is NOT matched: it is a name, not a target.
  */
 function repoTargetMatcher(repo) {
   const target = `${escapeRegExp(repo)}(?:\\.git)?(?![A-Za-z0-9_.-])`;
-  return new RegExp(`(?:git@github\\.com:|ssh://git@github\\.com/|github\\.com/)${target}`, "g");
+  const host = "(?:www\\.)?github\\.com";
+  return new RegExp(
+    `(?<![A-Za-z0-9.-])(?:(?:https?|ssh|git)://)?(?:[^@\\s/]+@)?${host}[:/]${target}`,
+    "gi",
+  );
+}
+
+/**
+ * Decode only the URL-safe escapes a repo target can be written with
+ * (`%2D` `-`, `%2F` `/`, `%3A` `:`, `%2E` `.`, `%40` `@`), so a percent-encoded
+ * name cannot walk past the matcher. Never throws on an unrelated `%` sequence.
+ */
+function decodeUrlEscapes(text) {
+  return text.replace(/%([0-9A-Fa-f]{2})/g, (match, hex) => {
+    const char = String.fromCharCode(Number.parseInt(hex, 16));
+    return /[A-Za-z0-9._:/@-]/.test(char) ? char : match;
+  });
 }
 
 function requireString(value, label, rule = RULES.targetsInvalid) {
@@ -336,9 +384,7 @@ function walkFiles(root) {
       if (SKIP_PATH_PREFIXES.some((prefix) => rel === prefix || rel.startsWith(`${prefix}/`))) {
         continue;
       }
-      if (
-        SCOPE_EXCLUDED_BY_CLASS.some((prefix) => rel === prefix || rel.startsWith(`${prefix}/`))
-      ) {
+      if (excludedByClass(rel)) {
         continue;
       }
       if (entry.isDirectory()) {
@@ -387,9 +433,10 @@ export function check({ root, allowlistPath, targetsPath }) {
     if (text === null) continue;
     const lines = text.split(/\r?\n/);
     for (const [index, line] of lines.entries()) {
+      const decoded = decodeUrlEscapes(line);
       for (const matcher of matchers) {
         matcher.regex.lastIndex = 0;
-        let match = matcher.regex.exec(line);
+        let match = matcher.regex.exec(decoded);
         while (match !== null) {
           findings.push({
             file,
@@ -398,7 +445,7 @@ export function check({ root, allowlistPath, targetsPath }) {
             snippet: snippet(line),
           });
           if (match[0] === "") matcher.regex.lastIndex += 1;
-          match = matcher.regex.exec(line);
+          match = matcher.regex.exec(decoded);
         }
       }
     }

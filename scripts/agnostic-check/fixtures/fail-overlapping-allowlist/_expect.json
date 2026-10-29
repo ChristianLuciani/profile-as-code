@@ -1,5 +1,6 @@
 {
   "exit": 1,
   "contains": ["E-ALLOWLIST-INVALID", "overlapping"],
-  "notContains": ["E-GATE: E-GATE"]
+  "notContains": ["E-GATE: E-GATE"],
+  "tree_files": 1
 }

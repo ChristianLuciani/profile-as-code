@@ -1,5 +1,6 @@
 {
   "exit": 0,
   "contains": ["W-ALLOWLIST-UNUSED", "docs/history.md", "agnostic-check: PASS"],
-  "warnings": 1
+  "warnings": 1,
+  "tree_files": 1
 }

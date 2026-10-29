@@ -2,5 +2,6 @@
   "exit": 0,
   "contains": ["agnostic-check: PASS"],
   "notContains": ["E-AGNOSTIC", "W-ALLOWLIST-UNUSED"],
-  "warnings": 0
+  "warnings": 0,
+  "tree_files": 2
 }

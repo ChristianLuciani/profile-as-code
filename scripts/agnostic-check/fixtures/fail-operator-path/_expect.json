@@ -6,5 +6,6 @@
     "operator path (absolute macOS home path)",
     "operator path (operator checkout root)",
     "agnostic-check: FAIL"
-  ]
+  ],
+  "tree_files": 1
 }

@@ -22,6 +22,6 @@ mismo contrato.
 2. Llenar `content/` (identity org + handle matrix + newsletter/podcast/press/audiences).
 3. `pasco validate` → 0 drift warnings en la matrix; `pasco check` → handle rules OK.
 4. `pasco build github-org --lang en` → `profiles/github-org/README.md` (git deploy).
-5. Deploy: el humano mergea (repo-governance).
+5. Deploy: el humano mergea.
 
 Detalles en `docs/SPEC.md` §17 (brand flavor) y `skills/github-org/`.

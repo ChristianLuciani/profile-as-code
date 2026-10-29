@@ -1463,7 +1463,7 @@ output, not hand-maintained prose.
 1. A deterministic renderer `github-readme` — `compile()` slice → `README.md` (plus optional
    `assets/`), pure function of the workspace (same input → same bytes, byte-stable).
 2. Deploy via git: renderer writes `profiles/github-readme/README.md`; a script/CI copies it to the
-   profile repo and commits (deploy = git push; human merges, per repo-governance).
+   profile repo and commits (deploy = git push; the maintainer merges).
 3. GEO by construction: `schema.org/Person` JSON-LD embedded (LD+JSON), canonical links as
    `sameAs` (SPEC §8/geoCheck structured-data readiness), facts verbatim from the SSOT.
 4. Dogfood acceptance: Christian's real workspace (private `profile-data`) renders a README

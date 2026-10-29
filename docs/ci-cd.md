@@ -73,7 +73,8 @@ One job, **`ci`**, required on every PR and push to `main`:
    targets, operator path shapes, including the private router's short alias).
    AGENTS rule 8 dated records are **out of scope by class**, enforced in the
    walker: `CHANGELOG.md` and the sourced research under `docs/research/` are
-   history, and history is not rewritten. `allowlist.json` is for historical
+   history, and history is not rewritten; the corpus's live runbook and research
+   prompt are explicit exceptions and stay scanned. `allowlist.json` is for historical
    copies that live OUTSIDE those classes — the dated build-session records under
    `docs/build/`, one FILE at a time so a new file cannot inherit an old
    exemption — and for synthesized test fixtures; exemption is never by phrase,
