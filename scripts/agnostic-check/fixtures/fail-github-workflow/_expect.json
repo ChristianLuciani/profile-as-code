@@ -1,0 +1,5 @@
+{
+  "exit": 1,
+  "contains": [".github/workflows/ci.yml:3", "private name \"AGOS\"", "agnostic-check: FAIL"],
+  "tree_files": 1
+}

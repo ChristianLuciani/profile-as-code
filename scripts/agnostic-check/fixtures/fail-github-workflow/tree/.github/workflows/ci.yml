@@ -1,0 +1,4 @@
+name: ci
+
+# The kernel this repo used to depend on was AGOS.
+on: push

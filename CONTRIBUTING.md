@@ -52,7 +52,18 @@ every decision lives in [`docs/SPEC.md`](docs/SPEC.md) §5 — the decision regi
    The other allowed roots are an explicit `PASCO_SKILLS_DIR` and, for developers
    only, the marked workspace checkout; a published install must not depend on
    them. Dated records (CHANGELOG history, sourced research, issue/PR bodies) are
-   exempt (AGENTS rule 8).
+   exempt (AGENTS rule 8). The same rule binds docs and scripts (AGENTS rule 9):
+   `scripts/agnostic-check/` fails CI when a tracked file names a private path,
+   repo or tool, and its allowlist admits only dated records, by path.
+
+## What stays out of the tree
+
+Session artifacts — research briefs, review records, end-to-end run logs — are
+**never committed** to this repository. If a past session's evidence matters, it
+belongs in that session's PR or issue, which is where a reader can follow it; the
+checkout is not an archive of other sessions. `.sota/`, `.e2e/` and
+`.e2e-agentic/` are gitignored for that reason (issue #274); their historical
+blobs remain in git history and are not rewritten.
 
 ## Local setup
 
@@ -200,7 +211,7 @@ for lo,hi,lab in ((0,6,"<6h"),(6,48,"6-48h"),(48,168,"2-7d"),(168,1e9,">7d")):
 - **What happens next is never silence.** A stalled PR gets one of three explicit outcomes:
   a maintainer review, a `help wanted` label plus a note saying what is needed, or a close
   with a stated reason. This is the same discipline our issue triage already commits to
-  (community-first §4, ≤48 h close-or-label), applied to the PR side.
+  (≤48 h close-or-label), applied to the PR side.
 
 ## Contributing a platform skill (the special case)
 

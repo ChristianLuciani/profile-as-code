@@ -1,0 +1,11 @@
+{
+  "exit": 1,
+  "contains": [
+    "E-AGNOSTIC",
+    "docs/records/99-new.md:3",
+    "private name \"prompt-studio\"",
+    "agnostic-check: FAIL"
+  ],
+  "notContains": ["docs/records/01-core-build.md:"],
+  "tree_files": 2
+}

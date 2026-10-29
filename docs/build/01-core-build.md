@@ -1,5 +1,10 @@
 # Build session — M1 core (`packages/core`)
 
+> **Historical record (2026-08 build prompt).** The checkout path and the tooling
+> names below describe the session that executed M1, not a current instruction;
+> the engine has since shipped. It is allowlisted as ONE dated file by
+> `scripts/agnostic-check/allowlist.json` (issue #274).
+
 > Paste this prompt into a NEW agent session (one deliverable per session). Docs convention: EN (D8).
 > Session rules: NEVER touch main/master. Create YOUR OWN worktree + branch per your session/harness
 > convention (this is a harness artifact, not a project convention — the project only requires

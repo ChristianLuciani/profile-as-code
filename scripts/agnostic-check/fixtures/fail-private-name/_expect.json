@@ -1,0 +1,10 @@
+{
+  "exit": 1,
+  "contains": [
+    "E-AGNOSTIC",
+    "docs/guide.md:3",
+    "private name \"skills-studio\"",
+    "agnostic-check: FAIL"
+  ],
+  "tree_files": 1
+}

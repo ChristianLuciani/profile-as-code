@@ -5,7 +5,7 @@ Este repo ya contiene todo lo necesario para lanzarla desde AionUi.
 
 ## Pasos
 
-1. **Abrí esta carpeta como proyecto en AionUi** (`/Users/eva/PROJECTOS/GitHub/ChristianLuciani/profile-as-code`).
+1. **Abrí esta carpeta como proyecto en AionUi** (la raíz de este repo, la que contiene `pnpm-workspace.yaml`).
 2. **Creá una conversación nueva** con tu asistente de trabajo (Pi).
 3. **Pegá como primer mensaje el contenido de** [`02-prompt-investigacion.md`](./02-prompt-investigacion.md).
    Opcional: decile "seguí el prompt de docs/research/02-prompt-investigacion.md".

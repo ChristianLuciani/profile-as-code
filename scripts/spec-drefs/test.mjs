@@ -189,7 +189,7 @@ try {
     const root = tree({});
     write(root, ".github/workflows/ci.yml", "# D99 (D1–D2)\n");
     write(root, "CHANGELOG.md", "- D99 (D1–D2)\n");
-    write(root, ".sota/x/05-review.md", "D99 (D1–D2)\n");
+    write(root, ".session/x/05-review.md", "D99 (D1–D2)\n");
     write(root, "schema/profile.schema.json", '{"description":"D99 (D1–D2)"}\n');
     write(root, "packages/core/src/index.ts", "// D99 (D1–D2)\n");
     const res = run(root, ["--check"]);

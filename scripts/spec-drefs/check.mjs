@@ -35,7 +35,8 @@ import { realpathSync } from "node:fs";
  *
  * The exclusions are declared BY CLASS, never left implicit:
  *   - `CHANGELOG.md` — a dated historical record (rule 8 leaves it alone);
- *   - `.sota/**` — frozen review records, the same historical class;
+ *   - hidden trees (gitignored session artifacts) — same historical class; they
+ *     are never versioned, so a local copy must not fail the gate (#274);
  *   - `site/**` — generated projection of these files, never a second copy;
  *   - `.github/workflows/**` — CI annotations and step labels, code-reviewed;
  *   - source code and machine data (`*.ts`, `*.js`/`*.mjs`, `*.json` — including

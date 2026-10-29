@@ -1,0 +1,77 @@
+{
+  "$comment": "Private-target inventory for scripts/agnostic-check (issue #274, AGENTS rule 9). This file is DATA, not prose: the gate refuses a reference to any name/repo/path declared here. `privateRepos` covers the #273 clause \u2014 a public surface that links a repo declared `private` fails the gate. Visibility is verified OUT OF BAND (release / pre-merge, where the network is acceptable) and recorded here; the gate never probes, because a required check must not depend on a third party's uptime or rate limits (#132). `operatorPaths` are absolute local paths no reader can open; the generic documentation placeholder `/Users/\u2026` (ellipsis) is NOT a match by construction. Add a target with its reason; remove one when the repo becomes public or the name stops being private.",
+  "privateNames": [
+    {
+      "name": "skills-studio",
+      "reason": "operator's private skills registry repo \u2014 not openable by a reader of this repo"
+    },
+    {
+      "name": "prompt-studio",
+      "reason": "operator's private prompts/contracts repo \u2014 not openable by a reader of this repo"
+    },
+    {
+      "name": "AGOS",
+      "reason": "operator's private agent-os kernel, distributed only on the operator's machines"
+    },
+    {
+      "name": "agos-sop",
+      "reason": "private contract of the operator's agent-os kernel"
+    },
+    {
+      "name": "OpenBao",
+      "reason": "operator's credential store, inside the operator's private network"
+    },
+    {
+      "name": "CLHUB",
+      "reason": "operator's private environment index"
+    },
+    {
+      "name": "TASKHUB",
+      "reason": "operator's private task board \u2014 not a surface a reader can follow"
+    },
+    {
+      "name": "sah",
+      "reason": "short alias of the operator's private model-routing system \u2014 the name survives in prose after the full name is removed, so it is its own target (the class closes only if the aliases do)"
+    },
+    {
+      "name": "sovereign-agentic-hub",
+      "reason": "operator's private model-routing system; the public repo must not depend on it"
+    },
+    {
+      "name": "community-first",
+      "reason": "private operator contract for community readiness \u2014 the checklist is inlined where needed, the contract itself is not openable"
+    },
+    {
+      "name": "repo-governance",
+      "reason": "private operator contract for repo governance \u2014 the rule is inlined where needed, the contract itself is not openable"
+    }
+  ],
+  "privateRepos": [
+    {
+      "repo": "ChristianLuciani/profile-data",
+      "reason": "the operator's real workspace (private by design, SPEC \u00a79) \u2014 dogfood only, never linked from a public surface"
+    }
+  ],
+  "operatorPaths": [
+    {
+      "pattern": "/Users/[A-Za-z0-9._-]+",
+      "label": "absolute macOS home path",
+      "reason": "a checkout path on the author's machine \u2014 a reader cannot open it. No trailing slash required: a line-final `/Users/<name>` leaks the same path"
+    },
+    {
+      "pattern": "/home/(?!me\\b)[A-Za-z0-9._-]+",
+      "label": "absolute Linux home path",
+      "reason": "same class on Linux. `/home/me` is the documented generic placeholder in a CLI output example, not a real checkout, so it is not a match"
+    },
+    {
+      "pattern": "[A-Za-z]:\\\\Users",
+      "label": "absolute Windows home path",
+      "reason": "same class on Windows (`C:\\Users\\<name>`)"
+    },
+    {
+      "pattern": "PROJECTOS/GitHub",
+      "label": "operator checkout root",
+      "reason": "the operator's projects root \u2014 a reader cannot open it"
+    }
+  ]
+}

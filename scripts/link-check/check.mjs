@@ -38,9 +38,9 @@
  * `CODE_OF_CONDUCT`, `CHANGELOG`), `docs/`, `schema/`, `skills/`, `templates/`,
  * and each package README (`packages/<pkg>/README.md`, renderers included).
  * Walking is filesystem based (like `scripts/dep-gate`), skipping VCS, build,
- * and hidden directories — hidden trees (`.github/`, `.sota/`) are excluded by
- * decision, not by accident (`.sota/` holds frozen historical artifacts, not
- * live docs). The scope paths are all tracked by construction, and the checker
+ * and hidden directories — hidden trees (`.github/`, gitignored session
+ * artifacts) are excluded by decision, not by accident: they are not live docs
+ * (#274). The scope paths are all tracked by construction, and the checker
  * must also run against a bare fixture tree in the self-test.
  *
  * Zero dependencies, `node >=22` — runs on a fresh checkout before any install.

@@ -46,9 +46,9 @@ One job, **`ci`**, required on every PR and push to `main`:
    `templates/` and the package READMEs) must resolve to a file or directory,
    and every in-page anchor (`#section`) must resolve against the headings of
    its destination using `github-slugger`'s rules (the reference
-   implementation: each space becomes `-`, `_`/`-` kept). Hidden trees
-   (`.github/`, `.sota/`) are excluded by decision — `.sota/` holds frozen
-   historical artifacts, not live docs. Offline and deterministic: external URLs
+   implementation: each space becomes `-`, `_`/`-` kept). Hidden trees are
+   excluded by decision — they hold CI configuration and gitignored session
+   artifacts, not live docs (#274). Offline and deterministic: external URLs
    are never fetched — a required check cannot depend on third-party uptime or
    rate limits (`https://ko-fi.com/christianluciani` answered HTTP 403 to a bot,
    #132, 2026-10). A private family target therefore needs a declaration, not a
@@ -66,7 +66,28 @@ One job, **`ci`**, required on every PR and push to `main`:
    computation (`pnpm gen:doc-links` regenerates it; a stale block is an
    `E-GATE`). The census is a runtime figure, so it is generated rather than
    typed in prose.
-   A second, always-on node step follows it — **evidence anchors** (`scripts/evidence-gate`,
+   A second, always-on node step follows it — **public-surface agnostic gate**
+   (`scripts/agnostic-check`, issue #274, AGENTS rule 9): no tracked text file may
+   name a private repo, tool or absolute checkout path. The inventory lives in
+   `scripts/agnostic-check/private-targets.json` (private names, private repo
+   targets, operator path shapes, including the private router's short alias).
+   AGENTS rule 8 dated records are **out of scope by class**, enforced in the
+   walker: `CHANGELOG.md` and the sourced research under `docs/research/` are
+   history, and history is not rewritten; the corpus's live runbook and research
+   prompt are explicit exceptions and stay scanned. `allowlist.json` is for historical
+   copies that live OUTSIDE those classes — the dated build-session records under
+   `docs/build/`, one FILE at a time so a new file cannot inherit an old
+   exemption — and for synthesized test fixtures; exemption is never by phrase,
+   and an entry that suppresses nothing warns (`W-ALLOWLIST-UNUSED`) and rides
+   the status as `warnings[]`. The repo-target rule is the #273 clause: a PR
+   that links a family repo declared `private` fails here, in every clone form
+   (`https`, `git@…:`, `ssh://git@…`, `.git`). Visibility is verified
+   out of band (release / pre-merge) and recorded in the inventory — the gate is
+   offline and never probes, because a required check cannot depend on a third
+   party's uptime or rate limits (#132, same reasoning as the link gate). The
+   self-test runs first and proves every refusal, including the path-not-phrase
+   distinction and malformed/overlapping allowlist entries.
+   A third, always-on node step follows it — **evidence anchors** (`scripts/evidence-gate`,
    issue #226): a status row's run-citation is annotated
    `<!-- evidence: <type> as_of=<sha> kind=<record|current> -->`, and the gate
    resolves the sha, asserts it is still an ancestor of the reference, and diffs
@@ -79,7 +100,7 @@ One job, **`ci`**, required on every PR and push to `main`:
    moves past the fork; a rebased-away sha still fails, because it is not in the
    checkout. A `kind=record` citation is never stale. This is the only step that
    needs history, which is why the checkout above fetches `fetch-depth: 0`.
-   A third, always-on node step follows the evidence gate — **decision-register
+   A fourth, always-on node step follows the evidence gate — **decision-register
    references** (`scripts/spec-drefs`, issue #326, follow-up of #315): the
    register has ONE extent, the `| D<n> |` rows of `docs/SPEC.md` §5, so every
    `D<n>` cited in README/CONTRIBUTING/GOVERNANCE/AGENTS, `docs/**`,
@@ -87,8 +108,8 @@ One job, **`ci`**, required on every PR and push to `main`:
    `note`), `templates/**/*.md` (published on-ramps), the package READMEs,
    `schema/README.md`, `platforms/registry.yaml` and the PR + issue templates
    must resolve to a row, and no surface may type the extent as a range. The
-   exclusions are declared by class, never implicit: `CHANGELOG.md` and
-   `.sota/**` are dated records (rule 8), `site/**` is a projection of these
+   exclusions are declared by class, never implicit: `CHANGELOG.md` is a dated
+   record (rule 8), `site/**` is a projection of these
    files, `.github/workflows/**` are CI annotations/step labels, and source code
    plus machine data (`*.ts`, `*.js`/`*.mjs`, `*.json` such as the schema and the
    package manifests, `DCO`, `*.cff`) are code annotations rather than documents.
@@ -446,7 +467,7 @@ rewrite is true on the registry doc. <!-- evidence: registry as_of=aa29880 kind=
 `dist.attestations`, and no seam member has ever been published **by the cohort
 step**. A rehearsal cannot close that: the first real cohort publish requires a
 **release event that bumps at least one seam version**, and the tag is the
-operator's act (kernel AGOS · `repo-governance` §release). When that run happens,
+maintainer's act (release is a human-only action). When that run happens,
 its id + date and a fresh reading of the commands above land in this section, and
 the `CHANGELOG` records the shipped seam version.
 
@@ -765,8 +786,8 @@ know whether it is *complete*, so this preparation is a human step:
 Tagging with a stale `[Unreleased]` still produces a page — just one that omits what
 shipped. A mechanical "fail if `[Unreleased]` is non-empty" gate was considered and
 **rejected**: the repo keeps a `### Planned (roadmap)` block under `[Unreleased]` by
-design, so such a gate would fail correctly prepared releases. The residual risk is
-recorded in `.sota/release-github-58/05-review.md`.
+design, so such a gate would fail correctly prepared releases. The residual risk was
+recorded as an accepted trade-off in the #58 review (issue #58, PR record).
 
 ### Post-publish verification (issue #142)
 
