@@ -40,6 +40,13 @@ The format is a property of the **seed**, not of the channel:
   writer. Rules live in `skills/<channel>/longform.yaml`; the field contract is
   the variant's **YAML front matter**.
 
+Both shapes ship the judgment layer the task bundle points at: `post.md` beside
+the rule file (the short channels since #266, the seven long-form channels since
+#361). The long-form channels add a `SKILL.md`. `pasco refine` resolves it, but
+refine emits a profile task that expects the profile-skill `checks.yaml` (not
+shipped for these channels), so a post channel's path stays `pasco post` — the
+rule file is the only machine contract.
+
 The **short family** is derived from the essay: `post task <child> --format
 short --from <essay> --channel linkedin,x` creates a child seed whose
 `post.yaml` carries `derivedFrom: <essay>`, with **no `seed.md` of its own** (the
