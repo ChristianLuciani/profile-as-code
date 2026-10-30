@@ -8,7 +8,7 @@ description: >
   open question [?], not a promise. The judgment layer — shape,
   voice, GEO, i18n — lives in post.md. The agent writes N variants, the operator
   picks one, and the choice is recorded with `pasco post choose`.
-model: juicio (mid-tier) — what the page answers and how it is structured is
+model: juicio (frontier) — what the page answers and how it is structured is
   judgment; the mechanical parts (markdown, front matter) are not
 applies_to: wordpress
 projection: agent-agnostic (any harness that reads Markdown and can run the CLI)
@@ -29,12 +29,18 @@ part.
 
 ## When it runs
 
-`pasco post task <seed> --format longform --channel wordpress` emits a task
-bundle pointing at `longform.yaml` (contract) and this skill (judgment). Read the
-contract for fields and band, then `post.md` for how to write. `pasco post` is
-this channel's path: `pasco refine wordpress` does resolve this file, but refine
-emits a **profile** task that expects the profile-skill `checks.yaml`, which this
-directory does not ship — it will not give you a post workflow.
+`pasco post task <seed> --format longform --channel wordpress` emits a task bundle
+that points at the contract (`longform.yaml`) and the judgment file (`post.md`);
+it does **not** carry this `SKILL.md`. This file is the channel's strategy
+reference for whoever opens it directly: read the contract for the fields and the
+band, then `post.md` for how to write.
+
+Do **not** run `pasco refine wordpress` for this channel. Refine is the profile
+command: with a `SKILL.md` now present it resolves this file instead of answering
+"no skill for wordpress yet", and emits a **profile** task ("write N variants of
+the wordpress profile") that saves to `profiles/wordpress/variants/<id>.md` — not
+a post workflow. Telling a profile skill from a post skill is an engine decision,
+not something this skill can fix.
 
 ## Flow
 

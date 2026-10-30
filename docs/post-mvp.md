@@ -42,10 +42,14 @@ The format is a property of the **seed**, not of the channel:
 
 Both shapes ship the judgment layer the task bundle points at: `post.md` beside
 the rule file (the short channels since #266, the seven long-form channels since
-#361). The long-form channels add a `SKILL.md`. `pasco refine` resolves it, but
-refine emits a profile task that expects the profile-skill `checks.yaml` (not
-shipped for these channels), so a post channel's path stays `pasco post` — the
-rule file is the only machine contract.
+#361). The long-form channels add a `SKILL.md` that the bundle does not carry: it
+is a strategy reference, not an input to `post task`. Adding it does change
+`pasco refine <channel>` — refine finds a skill where it used to find none, and
+emits a **profile** task that saves to `profiles/<channel>/variants/<id>.md`, so
+do not use refine on a post channel; the post path is `pasco post`, and the rule
+file remains the only machine contract. (`checks.yaml` is not part of this:
+`pasco check` reads it and reports "no catalog" without failing when it is
+absent.)
 
 The **short family** is derived from the essay: `post task <child> --format
 short --from <essay> --channel linkedin,x` creates a child seed whose

@@ -8,7 +8,7 @@ description: >
   post.md. The agent writes N variants, the operator picks one, and the choice is
   recorded with `pasco post choose`; the deploy is a manual paste driven by the
   generated checklist, because Substack exposes no body-publish API.
-model: juicio (mid-tier) — the letter's opening and its closing are judgment; the
+model: juicio (frontier) — the letter's opening and its closing are judgment; the
   mechanical parts (markdown, front matter, paste checklist) are not
 applies_to: substack
 projection: agent-agnostic (any harness that reads Markdown and can run the CLI)
@@ -30,11 +30,17 @@ deterministic part.
 ## When it runs
 
 `pasco post task <seed> --format longform --channel substack` emits a task bundle
-pointing at `longform.yaml` (contract) and this skill (judgment). Read the
-contract for fields and band, then `post.md` for how to write. `pasco post` is
-this channel's path: `pasco refine substack` does resolve this file, but refine
-emits a **profile** task that expects the profile-skill `checks.yaml`, which this
-directory does not ship — it will not give you a post workflow.
+that points at the contract (`longform.yaml`) and the judgment file (`post.md`);
+it does **not** carry this `SKILL.md`. This file is the channel's strategy
+reference for whoever opens it directly: read the contract for the fields and the
+band, then `post.md` for how to write.
+
+Do **not** run `pasco refine substack` for this channel. Refine is the profile
+command: with a `SKILL.md` now present it resolves this file instead of answering
+"no skill for substack yet", and emits a **profile** task ("write N variants of
+the substack profile") that saves to `profiles/substack/variants/<id>.md` — not a
+post workflow. Telling a profile skill from a post skill is an engine decision,
+not something this skill can fix.
 
 ## Flow
 

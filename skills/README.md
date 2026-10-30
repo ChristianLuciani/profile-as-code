@@ -73,9 +73,17 @@ short channels already have, plus a `SKILL.md` that they do not ship.
   GEO and i18n policy, plus what `export: api | paste` means for the writing.
 - `SKILL.md` — the channel skill document: mission, when the skill runs, the
   flow, the pointers to the contract, and the suggested model in its frontmatter.
-  `pasco refine` resolves it, but refine emits a **profile** task that expects the
-  profile-skill `checks.yaml` (not shipped for these channels); the path a post
-  channel takes is `pasco post` with `longform.yaml`.
+  It is a strategy reference, not a bundle input: `pasco post task` carries the
+  contract and `post.md`, never this file.
+
+**Do not use `pasco refine <channel>` on a post channel.** Refine is the
+profile-refinement command; with a `SKILL.md` present it now resolves the file (it
+used to answer "no skill yet") and emits a **profile** task that saves to
+`profiles/<channel>/variants/<id>.md` — not a post workflow. The path for these
+channels is `pasco post` with `longform.yaml`. Teaching the engine to tell a
+profile skill from a post skill is a separate engine matter, not something a
+skill can fix. (`checks.yaml` is not the cause: `pasco check` reads that catalog
+and reports "no catalog" without failing when it is missing.)
 
 `longform.yaml` stays the contract: required/optional fields, the word band and
 `export` are declared there, and the prose explains them instead of restating

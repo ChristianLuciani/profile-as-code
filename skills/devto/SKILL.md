@@ -7,7 +7,7 @@ description: >
   layer — shape, voice, GEO, i18n — lives in post.md. The agent writes N
   variants, the operator picks one, and the choice is recorded with
   `pasco post choose`.
-model: juicio (mid-tier) — choosing the technical claim and its trade-off is
+model: juicio (frontier) — choosing the technical claim and its trade-off is
   judgment; the mechanical parts (markdown, front matter) are not
 applies_to: devto
 projection: agent-agnostic (any harness that reads Markdown and can run the CLI)
@@ -28,11 +28,17 @@ The skill is the judgment layer (D5); the deterministic part is the contract plu
 ## When it runs
 
 `pasco post task <seed> --format longform --channel devto` emits a task bundle
-that points at two files: `longform.yaml` (contract) and this skill (judgment).
-Read the contract for the fields and the band, then `post.md` for how to write.
-`pasco post` is this channel's path: `pasco refine devto` does resolve this file,
-but refine emits a **profile** task that expects the profile-skill `checks.yaml`,
-which this directory does not ship — it will not give you a post workflow.
+that points at the contract (`longform.yaml`) and the judgment file (`post.md`);
+it does **not** carry this `SKILL.md`. This file is the channel's strategy
+reference for whoever opens it directly: read the contract for the fields and the
+band, then `post.md` for how to write.
+
+Do **not** run `pasco refine devto` for this channel. Refine is the profile
+command: with a `SKILL.md` now present it resolves this file instead of answering
+"no skill for devto yet", and emits a **profile** task ("write N variants of the
+devto profile") that saves to `profiles/devto/variants/<id>.md` — not a post
+workflow. Telling a profile skill from a post skill is an engine decision, not
+something this skill can fix.
 
 ## Flow
 
