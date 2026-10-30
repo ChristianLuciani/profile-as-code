@@ -1,5 +1,9 @@
 {
   "exit": 1,
-  "contains": ["E-ALLOWLIST-INVALID", "no-such-private-target", "privateNames"],
+  "contains": [
+    "E-ALLOWLIST-INVALID",
+    "no-such-private-target",
+    "not declared in private-targets.json"
+  ],
   "tree_files": 1
 }

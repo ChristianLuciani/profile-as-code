@@ -1,0 +1,5 @@
+{
+  "exit": 1,
+  "contains": ["E-ALLOWLIST-INVALID", "unknown key", "\"name\"", "docs/note.md"],
+  "tree_files": 1
+}

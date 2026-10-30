@@ -20,7 +20,7 @@
     {
       "path": "packages/cli/tests/cli.test.ts",
       "names": ["skills-studio", "prompt-studio", "AGOS"],
-      "reason": "negative assertions: the CLI tests prove that --help and skill resolution do NOT surface the private projection command (#254). Naming the class is the test, and the class this file asserts against is exactly these three names (measured at #369: `skills-studio` on the --help refusal, and `skills-studio`/`prompt-studio`/`AGOS` in the PRIVATE pattern). The exemption is narrowed to them, so any OTHER private name reintroduced here — a `premerge` citation, a private contract name — fails E-AGNOSTIC; naming one class no longer blinds the file to the rest.",
+      "reason": "negative assertions: the CLI tests prove that the shipped `skills:export --list` output and the published `--help` surface do NOT name the private projection command (#254). Naming the class is the test, and the class this file asserts against is exactly these three names (measured at #369): `skills-studio` is the negative assertion on `skills:export --list`'s output at :957, and `skills-studio`/`prompt-studio`/`AGOS` form the PRIVATE pattern at :1021 that the `--help` test matches each help text against. The exemption is narrowed to them, so any OTHER private name reintroduced here — a `premerge` citation, a private contract name — fails E-AGNOSTIC; naming one class no longer blinds the file to the rest.",
       "removalTrigger": "when the CLI surfaces no longer need a prohibiting assertion (#254 closes the class)"
     },
     {

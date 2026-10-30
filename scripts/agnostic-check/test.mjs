@@ -35,8 +35,9 @@
  *     a non-array value are `E-ALLOWLIST-INVALID` (`fail-allowlist-names-*`);
  *   - a `names` value the inventory does not declare is refused, never a silent
  *     no-op (`fail-allowlist-unknown-name`);
- *   - a malformed entry and overlapping entries are refused
- *     (`fail-malformed-allowlist`, `fail-overlapping-allowlist`);
+ *   - a malformed entry, an unknown entry key and overlapping entries are
+ *     refused (`fail-malformed-allowlist`, `fail-allowlist-unknown-key`,
+ *     `fail-overlapping-allowlist`);
  *   - an entry that suppresses nothing warns without failing
  *     (`pass-unused-allowlist`);
  *   - a clean tree, including the generic `/Users/…` documentation placeholder,
@@ -44,14 +45,14 @@
  *   - each private CONTRACT name in the inventory fails, so removing one from the
  *     list turns its fixture green and the suite red (`fail-private-contract-*`).
  *
- * Two cases are not fixtures. The REAL allowlist (#369 round 2): a throwaway
- * tree reproduces the citations #362 retired in `packages/cli/tests/cli.test.ts`
- * and `packages/renderers/github-readme/tests/role.test.ts`, and the production
- * `allowlist.json` must report them — reverting either entry to file-wide makes
- * that case fail, which a fixture with its own allowlist could never catch. The
- * CATEGORY guard (#369 round 3): a declared name that is also an operator-path
- * source is exempt as a name and REPORTED as a path — the exemption never
- * crosses categories, even when the strings are identical.
+ * Two cases are not fixtures. The REAL allowlist (#369 rounds 2-3): a throwaway
+ * tree carries one private name in a file covered by each of the six narrowed
+ * entries, and the production `allowlist.json` must report all six — reverting
+ * any entry to file-wide makes that case fail, which a fixture with its own
+ * allowlist could never catch. The CATEGORY guard (#369 round 3): a declared
+ * name that is also an operator-path source is exempt as a name and REPORTED as
+ * a path — the exemption never crosses categories, even when the strings are
+ * identical.
  *
  * Fixtures are part of the CI contract: a fixture whose path falls under an
  * ignore pattern (`build/`, `dist/`, `.sota/`, …) never reaches a clean clone,
@@ -162,27 +163,66 @@ for (const name of cases) {
 }
 
 /**
- * Behavioral guard for the REAL allowlist (#369 round 2). The fixtures above
- * carry their own allowlists, so reverting the two production entries to
- * file-wide would leave every one of them green. This reproduces, in a
- * throwaway tree, the exact citations #362 retired from those two files and runs
- * the production `allowlist.json` over it: a narrowed entry reports them, a
- * file-wide entry suppresses them silently (exit 0) and this case fails.
+ * Behavioral guard for the REAL allowlist (#369 rounds 2-3). The fixtures above
+ * carry their own allowlists, so reverting any production entry to file-wide
+ * would leave every one of them green. This injects, in a throwaway tree, one
+ * private name into a file covered by each NARROWED entry and runs the
+ * production `allowlist.json` over it: a narrowed entry reports the injected
+ * name, a file-wide entry suppresses it silently (exit 0) and this case fails.
+ * Each row uses a name the entry does NOT declare, so only the narrowing can
+ * report it; the names are built from parts because this file is scanned by the
+ * gate it tests.
  */
 function realAllowlistScope() {
-  // Built from parts on purpose: this file is scanned by the gate it tests, so
-  // the retired names must never appear as literals here.
-  const shortAlias = "pre" + "merge";
-  const contractName = "dev-" + "methodology";
+  const names = {
+    shortAlias: "pre" + "merge",
+    contractName: "dev-" + "methodology",
+    evidence: "claims-" + "evidence",
+    taskBoard: "TASK" + "HUB",
+    governance: "repo-" + "governance",
+    community: "community-" + "first",
+  };
+  // One row per narrowed entry: where the entry lives, the private name that
+  // entry does not declare, and the probe file that must carry it.
+  const rows = [
+    {
+      entry: "packages/cli/tests/cli.test.ts",
+      name: names.shortAlias,
+      file: "packages/cli/tests/cli.test.ts",
+    },
+    {
+      entry: "packages/renderers/github-readme/tests/",
+      name: names.contractName,
+      file: "packages/renderers/github-readme/tests/role.test.ts",
+    },
+    {
+      entry: "packages/cli/scripts/verify-pack.mjs",
+      name: names.evidence,
+      file: "packages/cli/scripts/verify-pack.mjs",
+    },
+    {
+      entry: "packages/cli/tests/audit.test.ts",
+      name: names.taskBoard,
+      file: "packages/cli/tests/audit.test.ts",
+    },
+    {
+      entry: "packages/cli/tests/fixtures/",
+      name: names.governance,
+      file: "packages/cli/tests/fixtures/case.md",
+    },
+    {
+      entry: "packages/core/tests/fixtures/",
+      name: names.community,
+      file: "packages/core/tests/fixtures/case.md",
+    },
+  ];
   const root = mkdtempSync(path.join(tmpdir(), "agnostic-real-allowlist-"));
   try {
-    const cliTest = path.join(root, "packages/cli/tests/cli.test.ts");
-    const roleTest = path.join(root, "packages/renderers/github-readme/tests/role.test.ts");
-    mkdirSync(path.dirname(cliTest), { recursive: true });
-    mkdirSync(path.dirname(roleTest), { recursive: true });
-    // The retired citations: 84a763b (short alias) and f41c454 (contract name).
-    writeFileSync(cliTest, `// fixture directory (${shortAlias} #256, N3)\n`);
-    writeFileSync(roleTest, `// The additive guarantee (${contractName} §3)\n`);
+    for (const row of rows) {
+      const file = path.join(root, row.file);
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(file, `// injected citation: ${row.name}\n`);
+    }
     const result = spawnSync(
       process.execPath,
       [checkPath, "--root", root, "--allowlist", path.join(here, "allowlist.json")],
@@ -191,10 +231,13 @@ function realAllowlistScope() {
     const output = `${result.stdout}${result.stderr}`;
     const problems = [];
     if (result.status !== 1) problems.push(`exit ${result.status} != expected 1`);
-    for (const name of [shortAlias, contractName]) {
-      const needle = `private name "${name}"`;
+    for (const row of rows) {
+      const needle = `private name "${row.name}"`;
       if (!output.includes(needle)) {
-        problems.push(`the real allowlist does not report ${needle}`);
+        problems.push(`the real allowlist does not report ${needle} (entry ${row.entry})`);
+      }
+      if (!output.includes(`${row.file}:1`)) {
+        problems.push(`no finding at ${row.file}:1 (entry ${row.entry})`);
       }
     }
     return problems;

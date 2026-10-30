@@ -335,13 +335,19 @@ export function loadTargets(file) {
  * Load and validate the dated-record allowlist. Entries are PATH prefixes,
  * optionally narrowed to the NAMES they declare (`names`): without it the whole
  * covered path is exempt; with it only those names are, and the file stays
- * scanned for the rest. A phrase can never be exempted, and a `names` value must
- * be a `privateNames` entry of the inventory — a private repo target or an
- * operator path is NOT a name and is refused (`E-ALLOWLIST-INVALID`), never a
- * silent no-op. Overlapping paths are refused so a hit is never double-counted
- * (and so "which entry suppressed this?" has exactly one answer).
+ * scanned for the rest. An entry accepts exactly `path`, `reason`,
+ * `removalTrigger` and `names` — an unknown key is refused, because a misspelt
+ * `name` would otherwise degrade the entry to a silent whole-file exemption
+ * (#369 round 4). A phrase can never be exempted, and a `names` value must be a
+ * `privateNames` entry of the inventory: a private repo target or an operator
+ * path is NOT a name and is refused, and a name the inventory no longer declares
+ * is refused as a stale entry — both `E-ALLOWLIST-INVALID`, never a silent
+ * no-op. Overlapping paths are refused so a hit is never double-counted (and so
+ * "which entry suppressed this?" has exactly one answer).
  */
-export function loadAllowlist(file, knownNames = null) {
+const ALLOWED_ENTRY_KEYS = new Set(["path", "reason", "removalTrigger", "names"]);
+
+export function loadAllowlist(file, knownNames, otherTargets = new Map()) {
   const data = loadJson(file, "allowlist");
   if (typeof data !== "object" || data === null || Array.isArray(data)) {
     throw new GateError(`${RULES.allowlistInvalid}: allowlist must be a JSON object`);
@@ -356,6 +362,7 @@ export function loadAllowlist(file, knownNames = null) {
     if (typeof entry !== "object" || entry === null) {
       throw new GateError(`${RULES.allowlistInvalid}: entries[${index}] must be an object`);
     }
+    const unknownKeys = Object.keys(entry).filter((key) => !ALLOWED_ENTRY_KEYS.has(key));
     const rawPath = requireString(entry.path, `entries[${index}].path`, RULES.allowlistInvalid);
     const pathValue = rawPath.replace(/\/+$/, "");
     if (
@@ -367,6 +374,11 @@ export function loadAllowlist(file, knownNames = null) {
     ) {
       throw new GateError(
         `${RULES.allowlistInvalid}: entries[${index}].path must be a repo-relative path without '.' or '..' segments (got ${JSON.stringify(rawPath)})`,
+      );
+    }
+    if (unknownKeys.length > 0) {
+      throw new GateError(
+        `${RULES.allowlistInvalid}: entries[${index}] (${JSON.stringify(pathValue)}) has unknown key(s) ${unknownKeys.map((key) => JSON.stringify(key)).join(", ")} — the only keys are path, reason, removalTrigger and names; a misspelt key would degrade the entry to a silent whole-file exemption`,
       );
     }
     requireString(entry.reason, `entries[${index}].reason`, RULES.allowlistInvalid);
@@ -388,9 +400,13 @@ export function loadAllowlist(file, knownNames = null) {
             `${RULES.allowlistInvalid}: entries[${index}].names declares ${JSON.stringify(name)} twice`,
           );
         }
-        if (knownNames !== null && !knownNames.has(name)) {
+        if (!knownNames.has(name)) {
+          const otherCategory = otherTargets.get(name);
+          const detail = otherCategory
+            ? `is declared under ${otherCategory}, not under privateNames — a private repo target or operator path is not a NAME and must stay a finding`
+            : "is not declared in private-targets.json — if the target was removed, remove it from this entry's `names` too (a stale name exempts nothing)";
           throw new GateError(
-            `${RULES.allowlistInvalid}: entries[${index}].names[${position}] ${JSON.stringify(name)} is not a private NAME in the inventory — only private-targets.json's privateNames can be exempted by name; a private repo target or operator path must stay a finding`,
+            `${RULES.allowlistInvalid}: entries[${index}].names[${position}] ${JSON.stringify(name)} ${detail}`,
           );
         }
         declared.add(name);
@@ -494,7 +510,15 @@ export function check({ root, allowlistPath, targetsPath }) {
       .filter((matcher) => matcher.category === "privateNames")
       .map((matcher) => matcher.name),
   );
-  const allowlist = loadAllowlist(allowlistPath, knownNames);
+  // Non-name targets, by value: a `names` value that lands here is refused with
+  // "that is a repo target/operator path, not a name" instead of the stale-entry
+  // message, which speaks about a name the inventory no longer declares.
+  const otherTargets = new Map(
+    matchers
+      .filter((matcher) => matcher.category !== "privateNames")
+      .map((matcher) => [matcher.name, matcher.category]),
+  );
+  const allowlist = loadAllowlist(allowlistPath, knownNames, otherTargets);
   const files = walkFiles(root);
   const findings = [];
   for (const file of files) {
