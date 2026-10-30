@@ -53,7 +53,7 @@ skills/<plataforma>/
 marca (≠ voz personal), handle-matrix checks (`handle-claimed`/`handle-consistent`,
 offline en `pasco check`), trademark/impersonación. Ver `skills/github-org/`.
 
-## Post skills (MVP, #264/#266)
+## Post skills (MVP, #264/#266/#361)
 
 The week-1 post experiment uses a **different shape** from the profile skills:
 `skills/<platform>/post.md` (judgment) + a machine-readable rule file.
@@ -64,9 +64,33 @@ The week-1 post experiment uses a **different shape** from the profile skills:
   `hashnode`, `wordpress`, `listmonk` — required fields (`title`/`dek`), an
   editorial word band, and `export: api | paste` (Substack/Ghost are paste
   surfaces). The word band is house style, not a platform limit: cite a source
-  before encoding a hard cap. These channels carry **no `SKILL.md` and no
-  `post.md` yet**: `longform.yaml` is the whole contract for now, and the
-  editorial judgment (voice, structure, examples) is deliberately deferred —
-  add it as `post.md` when the channel is used in earnest.
+  before encoding a hard cap.
+
+Every long-form channel also carries its judgment layer (#361): the `post.md` the
+short channels already have, plus a `SKILL.md` that they do not ship.
+
+- `post.md` — what a piece on that channel is for, its shape, its voice, and its
+  GEO and i18n policy, plus what `export: api | paste` means for the writing.
+- `SKILL.md` — the channel skill document: mission, when the skill runs, the
+  flow, the pointers to the contract, and the suggested model in its frontmatter.
+  It is a strategy reference, not a bundle input: `pasco post task` carries the
+  contract and `post.md`, never this file.
+
+**Do not use `pasco refine <channel>` on a post channel.** Refine is the
+profile-refinement command; with a `SKILL.md` present it now resolves the file (it
+used to answer "no skill yet") and emits a **profile** task that saves to
+`profiles/<channel>/variants/<id>.md` — not a post workflow. The path for these
+channels is `pasco post` with `longform.yaml`. Teaching the engine to tell a
+profile skill from a post skill is a separate engine matter, not something a
+skill can fix. (`checks.yaml` is not the cause: `pasco check` reads that catalog
+and reports "no catalog" without failing when it is missing.)
+
+`longform.yaml` stays the contract: required/optional fields, the word band and
+`export` are declared there, and the prose explains them instead of restating
+their numbers. A channel's *dated* platform sources live in the contract's
+`sources[]`; a claim the contract does not already carry needs its own source
+(URL + date + tier) before it enters either file. The post shape is Markdown
+beside the rule file — not the `research/` + `playbook.md` + `checks.yaml` trio,
+which belongs to the profile skills above.
 
 Neither shape is projected to harnesses yet — see `docs/post-mvp.md`.
