@@ -56,6 +56,10 @@
     {
       "name": "premerge-review",
       "reason": "private operator contract for fresh-context pre-merge review \u2014 the review is cited generically, the contract itself is not openable"
+    },
+    {
+      "name": "premerge",
+      "reason": "SHORT FORM of the same private contract \u2014 the class closes only if the alias does (#274 precedent), and the short form outlived the long one in 35 citations. It is a SEPARATE entry, not a substring of the one above: the whole-token matcher excludes a trailing `-`, so it never fires inside the hyphenated form and neither entry subsumes the other \u2014 removing one leaves the other form unguarded"
     }
   ],
   "privateRepos": [

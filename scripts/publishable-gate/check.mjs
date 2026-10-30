@@ -203,7 +203,7 @@ async function main() {
  * while `process.argv[1]` is whatever path invoked it — on a machine where the
  * invocation path crosses a symlink (/tmp on macOS), comparing them as-is
  * never matches and the CLI silently no-ops (no output, exit 0 — a fail-open;
- * the dep-gate premerge F2 repro). Realpath the invocation path first.
+ * the dep-gate review F2 repro). Realpath the invocation path first.
  */
 function isMain() {
   const entry = process.argv[1];

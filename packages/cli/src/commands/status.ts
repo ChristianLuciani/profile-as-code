@@ -158,7 +158,7 @@ interface ArtifactAnchor {
  * anchoring it is exact. Re-rendering is only the fallback — it is a
  * RECONSTRUCTION, and reconstruction drifts: `pasco build --lang X` persists an
  * artifact the default-lang render does not reproduce, which would make an
- * untouched live surface read as permanent `out-of-band-drift` (premerge review
+ * untouched live surface read as permanent `out-of-band-drift` (review
  * F1). Same class of risk for the media bundle. Preferring the built artifact
  * removes the reconstruction rather than trying to keep two render call sites in
  * step.
@@ -398,7 +398,7 @@ function publicationOf(
 
 /** The same derivation WITHOUT the `--platform` report filter — the generated
  *  CHECKLIST is a whole-workspace view, so a platform-scoped run must not write
- *  one surface's coverage into it (premerge #256, N5). */
+ *  one surface's coverage into it (review #256, N5). */
 function publicationAllOf(
   args: StatusArgs,
   profile: LoadedProfile,

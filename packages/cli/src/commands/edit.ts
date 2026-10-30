@@ -7,7 +7,7 @@
  * question; this command replaces both and carries zero write risk.
  *
  * The published answer is derived from the ARTIFACT, never from the addressed row
- * alone (premerge review of PR #331, F1: they are frequently different — a paste
+ * alone (review of PR #331, F1: they are frequently different — a paste
  * surface publishes exactly ONE bio by length priority, a renderer may not emit
  * the field at all, and an active variant (#238) supplies the whole body). The
  * artifact text comes from `artifact-render.ts`, the SAME decision tree `build`
@@ -139,7 +139,7 @@ export interface EditTarget {
  * (schema/README.md) and `load()` matches the extension case-insensitively, so
  * this scans the directory instead of guessing: a default like
  * `content/headlines.yaml` would point S2 at a file that may not exist while
- * `content/headlines.YAML` owns the block (premerge review of #331, F4).
+ * `content/headlines.YAML` owns the block (review of #331, F4).
  */
 function owningFile(workspace: string, root: string): string | undefined {
   let entries: string[];

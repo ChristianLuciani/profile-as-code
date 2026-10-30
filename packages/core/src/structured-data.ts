@@ -241,7 +241,7 @@ export function structuredData(profile: Profile, lang: Lang = "en"): StructuredD
     // Annotated so the declared `jsonLd` interface is actually enforced: without
     // it the object is built unannotated and spread into the return literal, so
     // excess/missing keys were never checked (a key emitted here but undeclared
-    // in `StructuredDataReadiness` passed typecheck silently — premerge #186 F3).
+    // in `StructuredDataReadiness` passed typecheck silently — review #186 F3).
     const jsonLd: StructuredDataReadiness["jsonLd"] = identity.name
       ? {
           "@context": "https://schema.org" as const,

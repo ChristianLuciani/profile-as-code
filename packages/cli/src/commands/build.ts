@@ -195,7 +195,7 @@ export function runBuild(args: BuildArgs): number {
       continue;
     }
     // A renderer owns this platform now: remove any pre-renderer flat paste
-    // file so profiles/ stays a pure function (#245 premerge F2).
+    // file so profiles/ stays a pure function (#245 review F2).
     rmSync(join(args.workspace, "profiles", `${s.platform}.md`), { force: true });
     const result = { text: rendered.text, assets: rendered.assets };
     const path = artifactPath(args.workspace, s.platform);

@@ -392,7 +392,7 @@ export function publicationCoverageOrNone(publication: readonly PublicationTruth
 }
 
 /** The three-axis line, exactly as the contract prints it, plus the coverage
- *  behind `sync` — the human line must not overstate it either (premerge #256
+ *  behind `sync` — the human line must not overstate it either (review #256
  *  round 2, M4). */
 export function publicationLine(truth: PublicationTruth): string {
   return `${truth.surface}: ${truth.sync} · artifact: ${truth.artifact} · limits: ${truth.limits} · units: ${truth.units.recorded} recorded${truth.units.stale > 0 ? ` (${truth.units.stale} stale)` : ""}`;
