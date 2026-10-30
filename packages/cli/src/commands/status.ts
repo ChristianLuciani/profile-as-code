@@ -158,7 +158,7 @@ interface ArtifactAnchor {
  * anchoring it is exact. Re-rendering is only the fallback — it is a
  * RECONSTRUCTION, and reconstruction drifts: `pasco build --lang X` persists an
  * artifact the default-lang render does not reproduce, which would make an
- * untouched live surface read as permanent `out-of-band-drift` (premerge review
+ * untouched live surface read as permanent `out-of-band-drift` (review
  * F1). Same class of risk for the media bundle. Preferring the built artifact
  * removes the reconstruction rather than trying to keep two render call sites in
  * step.
@@ -215,7 +215,7 @@ function markDeployed(args: StatusArgs, profile: LoadedProfile): number {
   const matches = trackableUnits(profile).filter((u) => u.key === key);
   if (matches.length > 1) {
     // Write path upholds the same §19.2 invariant the read path enforces: never
-    // persist a ledger state that load() would reject (premerge-review F2).
+    // persist a ledger state that load() would reject (review F2).
     return report("status", false, EXIT.FAIL, {
       error: {
         kind: "mark",
@@ -398,7 +398,7 @@ function publicationOf(
 
 /** The same derivation WITHOUT the `--platform` report filter — the generated
  *  CHECKLIST is a whole-workspace view, so a platform-scoped run must not write
- *  one surface's coverage into it (premerge #256, N5). */
+ *  one surface's coverage into it (review #256, N5). */
 function publicationAllOf(
   args: StatusArgs,
   profile: LoadedProfile,

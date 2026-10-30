@@ -170,7 +170,7 @@ if (cliOk) {
 // Invoking the CLI through a SYMLINKED path must still run: import.meta.url
 // carries the real path while argv[1] carries the symlinked one, so an as-is
 // comparison silently no-ops (no output, exit 0 — fail-open; the dep-gate
-// premerge F2 repro). /tmp is a symlink on macOS, mirroring it here.
+// review F2 repro). /tmp is a symlink on macOS, mirroring it here.
 const linkedDir = path.join(tmpRoot, "via-symlink");
 symlinkSync(here, linkedDir, "dir");
 const cliSymlink = spawnSync(

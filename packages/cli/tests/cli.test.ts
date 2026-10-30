@@ -266,7 +266,7 @@ describe("pasco build (compile slices)", () => {
 
   it("filters by lang", () => {
     // Build into a COPY: building inside `fixtures/minimal` dirtied the tracked
-    // fixture directory (premerge #256, N3 — `profiles/linkedin.md` appeared as an
+    // fixture directory (review #256, N3 — `profiles/linkedin.md` appeared as an
     // untracked artifact of the test run).
     const ws = tempDir();
     copyFixture(MINIMAL, ws);
@@ -357,7 +357,7 @@ describe("pasco build (compile slices)", () => {
     expect(artifact).not.toContain("I architect sovereign AI stacks");
   });
 
-  it("renders a multi-paragraph variant as prose, not bold (#238 premerge)", () => {
+  it("renders a multi-paragraph variant as prose, not bold (#238 review)", () => {
     const ws = tempDir();
     copyFixture(MINIMAL, ws);
     mkdirSync(join(ws, "profiles", "github-readme", "variants"), { recursive: true });
@@ -376,7 +376,7 @@ describe("pasco build (compile slices)", () => {
     expect(artifact).not.toContain("**First line.");
   });
 
-  it("uses the chosen complete artifact even when it cites non-SSOT chrome URLs (#238 premerge)", () => {
+  it("uses the chosen complete artifact even when it cites non-SSOT chrome URLs (#238 review)", () => {
     const ws = tempDir();
     copyFixture(MINIMAL, ws);
     mkdirSync(join(ws, "profiles", "upwork", "variants"), { recursive: true });
@@ -395,7 +395,7 @@ describe("pasco build (compile slices)", () => {
     expect(readFileSync(join(ws, "profiles", "upwork.md"), "utf8")).toContain("evil.example");
   });
 
-  it("writes a complete github-org variant verbatim (#238 premerge)", () => {
+  it("writes a complete github-org variant verbatim (#238 review)", () => {
     const dir = join(tempDir(), "brand-variant");
     expect(run(["init", "--flavor", "brand", dir]).code).toBe(0);
     mkdirSync(join(dir, "profiles", "github-org", "variants"), { recursive: true });
@@ -410,7 +410,7 @@ describe("pasco build (compile slices)", () => {
     expect(artifact).toBe("ORG BODY\n");
   });
 
-  it("validate keeps active-variant-missing for an empty body (#238 premerge)", () => {
+  it("validate keeps active-variant-missing for an empty body (#238 review)", () => {
     const ws = tempDir();
     copyFixture(MINIMAL, ws);
     mkdirSync(join(ws, "profiles", "researchgate", "variants"), { recursive: true });
@@ -834,7 +834,7 @@ describe("pasco check (offline rules) + pasco skills:export (shipped skills)", (
     expect(data.data.limits.some((f) => f.path.startsWith("bios:upwork"))).toBe(false);
   });
 
-  it("falls back to the default catalog when the workspace has no checks.yaml (#240 premerge)", () => {
+  it("falls back to the default catalog when the workspace has no checks.yaml (#240 review)", () => {
     const ws = tempDir();
     copyFixture(MINIMAL, ws);
     rmSync(join(ws, "content", "checks.yaml"));
@@ -850,7 +850,7 @@ describe("pasco check (offline rules) + pasco skills:export (shipped skills)", (
     expect(data.data.limits.some((f) => f.path === "headlines:upwork:en")).toBe(true);
   });
 
-  it("scopes a platform: all cap to the requested platform (#240 premerge)", () => {
+  it("scopes a platform: all cap to the requested platform (#240 review)", () => {
     const dir = join(tempDir(), "ws-all");
     expect(run(["init", dir]).code).toBe(0);
     writeFileSync(
@@ -1233,7 +1233,7 @@ describe("pasco status (D18 deploy ledger)", () => {
     expect(checklist).toContain("In sync");
   });
 
-  it("premerge F2: --mark refuses ambiguous composite keys — workspace stays valid", () => {
+  it("review F2: --mark refuses ambiguous composite keys — workspace stays valid", () => {
     const ws = tempDir();
     mkdirSync(join(ws, "content"));
     writeFileSync(join(ws, "content", "identity.yaml"), "name: Elena Vasquez\n", "utf8");
@@ -1259,7 +1259,7 @@ describe("pasco status (D18 deploy ledger)", () => {
     expect(run(["validate", "--workspace", ws]).code).toBe(0); // workspace NOT bricked
   });
 
-  it("premerge F3: --mark + --write-checklist is rejected, not silently ignored", () => {
+  it("review F3: --mark + --write-checklist is rejected, not silently ignored", () => {
     const ws = mkws();
     const res = run([
       "status",
@@ -1274,7 +1274,7 @@ describe("pasco status (D18 deploy ledger)", () => {
     expect(res.stderr).toContain("mutually exclusive");
   });
 
-  it("premerge F5: --mark on a removed key says removed, not unknown", () => {
+  it("review F5: --mark on a removed key says removed, not unknown", () => {
     const ws = mkws();
     writeFileSync(
       join(ws, "content", "experience.yaml"),

@@ -4,11 +4,11 @@
  *
  *  1. A READ or a PREVIEW never touches disk (whole-workspace snapshot).
  *  2. The preview is what `pasco build` PUBLISHES, not the addressed row's own
- *     text (premerge review of PR #331, F1). The conformance tests at the bottom
+ *     text (review of PR #331, F1). The conformance tests at the bottom
  *     apply the same edit to the workspace, run `build`, and assert the previewed
  *     text is in the artifact bytes.
  *  3. The preview refuses exactly what the write refuses (multi-line/block
- *     scalars, anchors) — F1 of the premerge review of PR #332.
+ *     scalars, anchors) — F1 of the review of PR #332.
  *
  * Runs the BUILT binary (`pnpm test` builds first) against a copy of the core
  * `minimal` fixture, so a test never mutates a committed fixture.

@@ -62,7 +62,7 @@ export type EditAddress =
   /** `identity.links` rows carry a free-form `platform` string (the schema does
    *  not constrain it to the platform enum), so it is kept verbatim. `label` is
    *  the optional disambiguator a legal workspace needs when two links share a
-   *  platform (premerge review of #331: the schema allows it, and the drift code
+   *  platform (review of #331: the schema allows it, and the drift code
    *  only flags the SAME url twice). */
   | { kind: "link"; platform: string; label?: string; address: string };
 

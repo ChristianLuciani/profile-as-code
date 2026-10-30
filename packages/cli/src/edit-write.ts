@@ -85,7 +85,7 @@ function sleep(ms: number): void {
 
 /** Serialize `pasco edit` writers on ONE workspace. Concurrent `--set` on the
  *  same file is otherwise last-writer-wins: the re-read guard only narrows the
- *  window to the check/rename gap (measured ms on a 2.7 MB workspace, premerge
+ *  window to the check/rename gap (measured ms on a 2.7 MB workspace,
  *  review of #332 R1). An external editor is still caught by the re-read.
  *  A lock left by a crashed process is broken after 30 s. */
 function withWriteLock<T>(workspace: string, waitMs: number, run: () => T): T {
@@ -250,7 +250,7 @@ function inspect(
 }
 
 /** Read-only eligibility check — the PREVIEW runs it too, so `--check` can never
- *  promise a write that `--set` refuses (F1 of the premerge review). */
+ *  promise a write that `--set` refuses (F1 of the review). */
 export function inspectTarget(args: { workspace: string; target: WriteTarget; expect?: string }): {
   before: string;
 } {
@@ -336,7 +336,7 @@ function writeEditLocked(
   // Re-read IMMEDIATELY before the rename: validation took real time (a temp
   // copy of content/ + load()), and two concurrent `pasco edit --set` on the
   // same file would otherwise both report success and one value would vanish
-  // (premerge review of #332, N1). The residual window between this read and the
+  // (review of #332, N1). The residual window between this read and the
   // rename is microseconds; there is no portable way to close it further.
   let current: string;
   try {

@@ -40,7 +40,7 @@ import {
  *  `github-org` is the BRAND surface (D15/§17): `pasco build` renders it only for
  *  `flavor: brand`. A `person` workspace therefore declares NOTHING for it —
  *  absence, i.e. `no-extractor` — because declaring it fetchable would let
- *  `--verify` request a surface the engine never produced (premerge review F2).
+ *  `--verify` request a surface the engine never produced (review F2).
  *  One home: `--mark` and `--verify` both read this map, so neither needs its own
  *  flavor guard. */
 export function capabilitiesOf(profile: Profile): SurfaceCapabilities {

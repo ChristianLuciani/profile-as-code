@@ -1,7 +1,7 @@
 /**
  * The artifact DECISION TREE, one home: active variant (#238) → renderer →
  * shared paste source (#150). `build` writes the resulting text; `edit --check`
- * previews it. Two callers, one rule — the premerge review of #331 (N1/N9)
+ * previews it. Two callers, one rule — the review of #331 (N1/N9)
  * measured what a second copy costs: `edit` missed build's selection-error gate
  * and could print a "published" surface that `build` refuses to write.
  */

@@ -113,7 +113,7 @@ describe("pasco status — derived publication truth (#242)", () => {
       artifact: "matches-SSOT",
       limits: "ok",
       // `sync` alone cannot say how many units were never confirmed — the
-      // coverage behind it is explicit (premerge #256, F4).
+      // coverage behind it is explicit (review #256, F4).
       units: { recorded: 0, stale: 0 },
       findings: [],
     });
@@ -240,7 +240,7 @@ describe("pasco status — derived publication truth (#242)", () => {
 
   it("a min-chars floor is NOT the cap axis — the token stays literal", () => {
     // `min-chars` is a floor: it must not print `over(cap)`. It stays
-    // `pasco check`'s finding (premerge #256, F2).
+    // `pasco check`'s finding (review #256, F2).
     const ws = initWorkspace();
     writeFileSync(
       join(ws, "content", "headlines.yaml"),
@@ -270,7 +270,7 @@ describe("pasco status — derived publication truth (#242)", () => {
 
   it("a cap that cannot be evaluated is a WARNING, never a silent ok", () => {
     // The schema admits a non-numeric `value`; silently reading `ok` is the
-    // passing-gate failure this line exists to end (premerge #256, F3).
+    // passing-gate failure this line exists to end (review #256, F3).
     const ws = initWorkspace();
     writeFileSync(
       join(ws, "content", "checks.yaml"),
@@ -295,7 +295,7 @@ describe("pasco status — derived publication truth (#242)", () => {
     expect(upwork?.findings[0]?.path).toBe("checks:upwork-title-max");
     expect(upwork?.findings[0]?.message).toContain("non-numeric");
     // …and the upwork catalog warning does NOT leak onto another surface
-    // (premerge #256 round 2, M1).
+    // (review #256 round 2, M1).
     expect(
       publicationOf(run(["status", "--json", "--workspace", ws]).stdout).find(
         (t) => t.surface === "github-readme",
@@ -356,7 +356,7 @@ describe("pasco status — derived publication truth (#242)", () => {
     // The percentage's one ledger input is §20's `deployment` item (coverage of
     // already-deployed units) — a `--mark` raises it. Stated here so the SPEC's
     // claim is tested for what it says: THIS derivation never moves the number,
-    // the ledger item does (premerge #256, F1/N2).
+    // the ledger item does (review #256, F1/N2).
     expect(run(["status", "--mark", "identity", "github-readme", "--workspace", ws]).code).toBe(0);
     const marked = JSON.parse(
       run(["status", "--completeness", "--json", "--workspace", ws]).stdout,
@@ -406,7 +406,7 @@ describe("pasco status — derived publication truth (#242)", () => {
       sync: "in-sync",
       artifact: "diverges",
       // The live comparison is named, so `diverges` never conflates the two
-      // sources (premerge #256, F5).
+      // sources (review #256, F5).
       artifactReason: "live-drift",
     });
     // §19.5 contrary evidence outranks `absent`: with NO artifact on disk a

@@ -1,0 +1,10 @@
+{
+  "exit": 1,
+  "contains": [
+    "E-AGNOSTIC",
+    "docs/methodology.md:3",
+    "private name \"dev-methodology\"",
+    "agnostic-check: FAIL"
+  ],
+  "tree_files": 1
+}

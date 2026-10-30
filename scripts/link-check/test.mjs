@@ -169,7 +169,7 @@ if (cliOk) {
 }
 
 // Invoking the CLI through a SYMLINKED path must still run (dep-gate precedent,
-// premerge-review F2): import.meta.url carries the realpath while argv[1] carries
+// review F2): import.meta.url carries the realpath while argv[1] carries
 // the symlinked one, so an as-is comparison silently no-ops (fail-open).
 const tmpRoot = mkdtempSync(path.join(os.tmpdir(), "link-check-symlink-"));
 const linkedDir = path.join(tmpRoot, "via-symlink");

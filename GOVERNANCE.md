@@ -20,7 +20,7 @@ Lightweight governance for an early-stage, spec-driven open source project.
 3. Skills PRs must satisfy the evidence rule (`skills/README.md`): dated sources, GEO section,
    machine-readable checks.
 4. Every quantitative claim in docs/skills carries a source + verification date
-   (claims-evidence policy). Unbacked numbers are rejected.
+   (the evidence rule, `AGENTS.md` rule 3). Unbacked numbers are rejected.
 
 ## Roadmap ownership
 
