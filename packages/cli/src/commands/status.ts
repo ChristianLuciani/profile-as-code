@@ -215,7 +215,7 @@ function markDeployed(args: StatusArgs, profile: LoadedProfile): number {
   const matches = trackableUnits(profile).filter((u) => u.key === key);
   if (matches.length > 1) {
     // Write path upholds the same §19.2 invariant the read path enforces: never
-    // persist a ledger state that load() would reject (premerge-review F2).
+    // persist a ledger state that load() would reject (review F2).
     return report("status", false, EXIT.FAIL, {
       error: {
         kind: "mark",

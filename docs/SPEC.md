@@ -69,7 +69,7 @@ not only "is my profile consistent?".
   variant is committed and marked as active. A dedicated model router stays a user choice: the engine
   neither requires one nor prefers it (D13).
 - GitHub profile README + web are fully git/API-driven (dogfood: Christian's real profile).
-- Every quantitative claim in every skill has a dated source (claims-evidence enforced).
+- Every quantitative claim in every skill has a dated source (the evidence rule).
 - A fresh user can reach a validating workspace in under 10 minutes through **any** on-ramp:
   on-ramp A (template repo), on-ramp B (`pasco init`, seconds), or on-ramp C (their own
   storage) — see §9.2.
@@ -1645,7 +1645,7 @@ neither is a score.
   table as "this ships in the JSON-LD today".
 
   Absent `role` = `realization`, so **no workspace needs
-  editing** to keep validating (dev-methodology §3: additive). **It is NOT output-neutral**, and
+  editing** to keep validating (additive). **It is NOT output-neutral**, and
   the honest accounting is three declared changes: (a) the `github-readme` JSON-LD gains
   `jobTitle`/`worksFor`, which the renderer never emitted although `geoCheck` computed them
   (the most-recent role: `start` descending in core's `byteOrder` order — dates are digits, so
@@ -2380,7 +2380,7 @@ policy (config, workspace)   →  completeness(profile, policy) in core  →  ar
    non-deterministic/network-dependent and break byte-parity (D19/§15.1).
 
 **Never store the percentage** — it is derived and would drift; only the policy
-(target, weights, langs) is stored. The policy is parameterized (dev-methodology §3):
+(target, weights, langs) is stored. The policy is parameterized:
 a user says "my target is the GitHub milestone set, not everything" by dropping an
 item (weight 0), never through a code path.
 

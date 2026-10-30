@@ -44,6 +44,18 @@
     {
       "name": "repo-governance",
       "reason": "private operator contract for repo governance \u2014 the rule is inlined where needed, the contract itself is not openable"
+    },
+    {
+      "name": "dev-methodology",
+      "reason": "private operator contract for spec-driven development \u2014 a rationale citation is still a private name on a public surface; the rule is inlined where needed, the contract itself is not openable"
+    },
+    {
+      "name": "claims-evidence",
+      "reason": "private operator contract for claim provenance \u2014 the rule is stated inline (source + date) where needed, the contract itself is not openable"
+    },
+    {
+      "name": "premerge-review",
+      "reason": "private operator contract for fresh-context pre-merge review \u2014 the review is cited generically, the contract itself is not openable"
     }
   ],
   "privateRepos": [

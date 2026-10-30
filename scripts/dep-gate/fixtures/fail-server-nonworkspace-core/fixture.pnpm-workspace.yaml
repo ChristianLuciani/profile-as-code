@@ -1,3 +1,3 @@
-# Evasion probe fixture (premerge-review F6).
+# Evasion probe fixture (review F6).
 packages:
   - packages/*

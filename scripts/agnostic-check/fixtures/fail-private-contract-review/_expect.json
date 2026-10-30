@@ -1,0 +1,10 @@
+{
+  "exit": 1,
+  "contains": [
+    "E-AGNOSTIC",
+    "docs/review.md:3",
+    "private name \"premerge-review\"",
+    "agnostic-check: FAIL"
+  ],
+  "tree_files": 1
+}

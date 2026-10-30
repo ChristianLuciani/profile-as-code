@@ -1,0 +1,10 @@
+{
+  "exit": 1,
+  "contains": [
+    "E-AGNOSTIC",
+    "docs/claims.md:3",
+    "private name \"claims-evidence\"",
+    "agnostic-check: FAIL"
+  ],
+  "tree_files": 1
+}

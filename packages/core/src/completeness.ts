@@ -14,7 +14,7 @@
  *   evidence     claims that carry a source + registry entries (`evidenceItem`)
  *   deployment   share of trackable units with a ledger record (`ledger`)
  *
- * Policy is parameterized (dev-methodology §3): a user says "my target is the
+ * Policy is parameterized: a user says "my target is the
  * GitHub milestone set, not everything" by dropping an item (weight 0) — a
  * parameter, never a code path. No weights are hardcoded outside the catalog.
  */

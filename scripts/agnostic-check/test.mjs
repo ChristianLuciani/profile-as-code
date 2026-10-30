@@ -24,7 +24,9 @@
  *   - an entry that suppresses nothing warns without failing
  *     (`pass-unused-allowlist`);
  *   - a clean tree, including the generic `/Users/…` documentation placeholder,
- *     passes (`pass-clean`).
+ *     passes (`pass-clean`);
+ *   - each private CONTRACT name in the inventory fails, so removing one from the
+ *     list turns its fixture green and the suite red (`fail-private-contract-*`).
  *
  * Fixtures are part of the CI contract: a fixture whose path falls under an
  * ignore pattern (`build/`, `dist/`, `.sota/`, …) never reaches a clean clone,

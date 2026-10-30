@@ -21,7 +21,7 @@
  *                        DECLARATIVE in v1.6 — no renderer emits it yet, M5 is the consumer)
  *
  * Absent `role` = `realization` → every pre-v1.6 workspace keeps VALIDATING unchanged
- * (additive, dev-methodology §3). Output is NOT unchanged: see SPEC §15.4 for the three
+ * (additive). Output is NOT unchanged: see SPEC §15.4 for the three
  * declared deltas. Sources: W3C WebSchemas/sameAs, schema.org datamodel.
  * Classification + provenance: `identeco-cifereca/glossary/naming.md`.
  */

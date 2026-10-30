@@ -237,7 +237,7 @@ describe("link roles (v1.6, #103) — hand-built slices", () => {
 
 describe("link roles (v1.6, #103) — backward compatibility", () => {
   it("a workspace with no role anywhere renders byte-identically to its role: realization form", () => {
-    // The additive guarantee (dev-methodology §3): absent role = realization, so declaring
+    // The additive guarantee: absent role = realization, so declaring
     // it explicitly must change nothing in the output.
     const bare = sliceFrom({
       "identity.yaml": IDENTITY("  - label: GitHub\n    url: https://github.com/elenavasquez\n"),

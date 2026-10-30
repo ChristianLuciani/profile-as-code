@@ -6,7 +6,7 @@ Instructions for AI agents working in this repository. Humans: see `CONTRIBUTING
 
 Spec-driven engine monorepo (pnpm). `docs/SPEC.md` is the contract — goals,
 decisions (the §5 register), data model, interfaces, roadmap. No code without SPEC alignment;
-behavior changes update the SPEC first, then the code (dev-methodology).
+behavior changes update the SPEC first, then the code.
 
 **Multi-tenant model (SPEC §9):** this repo is the engine. User data lives in a
 per-user private repo (`profile-data`), scaffolded from the template

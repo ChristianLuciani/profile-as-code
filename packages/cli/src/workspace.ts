@@ -28,7 +28,7 @@ export interface PascorcDefaults {
 
 /**
  * Issue #102: the completeness policy — what the workspace is measured
- * against. Config, not code (dev-methodology §3): the engine owns the catalog,
+ * against. Config, not code: the engine owns the catalog,
  * the workspace owns the target/weights/langs. This is a STRUCTURAL mirror of
  * core's `CompletenessPolicy` (the CLI package must not reach into core types
  * at config-parse time); `status.ts` passes it straight to `completeness()`.

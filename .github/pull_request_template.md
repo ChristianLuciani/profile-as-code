@@ -13,5 +13,5 @@
 - [ ] Commits carry a DCO sign-off (`git commit -s`, D21) — bot commits are exempt
 - [ ] Tests added/updated for changed behavior (or explicit reason why not)
 - [ ] Docs updated if behavior, contract or schema changed (`docs/`, `schema/`)
-- [ ] Any quantitative claim carries a dated source (claims-evidence rule)
+- [ ] Any quantitative claim carries a dated source (evidence rule, `AGENTS.md` rule 3)
 - [ ] Reviewed against the `docs/SPEC.md` §5 decision register; open questions noted in the PR body

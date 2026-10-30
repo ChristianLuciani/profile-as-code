@@ -901,7 +901,7 @@ a shallow checkout makes them *absent* rather than wrong.
 ## Other
 
 - **PR template** (`.github/pull_request_template.md`): reminds branch convention,
-  CI green, tests, docs, claims-evidence rule.
+  CI green, tests, docs, evidence rule.
 - **`SECURITY.md`**: private reporting via GitHub Security Advisories (free on public repos).
 - **Actions permissions**: read-only (`permissions: contents: read`) for `ci` and the
   `publish` job; the release job elevates to `contents: write` only to create the
