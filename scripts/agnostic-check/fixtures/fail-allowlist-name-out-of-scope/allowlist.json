@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "path": "docs/note.md",
+      "names": ["skills-studio"],
+      "reason": "the declared name never appears under this path, so the exemption suppresses nothing — the warning must still fire.",
+      "removalTrigger": "when the file names the declared name or the entry is dropped"
+    }
+  ]
+}

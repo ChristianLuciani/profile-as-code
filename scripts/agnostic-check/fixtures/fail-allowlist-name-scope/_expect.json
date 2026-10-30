@@ -1,0 +1,11 @@
+{
+  "exit": 1,
+  "contains": [
+    "E-AGNOSTIC",
+    "docs/scope.md:5",
+    "private name \"prompt-studio\"",
+    "1 suppressed by 1 dated-record path(s)"
+  ],
+  "notContains": ["private name \"skills-studio\""],
+  "tree_files": 1
+}

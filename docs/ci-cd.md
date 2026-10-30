@@ -79,14 +79,19 @@ One job, **`ci`**, required on every PR and push to `main`:
    `docs/build/`, one FILE at a time so a new file cannot inherit an old
    exemption — and for synthesized test fixtures; exemption is never by phrase,
    and an entry that suppresses nothing warns (`W-ALLOWLIST-UNUSED`) and rides
-   the status as `warnings[]`. The repo-target rule is the #273 clause: a PR
+   the status as `warnings[]`. An entry MAY narrow its exemption with
+   `names: [...]` (#369): the file is still scanned, only the declared inventory
+   names are exempt, and an unknown name is `E-ALLOWLIST-INVALID` rather than a
+   silent no-op — naming one class in a test no longer blinds the file to the
+   rest. The repo-target rule is the #273 clause: a PR
    that links a family repo declared `private` fails here, in every clone form
    (`https`, `git@…:`, `ssh://git@…`, `.git`). Visibility is verified
    out of band (release / pre-merge) and recorded in the inventory — the gate is
    offline and never probes, because a required check cannot depend on a third
    party's uptime or rate limits (#132, same reasoning as the link gate). The
    self-test runs first and proves every refusal, including the path-not-phrase
-   distinction and malformed/overlapping allowlist entries.
+   distinction, the name-scoped exemption and malformed/overlapping allowlist
+   entries.
    A third, always-on node step follows it — **evidence anchors** (`scripts/evidence-gate`,
    issue #226): a status row's run-citation is annotated
    `<!-- evidence: <type> as_of=<sha> kind=<record|current> -->`, and the gate

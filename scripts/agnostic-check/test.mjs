@@ -18,7 +18,17 @@
  *   - hidden session dirs are out of scope (`pass-hidden-session-dir`);
  *   - a path-allowlisted dated record passes (`pass-allowlisted-record`);
  *   - the SAME phrase outside the allowlisted path still fails — exemption is
- *     by path, never by text (`fail-outside-allowlist`);
+ *     by path and, when the entry narrows it, by the NAMES it declares, never
+ *     by arbitrary text (`fail-outside-allowlist`);
+ *   - an entry narrowed by `names` exempts only those names: another private
+ *     name in the same file still fails (`fail-allowlist-name-scope`), and the
+ *     same file passes when it names only the declared one
+ *     (`pass-allowlist-names`);
+ *   - a name outside the declared scope is a finding AND does not count as a
+ *     suppression, so `W-ALLOWLIST-UNUSED` still fires
+ *     (`fail-allowlist-name-out-of-scope`);
+ *   - a `names` value the inventory does not declare is refused, never a silent
+ *     no-op (`fail-allowlist-unknown-name`);
  *   - a malformed entry and overlapping entries are refused
  *     (`fail-malformed-allowlist`, `fail-overlapping-allowlist`);
  *   - an entry that suppresses nothing warns without failing

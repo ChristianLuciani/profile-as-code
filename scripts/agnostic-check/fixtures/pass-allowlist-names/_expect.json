@@ -1,0 +1,5 @@
+{
+  "exit": 0,
+  "contains": ["agnostic-check: PASS", "1 suppressed by 1 dated-record path(s)"],
+  "tree_files": 1
+}

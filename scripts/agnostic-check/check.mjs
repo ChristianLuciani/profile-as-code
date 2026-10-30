@@ -27,11 +27,15 @@
  *        check depend on a third party's uptime and rate limits, the exact
  *        reason `scripts/link-check` never fetches (#132).
  *   R3 — the dated-record allowlist is well-formed and path-based: every entry
- *        declares a repo-relative PATH, a reason and a removal trigger. A file
- *        covered by an entry is exempt; nothing is exempted by matching the
- *        phrase it happens to contain. An entry that suppresses no reference is
- *        reported (`W-ALLOWLIST-UNUSED`) so the registry cannot rot silently —
- *        the same shape as `scripts/link-check/allowlist.json`.
+ *        declares a repo-relative PATH, a reason and a removal trigger, and MAY
+ *        declare the inventory NAMES it exempts (`names: [...]`). Without
+ *        `names` the whole covered path is exempt, as always; with `names` only
+ *        those names are, and the file stays scanned for every other one (#369).
+ *        An undeclared name is an error (`E-ALLOWLIST-INVALID`), never a silent
+ *        no-op, and nothing is exempted by matching the phrase a line happens to
+ *        contain. An entry that suppresses no reference is reported
+ *        (`W-ALLOWLIST-UNUSED`) so the registry cannot rot silently — the same
+ *        shape as `scripts/link-check/allowlist.json`.
  *
  * Two exemptions, each with its own mechanism:
  *   - AGENTS rule 8 dated records are OUT OF SCOPE BY CLASS and the walker
@@ -42,8 +46,10 @@
  *   - Historical copies kept OUTSIDE those classes (the dated build-session
  *     records under `docs/build/`) and synthesized test fixtures are exempt by
  *     PATH in `allowlist.json`, one FILE at a time — a directory prefix would
- *     let a new file inherit an old exemption. A fixture is not a reference at
- *     all: it is an input.
+ *     let a new file inherit an old exemption. An entry may narrow its PATH
+ *     exemption to the NAMES it declares (`names`): the file is still scanned,
+ *     and every other target in it is a finding (#369). A fixture is not a
+ *     reference at all: it is an input.
  *
  * Scope: every tracked-by-construction text file in the checkout (`.md`,
  * `.json`, `.yml`, `.ts`, … — see TEXT_EXTENSIONS), including `.github/`.
@@ -278,7 +284,14 @@ export function loadTargets(file) {
         );
       }
       seen.add(dedupe);
-      matchers.push({ regex: compile(value), label: describe(value, entry.reason) });
+      matchers.push({
+        // Stable id of the declared target: a finding can be matched to the NAME
+        // an allowlist entry exempts, not only to the file it sits in (#369).
+        id: dedupe,
+        name: value,
+        regex: compile(value),
+        label: describe(value, entry.reason),
+      });
     }
   }
   const paths = data.operatorPaths;
@@ -300,7 +313,7 @@ export function loadTargets(file) {
       );
     }
     const label = `operator path (${entry.label ?? pattern})`;
-    matchers.push({ regex, label });
+    matchers.push({ id: `operatorPaths:${pattern}`, name: pattern, regex, label });
   }
   if (matchers.length === 0) {
     throw new GateError(`${RULES.targetsInvalid}: the inventory declares no matcher`);
@@ -309,12 +322,15 @@ export function loadTargets(file) {
 }
 
 /**
- * Load and validate the dated-record allowlist. Entries are PATH prefixes —
- * a phrase can never be exempted, only a file. Overlapping entries are refused
- * so a hit is never double-counted (and so "which entry suppressed this?" has
- * exactly one answer).
+ * Load and validate the dated-record allowlist. Entries are PATH prefixes,
+ * optionally narrowed to the NAMES they declare (`names`): without it the whole
+ * covered path is exempt; with it only those inventory names are, and the file
+ * stays scanned for the rest. A phrase can never be exempted, and a name the
+ * inventory does not declare is an error (`E-ALLOWLIST-INVALID`) rather than a
+ * silent no-op. Overlapping paths are refused so a hit is never double-counted
+ * (and so "which entry suppressed this?" has exactly one answer).
  */
-export function loadAllowlist(file) {
+export function loadAllowlist(file, knownNames = null) {
   const data = loadJson(file, "allowlist");
   if (typeof data !== "object" || data === null || Array.isArray(data)) {
     throw new GateError(`${RULES.allowlistInvalid}: allowlist must be a JSON object`);
@@ -344,11 +360,39 @@ export function loadAllowlist(file) {
     }
     requireString(entry.reason, `entries[${index}].reason`, RULES.allowlistInvalid);
     requireString(entry.removalTrigger, `entries[${index}].removalTrigger`, RULES.allowlistInvalid);
+    const names = entry.names;
+    let declaredNames;
+    if (names !== undefined) {
+      if (!Array.isArray(names) || names.length === 0) {
+        throw new GateError(
+          `${RULES.allowlistInvalid}: entries[${index}].names must be a non-empty array of inventory names when present`,
+        );
+      }
+      declaredNames = [];
+      const declared = new Set();
+      for (const [position, name] of names.entries()) {
+        requireString(name, `entries[${index}].names[${position}]`, RULES.allowlistInvalid);
+        if (declared.has(name)) {
+          throw new GateError(
+            `${RULES.allowlistInvalid}: entries[${index}].names declares ${JSON.stringify(name)} twice`,
+          );
+        }
+        if (knownNames !== null && !knownNames.has(name)) {
+          throw new GateError(
+            `${RULES.allowlistInvalid}: entries[${index}].names[${position}] ${JSON.stringify(name)} is not declared in the private-target inventory — an unknown name would exempt nothing silently`,
+          );
+        }
+        declared.add(name);
+        declaredNames.push(name);
+      }
+    }
     if (seen.has(pathValue)) {
       throw new GateError(`${RULES.allowlistInvalid}: duplicate path ${JSON.stringify(pathValue)}`);
     }
     seen.add(pathValue);
-    normalized.push({ path: pathValue, hits: 0 });
+    const normalizedEntry = { path: pathValue, hits: 0 };
+    if (declaredNames !== undefined) normalizedEntry.names = declaredNames;
+    normalized.push(normalizedEntry);
   }
   normalized.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
   for (let index = 1; index < normalized.length; index += 1) {
@@ -425,7 +469,9 @@ function snippet(line) {
  */
 export function check({ root, allowlistPath, targetsPath }) {
   const matchers = loadTargets(targetsPath);
-  const allowlist = loadAllowlist(allowlistPath);
+  // The inventory is loaded first so an allowlist `names` value can be validated
+  // against the names that actually exist (#369).
+  const allowlist = loadAllowlist(allowlistPath, new Set(matchers.map((matcher) => matcher.name)));
   const files = walkFiles(root);
   const findings = [];
   for (const file of files) {
@@ -441,6 +487,8 @@ export function check({ root, allowlistPath, targetsPath }) {
           findings.push({
             file,
             line: index + 1,
+            id: matcher.id,
+            name: matcher.name,
             label: matcher.label,
             snippet: snippet(line),
           });
@@ -455,7 +503,12 @@ export function check({ root, allowlistPath, targetsPath }) {
   let suppressed = 0;
   for (const finding of findings) {
     const entry = allowlist.find((candidate) => covers(candidate, finding.file));
-    if (entry) {
+    // An entry with `names` exempts only those names; the file stays scanned for
+    // every other target, and `hits` counts only a suppression that really
+    // applies — otherwise W-ALLOWLIST-UNUSED would stop biting.
+    const exempt =
+      entry !== undefined && (entry.names === undefined || entry.names.includes(finding.name));
+    if (exempt) {
       entry.hits += 1;
       suppressed += 1;
     } else {
@@ -470,7 +523,7 @@ export function check({ root, allowlistPath, targetsPath }) {
   const warnings = [];
   for (const entry of allowlist) {
     if (entry.hits === 0) {
-      const warning = `${RULES.allowlistUnused}: allowlist entry ${JSON.stringify(entry.path)} suppresses no reference — remove it or fix its path`;
+      const warning = `${RULES.allowlistUnused}: allowlist entry ${JSON.stringify(entry.path)} suppresses no reference — remove it, fix its path, or narrow its names`;
       warnings.push(warning);
       messages.push(warning);
     }

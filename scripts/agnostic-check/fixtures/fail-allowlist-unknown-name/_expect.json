@@ -1,0 +1,5 @@
+{
+  "exit": 1,
+  "contains": ["E-ALLOWLIST-INVALID", "no-such-private-target", "private-target inventory"],
+  "tree_files": 1
+}

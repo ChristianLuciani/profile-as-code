@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "path": "docs/scope.md",
+      "names": ["skills-studio"],
+      "reason": "the file names only the declared name — the narrowed exemption applies to every reference in it.",
+      "removalTrigger": "when the assertion stops naming the class"
+    }
+  ]
+}
