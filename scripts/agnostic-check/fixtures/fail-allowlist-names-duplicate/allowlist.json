@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "path": "docs/note.md",
+      "names": ["skills-studio", "skills-studio"],
+      "reason": "a duplicated name is a declaration bug — refused, never counted twice.",
+      "removalTrigger": "when the duplicate is removed"
+    }
+  ]
+}

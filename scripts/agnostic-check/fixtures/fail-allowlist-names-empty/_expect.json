@@ -1,0 +1,5 @@
+{
+  "exit": 1,
+  "contains": ["E-ALLOWLIST-INVALID", "non-empty array"],
+  "tree_files": 1
+}

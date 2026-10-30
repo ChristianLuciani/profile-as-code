@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "path": "docs/clean.md",
+      "names": ["skills-studio"],
+      "reason": "a name-scoped entry over a clean file suppresses nothing — it warns, it never fails.",
+      "removalTrigger": "when the file names the class or the entry is dropped"
+    }
+  ]
+}

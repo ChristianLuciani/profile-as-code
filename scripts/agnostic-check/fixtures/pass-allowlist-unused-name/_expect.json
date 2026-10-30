@@ -1,0 +1,11 @@
+{
+  "exit": 0,
+  "contains": [
+    "W-ALLOWLIST-UNUSED",
+    "\"prompt-studio\"",
+    "agnostic-check: PASS",
+    "1 suppressed by 1 dated-record path(s)"
+  ],
+  "warnings": 1,
+  "tree_files": 1
+}

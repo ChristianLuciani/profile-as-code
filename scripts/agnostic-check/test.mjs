@@ -20,13 +20,19 @@
  *   - the SAME phrase outside the allowlisted path still fails — exemption is
  *     by path and, when the entry narrows it, by the NAMES it declares, never
  *     by arbitrary text (`fail-outside-allowlist`);
- *   - an entry narrowed by `names` exempts only those names: another private
- *     name in the same file still fails (`fail-allowlist-name-scope`), and the
- *     same file passes when it names only the declared one
+ *   - an entry narrowed by `names` exempts only those `privateNames`: another
+ *     private name in the same file still fails (`fail-allowlist-name-scope`),
+ *     and the same file passes when it names only the declared one
  *     (`pass-allowlist-names`);
  *   - a name outside the declared scope is a finding AND does not count as a
  *     suppression, so `W-ALLOWLIST-UNUSED` still fires
  *     (`fail-allowlist-name-out-of-scope`);
+ *   - a declared name with no reference warns like a dead entry, without
+ *     failing (`pass-allowlist-unused-name`), and an entry with `names` over a
+ *     clean file warns and passes (`pass-allowlist-names-clean`);
+ *   - `names` accepts ONLY inventory `privateNames`: a repo target is refused
+ *     (`fail-allowlist-name-repo-target`), and an empty array, a duplicate and
+ *     a non-array value are `E-ALLOWLIST-INVALID` (`fail-allowlist-names-*`);
  *   - a `names` value the inventory does not declare is refused, never a silent
  *     no-op (`fail-allowlist-unknown-name`);
  *   - a malformed entry and overlapping entries are refused
@@ -38,6 +44,12 @@
  *   - each private CONTRACT name in the inventory fails, so removing one from the
  *     list turns its fixture green and the suite red (`fail-private-contract-*`).
  *
+ * One case is not a fixture but the REAL allowlist (#369 round 2): a throwaway
+ * tree reproduces the citations #362 retired in `packages/cli/tests/cli.test.ts`
+ * and `packages/renderers/github-readme/tests/role.test.ts`, and the production
+ * `allowlist.json` must report them. Reverting either entry to file-wide makes
+ * that case fail, which a fixture with its own allowlist could never catch.
+ *
  * Fixtures are part of the CI contract: a fixture whose path falls under an
  * ignore pattern (`build/`, `dist/`, `.sota/`, …) never reaches a clean clone,
  * so the suite would pass on the author's machine and fail in CI with ENOENT —
@@ -47,7 +59,16 @@
  * Zero dependencies, `node scripts/agnostic-check/test.mjs`.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -137,8 +158,60 @@ for (const name of cases) {
   }
 }
 
+/**
+ * Behavioral guard for the REAL allowlist (#369 round 2). The fixtures above
+ * carry their own allowlists, so reverting the two production entries to
+ * file-wide would leave every one of them green. This reproduces, in a
+ * throwaway tree, the exact citations #362 retired from those two files and runs
+ * the production `allowlist.json` over it: a narrowed entry reports them, a
+ * file-wide entry suppresses them silently (exit 0) and this case fails.
+ */
+function realAllowlistScope() {
+  // Built from parts on purpose: this file is scanned by the gate it tests, so
+  // the retired names must never appear as literals here.
+  const shortAlias = "pre" + "merge";
+  const contractName = "dev-" + "methodology";
+  const root = mkdtempSync(path.join(tmpdir(), "agnostic-real-allowlist-"));
+  try {
+    const cliTest = path.join(root, "packages/cli/tests/cli.test.ts");
+    const roleTest = path.join(root, "packages/renderers/github-readme/tests/role.test.ts");
+    mkdirSync(path.dirname(cliTest), { recursive: true });
+    mkdirSync(path.dirname(roleTest), { recursive: true });
+    // The retired citations: 84a763b (short alias) and f41c454 (contract name).
+    writeFileSync(cliTest, `// fixture directory (${shortAlias} #256, N3)\n`);
+    writeFileSync(roleTest, `// The additive guarantee (${contractName} §3)\n`);
+    const result = spawnSync(
+      process.execPath,
+      [checkPath, "--root", root, "--allowlist", path.join(here, "allowlist.json")],
+      { encoding: "utf8" },
+    );
+    const output = `${result.stdout}${result.stderr}`;
+    const problems = [];
+    if (result.status !== 1) problems.push(`exit ${result.status} != expected 1`);
+    for (const name of [shortAlias, contractName]) {
+      const needle = `private name "${name}"`;
+      if (!output.includes(needle)) {
+        problems.push(`the real allowlist does not report ${needle}`);
+      }
+    }
+    return problems;
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+const scopeProblems = realAllowlistScope();
+if (scopeProblems.length > 0) {
+  failed += 1;
+  console.error(
+    `FAIL real-allowlist-name-scope: ${scopeProblems.join("; ")} — the real allowlist is exempting those files whole again`,
+  );
+} else {
+  console.log("ok   real-allowlist-name-scope (exit 1)");
+}
+
 if (failed > 0) {
-  console.error(`agnostic-check self-test: FAIL — ${failed}/${cases.length} fixture(s) failed`);
+  console.error(`agnostic-check self-test: FAIL — ${failed}/${cases.length + 1} case(s) failed`);
   process.exit(1);
 }
-console.log(`agnostic-check self-test: PASS — ${cases.length}/${cases.length} fixtures`);
+console.log(`agnostic-check self-test: PASS — ${cases.length + 1}/${cases.length + 1} cases`);

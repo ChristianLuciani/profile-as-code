@@ -96,9 +96,9 @@ per-user private repo (`profile-data`), scaffolded from the template
    records are **out of scope by class** (`CHANGELOG.md`, `docs/research/` — rule
    8), except the corpus's live runbook and research prompt, which stay scanned; a
    historical copy outside those classes and a synthesized test fixture are
-   exempt in `scripts/agnostic-check/allowlist.json` by FILE, or by the NAMES an
-   entry declares (`names`) — the file stays scanned for every other name — never
-   by phrase (#274/#369).
+   exempt in `scripts/agnostic-check/allowlist.json` by FILE, or by the private
+   NAMES an entry declares (`names`, values from the inventory's `privateNames`)
+   — the file stays scanned for every other name — never by phrase (#274/#369).
 
 ## Commands
 

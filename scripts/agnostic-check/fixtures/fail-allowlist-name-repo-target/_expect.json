@@ -1,0 +1,10 @@
+{
+  "exit": 1,
+  "contains": [
+    "E-ALLOWLIST-INVALID",
+    "ChristianLuciani/profile-data",
+    "privateNames",
+    "private repo target"
+  ],
+  "tree_files": 1
+}

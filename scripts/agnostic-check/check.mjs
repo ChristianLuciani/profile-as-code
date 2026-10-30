@@ -28,12 +28,13 @@
  *        reason `scripts/link-check` never fetches (#132).
  *   R3 — the dated-record allowlist is well-formed and path-based: every entry
  *        declares a repo-relative PATH, a reason and a removal trigger, and MAY
- *        declare the inventory NAMES it exempts (`names: [...]`). Without
- *        `names` the whole covered path is exempt, as always; with `names` only
- *        those names are, and the file stays scanned for every other one (#369).
- *        An undeclared name is an error (`E-ALLOWLIST-INVALID`), never a silent
- *        no-op, and nothing is exempted by matching the phrase a line happens to
- *        contain. An entry that suppresses no reference is reported
+ *        declare the inventory's private NAMES it exempts (`names: [...]`).
+ *        Without `names` the whole covered path is exempt, as always; with
+ *        `names` only those `privateNames` are, and the file stays scanned for
+ *        every other one (#369). A repo target or an operator path in `names` is
+ *        an error (`E-ALLOWLIST-INVALID`), never a silent no-op, and nothing is
+ *        exempted by matching the phrase a line happens to contain. An entry —
+ *        or a declared name inside it — that suppresses no reference is reported
  *        (`W-ALLOWLIST-UNUSED`) so the registry cannot rot silently — the same
  *        shape as `scripts/link-check/allowlist.json`.
  *
@@ -287,7 +288,10 @@ export function loadTargets(file) {
       matchers.push({
         // Stable id of the declared target: a finding can be matched to the NAME
         // an allowlist entry exempts, not only to the file it sits in (#369).
+        // The category is carried so `names` can exempt only `privateNames`
+        // findings, never a repo target or an operator path.
         id: dedupe,
+        category: key,
         name: value,
         regex: compile(value),
         label: describe(value, entry.reason),
@@ -313,7 +317,13 @@ export function loadTargets(file) {
       );
     }
     const label = `operator path (${entry.label ?? pattern})`;
-    matchers.push({ id: `operatorPaths:${pattern}`, name: pattern, regex, label });
+    matchers.push({
+      id: `operatorPaths:${pattern}`,
+      category: "operatorPaths",
+      name: pattern,
+      regex,
+      label,
+    });
   }
   if (matchers.length === 0) {
     throw new GateError(`${RULES.targetsInvalid}: the inventory declares no matcher`);
@@ -324,9 +334,10 @@ export function loadTargets(file) {
 /**
  * Load and validate the dated-record allowlist. Entries are PATH prefixes,
  * optionally narrowed to the NAMES they declare (`names`): without it the whole
- * covered path is exempt; with it only those inventory names are, and the file
- * stays scanned for the rest. A phrase can never be exempted, and a name the
- * inventory does not declare is an error (`E-ALLOWLIST-INVALID`) rather than a
+ * covered path is exempt; with it only those names are, and the file stays
+ * scanned for the rest. A phrase can never be exempted, and a `names` value must
+ * be a `privateNames` entry of the inventory — a private repo target or an
+ * operator path is NOT a name and is refused (`E-ALLOWLIST-INVALID`), never a
  * silent no-op. Overlapping paths are refused so a hit is never double-counted
  * (and so "which entry suppressed this?" has exactly one answer).
  */
@@ -379,7 +390,7 @@ export function loadAllowlist(file, knownNames = null) {
         }
         if (knownNames !== null && !knownNames.has(name)) {
           throw new GateError(
-            `${RULES.allowlistInvalid}: entries[${index}].names[${position}] ${JSON.stringify(name)} is not declared in the private-target inventory — an unknown name would exempt nothing silently`,
+            `${RULES.allowlistInvalid}: entries[${index}].names[${position}] ${JSON.stringify(name)} is not a private NAME in the inventory — only private-targets.json's privateNames can be exempted by name; a private repo target or operator path must stay a finding`,
           );
         }
         declared.add(name);
@@ -391,7 +402,12 @@ export function loadAllowlist(file, knownNames = null) {
     }
     seen.add(pathValue);
     const normalizedEntry = { path: pathValue, hits: 0 };
-    if (declaredNames !== undefined) normalizedEntry.names = declaredNames;
+    if (declaredNames !== undefined) {
+      normalizedEntry.names = declaredNames;
+      // Per-name tally, so a declared name that suppresses nothing is reported
+      // even when the entry as a whole did suppress something (#369 round 2).
+      normalizedEntry.nameHits = new Map();
+    }
     normalized.push(normalizedEntry);
   }
   normalized.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
@@ -463,15 +479,22 @@ function snippet(line) {
  * Run the gate. Returns the machine-readable status
  * `{ status, messages, findings, suppressed, warnings }`: `status` is `"pass"`
  * or `"fail"`; `findings` is the failing set; `warnings` is the non-failing set
- * (an allowlist entry that suppresses nothing — it warns, it does not pass
- * silently); `messages` is the ordered report the CLI prints. Exported so the
- * self-test exercises the production path directly.
+ * (an allowlist entry — or a name it declares — that suppresses nothing: it
+ * warns, it does not pass silently); `messages` is the ordered report the CLI
+ * prints. Exported so the self-test exercises the production path directly.
  */
 export function check({ root, allowlistPath, targetsPath }) {
   const matchers = loadTargets(targetsPath);
   // The inventory is loaded first so an allowlist `names` value can be validated
-  // against the names that actually exist (#369).
-  const allowlist = loadAllowlist(allowlistPath, new Set(matchers.map((matcher) => matcher.name)));
+  // against the names that exist. Only `privateNames` are names: a private repo
+  // target or an operator path is a different category and cannot be exempted
+  // by name (#369).
+  const knownNames = new Set(
+    matchers
+      .filter((matcher) => matcher.category === "privateNames")
+      .map((matcher) => matcher.name),
+  );
+  const allowlist = loadAllowlist(allowlistPath, knownNames);
   const files = walkFiles(root);
   const findings = [];
   for (const file of files) {
@@ -488,6 +511,7 @@ export function check({ root, allowlistPath, targetsPath }) {
             file,
             line: index + 1,
             id: matcher.id,
+            category: matcher.category,
             name: matcher.name,
             label: matcher.label,
             snippet: snippet(line),
@@ -505,11 +529,18 @@ export function check({ root, allowlistPath, targetsPath }) {
     const entry = allowlist.find((candidate) => covers(candidate, finding.file));
     // An entry with `names` exempts only those names; the file stays scanned for
     // every other target, and `hits` counts only a suppression that really
-    // applies — otherwise W-ALLOWLIST-UNUSED would stop biting.
+    // applies — otherwise W-ALLOWLIST-UNUSED would stop biting. The category
+    // check is structural: a name can never exempt a repo target or an operator
+    // path, even if a string collided across categories.
     const exempt =
-      entry !== undefined && (entry.names === undefined || entry.names.includes(finding.name));
+      entry !== undefined &&
+      (entry.names === undefined ||
+        (finding.category === "privateNames" && entry.names.includes(finding.name)));
     if (exempt) {
       entry.hits += 1;
+      if (entry.names !== undefined) {
+        entry.nameHits.set(finding.name, (entry.nameHits.get(finding.name) ?? 0) + 1);
+      }
       suppressed += 1;
     } else {
       reported.push(finding);
@@ -524,6 +555,15 @@ export function check({ root, allowlistPath, targetsPath }) {
   for (const entry of allowlist) {
     if (entry.hits === 0) {
       const warning = `${RULES.allowlistUnused}: allowlist entry ${JSON.stringify(entry.path)} suppresses no reference — remove it, fix its path, or narrow its names`;
+      warnings.push(warning);
+      messages.push(warning);
+      continue;
+    }
+    // A declared name that suppressed nothing is dead weight even when the
+    // entry carries other live names: report it, same code (#369 round 2).
+    for (const name of entry.names ?? []) {
+      if ((entry.nameHits.get(name) ?? 0) > 0) continue;
+      const warning = `${RULES.allowlistUnused}: allowlist entry ${JSON.stringify(entry.path)} declares name ${JSON.stringify(name)} but suppresses no reference — remove it or fix the name`;
       warnings.push(warning);
       messages.push(warning);
     }

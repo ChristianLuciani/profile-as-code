@@ -80,10 +80,12 @@ One job, **`ci`**, required on every PR and push to `main`:
    exemption — and for synthesized test fixtures; exemption is never by phrase,
    and an entry that suppresses nothing warns (`W-ALLOWLIST-UNUSED`) and rides
    the status as `warnings[]`. An entry MAY narrow its exemption with
-   `names: [...]` (#369): the file is still scanned, only the declared inventory
-   names are exempt, and an unknown name is `E-ALLOWLIST-INVALID` rather than a
-   silent no-op — naming one class in a test no longer blinds the file to the
-   rest. The repo-target rule is the #273 clause: a PR
+   `names: [...]` (#369): the file is still scanned, only the declared
+   `privateNames` from the inventory are exempt, and a repo target or operator
+   path there is `E-ALLOWLIST-INVALID` rather than a silent no-op — naming one
+   class in a test no longer blinds the file to the rest. A declared name that
+   suppresses nothing warns like the entry itself does. The repo-target rule is
+   the #273 clause: a PR
    that links a family repo declared `private` fails here, in every clone form
    (`https`, `git@…:`, `ssh://git@…`, `.git`). Visibility is verified
    out of band (release / pre-merge) and recorded in the inventory — the gate is
