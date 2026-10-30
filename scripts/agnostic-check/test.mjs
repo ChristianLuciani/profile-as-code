@@ -44,11 +44,14 @@
  *   - each private CONTRACT name in the inventory fails, so removing one from the
  *     list turns its fixture green and the suite red (`fail-private-contract-*`).
  *
- * One case is not a fixture but the REAL allowlist (#369 round 2): a throwaway
+ * Two cases are not fixtures. The REAL allowlist (#369 round 2): a throwaway
  * tree reproduces the citations #362 retired in `packages/cli/tests/cli.test.ts`
  * and `packages/renderers/github-readme/tests/role.test.ts`, and the production
- * `allowlist.json` must report them. Reverting either entry to file-wide makes
- * that case fail, which a fixture with its own allowlist could never catch.
+ * `allowlist.json` must report them — reverting either entry to file-wide makes
+ * that case fail, which a fixture with its own allowlist could never catch. The
+ * CATEGORY guard (#369 round 3): a declared name that is also an operator-path
+ * source is exempt as a name and REPORTED as a path — the exemption never
+ * crosses categories, even when the strings are identical.
  *
  * Fixtures are part of the CI contract: a fixture whose path falls under an
  * ignore pattern (`build/`, `dist/`, `.sota/`, …) never reaches a clean clone,
@@ -210,8 +213,92 @@ if (scopeProblems.length > 0) {
   console.log("ok   real-allowlist-name-scope (exit 1)");
 }
 
+/**
+ * The category guard (#369 round 3): `names` exempts only `privateNames`
+ * findings, even when a declared name's exact string is also a valid
+ * operator-path source. Purpose-built targets + allowlist, run through the
+ * exported `check()`, so the `finding.category === "privateNames"` guard is
+ * exercised directly instead of only by a string that happens to be unique.
+ */
+function categoryGuardProblems() {
+  // Built from parts: this file is scanned by the gate it tests.
+  const declaredName = "skills-" + "studio";
+  const root = mkdtempSync(path.join(tmpdir(), "agnostic-category-"));
+  try {
+    const tree = path.join(root, "tree");
+    mkdirSync(tree, { recursive: true });
+    writeFileSync(
+      path.join(tree, "doc.md"),
+      `The ${declaredName} name appears here, and is a path source too.\n`,
+    );
+    const targets = path.join(root, "targets.json");
+    writeFileSync(
+      targets,
+      JSON.stringify(
+        {
+          privateNames: [{ name: declaredName, reason: "a declared private name" }],
+          privateRepos: [],
+          operatorPaths: [
+            {
+              pattern: declaredName,
+              label: "colliding path source",
+              reason: "a pattern whose source is exactly the declared name",
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    );
+    const allowlist = path.join(root, "allowlist.json");
+    writeFileSync(
+      allowlist,
+      JSON.stringify(
+        {
+          entries: [
+            {
+              path: "doc.md",
+              names: [declaredName],
+              reason: "the declared name is exempt here",
+              removalTrigger: "never in this case",
+            },
+          ],
+        },
+        null,
+        2,
+      ),
+    );
+    const result = check({ root: tree, allowlistPath: allowlist, targetsPath: targets });
+    const problems = [];
+    if (result.status !== "fail") problems.push(`status ${result.status} != expected fail`);
+    if (result.findings.length !== 1) {
+      problems.push(
+        `${result.findings.length} finding(s) reported, expected 1 (the operator path)`,
+      );
+    }
+    const reported = result.findings[0];
+    if (reported?.category !== "operatorPaths") {
+      problems.push(`reported category ${reported?.category} != operatorPaths`);
+    }
+    if (result.suppressed !== 1) {
+      problems.push(`${result.suppressed} suppressed, expected 1 (the privateNames finding)`);
+    }
+    return problems;
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+const guardProblems = categoryGuardProblems();
+if (guardProblems.length > 0) {
+  failed += 1;
+  console.error(`FAIL category-does-not-exempt-another: ${guardProblems.join("; ")}`);
+} else {
+  console.log("ok   category-does-not-exempt-another (exit 1)");
+}
+
 if (failed > 0) {
-  console.error(`agnostic-check self-test: FAIL — ${failed}/${cases.length + 1} case(s) failed`);
+  console.error(`agnostic-check self-test: FAIL — ${failed}/${cases.length + 2} case(s) failed`);
   process.exit(1);
 }
-console.log(`agnostic-check self-test: PASS — ${cases.length + 1}/${cases.length + 1} cases`);
+console.log(`agnostic-check self-test: PASS — ${cases.length + 2}/${cases.length + 2} cases`);

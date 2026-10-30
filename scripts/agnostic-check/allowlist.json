@@ -1,5 +1,5 @@
 {
-  "$comment": "Path-based exemptions for scripts/agnostic-check (issue #274). An entry exempts a FILE or DIRECTORY PREFIX, never a phrase: a dated record keeps its historical text (AGENTS rule 8), and a synthesized test fixture is an input rather than a reference. An optional `names` array narrows the exemption to the private NAMES it declares (#369): only values from `private-targets.json`'s `privateNames` list are valid — a private repo target or an operator path is E-ALLOWLIST-INVALID, because a target is not a name — and the file is still scanned for every other name. Each entry declares WHY it is exempt and the TRIGGER that removes it; an entry — or a name it declares — that suppresses no reference is reported as W-ALLOWLIST-UNUSED so the registry cannot rot silently (same shape as scripts/link-check/allowlist.json).",
+  "$comment": "Path-based exemptions for scripts/agnostic-check (issue #274). An entry exempts a FILE or DIRECTORY PREFIX, never a phrase: a dated record keeps its historical text (AGENTS rule 8), and a synthesized test fixture is an input rather than a reference. An optional `names` array narrows the exemption to the private NAMES it declares (#369): only values from `private-targets.json`'s `privateNames` list are valid — a private repo target or an operator path is E-ALLOWLIST-INVALID, because a target is not a name — and the file is still scanned for every other name. An entry whose only finding is an operator path stays FILE-WIDE, because a path shape is not a name (`packages/cli/tests/preview.test.ts` is exactly that case, out of scope of #369). Each entry declares WHY it is exempt and the TRIGGER that removes it; an entry — or a name it declares — that suppresses no reference is reported as W-ALLOWLIST-UNUSED so the registry cannot rot silently (same shape as scripts/link-check/allowlist.json).",
   "entries": [
     {
       "path": "docs/build/01-core-build.md",
@@ -13,7 +13,8 @@
     },
     {
       "path": "packages/cli/scripts/verify-pack.mjs",
-      "reason": "negative assertion: `verify:pack` reads the published --help and FAILS when it names one of these private tools. The file must name the class to prohibit it (#254).",
+      "names": ["skills-studio", "prompt-studio", "AGOS"],
+      "reason": "negative assertion: `verify:pack` reads the published --help and FAILS when it names one of these private tools (#254). The file must name the class to prohibit it, and the class it names is exactly these three (measured at #369 on the regex at :154) — `skills-studio`, `prompt-studio` and `AGOS`. The exemption is narrowed to them, so any other private name in this script fails E-AGNOSTIC.",
       "removalTrigger": "when `verify:pack` is replaced by this gate (the assertion moves here)"
     },
     {
@@ -24,22 +25,25 @@
     },
     {
       "path": "packages/cli/tests/audit.test.ts",
-      "reason": "synthesized test data that REUSES the operator's real project name as a placeholder persona project; it is an input to the audit rules, never a link to that repo. Allowlisted as input, not as history \u2014 renaming the fixture persona is a separate cleanup, so the justification records the real datum.",
+      "names": ["sovereign-agentic-hub"],
+      "reason": "synthesized test data that REUSES the operator's real project name as a placeholder persona project; it is an input to the audit rules, never a link to that repo. The only private name in the file is `sovereign-agentic-hub` (measured at #369, :233 and :369), so the exemption is narrowed to it — any other private name fails E-AGNOSTIC. Allowlisted as input, not as history — renaming the fixture persona is a separate cleanup, so the justification records the real datum.",
       "removalTrigger": "when the audit fixtures stop using that project name"
     },
     {
       "path": "packages/cli/tests/preview.test.ts",
-      "reason": "synthesized test input: the absolute path is the INPUT that proves the privacy scanner flags absolute paths \u2014 the gate would be untested without a path to detect.",
+      "reason": "synthesized test input: the absolute path is the INPUT that proves the privacy scanner flags absolute paths — the gate would be untested without a path to detect. OUT OF SCOPE of #369: the finding here is an operatorPath shape (an absolute-path fixture), and `names` can only express `privateNames`, so the entry stays file-wide; a name-scoped exemption is not applicable without inventing a new mechanism.",
       "removalTrigger": "when the privacy scanner's absolute-path case is driven from a fixture file instead"
     },
     {
       "path": "packages/cli/tests/fixtures/",
-      "reason": "synthesized workspace fixtures built on a fictional persona; the project name they reuse is the operator's real one, used as placeholder data \u2014 inputs, not references to that repo.",
+      "names": ["sovereign-agentic-hub"],
+      "reason": "synthesized workspace fixtures built on a fictional persona; the project name they reuse is the operator's real one, used as placeholder data \u2014 inputs, not references to that repo. The only private name across these fixtures is `sovereign-agentic-hub` (measured at #369 in export-profile/ and audit/), so the exemption is narrowed to it: a new fixture naming another private class fails E-AGNOSTIC.",
       "removalTrigger": "when the fixtures stop naming a project that collides with a declared private name"
     },
     {
       "path": "packages/core/tests/fixtures/",
-      "reason": "synthesized workspace fixtures built on a fictional persona; the project name they reuse is the operator's real one, used as placeholder data \u2014 inputs, not references to that repo.",
+      "names": ["sovereign-agentic-hub"],
+      "reason": "synthesized workspace fixtures built on a fictional persona; the project name they reuse is the operator's real one, used as placeholder data \u2014 inputs, not references to that repo. The only private name across these fixtures is `sovereign-agentic-hub` (measured at #369 in the six workspace fixtures), so the exemption is narrowed to it: a new fixture naming another private class fails E-AGNOSTIC.",
       "removalTrigger": "when the fixtures stop naming a project that collides with a declared private name"
     },
     {
