@@ -4,14 +4,14 @@
   "current": {
     "schemaVersion": "1.15",
     "sha256": "c48296847d99eb2413b7c1dec51e51656f4a4384eb06b7a8955b73c3e9625436",
-    "published": false,
-    "artifact": null,
-    "note": "No released tag carries schema v1.15 yet, so there is no tag-pinned URL for these bytes: use the repository checkout at a commit whose schema/profile.schema.json hashes to this sha256. The next release publishes it."
+    "published": true,
+    "artifact": "https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.3.7/schema/profile.schema.json",
+    "note": "Published at v0.3.7 — the tag-pinned URL above identifies these bytes."
   },
   "released": {
-    "tag": "v0.3.6",
-    "url": "https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.3.6/schema/profile.schema.json",
-    "schemaVersion": "1.13",
-    "sha256": "275340ffe2e011581810131b23b72472016ec90278e85fce6d44b4e7e7ccbb10"
+    "tag": "v0.3.7",
+    "url": "https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.3.7/schema/profile.schema.json",
+    "schemaVersion": "1.15",
+    "sha256": "c48296847d99eb2413b7c1dec51e51656f4a4384eb06b7a8955b73c3e9625436"
   }
 }
