@@ -116,7 +116,7 @@ private by default and never leaves your control (D14: integration by configured
 
 ## Files
 
-Three top-level directories, three grains — nothing nests one inside another:
+Three top-level directories at scaffold time, three grains — nothing nests one inside another:
 \`content/\` is identity, \`profiles/\` is generated output (its \`variants/\` subdir is input),
 \`posts/\` is the stream.
 
@@ -130,8 +130,11 @@ Three top-level directories, three grains — nothing nests one inside another:
 
 The platform playbooks ship with \`pasco\`, outside this workspace. When you need
 to know what to write for a channel, copy them in with
-\`pasco skills:export .pasco-skills\` and read \`.pasco-skills/<platform>/SKILL.md\`
-— the directory stays inside this workspace, so a sandboxed agent can open it.
+\`pasco skills:export .pasco-skills\`; each channel lands under
+\`.pasco-skills/<platform>/\` with its playbook (post-only channels ship the
+posting guide instead).
+The copy is a fourth, disposable directory: add it to .gitignore if you do not
+want it committed (re-running needs \`--force\`).
 
 ## Workflow
 
@@ -167,8 +170,11 @@ Three top-level directories, three grains — nothing nests one inside another:
 
 The platform playbooks ship with \`pasco\`, outside this workspace. When you need
 to know what to write for a channel, copy them in with
-\`pasco skills:export .pasco-skills\` and read \`.pasco-skills/<platform>/SKILL.md\`
-— the directory stays inside this workspace, so a sandboxed agent can open it.
+\`pasco skills:export .pasco-skills\`; each channel lands under
+\`.pasco-skills/<platform>/\` with its playbook (post-only channels ship the
+posting guide instead).
+The copy is a fourth, disposable directory: add it to .gitignore if you do not
+want it committed (re-running needs \`--force\`).
 
 ## Workflow
 

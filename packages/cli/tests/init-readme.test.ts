@@ -189,14 +189,23 @@ describe("scaffolded README references (#385)", () => {
   // coding agent runs in. The scaffold must name the bridge, with a destination
   // inside the workspace, so the reader can copy and open them.
   function expectSkillsBridge(readme: string): void {
-    const match = readme.match(/`pasco skills:export ([^`\s]+)`/);
-    expect(match, "the scaffolded README must announce `pasco skills:export <dir>`").not.toBeNull();
-    const destination = match?.[1] as string;
+    const destinations = [...readme.matchAll(/`pasco skills:export ([^`\s]+)`/g)].map(
+      (match) => match[1] as string,
+    );
     expect(
-      destination.startsWith("."),
-      `destination must be workspace-relative: ${destination}`,
-    ).toBe(true);
-    expect(destination).not.toContain("<");
+      destinations.length,
+      "the scaffolded README must announce `pasco skills:export <dir>`",
+    ).toBeGreaterThan(0);
+    for (const destination of destinations) {
+      expect(
+        destination.startsWith("."),
+        `destination must be workspace-relative: ${destination}`,
+      ).toBe(true);
+      expect(destination, `destination must stay inside the workspace: ${destination}`).not.toMatch(
+        /^\.\.(?:\/|$)/,
+      );
+      expect(destination).not.toContain("<");
+    }
   }
 
   it("the person template announces the skills:export bridge", () => {

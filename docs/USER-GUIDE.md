@@ -282,6 +282,10 @@ overwrite** anything that exists:
 | `person` (default) | `content/identity.yaml` + `README.md` + `.pascorc` |
 | `brand` | `content/{identity,socialHandles,newsletter,podcast,press,audiences,flavor}.yaml` + `README.md` + `.pascorc` |
 
+Once it exists, copy the channel playbooks into the workspace with
+`pasco skills:export .pasco-skills`; they are what an agent reads to know what
+to write for each platform.
+
 Option B starts you nearly empty — you add the other blocks yourself as you
 need them (they are optional; see §4). It is **minimal on purpose** (SPEC §9.2):
 the complete package — licence, operational docs, automation — lives in the
