@@ -39,10 +39,12 @@ import {
   manifestViolations,
   orderViolations,
   parseSteps,
+  provenanceRequested,
   publishInvocations,
   runCommands,
   runtimeDependencyViolations,
   SEAM_DIRS,
+  stripShellComment,
   targetPaths,
   uncoveredPublishables,
   workflowViolations,
@@ -114,9 +116,9 @@ const REAL_COHORT_RUN = [
   // Concatenated so the fixture carries the workflow's literal GHA expression
   // without tripping the template-literal lint; it must mirror release.yml exactly.
   '            if [ "$' + '{{ inputs.dry_run }}" = "true" ]; then',
-  '              (cd "$dir" && pnpm publish --access public --no-git-checks --dry-run)',
+  '              (cd "$dir" && pnpm publish --access public --no-git-checks --provenance --dry-run)',
   "            else",
-  '              (cd "$dir" && pnpm publish --access public --no-git-checks)',
+  '              (cd "$dir" && pnpm publish --access public --no-git-checks --provenance)',
   "            fi",
   "          done",
 ];
@@ -209,6 +211,98 @@ test("publishInvocations — the real two-branch step yields exactly one live pn
   assert.equal(dry.length, 1);
   assert.equal(live[0].client, "pnpm");
   assert.equal(dry[0].client, "pnpm");
+});
+
+test("provenanceRequested — accepts the explicit flag, rejects its negation", () => {
+  // The request that the gate proves is the token, not the word: a lexical gate that
+  // matched the substring would accept `--no-provenance` or `--provenance=false`.
+  assert.equal(provenanceRequested("pnpm publish --provenance"), true);
+  assert.equal(provenanceRequested("pnpm publish --provenance=true --dry-run"), true);
+  assert.equal(provenanceRequested("pnpm publish --provenance=false"), false);
+  assert.equal(provenanceRequested("pnpm publish --no-provenance"), false);
+  assert.equal(provenanceRequested("pnpm publish --access public"), false);
+});
+
+test("workflowViolations — #377: dropping --provenance from the LIVE branch is refused", () => {
+  // Seeded defect: the branch the registry sees loses the request while the dry-run
+  // twin keeps it — a whole-body match would stay green (the F1 class, one level up).
+  const run = REAL_COHORT_RUN.map((line) =>
+    line.includes("pnpm publish") && !line.includes("--dry-run")
+      ? line.replace(" --provenance", "")
+      : line,
+  );
+  refuses(
+    workflowViolations(workflow({ cohortRun: run })).violations,
+    "does not request provenance",
+    "#377 live branch",
+  );
+});
+
+test("workflowViolations — #377: dropping --provenance from the --dry-run branch is refused", () => {
+  // The dry-run branch must exercise the same invocation; losing the flag there means
+  // the smoke run stops rehearsing what the live branch does.
+  const run = REAL_COHORT_RUN.map((line) =>
+    line.includes("pnpm publish") && line.includes("--dry-run")
+      ? line.replace(" --provenance", "")
+      : line,
+  );
+  refuses(
+    workflowViolations(workflow({ cohortRun: run })).violations,
+    "does not request provenance",
+    "#377 dry-run branch",
+  );
+});
+
+test("provenanceRequested — the LAST flag wins, and a comment is not the command", () => {
+  // F2 del pase fresco: pnpm parsea las opciones de izquierda a derecha y se queda
+  // con la última; un matcher first-match leía el pedido en un comando que publica
+  // sin attestation. F1: el flag escrito en un comentario no viaja al cliente.
+  assert.equal(provenanceRequested("pnpm publish --provenance --no-provenance"), false);
+  assert.equal(provenanceRequested("pnpm publish --no-provenance --provenance"), true);
+  assert.equal(provenanceRequested("pnpm publish --provenance --provenance=false"), false);
+  assert.equal(
+    stripShellComment("pnpm publish --access public # --provenance"),
+    "pnpm publish --access public ",
+  );
+  assert.equal(stripShellComment('echo "# --provenance"'), 'echo "# --provenance"');
+});
+
+test("workflowViolations — #377: a flag written in a trailing comment does not satisfy the gate", () => {
+  // El seed de F1 sobre el step real: el comando pierde el flag y un comentario
+  // conserva la palabra. El gate tiene que leer el CÓDIGO de la línea.
+  const run = REAL_COHORT_RUN.map((line) =>
+    line.includes("pnpm publish") ? line.replace(" --provenance", " # --provenance") : line,
+  );
+  refuses(
+    workflowViolations(workflow({ cohortRun: run })).violations,
+    "does not request provenance",
+    "#377 comment-only flag",
+  );
+});
+
+test("workflowViolations — #377: the --dry-run branch must still use pnpm", () => {
+  // F3: el cliente sólo se validaba en la rama live, así que un `npm publish` en la
+  // rama de ensayo pasaba — y esa rama deja de ensayar la invocación que publica.
+  const run = REAL_COHORT_RUN.map((line) =>
+    line.includes("pnpm publish") && line.includes("--dry-run")
+      ? line.replace("pnpm publish", "npm publish")
+      : line,
+  );
+  refuses(
+    workflowViolations(workflow({ cohortRun: run })).violations,
+    "does not rewrite",
+    "#377 dry-run client",
+  );
+});
+
+test("workflowViolations — #377: a negated request is refused on every branch", () => {
+  const run = REAL_COHORT_RUN.map((line) =>
+    line.includes("--provenance") ? line.replace("--provenance", "--provenance=false") : line,
+  );
+  const violations = workflowViolations(workflow({ cohortRun: run })).violations.filter(
+    (violation) => violation.includes("does not request provenance"),
+  );
+  assert.equal(violations.length, 2, JSON.stringify(violations));
 });
 
 test("workflowViolations — F1: mutating ONLY the live branch to npm publish is refused", () => {

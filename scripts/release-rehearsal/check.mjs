@@ -7,8 +7,10 @@ import { createHash } from "node:crypto";
  * The five seam packages (`packages/{core,markdown,paste,artifact,github}`) publish
  * from `.github/workflows/release.yml` as a loop of `pnpm publish`, in dependency
  * order, `core` first. That loop has existed since #301 but had never published a
- * member (#313): the `v0.3.6` run logged five skips because every seam version was
- * already live. So the first real cohort publish — a seam version bump, an operator
+ * member (#313): in the `v0.3.6` run, attempt 1 died at the OIDC exchange before
+ * publishing anything and attempt 2 logged five skips because every seam version was
+ * already live (published outside the workflow at 02:38–02:39Z). So the first real
+ * cohort publish — a seam version bump, an operator
  * tag, `pnpm publish` × 5 over OIDC — would be FIRST CONTACT, and npm cannot be
  * un-published. This gate is the rehearsal of that moment: it runs the same client
  * (`pnpm`) over the same five directories, offline, and publishes NOTHING.
@@ -24,19 +26,24 @@ import { createHash } from "node:crypto";
  *      version (the #301 claim), and whose `main`/`types`/`exports`/`files`
  *      targets actually exist inside the tarball;
  *   3. MECHANISM — the publish JOB still grants `id-token: write`, every publish
- *      invocation outside a `--dry-run` branch is `pnpm publish` (only pnpm rewrites
- *      `workspace:*`), the loop iterates `$ORDER`, the rehearsal barrier exists before
- *      the loop, the cohort runs before the CLI's own `Publish` step, every
+ *      invocation — the live branch AND its `--dry-run` twin — is `pnpm publish`
+ *      (only pnpm rewrites `workspace:*`) and requests provenance explicitly with
+ *      `--provenance` (#377), the loop iterates `$ORDER`, the rehearsal barrier exists
+ *      before the loop, the cohort runs before the CLI's own `Publish` step, every
  *      publishable workspace member is in the cohort, and each manifest's
  *      `repository.url` matches the repo the workflow runs in (npm fails the
- *      publish on a mismatch).
+ *      publish on a mismatch). The flag is asserted on every invocation because a
+ *      whole-body substring match would be satisfied by the branch that never
+ *      publishes (the #301 F1 class).
  *
  * What it CANNOT prove, and says so in its own output: the OIDC exchange against
  * npm's trusted-publisher binding, the registry state (a live version is skipped,
- * not republished), and `dist.attestations`. Those exist only after a real publish;
- * they are #313's remaining evidence and the operator's release run closes them.
- * A dry run is not that evidence (release.yml deliberately does not validate
- * publish auth — see docs/ci-cd.md §"Rehearsing the cohort publish").
+ * not republished), and `dist.attestations`. Those exist only after a real publish.
+ * The acceptance #377 declares is therefore narrower than "attested": the mechanism
+ * REQUESTS provenance and this gate proves the request — the first release event
+ * that publishes a seam member must record a `dist.attestations` entry for each one
+ * it publishes, with the tag and date, in docs/ci-cd.md. A dry run is not that
+ * evidence (release.yml deliberately does not validate publish auth).
  *
  * Deterministic and offline: `pnpm pack` and `tar` are local, no registry call, no
  * clock. Exit 0 = the rehearsal passed; 1 = E-REHEARSAL with the exact package and
@@ -675,13 +682,35 @@ export function manifestViolations({
  * or the order this gate validated would be decorative.
  */
 
+/**
+ * The shell CODE of a line: everything before a `#` that starts a comment. A `#`
+ * inside quotes is text (`echo "# --provenance"`), and the shell itself treats a
+ * `#` as a comment only at the start of a word — the same rule here, so a flag
+ * written in a trailing comment can never satisfy an assertion the command does
+ * not carry (F1 of the #377 round-2 pass).
+ */
+export function stripShellComment(line) {
+  let quote = null;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    if (quote !== null) {
+      if (char === quote) quote = null;
+      else if (char === "\\" && quote === '"') i += 1;
+      continue;
+    }
+    if (char === '"' || char === "'") quote = char;
+    else if (char === "#" && (i === 0 || /\s/.test(line[i - 1]))) return line.slice(0, i);
+  }
+  return line;
+}
+
 /** A publish invocation found in a step body: `pnpm publish` / `npm publish`. */
 export function publishInvocations(body) {
   const invocations = [];
   for (const raw of body.split("\n")) {
-    const line = raw.trim();
+    const line = stripShellComment(raw).trim();
     // Comments in the step must not be able to satisfy the assertion.
-    if (line.startsWith("#")) continue;
+    if (line === "") continue;
     const re = /(^|[^\w-])(pnpm|npm)\s+publish\b/g;
     let match = re.exec(line);
     while (match !== null) {
@@ -690,6 +719,31 @@ export function publishInvocations(body) {
     }
   }
   return invocations;
+}
+
+/**
+ * Whether a publish invocation REQUESTS provenance (`--provenance`). The request is
+ * what an offline gate can prove: pnpm's implicit path (`options.provenance` unset)
+ * only attests after a best-effort visibility probe and degrades to a warning, so
+ * the absence of the flag is not a safe default (#377). `--no-provenance` and
+ * `--provenance=false` do NOT count — a lexical gate that matched the substring
+ * would accept the negation.
+ */
+export function provenanceRequested(line) {
+  // The value stops at shell punctuation (`)`, `;`), so `--provenance=false)` is `false`,
+  // not the unrecognized `false)` that a `\S+` capture would let pass as a request.
+  // The LAST flag wins: pnpm's option parser (@pnpm/nopt, verified on the pinned
+  // 11.20.0) overwrites as it reads, so `--provenance --no-provenance` publishes
+  // WITHOUT provenance — a first-match gate read that as a request (F2 of the
+  // #377 round-2 pass).
+  let requested = false;
+  for (const match of line.matchAll(
+    /(?:^|\s)(--provenance|--no-provenance)(?:=([A-Za-z0-9]+))?/g,
+  )) {
+    if (match[1] === "--no-provenance") requested = false;
+    else requested = match[2] === undefined || !/^(?:false|0)$/i.test(match[2]);
+  }
+  return requested;
 }
 
 /** The `publish` job's line range, or null when the job (or `jobs:`) is absent. */
@@ -865,12 +919,27 @@ export function workflowViolations(yaml) {
         "the rehearsal would vet a step that only smokes",
     );
   }
-  for (const invocation of live) {
+  // Both branches: the `--dry-run` one must exercise the SAME invocation the live
+  // one runs, or the rehearsal vets a command that never publishes (#377 round 2).
+  for (const invocation of invocations) {
     if (invocation.client === "pnpm") continue;
     violations.push(
       `E-REHEARSAL: the cohort step publishes with \`${invocation.client} publish\` ` +
-        `(live branch): ${JSON.stringify(invocation.line)} — \`npm publish\` does not rewrite ` +
-        "`workspace:*`, so the published manifests would be uninstallable (#301)",
+        `(${invocation.dryRun ? "`--dry-run` " : "live "}branch): ${JSON.stringify(invocation.line)} — ` +
+        "`npm publish` does not rewrite `workspace:*`, so the published manifests would be uninstallable (#301)",
+    );
+  }
+  // Provenance is asserted per invocation, on BOTH branches (#377): the live one is
+  // what the registry sees, the `--dry-run` one must exercise the same invocation.
+  // A whole-body substring match would be satisfied by the branch that never publishes.
+  for (const invocation of invocations) {
+    if (provenanceRequested(invocation.line)) continue;
+    violations.push(
+      `E-REHEARSAL: the cohort step's ${invocation.dryRun ? "`--dry-run` " : "live "}` +
+        `publish invocation does not request provenance: ${JSON.stringify(invocation.line)} — ` +
+        "pnpm's implicit path attests only after a best-effort visibility probe and degrades " +
+        "to a warning, so an unattested member is indistinguishable from one built elsewhere " +
+        "(#377); add `--provenance`",
     );
   }
   if (!/for\s+\w+\s+in\s+"?\$\{?ORDER\}?"?/.test(command)) {
@@ -1207,7 +1276,11 @@ export async function check(root, options = {}) {
   const unverifiable = [
     "NOT CHECKED (needs a real publish): the OIDC exchange against npm's trusted-publisher",
     "binding, whether a version is already live (npm skips, cannot republish), and",
-    "`dist.attestations`. Those are #313's open evidence; the operator's release run closes them.",
+    "`dist.attestations`. This gate proves the cohort step REQUESTS provenance",
+    "(`--provenance` on both branches, #377); it cannot prove the registry received the",
+    "attestation. Acceptance #377: the first release event that publishes a seam member",
+    "records `dist.attestations` for each one it publishes, with the tag and date, in",
+    "docs/ci-cd.md. Until then the criterion is: the mechanism asks and this gate proves it.",
   ];
   if (violations.length > 0) {
     return { status: "fail", messages: [...context, ...violations, ...unverifiable], receipt };
@@ -1235,8 +1308,9 @@ function usage() {
       "",
       "Packs the five seam packages with `pnpm pack` and asserts the publish ORDER",
       "(release.yml), the packed manifests (name/version/public access, workspace:*",
-      "rewrite, resolvable entrypoints) and the workflow mechanism (pnpm publish,",
-      "OIDC permission, cohort before CLI). Publishes nothing, offline, deterministic.",
+      "rewrite, resolvable entrypoints) and the workflow mechanism (pnpm publish with",
+      "an explicit --provenance request, OIDC permission, cohort before CLI). Publishes",
+      "nothing, offline, deterministic.",
     ].join("\n"),
   );
 }
