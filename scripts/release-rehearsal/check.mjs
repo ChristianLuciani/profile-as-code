@@ -331,8 +331,8 @@ export function executesScript(commands, scriptPath) {
 
 /**
  * A YAML/expression value normalized once: trailing comment, quotes, a `${{ }}`
- * wrapper and case are all removed. Shared by `staticallyTrue` and
- * `staticallyFalseIf` so the two cannot disagree about which spellings they read.
+ * wrapper and case are all removed. Used by `staticallyTrue`; a value that must be
+ * PROVABLE (`literallyFalse`) is deliberately not normalized this way.
  */
 function normalizedValue(raw) {
   return raw
@@ -354,12 +354,26 @@ export function staticallyTrue(raw) {
   return normalizedValue(raw).toLowerCase() === "true";
 }
 
+/**
+ * The key as it may appear in YAML: bare, double-quoted or single-quoted. All three
+ * name the SAME key, so a lexical gate that only matched the bare spelling resolved
+ * `"if": false` as ABSENT and let it through (F1 of the #364 round-2 pass) — an
+ * unreadable form must be DENIED, never defaulted, the rule this gate already applies
+ * to `permissions:`.
+ */
+function keyPattern(key) {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return `(?:${escaped}|"${escaped}"|'${escaped}')`;
+}
+
 /** A step-level setting value (`continue-on-error`, `if`), or null when absent. */
 function stepSetting(body, key) {
+  const pattern = keyPattern(key);
   for (const line of body.split("\n")) {
+    // The value group is `.*`, not `.+`: a bare `if:` (empty) still COUNTS as present.
     const match =
-      line.match(new RegExp(`^ {6}- ${key}\\s*:\\s*(.+)$`)) ??
-      line.match(new RegExp(`^ {8}${key}\\s*:\\s*(.+)$`));
+      line.match(new RegExp(`^ {6}- ${pattern}\\s*:\\s*(.*)$`)) ??
+      line.match(new RegExp(`^ {8}${pattern}\\s*:\\s*(.*)$`));
     if (match) return match[1].trim();
   }
   return null;
@@ -370,20 +384,23 @@ export function jobSetting(yaml, name, key) {
   const lines = yaml.split("\n");
   const job = parseJobs(yaml).find((entry) => entry.name === name);
   if (!job) return null;
+  const pattern = keyPattern(key);
   for (let i = job.start + 1; i < job.end; i += 1) {
-    const match = lines[i].match(new RegExp(`^ {4}${key}\\s*:\\s*(.+)$`));
+    const match = lines[i].match(new RegExp(`^ {4}${pattern}\\s*:\\s*(.*)$`));
     if (match) return match[1].trim();
   }
   return null;
 }
 
 /**
- * A step `if:` that can never be true — `false`, `0`, `null`, or an empty string,
- * with the same normalization as `staticallyTrue`. Reading the comment as the
- * condition let `if: ${{ false }} # disabled` keep the gate green (F3, pass 3).
+ * Whether a `continue-on-error` value is literally boolean `false`: the only
+ * spelling a lexical gate can PROVE does not swallow a failure (#364, option 1).
+ * Unlike `staticallyTrue` this deliberately does not unwrap `${{ }}` or quotes: an
+ * expression (`${{ inputs.soft }}`) or a quoted string is not literally false, so
+ * the barrier refuses it instead of assuming a runtime result it cannot evaluate.
  */
-export function staticallyFalseIf(condition) {
-  return /^(false|0|null)?$/.test(normalizedValue(condition).toLowerCase());
+export function literallyFalse(raw) {
+  return /^false\s*(?:#.*)?$/i.test(raw.trim());
 }
 
 /** The step's `if:` condition, or null. Step keys sit at 6 spaces (`- if:`) or 8. */
@@ -877,9 +894,11 @@ export function workflowViolations(yaml) {
   //   - `run: echo "<path>"` mentions the script without executing it;
   //   - the exit code is discarded — `node <path> || true`, a `set +e`, or another
   //     command after the barrier, so a failing rehearsal does not stop the publish;
-  //   - `if: ${{ false }}` (or a constant-false job `if:`) keeps the step from running;
-  //   - `continue-on-error: true` (literal, any case, `${{ true }}`, or job level on
-  //     the barrier job) swallows the failure;
+  //   - any `if:` on the barrier step, or on the job that hosts it, keeps the step
+  //     from running — a constant OR a `${{ }}` expression the gate cannot evaluate;
+  //   - `continue-on-error` on the barrier step or its job swallows the failure —
+  //     only an absent key or the literal `false` is provable (#364, fail closed on
+  //     the form: presence is refused, never evaluated);
   //   - a barrier moved into a prior job WITHOUT `needs:` still precedes in a flat
   //     step index while the publish job goes live unrehearsed.
   const BARRIER = "scripts/release-rehearsal/check.mjs";
@@ -917,19 +936,25 @@ export function workflowViolations(yaml) {
     );
   } else {
     const { index, step } = executing[0];
+    // Fail closed on the FORM (#364, option 1): a lexical reader cannot evaluate an
+    // Actions expression, so ANY `if:` on the barrier — constant or expression,
+    // step or job — is refused instead of assumed harmless. Same for
+    // `continue-on-error`: only an absent key or literally `false` is provable.
     const condition = stepCondition(step.body);
-    if (condition !== null && staticallyFalseIf(condition)) {
+    if (condition !== null) {
       violations.push(
-        "E-REHEARSAL: the rehearsal barrier is gated by a condition that is never true " +
-          `(${JSON.stringify(condition)}) — the step exists but never runs`,
+        "E-REHEARSAL: the rehearsal barrier has an `if:` condition " +
+          `(${JSON.stringify(condition)}) — a lexical gate cannot evaluate it, so any ` +
+          "`if:` on the barrier is refused (fail closed on the form, #364): the step " +
+          "may never run",
       );
     }
     const stepSwallow = stepSetting(step.body, "continue-on-error");
-    if (stepSwallow !== null && staticallyTrue(stepSwallow)) {
+    if (stepSwallow !== null && !literallyFalse(stepSwallow)) {
       violations.push(
         "E-REHEARSAL: the rehearsal barrier has `continue-on-error: " +
-          `${stepSwallow}\` — a failing rehearsal would not stop the publish it is supposed ` +
-          "to gate",
+          `${stepSwallow}\` — only an absent key or literally \`false\` proves the failure ` +
+          "is not swallowed (fail closed on the form, #364)",
       );
     }
     if (step.job === "publish") {
@@ -946,19 +971,25 @@ export function workflowViolations(yaml) {
           "`needs:` — the publish job can start before the rehearsal finishes, so the gate is " +
           "decorative",
       );
-    } else {
+    }
+    // The hosting job's own settings gate the barrier wherever it sits — including
+    // the `publish` job itself, the shape the #364 repro mutates.
+    if (step.job !== null) {
       const jobIf = jobCondition(yaml, step.job);
-      if (jobIf !== null && staticallyFalseIf(jobIf)) {
+      if (jobIf !== null) {
         violations.push(
-          `E-REHEARSAL: the barrier job "${step.job}" is gated by a condition that is never ` +
-            `true (${JSON.stringify(jobIf)}) — the rehearsal never runs`,
+          `E-REHEARSAL: the barrier job "${step.job}" has an \`if:\` condition ` +
+            `(${JSON.stringify(jobIf)}) — a lexical gate cannot evaluate it, so any ` +
+            "`if:` on the barrier is refused (fail closed on the form, #364): the " +
+            "rehearsal may never run",
         );
       }
       const jobSwallow = jobSetting(yaml, step.job, "continue-on-error");
-      if (jobSwallow !== null && staticallyTrue(jobSwallow)) {
+      if (jobSwallow !== null && !literallyFalse(jobSwallow)) {
         violations.push(
-          `E-REHEARSAL: the barrier job "${step.job}" has \`continue-on-error: ${jobSwallow}\` — ` +
-            "a failing rehearsal would not stop the `publish` job that only `needs:` it",
+          `E-REHEARSAL: the barrier job "${step.job}" has \`continue-on-error: ` +
+            `${jobSwallow}\` — only an absent key or literally \`false\` proves a failing ` +
+            "rehearsal would stop the publish it gates (fail closed on the form, #364)",
         );
       }
     }
