@@ -274,12 +274,59 @@ test("workflowViolations — F2b: a barrier that only ECHOES the script path is 
   refuses(violations, "found 0", "echo barrier count");
 });
 
-test("workflowViolations — F2b: a barrier gated by a constant-false if-expression is refused", () => {
+test("workflowViolations — F2b: a barrier gated by any if-expression is refused", () => {
   const yaml = workflow().replace(
     `      - name: ${BARRIER_STEP}`,
     `      - name: ${BARRIER_STEP}\n        if: \${{ false }}`,
   );
-  refuses(workflowViolations(yaml).violations, "never true", "false-gated barrier");
+  refuses(
+    workflowViolations(yaml).violations,
+    "any `if:` on the barrier is refused",
+    "false-gated barrier",
+  );
+});
+
+test("workflowViolations — #364: a barrier with a RUNTIME `if:` expression is refused", () => {
+  // The repro: a lexical gate accepted `${{ github.event_name == … }}` because it
+  // only read constant-false conditions, so the gate could not prove the rehearsal
+  // runs. Fail closed on the form (#364, option 1): the PRESENCE of `if:` is refused.
+  // Assembled so the fixture carries the literal Actions syntax without tripping the
+  // template placeholder lint (same idiom as above).
+  const condition = ["$", '{{ github.event_name == "push" }}'].join("");
+  const yaml = workflow().replace(
+    `      - name: ${BARRIER_STEP}`,
+    `      - name: ${BARRIER_STEP}\n        if: ${condition}`,
+  );
+  refuses(
+    workflowViolations(yaml).violations,
+    "any `if:` on the barrier is refused",
+    "runtime step if",
+  );
+});
+
+test("workflowViolations — #364: a barrier job with a RUNTIME `continue-on-error` is refused", () => {
+  // The repro's second mutation: `continue-on-error: ${{ inputs.soft }}` on the
+  // `publish` job. Only an absent key or literally `false` is provable, so a
+  // runtime value must fail closed rather than be assumed harmless.
+  const expression = ["$", "{{ inputs.soft }}"].join("");
+  const yaml = workflow({ publishExtra: [`    continue-on-error: ${expression}`] });
+  refuses(
+    workflowViolations(yaml).violations,
+    "only an absent key or literally `false`",
+    "runtime job continue-on-error",
+  );
+});
+
+test("workflowViolations — a literal `false` status is accepted (it proves nothing is swallowed)", () => {
+  // The guarantee refuses the FORM, not the literal `false`: that spelling is the
+  // one thing a lexical reader can prove does not discard the barrier's failure.
+  const step = workflow().replace(
+    `      - name: ${BARRIER_STEP}`,
+    `      - name: ${BARRIER_STEP}\n        continue-on-error: false`,
+  );
+  assert.deepEqual(workflowViolations(step).violations, []);
+  const job = workflow({ publishExtra: ["    continue-on-error: false"] });
+  assert.deepEqual(workflowViolations(job).violations, []);
 });
 
 test("workflowViolations — F2: every spelling of `continue-on-error: true` is refused", () => {
@@ -608,18 +655,25 @@ test("F2 — a key with a space before the colon is still that key", () => {
     `      - name: ${BARRIER_STEP}`,
     `      - name: ${BARRIER_STEP}\n        if : \${{ false }}`,
   );
-  refuses(workflowViolations(gated).violations, "never true", "spaced if key");
+  refuses(
+    workflowViolations(gated).violations,
+    "any `if:` on the barrier is refused",
+    "spaced if key",
+  );
 });
 
-test("F3 — a constant-false `if:` with a trailing comment still gates the barrier", () => {
-  // `staticallyFalseIf` did not strip the comment (unlike `staticallyTrue`), so the
-  // condition read as `false }} # disabled` and never matched — the barrier stayed
-  // green while never running.
+test("F3 — a constant-false `if:` with a trailing comment is refused like any other `if:`", () => {
+  // The old check only read a constant-false condition; whatever the expression,
+  // the barrier's execution is unprovable, so presence alone is refused (#364).
   const step = workflow().replace(
     `      - name: ${BARRIER_STEP}`,
     `      - name: ${BARRIER_STEP}\n        if: \${{ false }} # disabled`,
   );
-  refuses(workflowViolations(step).violations, "never true", "commented false step if");
+  refuses(
+    workflowViolations(step).violations,
+    "any `if:` on the barrier is refused",
+    "commented false step if",
+  );
 
   const job = workflow({
     barrier: false,
@@ -632,7 +686,7 @@ test("F3 — a constant-false `if:` with a trailing comment still gates the barr
     ],
     publishExtra: ["    needs: rehearse"],
   });
-  refuses(workflowViolations(job).violations, "never true", "commented false job if");
+  refuses(workflowViolations(job).violations, "has an `if:` condition", "commented false job if");
 });
 
 test("F1 — an UNREADABLE job permissions shape fails closed, never the default", () => {
