@@ -2,6 +2,7 @@
   "entries": [
     {
       "path": "CHANGELOG.md",
+      "fileWide": true,
       "reason": "dated release record."
     }
   ]

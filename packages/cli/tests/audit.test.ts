@@ -230,7 +230,7 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
       "identity.yaml":
         "name: Elena Vasquez\nlinks:\n  - platform: github\n    label: GitHub\n    url: https://github.com/elenavasquez\n",
       "projects.yaml":
-        "- id: hub\n  name: sovereign-agentic-hub\n  links:\n    - https://github.com/someoneelse/other-repo\n",
+        "- id: hub\n  name: example-agentic-hub\n  links:\n    - https://github.com/someoneelse/other-repo\n",
     });
     const validated = json(() => runValidate({ workspace: ws })) as {
       data: { drift: { code: string }[] };
@@ -366,7 +366,7 @@ describe("fact-present — the surface's facts vs the SSOT (issue #283)", () => 
     json(() => runBuild({ workspace: ws, pascorc: PASCO }));
     // Drop the artifact's source URL (it appears once): the SSOT carries it and
     // the surface omits it — the direction the one-sided rule could not see.
-    tamper(ws, (text) => text.replace("https://github.com/elenavasquez/sovereign-agentic-hub", ""));
+    tamper(ws, (text) => text.replace("https://github.com/elenavasquez/example-agentic-hub", ""));
     const findings = (check(ws).data as { factPresent: FactPresent }).factPresent.findings;
     const codes = findings.map((finding) => finding.code);
     expect(codes).toContain("fact-present/url-missing-from-surface");

@@ -1,10 +1,10 @@
-- name: sovereign-agentic-hub
+- name: example-agentic-hub
   status: active
   description:
     en: Sovereign agentic hub for LLM routing.
   links:
     - https://github.com/someoneelse
-- name: sovereign-agentic-hub
+- name: example-agentic-hub
   status: archived
   description:
     en: Duplicate project entry with a different status.

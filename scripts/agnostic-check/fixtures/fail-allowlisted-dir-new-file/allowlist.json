@@ -2,6 +2,7 @@
   "entries": [
     {
       "path": "docs/records/01-core-build.md",
+      "fileWide": true,
       "reason": "historical copy: a dated build-session record.",
       "removalTrigger": "when the record is retired"
     }

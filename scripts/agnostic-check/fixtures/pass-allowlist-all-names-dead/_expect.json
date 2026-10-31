@@ -1,0 +1,12 @@
+{
+  "exit": 0,
+  "contains": [
+    "W-ALLOWLIST-UNUSED",
+    "declares name \"skills-studio\"",
+    "declares name \"prompt-studio\"",
+    "agnostic-check: PASS"
+  ],
+  "notContains": ["fix its path"],
+  "warnings": 2,
+  "tree_files": 1
+}

@@ -30,6 +30,9 @@
  *   - a declared name with no reference warns like a dead entry, without
  *     failing (`pass-allowlist-unused-name`), and an entry with `names` over a
  *     clean file warns and passes (`pass-allowlist-names-clean`);
+ *   - when ALL declared names are dead the per-name warnings win over the
+ *     entry-level one instead of being skipped by it
+ *     (`pass-allowlist-all-names-dead`);
  *   - `names` accepts ONLY inventory `privateNames`: a repo target is refused
  *     (`fail-allowlist-name-repo-target`), and an empty array, a duplicate and
  *     a non-array value are `E-ALLOWLIST-INVALID` (`fail-allowlist-names-*`);
@@ -47,11 +50,14 @@
  *   - the identity-design corpus name fails in BOTH measured forms — a repo-relative path
  *     and a cross-repo ref (#370) (`fail-private-corpus-identeco`).
  *
- * Two cases are not fixtures. The REAL allowlist (#369 rounds 2-3): a throwaway
- * tree carries one private name in a file covered by each of the six narrowed
- * entries, and the production `allowlist.json` must report all six — reverting
- * any entry to file-wide makes that case fail, which a fixture with its own
- * allowlist could never catch. The CATEGORY guard (#369 round 3): a declared
+ * Two cases are not fixtures. The REAL allowlist (#369 rounds 2-3, #372): the
+ * table is DERIVED from the production `allowlist.json`, one row per entry that
+ * declares `names`, and each row probes an inventory name that entry does NOT
+ * declare — a throwaway tree carrying it must be reported, which a fixture with
+ * its own allowlist could never catch. Because the rows come from the data, a
+ * narrowed entry added tomorrow is covered without touching this file; a fixed
+ * table would be a second source of the same allowlist and drift in silence.
+ * The CATEGORY guard (#369 round 3): a declared
  * name that is also an operator-path source is exempt as a name and REPORTED as
  * a path — the exemption never crosses categories, even when the strings are
  * identical.
@@ -165,59 +171,63 @@ for (const name of cases) {
 }
 
 /**
- * Behavioral guard for the REAL allowlist (#369 rounds 2-3). The fixtures above
- * carry their own allowlists, so reverting any production entry to file-wide
- * would leave every one of them green. This injects, in a throwaway tree, one
- * private name into a file covered by each NARROWED entry and runs the
- * production `allowlist.json` over it: a narrowed entry reports the injected
- * name, a file-wide entry suppresses it silently (exit 0) and this case fails.
- * Each row uses a name the entry does NOT declare, so only the narrowing can
- * report it; the names are built from parts because this file is scanned by the
- * gate it tests.
+ * Behavioral guard for the REAL allowlist (#369 rounds 2-3, #372). The fixtures
+ * above carry their own allowlists, so reverting any production entry to
+ * file-wide would leave every one of them green. Two things are proven here, and
+ * they are different guarantees:
+ *
+ *  1. The CONTRACT: every entry is either narrowed (`names`) or EXPLICITLY
+ *     file-wide (`fileWide: true`) — never silently file-wide. This catches the
+ *     case a derived table cannot: dropping `names` from an entry used to widen
+ *     it back to whole-file with every row still green (#372, round 2). The same
+ *     contract is enforced by the gate itself (`E-ALLOWLIST-INVALID`), so the
+ *     repo fails even if this self-test is not run.
+ *  2. The BEHAVIOUR: for each narrowed entry, one inventory name that entry does
+ *     NOT declare is injected into a file the entry covers, and the production
+ *     allowlist runs over that throwaway tree. Every row must come back as a
+ *     reported finding; if the gate stopped honouring the narrowing, the
+ *     injected citation would be suppressed silently (exit 0) and this case
+ *     fails.
+ *
+ * The rows are DERIVED from the production data, never enumerated: a fixed table
+ * is a second source of the allowlist and drifts in silence, while derived rows
+ * cover a new narrowed entry the day it lands. Names are read from the inventory
+ * at runtime, so this file — which the gate it tests scans — never carries one
+ * literally.
  */
 function realAllowlistScope() {
-  const names = {
-    shortAlias: "pre" + "merge",
-    contractName: "dev-" + "methodology",
-    evidence: "claims-" + "evidence",
-    taskBoard: "TASK" + "HUB",
-    governance: "repo-" + "governance",
-    community: "community-" + "first",
-  };
-  // One row per narrowed entry: where the entry lives, the private name that
-  // entry does not declare, and the probe file that must carry it.
-  const rows = [
-    {
-      entry: "packages/cli/tests/cli.test.ts",
-      name: names.shortAlias,
-      file: "packages/cli/tests/cli.test.ts",
-    },
-    {
-      entry: "packages/renderers/github-readme/tests/",
-      name: names.contractName,
-      file: "packages/renderers/github-readme/tests/role.test.ts",
-    },
-    {
-      entry: "packages/cli/scripts/verify-pack.mjs",
-      name: names.evidence,
-      file: "packages/cli/scripts/verify-pack.mjs",
-    },
-    {
-      entry: "packages/cli/tests/audit.test.ts",
-      name: names.taskBoard,
-      file: "packages/cli/tests/audit.test.ts",
-    },
-    {
-      entry: "packages/cli/tests/fixtures/",
-      name: names.governance,
-      file: "packages/cli/tests/fixtures/case.md",
-    },
-    {
-      entry: "packages/core/tests/fixtures/",
-      name: names.community,
-      file: "packages/core/tests/fixtures/case.md",
-    },
-  ];
+  const inventory = JSON.parse(readFileSync(targetsPath, "utf8"));
+  const inventoryNames = inventory.privateNames.map((entry) => entry.name);
+  const production = JSON.parse(readFileSync(path.join(here, "allowlist.json"), "utf8"));
+  const problems = [];
+  const rows = [];
+  for (const entry of production.entries) {
+    const narrow = Array.isArray(entry.names);
+    const fileWide = entry.fileWide === true;
+    if (narrow === fileWide) {
+      problems.push(
+        `entry ${JSON.stringify(entry.path)} is ${narrow ? "both narrowed and explicit-whole-file" : "neither narrowed (names) nor explicitly file-wide (fileWide: true)"} — a widening must be declared, never silent (#372)`,
+      );
+    }
+    if (!narrow) continue;
+    const undeclared = inventoryNames.find((name) => !entry.names.includes(name));
+    if (undeclared === undefined) {
+      problems.push(
+        `entry ${JSON.stringify(entry.path)} declares every inventory name — no undeclared name is left to probe the narrowing`,
+      );
+      continue;
+    }
+    // A directory entry (declared with a trailing slash) needs a file INSIDE it;
+    // a file entry is its own probe target.
+    const file = entry.path.endsWith("/") ? `${entry.path}probe.md` : entry.path;
+    rows.push({ entry: entry.path, name: undeclared, file });
+  }
+  if (rows.length === 0) {
+    problems.push(
+      "the real allowlist declares no narrowed entry — the guard would pass while testing nothing",
+    );
+    return problems;
+  }
   const root = mkdtempSync(path.join(tmpdir(), "agnostic-real-allowlist-"));
   try {
     for (const row of rows) {
@@ -231,7 +241,6 @@ function realAllowlistScope() {
       { encoding: "utf8" },
     );
     const output = `${result.stdout}${result.stderr}`;
-    const problems = [];
     if (result.status !== 1) problems.push(`exit ${result.status} != expected 1`);
     for (const row of rows) {
       const needle = `private name "${row.name}"`;

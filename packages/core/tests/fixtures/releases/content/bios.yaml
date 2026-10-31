@@ -1,7 +1,7 @@
 - platform: github-readme
   lang: en
   length: long
-  text: Elena Vasquez builds sovereign AI infrastructure. She leads the open-source sovereign-agentic-hub project, routes LLM traffic to local-first providers and writes about generative-engine optimization for professional profiles.
+  text: Elena Vasquez builds sovereign AI infrastructure. She leads the open-source example-agentic-hub project, routes LLM traffic to local-first providers and writes about generative-engine optimization for professional profiles.
 - platform: github-readme
   lang: en
   length: short

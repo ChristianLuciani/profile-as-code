@@ -2,6 +2,7 @@
   "entries": [
     {
       "path": "docs/note.md",
+      "fileWide": true,
       "name": ["skills-studio"],
       "reason": "a misspelt key must be refused, never degrade the entry to a silent whole-file exemption.",
       "removalTrigger": "when the key is spelled `names` or the entry is dropped"
