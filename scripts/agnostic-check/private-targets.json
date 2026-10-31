@@ -60,6 +60,10 @@
     {
       "name": "premerge",
       "reason": "SHORT FORM of the same private contract \u2014 the class closes only if the alias does (#274 precedent), and the short form outlived the long one in 35 citations. It is a SEPARATE entry, not a substring of the one above: the whole-token matcher excludes a trailing `-`, so it never fires inside the hyphenated form and neither entry subsumes the other \u2014 removing one leaves the other form unguarded"
+    },
+    {
+      "name": "identeco-cifereca",
+      "reason": "operator's private identity-design corpus \u2014 not openable by a reader of this repo. Declared after #370 genericized its 5 citations: the matcher is token-based and blind to the citation form, so the name alone must be enough to fail the gate if it returns"
     }
   ],
   "privateRepos": [

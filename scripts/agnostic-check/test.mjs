@@ -43,7 +43,9 @@
  *   - a clean tree, including the generic `/Users/…` documentation placeholder,
  *     passes (`pass-clean`);
  *   - each private CONTRACT name in the inventory fails, so removing one from the
- *     list turns its fixture green and the suite red (`fail-private-contract-*`).
+ *     list turns its fixture green and the suite red (`fail-private-contract-*`);
+ *   - the identity-design corpus name fails in BOTH measured forms — a bare token
+ *     and a repo-relative path (#370) (`fail-private-corpus-identeco`).
  *
  * Two cases are not fixtures. The REAL allowlist (#369 rounds 2-3): a throwaway
  * tree carries one private name in a file covered by each of the six narrowed

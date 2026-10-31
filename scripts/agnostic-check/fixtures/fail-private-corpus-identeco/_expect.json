@@ -1,0 +1,11 @@
+{
+  "exit": 1,
+  "contains": [
+    "E-AGNOSTIC",
+    "docs/corpus.md:3",
+    "docs/corpus.md:4",
+    "private name \"identeco-cifereca\"",
+    "agnostic-check: FAIL"
+  ],
+  "tree_files": 1
+}

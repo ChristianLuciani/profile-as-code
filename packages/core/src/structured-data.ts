@@ -23,7 +23,7 @@
  * Absent `role` = `realization` → every pre-v1.6 workspace keeps VALIDATING unchanged
  * (additive). Output is NOT unchanged: see SPEC §15.4 for the three
  * declared deltas. Sources: W3C WebSchemas/sameAs, schema.org datamodel.
- * Classification + provenance: `identeco-cifereca/glossary/naming.md`.
+ * Classification: SPEC §15.4 (link roles).
  */
 
 import { byteOrder } from "./byte-order.js";
