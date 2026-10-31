@@ -185,6 +185,28 @@ describe("scaffolded README references (#385)", () => {
     expect(unresolvedReferences(readme, workspace, commands)).toEqual([]);
   });
 
+  // #386: the skills ship under the global package, outside the sandbox a
+  // coding agent runs in. The scaffold must name the bridge, with a destination
+  // inside the workspace, so the reader can copy and open them.
+  function expectSkillsBridge(readme: string): void {
+    const match = readme.match(/`pasco skills:export ([^`\s]+)`/);
+    expect(match, "the scaffolded README must announce `pasco skills:export <dir>`").not.toBeNull();
+    const destination = match?.[1] as string;
+    expect(
+      destination.startsWith("."),
+      `destination must be workspace-relative: ${destination}`,
+    ).toBe(true);
+    expect(destination).not.toContain("<");
+  }
+
+  it("the person template announces the skills:export bridge", () => {
+    expectSkillsBridge(scaffold().readme);
+  });
+
+  it("the brand template announces the skills:export bridge", () => {
+    expectSkillsBridge(scaffold("brand").readme);
+  });
+
   it("the walker catches a workspace path that does not exist", () => {
     const workspace = tempDir();
     mkdirSync(join(workspace, "content"));

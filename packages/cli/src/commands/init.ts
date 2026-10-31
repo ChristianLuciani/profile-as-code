@@ -126,6 +126,13 @@ Three top-level directories, three grains — nothing nests one inside another:
 - \`posts/\` — the stream, created by \`pasco post\` (#264): seeds + per-channel projections; never identity facts
 - \`.pascorc\` — workspace config (defaults)
 
+## Skills
+
+The platform playbooks ship with \`pasco\`, outside this workspace. When you need
+to know what to write for a channel, copy them in with
+\`pasco skills:export .pasco-skills\` and read \`.pasco-skills/<platform>/SKILL.md\`
+— the directory stays inside this workspace, so a sandboxed agent can open it.
+
 ## Workflow
 
 \`\`\`sh
@@ -155,6 +162,13 @@ Three top-level directories, three grains — nothing nests one inside another:
 - \`profiles/<platform>/variants/\` — chosen variant bodies (INPUT, #238; preserved by build)
 - \`posts/\` — the stream, created by \`pasco post\` (#264): seeds + per-channel projections; never identity facts
 - \`.pascorc\` — workspace config (defaults)
+
+## Skills
+
+The platform playbooks ship with \`pasco\`, outside this workspace. When you need
+to know what to write for a channel, copy them in with
+\`pasco skills:export .pasco-skills\` and read \`.pasco-skills/<platform>/SKILL.md\`
+— the directory stays inside this workspace, so a sandboxed agent can open it.
 
 ## Workflow
 
