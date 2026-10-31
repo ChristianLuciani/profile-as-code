@@ -11,6 +11,16 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **`pasco entity` emits the `FAQPage` node — the answer surface's consumer
+  (#360)** — `--jsonld` now appends the separate `FAQPage` block after the entity
+  block when the workspace declares `faq[]` (never an empty node, no invented
+  `@id`; `faq[].source` travels as `acceptedAnswer.citation`), and `--json`
+  exposes the same assembler node as `faqJsonLd` (`null` when undeclared). `--bare`
+  stays the entity object alone when there is no FAQPage, and is a JSON array of
+  the emitted nodes otherwise. The renderers still embed `jsonLd` only: the
+  published-page consumer remains M5 (`surface.kind`, D23). SPEC §7.2/§15.4
+  updated, and the emitted block has a committed Code-input fixture for the Rich
+  Results release step.
 - **Bilingual landing `/es/` (#308)** — the project page mirrors the EN landing
   in Spanish at `/es/`, with reciprocal `hreflang` (`en` · `es` · `x-default`) on
   both pages and the same alternates in `sitemap.xml`. The mirror carries **no

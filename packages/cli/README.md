@@ -69,7 +69,7 @@ commands above are the standalone path.
 | `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) + offline `max-chars`/`min-chars` over headlines/bios (#240) + `fact-present` (the built surface's fact tokens vs the SSOT render, #283) | 🚧 offline rules today (limits + registry + media + fact-present; remaining catalog M3/M4) |
 | `pasco discover <url>... [--json] [--allow-host <hosts>]` | **Provisional profile** from public surfaces (#329, SPEC §7.10), for a prospect with no workspace: reads schema.org JSON-LD + links only (no prose mining), attaches per-fact provenance (`attested: false`) and lists `absent` fields; reports the audit's class names with discovery's own predicates (SPEC §7.10); closed host allowlist checked before any request (sequential, no retries, no credentials); **writes nothing** | ✅ v1 |
 | `pasco audit [--json]` | Offline **diagnostic projection**, findings only (no score/prioritisation/branding, #283): three fixed classes — `dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN — exit 1 iff any FAIL; `--json` carries `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings }` | ✅ v1 |
-| `pasco entity [--json \| --jsonld [--out <file>] [--bare]]` | The **entity projection** for surfaces the engine does not render (#287): `--json` is the frozen view — `entity { id, type, name, sameAs, email }`, the structured-data `gaps` (geoCheck codes verbatim) and `jsonld: null`; `--jsonld` is the **same assembler output** the renderers embed, as a paste-ready `<script type="application/ld+json">` block. Exit 1 when `@id` is absent (never invented) | ✅ v1 |
+| `pasco entity [--json \| --jsonld [--out <file>] [--bare]]` | The **entity projection** for surfaces the engine does not render (#287): `--json` is the frozen view — `entity { id, type, name, sameAs, email }`, the structured-data `gaps` (geoCheck codes verbatim), `jsonld: null` and `faqJsonLd` (the `FAQPage` node, `null` when the workspace declares no `faq[]`); `--jsonld` is the **same assembler output** the renderers embed, as paste-ready `<script type="application/ld+json">` blocks — the entity first, then the `FAQPage` when it exists (#360). Exit 1 when `@id` is absent (never invented) | ✅ v1 |
 | `pasco cite-check [<answers.ndjson>] [--json]` | The **citation matcher** over saved answer-engine answers (#291): reads the runner's NDJSON (stdin when no path), matches the workspace's declared entity and emits, **per answer and never aggregated**, `{ cited, confidence, spans, reasons }`. Ladder: `citation-url` (a citation on the entity's own page or its `sameAs` set — host, and the declared path or a descendant) and `exact-name` → **high**; `alias` (`identity.orgName`) and `handle` → **medium**; `partial` (any contiguous multi-token prefix, ≥ 2 tokens) → **low**, and low is never citable downstream. Refuses to guess: a one-word name with no declared disambiguator (`cited: false`, the longer capitalised reading named as `competing`), or a contrast mention, is not a citation; a declared qualifier or an adjacent capital never disqualifies a hit by itself | ✅ v1 |
 | `pasco export ai-policy [--out <dir> \| --check] [--lang <l>]` | The M9 stance as an artifact (#290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed retrieval crawlers allowed, the listed training crawlers disallowed, each UA commented with its registry entry/operator/source/date; the file declares that a crawler it does not name is **not restricted**), `llms.txt` (the workspace index: name, definition, canonical identity, `faq[]`, `publications[]`, with a coverage assertion) and `AI-POLICY.md` (allowed · blocked · that same explicit-list limit · who can change it · the date, quoting the stance verbatim). `--check` exits 1 on an incomplete or unsourced entry, a duplicate token (case-insensitive), a malformed/future/`>180`-day `as_of`, or a `policy.as_of` that is stale or older than its newest row; `--out` refuses to write one. The UA list is projected from the platform registry — never hardcoded in the CLI | ✅ v1 |
 | `pasco export profile [--json] [--now <iso8601>]` | The **normalized profile** for programmatic consumers (#348): `{ schemaVersion, engine, source: { commit, generatedAt }, profile }` — `profile` is exactly what `core.load()` returns (**every root the workspace declares, plus every list root defaulted to `[]`**; an optional object root appears only when declared), never a platform slice (`compile()` makes that other object). `artifactRefs` ids resolve in `profile.artifacts[]`, `publications[].url` as declared, `deployments` included. No clock is read: `generatedAt` is `null` unless `--now` pins it, so two runs are byte-identical; `source.commit` is the workspace git HEAD (`null` outside a repo) | ✅ v1 |
@@ -192,8 +192,8 @@ is no CLI-local builder and no second truth (SPEC §7.2).
 
 ```sh
 pasco entity --json                      # the frozen view: facts, @id, sameAs, gaps
-pasco entity --jsonld                    # paste-ready <script type="application/ld+json">
-pasco entity --jsonld --bare             # the bare JSON object
+pasco entity --jsonld                    # paste-ready <script type="application/ld+json"> (+ FAQPage)
+pasco entity --jsonld --bare             # the bare JSON object (node array when faq[] exists)
 pasco entity --jsonld --out entity.html  # write the block (refuses an existing file)
 pasco entity --jsonld --out entity.html --force  # replace it (atomic write)
 ```
@@ -213,8 +213,13 @@ pasco entity --jsonld --out entity.html --force  # replace it (atomic write)
 `null`: the engine **never invents an `@id`**. `gaps` are the `geoCheck` checks of
 its structured-data section that scored below 1, with the code and detail
 **verbatim** — no new vocabulary. `jsonld` is always `null` in `--json`; the
-artifact has its own mode. Parsing the `--jsonld` output yields exactly
-`structuredData()`'s object — asserted by a test.
+artifact has its own mode, and `faqJsonLd` carries the `FAQPage` node the same
+mode emits when the workspace declares `faq[]` (`null` otherwise — never an empty
+`FAQPage`, never an invented `@id`, `faq[].source` travels as
+`acceptedAnswer.citation`). Parsing the `--jsonld` output yields exactly
+`structuredData()`'s object (plus the `FAQPage` node when there is one) —
+asserted by a test. `--bare` without `faq[]` stays byte-identical to the
+pre-#360 artifact.
 
 Both modes resolve **one** language (`--lang`, else `.pascorc` `defaults.lang`,
 else `en`): the readiness gaps are measured in the same language the JSON-LD is
@@ -687,7 +692,7 @@ pasco check github-readme
 pasco audit                                  # findings only: dangling-ref · contradiction · unsourced-claim
 pasco audit --json                           # { schemaVersion, findings } — exit 1 iff any FAIL
 pasco entity --json                          # entity facts + @id + sameAs + gaps (exit 1 without @id)
-pasco entity --jsonld                        # paste-ready <script type="application/ld+json">
+pasco entity --jsonld                        # paste-ready <script type="application/ld+json"> (+ FAQPage)
 pasco cite-check answers.ndjson              # per answer: cited? high/medium/low + why
 pasco cite-check answers.ndjson --json       # { schemaVersion, entity, answers[] }
 pasco post seed demo --text seed.md           # week-1 experiment: posts/<seed>/seed.md

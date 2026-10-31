@@ -1,14 +1,17 @@
 /**
- * `pasco entity [--json | --jsonld]` — the entity projection (SPEC §7.2, #287).
+ * `pasco entity [--json | --jsonld]` — the entity projection (SPEC §7.2, #287),
+ * including the `FAQPage` consumer (#360).
  *
  * The contract that matters here is the ONE-ASSEMBLER rule: `--jsonld` must
- * serialize exactly `structuredData()`'s own object, never a CLI-local rebuild.
- * The round-trip test parses the emitted artifact and compares it to the
+ * serialize exactly `structuredData()`'s own objects, never a CLI-local rebuild.
+ * The round-trip tests parse the emitted artifact and compare it to the
  * assembler's output, so a second emitter cannot land silently.
  *
  * The fixture is the core `minimal` workspace (no `role: identity`), reused
  * rather than duplicated; the @id case is derived from it in a temp copy, the
- * same way `geo.test.ts` exercises the role transition.
+ * same way `geo.test.ts` exercises the role transition. `entity-faq` is the
+ * committed answer surface: its `expected.html` is the paste-ready Code input
+ * of the #360 Rich Results step, asserted byte-for-byte.
  */
 
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -23,6 +26,8 @@ import type { Pascorc } from "../src/workspace.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MINIMAL = join(__dirname, "..", "..", "core", "tests", "fixtures", "minimal");
+const FAQ_FIXTURE = join(__dirname, "fixtures", "entity-faq");
+const FAQ_EXPECTED = join(FAQ_FIXTURE, "expected.html");
 const PASCO: Pascorc = {};
 
 const tempDirs: string[] = [];
@@ -288,5 +293,82 @@ describe("pasco entity --jsonld", () => {
     expect(code).toBe(1); // no @id in this fixture
     expect(JSON.parse(out)).toEqual(structuredData(load(workspace), "es").jsonLd);
     expect((JSON.parse(out) as { description?: string }).description).toContain("distopía");
+  });
+});
+
+/** Split the emitted artifact into its `<script>` blocks, parsed. */
+function scriptBlocks(out: string): unknown[] {
+  return [...out.matchAll(/<script type="application\/ld\+json">\n([\s\S]*?)\n<\/script>/g)].map(
+    (match) => JSON.parse(match[1] as string),
+  );
+}
+
+describe("pasco entity — the FAQPage consumer (#360)", () => {
+  it("--json exposes the assembler's faqJsonLd node, and null when faq[] is undeclared", () => {
+    const withFaq = entityJson(FAQ_FIXTURE);
+    const sd = structuredData(load(FAQ_FIXTURE));
+
+    expect(withFaq.code).toBe(0); // the fixture declares role: identity
+    expect(withFaq.data.faqJsonLd).toEqual(sd.faqJsonLd);
+    expect(withFaq.data.faqJsonLd?.["@type"]).toBe("FAQPage");
+    // No invented anchor: the FAQPage node carries no @id (SPEC §15.4).
+    expect(withFaq.data.faqJsonLd).not.toHaveProperty("@id");
+    // The declared pointer stays with the answer it backs.
+    expect(withFaq.data.faqJsonLd?.mainEntity[0]?.acceptedAnswer.citation).toBe(
+      "https://example.com/about",
+    );
+
+    const withoutFaq = entityJson(MINIMAL);
+    // The field is always present (the additive envelope), and never an empty node.
+    expect(withoutFaq.data).toHaveProperty("faqJsonLd");
+    expect(withoutFaq.data.faqJsonLd).toBeNull();
+  });
+
+  it("--jsonld emits the FAQPage as its own block after the entity, never folded", () => {
+    const { out } = entityJsonLd(FAQ_FIXTURE);
+    const blocks = scriptBlocks(out);
+    const sd = structuredData(load(FAQ_FIXTURE));
+
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]).toEqual(sd.jsonLd);
+    expect(blocks[1]).toEqual(sd.faqJsonLd);
+    // A different schema.org @type: never merged into the entity block.
+    expect(blocks[0]).not.toHaveProperty("mainEntity");
+    expect(blocks[1]).not.toHaveProperty("@id");
+  });
+
+  it("emits one block when faq[] is undeclared — the pre-#360 artifact, byte-identical", () => {
+    const { out } = entityJsonLd(MINIMAL);
+    const sd = structuredData(load(MINIMAL));
+
+    expect(scriptBlocks(out)).toHaveLength(1);
+    expect(out).toBe(
+      `<script type="application/ld+json">\n${JSON.stringify(sd.jsonLd, null, 2).replace(/</g, "\\u003c")}\n</script>\n`,
+    );
+  });
+
+  it("--bare without faq[] is byte-identical to the pre-#360 artifact (frozen)", () => {
+    // F2 del pase fresco: el test anterior comparaba contra `jsonLdBare()`, la
+    // función bajo prueba, así que cambiar su indentación no rompía nada. Éste
+    // fija la forma con `JSON.stringify` directo: es el contrato aditivo de SPEC
+    // §7.2, no una propiedad de la implementación.
+    const { out } = entityJsonLd(MINIMAL, { bare: true });
+    const sd = structuredData(load(MINIMAL));
+    expect(out).toBe(`${JSON.stringify(sd.jsonLd, null, 2)}\n`);
+  });
+
+  it("--bare: the entity object alone without faq[], the node array with it", () => {
+    const withFaq = entityJsonLd(FAQ_FIXTURE, { bare: true });
+    const sd = structuredData(load(FAQ_FIXTURE));
+    expect(JSON.parse(withFaq.out)).toEqual([sd.jsonLd, sd.faqJsonLd]);
+
+    const withoutFaq = entityJsonLd(MINIMAL, { bare: true });
+    expect(JSON.parse(withoutFaq.out)).toEqual(structuredData(load(MINIMAL)).jsonLd);
+  });
+
+  it("the committed block is exactly what --jsonld emits (the Rich Results Code input)", () => {
+    const { out } = entityJsonLd(FAQ_FIXTURE);
+
+    expect(out).toBe(readFileSync(FAQ_EXPECTED, "utf8"));
   });
 });

@@ -1,0 +1,19 @@
+# The answer surface (v1.10, #288) — 3 rows is the floor. This workspace exists
+# so `pasco entity --jsonld` has a committed FAQPage to emit (#360): the block
+# `expected.jsonld` is the paste-ready Code input for a Rich Results run.
+- id: what-is-elena
+  q:
+    en: What does Elena Vasquez do?
+  a:
+    en: Elena Vasquez is an AI engineer building sovereign, open-source infrastructure for education.
+  source: https://example.com/about
+- id: where-based
+  q:
+    en: Where is Elena Vasquez based?
+  a:
+    en: Elena Vasquez is based in Madrid, Spain.
+- id: why-profile-as-code
+  q:
+    en: Why profile-as-code?
+  a:
+    en: One identity must stay consistent across every platform.
