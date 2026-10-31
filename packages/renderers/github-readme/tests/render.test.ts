@@ -27,7 +27,7 @@ const EXPECTED = `# Elena Vasquez
 
 ## Projects
 
-- **sovereign-agentic-hub** · \`active\` — A sovereign agentic hub routing LLM calls to local-first providers.
+- **example-agentic-hub** · \`active\` — A sovereign agentic hub routing LLM calls to local-first providers.
   - [github.com/elenavasquez](https://github.com/elenavasquez)
   - Evidence: Serves 100k+ requests/month across 12 deployments. ([source](https://doi.org/10.5555/sovereign-hub))
 
@@ -109,7 +109,7 @@ describe("renderer github-readme (SPEC §15)", () => {
       "**Ingeniera de IA construyendo infraestructura soberana de IA para la educación.**",
     );
     expect(out.text).not.toContain("### Sovereign AI infrastructure engineer"); // no es headline
-    expect(out.text).toContain("**sovereign-agentic-hub**"); // project description es exists
+    expect(out.text).toContain("**example-agentic-hub**"); // project description es exists
   });
 
   it("omits empty sections (no projects / publications / skills)", () => {

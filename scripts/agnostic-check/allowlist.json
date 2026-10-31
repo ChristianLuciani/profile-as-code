@@ -24,33 +24,9 @@
       "removalTrigger": "when the CLI surfaces no longer need a prohibiting assertion (#254 closes the class)"
     },
     {
-      "path": "packages/cli/tests/audit.test.ts",
-      "names": ["sovereign-agentic-hub"],
-      "reason": "synthesized test data that REUSES the operator's real project name as a placeholder persona project; it is an input to the audit rules, never a link to that repo. The only private name in the file is `sovereign-agentic-hub` (measured at #369, :233 and :369), so the exemption is narrowed to it — any other private name fails E-AGNOSTIC. Allowlisted as input, not as history — renaming the fixture persona is a separate cleanup, so the justification records the real datum.",
-      "removalTrigger": "when the audit fixtures stop using that project name"
-    },
-    {
       "path": "packages/cli/tests/preview.test.ts",
       "reason": "synthesized test input: the absolute path is the INPUT that proves the privacy scanner flags absolute paths — the gate would be untested without a path to detect. OUT OF SCOPE of #369: the finding here is an operatorPath shape (an absolute-path fixture), and `names` can only express `privateNames`, so the entry stays file-wide; a name-scoped exemption is not applicable without inventing a new mechanism.",
       "removalTrigger": "when the privacy scanner's absolute-path case is driven from a fixture file instead"
-    },
-    {
-      "path": "packages/cli/tests/fixtures/",
-      "names": ["sovereign-agentic-hub"],
-      "reason": "synthesized workspace fixtures built on a fictional persona; the project name they reuse is the operator's real one, used as placeholder data \u2014 inputs, not references to that repo. The only private name across these fixtures is `sovereign-agentic-hub` (measured at #369 in export-profile/ and audit/), so the exemption is narrowed to it: a new fixture naming another private class fails E-AGNOSTIC.",
-      "removalTrigger": "when the fixtures stop naming a project that collides with a declared private name"
-    },
-    {
-      "path": "packages/core/tests/fixtures/",
-      "names": ["sovereign-agentic-hub"],
-      "reason": "synthesized workspace fixtures built on a fictional persona; the project name they reuse is the operator's real one, used as placeholder data \u2014 inputs, not references to that repo. The only private name across these fixtures is `sovereign-agentic-hub` (measured at #369 in the six workspace fixtures), so the exemption is narrowed to it: a new fixture naming another private class fails E-AGNOSTIC.",
-      "removalTrigger": "when the fixtures stop naming a project that collides with a declared private name"
-    },
-    {
-      "path": "packages/renderers/github-readme/tests/",
-      "names": ["sovereign-agentic-hub"],
-      "reason": "synthesized render expectations that repeat the same placeholder project name as the shared fixtures — an expected OUTPUT of test data, not a reference. The only placeholder this directory uses is `sovereign-agentic-hub` (measured at #369 in render.test.ts), so the exemption is narrowed to that one name: every other private name in these files is a finding, including the `dev-methodology` citation #362 retired from role.test.ts.",
-      "removalTrigger": "when the render tests stop using that project name"
     }
   ]
 }

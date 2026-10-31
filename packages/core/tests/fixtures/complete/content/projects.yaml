@@ -1,5 +1,5 @@
 - id: sovereign-hub
-  name: sovereign-agentic-hub
+  name: example-agentic-hub
   status: active
   description:
     en: A sovereign agentic hub routing LLM calls to local-first providers.

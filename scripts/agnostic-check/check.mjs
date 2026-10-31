@@ -577,15 +577,21 @@ export function check({ root, allowlistPath, targetsPath }) {
   }
   const warnings = [];
   for (const entry of allowlist) {
-    if (entry.hits === 0) {
-      const warning = `${RULES.allowlistUnused}: allowlist entry ${JSON.stringify(entry.path)} suppresses no reference — remove it, fix its path, or narrow its names`;
-      warnings.push(warning);
-      messages.push(warning);
+    // A file-wide entry can only speak about itself; a NARROWED one always has
+    // the precise per-name detail, so it never falls back to the entry-level
+    // "suppresses no reference" message — including when every declared name is
+    // dead, where the old `continue` hid the names (#372).
+    if (entry.names === undefined) {
+      if (entry.hits === 0) {
+        const warning = `${RULES.allowlistUnused}: allowlist entry ${JSON.stringify(entry.path)} suppresses no reference — remove it, fix its path, or narrow its names`;
+        warnings.push(warning);
+        messages.push(warning);
+      }
       continue;
     }
     // A declared name that suppressed nothing is dead weight even when the
     // entry carries other live names: report it, same code (#369 round 2).
-    for (const name of entry.names ?? []) {
+    for (const name of entry.names) {
       if ((entry.nameHits.get(name) ?? 0) > 0) continue;
       const warning = `${RULES.allowlistUnused}: allowlist entry ${JSON.stringify(entry.path)} declares name ${JSON.stringify(name)} but suppresses no reference — remove it or fix the name`;
       warnings.push(warning);

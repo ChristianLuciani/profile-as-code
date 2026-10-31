@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "path": "docs/clean.md",
+      "names": ["skills-studio", "prompt-studio"],
+      "reason": "both declared names are dead: the per-name message must win over the entry-level one, never be skipped by it (#372).",
+      "removalTrigger": "when the file names a declared name or the entry is dropped"
+    }
+  ]
+}
