@@ -123,13 +123,13 @@ mantener dos corpus) — decisión abierta (`needs-decision`), no trabajo pendie
 on-ramps reaches a visitor who has neither an account nor a terminal; the reopening trigger
 lives in [SPEC §2](SPEC.md) (`#122`, closed as a non-goal).
 
-Del análisis de identidad de esta sesión (corpus en `identeco-cifereca`):
+Del análisis de identidad de esta sesión:
 
 | Ítem | Por qué no está acá |
 |---|---|
 | **Portabilidad / migración de identidad** ("empieza en Facebook, termina en ResearchGate") | **Problema abierto del campo.** W3C DID ofrece primitivas pero los métodos no las soportan consistentemente (S-06). Documentado, no construido. |
 | **Canales de contacto** (WhatsApp Business, punto de venta, board) | Sin taxonomía consensuada. `identity.email` ya fue un parche en esa grieta (#71). |
-| **La clase `aggregator` como estándar** | El campo la reconoce, ningún estándar la nombró. Seguimiento en `identeco-cifereca#2`. |
+| **La clase `aggregator` como estándar** | El campo la reconoce, ningún estándar la nombró. Seguimiento abierto fuera de este repo. |
 
 Se agregan al roadmap **cuando el campo consensúe** — no antes. Construirlos hoy sería
 retrofittear un modelo que el propio campo todavía está discutiendo.

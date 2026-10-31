@@ -69,7 +69,8 @@ export type LoadedProfile = Omit<
  *   aggregator  → schema.org:mainEntityOfPage (medium: aggregates references)
  * Absent = `realization` (additive: pre-v1.6 workspaces keep validating; output changes
  * are declared in SPEC §15.4).
- * Classified + sourced in `identeco-cifereca/glossary/naming.md`.
+ * Classification: SPEC §15.4 (link roles). Sources: W3C WebSchemas/sameAs,
+ * schema.org datamodel.
  */
 export type LinkRole = "identity" | "realization" | "aggregator";
 

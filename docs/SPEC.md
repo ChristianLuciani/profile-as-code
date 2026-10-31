@@ -1637,8 +1637,8 @@ neither is a score.
   | `realization` (**default**) | `schema.org:sameAs` — "indirectly indicates" | weak | no |
   | `aggregator` | `schema.org:mainEntityOfPage` — aggregates references | medium | no |
 
-  `role` is a **translation layer** of this engine (see `identeco-cifereca`, `glossary/naming.md`)
-  — never presented as standard vocabulary. **Scope note:** the `aggregator` →
+  `role` is a **translation layer** of this engine — never presented as standard
+  vocabulary. **Scope note:** the `aggregator` →
   `mainEntityOfPage` mapping is *declarative only* in v1.6 — the role makes such a link
   ineligible for `@id` and excludes it from `sameAs`, but no renderer emits a
   `mainEntityOfPage` property yet (the web renderer, M5, is its consumer). Do not read the
