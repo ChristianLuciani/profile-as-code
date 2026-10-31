@@ -14,7 +14,7 @@
       "!packages/cli/src/generated",
       "!packages/cli/tests/fixtures/export-profile/golden.json",
       "!scripts/schema-check/fixtures",
-      "!scripts/dep-gate/fixtures",
+      "!scripts/dep-gate/fixtures/**/fixture.pnpm-workspace.yaml",
       "!pnpm-lock.yaml"
     ]
   },
