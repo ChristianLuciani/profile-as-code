@@ -12,17 +12,22 @@
  * recreate the two-emitters drift class the module exists to prevent.
  *
  * `--json` is the D22-style view (frozen, schemaVersion-stamped): the entity
- * facts, the readiness `gaps`, and `jsonld: null` — the artifact has its own
- * mode. `--jsonld` emits the assembler's `jsonLd` verbatim, serialized as a
- * paste-ready `<script type="application/ld+json">` block (`--bare` = the bare
- * object). Offline and deterministic (D19): no network, no clock, no AI.
+ * facts, the readiness `gaps`, `jsonld: null` — the artifact has its own mode —
+ * and `faqJsonLd`, the assembler's independent `FAQPage` node or `null` (#360).
+ * `--jsonld` emits the assembler's `jsonLd` verbatim as a paste-ready `<script
+ * type="application/ld+json">` block, and — when the workspace declares root
+ * `faq[]` — the separate `FAQPage` node as its own block, from the same
+ * assembler (never a second emitter, never an empty FAQPage). `--bare` = the
+ * bare object; with a FAQPage present it is a JSON array of the emitted nodes
+ * in block order, because one JSON document has no second top-level object.
+ * Offline and deterministic (D19): no network, no clock, no AI.
  *
  * Exit: 1 when `@id` is absent — the entity has no declared home, the same class
  * as the `check` matrix (#252 §S5) — 0 otherwise; 2 is a usage error (dispatcher).
  */
 
 import { existsSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
-import type { Lang, LoadedProfile } from "@profile-as-code/core";
+import type { Lang, LoadedProfile, StructuredDataReadiness } from "@profile-as-code/core";
 import {
   entityId,
   geoCheck,
@@ -63,6 +68,12 @@ export interface EntityReport {
   gaps: EntityGap[];
   /** Always null in `--json`: the artifact is emitted by `--jsonld` (§7.2). */
   jsonld: null;
+  /**
+   * The assembler's `FAQPage` node, or `null` when root `faq[]` is undeclared
+   * (#360, SPEC §7.2). It is a reading of `structuredData()`, like every other
+   * field here — the command never builds the node.
+   */
+  faqJsonLd: StructuredDataReadiness["faqJsonLd"] | null;
 }
 
 /**
@@ -95,6 +106,7 @@ export function entityReport(profile: LoadedProfile, lang: Lang = "en"): EntityR
     },
     gaps,
     jsonld: null,
+    faqJsonLd: readiness.faqJsonLd ?? null,
   };
 }
 
@@ -108,9 +120,33 @@ export function jsonLdScript(jsonLd: object): string {
   return `<script type="application/ld+json">\n${json}\n</script>`;
 }
 
+/**
+ * Every node the projection emits, in block order: the entity first, then the
+ * `FAQPage` when the assembler produced one (#360). One list, so the script
+ * blocks and the `--bare` document cannot disagree about the set or the order.
+ */
+export function jsonLdNodes(view: Pick<StructuredDataReadiness, "jsonLd" | "faqJsonLd">): object[] {
+  return view.faqJsonLd ? [view.jsonLd as object, view.faqJsonLd] : [view.jsonLd as object];
+}
+
+/** The paste-ready blocks: one `<script>` per node, separated by a blank line. */
+export function jsonLdBlocks(nodes: readonly object[]): string {
+  return nodes.map(jsonLdScript).join("\n\n");
+}
+
 /** `--bare`: the same object as raw JSON (no script tag, no HTML escaping). */
 export function jsonLdBare(jsonLd: object): string {
   return JSON.stringify(jsonLd, null, 2);
+}
+
+/**
+ * `--bare` for a node list: the entity alone stays **byte-identical** to the
+ * pre-#360 artifact (the additive rule); with the FAQPage present the document
+ * is a JSON array of the emitted nodes, since JSON has no second top-level
+ * object. Consumers parse and branch on `Array.isArray` (SPEC §7.2).
+ */
+export function jsonLdBareNodes(nodes: readonly object[]): string {
+  return jsonLdBare(nodes.length === 1 ? (nodes[0] as object) : [...nodes]);
 }
 
 export interface EntityArgs {
@@ -200,7 +236,8 @@ export function runEntity(args: EntityArgs): number {
         },
       });
     }
-    const artifact = args.bare ? jsonLdBare(view.jsonLd) : jsonLdScript(view.jsonLd);
+    const nodes = jsonLdNodes(view);
+    const artifact = args.bare ? jsonLdBareNodes(nodes) : jsonLdBlocks(nodes);
     if (args.out !== undefined) {
       const failure = writeArtifact(args.out, `${artifact}\n`, args.force);
       if (failure !== undefined) {

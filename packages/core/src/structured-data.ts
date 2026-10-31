@@ -142,11 +142,11 @@ function hasCredentialLd(profile: Profile): EducationalOccupationalCredentialLd[
  * SSOT declares the pointer as the answer's backing, and dropping it would emit
  * the assertion without its source (an answer with no pointer is a claim, §8).
  *
- * NO CONSUMER YET: neither renderer embeds this node (they embed `jsonLd` only)
- * and `pasco entity --json/--jsonld` projects the entity node — `faqJsonLd` is
- * the readiness surface the M5 web renderer will consume. The consumer/renderer
- * follow-up is declared in SPEC §15.4 and is pending the operator's OK (ADR-025);
- * do not "fix" the missing embedding here — that is separate, declared scope.
+ * CONSUMER: `pasco entity --jsonld` emits this node as its own `<script>` block
+ * after the entity block, and `pasco entity --json` exposes it as `faqJsonLd`
+ * (SPEC §7.2, #360). The renderers still embed `jsonLd` only; the published-page
+ * consumer remains the M5 web renderer (`surface.kind`, D23), declared in SPEC
+ * §15.4. The node stays separate here — do not fold it into `jsonLd`.
  */
 function faqNode(profile: Profile, lang: Lang): StructuredDataReadiness["faqJsonLd"] {
   const rows = profile.faq;

@@ -798,19 +798,25 @@ landing page), so the schema.org entity the renderers embed is exposed as an
 artifact:
 
 ```sh
-pasco entity --json                     # the frozen view: facts, @id, sameAs, gaps
+pasco entity --json                     # the frozen view: facts, @id, sameAs, gaps, faqJsonLd
 pasco entity --jsonld                   # paste-ready <script type="application/ld+json">
-pasco entity --jsonld --bare            # the bare JSON object
-pasco entity --jsonld --out entity.html # write the block to a file
+pasco entity --jsonld --bare            # the bare JSON (entity, or an array with the FAQPage)
+pasco entity --jsonld --out entity.html # write the block(s) to a file
 ```
 
 The `--json` view carries `entity { id, type, name, sameAs, email }` — `id` is the
 URL of the `role: identity` link, or `null`; the engine **never invents an `@id`**
 — plus `gaps`, the structured-data `geoCheck` codes that are not satisfied, with
-their code and detail verbatim (no new vocabulary), and `jsonld: null`. The
-`--jsonld` block is the **same assembler output** the renderers use
-(`core/src/structured-data.ts`, SPEC §7.2): parsing it yields exactly
-`structuredData()`'s object, never a second emitter's guess.
+their code and detail verbatim (no new vocabulary), `jsonld: null`, and
+`faqJsonLd`, the assembler's `FAQPage` node (or `null` when the workspace declares
+no `faq[]`, #360). The `--jsonld` output is the **same assembler output** the
+renderers use (`core/src/structured-data.ts`, SPEC §7.2): parsing it yields exactly
+`structuredData()`'s object, never a second emitter's guess. When `faq[]` is
+declared it emits a **second block** after the entity — the separate `FAQPage`
+node, never folded into the entity, never empty, with no invented `@id` and each
+declared `faq[].source` carried as `acceptedAnswer.citation`. Paste both blocks
+into the page, or run the exported block through Google Rich Results as a release
+check (that validation is not part of CI; #132).
 
 Exit `0` when `@id` is present, `1` when it is absent — the entity has no declared
 home, and the block is still emitted without `@id` — or the `--out` write failed,

@@ -97,11 +97,12 @@ Commands:
                                 surface's schema.org JSON-LD + links, writes nothing and
                                 marks every fact unattested; reports the audit classes
                                 (dangling-ref · contradiction · unsourced-claim)
-  entity [--json] [--jsonld]    The schema.org entity projection: facts, @id, sameAs and
+  entity [--json] [--jsonld]    The schema.org entity projection: facts, @id, sameAs,
           [--out <file> [--force]] [--bare] [--lang <l>]
-                                readiness gaps as JSON, or the paste-ready JSON-LD block
-                                the renderers embed; for surfaces the engine does not
-                                render. Exit 1 when @id is absent (no declared home)
+                                readiness gaps and the FAQPage node as JSON, or the
+                                paste-ready JSON-LD blocks (entity + FAQPage when faq[]
+                                is declared) for surfaces the engine does not render.
+                                Exit 1 when @id is absent (no declared home)
   cite-check [<answers.ndjson>] Match the workspace's entity against saved answer-engine
           [--json]              answers (NDJSON; stdin when no path). Offline, no model,
                                 no clock: per answer it reports cited · confidence · spans
@@ -378,15 +379,18 @@ FAIL, or a schema/load failure · 2 usage error.`,
 The entity projection for a surface this engine does not render (SPEC §7.2, #287):
 the schema.org entity the renderers embed, exposed as an artifact.
   --json     the frozen view { schemaVersion: "1", entity: { id, type, name, sameAs,
-             email }, gaps: [{ code, detail }], jsonld: null }. entity.id is null when
-             no link declares role: identity — the engine never invents an @id. gaps
-             are the structured-data geoCheck codes that scored below 1, verbatim.
+             email }, gaps: [{ code, detail }], jsonld: null, faqJsonLd }. entity.id
+             is null when no link declares role: identity — the engine never invents
+             an @id. gaps are the structured-data geoCheck codes that scored below 1,
+             verbatim. faqJsonLd is the FAQPage node when faq[] is declared, else null.
   --jsonld   the SAME assembler output the renderers embed (core/src/structured-data.ts,
-             one home — never a second emitter), serialized as a paste-ready
-             <script type="application/ld+json"> block. Parsing it yields exactly
-             structuredData()'s object.
-    --bare   emit the bare JSON object instead of the <script> block.
-    --out <file>  write the block to <file> instead of stdout; an existing file
+             one home — never a second emitter), serialized as paste-ready
+             <script type="application/ld+json"> block(s): the entity block, plus the
+             FAQPage block when faq[] is declared (never an empty FAQPage, no invented
+             @id; faq[].source travels as acceptedAnswer.citation).
+    --bare   emit raw JSON instead of the <script> blocks: the entity object when it
+             is the only node, otherwise a JSON array of the emitted nodes in order.
+    --out <file>  write the block(s) to <file> instead of stdout; an existing file
                   is refused (nothing is truncated) unless --force is passed.
   --lang <l> the assembler language for BOTH modes (default: .pascorc
              defaults.lang, else 'en'). The readiness gaps are measured in it.
