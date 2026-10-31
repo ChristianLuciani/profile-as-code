@@ -166,7 +166,10 @@ One job, **`ci`**, required on every PR and push to `main`:
    surface that carries the release claim — the EN landing plus each projected
    document — states the version in `packages/cli/package.json`, and that a
    declared claim-free surface (the `/es/` mirror) states none) →
-   **`pnpm lint`** (Biome: lint + format + import order, issue #59) →
+   **`pnpm lint`** (Biome: lint + format + import order, issue #59; Markdown is
+   out of the formatter's scope — an `overrides` entry in `biome.json` disables
+   it for `**/*.md`, so prose layout stays owned by `docs/STANDARDS.md` (style)
+   and the structure gate `scripts/site-check`, issue #368) →
    **D3 freshness** (`pnpm gen:zod` then `git diff --exit-code` on the committed Zod, so a
    schema edit without regeneration fails here) →
    **platform registry projections** (`scripts/gen-platforms/test.mjs` then

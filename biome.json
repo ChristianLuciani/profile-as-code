@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -13,7 +13,9 @@
       "!packages/core/src/generated",
       "!packages/cli/src/generated",
       "!packages/cli/tests/fixtures/export-profile/golden.json",
-      "!scripts/schema-check/fixtures"
+      "!scripts/schema-check/fixtures",
+      "!scripts/dep-gate/fixtures/**/fixture.pnpm-workspace.yaml",
+      "!pnpm-lock.yaml"
     ]
   },
   "formatter": {
@@ -38,6 +40,12 @@
     }
   },
   "overrides": [
+    {
+      "includes": ["**/*.md"],
+      "formatter": {
+        "enabled": false
+      }
+    },
     {
       "includes": ["**/tests/**", "**/*.test.ts"],
       "linter": {

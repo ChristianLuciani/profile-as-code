@@ -12,7 +12,7 @@ packages:
 # pins (e.g. vite's exact esbuild). Identical resolution today (0.28.1 is the
 # only matching version); CI gates catch any breakage on the next refresh.
 overrides:
-  esbuild: '>=0.28.1'
+  esbuild: ">=0.28.1"
   # #160: same class as esbuild — source-map-js is transitive (postcss) and pinned
   # at 1.2.1 in pnpm-lock.yaml; the advisory is fixed in 1.2.2 ([OFICIAL]
   # Dependabot alerts API 2026-10-07: vulnerable ">= 1.0.0, < 1.2.2",
@@ -20,7 +20,7 @@ overrides:
   # transitive dep pinned in the lockfile (`security_update_not_possible`), so this
   # lifts every resolution to the first patched version — mirroring the esbuild
   # decision (issue #57) and paired with its `ignore` in .github/dependabot.yml.
-  source-map-js: '>=1.2.2'
+  source-map-js: ">=1.2.2"
   # #184: chokidar is transitive (tsup's file watcher) and resolved to 4.0.3 in
   # pnpm-lock.yaml. 4.0.2/4.0.3 were published without npm provenance while
   # 4.0.0/4.0.1 carry SLSA attestations ([OFICIAL] registry.npmjs.org, 2026-10-09),
@@ -36,7 +36,7 @@ overrides:
   # exposure is dev-time and the build does not import it; `tsup --watch` was
   # verified on 4.0.1. This pin replaces the temporary `trustPolicyExclude` shipped
   # in #182. Revisit if any consumer ever requires ^5.
-  chokidar: '4.0.1'
+  chokidar: "4.0.1"
 
 allowBuilds:
   esbuild: true

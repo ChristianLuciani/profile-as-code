@@ -40,11 +40,11 @@ name: release
 
 on:
   push:
-    tags: ['v*']
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Smoke the pipeline without publishing (skips the tag guard; does not validate publish auth — NPM_TOKEN/OIDC)'
+        description: "Smoke the pipeline without publishing (skips the tag guard; does not validate publish auth — NPM_TOKEN/OIDC)"
         type: boolean
         default: false
 
@@ -126,7 +126,7 @@ jobs:
       # fails on auth without naming the real cause (observed in #80, 2026-09-15). Bump npm
       # and print the exact version so the next person debugging a failed publish can rule
       # this out at a glance.
-      - name: 'Prerequisite — npm CLI >= 11.5.1 (trusted publishing)'
+      - name: "Prerequisite — npm CLI >= 11.5.1 (trusted publishing)"
         run: |
           npm install -g npm@11.6.1
           npm --version

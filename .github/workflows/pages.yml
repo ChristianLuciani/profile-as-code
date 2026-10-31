@@ -37,24 +37,24 @@ on:
         description: Commit or tag to publish. Empty publishes the ref that triggered the run.
         type: string
         required: false
-        default: ''
+        default: ""
       release:
         description: Release label for the page footer (e.g. v0.4.0). Empty omits the line.
         type: string
         required: false
-        default: ''
+        default: ""
   workflow_dispatch:
     inputs:
       ref:
         description: Commit or tag to publish. Empty publishes the selected branch.
         type: string
         required: false
-        default: ''
+        default: ""
       release:
         description: Release label for the page footer (e.g. v0.4.0). Empty omits the line.
         type: string
         required: false
-        default: ''
+        default: ""
 
 permissions:
   contents: read

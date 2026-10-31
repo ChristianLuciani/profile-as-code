@@ -741,13 +741,19 @@ platforms:
     kind: repo-meta
     family: presence-repo
     note: "repo description, topics and social preview — the GitHub artifact's own metadata"
-    sources: ["[OFICIAL] docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository, read 2026-10-29"]
+    sources:
+      [
+        "[OFICIAL] docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository, read 2026-10-29",
+      ]
   release-notes:
     status: backlog
     kind: repo-meta
     family: presence-repo
     note: "the GitHub Release body for a tag — the canonical record of what shipped"
-    sources: ["[OFICIAL] docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository, read 2026-10-29"]
+    sources:
+      [
+        "[OFICIAL] docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository, read 2026-10-29",
+      ]
   npm:
     status: backlog
     kind: repo-meta
@@ -833,7 +839,7 @@ ai:
   policy:
     version: 1
     as_of: 2026-10-27
-    stance: '**private-first default**: `robots.txt` on published surfaces **blocks** AI-training crawlers (CCBot / vendor AI crawlers) and user data ships **without** an open license; entering corpora or open-licensing data requires the profile owner''s explicit opt-in (consent field — schema work deferred with Q10).'
+    stance: "**private-first default**: `robots.txt` on published surfaces **blocks** AI-training crawlers (CCBot / vendor AI crawlers) and user data ships **without** an open license; entering corpora or open-licensing data requires the profile owner's explicit opt-in (consent field — schema work deferred with Q10)."
   crawlers:
     # ── retrieval — allowed: the output is a citation ────────────────────────
     googlebot:
