@@ -56,18 +56,18 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 ## Enfoque
 
 ```
-        ┌──────────────────────────────────────────────────────┐
-        │                 REPO PÚBLICO (producto)              │
-        │  ┌─────────┐  ┌──────────────┐  ┌─────────────────┐  │
-        │  │  DATA   │→ │  CORE        │→ │  RENDERERS      │  │
-        │  │  YAML   │  │  validación  │  │  linkedin/      │  │
-        │  │  +schema│  │  normalización│ │  upwork/github/ │  │
-        │  │         │  │  drift-check │  │  x/researchgate/│  │
-        │  │         │  │  geo-check   │  │  substack       │  │
-        │  └─────────┘  └──────────────┘  └─────────────────┘  │
-        │        CI: validate · lint · tests · build           │
-        └───────────────┬──────────────────────────┬───────────┘
-                        │ datos del usuario         │ outputs listos
+        ┌───────────────────────────────────────────────────────┐
+        │                 REPO PÚBLICO (producto)               │
+        │  ┌─────────┐  ┌───────────────┐  ┌─────────────────┐  │
+        │  │  DATA   │→ │  CORE         │→ │  RENDERERS      │  │
+        │  │  YAML   │  │  validación   │  │  linkedin/      │  │
+        │  │  +schema│  │  normalización│  │  upwork/github/ │  │
+        │  │         │  │  drift-check  │  │  x/researchgate/│  │
+        │  │         │  │  geo-check    │  │  substack       │  │
+        │  └─────────┘  └───────────────┘  └─────────────────┘  │
+        │        CI: validate · lint · tests · build            │
+        └───────────────┬──────────────────────────┬────────────┘
+                        │ datos del usuario        │ outputs listos
         ┌───────────────▼──────────┐   ┌───────────▼──────────────┐
         │  REPO PRIVADO (tuyo)     │   │  deploy: pegar (LinkedIn,│
         │  content/*.yaml          │   │  Upwork…) o git/API      │
