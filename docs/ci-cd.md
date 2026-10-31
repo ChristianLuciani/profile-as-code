@@ -595,10 +595,16 @@ with provenance (§The executed cohort step). **A new seam package needs this
 before its first bump, or its first publish fails exactly this way** — with a 404
 that looks like a registry outage.
 
-npm marks a freshly saved configuration **"not yet validated"** and requires one
-successful publish to validate it (the `core` case showed the deadline: publish
-before 2026-11-02T19:36Z). The configuration works before that publish — the run
-above proves it — but an unvalidated config is deleted if it is never exercised.
+**A trusted publisher is a release-day step, not a setup you do once.** npm saves
+the configuration as **"not yet validated"** and gives it **48 hours**: `core`'s was
+saved 2026-10-31T19:36Z and npm asked for a successful publish before
+2026-11-02T19:36Z ([OFICIAL] the npm UI message; corroborated by the reported 48 h
+expiry). The configuration works during that window — the run above proves it —
+but a config that is never exercised expires and has to be re-added. So do **not**
+pre-configure a seam package that is not being published this release: add it when
+the bump that publishes that member is ready, then tag, then publish inside the
+window. The five seams are the case in point — configuring all of them on day one
+would expire four of them before their first bump.
 
 The publish step authenticates with **trusted publishing (OIDC)**: `id-token: write` is
 granted to the `publish` job, and the npm CLI exchanges that short-lived OIDC token for a
