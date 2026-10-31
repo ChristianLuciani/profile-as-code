@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Core engine of profile-as-code: load (schema-validate), driftCheck, geoCheck, compile. Contract source is schema/profile.schema.json (D3) — Zod is generated, never hand-written.",
   "type": "module",
   "license": "MIT",

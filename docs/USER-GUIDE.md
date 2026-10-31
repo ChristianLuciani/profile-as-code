@@ -9,8 +9,8 @@ updated, and stay in sync as the engine evolves.
 >
 > Audience: a **user** of the engine (not an engine contributor). Contributor
 > docs live in [CONTRIBUTING.md](../CONTRIBUTING.md); the product contract is
-> [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli@0.3.6`
-> — release `v0.3.6` (cut 2026-10-26; the npm publish of that release is the runbook's
+> [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli@0.3.7`
+> — release `v0.3.7` (cut 2026-10-31; the npm publish of that release is the runbook's
 > irreversible step — `docs/ci-cd.md` §Releasing; #113, #207).
 > Keep that claim in its canonical form: the release barrier
 > (`scripts/site-check/version-check.mjs`) fails the publish when it disagrees
@@ -131,13 +131,13 @@ Two paths. **Option A is the intended path for users** (published on npm);
 
 ```sh
 npm i -g @profile-as-code/cli    # the package
-pasco --version                  # the bin — expect 0.3.6
+pasco --version                  # the bin — expect 0.3.7
 ```
 
 One global install: no clone, no build, nothing written outside the npm prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
-> **Status**: this guide tracks the release being cut: `@profile-as-code/cli@0.3.6`
+> **Status**: this guide tracks the release being cut: `@profile-as-code/cli@0.3.7`
 > (cut 2026-10-26, CHANGELOG `[0.3.6]`; the tag is pushed when the release is cut); the
 > npm publish is that release's irreversible step — verify the published `latest` with
 > `npm view @profile-as-code/cli version`.
@@ -341,7 +341,7 @@ same absence of automation and history unless your storage provides them.
 
   ```sh
   pasco doctor
-  # engine 0.3.6 · schema v1.15 · workspace /home/me/profile-data (valid) · requires engine >= 0.4.0 (NOT MET — upgrade: npm i -g @profile-as-code/cli@latest, declared in /home/me/profile-data/.pascorc)
+  # engine 0.3.7 · schema v1.15 · workspace /home/me/profile-data (valid) · requires engine >= 0.4.0 (NOT MET — upgrade: npm i -g @profile-as-code/cli@latest, declared in /home/me/profile-data/.pascorc)
   ```
 
   Contract: SPEC §7.6.
