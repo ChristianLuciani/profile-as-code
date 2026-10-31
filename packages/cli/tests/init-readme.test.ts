@@ -104,11 +104,12 @@ function unresolvedReferences(readme: string, workspace: string, commands: Set<s
 
   // File references written as plain prose, not only in backticks: the
   // scaffold's original defect (`see schema/README.md`) was plain text. URLs
-  // are removed first so their host/path never looks like a workspace path.
+  // and markdown link destinations are removed first so neither their host/path
+  // nor an already-validated target looks like a second workspace path.
   for (const line of lines) {
-    const prose = line.replace(/https?:\/\/\S+/g, " ");
+    const prose = line.replace(/https?:\/\/\S+/g, " ").replace(/\]\([^)]*\)/g, "]");
     for (const match of prose.matchAll(
-      /(?<![\w/.-])((?:[\w.-]+\/)+[\w.-]+\.(?:md|markdown|ya?ml|json|jsonl|txt|ts|js))(?![\w/.-])/g,
+      /(?<![\w/.-])((?:[\w.-]+\/)*[\w.-]+\.(?:md|markdown|ya?ml|json|jsonl|txt|ts|js))(?![\w/.-])/g,
     )) {
       const token = match[1] as string;
       if (globMatches(workspace, token)) continue;
@@ -116,9 +117,18 @@ function unresolvedReferences(readme: string, workspace: string, commands: Set<s
     }
   }
 
-  // Tokenize line by line: a token's declaration (on any line that names it)
-  // makes a not-yet-created directory a forward reference instead of a broken
-  // pointer. A fenced `sh` block is not a reference at all.
+  // A command block or shell example is still a reference the reader may run:
+  // validate every line that starts with `pasco <command>`, including fenced
+  // `sh` blocks (the scaffold's whole Workflow section).
+  for (const match of readme.matchAll(/^\s*pasco\s+([a-z][a-z0-9:-]*)/gm)) {
+    const command = match[1] as string;
+    if (!commands.has(command)) problems.push(`unknown pasco command: pasco ${command}`);
+  }
+
+  // Tokenize line by line: a token's declaration (on any line that names it
+  // with a `pasco` command) makes a not-yet-created directory a forward
+  // reference instead of a broken pointer. A bare directory name (`variants/`)
+  // is a layout label, not a workspace-relative path.
   for (const line of lines) {
     for (const match of line.matchAll(/`([^`]+)`/g)) {
       const token = (match[1] as string).trim();
@@ -139,11 +149,12 @@ function unresolvedReferences(readme: string, workspace: string, commands: Set<s
       const pathish = token.includes("/") || token.startsWith(".");
       if (!pathish) continue;
       if (token.includes("<") || token.includes(">")) continue;
+      if (token.endsWith("/") && !token.slice(0, -1).includes("/")) continue;
 
       if (globMatches(workspace, token)) continue;
       const declared = lines
         .filter((candidate) => candidate.includes(token))
-        .some((candidate) => /\b(created|generated|written|produced|preserved)\b/i.test(candidate));
+        .some((candidate) => /\bpasco\s+[a-z][a-z0-9:-]*/.test(candidate));
       if (token.endsWith("/") && declared) continue;
 
       problems.push(`path does not exist in the workspace: ${token}`);
@@ -186,6 +197,14 @@ describe("scaffolded README references (#385)", () => {
     expect(unresolvedReferences(readme, workspace, commands)).toEqual([
       "path does not exist in the workspace: schema/README.md",
       "path does not exist in the workspace: packages/cli/README.md",
+    ]);
+  });
+
+  it("the walker catches an unknown command in a fenced sh block", () => {
+    const workspace = tempDir();
+    const readme = ["```sh", "pasco frobnicate --now", "```", ""].join("\n");
+    expect(unresolvedReferences(readme, workspace, commands)).toEqual([
+      "unknown pasco command: pasco frobnicate",
     ]);
   });
 });
