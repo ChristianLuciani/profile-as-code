@@ -372,20 +372,33 @@ Each stage validates what the next one makes irreversible:
    pack` + a clean publish with a renderer from outside the workspace) is a
    declared future pipeline step — no external renderer exists yet.
 
-**First executed cohort run (v0.3.6, 2026-10-27 — issue #327):** run
+**The executed cohort step (v0.3.6, 2026-10-27 — issues #327/#377):** run
 [`40430800936`](https://github.com/ChristianLuciani/profile-as-code/actions/runs/40430800936)
-attempt 2 executed the cohort step against the live registry and logged **5
-explicit skips, one per package** (`skip @profile-as-code/<pkg>@<version> —
-already live on the registry (independent semver)`): `core@0.1.1`,
-`markdown@0.1.0`, `paste@0.1.0`, `artifact@0.1.0`, `github@0.1.0` were live at
-02:38–02:39Z, before the step ran; the CLI `0.3.6` then published over OIDC with
-`dist.attestations`. The step has therefore **not yet published a seam member**:
-those five live versions carry no `dist.attestations` (registry
+executed the step in **both** attempts, and neither published a seam member:
+
+- **Attempt 1** (created 01:08:39Z) reached `pnpm publish` and died at the OIDC
+  exchange at 01:09:52Z (`ERR_PNPM_AUTH_TOKEN_EXCHANGE` → `E404`), before the first
+  tarball left the runner. The exchange failure is attempt 1's, not a skipped step.
+- The five seam versions appeared on the registry at **02:38–02:39Z**, between the
+  two attempts and **outside this workflow** (the only `release` run that day is
+  this one; their manifests carry no `_npmVersion` and no `dist.attestations`,
+  consistent with a pnpm/libnpmpublish publish that had no OIDC identity — `[INF]`
+  from the registry metadata: `_nodeVersion` present, `_npmVersion` absent). They are
+  not a cohort publish and not attestation evidence.
+- **Attempt 2** (02:54:50Z) then logged **5 explicit skips, one per package**
+  (`skip @profile-as-code/<pkg>@<version> — already live on the registry
+  (independent semver)`): `core@0.1.1`, `markdown@0.1.0`, `paste@0.1.0`,
+  `artifact@0.1.0`, `github@0.1.0` were already live. The CLI `0.3.6` published
+  over OIDC with `dist.attestations` in the same attempt (log 02:56:37Z; the
+  registry stamps 02:59:17Z after npm's processing).
+
+The step has therefore **not yet published a seam member**: those five live
+versions carry no `dist.attestations` (registry
 `/-/npm/v1/attestations/@profile-as-code/<pkg>@<version>` → 404), and the first
 actual cohort publish is #313's remaining evidence — a release that bumps a seam
-version. What this run *does* measure is the skip path end-to-end: the step ran,
-the five skips are in its log with their reason, and the CLI publish that
-followed is attested.
+version. What this run *does* measure is the step's two executable paths: the
+failed exchange (attempt 1) and the skip path end-to-end (attempt 2, five skips in
+its log with their reason), plus the attested CLI publish that followed.
 
 One class of manifest error escapes every hook above: npm's publish-time
 auto-correction. `npm publish` fixes some malformed fields at publish time and
@@ -409,10 +422,13 @@ which is exactly the state the engine intends.
 
 ### Rehearsing the cohort publish — packs, publishes nothing (issue #313)
 
-The cohort step (`pnpm publish` × 5, dependency order) is irreversible and, until a
-seam version bump, it has only ever **skipped**: the `v0.3.6` run logged five skips
-because every seam version was already live (§the publish chain). The first release
-that actually publishes a seam member is therefore first contact with the whole
+The cohort step (`pnpm publish` × 5, dependency order) is irreversible, and **no
+workflow run has ever published a seam member**. The `v0.3.6` run executed it twice:
+attempt 1 reached `pnpm publish` and died at the OIDC exchange before publishing,
+attempt 2 logged five skips because every seam version was already live — the five
+had been published outside the workflow at 02:38–02:39Z, without attestations
+(§the publish chain). "It only skipped" describes attempt 2, not the step's history.
+The first release that actually publishes a seam member is therefore first contact with the whole
 chain — order, the `workspace:*` rewrite, public access, the `repository.url` npm
 validates — at the one moment it cannot be undone. `scripts/release-rehearsal/`
 rehearses that moment offline and deterministically, with the same client the
@@ -435,7 +451,7 @@ What it asserts, and the failure it names:
 |---|---|
 | Order | `ORDER` in `release.yml` is a valid topological order of the cohort's runtime workspace dependencies (`paste`/`github` → `core`), covers exactly the five, and no member carries a runtime dependency on a workspace package outside the cohort |
 | Tarball | `pnpm pack` (not `npm pack`) produces a manifest whose `name`/`version` equal the source, whose `private`/`publishConfig.access` allow a public publish, whose `workspace:*` is rewritten to the exact peer version the same run publishes (#301), and whose `main`/`types`/`exports`/`files` targets exist inside the tarball |
-| Mechanism | the `publish` job still grants `id-token: write`, read from the job's own `permissions:` when it declares one — in the three single-key spellings the gate reads (block, one-line flow `{…}`, scalar `read-all` / `write-all`), with optional whitespace around the colon in both the key and the entries; a job-level override replaces the workflow default, and a `permissions` key the gate cannot read (a flow mapping split across lines, an anchor or alias) is **denied**, never resolved through that default; **every** publish invocation outside a `--dry-run` branch is `pnpm publish` (only pnpm rewrites `workspace:*`); the loop iterates `$ORDER`; the rehearsal barrier **carries no `if:`** — on the step or on the job that hosts it, constant or `${{ }}` expression — **nor any `continue-on-error` other than an absent key or literally `false`** (fail closed on the form, #364); both keys are read in the three spellings YAML gives them — bare, double-quoted, single-quoted — and one the gate cannot read (a quoted key, an empty value, a space before the colon) is **denied as present**, never defaulted to absent, and executes `node scripts/release-rehearsal/check.mjs` as the step's last shell segment with the status observable (no pipe, background `&`, `set +e`, `||`/`&&` chain, `;` tail, or command after it); the cohort precedes the CLI's `Publish` step; and every publishable workspace member **except `packages/cli`** (which publishes from its own step) is in the cohort |
+| Mechanism | the `publish` job still grants `id-token: write`, read from the job's own `permissions:` when it declares one — in the three single-key spellings the gate reads (block, one-line flow `{…}`, scalar `read-all` / `write-all`), with optional whitespace around the colon in both the key and the entries; a job-level override replaces the workflow default, and a `permissions` key the gate cannot read (a flow mapping split across lines, an anchor or alias) is **denied**, never resolved through that default; **every** publish invocation — the live branch **and** its `--dry-run` twin — is `pnpm publish` (only pnpm rewrites `workspace:*`) and requests provenance with `--provenance` (a negated request, `--provenance=false` or `--no-provenance`, is refused, #377); the loop iterates `$ORDER`; the rehearsal barrier **carries no `if:`** — on the step or on the job that hosts it, constant or `${{ }}` expression — **nor any `continue-on-error` other than an absent key or literally `false`** (fail closed on the form, #364); both keys are read in the three spellings YAML gives them — bare, double-quoted, single-quoted — and one the gate cannot read (a quoted key, an empty value, a space before the colon) is **denied as present**, never defaulted to absent, and executes `node scripts/release-rehearsal/check.mjs` as the step's last shell segment with the status observable (no pipe, background `&`, `set +e`, `||`/`&&` chain, `;` tail, or command after it); the cohort precedes the CLI's `Publish` step; and every publishable workspace member **except `packages/cli`** (which publishes from its own step) is in the cohort |
 | Provenance precondition | each manifest's `repository.url` equals the repo the workflow runs in, and `repository.directory` its monorepo home |
 
 The barrier assertion is about **execution and failure propagation**, not about the
@@ -484,6 +500,16 @@ attestation only during a successful publish. Those are the facts only a **relea
 event** creates, and the gate prints them as `NOT CHECKED` in every run rather than
 letting a green rehearsal read as publish evidence.
 
+**The provenance acceptance is narrower than "attested" (#377).** The gate asserts the
+**request** — `--provenance` on both publish branches of the cohort step — and that is
+all an offline check can prove: it cannot prove the registry received the attestation.
+The open acceptance: the first release event that publishes a seam member records a
+`dist.attestations` entry for **each one it publishes**, with the tag, the date and a
+fresh reading of the commands below, in this section. Until then the criterion is "the
+mechanism asks and the gate proves it", not "the cohort is attested". The five versions
+live at 2026-10-27 are not evidence: they were published outside the workflow and carry
+none.
+
 **The premise this leaves open (issue #313).** The registry state was read **once,
 on 2026-10-28**, read-only and without publishing — a dated record (`kind=record`),
 not a standing claim: the numbers move with the next publish. The commands are the
@@ -513,8 +539,9 @@ rewrite is true on the registry doc. <!-- evidence: registry as_of=aa29880 kind=
 step**. A rehearsal cannot close that: the first real cohort publish requires a
 **release event that bumps at least one seam version**, and the tag is the
 maintainer's act (release is a human-only action). When that run happens,
-its id + date and a fresh reading of the commands above land in this section, and
-the `CHANGELOG` records the shipped seam version.
+its id + date, a fresh reading of the commands above and a `dist.attestations` read
+per published member (#377) land in this section, and the `CHANGELOG` records the
+shipped seam version.
 
 ### npm publish auth — trusted publishing (OIDC, issue #80) — **configured and validated**
 
@@ -600,20 +627,27 @@ of the current primary path, and of what a tag push does and does not do, is
 [§"Releasing — the primary path"](#releasing--the-primary-path-issue-208) below.** This section
 only records why the auth layer behaves the way it does.
 
-- **No `--provenance` flag — npm decides.** npm attests only when all three hold: the OIDC
-  exchange **succeeded**, the **source repo is public**, and the **package is public**
-  ([WEB] docs.npmjs.com/trusted-publishers, "Automatic provenance generation"; the code reads
+- **Which client attests, and how (#377).** The **npm CLI** (the CLI's `Publish` step) passes
+  no flag: npm attests automatically when all three hold — the OIDC exchange **succeeded**,
+  the **source repo is public**, and the **package is public** ([WEB]
+  docs.npmjs.com/trusted-publishers, "Automatic provenance generation"; the code reads
   `repository_visibility` from the OIDC token and re-queries the package's visibility via
-  `libaccess.getVisibility`). **At the 0.3.0 publish only the first condition held** (the flip
-  #293, 2026-10-24, clears the rest for future publishes):
-  the 0.3.0 publish ran on a successful OIDC exchange, but the source repo is private, so
-  `dist.attestations` is **absent** from the published manifest ([OFICIAL] registry
-  `@profile-as-code/cli@0.3.0`, re-checked 2026-10-12). This is a documented limitation of the
-  private repo — **not a pending task of this migration**, and not something a workflow change
-  can fix. The flip (2026-10-24, #293) cleared it for the **next** publish: the CLI carries
-  `dist.attestations` from `v0.3.5` on, and `v0.3.6` repeats it (run `40430800936`,
-  2026-10-27); the five seam versions live at that date were published outside the workflow
-  and carry none (#313). Versions published before the flip stay un-attested.
+  `libaccess.getVisibility`). The **pnpm cohort** instead requests it explicitly with
+  `pnpm publish --provenance`: pnpm's implicit path (`options.provenance` unset) attests only
+  after a best-effort visibility probe and degrades to a `Skipped setting provenance` warning,
+  which would publish an unattested version with a green run. The explicit request reaches
+  `libnpmpublish` as `provenance: true` and is what the rehearsal gate asserts on both branches
+  (the flag is in pnpm's own publish `cliOptionsTypes` — verified in the pinned 11.20.0 dist,
+  2026-10-31). **At the 0.3.0 publish only the first condition held** (the flip #293,
+  2026-10-24, clears the rest for future publishes): the 0.3.0 publish ran on a successful OIDC
+  exchange, but the source repo is private, so `dist.attestations` is **absent** from the
+  published manifest ([OFICIAL] registry `@profile-as-code/cli@0.3.0`, re-checked 2026-10-12).
+  This is a documented limitation of the private repo — **not a pending task of this
+  migration**, and not something a workflow change can fix. The flip cleared it for the
+  **next** publish: the CLI carries `dist.attestations` from `v0.3.5` on, and `v0.3.6` repeats
+  it (run `40430800936`, 2026-10-27); the five seam versions live at that date were published
+  outside the workflow and carry none (#313/#377). Versions published before the flip stay
+  un-attested.
 
 - **`repository.url` must match the GitHub repo.** npm validates
   `packages/cli/package.json` → `repository.url` against the repository the workflow runs in

@@ -30,8 +30,13 @@ name: release
 # each publish step resolves to the empty string and can never carry a credential again. Do
 # not re-add the secret (issue #80; the ENEEDAUTH diagnostic stands for any failed exchange).
 #
-# Provenance: the publishing client decides — it attests under a successful exchange with a
-# public source repo and a public package (the v0.3.5 publish carries `dist.attestations`).
+# Provenance: the seam-cohort step REQUESTS it explicitly (`pnpm publish --provenance`, #377).
+# pnpm's implicit path is best-effort — a failed visibility probe degrades to a warning and the
+# publish goes out unattested — so the request, not the client default, is the mechanism the
+# gate asserts. The CLI keeps `npm publish` without a flag: npm attests on its own under a
+# successful OIDC exchange with a public source repo and a public package (v0.3.5/v0.3.6 carry
+# `dist.attestations`). Both paths still need the exchange; whether the registry received the
+# attestation is #377's declared acceptance, not something this file can prove.
 
 on:
   push:
@@ -171,16 +176,20 @@ jobs:
         env:
           SITE_REF: ${{ steps.guard.outputs.commit }}
 
-      # Issue #313: the cohort loop's first real publish is irreversible, and until
-      # a seam version bump it has only ever SKIPPED (v0.3.6). This barrier packs
+      # Issue #313: the cohort loop's first real publish is irreversible, and no
+      # workflow run has ever published a seam member. The v0.3.6 run executed this
+      # step twice: attempt 1 reached `pnpm publish` and died at the OIDC exchange
+      # before publishing, attempt 2 skipped all five because they were already live
+      # (published outside the workflow at 02:38–02:39Z). This barrier packs
       # the five with the same client (`pnpm`, whose `workspace:*` rewrite is the
       # #301 mechanism), offline, and asserts the publish ORDER against the
       # workspace dependency graph, the shipped manifests (public access, rewrite
       # target, resolvable entrypoints, repository.url) and the loop's own
-      # mechanism. It publishes nothing and needs no token: a broken manifest now
+      # mechanism — including the explicit provenance request the cohort step must
+      # carry (#377). It publishes nothing and needs no token: a broken manifest now
       # fails BEFORE npm, instead of consuming a version. Same gate as
-      # `.github/workflows/release-rehearsal.yml`; what it cannot check (the OIDC
-      # exchange, the registry state, attestations) is #313's open evidence.
+      # `.github/workflows/release-rehearsal.yml`; the OIDC exchange, the registry
+      # state and `dist.attestations` remain #377's declared acceptance.
       - name: Rehearse the seam cohort (packs, publishes nothing) — issue #313
         run: node scripts/release-rehearsal/check.mjs
 
@@ -222,10 +231,15 @@ jobs:
               echo "skip $name@$version — already live on the registry (independent semver)"
               continue
             fi
+            # #377: provenance is REQUESTED, never inherited. `--provenance` reaches
+            # libnpmpublish as `provenance: true`; pnpm's implicit path only attests after a
+            # best-effort visibility probe and falls back to a warning. The dry-run branch
+            # carries the flag on purpose: pnpm builds the publish options (and does the OIDC
+            # exchange) before it skips, so both branches exercise the same invocation.
             if [ "${{ inputs.dry_run }}" = "true" ]; then
-              (cd "$dir" && pnpm publish --access public --no-git-checks --dry-run)
+              (cd "$dir" && pnpm publish --access public --no-git-checks --provenance --dry-run)
             else
-              (cd "$dir" && pnpm publish --access public --no-git-checks)
+              (cd "$dir" && pnpm publish --access public --no-git-checks --provenance)
             fi
           done
         env:
@@ -241,11 +255,14 @@ jobs:
       # resolves to the empty string; do not re-add the secret — issue #80, runbook in
       # docs/ci-cd.md.)
       #
-      # No --provenance: npm decides. It attests only when the OIDC exchange succeeded, the
-      # source repo is public and the package is public — so no attestation was generated
-      # while the repo stayed private even though the exchange succeeded (the v0.3.0 case);
-      # the repo is public since 2026-10-23 (issue #293) — the private-source limitation
-      # that suppressed v0.3.0's attestation no longer applies. See docs/ci-cd.md.
+      # No flag here: npm's automatic attestation is the path this step already exercised
+      # (`dist.attestations` on v0.3.5/v0.3.6). npm attests only when the OIDC exchange
+      # succeeded, the source repo is public and the package is public — so no attestation
+      # was generated while the repo stayed private even though the exchange succeeded (the
+      # v0.3.0 case); the repo is public since 2026-10-23 (issue #293) — the private-source
+      # limitation that suppressed v0.3.0's attestation no longer applies. The COHORT step,
+      # by contrast, requests `--provenance` explicitly (#377) because pnpm's implicit path
+      # degrades to a warning. See docs/ci-cd.md §"npm publish auth".
       - name: Publish
         run: |
           ARGS="--access public"
