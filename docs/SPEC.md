@@ -1091,8 +1091,8 @@ an immutable artifact identified by **URL + sha256**, recorded in
 
 | | Artifact | Identity |
 |---|---|---|
-| **Released** | `schema/profile.schema.json` at a published release tag | tag-pinned raw URL + sha256 + `$id` version (today `v0.3.6`, schema v1.13) |
-| **Current** | the committed `schema/profile.schema.json` on this branch | `$id` version + sha256, **no published artifact** (today v1.15; `published: false`, `artifact: null`) |
+| **Released** | `schema/profile.schema.json` at a published release tag | tag-pinned raw URL + sha256 + `$id` version (today `v0.3.7`, schema v1.15) |
+| **Current** | the committed `schema/profile.schema.json` on this branch | `$id` version + sha256, **identical bytes to the tagged artifact** (today v1.15; `published: true`) |
 
 - **Tag-pinned, public repo only.** The released URL is exactly
   `https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/<tag>/schema/profile.schema.json`.
@@ -1104,10 +1104,10 @@ an immutable artifact identified by **URL + sha256**, recorded in
   `published` is `false`, `artifact` MUST be `null` and the `note` MUST say where
   the bytes can be obtained (a repository checkout, not a URL). The manifest
   cannot claim a joinable artifact it does not have, and every shipped surface
-  repeats that exact state. **The released v0.3.6 artifact is schema v1.13 and
-  rejects `publication.kind`** (`$defs.publication` has `additionalProperties:
-  false`); a consumer that needs `kind` (or `releases[]`) must use a
-  v1.15 checkout (verify its sha256) until the next release tags it. The reading guide says so where it
+  repeats that exact state. **The released v0.3.7 artifact is schema v1.15**, so
+  `publication.kind` and `releases[]` validate against the tag-pinned copy: the
+  two additions that used to require a checkout no longer do (the v0.3.6 artifact,
+  schema v1.13, stays correct forever for a consumer that pins it). The reading guide says so where it
   tells a consumer how to validate.
 - **No network in the gate (D19).** `node scripts/schema-contract/check.mjs
   --check` recomputes the sha256 of the committed file, reads the immutable copy
