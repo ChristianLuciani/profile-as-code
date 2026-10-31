@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "path": "docs/note.md",
+      "names": ["no-such-private-target"],
+      "reason": "an unknown name must be refused, not silently exempt nothing.",
+      "removalTrigger": "when the name exists in the inventory or the entry is dropped"
+    }
+  ]
+}

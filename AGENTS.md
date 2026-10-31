@@ -34,7 +34,7 @@ per-user private repo (`profile-data`), scaffolded from the template
 | `scripts/site-docs/` | Projects the reading docs + the site-root artifacts (404, sitemap, robots, llms.txt, AGENTS.md) into gitignored files | issues #277/#279 · Markdown is the only copy; add a doc = one entry in `site-config.mjs` |
 | `scripts/site-check/` | Page gates (CI + pre-publish): ids, anchors, local paths, no scripts (JSON-LD is the only exception) — on every page; version claim vs the CLI manifest | issues #201/#277/#279 |
 | `scripts/dep-gate/` | D20 scope self-test (CI): server→core only, core never reaches server | issue #98 |
-| `scripts/agnostic-check/` | Public-surface gate (CI): no tracked file names a private path/repo/tool a reader cannot open; dated records are out of scope by class, other historical copies/fixtures exempt by file | issue #274 · rule 9 · offline; self-tested |
+| `scripts/agnostic-check/` | Public-surface gate (CI): no tracked file names a private path/repo/tool a reader cannot open; dated records are out of scope by class, other historical copies/fixtures exempt by file or by the declared names (`names`) | issue #274 · #369 · rule 9 · offline; self-tested |
 | `scripts/release-rehearsal/` | Pre-publish rehearsal of the seam cohort: publish order, packed manifests, `workspace:*` rewrite — packs, publishes nothing | issue #313 · offline; runs on manifest PRs and as a barrier inside `release.yml` |
 
 ## Rules for agents (in addition to CONTRIBUTING.md)
@@ -96,8 +96,9 @@ per-user private repo (`profile-data`), scaffolded from the template
    records are **out of scope by class** (`CHANGELOG.md`, `docs/research/` — rule
    8), except the corpus's live runbook and research prompt, which stay scanned; a
    historical copy outside those classes and a synthesized test fixture are
-   exempt by FILE in `scripts/agnostic-check/allowlist.json`, never by phrase
-   (#274).
+   exempt in `scripts/agnostic-check/allowlist.json` by FILE, or by the private
+   NAMES an entry declares (`names`, values from the inventory's `privateNames`)
+   — the file stays scanned for every other name — never by phrase (#274/#369).
 
 ## Commands
 

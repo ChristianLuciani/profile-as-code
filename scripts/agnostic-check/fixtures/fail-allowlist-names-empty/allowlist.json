@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "path": "docs/note.md",
+      "names": [],
+      "reason": "an empty `names` exempts nothing — it is refused, not a silent whole-file exemption.",
+      "removalTrigger": "when the entry names a class it actually suppresses"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "path": "docs/repo.md",
+      "names": ["ChristianLuciani/profile-data"],
+      "reason": "seeds the round-2 defect: a private repo TARGET is not a name and must never be exempted by `names`.",
+      "removalTrigger": "when the entry is dropped or the target stops being private"
+    }
+  ]
+}

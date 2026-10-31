@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "path": "docs/scope.md",
+      "names": ["skills-studio", "prompt-studio"],
+      "reason": "only skills-studio appears; the dead prompt-studio declaration must warn without failing.",
+      "removalTrigger": "when both names are used or the dead one is removed"
+    }
+  ]
+}

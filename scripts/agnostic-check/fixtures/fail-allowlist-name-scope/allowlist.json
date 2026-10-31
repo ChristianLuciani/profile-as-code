@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "path": "docs/scope.md",
+      "names": ["skills-studio"],
+      "reason": "the file MUST name skills-studio to assert it is not surfaced — the exemption covers that one name, never the file.",
+      "removalTrigger": "when the assertion stops naming the class"
+    }
+  ]
+}

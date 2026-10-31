@@ -1,0 +1,10 @@
+{
+  "entries": [
+    {
+      "path": "docs/note.md",
+      "names": "skills-studio",
+      "reason": "`names` is an array; a bare string is refused instead of being coerced.",
+      "removalTrigger": "when the entry declares an array or is dropped"
+    }
+  ]
+}

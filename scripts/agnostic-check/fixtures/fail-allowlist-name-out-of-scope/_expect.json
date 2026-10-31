@@ -1,0 +1,12 @@
+{
+  "exit": 1,
+  "contains": [
+    "E-AGNOSTIC",
+    "private name \"prompt-studio\"",
+    "W-ALLOWLIST-UNUSED",
+    "\"docs/note.md\""
+  ],
+  "notContains": ["E-ALLOWLIST-INVALID"],
+  "warnings": 1,
+  "tree_files": 1
+}
