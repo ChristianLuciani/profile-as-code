@@ -9,6 +9,10 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+_(nothing yet — the next cycle)_
+
+## [0.3.7] - 2026-10-31
+
 ### Added
 
 - **`pasco entity` emits the `FAQPage` node — the answer surface's consumer
@@ -339,6 +343,16 @@ minor versions may contain breaking contract changes.
 - CLI `pasco`: the full `refine` flow (M3)
 - Per-platform skills v1 from SOTA research (M3)
 - Web renderer (M5)
+
+### Internal
+
+- **The seam cohort publishes through the workflow for the first time (#313, #377)** —
+  `@profile-as-code/core` goes 0.1.1 → 0.1.2, so the release event has a seam member to
+  publish instead of five skips. The cohort step now requests provenance explicitly
+  (`pnpm publish --provenance`) on both branches, and `release-rehearsal` asserts the
+  request per invocation — the last flag wins, a flag in a comment does not count, and
+  both branches must use pnpm. Until this release the five seam packages on the registry
+  came from a manual staged publish: no `gitHead`, no `dist.attestations`.
 
 ## [0.3.6] - 2026-10-26
 
