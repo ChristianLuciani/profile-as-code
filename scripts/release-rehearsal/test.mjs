@@ -304,6 +304,46 @@ test("workflowViolations — #364: a barrier with a RUNTIME `if:` expression is 
   );
 });
 
+test("workflowViolations — #364: a QUOTED or EMPTY key is refused, never read as absent", () => {
+  // F1 del pase fresco: el parser sólo matcheaba la grafía desnuda y con valor, así que
+  // `"if": false` y un `if:` vacío resolvían como AUSENTES y pasaban — el mismo fail-open
+  // que la opción 1 cierra. Una forma ilegible se DENIEGA, no se defaultea (la regla que
+  // el gate ya aplica a `permissions:`).
+  const quotedStep = workflow().replace(
+    `      - name: ${BARRIER_STEP}`,
+    `      - name: ${BARRIER_STEP}\n        "if": false`,
+  );
+  refuses(
+    workflowViolations(quotedStep).violations,
+    "any `if:` on the barrier is refused",
+    "quoted false step if",
+  );
+
+  const emptyStep = workflow().replace(
+    `      - name: ${BARRIER_STEP}`,
+    `      - name: ${BARRIER_STEP}\n        if:`,
+  );
+  refuses(
+    workflowViolations(emptyStep).violations,
+    "any `if:` on the barrier is refused",
+    "empty step if",
+  );
+
+  const quotedJob = workflow({ publishExtra: [`    "continue-on-error": true`] });
+  refuses(
+    workflowViolations(quotedJob).violations,
+    "only an absent key or literally `false`",
+    "quoted job continue-on-error",
+  );
+
+  const emptyJob = workflow({ publishExtra: [`    continue-on-error:`] });
+  refuses(
+    workflowViolations(emptyJob).violations,
+    "only an absent key or literally `false`",
+    "empty job continue-on-error",
+  );
+});
+
 test("workflowViolations — #364: a barrier job with a RUNTIME `continue-on-error` is refused", () => {
   // The repro's second mutation: `continue-on-error: ${{ inputs.soft }}` on the
   // `publish` job. Only an absent key or literally `false` is provable, so a

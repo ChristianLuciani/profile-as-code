@@ -354,12 +354,26 @@ export function staticallyTrue(raw) {
   return normalizedValue(raw).toLowerCase() === "true";
 }
 
+/**
+ * The key as it may appear in YAML: bare, double-quoted or single-quoted. All three
+ * name the SAME key, so a lexical gate that only matched the bare spelling resolved
+ * `"if": false` as ABSENT and let it through (F1 of the #364 round-2 pass) — an
+ * unreadable form must be DENIED, never defaulted, the rule this gate already applies
+ * to `permissions:`.
+ */
+function keyPattern(key) {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return `(?:${escaped}|"${escaped}"|'${escaped}')`;
+}
+
 /** A step-level setting value (`continue-on-error`, `if`), or null when absent. */
 function stepSetting(body, key) {
+  const pattern = keyPattern(key);
   for (const line of body.split("\n")) {
+    // The value group is `.*`, not `.+`: a bare `if:` (empty) still COUNTS as present.
     const match =
-      line.match(new RegExp(`^ {6}- ${key}\\s*:\\s*(.+)$`)) ??
-      line.match(new RegExp(`^ {8}${key}\\s*:\\s*(.+)$`));
+      line.match(new RegExp(`^ {6}- ${pattern}\\s*:\\s*(.*)$`)) ??
+      line.match(new RegExp(`^ {8}${pattern}\\s*:\\s*(.*)$`));
     if (match) return match[1].trim();
   }
   return null;
@@ -370,8 +384,9 @@ export function jobSetting(yaml, name, key) {
   const lines = yaml.split("\n");
   const job = parseJobs(yaml).find((entry) => entry.name === name);
   if (!job) return null;
+  const pattern = keyPattern(key);
   for (let i = job.start + 1; i < job.end; i += 1) {
-    const match = lines[i].match(new RegExp(`^ {4}${key}\\s*:\\s*(.+)$`));
+    const match = lines[i].match(new RegExp(`^ {4}${pattern}\\s*:\\s*(.*)$`));
     if (match) return match[1].trim();
   }
   return null;
