@@ -282,7 +282,7 @@ overwrite** anything that exists:
 | `person` (default) | `content/identity.yaml` + `README.md` + `.pascorc` |
 | `brand` | `content/{identity,socialHandles,newsletter,podcast,press,audiences,flavor}.yaml` + `README.md` + `.pascorc` |
 
-Once it exists, copy the channel playbooks into the workspace with
+From inside the workspace, copy the channel skills and posting guidance in with
 `pasco skills:export .pasco-skills`; they are what an agent reads to know what
 to write for each platform.
 

@@ -128,11 +128,11 @@ Three top-level directories at scaffold time, three grains — nothing nests one
 
 ## Skills
 
-The platform playbooks ship with \`pasco\`, outside this workspace. When you need
-to know what to write for a channel, copy them in with
-\`pasco skills:export .pasco-skills\`; each channel lands under
-\`.pasco-skills/<platform>/\` with its playbook (post-only channels ship the
-posting guide instead).
+The platform playbooks ship with \`pasco\`, outside this workspace. Run this from
+the workspace root when you need to know what to write for a channel:
+\`pasco skills:export .pasco-skills\` copies them in. Read
+\`.pasco-skills/<platform>/SKILL.md\` when present (post-only channels ship
+\`.pasco-skills/<platform>/post.md\` instead).
 The copy is a fourth, disposable directory: add it to .gitignore if you do not
 want it committed (re-running needs \`--force\`).
 
@@ -156,7 +156,7 @@ checks drift and renders brand surfaces. Private by default (D14: configured pat
 
 ## Files
 
-Three top-level directories, three grains — nothing nests one inside another:
+Three top-level directories at scaffold time, three grains — nothing nests one inside another:
 \`content/\` is identity, \`profiles/\` is generated output (its \`variants/\` subdir is input),
 \`posts/\` is the stream.
 
@@ -168,11 +168,11 @@ Three top-level directories, three grains — nothing nests one inside another:
 
 ## Skills
 
-The platform playbooks ship with \`pasco\`, outside this workspace. When you need
-to know what to write for a channel, copy them in with
-\`pasco skills:export .pasco-skills\`; each channel lands under
-\`.pasco-skills/<platform>/\` with its playbook (post-only channels ship the
-posting guide instead).
+The platform playbooks ship with \`pasco\`, outside this workspace. Run this from
+the workspace root when you need to know what to write for a channel:
+\`pasco skills:export .pasco-skills\` copies them in. Read
+\`.pasco-skills/<platform>/SKILL.md\` when present (post-only channels ship
+\`.pasco-skills/<platform>/post.md\` instead).
 The copy is a fourth, disposable directory: add it to .gitignore if you do not
 want it committed (re-running needs \`--force\`).
 
