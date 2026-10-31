@@ -376,9 +376,12 @@ Each stage validates what the next one makes irreversible:
 [`40430800936`](https://github.com/ChristianLuciani/profile-as-code/actions/runs/40430800936)
 executed the step in **both** attempts, and neither published a seam member:
 
-- **Attempt 1** (created 01:08:39Z) reached `pnpm publish` and died at the OIDC
-  exchange at 01:09:52Z (`ERR_PNPM_AUTH_TOKEN_EXCHANGE` → `E404`), before the first
-  tarball left the runner. The exchange failure is attempt 1's, not a skipped step.
+- **Attempt 1** (created 01:08:39Z) reached `pnpm publish` and died at
+  01:09:52Z: the log records `[WARN] Skipped OIDC` at 01:09:51.8Z (no identity to
+  exchange) and then the fatal `[E404] PUT …/@profile-as-code/core` at 01:09:52.3Z —
+  the registry refused the upload, which is the observable failure. No tarball
+  reached the registry; `ERR_PNPM_AUTH_TOKEN_EXCHANGE` is the pnpm code the runner
+  surfaced. Either way the failure is attempt 1's, not a skipped step.
 - The five seam versions appeared on the registry at **02:38–02:39Z**, between the
   two attempts and **outside this workflow** (the only `release` run that day is
   this one; their manifests carry no `_npmVersion` and no `dist.attestations`,

@@ -44,6 +44,7 @@ import {
   runCommands,
   runtimeDependencyViolations,
   SEAM_DIRS,
+  stripShellComment,
   targetPaths,
   uncoveredPublishables,
   workflowViolations,
@@ -249,6 +250,48 @@ test("workflowViolations — #377: dropping --provenance from the --dry-run bran
     workflowViolations(workflow({ cohortRun: run })).violations,
     "does not request provenance",
     "#377 dry-run branch",
+  );
+});
+
+test("provenanceRequested — the LAST flag wins, and a comment is not the command", () => {
+  // F2 del pase fresco: pnpm parsea las opciones de izquierda a derecha y se queda
+  // con la última; un matcher first-match leía el pedido en un comando que publica
+  // sin attestation. F1: el flag escrito en un comentario no viaja al cliente.
+  assert.equal(provenanceRequested("pnpm publish --provenance --no-provenance"), false);
+  assert.equal(provenanceRequested("pnpm publish --no-provenance --provenance"), true);
+  assert.equal(provenanceRequested("pnpm publish --provenance --provenance=false"), false);
+  assert.equal(
+    stripShellComment("pnpm publish --access public # --provenance"),
+    "pnpm publish --access public ",
+  );
+  assert.equal(stripShellComment('echo "# --provenance"'), 'echo "# --provenance"');
+});
+
+test("workflowViolations — #377: a flag written in a trailing comment does not satisfy the gate", () => {
+  // El seed de F1 sobre el step real: el comando pierde el flag y un comentario
+  // conserva la palabra. El gate tiene que leer el CÓDIGO de la línea.
+  const run = REAL_COHORT_RUN.map((line) =>
+    line.includes("pnpm publish") ? line.replace(" --provenance", " # --provenance") : line,
+  );
+  refuses(
+    workflowViolations(workflow({ cohortRun: run })).violations,
+    "does not request provenance",
+    "#377 comment-only flag",
+  );
+});
+
+test("workflowViolations — #377: the --dry-run branch must still use pnpm", () => {
+  // F3: el cliente sólo se validaba en la rama live, así que un `npm publish` en la
+  // rama de ensayo pasaba — y esa rama deja de ensayar la invocación que publica.
+  const run = REAL_COHORT_RUN.map((line) =>
+    line.includes("pnpm publish") && line.includes("--dry-run")
+      ? line.replace("pnpm publish", "npm publish")
+      : line,
+  );
+  refuses(
+    workflowViolations(workflow({ cohortRun: run })).violations,
+    "does not rewrite",
+    "#377 dry-run client",
   );
 });
 

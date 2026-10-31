@@ -682,13 +682,35 @@ export function manifestViolations({
  * or the order this gate validated would be decorative.
  */
 
+/**
+ * The shell CODE of a line: everything before a `#` that starts a comment. A `#`
+ * inside quotes is text (`echo "# --provenance"`), and the shell itself treats a
+ * `#` as a comment only at the start of a word — the same rule here, so a flag
+ * written in a trailing comment can never satisfy an assertion the command does
+ * not carry (F1 of the #377 round-2 pass).
+ */
+export function stripShellComment(line) {
+  let quote = null;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    if (quote !== null) {
+      if (char === quote) quote = null;
+      else if (char === "\\" && quote === '"') i += 1;
+      continue;
+    }
+    if (char === '"' || char === "'") quote = char;
+    else if (char === "#" && (i === 0 || /\s/.test(line[i - 1]))) return line.slice(0, i);
+  }
+  return line;
+}
+
 /** A publish invocation found in a step body: `pnpm publish` / `npm publish`. */
 export function publishInvocations(body) {
   const invocations = [];
   for (const raw of body.split("\n")) {
-    const line = raw.trim();
+    const line = stripShellComment(raw).trim();
     // Comments in the step must not be able to satisfy the assertion.
-    if (line.startsWith("#")) continue;
+    if (line === "") continue;
     const re = /(^|[^\w-])(pnpm|npm)\s+publish\b/g;
     let match = re.exec(line);
     while (match !== null) {
@@ -710,9 +732,18 @@ export function publishInvocations(body) {
 export function provenanceRequested(line) {
   // The value stops at shell punctuation (`)`, `;`), so `--provenance=false)` is `false`,
   // not the unrecognized `false)` that a `\S+` capture would let pass as a request.
-  const match = line.match(/(?:^|\s)--provenance(?:=([A-Za-z0-9]+))?/);
-  if (match === null) return false;
-  return match[1] === undefined || !/^(?:false|0)$/i.test(match[1]);
+  // The LAST flag wins: pnpm's option parser (@pnpm/nopt, verified on the pinned
+  // 11.20.0) overwrites as it reads, so `--provenance --no-provenance` publishes
+  // WITHOUT provenance — a first-match gate read that as a request (F2 of the
+  // #377 round-2 pass).
+  let requested = false;
+  for (const match of line.matchAll(
+    /(?:^|\s)(--provenance|--no-provenance)(?:=([A-Za-z0-9]+))?/g,
+  )) {
+    if (match[1] === "--no-provenance") requested = false;
+    else requested = match[2] === undefined || !/^(?:false|0)$/i.test(match[2]);
+  }
+  return requested;
 }
 
 /** The `publish` job's line range, or null when the job (or `jobs:`) is absent. */
@@ -888,12 +919,14 @@ export function workflowViolations(yaml) {
         "the rehearsal would vet a step that only smokes",
     );
   }
-  for (const invocation of live) {
+  // Both branches: the `--dry-run` one must exercise the SAME invocation the live
+  // one runs, or the rehearsal vets a command that never publishes (#377 round 2).
+  for (const invocation of invocations) {
     if (invocation.client === "pnpm") continue;
     violations.push(
       `E-REHEARSAL: the cohort step publishes with \`${invocation.client} publish\` ` +
-        `(live branch): ${JSON.stringify(invocation.line)} — \`npm publish\` does not rewrite ` +
-        "`workspace:*`, so the published manifests would be uninstallable (#301)",
+        `(${invocation.dryRun ? "`--dry-run` " : "live "}branch): ${JSON.stringify(invocation.line)} — ` +
+        "`npm publish` does not rewrite `workspace:*`, so the published manifests would be uninstallable (#301)",
     );
   }
   // Provenance is asserted per invocation, on BOTH branches (#377): the live one is
