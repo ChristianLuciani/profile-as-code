@@ -347,6 +347,16 @@ describe("pasco entity — the FAQPage consumer (#360)", () => {
     );
   });
 
+  it("--bare without faq[] is byte-identical to the pre-#360 artifact (frozen)", () => {
+    // F2 del pase fresco: el test anterior comparaba contra `jsonLdBare()`, la
+    // función bajo prueba, así que cambiar su indentación no rompía nada. Éste
+    // fija la forma con `JSON.stringify` directo: es el contrato aditivo de SPEC
+    // §7.2, no una propiedad de la implementación.
+    const { out } = entityJsonLd(MINIMAL, { bare: true });
+    const sd = structuredData(load(MINIMAL));
+    expect(out).toBe(`${JSON.stringify(sd.jsonLd, null, 2)}\n`);
+  });
+
   it("--bare: the entity object alone without faq[], the node array with it", () => {
     const withFaq = entityJsonLd(FAQ_FIXTURE, { bare: true });
     const sd = structuredData(load(FAQ_FIXTURE));

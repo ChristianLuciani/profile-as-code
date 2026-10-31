@@ -126,7 +126,12 @@ export function jsonLdScript(jsonLd: object): string {
  * blocks and the `--bare` document cannot disagree about the set or the order.
  */
 export function jsonLdNodes(view: Pick<StructuredDataReadiness, "jsonLd" | "faqJsonLd">): object[] {
-  return view.faqJsonLd ? [view.jsonLd as object, view.faqJsonLd] : [view.jsonLd as object];
+  // No cast: an absent node is DROPPED, never emitted as `undefined` inside a
+  // `<script>` block (F4 of the #360 round-2 pass).
+  const nodes: object[] = [];
+  if (view.jsonLd !== undefined) nodes.push(view.jsonLd);
+  if (view.faqJsonLd !== undefined) nodes.push(view.faqJsonLd);
+  return nodes;
 }
 
 /** The paste-ready blocks: one `<script>` per node, separated by a blank line. */
@@ -274,9 +279,14 @@ export function runEntity(args: EntityArgs): number {
   }
   line(
     hasId
-      ? "  jsonld: available — run `pasco entity --jsonld` for the paste-ready block"
+      ? `  jsonld: available — run \`pasco entity --jsonld\` for the paste-ready ${
+          view.faqJsonLd ? "entity + FAQPage blocks" : "block"
+        }`
       : "  jsonld: emitted without @id (the block is still valid; the anchor is the gap)",
   );
+  if (view.faqJsonLd) {
+    line("  faq:    FAQPage node available — `--jsonld` emits it as a second block");
+  }
   line(
     `pasco entity: ${view.gaps.length} gap(s) — ${hasId ? "canonical @id present" : "no canonical @id"} — exit ${exitCode}`,
   );
