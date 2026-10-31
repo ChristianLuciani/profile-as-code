@@ -116,7 +116,7 @@ private by default and never leaves your control (D14: integration by configured
 
 ## Files
 
-Three top-level directories at scaffold time, three grains — nothing nests one inside another:
+Three grains, one per area — nothing nests one inside another:
 \`content/\` is identity, \`profiles/\` is generated output (its \`variants/\` subdir is input),
 \`posts/\` is the stream.
 
@@ -130,11 +130,10 @@ Three top-level directories at scaffold time, three grains — nothing nests one
 
 The platform playbooks ship with \`pasco\`, outside this workspace. Run this from
 the workspace root when you need to know what to write for a channel:
-\`pasco skills:export .pasco-skills\` copies them in. Read
-\`.pasco-skills/<platform>/SKILL.md\` when present (post-only channels ship
-\`.pasco-skills/<platform>/post.md\` instead).
-The copy is a fourth, disposable directory: add it to .gitignore if you do not
-want it committed (re-running needs \`--force\`).
+\`pasco skills:export .pasco-skills\` copies them in; each channel lands under
+\`.pasco-skills/<platform>/\`, where you can read its guidance.
+The copy is disposable: add it to .gitignore if you do not want it committed
+(re-running needs \`--force\`).
 
 ## Workflow
 
@@ -156,7 +155,7 @@ checks drift and renders brand surfaces. Private by default (D14: configured pat
 
 ## Files
 
-Three top-level directories at scaffold time, three grains — nothing nests one inside another:
+Three grains, one per area — nothing nests one inside another:
 \`content/\` is identity, \`profiles/\` is generated output (its \`variants/\` subdir is input),
 \`posts/\` is the stream.
 
@@ -170,11 +169,10 @@ Three top-level directories at scaffold time, three grains — nothing nests one
 
 The platform playbooks ship with \`pasco\`, outside this workspace. Run this from
 the workspace root when you need to know what to write for a channel:
-\`pasco skills:export .pasco-skills\` copies them in. Read
-\`.pasco-skills/<platform>/SKILL.md\` when present (post-only channels ship
-\`.pasco-skills/<platform>/post.md\` instead).
-The copy is a fourth, disposable directory: add it to .gitignore if you do not
-want it committed (re-running needs \`--force\`).
+\`pasco skills:export .pasco-skills\` copies them in; each channel lands under
+\`.pasco-skills/<platform>/\`, where you can read its guidance.
+The copy is disposable: add it to .gitignore if you do not want it committed
+(re-running needs \`--force\`).
 
 ## Workflow
 

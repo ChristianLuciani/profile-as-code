@@ -22,7 +22,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 
@@ -197,16 +197,13 @@ describe("scaffolded README references (#385)", () => {
       "the scaffolded README must announce `pasco skills:export <dir>`",
     ).toBeGreaterThan(0);
     for (const destination of destinations) {
-      expect(
-        destination.startsWith("."),
-        `destination must be workspace-relative: ${destination}`,
-      ).toBe(true);
+      expect(destination).not.toContain("<");
       const inside = relative(workspace, resolve(workspace, destination));
+      const escapes = inside === ".." || inside.startsWith(`..${sep}`) || isAbsolute(inside);
       expect(
-        inside !== "" && !inside.startsWith(".."),
+        inside !== "" && !escapes,
         `destination must stay inside the workspace: ${destination}`,
       ).toBe(true);
-      expect(destination).not.toContain("<");
     }
   }
 
@@ -220,8 +217,10 @@ describe("scaffolded README references (#385)", () => {
     expectSkillsBridge(readme, workspace);
   });
 
-  it("the bridge check catches a missing, placeholder or escaping destination", () => {
+  it("the bridge check accepts an in-workspace destination and catches escapes", () => {
     const workspace = tempDir();
+    expect(() => expectSkillsBridge("`pasco skills:export out`", workspace)).not.toThrow();
+    expect(() => expectSkillsBridge("`pasco skills:export ..foo`", workspace)).not.toThrow();
     expect(() => expectSkillsBridge("no bridge here", workspace)).toThrow();
     expect(() => expectSkillsBridge("`pasco skills:export <dir>`", workspace)).toThrow();
     expect(() => expectSkillsBridge("`pasco skills:export ../out`", workspace)).toThrow();

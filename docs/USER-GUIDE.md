@@ -894,9 +894,9 @@ Non-negotiables:
   `pasco status --write-checklist` regenerates it — do not edit it by hand. Each
   surface carries its certification token (e.g. `linkedin (in-sync/attested)`), so
   a surface that is not machine-checked is never presented as a bare `in-sync`.
-- Deploy steps and post-deploy verification for `manual` platforms live in each platform
-  skill's `playbook.md` (`skills/<platform>/`); a shared `templates/playbooks/` directory is
-  planned for M4/M5 (SPEC §12).
+- Deploy steps and post-deploy verification for `manual` platforms live in the platform
+  skill's `playbook.md` where it ships one (`skills/<platform>/`); a shared `templates/playbooks/`
+  directory is planned for M4/M5 (SPEC §12).
 
 ### Deploy by PR
 
@@ -1045,7 +1045,7 @@ One workspace per identity, same engine (D14/D15):
 | CLI | this repo, `packages/cli` (`pasco`) | everything above, as commands |
 | Renderers | this repo, `packages/renderers` | deterministic per-platform artifacts |
 | Platform skills (SOTA knowledge) | this repo, `skills/<platform>/` | applied by your agent during `pasco refine` (M3) |
-| Deploy playbooks | per-platform skills, `skills/<platform>/playbook.md` (shared `templates/playbooks/` planned, M4/M5) | copy-paste + verification steps |
+| Deploy playbooks | per-platform skills, `skills/<platform>/playbook.md` where shipped (shared `templates/playbooks/` planned, M4/M5) | copy-paste + verification steps |
 | Your facts | `profile-data-<username>` (private), `content/*.yaml` | the SSOT — the only thing you edit |
 | Generated outputs | your workspace, `profiles/` | committed deploy artifacts — never hand-edited |
 | Posts (the stream) | your workspace, `posts/` | seeds + per-channel projections (`pasco post`, experimental #264) — never identity facts, and never read by `pasco validate` |
