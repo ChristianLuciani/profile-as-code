@@ -1,31 +1,34 @@
 {
-  "$comment": "Path-based exemptions for scripts/agnostic-check (issue #274). An entry exempts a FILE or DIRECTORY PREFIX, never a phrase: a dated record keeps its historical text (AGENTS rule 8), and a synthesized test fixture is an input rather than a reference. An optional `names` array narrows the exemption to the private NAMES it declares (#369): only values from `private-targets.json`'s `privateNames` list are valid — a private repo target or an operator path is E-ALLOWLIST-INVALID, because a target is not a name — and the file is still scanned for every other name. An entry whose only finding is an operator path stays FILE-WIDE, because a path shape is not a name (`packages/cli/tests/preview.test.ts` is exactly that case, out of scope of #369). Each entry declares WHY it is exempt and the TRIGGER that removes it; an entry — or a name it declares — that suppresses no reference is reported as W-ALLOWLIST-UNUSED so the registry cannot rot silently (same shape as scripts/link-check/allowlist.json).",
+  "$comment": "Path-based exemptions for scripts/agnostic-check (issue #274). An entry exempts a FILE or DIRECTORY PREFIX, never a phrase: a dated record keeps its historical text (AGENTS rule 8), and a synthesized test fixture is an input rather than a reference. An optional `names` array narrows the exemption to the private NAMES it declares (#369): only values from `private-targets.json`'s `privateNames` list are valid \u2014 a private repo target or an operator path is E-ALLOWLIST-INVALID, because a target is not a name \u2014 and the file is still scanned for every other name. An entry whose only finding is an operator path stays FILE-WIDE, because a path shape is not a name (`packages/cli/tests/preview.test.ts` is exactly that case, out of scope of #369). Each entry declares WHY it is exempt and the TRIGGER that removes it; an entry \u2014 or a name it declares \u2014 that suppresses no reference is reported as W-ALLOWLIST-UNUSED so the registry cannot rot silently (same shape as scripts/link-check/allowlist.json). An entry is EITHER narrowed (`names`) OR explicitly whole-file (`fileWide: true`) \u2014 never neither: a whole-file exemption must be declared, so that dropping a narrowing is a loud E-ALLOWLIST-INVALID instead of a silent widening (#372, round 2).",
   "entries": [
     {
       "path": "docs/build/01-core-build.md",
+      "fileWide": true,
       "reason": "dated build-session record (2026-08 / 2026-09 prompts): kept as evidence of what the session executed, including the author's checkout path and the tooling names it ran under. The banner at the top of the file marks it as history. Allowlisted as ONE FILE, never as a directory: a new file under docs/build/ is a live instruction and must pass the gate.",
       "removalTrigger": "when the build-prompt records are retired or moved to a dated archive \u2014 not before the milestone history stops being cited"
     },
     {
       "path": "docs/build/02-cli-build.md",
+      "fileWide": true,
       "reason": "dated build-session record (2026-08 / 2026-09 prompts): kept as evidence of what the session executed, including the author's checkout path and the tooling names it ran under. The banner at the top of the file marks it as history. Allowlisted as ONE FILE, never as a directory: a new file under docs/build/ is a live instruction and must pass the gate.",
       "removalTrigger": "when the build-prompt records are retired or moved to a dated archive \u2014 not before the milestone history stops being cited"
     },
     {
       "path": "packages/cli/scripts/verify-pack.mjs",
       "names": ["skills-studio", "prompt-studio", "AGOS"],
-      "reason": "negative assertion: `verify:pack` reads the published --help and FAILS when it names one of these private tools (#254). The file must name the class to prohibit it, and the class it names is exactly these three (measured at #369 on the regex at :154) — `skills-studio`, `prompt-studio` and `AGOS`. The exemption is narrowed to them, so any other private name in this script fails E-AGNOSTIC.",
+      "reason": "negative assertion: `verify:pack` reads the published --help and FAILS when it names one of these private tools (#254). The file must name the class to prohibit it, and the class it names is exactly these three (measured at #369 on the regex at :154) \u2014 `skills-studio`, `prompt-studio` and `AGOS`. The exemption is narrowed to them, so any other private name in this script fails E-AGNOSTIC.",
       "removalTrigger": "when `verify:pack` is replaced by this gate (the assertion moves here)"
     },
     {
       "path": "packages/cli/tests/cli.test.ts",
       "names": ["skills-studio", "prompt-studio", "AGOS"],
-      "reason": "negative assertions: the CLI tests prove that the shipped `skills:export --list` output and the published `--help` surface do NOT name the private projection command (#254). Naming the class is the test, and the class this file asserts against is exactly these three names (measured at #369): `skills-studio` is the negative assertion on `skills:export --list`'s output at :957, and `skills-studio`/`prompt-studio`/`AGOS` form the PRIVATE pattern at :1021 that the `--help` test matches each help text against. The exemption is narrowed to them, so any OTHER private name reintroduced here — a `premerge` citation, a private contract name — fails E-AGNOSTIC; naming one class no longer blinds the file to the rest.",
+      "reason": "negative assertions: the CLI tests prove that the shipped `skills:export --list` output and the published `--help` surface do NOT name the private projection command (#254). Naming the class is the test, and the class this file asserts against is exactly these three names (measured at #369): `skills-studio` is the negative assertion on `skills:export --list`'s output at :957, and `skills-studio`/`prompt-studio`/`AGOS` form the PRIVATE pattern at :1021 that the `--help` test matches each help text against. The exemption is narrowed to them, so any OTHER private name reintroduced here \u2014 a `premerge` citation, a private contract name \u2014 fails E-AGNOSTIC; naming one class no longer blinds the file to the rest.",
       "removalTrigger": "when the CLI surfaces no longer need a prohibiting assertion (#254 closes the class)"
     },
     {
       "path": "packages/cli/tests/preview.test.ts",
-      "reason": "synthesized test input: the absolute path is the INPUT that proves the privacy scanner flags absolute paths — the gate would be untested without a path to detect. OUT OF SCOPE of #369: the finding here is an operatorPath shape (an absolute-path fixture), and `names` can only express `privateNames`, so the entry stays file-wide; a name-scoped exemption is not applicable without inventing a new mechanism.",
+      "fileWide": true,
+      "reason": "synthesized test input: the absolute path is the INPUT that proves the privacy scanner flags absolute paths \u2014 the gate would be untested without a path to detect. OUT OF SCOPE of #369: the finding here is an operatorPath shape (an absolute-path fixture), and `names` can only express `privateNames`, so the entry stays file-wide; a name-scoped exemption is not applicable without inventing a new mechanism.",
       "removalTrigger": "when the privacy scanner's absolute-path case is driven from a fixture file instead"
     }
   ]

@@ -345,7 +345,7 @@ export function loadTargets(file) {
  * no-op. Overlapping paths are refused so a hit is never double-counted (and so
  * "which entry suppressed this?" has exactly one answer).
  */
-const ALLOWED_ENTRY_KEYS = new Set(["path", "reason", "removalTrigger", "names"]);
+const ALLOWED_ENTRY_KEYS = new Set(["path", "reason", "removalTrigger", "names", "fileWide"]);
 
 export function loadAllowlist(file, knownNames, otherTargets = new Map()) {
   const data = loadJson(file, "allowlist");
@@ -378,11 +378,30 @@ export function loadAllowlist(file, knownNames, otherTargets = new Map()) {
     }
     if (unknownKeys.length > 0) {
       throw new GateError(
-        `${RULES.allowlistInvalid}: entries[${index}] (${JSON.stringify(pathValue)}) has unknown key(s) ${unknownKeys.map((key) => JSON.stringify(key)).join(", ")} — the only keys are path, reason, removalTrigger and names; a misspelt key would degrade the entry to a silent whole-file exemption`,
+        `${RULES.allowlistInvalid}: entries[${index}] (${JSON.stringify(pathValue)}) has unknown key(s) ${unknownKeys.map((key) => JSON.stringify(key)).join(", ")} — the only keys are path, reason, removalTrigger, names and fileWide; a misspelt key would degrade the entry to a silent whole-file exemption`,
       );
     }
     requireString(entry.reason, `entries[${index}].reason`, RULES.allowlistInvalid);
     requireString(entry.removalTrigger, `entries[${index}].removalTrigger`, RULES.allowlistInvalid);
+    // #372 (ronda 2): the file-wide exemption is EXPLICIT. An entry either
+    // declares `names` (narrow) or `fileWide: true` (whole file, with its
+    // reason and trigger). Without this, dropping `names` from an entry
+    // silently widened it back to file-wide and nothing failed.
+    if (entry.fileWide !== undefined && entry.fileWide !== true) {
+      throw new GateError(
+        `${RULES.allowlistInvalid}: entries[${index}].fileWide must be the literal true when present`,
+      );
+    }
+    if (entry.names !== undefined && entry.fileWide !== undefined) {
+      throw new GateError(
+        `${RULES.allowlistInvalid}: entries[${index}].names and fileWide are mutually exclusive — an entry is either narrowed to names or explicitly file-wide`,
+      );
+    }
+    if (entry.names === undefined && entry.fileWide === undefined) {
+      throw new GateError(
+        `${RULES.allowlistInvalid}: entries[${index}] (${JSON.stringify(pathValue)}) declares neither names nor fileWide: true — a whole-file exemption must be declared, so that removing a narrowing is a loud failure and not a silent widening (#372)`,
+      );
+    }
     const names = entry.names;
     let declaredNames;
     if (names !== undefined) {

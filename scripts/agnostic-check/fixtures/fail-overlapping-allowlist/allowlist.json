@@ -2,12 +2,14 @@
   "entries": [
     {
       "path": "docs",
+      "fileWide": true,
       "reason": "first entry owns the directory.",
       "removalTrigger": "never"
     },
     {
       "path": "docs/history.md",
-      "reason": "second entry overlaps the first — one entry must own a hit.",
+      "fileWide": true,
+      "reason": "second entry overlaps the first \u2014 one entry must own a hit.",
       "removalTrigger": "never"
     }
   ]

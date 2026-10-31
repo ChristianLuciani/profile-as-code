@@ -3,7 +3,7 @@
     {
       "path": "docs/clean.md",
       "names": ["skills-studio", "prompt-studio"],
-      "reason": "both declared names are dead: the per-name message must win over the entry-level one, never be skipped by it (#372).",
+      "reason": "both declared names are dead: the per-name message must win over the entry-level one, never be skipped by it (#372). L\u00cdMITE declarado: este caso cubre NOMBRES muertos sobre un archivo cubierto; un PATH muerto no se distingue (el gate colapsa ambos en el warning de entrada) \u2014 se declara ac\u00e1 en vez de fingir cobertura.",
       "removalTrigger": "when the file names a declared name or the entry is dropped"
     }
   ]

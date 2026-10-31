@@ -2,6 +2,7 @@
   "entries": [
     {
       "path": "HISTORY.md",
+      "fileWide": true,
       "reason": "historical copy kept outside the dated-record class: it keeps the name it shipped under (rule 8).",
       "removalTrigger": "never \u2014 a dated record is correct forever"
     }

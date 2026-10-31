@@ -173,14 +173,24 @@ for (const name of cases) {
 /**
  * Behavioral guard for the REAL allowlist (#369 rounds 2-3, #372). The fixtures
  * above carry their own allowlists, so reverting any production entry to
- * file-wide would leave every one of them green. The rows are DERIVED from the
- * production data, never enumerated: for each `allowlist.json` entry that
- * declares `names`, one inventory name that entry does NOT declare is injected
- * into a file the entry covers, and the production allowlist runs over that
- * throwaway tree. Every row must come back as a reported finding: if the gate
- * stopped honouring the narrowing (or the entry were file-wide), the injected
- * citation would be suppressed silently (exit 0) and this case fails. A fixed
- * table is a second source of the allowlist and drifts in silence; derived rows
+ * file-wide would leave every one of them green. Two things are proven here, and
+ * they are different guarantees:
+ *
+ *  1. The CONTRACT: every entry is either narrowed (`names`) or EXPLICITLY
+ *     file-wide (`fileWide: true`) — never silently file-wide. This catches the
+ *     case a derived table cannot: dropping `names` from an entry used to widen
+ *     it back to whole-file with every row still green (#372, round 2). The same
+ *     contract is enforced by the gate itself (`E-ALLOWLIST-INVALID`), so the
+ *     repo fails even if this self-test is not run.
+ *  2. The BEHAVIOUR: for each narrowed entry, one inventory name that entry does
+ *     NOT declare is injected into a file the entry covers, and the production
+ *     allowlist runs over that throwaway tree. Every row must come back as a
+ *     reported finding; if the gate stopped honouring the narrowing, the
+ *     injected citation would be suppressed silently (exit 0) and this case
+ *     fails.
+ *
+ * The rows are DERIVED from the production data, never enumerated: a fixed table
+ * is a second source of the allowlist and drifts in silence, while derived rows
  * cover a new narrowed entry the day it lands. Names are read from the inventory
  * at runtime, so this file — which the gate it tests scans — never carries one
  * literally.
@@ -192,7 +202,14 @@ function realAllowlistScope() {
   const problems = [];
   const rows = [];
   for (const entry of production.entries) {
-    if (!Array.isArray(entry.names)) continue;
+    const narrow = Array.isArray(entry.names);
+    const fileWide = entry.fileWide === true;
+    if (narrow === fileWide) {
+      problems.push(
+        `entry ${JSON.stringify(entry.path)} is ${narrow ? "both narrowed and explicit-whole-file" : "neither narrowed (names) nor explicitly file-wide (fileWide: true)"} — a widening must be declared, never silent (#372)`,
+      );
+    }
+    if (!narrow) continue;
     const undeclared = inventoryNames.find((name) => !entry.names.includes(name));
     if (undeclared === undefined) {
       problems.push(

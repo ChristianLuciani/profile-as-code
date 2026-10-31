@@ -2,7 +2,8 @@
   "entries": [
     {
       "path": "docs/history.md",
-      "reason": "a record this tree does not carry — the entry must not rot silently.",
+      "fileWide": true,
+      "reason": "a record this tree does not carry \u2014 the entry must not rot silently.",
       "removalTrigger": "when docs/history.md lands or the entry is dropped"
     }
   ]
