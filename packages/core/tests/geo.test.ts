@@ -235,13 +235,17 @@ describe("geoCheck(profile)", () => {
   });
 
   it("routes the shipped sections through the same builder (§8 wiring)", () => {
-    // The all-N/A state is unreachable through a profile, but the wiring of the
-    // REACHABLE sections is pinned: rebuilding citability from its own parts must
-    // produce the very object `geoCheck` returned (same builder, same arithmetic).
+    // An ARITHMETIC guard, not proof of call routing: rebuilding each shipped
+    // section from the parts `geoCheck` returned, through the same builder, must
+    // reproduce its score and applicability. The all-N/A state itself is pinned
+    // above over the builder; no profile can reach it.
     const report = geoCheck(load(fixture("minimal")));
-    const citability = report.sections.citability;
-    expect(geoSection(citability.label, citability.detail, citability.checks)).toEqual(citability);
-    expect(citability.applicable).toBeUndefined();
+    for (const s of Object.values(report.sections)) {
+      const rebuilt = geoSection(s.label, s.detail, s.checks);
+      expect(rebuilt.score).toBe(s.score);
+      expect(rebuilt.applicable).toBe(s.applicable);
+    }
+    expect(report.sections.citability.applicable).toBeUndefined();
   });
 
   it("empty location counts as absent in the entity-fields check (empty=absent sweep, issue #86)", () => {

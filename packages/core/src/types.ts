@@ -176,8 +176,9 @@ export interface GeoSection {
    *  placeholder (0), not a measurement — the section has no applicable code.
    *  Absent = applicable (all current sections). */
   score: number;
-  /** §8/#399: present and false only when every code in the section is N/A.
-   *  The section then has no mean and contributes nothing to the overall. */
+  /** §8/#399: present and false when no code in the section can contribute
+   *  weight (every code N/A, or every applicable code declares weight 0). The
+   *  section then has no mean and contributes nothing to the overall. */
   applicable?: boolean;
 }
 

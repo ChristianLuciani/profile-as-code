@@ -293,10 +293,11 @@ function nameCollisionObservation(profile: Profile): NameCollisionObservation {
 }
 
 /**
- * Build one GEO section from its checks (SPEC §8, #399). Exported for the
- * all-N/A unit test: a section whose every code is N/A has no mean, so
+ * Build one GEO section from its checks (SPEC §8, #399). Module-level so the
+ * unit test can call it: a section in which no code can contribute weight
+ * (every code N/A, or all applicable weights 0) has no mean, so
  * `applicable: false` + `score: 0` (a placeholder) is the only honest reading.
- * No shipped section is all-N/A today; the state is still expressible and
+ * No shipped section is in that state today; the state is still expressible and
  * tested so a future one cannot silently read 0/100.
  */
 export function geoSection(label: string, detail: string, subset: GeoCheck[]): GeoSection {

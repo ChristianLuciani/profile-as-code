@@ -1366,8 +1366,10 @@ applicable code declares weight `0` — in which case `score` is the placeholder
 N/A today: every section keeps at least one always-applicable code, and the
 state is not reachable through a profile. It is still covered by a unit test
 over the one builder (`geoSection` in `core/src/geo.ts`, module-level so the test
-can call it) plus a wiring assertion that `geoCheck` routes its shipped
-sections through that same function.
+can call it), plus an **arithmetic guard**: rebuilding each shipped section from
+the parts `geoCheck` returned reproduces its `score` and `applicable`. That guard
+proves the arithmetic, not the call routing — the builder is the only producer by
+structure, and no profile can exercise the unreachable all-N/A path.
 
 **cite-check's fold is its own (#291).** `core/src/normalize.ts` is the case- and
 accent-folding used by `pasco cite-check` (§7.4), which matches the declared
