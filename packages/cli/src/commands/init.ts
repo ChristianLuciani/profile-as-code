@@ -126,6 +126,15 @@ Three grains, one per area — nothing nests one inside another:
 - \`posts/\` — the stream, created by \`pasco post\` (#264): seeds + per-channel projections; never identity facts
 - \`.pascorc\` — workspace config (defaults)
 
+## The cycle
+
+\`\`\`sh
+pasco init <dir>        scaffold a workspace (content/, README.md, .pascorc)
+edit content/*.yaml     the single source of truth — edit these, not profiles/
+pasco validate          schema + drift + geo (warnings)
+pasco build [platform]  write the per-platform artifacts
+\`\`\`
+
 ## Skills
 
 The platform playbooks ship with \`pasco\`, outside this workspace. Run this from
@@ -164,6 +173,15 @@ Three grains, one per area — nothing nests one inside another:
 - \`profiles/<platform>/variants/\` — chosen variant bodies (INPUT, #238; preserved by build)
 - \`posts/\` — the stream, created by \`pasco post\` (#264): seeds + per-channel projections; never identity facts
 - \`.pascorc\` — workspace config (defaults)
+
+## The cycle
+
+\`\`\`sh
+pasco init <dir>        scaffold a workspace (content/, README.md, .pascorc)
+edit content/*.yaml     the single source of truth — edit these, not profiles/
+pasco validate          schema + drift + geo (warnings)
+pasco build [platform]  write the per-platform artifacts
+\`\`\`
 
 ## Skills
 

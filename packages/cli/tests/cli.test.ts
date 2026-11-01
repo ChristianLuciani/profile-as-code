@@ -145,6 +145,38 @@ describe("surface", () => {
     expect(r.stdout).toContain("ko-fi.com/christianluciani");
   });
 
+  // #387: the help is a published surface read by a stranger. A command list
+  // says what each command does, never that the artifact is a rendering of
+  // content/ — the cycle block states the loop before the list.
+  it("opens with the cycle block, in order, before the command list (#387)", () => {
+    const r = run(["--help"]);
+    expect(r.code).toBe(0);
+    const cycleAt = r.stdout.indexOf("The cycle:");
+    const commandsAt = r.stdout.indexOf("Commands:");
+    expect(cycleAt).toBeGreaterThanOrEqual(0);
+    expect(cycleAt).toBeLessThan(commandsAt);
+    const block = r.stdout.slice(cycleAt, commandsAt);
+    const steps = [
+      "pasco init <dir>",
+      "edit content/*.yaml",
+      "pasco validate",
+      "pasco build [platform]",
+    ];
+    const positions = steps.map((step) => block.indexOf(step));
+    expect(positions.every((at) => at >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+  });
+
+  it("every command summary carries exactly one cycle tag (#387)", () => {
+    const help = run(["--help"]).stdout;
+    const commands = help.slice(help.indexOf("Commands:"), help.indexOf("Common flags"));
+    const rows = commands.split("\n").filter((line) => /^ {2}[a-z][a-z0-9:-]*(?:\s|$)/.test(line));
+    expect(rows.length).toBeGreaterThan(15);
+    for (const row of rows) {
+      expect(row.match(/\[(?:write|read|check)\]/g) ?? [], row).toHaveLength(1);
+    }
+  });
+
   it("exit 2 on unknown command", () => {
     const r = run(["frobnicate"]);
     expect(r.code).toBe(2);
