@@ -96,22 +96,25 @@ const SELECTOR_UNSAFE = /[,\]=]|"/;
  *  share a platform. A label the grammar cannot express is reported with the row
  *  instead of being printed as an address that would not parse. */
 function rowLinkAddress(row: { platform?: string; label?: string }): string {
-  const platform = row.platform ?? "<no platform>";
-  const addressable = row.label !== undefined && !SELECTOR_UNSAFE.test(row.label);
-  return linkAddress(platform, addressable ? row.label : undefined);
+  if (row.platform === undefined) return "<no platform — not addressable>";
+  if (!selectorExpressible(row.platform)) {
+    return `<not addressable: platform ${JSON.stringify(row.platform)} cannot be expressed>`;
+  }
+  const label = row.label !== undefined && selectorExpressible(row.label) ? row.label : undefined;
+  return linkAddress(row.platform, label);
 }
 
 function linkNote(row: { platform?: string; label?: string }): string | undefined {
   const parts: string[] = [];
   if (row.platform === undefined) parts.push("no platform — not addressable");
-  else if (SELECTOR_UNSAFE.test(row.platform)) {
+  else if (!selectorExpressible(row.platform)) {
     parts.push(
-      `platform ${JSON.stringify(row.platform)} contains a character the address grammar cannot express`,
+      `platform ${JSON.stringify(row.platform)} cannot be expressed as a selector (empty, padded, control character or \`, ] = "\`)`,
     );
   }
-  if (row.label !== undefined && SELECTOR_UNSAFE.test(row.label)) {
+  if (row.label !== undefined && !selectorExpressible(row.label)) {
     parts.push(
-      `label ${JSON.stringify(row.label)} contains a character the address grammar cannot express`,
+      `label ${JSON.stringify(row.label)} cannot be expressed as a selector (empty, padded, control character or \`, ] = "\`)`,
     );
   }
   return parts.length === 0 ? undefined : parts.join(" · ");
@@ -308,7 +311,8 @@ export interface EditAddressEntry {
 function hasControlChar(value: string): boolean {
   for (const char of value) {
     const code = char.codePointAt(0) as number;
-    if (code < 0x20 || code === 0x7f) return true;
+    if (code < 0x20 || (code >= 0x7f && code <= 0x9f)) return true;
+    if (code === 0x2028 || code === 0x2029) return true; // line/paragraph separators
   }
   return false;
 }
@@ -404,7 +408,7 @@ export function listEditAddresses(
       }
       if (!selectorExpressible(row.platform)) {
         warnOnce(
-          `${where}: platform ${JSON.stringify(row.platform)} cannot be expressed as a selector (empty, padded, or carrying a comma, bracket, equals sign or quote) — not listed`,
+          `${where}: platform ${JSON.stringify(row.platform)} cannot be expressed as a selector (empty, padded, control character, or carrying a comma, bracket, equals sign or quote) — not listed`,
         );
         return;
       }

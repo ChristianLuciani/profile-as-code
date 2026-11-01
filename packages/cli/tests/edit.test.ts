@@ -987,6 +987,17 @@ describe("edit --list — read-only discovery (#411)", () => {
     }
   });
 
+  it("decides usage before reading the workspace config (a bad .pascorc stays exit 2)", () => {
+    const dir = workspace();
+    writeFileSync(join(dir, ".pascorc"), "{not json");
+    // The non-list usage check and the --list flag combinations are decided
+    // BEFORE resolveWorkspace/readWorkspacePascorc: an unreadable config must
+    // not turn a usage error into exit 1 (review round 3, F1).
+    expect(edit(dir, "a", "b").code).toBe(2);
+    expect(edit(dir, "--list", "--set", "x").code).toBe(2);
+    expect(edit(dir, "--list").code).toBe(1);
+  });
+
   it("says `--list <address>` takes a block, not an address", () => {
     const dir = workspace();
     const r = edit(dir, "--list", "positioning.statement.en");

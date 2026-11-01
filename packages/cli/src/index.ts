@@ -801,6 +801,10 @@ async function runMain(): Promise<number> {
         if (positionals.length > 1) {
           throw new UsageError("pasco edit --list [<block>]");
         }
+      } else if (positionals.length !== 1) {
+        // Usage is decided BEFORE the workspace/config is read (restored from
+        // main: an unreadable .pascorc must not turn a usage error into exit 1).
+        throw new UsageError("pasco edit <contract-path> [--set <text> [--check]]");
       }
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
@@ -831,9 +835,6 @@ async function runMain(): Promise<number> {
           ...(listBlock === undefined ? {} : { listBlock }),
           pascorc,
         });
-      }
-      if (positionals.length !== 1) {
-        throw new UsageError("usage: pasco edit <contract-path> [--set <text> [--check]]");
       }
       return runEdit({
         workspace,

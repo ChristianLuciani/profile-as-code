@@ -178,7 +178,7 @@ export function parseEditAddress(raw: string): EditAddress {
   const statement = /^positioning\.statement\.([A-Za-z0-9_-]+)$/.exec(text);
   if (statement !== null) {
     const lang = parseLang(statement[1] as string);
-    return { kind: "statement", lang, address: `positioning.statement.${lang}` };
+    return { kind: "statement", lang, address: statementAddress(lang) };
   }
 
   const addressed = /^(headlines|bios|identity\.links)\[([^\]]*)\]\.([A-Za-z]+)$/.exec(text);
