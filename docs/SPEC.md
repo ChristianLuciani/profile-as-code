@@ -415,7 +415,7 @@ declared renderer or an explicit "not implemented yet").
 | Command | Purpose |
 |---|---|
 | `pasco init` | scaffold a profile-data workspace from the template |
-| `pasco validate` | schema (fail) + drift/geo checks (facts warn). Text mode renders one line per GEO code that scored 0, prefixed by its severity tier — `warn: [code] …` is a warning, `info: [geo/freshness]`-style lines are NOTES, never warnings (v1.10 tiers, #322); a code that scored above 0 renders no finding line, and `absent` tier = `warn`. A code with nothing to measure renders one `n/a: [code] …` line instead (§8/#399): it is not a finding — its `score` is not consumed by the overall, so it is neither a warning nor a note. `--json` carries every check (with its `severity` and `detail`, plus `applicable: false` on an N/A code) — a check whose detail holds an anomaly note (future-dated freshness) is always fully visible there |
+| `pasco validate` | schema (fail) + drift/geo checks (facts warn). Text mode renders one line per GEO code that scored 0, prefixed by its severity tier — `warn: [code] …` is a warning, `info: [geo/freshness]`-style lines are NOTES, never warnings (v1.10 tiers, #322); a code that scored above 0 renders no finding line, and `absent` tier = `warn`. A code with nothing to measure renders one `n/a: [code] …` line instead (§8/#399): it is not a finding — its `score` is not consumed by the overall, so it is neither a warning nor a note. A section in which no code can contribute weight prints `n/a` instead of `0/100`. `--json` carries every check (with its `severity` and `detail`, plus `applicable: false` on an N/A code or section) — a check whose detail holds an anomaly note (future-dated freshness) is always fully visible there |
 | `pasco doctor [--json]` | the **engine · schema · workspace** reading on ONE line (issue #348): the installed CLI version, the profile-contract version this build validates (derived from the schema `$id` by `pnpm gen:zod`, never a literal), the resolved workspace path and whether it loads, plus the `.pascorc` engine requirement (`no engine requirement` · `met` · `NOT MET` with the upgrade command · `INVALID` with the syntax problem). Chosen over overloading `--version` because `--version` describes the binary and must work with no workspace, while `doctor` describes the pair. `--json` emits `{ engine: { name, version }, schema: { version }, workspace: { path, valid, error? }, requirement: { declared, met, problem?, source? } }` in the standard envelope. Exit `0` healthy · `1` unhealthy (workspace fails to load, requirement unmet or malformed) · `2` usage. Offline, no clock, no writes. Contract: §7.6 |
 | `pasco build [platform] [--view <name>] [--lang]` | render deterministic base texts; `--view` resolves a declared view's platform/lang + fact selection (D22, §21); a manual-paste surface without a renderer writes `profiles/<platform>.md` via the shared paste core (#239); an active variant body is written verbatim as the platform artifact (#238) |
 | `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso8601>] [--json]` | the **local view** of the data without publishing it (issue #282): **one** self-contained HTML file — inline CSS, no `<script>`, no external asset, no HTTP server — whose sections are the surfaces `pasco build` would write (`#github-readme`, `#linkedin`, …), each with the check state, plus every surface this language does **not** publish (named with its reason, never dropped). Default `<workspace>/.pasco/preview/index.html`, then opened in the browser; `--out <dir>` writes `<dir>/index.html` and opens **nothing** (the CI-artifact transport, uploaded by the workspace template's opt-in workflow). The text is `renderArtifact`'s — the same active-variant → renderer → paste-source tree `build` writes, selection gate included — and the check state is the same report `pasco check` prints: no second renderer, no second rule engine. A **privacy gate** refuses the write (exit 1) on an absolute machine path, a credential shape, an external asset, active content, or a source outside the workspace (evidence-root media is never inlined; a remote image becomes a note, not a fetch). `--now` pins the freshness stamp — the document is the one declared clock read, and pinning it makes two runs byte-identical. Contract: §7.9 |
@@ -1357,6 +1357,19 @@ no mean consults the score while `applicable` is false; the retained 1 is a
 **placeholder** so a consumer that predates the field does not subtract, not a
 claim about the workspace. Recomputing an overall from `checks[]` requires
 honoring `applicable` — the field is the contract, the score is not.
+
+A **section** carries the same token (`sections.<name>.applicable`): it is
+`false` when no code in it can contribute weight — every code is N/A, or every
+applicable code declares weight `0` — in which case `score` is the placeholder
+`0` (not a measurement) and the section contributes nothing to the overall;
+`pasco validate` prints `n/a` for it instead of `0/100`. No shipped section is
+N/A today: every section keeps at least one always-applicable code, and the
+state is not reachable through a profile. It is still covered by a unit test
+over the one builder (`geoSection` in `core/src/geo.ts`, module-level so the test
+can call it), plus an **arithmetic guard**: rebuilding each shipped section from
+the parts `geoCheck` returned reproduces its `score` and `applicable`. That guard
+proves the arithmetic, not the call routing — the builder is the only producer by
+structure, and no profile can exercise the unreachable all-N/A path.
 
 **cite-check's fold is its own (#291).** `core/src/normalize.ts` is the case- and
 accent-folding used by `pasco cite-check` (§7.4), which matches the declared
