@@ -33,7 +33,7 @@ requisito (SPEC §9). Tres on-ramps, cada uno con su diferencia de capacidades a
 | **`pasco init`** local | carpeta mínima y válida en segundos | **no** | **ninguno** |
 | **Traé tu almacenamiento** | el mismo `pasco init`, escrito en la ruta que elijas (disco, nube, otro host git) | igual que `pasco init` | **ninguno** |
 
-El paquete `@profile-as-code/cli` está **publicado en npm** (0.3.0, 2026-10-11), así que los dos
+El paquete `@profile-as-code/cli` está **publicado en npm** (0.3.7 — `npm view`, checked 2026-10-31), así que los dos
 caminos sin cuenta funcionan hoy sin acceso a ningún repo. El template repo (on-ramp A) es
 **público** (verificado 2026-10-23: `gh repo view ChristianLuciani/profile-data-template
 --json visibility` → `PUBLIC`, HTTP 200), así que **Use this template** resuelve para cualquiera

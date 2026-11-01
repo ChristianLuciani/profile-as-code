@@ -137,14 +137,11 @@ pasco --version                  # the bin — expect 0.3.7
 One global install: no clone, no build, nothing written outside the npm prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
-> **Status**: this guide tracks the release being cut: `@profile-as-code/cli@0.3.7`
-> (cut 2026-10-26, CHANGELOG `[0.3.6]`; the tag is pushed when the release is cut); the
-> npm publish is that release's irreversible step — verify the published `latest` with
-> `npm view @profile-as-code/cli version`.
-> Previous published state [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-26]: version
-> `0.3.5` **public** and tagged `latest` (published 2026-10-24T03:50:04.822Z; tag `v0.3.5` →
-> `c69e6b7`). The 0.3.0 publication (2026-10-11T03:43:27Z; tag `v0.3.0` → `21e4cde`)
-> stays a dated record.
+> **Status**: `@profile-as-code/cli@0.3.7` is **published** and tagged `latest` (published
+> 2026-10-31T19:42:48Z; `npm view @profile-as-code/cli version` → `0.3.7`, checked 2026-10-31)
+> [OFICIAL] [WEB: registry.npmjs.org]. Earlier publications stay dated records: `0.3.6`
+> (2026-10-27), `0.3.5` (2026-10-24; tag `v0.3.5` → `c69e6b7`), `0.3.0` (2026-10-11; tag
+> `v0.3.0` → `21e4cde`).
 > Caveat, closing (#293): the engine repo is **public** (measured 2026-10-24) — `repository.url`
 > resolves for any reader now. The 0.3.0 tarball was published over OIDC while the source
 > repository was private; provenance attestations require a public source repo, so it carries
@@ -193,12 +190,13 @@ alias pasco='node /absolute/path/to/profile-as-code/packages/cli/dist/index.js'
 ### Verify
 
 ```sh
-pasco --version   # what you installed — 0.3.0 today
+pasco --version   # what you installed — must match `npm view @profile-as-code/cli version`
 pasco --help      # command list + exit-code contract
 ```
 
-`--help` prints `init`, `validate`, `build`, `edit`, `diff`, `refine`, `check`,
-`audit`, `entity`, `cite-check`, `export`, `post`, `status` and `skills:export`, plus the exit-code contract: `0` ok · `1` schema or
+`--help` prints `init`, `validate`, `doctor`, `build`, `preview`, `edit`, `diff`, `refine`,
+`check`, `audit`, `discover`, `entity`, `cite-check`, `post`, `status`, `presence`,
+`release plan`, `export profile`, `export ai-policy` and `skills:export`, plus the exit-code contract: `0` ok · `1` schema or
 workspace failure (or a data finding that blocks the command — `pasco edit` exits
 `1` when the address is not exactly one row, the target is read-only or stale, the
 validation refuses the write, or the preview does not change the published
@@ -279,8 +277,8 @@ overwrite** anything that exists:
 
 | Flavor | What it creates |
 |---|---|
-| `person` (default) | `content/identity.yaml` + `README.md` + `.pascorc` |
-| `brand` | `content/{identity,socialHandles,newsletter,podcast,press,audiences,flavor}.yaml` + `README.md` + `.pascorc` |
+| `person` (default) | `content/identity.yaml` + `content/checks.yaml` + `README.md` + `.pascorc` |
+| `brand` | `content/{identity,socialHandles,newsletter,podcast,press,audiences,flavor,checks}.yaml` + `README.md` + `.pascorc` |
 
 From inside the workspace, copy the channel skills and posting guidance in with
 `pasco skills:export .pasco-skills`; they are what an agent reads to know what
@@ -455,8 +453,8 @@ pasco validate    # run this after EVERY edit
 
 Two kinds of results (D12):
 
-- **Schema violations → FAIL (exit 1).** Fix the YAML: the message names the
-  file and the offending value. The contract is non-negotiable — this is what
+- **Schema violations → FAIL (exit 1).** Fix the YAML: the message names the root
+  property — which is the file that carries it, 1:1 — and the offending value. The contract is non-negotiable — this is what
   makes everything downstream deterministic.
 - **Drift / GEO findings → WARN (exit 0).** Facts that contradict across
   platforms or GEO gaps. These do not block you, but fix them: contradictions
@@ -479,16 +477,17 @@ pasco validate
 Three habits that prevent almost every first-run error:
 
 1. **A block goes in its own file.** A `bios:` list pasted into `identity.yaml`
-   fails with a schema error that names the file and the unexpected key — it is
-   not a bug, it is the file. Paste it in `content/bios.yaml`.
+   fails with a schema error that names the root property (`identity`) and the
+   unexpected key — one file carries exactly one root, so that root is your file.
+   It is not a bug, it is the file. Paste it in `content/bios.yaml`.
 2. **One value, one line.** Multi-line YAML block scalars (`|`, `>`) are legal
    YAML, but `pasco edit` (epic #247) writes single-line scalars only: it refuses
    a block or multi-line value (and a `--set` containing a line break) — and an
    anchored/aliased scalar, which would silently change every alias — leaving the
    file untouched. Keep scalars single-line and the editor can always rewrite
    them with a one-line diff.
-3. **Validate after each edit, not after five.** A schema failure names the file
-   and the value; five edits later, the message still names the file but you no
+3. **Validate after each edit, not after five.** A schema failure names the root
+   property and the value; five edits later, the message still names the root but you no
    longer remember which change caused it.
 
 If the profile is live and your edit does not show up, you skipped step 4 of
