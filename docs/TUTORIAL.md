@@ -1,18 +1,24 @@
 # Tutorial — a profile from zero, end to end
 
 A worked run of [Route 1](START-HERE.md#route-1--a-person-with-a-profile-to-publish), written
-from the commands and the output a first-time user actually gets. Every command below was run
-on a clean machine on **2026-10-31** with `@profile-as-code/cli@0.3.7` and schema **v1.15**;
-the numbers (scores, byte counts, warning counts) are that run's readings, not promises — a
-different profile produces different ones.
+from the commands and the output a first-time user actually gets. **Part 1** was run on a clean
+machine on **2026-10-31** with `@profile-as-code/cli@0.3.7` and schema **v1.15**; **Part 2**
+(the rest of the command inventory) was measured on **2026-11-01**, same CLI, on the workspace
+Part 1 left behind. The numbers (scores, byte counts, warning counts) are those runs' readings,
+not promises — a different profile produces different ones.
 
 **Covers:** npm install → `pasco init` → first edits → validate/build/preview → check/audit/entity
 → git + tag → deploy and certification, using the `github-readme` renderer and the **person**
-flavor. **Does not cover:** the template repo (on-ramp A), the brand flavor, `pasco refine`, or a
+flavor. **Part 2** exercises every remaining command in `pasco --help` 0.3.7 plus the variants:
+`edit` · `refine` · `discover` · `cite-check` · `post` · `presence` · `release plan` ·
+`export profile` · `export ai-policy` · `skills:export` · `build --lang` / all platforms ·
+`--workspace` · `init --flavor brand`. **Does not cover:** the template repo (on-ramp A) or a
 real GitHub publish — step 11 simulates the deploy locally so no account is needed.
 
-What you end with: a workspace of four files, two content blocks, a git history with a release
-tag, one deploy artifact, a ledger row, and a generated checklist. About **30–45 minutes**.
+What you end with: the Part 1 workspace (four files, a git history with a release tag, one deploy
+artifact, a ledger row, a generated checklist) plus the Part 2 workspace (`headlines`/`bios`/
+`positioning`/`releases`, `posts/`, a brand sibling, and the AI-policy artifacts). About
+**30–45 minutes** for Part 1; Part 2 is a command tour, not a second build-from-zero.
 
 If a step here contradicts [USER-GUIDE.md](USER-GUIDE.md), the guide wins and this page is the bug.
 
@@ -396,10 +402,271 @@ record of that run:
 | adding a project without evidence lowers the GEO score | [#399](https://github.com/ChristianLuciani/profile-as-code/issues/399) |
 | `--verify` announces "verified" and downgrades `attested` without warning | [#400](https://github.com/ChristianLuciani/profile-as-code/issues/400) |
 
+## Part 2 — the rest of the inventory
+
+Measured on **2026-11-01** on the workspace Part 1 left behind, same
+`@profile-as-code/cli@0.3.7`. Part 1 walked Route 1; this part walks the rows it left pending.
+The workspace gained the files each command needs (`headlines.yaml`, `bios.yaml`,
+`positioning.yaml`, `releases.yaml`, `posts/`) and a brand sibling (`~/pasco-brand-demo`). Every
+block below is a command that ran and the lines it printed.
+
+> **Version note.** `main` is ahead of the published `0.3.7` (53 commits on 2026-11-01): #395–#400
+> were fixed by #403–#410 and are closed, but **not released**. The output here is what a user
+> installs from npm today; where `main` already changed a message, the text says so.
+
+### M12 — `edit`: read, preview, write, refuse
+
+`edit` addresses **one row** with a contract path, never a file:
+`headlines[platform=…,lang=…].text`. It does not create rows, so the first step is the YAML.
+
+```sh
+cat > content/headlines.yaml <<'YAML'
+- platform: github-readme
+  lang: en
+  text: Engineer building demo profiles with profile-as-code.
+YAML
+pasco edit 'headlines[platform=github-readme,lang=en].text'
+pasco edit 'headlines[platform=github-readme,lang=en].text' \
+  --set "Engineer building demo profiles — profile-as-code." --check
+pasco edit 'headlines[platform=github-readme,lang=en].text' \
+  --set "Engineer building demo profiles — profile-as-code."
+```
+
+The read prints `current:` and the §19 surface impact (`never` while no ledger record exists).
+`--check` prints the **rendered** lines that change (`- ### …` / `+ ### …`), not the YAML; the
+write adds `written: yes` and `validates: yes`. The refusals are the contract: a `--set` with a
+line break is usage (exit `2`), a 0-row address exits `1` and lists `available:`, and a missing
+selector exits `2` with the grammar.
+
+**Finding the address.** There is no shell completion and no `pasco edit --list` yet (tracked in
+[#411](https://github.com/ChristianLuciani/profile-as-code/issues/411)). Until it lands, three
+surfaces teach the path:
+
+1. `pasco edit --help` prints the four address shapes.
+2. A 0-row read lists the addresses the workspace has:
+   `pasco edit 'headlines[platform=linkedin,lang=en].text'` → `resolves to 0 rows` +
+   `available:`.
+3. Derive every address from the profile itself — Node is guaranteed because npm installed the
+   CLI:
+
+```sh
+pasco export profile --json > /tmp/profile.json
+node - /tmp/profile.json <<'JS'
+const { profile: p } = JSON.parse(require("fs").readFileSync(process.argv[2], "utf8")).data;
+for (const h of p.headlines ?? []) console.log(`headlines[platform=${h.platform},lang=${h.lang}].text`);
+for (const b of p.bios ?? []) console.log(`bios[platform=${b.platform},lang=${b.lang},length=${b.length}].text`);
+for (const l of p.identity?.links ?? []) console.log(`identity.links[platform=${l.platform}${l.label ? `,label=${l.label}` : ""}].url`);
+for (const lang of Object.keys(p.positioning?.statement ?? {})) console.log(`positioning.statement.${lang}`);
+JS
+```
+
+### M13 — `export profile`: deterministic, no clock
+
+```sh
+pasco export profile --json > /tmp/p1.json
+pasco export profile --json > /tmp/p2.json
+cmp /tmp/p1.json /tmp/p2.json && echo IDENTICAL
+pasco export profile --json --now 2026-10-31T00:00:00Z | grep generatedAt
+pasco export profile --json --now 2026-02-31T00:00:00Z; echo "exit=$?"
+```
+
+Two runs are byte-identical; `generatedAt` is `null` unless `--now` pins it verbatim; the
+impossible date is a real-calendar failure (exit `1`), not a normalized `2026-03-03`. `profile` is
+`load()` normalized: every declared root plus `bios/…/faq/releases: []`; optional object roots
+(`positioning`, `active`) are absent when undeclared.
+
+### M14 — `skills:export`: list, copy, overlay
+
+```sh
+pasco skills:export --list
+pasco skills:export /tmp/pasco-skills-out
+pasco skills:export /tmp/pasco-skills-out; echo "exit=$?"
+pasco skills:export /tmp/pasco-skills-out --force
+```
+
+`--list` reports 14 channels (12 with `SKILL.md`; `linkedin` and `x` are post-only). A non-empty
+destination refuses with `1`; `--force` overlays, never deletes. The destination may not sit inside
+the shipped tree.
+
+### M15 — `build --lang es` and all platforms
+
+With `es` content in `headlines`, `bios` and `positioning`:
+
+```sh
+pasco build --lang es
+pasco build
+```
+
+Both write **three** artifacts — `github-readme/README.md`, `linkedin.md`, `x.md` — and report
+`empty renders removed (45)`: 49 platforms minus the brand-only `github-org` minus the three with
+content. The other renderers are bio-driven and return empty without a bio row; only
+`github-readme` renders from the facts alone. The `es` run renders the `es` headline/statement/bio
+(no fallback), but **`artifactPath()` has no `lang`**: the next `build` overwrites the same paths,
+so the `es` artifact does not survive. For GitHub that is correct (one README per repo); for the
+paste surfaces it is a silent loss, and §5 of the guide does not say it.
+
+### M16 — `export ai-policy`: check, write, refuse a stale list
+
+```sh
+pasco export ai-policy --check
+pasco export ai-policy --out /tmp/pasco-ai-policy
+```
+
+`--check` reads registry data (no workspace) and exits `0` with 11 crawlers: 7 retrieval allowed,
+4 training blocked. `--out` writes `robots.txt` (two named groups, **no** `User-agent: *`),
+`llms.txt` (name, definition, canonical URL, `faq[]`, `publications[]`) and `AI-POLICY.md`; two
+runs are byte-identical. An existing file that lacks the generator marker is refused unless
+`--force`. Patching one crawler's `source` out of the installed bundle makes `--check` exit `1`
+with `unsourced · gptbot — no operator page`; the generator refuses to write a list it would
+reject.
+
+### M17 — `presence` and `release plan`
+
+`presence` needs `content/releases.yaml`; `release plan` exits `1` without it. A release row is
+`{id, version, date, surfaces[], changedUnits[]}`; surfaces are registry slugs of any kind, and the
+state is derived from `deployments[key][surface]` vs the unit hash.
+
+```sh
+pasco presence
+pasco release plan
+```
+
+With one release over `github-repo-meta`, `github-readme`, `linkedin` and `hacker-news`, the board
+shows four `never` rows; the plan orders `repo-meta → profile → distribution`. The valid units
+`headlines:github-readme:en`, `experience:exp-demo` and `projects:proj-demo` are reported as
+"is not an SSOT unit — fix the release row" **because they have no deploy record on that
+surface**. That is the 0.3.7 reading: a missing record is `never`, not an invalid row.
+[#408](https://github.com/ChristianLuciani/profile-as-code/issues/408) was fixed by #413 after this
+run — `main` now names the pending fan-out, and the released binary still prints the old wording.
+
+### M18 — `discover`: a public surface, nothing written
+
+```sh
+pasco discover https://dev.to/ben
+pasco discover https://dev.to/ben --json
+```
+
+The command is read-only (`wrote: false`; `content/` unchanged) and closed-allowlist (a host
+outside it is `host-not-allowed` with no request). It builds a provisional profile from the
+surface's **schema.org `Person`/`Organization` JSON-LD and its links** — never prose. A GitHub
+profile has no such node, so `pasco discover https://github.com/<you>` exits `1` with `no surface
+declared an entity name`; the project site's JSON-LD is `SoftwareApplication`, so it does not
+qualify either. On `dev.to/ben` it reads 5 facts, lists `experience` as absent, and reports **40
+`unsourced-claim` WARN** — badges, counters and the copyright line, not claims about the person.
+That is the `isQuantitativeClaim` heuristic applied to the whole page; the signal-to-noise is the
+finding (the audit classes are `contradiction`/`dangling-ref` FAIL, `unsourced-claim` WARN).
+
+### M19 — `cite-check`: saved answers, a malformed line is exit 2
+
+```sh
+pasco cite-check /tmp/answers.ndjson
+```
+
+One JSON object per line: `{engine?, askedAt?, question?, answer, citations[]}`; `answer` and
+`citations` are required. Blank lines are ignored but keep their line numbers. `María Demo` matches
+`name@0-10` (accent-insensitive) and `citation-url` when the citation is the declared identity URL;
+`malformed NDJSON at line N (field)` is exit `2`, never a skipped answer. A non-citation is data:
+exit `0`.
+
+### M20 — `post`: seed → task → choose → check → export → import → list
+
+```sh
+pasco post seed demo-post --text /tmp/post-seed.md --format short
+pasco post task demo-post --channel linkedin,x --variants 2
+pasco post choose demo-post --channel linkedin --variant linkedin-1 --text /tmp/linkedin-1.md
+pasco post choose demo-post --channel x --variant x-1 --text /tmp/x-1.md
+pasco post check demo-post
+pasco post export demo-post --out /tmp/postiz.json --type draft --date 2026-11-01T12:00:00Z
+pasco post import /tmp/import-posts --channel linkedin
+pasco post list
+```
+
+The store is `posts/` (outside `content/` and the schema). `task` writes the agent bundle — seed,
+facts, skill, channel rules — and never calls a model; `choose` records the body under
+`posts/<id>/<channel>/<variant>.md`; `check` gates max-chars, URLs against the SSOT, `{{fact:…}}`
+refs and claims; `export` reads `postiz.yaml` (`channels: {linkedin: …, x: …}`) and writes the
+`POST /posts` payload (or a paste checklist for a paste channel); `import` turns historical `.md`
+into `imported-*` seeds. Short rules exist only for `linkedin` and `x`; every other channel here is
+long-form (`devto`, `ghost`, `hashnode`, `listmonk`, `medium`, `substack`, `wordpress`), and
+`task --channel devto` says so with exit `2`. `import` records `sync: published` with `url: null` —
+a reasonable assumption for a historical post, but a state not derived from a remote record.
+
+### M21 — `refine` (PARTIAL): template and `--choose`
+
+```sh
+pasco refine linkedin --variants 2
+pasco refine linkedin --choose linkedin-en-1
+```
+
+Without `--choose` it prints the agent task (facts, skill, existing texts, anchors) and writes
+nothing. With `--choose` it writes **only** `content/active.yaml`; the body is workspace input at
+`profiles/<platform>/variants/<id>.md`. Once chosen, `build <platform>` writes that body verbatim,
+and `edit` names the variant instead of promising a change the SSOT text cannot reach. The
+template has two defects: the experience line renders a langMap role as `[object Object]`, and the
+example ids are hardcoded `gh-en-*` for every platform. A `--choose` for a missing body still
+records the choice and `build` falls back to the deterministic render with a warning.
+
+### M22 — `init --flavor brand`
+
+```sh
+pasco init ~/pasco-brand-demo --flavor brand
+cd ~/pasco-brand-demo
+pasco validate
+pasco build github-org --lang en
+pasco check
+```
+
+The scaffold writes `content/{identity,socialHandles,newsletter,podcast,press,audiences,flavor,checks}.yaml`
+plus `README.md` and `.pascorc`; it validates with only `name`. `build github-org` is brand-only and
+writes `# <name>`, tagline, mission, logo, one badge per **claimed** handle, `## Links`, an
+`Organization` JSON-LD block and a footer with claimed/pending/press counts. `check` runs the brand
+handle matrix (`claimed`/`pending`, `handle-claimed`/`handle-consistent`). The scaffold's commented
+`- platform: website` is **not** a valid platform slug, so uncommenting it fails `validate`; the
+`github-org` badge table knows `website`, the enum does not.
+
+### M23 — `--workspace` and resolution from outside
+
+Resolution is `--workspace` → `.pascorc` in the current directory → cwd; the `.pascorc`'s
+`workspace` resolves relative to the `.pascorc`'s directory.
+
+```sh
+cd /tmp/pasco-outside
+pasco doctor              # invalid: no content/
+pasco doctor --workspace ~/pasco-tutorial-demo   # valid
+cd /tmp/pasco-pointer     # .pascorc: {"workspace": "<absolute path to the workspace>"}
+pasco doctor              # the pointer wins over cwd
+pasco doctor --workspace ~/pasco-brand-demo      # the flag wins over the pointer
+cd ~/pasco-tutorial-demo/content
+pasco doctor              # invalid: …/content/content
+pasco doctor --workspace ..   # valid
+```
+
+The trap is real: `.pascorc` is read **only** in the directory you run from, never upward. From a
+subdirectory, pass `--workspace ..` (or `--workspace <root>`); a relative flag resolves against
+cwd. An invalid path exits `1` and names the missing `content/` directory.
+
+### What Part 2 found
+
+| Friction (repro in the section) | Tracking |
+|---|---|
+| `edit` has no discovery surface: the address is learned from help, a usage error or a 0-row read | [#411](https://github.com/ChristianLuciani/profile-as-code/issues/411) (open; the box in M12 is the stopgap) |
+| `refine` renders a langMap role as `[object Object]` (M21) | [#415](https://github.com/ChristianLuciani/profile-as-code/issues/415) |
+| `refine` hardcodes `gh-en-*` examples for every platform (M21) | [#415](https://github.com/ChristianLuciani/profile-as-code/issues/415) |
+| `usage: usage: …` on `skills:export` and `refine`; `export ai-policy: refusing…` drops the `pasco` prefix (M14, M16, M21) | [#416](https://github.com/ChristianLuciani/profile-as-code/issues/416) |
+| the brand scaffold's `platform: website` is not a valid slug (M22) | [#417](https://github.com/ChristianLuciani/profile-as-code/issues/417) |
+| `discover` needs `Person`/`Organization` JSON-LD; a GitHub profile and the project site fail (M18) | [#418](https://github.com/ChristianLuciani/profile-as-code/issues/418) |
+| `discover` reports page chrome as `unsourced-claim`: 40 WARN, 0 profile claims on dev.to (M18) | [#419](https://github.com/ChristianLuciani/profile-as-code/issues/419) |
+| `build --lang` overwrites the same `profiles/` paths; the last build wins (M15) | [#420](https://github.com/ChristianLuciani/profile-as-code/issues/420) |
+| `release plan --json` has no `order`; the human column is positional (M17) | [#421](https://github.com/ChristianLuciani/profile-as-code/issues/421) |
+| `post` short supports only `linkedin`/`x`, and the help does not list it (M20) | [#422](https://github.com/ChristianLuciani/profile-as-code/issues/422) |
+| `post import` asserts `sync: published` with `url: null` (M20) | [#423](https://github.com/ChristianLuciani/profile-as-code/issues/423) |
+| the published `0.3.7` is 53 commits behind `main`: #395–#400 are fixed and closed but unreleased, so old wording (`(no texts…)`, the `geo/evidence-claims` detail) still appears | note, no issue |
+
 ## Command coverage
 
-The inventory below is `pasco --help` at CLI **0.3.7** (2026-10-31). *Exercised* means the command
-was run in this tutorial and its output is quoted above — not that it was read in the guide.
+The inventory below is `pasco --help` at CLI **0.3.7** (2026-10-31; Part 2 measured 2026-11-01).
+*Exercised* means the command was run in this tutorial and its output is quoted above — not that it
+was read in the guide.
 
 | Command | Exercised here | Where / why not |
 |---|---|---|
@@ -413,22 +680,22 @@ was run in this tutorial and its output is quoted above — not that it was read
 | `audit` | ✅ | step 7 |
 | `entity` | ✅ `--jsonld` | step 7 |
 | `status` | ✅ report · `--json` · `--completeness` · `--mark` · `--verify` · `--write-checklist` | step 11 |
-| `edit` | ❌ | writes one contract row; needs a value you mean to publish |
-| `refine` | ❌ | PARTIAL (M3): emits an agent task template |
-| `discover` | ❌ | reads a public surface over the network and writes nothing |
-| `cite-check` | ❌ | needs saved answer-engine answers (NDJSON) |
-| `post` | ❌ | MVP subcommands: seed · task · choose · check · export · import · list |
-| `presence` | ❌ | the D23 presence board |
-| `release plan` | ❌ | ordered fan-out for one release |
-| `export profile` | ❌ | normalized profile for programmatic consumers |
-| `export ai-policy` | ❌ | writes robots.txt / llms.txt / AI-POLICY.md |
-| `skills:export` | ❌ | copies the shipped skills to a harness |
-| `build --lang` · all platforms | ❌ | only the default `en` slice and one renderer were built |
-| `--workspace <path>` | ❌ | every run resolved the workspace from `.pascorc`/cwd |
-| `init --flavor brand` | ❌ | brand flavor is out of scope here |
+| `edit` | ✅ read · `--set --check` · write · refusals · `--json` | Part 2 · M12 |
+| `refine` | ✅ PARTIAL: template · `--choose` · active variant | Part 2 · M21 |
+| `discover` | ✅ on a surface with schema.org `Person` JSON-LD | Part 2 · M18 (GitHub profiles have none) |
+| `cite-check` | ✅ NDJSON fixture; a malformed line is exit 2 | Part 2 · M19 |
+| `post` | ✅ seed · task · choose · check · export · import · list | Part 2 · M20 |
+| `presence` | ✅ empty board + a board with one release | Part 2 · M17 |
+| `release plan` | ✅ ordered fan-out; reproduces #408 | Part 2 · M17 |
+| `export profile` | ✅ `--json` · determinism · `--now` | Part 2 · M13 |
+| `export ai-policy` | ✅ `--check` · `--out` · a missing source is exit 1 | Part 2 · M16 |
+| `skills:export` | ✅ `--list` · export · `--force` | Part 2 · M14 |
+| `build --lang` · all platforms | ✅ the `es` slice + all 49 platforms | Part 2 · M15 |
+| `--workspace <path>` | ✅ precedence and resolution from outside | Part 2 · M23 |
+| `init --flavor brand` | ✅ scaffold · `build github-org` · `check` | Part 2 · M22 |
 
-Not exercised is not a judgement of the command — it is what a first run of Route 1 touches.
-Per-command `--help` is the next place to look.
+Every row is now exercised. The `Where` column points at the measured step; per-command
+`--help` is still the first place to look for a flag the tour did not need.
 
 ## Where to go next
 
