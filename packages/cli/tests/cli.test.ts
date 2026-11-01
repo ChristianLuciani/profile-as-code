@@ -223,6 +223,28 @@ describe("pasco validate (D12: fail on schema, warn on drift)", () => {
     expect(r.stdout).not.toContain("warn: [geo/sameas-coverage]");
   });
 
+  it("renders the N/A GEO code as a non-finding line, not a warn/info (#399)", () => {
+    // An identity-only workspace declares no projects → no evidence[] anywhere,
+    // so `geo/evidence-claims` is N/A. The minimal fixture declares evidence and
+    // never reaches this branch (fresh-pass F3).
+    const dir = join(tempDir(), "ws-geo-na");
+    expect(run(["init", dir]).code).toBe(0);
+    const r = run(["validate", "--workspace", dir]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("n/a: [geo/evidence-claims]");
+    expect(r.stdout).toContain("not applicable");
+    expect(r.stdout).not.toContain("warn: [geo/evidence-claims]");
+    expect(r.stdout).not.toContain("info: [geo/evidence-claims]");
+
+    const json = run(["validate", "--json", "--workspace", dir]);
+    const data = JSON.parse(json.stdout) as {
+      data: { geo: { checks: { code: string; applicable?: boolean; score: number }[] } };
+    };
+    const evidence = data.data.geo.checks.find((c) => c.code === "geo/evidence-claims");
+    expect(evidence?.applicable).toBe(false);
+    expect(evidence?.score).toBe(1); // retained placeholder, not consumed (§8)
+  });
+
   it("exits 1 on schema violation", () => {
     const r = run(["validate", "--workspace", INVALID]);
     expect(r.code).toBe(1);

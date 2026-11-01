@@ -415,7 +415,7 @@ declared renderer or an explicit "not implemented yet").
 | Command | Purpose |
 |---|---|
 | `pasco init` | scaffold a profile-data workspace from the template |
-| `pasco validate` | schema (fail) + drift/geo checks (facts warn). Text mode renders one line per GEO code that scored 0, prefixed by its severity tier — `warn: [code] …` is a warning, `info: [geo/freshness]`-style lines are NOTES, never warnings (v1.10 tiers, #322); a code that scored above 0 renders no finding line, and `absent` tier = `warn`. `--json` carries every check (with its `severity` and `detail`) — a check whose detail holds an anomaly note (future-dated freshness) is always fully visible there |
+| `pasco validate` | schema (fail) + drift/geo checks (facts warn). Text mode renders one line per GEO code that scored 0, prefixed by its severity tier — `warn: [code] …` is a warning, `info: [geo/freshness]`-style lines are NOTES, never warnings (v1.10 tiers, #322); a code that scored above 0 renders no finding line, and `absent` tier = `warn`. A code with nothing to measure renders one `n/a: [code] …` line instead (§8/#399): it is not a finding — its `score` is not consumed by the overall, so it is neither a warning nor a note. `--json` carries every check (with its `severity` and `detail`, plus `applicable: false` on an N/A code) — a check whose detail holds an anomaly note (future-dated freshness) is always fully visible there |
 | `pasco doctor [--json]` | the **engine · schema · workspace** reading on ONE line (issue #348): the installed CLI version, the profile-contract version this build validates (derived from the schema `$id` by `pnpm gen:zod`, never a literal), the resolved workspace path and whether it loads, plus the `.pascorc` engine requirement (`no engine requirement` · `met` · `NOT MET` with the upgrade command · `INVALID` with the syntax problem). Chosen over overloading `--version` because `--version` describes the binary and must work with no workspace, while `doctor` describes the pair. `--json` emits `{ engine: { name, version }, schema: { version }, workspace: { path, valid, error? }, requirement: { declared, met, problem?, source? } }` in the standard envelope. Exit `0` healthy · `1` unhealthy (workspace fails to load, requirement unmet or malformed) · `2` usage. Offline, no clock, no writes. Contract: §7.6 |
 | `pasco build [platform] [--view <name>] [--lang]` | render deterministic base texts; `--view` resolves a declared view's platform/lang + fact selection (D22, §21); a manual-paste surface without a renderer writes `profiles/<platform>.md` via the shared paste core (#239); an active variant body is written verbatim as the platform artifact (#238) |
 | `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso8601>] [--json]` | the **local view** of the data without publishing it (issue #282): **one** self-contained HTML file — inline CSS, no `<script>`, no external asset, no HTTP server — whose sections are the surfaces `pasco build` would write (`#github-readme`, `#linkedin`, …), each with the check state, plus every surface this language does **not** publish (named with its reason, never dropped). Default `<workspace>/.pasco/preview/index.html`, then opened in the browser; `--out <dir>` writes `<dir>/index.html` and opens **nothing** (the CI-artifact transport, uploaded by the workspace template's opt-in workflow). The text is `renderArtifact`'s — the same active-variant → renderer → paste-source tree `build` writes, selection gate included — and the check state is the same report `pasco check` prints: no second renderer, no second rule engine. A **privacy gate** refuses the write (exit 1) on an absolute machine path, a credential shape, an external asset, active content, or a source outside the workspace (evidence-root media is never inlined; a remote image becomes a note, not a fetch). `--now` pins the freshness stamp — the document is the one declared clock read, and pinning it makes two runs byte-identical. Contract: §7.9 |
@@ -1335,6 +1335,28 @@ not a bad profile.
 | `geo/freshness` | no `dateModified`-bearing fact in the last 12 months — calendar window; future-dated facts cannot evidence freshness and are reported as an anomaly (newest `deployments[].deployedAt`, `press[].date`, `credentials[].issued`, newest `publications[].year`) | INFO | 0.03 |
 | `geo/sameas-coverage` | a `claimed` handle resolving to a URL that is NOT in the emitted `sameAs` set (e.g. its URL is the `@id`, excluded by the assembler), or fewer than 3 `role: realization` links | WARN | 0.04 |
 | `geo/name-collision` | a one-word entity name whose `definition` carries no disambiguating qualifier (`location` or an `experience[].role` title — matched case-insensitively, like the name containment above) — homonyms cannot be detected offline: the code reports the risk it can observe, marks the unobservable as `[?]`, and never claims a collision it did not see | INFO | 0.01 |
+
+**`geo/evidence-claims` is N/A, not a weighted sentinel (#399).** The pre-v1.10
+check `geo/evidence-claims` (weight 0.08) has nothing to measure while **no
+project declares any `evidence[]`**: it is reported `applicable: false` and
+EXCLUDED from the weighted mean (and from its section score), rather than letting
+a sentinel participate in the mean. A sentinel of 1 is not neutral inside a
+weighted mean, and scoring `0/1` made *adding* the first project lower the
+overall — a workspace that has not opted into evidence must not lose points for
+adding a fact. Evidence is **opt-in**: once at least one project declares an
+evidence row, the code scores the ratio of projects carrying evidence again. The
+**coverage** question — how much of the profile carries sources — is §20's
+completeness `evidence` item, so absence is not subtracted twice and §20 is the
+declared home of that signal. The machine reading is additive: `checks[].applicable`
+is `false` only for a code with nothing to measure, the declared `weight` stays
+visible, and every other code keeps its declared weight: the mean **renormalizes**
+over the applicable weights, so the denominator drops by the excluded 0.08.
+
+An N/A code also keeps `score: 1`, and that is deliberate, not a contradiction:
+no mean consults the score while `applicable` is false; the retained 1 is a
+**placeholder** so a consumer that predates the field does not subtract, not a
+claim about the workspace. Recomputing an overall from `checks[]` requires
+honoring `applicable` — the field is the contract, the score is not.
 
 **cite-check's fold is its own (#291).** `core/src/normalize.ts` is the case- and
 accent-folding used by `pasco cite-check` (§7.4), which matches the declared
@@ -2423,6 +2445,14 @@ so a future langMap still cannot escape the walk unnoticed.
 | `geoAnchors` | 0.15 | `positioning.geo.semanticAssociations` reinforced in `keywords`/skills/projects; the score is the reinforced **share squared** — an association anchored in only some surfaces is worth less than proportionally, since the point is convergence on the same 3–5 anchors |
 | `evidence` | 0.15 | `projects[].evidence[]` claims carrying a `source` + registry entries (`evidenceItem`); no projects and an empty registry score 0 |
 | `deployment` | 0.25 | share of trackable units with a ledger record (`ledger`, §19) — **coverage only**; freshness (`stale`) is §19's report, not this item's |
+
+**`evidence` is the home of the evidence-coverage reading (#399).** §8's
+`geo/evidence-claims` is N/A while no project declares evidence; this item keeps
+the signal — sourced projects plus the registry — because here the question is
+"how complete is the profile", not GEO citability. It is not a duplicate of §8:
+with no evidence declared only this item measures coverage, and once evidence
+exists §8 scores citability while this item scores coverage — two different
+questions over the same rows.
 
 Weights are configuration, not constants: `.pascorc` `"completeness": { target, langs,
 items: [{ id, weight }] }` overrides them per workspace and weight 0 removes an item
