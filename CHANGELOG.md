@@ -9,7 +9,16 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
-_(nothing yet — the next cycle)_
+### Fixed
+
+- **`pasco release plan` no longer calls a valid `changedUnit` "not an SSOT
+  unit" (#408)** — a changed unit that IS an SSOT unit but has no deploy record
+  on a surface is a pending fan-out (`never`), not a malformed release row; the
+  message sent the operator to correct a datum that was already correct. The
+  plan payload now separates the two causes additively — `unknownUnits` (a key
+  with no SSOT unit behind it: the row IS wrong) and `missingUnits` (a valid
+  unit still owed a record) — and the human plan names each. SPEC §7.8/§22
+  updated.
 
 ## [0.3.7] - 2026-10-31
 
