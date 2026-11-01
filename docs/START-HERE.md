@@ -41,6 +41,9 @@ first `nano`; it has the block → file table and that exact error.
 If you later want automation and history, the template repo on-ramp adds both —
 [§3 Option A](USER-GUIDE.md#option-a--the-template-repo-recommended).
 
+A fully worked run of this route — every command, the output a first-time user actually
+gets, and the traps — is [TUTORIAL.md](TUTORIAL.md).
+
 ## Route 2 — a maintainer or contributor
 
 The engine is a pnpm monorepo; `docs/SPEC.md` is the contract and `AGENTS.md` is the

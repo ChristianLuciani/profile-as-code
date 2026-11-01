@@ -193,12 +193,13 @@ alias pasco='node /absolute/path/to/profile-as-code/packages/cli/dist/index.js'
 ### Verify
 
 ```sh
-pasco --version   # what you installed — 0.3.0 today
+pasco --version   # what you installed — must match `npm view @profile-as-code/cli version`
 pasco --help      # command list + exit-code contract
 ```
 
-`--help` prints `init`, `validate`, `build`, `edit`, `diff`, `refine`, `check`,
-`audit`, `entity`, `cite-check`, `export`, `post`, `status` and `skills:export`, plus the exit-code contract: `0` ok · `1` schema or
+`--help` prints `init`, `validate`, `doctor`, `build`, `preview`, `edit`, `diff`, `refine`,
+`check`, `audit`, `discover`, `entity`, `cite-check`, `post`, `status`, `presence`,
+`release plan`, `export profile`, `export ai-policy` and `skills:export`, plus the exit-code contract: `0` ok · `1` schema or
 workspace failure (or a data finding that blocks the command — `pasco edit` exits
 `1` when the address is not exactly one row, the target is read-only or stale, the
 validation refuses the write, or the preview does not change the published
@@ -279,8 +280,8 @@ overwrite** anything that exists:
 
 | Flavor | What it creates |
 |---|---|
-| `person` (default) | `content/identity.yaml` + `README.md` + `.pascorc` |
-| `brand` | `content/{identity,socialHandles,newsletter,podcast,press,audiences,flavor}.yaml` + `README.md` + `.pascorc` |
+| `person` (default) | `content/identity.yaml` + `content/checks.yaml` + `README.md` + `.pascorc` |
+| `brand` | `content/{identity,socialHandles,newsletter,podcast,press,audiences,flavor,checks}.yaml` + `README.md` + `.pascorc` |
 
 Option B starts you nearly empty — you add the other blocks yourself as you
 need them (they are optional; see §4). It is **minimal on purpose** (SPEC §9.2):
@@ -451,8 +452,8 @@ pasco validate    # run this after EVERY edit
 
 Two kinds of results (D12):
 
-- **Schema violations → FAIL (exit 1).** Fix the YAML: the message names the
-  file and the offending value. The contract is non-negotiable — this is what
+- **Schema violations → FAIL (exit 1).** Fix the YAML: the message names the root
+  property — which is the file that carries it, 1:1 — and the offending value. The contract is non-negotiable — this is what
   makes everything downstream deterministic.
 - **Drift / GEO findings → WARN (exit 0).** Facts that contradict across
   platforms or GEO gaps. These do not block you, but fix them: contradictions
@@ -475,8 +476,9 @@ pasco validate
 Three habits that prevent almost every first-run error:
 
 1. **A block goes in its own file.** A `bios:` list pasted into `identity.yaml`
-   fails with a schema error that names the file and the unexpected key — it is
-   not a bug, it is the file. Paste it in `content/bios.yaml`.
+   fails with a schema error that names the root property (`identity`) and the
+   unexpected key — one file carries exactly one root, so that root is your file.
+   It is not a bug, it is the file. Paste it in `content/bios.yaml`.
 2. **One value, one line.** Multi-line YAML block scalars (`|`, `>`) are legal
    YAML, but `pasco edit` (epic #247) writes single-line scalars only: it refuses
    a block or multi-line value (and a `--set` containing a line break) — and an
