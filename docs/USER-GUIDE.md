@@ -137,14 +137,11 @@ pasco --version                  # the bin — expect 0.3.7
 One global install: no clone, no build, nothing written outside the npm prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
-> **Status**: this guide tracks the release being cut: `@profile-as-code/cli@0.3.7`
-> (cut 2026-10-26, CHANGELOG `[0.3.6]`; the tag is pushed when the release is cut); the
-> npm publish is that release's irreversible step — verify the published `latest` with
-> `npm view @profile-as-code/cli version`.
-> Previous published state [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-26]: version
-> `0.3.5` **public** and tagged `latest` (published 2026-10-24T03:50:04.822Z; tag `v0.3.5` →
-> `c69e6b7`). The 0.3.0 publication (2026-10-11T03:43:27Z; tag `v0.3.0` → `21e4cde`)
-> stays a dated record.
+> **Status**: `@profile-as-code/cli@0.3.7` is **published** and tagged `latest` (published
+> 2026-10-31T19:42:48Z; `npm view @profile-as-code/cli version` → `0.3.7`, checked 2026-10-31)
+> [OFICIAL] [WEB: registry.npmjs.org]. Earlier publications stay dated records: `0.3.6`
+> (2026-10-27), `0.3.5` (2026-10-24; tag `v0.3.5` → `c69e6b7`), `0.3.0` (2026-10-11; tag
+> `v0.3.0` → `21e4cde`).
 > Caveat, closing (#293): the engine repo is **public** (measured 2026-10-24) — `repository.url`
 > resolves for any reader now. The 0.3.0 tarball was published over OIDC while the source
 > repository was private; provenance attestations require a public source repo, so it carries
@@ -489,8 +486,8 @@ Three habits that prevent almost every first-run error:
    anchored/aliased scalar, which would silently change every alias — leaving the
    file untouched. Keep scalars single-line and the editor can always rewrite
    them with a one-line diff.
-3. **Validate after each edit, not after five.** A schema failure names the file
-   and the value; five edits later, the message still names the file but you no
+3. **Validate after each edit, not after five.** A schema failure names the root
+   property and the value; five edits later, the message still names the root but you no
    longer remember which change caused it.
 
 If the profile is live and your edit does not show up, you skipped step 4 of

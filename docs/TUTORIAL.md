@@ -122,8 +122,8 @@ that; it is not the file path the guide historically promised.
 pasco validate; echo "exit=$?"
 ```
 
-On a fresh workspace with three facts this exits **0** and prints **six** GEO warnings plus an
-`overall score` in the 55–65 range. That is not a failure and not a grade:
+On a fresh workspace with three facts this exits **0** and prints **five** GEO warnings plus one
+info note, and an `overall score` in the 55–65 range. That is not a failure and not a grade:
 
 - `schema valid` is the gate. Only a schema violation exits `1`.
 - the warnings are a **checklist of what an answer engine would still miss** — semantic anchors,
@@ -148,8 +148,9 @@ cat profiles/github-readme/README.md
 ```
 
 **Expect** one file, `profiles/github-readme/README.md`. It contains your name, the links as
-badges, the project/experience blocks when you have them, and a **JSON-LD block** with `@id`
-from the `role: identity` link, `description` from `definition`, and `sameAs` for the rest.
+badges, a project block when you have one, and the experience as `jobTitle`/`worksFor` inside a
+**JSON-LD block** — alongside `@id` (from the `role: identity` link), `description` (from
+`definition`) and `sameAs` for the rest.
 
 The last lines are generated too:
 
@@ -286,14 +287,24 @@ diff since release tag 'release-2026-10'
   hint: texts or facts changed — re-verify deployed profiles (re-paste per platform playbook)
 ```
 
-That is your **re-paste list**: every surface that still shows the old text. Tag the release when
-you are done publishing:
+That is your **re-paste list**: every surface that still shows the old text. Tag the release once
+you have published — step 11 closes with it.
+
+## Step 11 — status, deploy, mark, verify
+
+Before you deploy anything, read the state — a green `validate` never meant published:
 
 ```sh
-git tag release-2026-11 && pasco diff    # → no changes
+pasco status
+# github-readme: never · artifact: matches-SSOT · limits: ok
+pasco status --json          # data.publication[] — one row per surface, the same three axes
+pasco status --completeness  # expands the 3% — 0/5 footer into its five items
 ```
 
-## Step 11 — deploy, mark, verify
+Three axes, three questions: `artifact` — does the built file still match the SSOT? `sync` — did
+the SSOT change after the last deploy? `limits` — does a platform truncate this text? They are
+allowed to disagree: `artifact: matches-SSOT` with `sync: never` is the normal state of an edit
+you have not published.
 
 `github-readme` is a **git/API** surface: the artifact is a file you publish
 ([§7](USER-GUIDE.md#7-deploy)). This step simulates the publish in a local repository, so it needs
@@ -354,6 +365,13 @@ git add -A && git commit -m "chore: deploy ledger + checklist view"
 (`in-sync/attested`, `in-sync/unverifiable: http-404`), so nothing is ever presented as a bare
 "in sync".
 
+Close the cycle with the release tag:
+
+```sh
+git tag release-2026-11
+pasco diff      # → no changes
+```
+
 ---
 
 ## What this run found
@@ -388,7 +406,7 @@ was run in this tutorial and its output is quoted above — not that it was read
 | `check` | ✅ | step 7 |
 | `audit` | ✅ | step 7 |
 | `entity` | ✅ `--jsonld` | step 7 |
-| `status` | ✅ report · `--json` · `--mark` · `--verify` · `--write-checklist` · `--completeness` | steps 7, 11 |
+| `status` | ✅ report · `--json` · `--completeness` · `--mark` · `--verify` · `--write-checklist` | step 11 |
 | `edit` | ❌ | writes one contract row; needs a value you mean to publish |
 | `refine` | ❌ | PARTIAL (M3): emits an agent task template |
 | `discover` | ❌ | reads a public surface over the network and writes nothing |
