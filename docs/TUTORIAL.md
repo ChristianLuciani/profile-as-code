@@ -165,10 +165,11 @@ That footer **ships to the surface** — on GitHub it is public. `3%` is the com
 ([SPEC §20](SPEC.md)); `pasco status --completeness` expands it into the five items. Expect the
 `0/5` to lag the percentage: items earn partial credit before any one is fully satisfied.
 
-> With no bios or headlines yet, `build` prints `0 base texts — bios/headlines — for this
-> platform+lang; the artifact is still written from the declared facts`. The measured 0.3.7 run
-> printed `[github-readme] (no texts for this platform+lang)`, which read as "no artifact"; it
-> never meant that ([#396](https://github.com/ChristianLuciani/profile-as-code/issues/396)).
+> With no bios or headlines yet, the measured 0.3.7 run printed
+> `[github-readme] (no texts for this platform+lang)`, which read as "no artifact"; it never meant
+> that. [#396](https://github.com/ChristianLuciani/profile-as-code/issues/396) rewords it (PR
+> #405) to `0 base texts — bios/headlines — for this platform+lang; the artifact is still written
+> from the declared facts`.
 
 ## Step 6 — see it without publishing it
 
