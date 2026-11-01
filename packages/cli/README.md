@@ -2,7 +2,7 @@
 
 The `pasco` CLI — `@profile-as-code/cli`. Consumes `@profile-as-code/core`
 (`load`/`driftCheck`/`geoCheck`/`compile`) — it never re-implements them. The
-contract source is `schema/profile.schema.json` (D3); Zod is generated in core.
+contract source is [the profile schema](https://github.com/ChristianLuciani/profile-as-code/blob/main/schema/profile.schema.json) (D3); Zod is generated in core.
 
 ## Install
 
@@ -22,14 +22,14 @@ server, no account.
 > npm-publish attestations + SLSA provenance v1; `0.3.6` is prepared in this release
 > (CHANGELOG `[0.3.6]`). The `0.3.0` tarball carries none because it was published while
 > the source repository was private.
-> Source install: [User Guide §2](../../docs/USER-GUIDE.md#2-install-the-pasco-cli).
+> Source install: [User Guide §2](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/USER-GUIDE.md#2-install-the-pasco-cli).
 
 ## Get a workspace
 
 `pasco` reads a **workspace folder** (`content/*.yaml` + `.pascorc`) by configured
 path. That folder does not have to be a git repository, and it does not have to live
 on GitHub — a repo is the **recommended** place to keep it, not a requirement
-([SPEC §9](../../docs/SPEC.md)). Three on-ramps, each with its capability difference
+([SPEC §9](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md)). Three on-ramps, each with its capability difference
 stated up front:
 
 | On-ramp | What you get | Automation + history | Account + repo |
@@ -48,9 +48,9 @@ The two no-account on-ramps keep the whole engine command set except `pasco diff
 history — `pasco init` is minimal on purpose, and the complete package lives in
 the template. **Where each on-ramp is discovered:** the template repo's own README,
 this package page, and — in the repository — the
-[User Guide §3](../../docs/USER-GUIDE.md#3-create-your-workspace-profile-data-username)
-(EN). Links into `docs/` resolve in the repository, not on this npm page: the two
-commands above are the standalone path.
+[User Guide §3](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/USER-GUIDE.md#3-create-your-workspace-profile-data-username)
+(EN). The links point at the public repository; the two commands above are the
+standalone path.
 
 ## Commands
 
@@ -59,7 +59,7 @@ commands above are the standalone path.
 | `pasco init [dir]` | Scaffold a profile-data workspace (`content/identity.yaml`, `README.md`, `.pascorc`) — `pasco validate`-clean | ✅ |
 | `pasco validate [--json]` | Schema **fail** (exit 1) + drift/geo **warn** (exit 0) — D12 | ✅ |
 | `pasco doctor [--json]` | **Engine · schema · workspace** on one line (#348): the installed CLI version, the profile-contract version this build validates (from the schema `$id`), the resolved workspace and whether it loads, plus the **effective** `.pascorc` engine requirement (the strictest declaration in every config the resolution consulted, with its file). `--json` emits `{ engine, schema, workspace, requirement: { declared, met, problem?, source? } }`. Exit 0 healthy · 1 unhealthy · 2 usage; offline, no clock, no writes | ✅ v1 |
-| `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (the eight registered in the generated renderer map) write `profiles/<platform>/README.md` + bundled media; renderer-less manual surfaces with a bio row write `profiles/<platform>.md` (#239). Empty render = no-trace unbuild of the generated output, preserving `profiles/<platform>/variants/` (chosen-variant input, #238; pure profiles/, §15.1 — v1.7). Media in `profiles/<platform>/assets/` + `assets/manifest.json` (M8/§18.6 — see `docs/media-pipeline.md`) | ✅ |
+| `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (the eight registered in the generated renderer map) write `profiles/<platform>/README.md` + bundled media; renderer-less manual surfaces with a bio row write `profiles/<platform>.md` (#239). Empty render = no-trace unbuild of the generated output, preserving `profiles/<platform>/variants/` (chosen-variant input, #238; pure profiles/, §15.1 — v1.7). Media in `profiles/<platform>/assets/` + `assets/manifest.json` (M8/§18.6 — see [the media pipeline guide](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/media-pipeline.md)) | ✅ |
 | `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso>] [--json]` | The **local view** (#282): **one** self-contained HTML file of the surfaces `pasco build` writes — inline CSS, no `<script>`, no external asset, no HTTP server. Sections are the published surfaces (`#github-readme`, `#linkedin`, …) plus the ones this language does not publish, named with their reason; the check state is the same report `pasco check` prints, and the text is `build`'s own render decision tree. Default `<workspace>/.pasco/preview/index.html`, then opened in the browser; `--out <dir>` writes and opens **nothing** (the CI-artifact transport). A privacy gate refuses the write (exit 1) on an absolute machine path, a credential shape, an external asset, active content, or a source outside the workspace | ✅ v1 |
 | `pasco edit <contract-path> [--set <text> [--check]]` | Resolve **one** contract field by contract path; `--set` **writes it** (comment-preserving range splice, validated, atomic) and `--set --check` previews the **published lines the edit changes** (or says it changes nothing). Epic #247, S1–S5 landed | ✅ S1–S5 (read · preview · write · surface impact · cap pre-flight · machine contract) |
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
@@ -73,7 +73,7 @@ commands above are the standalone path.
 | `pasco cite-check [<answers.ndjson>] [--json]` | The **citation matcher** over saved answer-engine answers (#291): reads the runner's NDJSON (stdin when no path), matches the workspace's declared entity and emits, **per answer and never aggregated**, `{ cited, confidence, spans, reasons }`. Ladder: `citation-url` (a citation on the entity's own page or its `sameAs` set — host, and the declared path or a descendant) and `exact-name` → **high**; `alias` (`identity.orgName`) and `handle` → **medium**; `partial` (any contiguous multi-token prefix, ≥ 2 tokens) → **low**, and low is never citable downstream. Refuses to guess: a one-word name with no declared disambiguator (`cited: false`, the longer capitalised reading named as `competing`), or a contrast mention, is not a citation; a declared qualifier or an adjacent capital never disqualifies a hit by itself | ✅ v1 |
 | `pasco export ai-policy [--out <dir> \| --check] [--lang <l>]` | The M9 stance as an artifact (#290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed retrieval crawlers allowed, the listed training crawlers disallowed, each UA commented with its registry entry/operator/source/date; the file declares that a crawler it does not name is **not restricted**), `llms.txt` (the workspace index: name, definition, canonical identity, `faq[]`, `publications[]`, with a coverage assertion) and `AI-POLICY.md` (allowed · blocked · that same explicit-list limit · who can change it · the date, quoting the stance verbatim). `--check` exits 1 on an incomplete or unsourced entry, a duplicate token (case-insensitive), a malformed/future/`>180`-day `as_of`, or a `policy.as_of` that is stale or older than its newest row; `--out` refuses to write one. The UA list is projected from the platform registry — never hardcoded in the CLI | ✅ v1 |
 | `pasco export profile [--json] [--now <iso8601>]` | The **normalized profile** for programmatic consumers (#348): `{ schemaVersion, engine, source: { commit, generatedAt }, profile }` — `profile` is exactly what `core.load()` returns (**every root the workspace declares, plus every list root defaulted to `[]`**; an optional object root appears only when declared), never a platform slice (`compile()` makes that other object). `artifactRefs` ids resolve in `profile.artifacts[]`, `publications[].url` as declared, `deployments` included. No clock is read: `generatedAt` is `null` unless `--now` pins it, so two runs are byte-identical; `source.commit` is the workspace git HEAD (`null` outside a repo) | ✅ v1 |
-| `pasco post <seed\|task\|choose\|check\|export\|import\|list>` | Post experiment (#264/#265, long-form #266): a seed at `posts/<seed>/` → task bundle → chosen variant → check → Postiz draft payload (API channels) or paste checklist (Substack/Ghost). Two seed formats (`short`/`longform`); a short child derived from an essay records `derivedFrom`. The CLI never calls an LLM | 🚧 experiment (not in the v1 contract; `docs/post-mvp.md`) |
+| `pasco post <seed\|task\|choose\|check\|export\|import\|list>` | Post experiment (#264/#265, long-form #266): a seed at `posts/<seed>/` → task bundle → chosen variant → check → Postiz draft payload (API channels) or paste checklist (Substack/Ghost). Two seed formats (`short`/`longform`); a short child derived from an essay records `derivedFrom`. The CLI never calls an LLM | 🚧 experiment (not in the v1 contract; [the post experiment notes](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/post-mvp.md)) |
 | `pasco skills:export <dir> [--force] \| --list` | Copy the platform skills this package ships into a directory you name (`--list` shows them; no per-agent paths are invented — #254). A destination and `--list` are **separate invocations**: both together is usage (exit 2), never an ignored argument | ✅ |
 
 The partial commands are explicit, and each one says what still owns the rest:
@@ -83,7 +83,7 @@ The partial commands are explicit, and each one says what still owns the rest:
   `--choose` records the pick in `content/active.yaml`. The platform skill ships
   **inside this package**, so the template prints its real path on an npm install
   (and says `no skill for <platform>` vs `skills not shipped` distinctly —
-  #253). The full variant flow is M3 (`src/commands/refine.ts`).
+  #253). The full variant flow is M3.
 - **`check`** — executes the offline rules that exist today: the brand handle
   matrix (brand flavor only, D15/§17), the evidence-registry checks (M7/§18.8),
   the media-transport rules (M8/§18.6), the `max-chars` / `min-chars` rows
@@ -97,13 +97,12 @@ The partial commands are explicit, and each one says what still owns the rest:
   surface that disagrees with the SSOT is a fact problem, not a schema one. A
   targeted surface with no artifact reports the rule as **not run**, never as OK. The remaining
   per-platform rules in the catalog ship with the skills `checks.yaml` union (M3)
-  and the full `pasco check` (M4). It prints its `owner` line
-  (`src/commands/check.ts`).
+  and the full `pasco check` (M4).
 - **`skills:export`** — copies the platform skills this package ships into the
   directory the user names (`--list` first; an existing non-empty directory needs
   `--force`). It replaces the earlier projection stub: the CLI never invents a
   per-agent destination and never points at tooling the reader cannot open
-  (`src/commands/skills-export.ts`, #254).
+  (#254).
 - **`post`** — the post experiment (#264/#265, long-form #266): a CLI
   subcommand family over the `posts/` store; it never calls an LLM, emits the
   agent task, records the choice, checks limits/URLs/refs (plus title/dek and
@@ -112,7 +111,7 @@ The partial commands are explicit, and each one says what still owns the rest:
   short child derived from an essay records `derivedFrom: <essay-id>`. It reads
   the `skills/` bundled with the package (set `PASCO_SKILLS_DIR` only to point
   at a custom tree), and it is **not part of the v1 contract yet**
-  (`docs/post-mvp.md`).
+  ([the post experiment notes](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/post-mvp.md)).
 
 ### The audit (`pasco audit --json`, #283)
 
@@ -170,7 +169,7 @@ a usage error, and a schema/load failure is the standard error envelope at exit
 `content/deployments.yaml` (the ledger is not a fact source) — it works on a
 workspace that has neither a ledger nor a built artifact.
 
-What it composes (`docs/SPEC.md` §7.1): `load`/schema, `reconciledDrift` (drift
+What it composes ([SPEC §7.1](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md)): `load`/schema, `reconciledDrift` (drift
 plus the #238 variant-store reconciliation `validate` applies), `geoCheck` (its
 `faq-coverage` premise gates the claim rows; the codes themselves map to no class),
 the completeness `evidence` premise, and `fact-present`.
@@ -187,7 +186,7 @@ warns about) and `geoCheck`'s coverage codes.
 
 `audit` diagnoses; `entity` is the artifact for a surface this engine does not
 render (WordPress, Webflow, Next, a landing page). It exposes the **same** entity
-the renderers embed — `core/src/structured-data.ts` is the one assembler, so there
+the renderers embed — the engine's single assembler, so there
 is no CLI-local builder and no second truth (SPEC §7.2).
 
 ```sh
@@ -400,13 +399,13 @@ is frozen in SPEC §7.5.
 
 **A consumer that only needs to validate** does not need this package at all: the
 released schema is published as a tag-pinned URL + sha256 in
-[`schema/consumer-contract.json`](https://github.com/ChristianLuciani/profile-as-code/blob/main/schema/consumer-contract.json).
+[the consumer contract](https://github.com/ChristianLuciani/profile-as-code/blob/main/schema/consumer-contract.json).
 The manifest's `current` block is **not** a published artifact: schema v1.15 has
 no release tag yet (`published: false`, `artifact: null`), and the only released
 artifact is schema **v1.13 at tag v0.3.6**, which **rejects `publication.kind`**
 (`additionalProperties: false`) and has no `releases[]`. A consumer that needs
 either must use a v1.15 checkout (verify its sha256) until the next release. The reading guide is
-[docs/SCHEMA-CONTRACT.md](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SCHEMA-CONTRACT.md) —
+[the schema contract reading guide](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SCHEMA-CONTRACT.md) —
 including what structural validation does **not** cover (the cross-file
 invariants core re-checks, engine behavior, `.pascorc` and this payload's
 envelope).
@@ -616,9 +615,9 @@ finding in `warnings` (the SSOT write is valid even when `build` refuses).
 nobody edits a field the renderer ignores.
 
 Exit codes (one row per user-visible state; the CLI rows are pinned in
-`packages/cli/tests/edit.test.ts`, the write-path rows — stale, read-only,
+[the edit command tests](https://github.com/ChristianLuciani/profile-as-code/blob/main/packages/cli/tests/edit.test.ts), the write-path rows — stale, read-only,
 validation, lock contention — at the writer seam in
-`packages/cli/tests/edit-write.test.ts`):
+[the edit write tests](https://github.com/ChristianLuciani/profile-as-code/blob/main/packages/cli/tests/edit-write.test.ts)):
 
 | Code | When |
 |---|---|
@@ -666,8 +665,9 @@ It is **derived and never stored**: `--json` carries it as the additive
 `publication` array, `--completeness` folds it in as *coverage of publication*
 (the weighted percentage never moves because a surface drifted), and
 `--write-checklist` writes the coverage phrase into the generated `CHECKLIST.md`.
-The path is `src/publication.ts` (one home for artifact resolution and the three
-axes) and `src/limits.ts` (the cap executor `check` and `status` share).
+The resolution lives in [the publication module](https://github.com/ChristianLuciani/profile-as-code/blob/main/packages/cli/src/publication.ts)
+(one home for artifact resolution and the three axes), and the cap executor `check`
+and `status` share lives in [the limits module](https://github.com/ChristianLuciani/profile-as-code/blob/main/packages/cli/src/limits.ts).
 
 ## Usage
 
@@ -783,7 +783,6 @@ script, no nag on every command:
 - [Patreon](https://www.patreon.com/cluciani)
 - [GitHub Sponsors](https://github.com/sponsors/ChristianLuciani)
 
-A tip funds the engine (`packages/core`) and this CLI — the schema contract
-(`docs/SPEC.md`), the renderers and the platform skills. It buys **no** SLA, no
+A tip funds the engine and this CLI — the [schema contract](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md), the renderers and the platform skills. It buys **no** SLA, no
 priority handling, and no influence over the roadmap: a proposal is weighed on
 its merits, in public. The code stays MIT — it is yours whether you tip or not.
