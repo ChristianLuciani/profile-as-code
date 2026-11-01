@@ -1192,8 +1192,11 @@ describe("published-surface boundary (#253/#254)", () => {
     if (segments.length === 0 || isPlaceholder(first) || first === undefined) return false;
     // Reader-owned roots are allowed by name, not by absence from the repo.
     if (WORKSPACE_ROOTS.has(first)) return false;
-    // A repo reference is judged even when the path was renamed or deleted:
-    // "not in this checkout" must not turn a dead reference into a pass.
+    // A repository reference under a repo-only root, a source path, or a
+    // file-shaped schema path is judged even when renamed or deleted: "not in
+    // this checkout" must not turn a dead reference into a pass. A path
+    // relative to a package (e.g. `fixtures/…`) is only judged when this
+    // checkout still has it — prose shares that shape and cannot be classified.
     const repoReference =
       REPO_ONLY_ROOT.test(token) ||
       SOURCE_PATH.test(token) ||
@@ -1203,6 +1206,31 @@ describe("published-surface boundary (#253/#254)", () => {
     if (!repoReference && !CHECKOUT_ROOTS.some((base) => onDisk(base, segments))) return false;
     return !packaged(segments, layout);
   }
+
+  // Coverage sentinel: the walker derives its list from the help (so a new
+  // command is measured the day it ships), and this list keeps a format change
+  // from quietly hiding an existing command from the parser.
+  const EXPECTED_COMMANDS = [
+    "init",
+    "validate",
+    "doctor",
+    "build",
+    "preview",
+    "edit",
+    "diff",
+    "refine",
+    "check",
+    "audit",
+    "discover",
+    "entity",
+    "cite-check",
+    "post",
+    "status",
+    "presence",
+    "release",
+    "export",
+    "skills:export",
+  ];
 
   function advertisedCommands(): string[] {
     const help = run(["--help"]).stdout;
@@ -1227,7 +1255,7 @@ describe("published-surface boundary (#253/#254)", () => {
     const root = run(["--help"]);
     expect(root.code).toBe(0);
     const commands = advertisedCommands();
-    expect(commands.length).toBeGreaterThan(0);
+    expect(commands).toEqual(expect.arrayContaining(EXPECTED_COMMANDS));
     const helps = [
       { command: "pasco", output: root.stdout },
       ...commands.map((command) => {
