@@ -155,6 +155,11 @@ export interface GeoCheck {
   score: number;
   /** 0..1 — share of the total score this check contributes. */
   weight: number;
+  /** SPEC §8 (#399): a code that has nothing to measure in this workspace.
+   *  `applicable: false` is excluded from the weighted mean (and from its section's
+   *  score) instead of scoring a sentinel; absent = applicable. The declared
+   *  `weight` stays visible so a reader can see what the code would carry. */
+  applicable?: boolean;
   detail: string;
   /** v1.10 (#289), additive: the reporting tier. Absent = `warn` (the pre-v1.10
    *  checks are all warnings). `info` NEVER changes the pass/fail story — a
