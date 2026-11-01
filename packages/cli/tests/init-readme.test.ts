@@ -22,7 +22,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 
@@ -183,6 +183,48 @@ describe("scaffolded README references (#385)", () => {
   it("the brand template references only what the reader can open", () => {
     const { workspace, readme } = scaffold("brand");
     expect(unresolvedReferences(readme, workspace, commands)).toEqual([]);
+  });
+
+  // #386: the skills ship under the global package, outside the sandbox a
+  // coding agent runs in. The scaffold must name the bridge, with a destination
+  // inside the workspace, so the reader can copy and open them.
+  function expectSkillsBridge(readme: string, workspace: string): void {
+    const destinations = [...readme.matchAll(/`pasco skills:export ([^`\s]+)`/g)].map(
+      (match) => match[1] as string,
+    );
+    expect(
+      destinations.length,
+      "the scaffolded README must announce `pasco skills:export <dir>`",
+    ).toBeGreaterThan(0);
+    for (const destination of destinations) {
+      expect(destination).not.toContain("<");
+      const inside = relative(workspace, resolve(workspace, destination));
+      const escapes = inside === ".." || inside.startsWith(`..${sep}`) || isAbsolute(inside);
+      expect(
+        inside !== "" && !escapes,
+        `destination must stay inside the workspace: ${destination}`,
+      ).toBe(true);
+    }
+  }
+
+  it("the person template announces the skills:export bridge", () => {
+    const { workspace, readme } = scaffold();
+    expectSkillsBridge(readme, workspace);
+  });
+
+  it("the brand template announces the skills:export bridge", () => {
+    const { workspace, readme } = scaffold("brand");
+    expectSkillsBridge(readme, workspace);
+  });
+
+  it("the bridge check accepts an in-workspace destination and catches escapes", () => {
+    const workspace = tempDir();
+    expect(() => expectSkillsBridge("`pasco skills:export out`", workspace)).not.toThrow();
+    expect(() => expectSkillsBridge("`pasco skills:export ..foo`", workspace)).not.toThrow();
+    expect(() => expectSkillsBridge("no bridge here", workspace)).toThrow();
+    expect(() => expectSkillsBridge("`pasco skills:export <dir>`", workspace)).toThrow();
+    expect(() => expectSkillsBridge("`pasco skills:export ../out`", workspace)).toThrow();
+    expect(() => expectSkillsBridge("`pasco skills:export ./../out`", workspace)).toThrow();
   });
 
   it("the walker catches a workspace path that does not exist", () => {
