@@ -535,9 +535,9 @@ With one release over `github-repo-meta`, `github-readme`, `linkedin` and `hacke
 shows four `never` rows; the plan orders `repo-meta → profile → distribution`. The valid units
 `headlines:github-readme:en`, `experience:exp-demo` and `projects:proj-demo` are reported as
 "is not an SSOT unit — fix the release row" **because they have no deploy record on that
-surface** — the defect tracked in
-[#408](https://github.com/ChristianLuciani/profile-as-code/issues/408): a missing record is
-`never`, not an invalid row.
+surface**. That is the 0.3.7 reading: a missing record is `never`, not an invalid row.
+[#408](https://github.com/ChristianLuciani/profile-as-code/issues/408) was fixed by #413 after this
+run — `main` now names the pending fan-out, and the released binary still prints the old wording.
 
 ### M18 — `discover`: a public surface, nothing written
 
