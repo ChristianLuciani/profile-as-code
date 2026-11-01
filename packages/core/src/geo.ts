@@ -292,6 +292,31 @@ function nameCollisionObservation(profile: Profile): NameCollisionObservation {
   return { kind: "unqualified" };
 }
 
+/**
+ * Build one GEO section from its checks (SPEC §8, #399). Exported for the
+ * all-N/A unit test: a section whose every code is N/A has no mean, so
+ * `applicable: false` + `score: 0` (a placeholder) is the only honest reading.
+ * No shipped section is all-N/A today; the state is still expressible and
+ * tested so a future one cannot silently read 0/100.
+ */
+export function geoSection(label: string, detail: string, subset: GeoCheck[]): GeoSection {
+  const applicable = subset.filter((check) => check.applicable !== false);
+  const weight = applicable.reduce((sum, check) => sum + check.weight, 0);
+  const score =
+    weight === 0
+      ? 0
+      : Math.round(
+          (applicable.reduce((sum, check) => sum + check.score * check.weight, 0) / weight) * 100,
+        );
+  return {
+    label,
+    detail,
+    checks: subset,
+    score,
+    ...(weight === 0 ? { applicable: false } : {}),
+  };
+}
+
 export function geoCheck(profile: Profile, lang: Lang = "en"): GeoReport {
   const identity = profile.identity;
   const conflicts = driftCheck(profile).filter((issue) => CONFLICT_CODES.has(issue.code));
@@ -635,23 +660,8 @@ export function geoCheck(profile: Profile, lang: Lang = "en"): GeoReport {
     (scored.reduce((sum, check) => sum + check.score * check.weight, 0) / totalWeight) * 100,
   );
 
-  const section = (label: string, detail: string, subset: GeoCheck[]): GeoSection => {
-    const applicable = subset.filter((check) => check.applicable !== false);
-    const weight = applicable.reduce((sum, check) => sum + check.weight, 0);
-    // An all-N/A section has no mean; 0 is the safe placeholder, not a score
-    // (GeoSection carries no `applicable`). No section is all-N/A today — the
-    // guard keeps the division total if one ever is.
-    const sectionScore =
-      weight === 0
-        ? 0
-        : Math.round(
-            (applicable.reduce((sum, check) => sum + check.score * check.weight, 0) / weight) * 100,
-          );
-    return { label, detail, checks: subset, score: sectionScore };
-  };
-
   const sections: GeoReport["sections"] = {
-    factConsistency: section(
+    factConsistency: geoSection(
       "Fact consistency",
       "An LLM triangulating platforms must find the same dates/roles/papers.",
       checks.filter(
@@ -659,7 +669,7 @@ export function geoCheck(profile: Profile, lang: Lang = "en"): GeoReport {
       ),
     ),
     structuredData: {
-      ...section(
+      ...geoSection(
         "Structured-data readiness",
         // Mirrors `ready = Boolean(name)` exactly (structured-data.ts). The old string still
         // claimed "need name + ≥1 sameAs link" — the predicate it no longer uses, i.e. the
@@ -685,14 +695,14 @@ export function geoCheck(profile: Profile, lang: Lang = "en"): GeoReport {
       readiness: sd,
     },
     semanticAssociations: {
-      ...section(
+      ...geoSection(
         "Semantic associations",
         "The 3–5 anchors an LLM should associate with the person, reinforced across surfaces.",
         checks.filter((c) => c.code === "geo/semantic-anchors"),
       ),
       anchors,
     },
-    citability: section(
+    citability: geoSection(
       "Citability",
       // The v1.10 framing (#289): citability is a DIFFERENT property from
       // consistency, and it is the one a buyer pays for — resolvable claims,

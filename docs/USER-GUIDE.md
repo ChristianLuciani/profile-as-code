@@ -460,8 +460,9 @@ Two kinds of results (D12):
   platforms or GEO gaps. These do not block you, but fix them: contradictions
   are exactly what gets a profile discounted by LLMs reading it.
 
-`pasco validate` also prints a GEO **overall score** (0–100) and one line per
-code. It is a readiness reading, not a gate. A code with nothing to measure is
+`pasco validate` also prints a GEO **overall score** (0–100), one line per
+section, and one line per code that has something to report (score `0` or
+`n/a`). It is a readiness reading, not a gate. A code with nothing to measure is
 **`n/a`** and carries no weight in the average — for example, `geo/evidence-claims`
 is N/A until some project declares `evidence[]`, so adding a project without
 evidence does not lower the score (evidence coverage is `pasco status

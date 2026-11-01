@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { GeoReport, Profile } from "../src/index.js";
+import { geoSection } from "../src/geo.js";
+import type { GeoCheck, GeoReport, Profile } from "../src/index.js";
 import { geoCheck, load } from "../src/index.js";
 
 const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
@@ -205,6 +206,35 @@ describe("geoCheck(profile)", () => {
     const after = geoCheck(withProject);
     expect(after.score).toBe(before.score);
     expect(after.checks.find((c) => c.code === "geo/evidence-claims")?.applicable).toBe(false);
+  });
+
+  it("marks a section whose every code is N/A as applicable:false, not 0/100 (#399)", () => {
+    // The state is unreachable through a real profile today (every section keeps
+    // at least one scored code), so the exported builder is exercised directly:
+    // a section with no applicable code must not read as a zero score.
+    const check = (code: string, score: number, weight: number): GeoCheck => ({
+      code,
+      label: code,
+      score,
+      weight,
+      detail: "",
+    });
+    const allNa = geoSection("S", "d", [
+      { ...check("a", 1, 0.1), applicable: false },
+      { ...check("b", 1, 0.2), applicable: false },
+    ]);
+    expect(allNa.applicable).toBe(false);
+    expect(allNa.score).toBe(0);
+    // An unrelated consumer that only reads `score` still cannot mistake it for
+    // a measured zero: the token is what tells them apart.
+    expect(allNa.checks).toHaveLength(2);
+
+    const mixed = geoSection("S", "d", [
+      { ...check("a", 1, 0.1), applicable: false },
+      check("b", 0.5, 0.3),
+    ]);
+    expect(mixed.applicable).toBeUndefined(); // absent = applicable
+    expect(mixed.score).toBe(50);
   });
 
   it("empty location counts as absent in the entity-fields check (empty=absent sweep, issue #86)", () => {
