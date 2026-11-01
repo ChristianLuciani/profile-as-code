@@ -372,6 +372,40 @@ future reader does not have to rediscover them:
 | adding a project without evidence lowers the GEO score | [#399](https://github.com/ChristianLuciani/profile-as-code/issues/399) |
 | `--verify` announces "verified" and downgrades `attested` without warning | [#400](https://github.com/ChristianLuciani/profile-as-code/issues/400) |
 
+## Command coverage
+
+The inventory below is `pasco --help` at CLI **0.3.7** (2026-10-31). *Exercised* means the command
+was run in this tutorial and its output is quoted above — not that it was read in the guide.
+
+| Command | Exercised here | Where / why not |
+|---|---|---|
+| `init` | ✅ person flavor + the refusal path | step 2 |
+| `validate` | ✅ text + `--json` | steps 4, 9 |
+| `doctor` | ✅ | step 4 |
+| `build` | ✅ one platform, default lang | steps 5, 10 |
+| `preview` | ✅ `--no-open` | step 6 |
+| `diff` | ✅ before git · before the first tag · after a tag | steps 8, 10 |
+| `check` | ✅ | step 7 |
+| `audit` | ✅ | step 7 |
+| `entity` | ✅ `--jsonld` | step 7 |
+| `status` | ✅ report · `--json` · `--mark` · `--verify` · `--write-checklist` · `--completeness` | steps 7, 11 |
+| `edit` | ❌ | writes one contract row; needs a value you mean to publish |
+| `refine` | ❌ | PARTIAL (M3): emits an agent task template |
+| `discover` | ❌ | reads a public surface over the network and writes nothing |
+| `cite-check` | ❌ | needs saved answer-engine answers (NDJSON) |
+| `post` | ❌ | MVP subcommands: seed · task · choose · check · export · import · list |
+| `presence` | ❌ | the D23 presence board |
+| `release plan` | ❌ | ordered fan-out for one release |
+| `export profile` | ❌ | normalized profile for programmatic consumers |
+| `export ai-policy` | ❌ | writes robots.txt / llms.txt / AI-POLICY.md |
+| `skills:export` | ❌ | copies the shipped skills to a harness |
+| `build --lang` · all platforms | ❌ | only the default `en` slice and one renderer were built |
+| `--workspace <path>` | ❌ | every run resolved the workspace from `.pascorc`/cwd |
+| `init --flavor brand` | ❌ | brand flavor is out of scope here |
+
+Not exercised is not a judgement of the command — it is what a first run of Route 1 touches.
+Per-command `--help` is the next place to look.
+
 ## Where to go next
 
 - **A real publish:** [§7 Deploy by PR](USER-GUIDE.md#deploy-by-pr) — clone `<you>/<you>`, branch,
