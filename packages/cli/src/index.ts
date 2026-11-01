@@ -794,6 +794,10 @@ async function runMain(): Promise<number> {
       // #411: `--list [<block>]` is a read-only discovery mode, never a second
       // invocation form — a write, a preview or an address next to it is usage
       // (the `skills:export --list` precedent), never a silently ignored flag.
+      // Usage is decided BEFORE the workspace/config is read: an unreadable
+      // .pascorc must not turn a usage error into exit 1 (review round 3 F1,
+      // extended to the <block> positional in round 4 F2).
+      let listBlock: EditListBlock | undefined;
       if (flags.list === true) {
         if (flags.set !== undefined || flags.check === true) {
           throw new UsageError("--list is read-only: it cannot be combined with --set or --check");
@@ -801,16 +805,6 @@ async function runMain(): Promise<number> {
         if (positionals.length > 1) {
           throw new UsageError("pasco edit --list [<block>]");
         }
-      } else if (positionals.length !== 1) {
-        // Usage is decided BEFORE the workspace/config is read (restored from
-        // main: an unreadable .pascorc must not turn a usage error into exit 1).
-        throw new UsageError("pasco edit <contract-path> [--set <text> [--check]]");
-      }
-      setJsonMode(flags.json === true);
-      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
-      const pascorc = readWorkspacePascorc(workspace);
-      if (flags.list === true) {
-        let listBlock: EditListBlock | undefined;
         if (positionals.length === 1) {
           const value = positionals[0] as string;
           try {
@@ -828,6 +822,13 @@ async function runMain(): Promise<number> {
             );
           }
         }
+      } else if (positionals.length !== 1) {
+        throw new UsageError("pasco edit <contract-path> [--set <text> [--check]]");
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      const pascorc = readWorkspacePascorc(workspace);
+      if (flags.list === true) {
         return runEdit({
           workspace,
           list: true,

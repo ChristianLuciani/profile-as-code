@@ -27,6 +27,7 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import type {
+  BioLength,
   Lang,
   LoadedProfile,
   MediaAsset,
@@ -166,6 +167,32 @@ function owningFile(workspace: string, root: string): string | undefined {
   return match === undefined ? undefined : `content/${match}`;
 }
 
+/** The rows an address selects — THE addressability rule. Resolution and
+ *  `--list` both call these, so the list cannot drift into a second match
+ *  predicate (#411 review round 4, F3). */
+function headlineHits(profile: LoadedProfile, platform: Platform, lang: Lang) {
+  return profile.headlines
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => row.platform === platform && row.lang === lang);
+}
+
+function bioHits(profile: LoadedProfile, platform: Platform, lang: Lang, length: BioLength) {
+  return profile.bios
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => row.platform === platform && row.lang === lang && row.length === length);
+}
+
+type LinkRow = NonNullable<LoadedProfile["identity"]["links"]>[number];
+
+function linkHits(links: LinkRow[], platform: string, label?: string) {
+  return (links ?? [])
+    .map((row, index) => ({ row, index }))
+    .filter(
+      ({ row }) =>
+        row.platform === platform && (label === undefined || (row.label ?? "") === label),
+    );
+}
+
 /**
  * Resolve a contract path against the loaded profile.
  *
@@ -207,9 +234,7 @@ export function resolveEditTarget(
   }
 
   if (address.kind === "headline") {
-    const hits = profile.headlines
-      .map((row, index) => ({ row, index }))
-      .filter(({ row }) => row.platform === address.platform && row.lang === address.lang);
+    const hits = headlineHits(profile, address.platform, address.lang);
     const file = owningFile(workspace, "headlines");
     return {
       address,
@@ -235,14 +260,7 @@ export function resolveEditTarget(
   }
 
   if (address.kind === "bio") {
-    const hits = profile.bios
-      .map((row, index) => ({ row, index }))
-      .filter(
-        ({ row }) =>
-          row.platform === address.platform &&
-          row.lang === address.lang &&
-          row.length === address.length,
-      );
+    const hits = bioHits(profile, address.platform, address.lang, address.length);
     const file = owningFile(workspace, "bios");
     return {
       address,
@@ -268,13 +286,7 @@ export function resolveEditTarget(
   }
 
   const links = profile.identity.links ?? [];
-  const hits = links
-    .map((row, index) => ({ row, index }))
-    .filter(
-      ({ row }) =>
-        row.platform === address.platform &&
-        (address.label === undefined || (row.label ?? "") === address.label),
-    );
+  const hits = linkHits(links, address.platform, address.label);
   return {
     address,
     // Read-only address: no write handle is emitted (S2 must not grow a second
@@ -417,11 +429,7 @@ export function listEditAddresses(
       // (the address `edit` accepts and a 0-row read advertises).
       const label =
         row.label !== undefined && selectorExpressible(row.label) ? row.label : undefined;
-      const matches = links.filter(
-        (candidate) =>
-          candidate.platform === row.platform &&
-          (label === undefined || (candidate.label ?? "") === label),
-      ).length;
+      const matches = linkHits(links, row.platform, label).length;
       add(linkAddress(row.platform, label), "link", matches, true);
       if (row.label !== undefined && label === undefined && matches === 1) {
         warnOnce(

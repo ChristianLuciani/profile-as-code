@@ -995,6 +995,8 @@ describe("edit --list — read-only discovery (#411)", () => {
     // not turn a usage error into exit 1 (review round 3, F1).
     expect(edit(dir, "a", "b").code).toBe(2);
     expect(edit(dir, "--list", "--set", "x").code).toBe(2);
+    expect(edit(dir, "--list", "nope").code).toBe(2);
+    // A valid --list still needs the workspace to load: that is a real read.
     expect(edit(dir, "--list").code).toBe(1);
   });
 
