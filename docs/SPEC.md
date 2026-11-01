@@ -1336,6 +1336,21 @@ not a bad profile.
 | `geo/sameas-coverage` | a `claimed` handle resolving to a URL that is NOT in the emitted `sameAs` set (e.g. its URL is the `@id`, excluded by the assembler), or fewer than 3 `role: realization` links | WARN | 0.04 |
 | `geo/name-collision` | a one-word entity name whose `definition` carries no disambiguating qualifier (`location` or an `experience[].role` title — matched case-insensitively, like the name containment above) — homonyms cannot be detected offline: the code reports the risk it can observe, marks the unobservable as `[?]`, and never claims a collision it did not see | INFO | 0.01 |
 
+**`geo/evidence-claims` is N/A, not a sentinel (#399).** The pre-v1.10 check
+`geo/evidence-claims` (weight 0.08) has nothing to measure while **no project
+declares any `evidence[]`**: it is reported `applicable: false` and EXCLUDED from
+the weighted mean (and from its section score), rather than scored `1`. A sentinel
+of 1 is not neutral inside a weighted mean, and scoring `0/1` made *adding* the
+first project lower the overall — a workspace that has not opted into evidence
+must not lose points for adding a fact. Evidence is **opt-in**: once at least one
+project declares an evidence row, the code scores the ratio of projects carrying
+evidence again. The **coverage** question — how much of the profile carries
+sources — is §20's completeness `evidence` item, so absence is not subtracted
+twice and §20 is the declared home of that signal. The machine reading is
+additive: `checks[].applicable` is `false` only for a code with nothing to
+measure, the declared `weight` stays visible, and every other code keeps its
+weight in the mean.
+
 **cite-check's fold is its own (#291).** `core/src/normalize.ts` is the case- and
 accent-folding used by `pasco cite-check` (§7.4), which matches the declared
 vocabularies offline. `geoCheck` keeps its own case-only comparisons **by
@@ -2423,6 +2438,12 @@ so a future langMap still cannot escape the walk unnoticed.
 | `geoAnchors` | 0.15 | `positioning.geo.semanticAssociations` reinforced in `keywords`/skills/projects; the score is the reinforced **share squared** — an association anchored in only some surfaces is worth less than proportionally, since the point is convergence on the same 3–5 anchors |
 | `evidence` | 0.15 | `projects[].evidence[]` claims carrying a `source` + registry entries (`evidenceItem`); no projects and an empty registry score 0 |
 | `deployment` | 0.25 | share of trackable units with a ledger record (`ledger`, §19) — **coverage only**; freshness (`stale`) is §19's report, not this item's |
+
+**`evidence` is the home of the evidence-coverage reading (#399).** §8's
+`geo/evidence-claims` is N/A while no project declares evidence; this item keeps
+the signal — sourced projects plus the registry — because here the question is
+"how complete is the profile", not GEO citability. Moving the reading does not
+duplicate it: the item is scored once, in this denominator.
 
 Weights are configuration, not constants: `.pascorc` `"completeness": { target, langs,
 items: [{ id, weight }] }` overrides them per workspace and weight 0 removes an item

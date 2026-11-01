@@ -317,8 +317,16 @@ describe("geoCheck is untouched by this PR (review F2)", () => {
     // Pinned against `main@e8be568`: if a later change wants accent-insensitive
     // geoCheck, it is a separate contract change with its own SPEC entry — this
     // PR must not move a published GEO score.
-    expect(report.score).toBe(59);
-    expect(report.sections.citability.score).toBe(41);
+    //
+    // #399 did move it, with its own SPEC §8 entry: a workspace with no declared
+    // evidence[] no longer receives the excluded `geo/evidence-claims` sentinel,
+    // so the overall renormalizes over the applicable codes (59 → 56). The
+    // reading this test guards — the fold is not accent-insensitive — is the
+    // canonical-definition assertion below, unchanged.
+    expect(report.score).toBe(56);
+    // Citability renormalizes over its applicable codes too: the excluded
+    // evidence sentinel was lifting this section (41 → 21).
+    expect(report.sections.citability.score).toBe(21);
     const canonical = report.checks.find((check) => check.code === "geo/canonical-definition");
     expect(canonical?.score).toBe(0);
     expect(canonical?.detail).toContain("does not contain the entity name");

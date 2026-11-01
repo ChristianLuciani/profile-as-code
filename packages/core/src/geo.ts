@@ -28,6 +28,13 @@
  * absence (the citability property IS the product a buyer pays for: no canonical
  * definition is a gap, not neutral silence). Both readings are declared per code
  * in §8 with their weights — a code never reweights silently.
+ *
+ * One code is NOT APPLICABLE instead of neutral (#399, §8): `geo/evidence-claims`
+ * is excluded from the weighted mean while no project declares any `evidence[]`.
+ * A sentinel score of 1 was not neutral in a weighted mean, and scoring a ratio of
+ * 0/1 made adding a project without evidence LOWER the overall. The coverage
+ * question ("how much of the profile carries sources") is §20's `evidence` item;
+ * once at least one evidence row is declared, this code scores the ratio again.
  */
 
 import { driftCheck } from "./drift.js";
@@ -308,6 +315,9 @@ export function geoCheck(profile: Profile, lang: Lang = "en"): GeoReport {
   const citablePublications = publications.filter((p) => p.doi || p.orcidId).length;
   const projects = profile.projects ?? [];
   const projectsWithEvidence = projects.filter((p) => (p.evidence ?? []).length > 0).length;
+  // §8/#399: evidence is OPT-IN. Until at least one project declares a row, the
+  // code has nothing to measure and is N/A (excluded), never a sentinel 1.
+  const hasAnyEvidence = projectsWithEvidence > 0;
   const evidenceWithVerified = projects
     .flatMap((p) => p.evidence ?? [])
     .filter((e) => Boolean(e.verified)).length;
@@ -450,11 +460,14 @@ export function geoCheck(profile: Profile, lang: Lang = "en"): GeoReport {
       code: "geo/evidence-claims",
       label: "Projects carry verifiable evidence[]",
       weight: 0.08,
-      score: projects.length === 0 ? 1 : projectsWithEvidence / projects.length,
-      detail:
-        projects.length === 0
-          ? "no projects"
-          : `${projectsWithEvidence}/${projects.length} projects with evidence; ${evidenceWithVerified}/${totalEvidence} evidence claims have a verified date`,
+      // §8/#399 (option C): N/A while no project declares evidence. The declared
+      // coverage signal lives in §20's completeness `evidence` item, so absence is
+      // not subtracted twice. Once evidence is declared, the ratio is scored.
+      applicable: hasAnyEvidence,
+      score: hasAnyEvidence ? projectsWithEvidence / projects.length : 1,
+      detail: !hasAnyEvidence
+        ? "not applicable — no project declares evidence[]; evidence coverage is scored by profile completeness (SPEC §20)"
+        : `${projectsWithEvidence}/${projects.length} projects with evidence; ${evidenceWithVerified}/${totalEvidence} evidence claims have a verified date`,
     },
     // ── Citability v2 (v1.10, issue #289) — the five codes §8's table declares.
     // The weights below take the 0.20 freed by the ×0.8 dilution of the nine
@@ -612,16 +625,26 @@ export function geoCheck(profile: Profile, lang: Lang = "en"): GeoReport {
     },
   ];
 
-  const totalWeight = checks.reduce((sum, check) => sum + check.weight, 0);
+  // §8/#399: an N/A code carries NO weight — it is excluded from the mean, not
+  // scored as a sentinel. The check stays in `checks` (and its section) with
+  // `applicable: false` so the reading is visible, never silently dropped.
+  const scored = checks.filter((check) => check.applicable !== false);
+  const totalWeight = scored.reduce((sum, check) => sum + check.weight, 0);
   const score = Math.round(
-    (checks.reduce((sum, check) => sum + check.score * check.weight, 0) / totalWeight) * 100,
+    (scored.reduce((sum, check) => sum + check.score * check.weight, 0) / totalWeight) * 100,
   );
 
   const section = (label: string, detail: string, subset: GeoCheck[]): GeoSection => {
-    const weight = subset.reduce((sum, check) => sum + check.weight, 0);
-    const sectionScore = Math.round(
-      (subset.reduce((sum, check) => sum + check.score * check.weight, 0) / weight) * 100,
-    );
+    const applicable = subset.filter((check) => check.applicable !== false);
+    const weight = applicable.reduce((sum, check) => sum + check.weight, 0);
+    // A section can be entirely N/A (no code to measure): then its own score is
+    // not a number. Report 0 — the section is not part of the overall mean.
+    const sectionScore =
+      weight === 0
+        ? 0
+        : Math.round(
+            (applicable.reduce((sum, check) => sum + check.score * check.weight, 0) / weight) * 100,
+          );
     return { label, detail, checks: subset, score: sectionScore };
   };
 
