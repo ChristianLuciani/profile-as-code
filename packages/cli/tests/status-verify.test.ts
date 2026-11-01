@@ -139,6 +139,26 @@ async function verifyJson(
   return { code, data: (JSON.parse(out) as JsonEnvelope).data };
 }
 
+/** Capture the human report `line()/section()` writes to stdout. */
+async function verifyText(
+  args: Parameters<typeof runStatus>[0],
+): Promise<{ code: number; out: string }> {
+  const original = process.stdout.write.bind(process.stdout);
+  let out = "";
+  process.stdout.write = ((chunk: string) => {
+    out += chunk;
+    return true;
+  }) as typeof process.stdout.write;
+  setJsonMode(false);
+  let code: number;
+  try {
+    code = await runStatus(args);
+  } finally {
+    process.stdout.write = original;
+  }
+  return { code, out };
+}
+
 const ledgerOf = (ws: string): string =>
   readFileSync(join(ws, "content", "deployments.yaml"), "utf8");
 
@@ -236,6 +256,24 @@ describe("§19.5 pasco status --verify — the fetch ladder (no network: fetch i
       data.units.find((u) => u.key === "identity")?.certification?.surfaces["github-readme"],
     ).toMatchObject({ state: "unverifiable", reason: "http-403" });
     expect(ledgerOf(ws)).toContain("reason: http-403");
+  });
+
+  it("human header states what happened, not an outcome (#400)", async () => {
+    // The repro: the only record comes back `unverifiable: http-404`, while the
+    // header said "verified". The verdict belongs to the per-record line.
+    const ws = workspace();
+    const { fetch } = scriptedFetch({ [FETCH_URL]: { status: 404 } });
+
+    const { code, out } = await verifyText({
+      workspace: ws,
+      verify: true,
+      deps: deps({ "github-readme": capability() }, fetch),
+    });
+
+    expect(code).toBe(0);
+    expect(out).toContain("checked 1 record(s)");
+    expect(out).not.toContain("verified —");
+    expect(out).toContain("unverifiable: http-404");
   });
 
   it("429 → unverifiable: http-429 (one request, no retry, no backoff)", async () => {

@@ -318,6 +318,23 @@ describe("pasco build (compile slices)", () => {
     );
   });
 
+  it("says 0 base texts without claiming no artifact (#396)", () => {
+    // The repro: an identity-only workspace. The message used to read
+    // "(no texts for this platform+lang)" while the renderer wrote the artifact.
+    const ws = tempDir();
+    mkdirSync(join(ws, "content"), { recursive: true });
+    writeFileSync(join(ws, "content", "identity.yaml"), "name: Elena Vasquez\n");
+    const r = run(["build", "github-readme", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("[github-readme]");
+    expect(r.stdout).not.toContain("(no texts for this platform+lang)");
+    expect(r.stdout).toContain("0 base texts");
+    expect(r.stdout).toContain("the artifact is still written");
+    expect(r.stdout).toContain("deploy artifacts written");
+    const artifact = readFileSync(join(ws, "profiles", "github-readme", "README.md"), "utf8");
+    expect(artifact).toContain("Profile completeness:");
+  });
+
   it("filters by lang", () => {
     // Build into a COPY: building inside `fixtures/minimal` dirtied the tracked
     // fixture directory (review #256, N3 — `profiles/linkedin.md` appeared as an
