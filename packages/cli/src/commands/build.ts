@@ -290,8 +290,17 @@ export function runBuild(args: BuildArgs): number {
       );
     for (const b of s.bios) line(`  bio (${b.length}): ${b.text}`);
     for (const h of s.headlines) line(`  headline: ${h.text}`);
-    if (s.bios.length === 0 && s.headlines.length === 0)
-      line("  (no texts for this platform+lang)");
+    if (s.bios.length === 0 && s.headlines.length === 0) {
+      // #396: "no texts" was read as "nothing was produced". A renderer builds
+      // its artifact from the declared FACTS, so zero bios/headlines and a
+      // written artifact are not in conflict — name the two things apart.
+      const wroteArtifact = written.some((w) => w.platform === s.platform);
+      line(
+        wroteArtifact
+          ? "  (0 base texts — bios/headlines — for this platform+lang; the artifact is still written from the declared facts)"
+          : "  (0 base texts — bios/headlines — and no artifact for this platform+lang)",
+      );
+    }
     if (s.fallbacks.length > 0) line(`  (${s.fallbacks.length} text(s) fell back to en)`);
   }
   if (written.length > 0) {

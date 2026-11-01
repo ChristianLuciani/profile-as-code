@@ -258,8 +258,11 @@ function finishVerify(
     });
   }
 
+  // #400: the header states what HAPPENED, never an outcome. "verified" over a
+  // body that reads `unverifiable: http-404` told a skimming reader the opposite
+  // of the per-record line; the verdict belongs to the record, not the section.
   section(
-    `verified — ${requests} fetch(es) for ${verdicts.length} record(s)${args.platformArg !== undefined ? ` (surface: ${args.platformArg})` : ""}`,
+    `checked ${verdicts.length} record(s) — ${requests} fetch(es)${args.platformArg !== undefined ? ` (surface: ${args.platformArg})` : ""}`,
   );
   for (const { key, verdict } of verdicts) {
     line(`  ${key} → ${verdict.surface}: ${certToken(verdict.certification)}`);
