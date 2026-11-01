@@ -356,8 +356,7 @@ carries and the other does not, a URL the surface adds, prose no token
 explains), else WARN (D12). A declared surface with no artifact reports the
 rule as not run, never OK; declared: [] says no catalog declares the premise.
 Remaining rows in content/checks.yaml ship with the skills checks.yaml union
-(M3) and the full pasco check (M4). Prints its owner line
-(src/commands/check.ts).`,
+(M3) and the full pasco check (M4).`,
   audit: `pasco audit [--json] [--workspace <path>]
 The offline diagnostic projection over the identity (SPEC §7.1, issue #283):
 findings only — no score, no prioritisation, no branding (those belong to the
@@ -394,8 +393,8 @@ the schema.org entity the renderers embed, exposed as an artifact.
              is null when no link declares role: identity — the engine never invents
              an @id. gaps are the structured-data geoCheck codes that scored below 1,
              verbatim. faqJsonLd is the FAQPage node when faq[] is declared, else null.
-  --jsonld   the SAME assembler output the renderers embed (core/src/structured-data.ts,
-             one home — never a second emitter), serialized as paste-ready
+  --jsonld   the SAME assembler output the renderers embed (the engine's single
+             assembler, one home — never a second emitter), serialized as paste-ready
              <script type="application/ld+json"> block(s): the entity block, plus the
              FAQPage block when faq[] is declared (never an empty FAQPage, no invented
              @id; faq[].source travels as acceptedAnswer.citation).
