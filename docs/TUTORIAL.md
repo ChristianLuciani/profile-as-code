@@ -650,16 +650,16 @@ cwd. An invalid path exits `1` and names the missing `content/` directory.
 | Friction (repro in the section) | Tracking |
 |---|---|
 | `edit` has no discovery surface: the address is learned from help, a usage error or a 0-row read | [#411](https://github.com/ChristianLuciani/profile-as-code/issues/411) (open; the box in M12 is the stopgap) |
-| `refine` renders a langMap role as `[object Object]` (M21) | reported in this PR; issue candidate |
-| `refine` hardcodes `gh-en-*` examples for every platform (M21) | reported in this PR; issue candidate |
-| `usage: usage: …` on `skills:export` and `refine`; `export ai-policy: refusing…` drops the `pasco` prefix (M14, M16, M21) | reported in this PR; issue candidate |
-| the brand scaffold's `platform: website` is not a valid slug (M22) | reported in this PR; issue candidate |
-| `discover` needs `Person`/`Organization` JSON-LD; a GitHub profile and the project site fail (M18) | documented here; issue candidate |
-| `discover` reports page chrome as `unsourced-claim`: 40 WARN, 0 profile claims on dev.to (M18) | reported in this PR; issue candidate |
-| `build --lang` overwrites the same `profiles/` paths; the last build wins (M15) | documented here; docs gap |
-| `release plan --json` has no `order`; the human column is positional (M17) | reported in this PR; nit |
-| `post` short supports only `linkedin`/`x`, and the help does not list it (M20) | documented here; docs/help gap |
-| `post import` asserts `sync: published` with `url: null` (M20) | documented here; no issue |
+| `refine` renders a langMap role as `[object Object]` (M21) | [#415](https://github.com/ChristianLuciani/profile-as-code/issues/415) |
+| `refine` hardcodes `gh-en-*` examples for every platform (M21) | [#415](https://github.com/ChristianLuciani/profile-as-code/issues/415) |
+| `usage: usage: …` on `skills:export` and `refine`; `export ai-policy: refusing…` drops the `pasco` prefix (M14, M16, M21) | [#416](https://github.com/ChristianLuciani/profile-as-code/issues/416) |
+| the brand scaffold's `platform: website` is not a valid slug (M22) | [#417](https://github.com/ChristianLuciani/profile-as-code/issues/417) |
+| `discover` needs `Person`/`Organization` JSON-LD; a GitHub profile and the project site fail (M18) | [#418](https://github.com/ChristianLuciani/profile-as-code/issues/418) |
+| `discover` reports page chrome as `unsourced-claim`: 40 WARN, 0 profile claims on dev.to (M18) | [#419](https://github.com/ChristianLuciani/profile-as-code/issues/419) |
+| `build --lang` overwrites the same `profiles/` paths; the last build wins (M15) | [#420](https://github.com/ChristianLuciani/profile-as-code/issues/420) |
+| `release plan --json` has no `order`; the human column is positional (M17) | [#421](https://github.com/ChristianLuciani/profile-as-code/issues/421) |
+| `post` short supports only `linkedin`/`x`, and the help does not list it (M20) | [#422](https://github.com/ChristianLuciani/profile-as-code/issues/422) |
+| `post import` asserts `sync: published` with `url: null` (M20) | [#423](https://github.com/ChristianLuciani/profile-as-code/issues/423) |
 | the published `0.3.7` is 53 commits behind `main`: #395–#400 are fixed and closed but unreleased, so old wording (`(no texts…)`, the `geo/evidence-claims` detail) still appears | note, no issue |
 
 ## Command coverage
