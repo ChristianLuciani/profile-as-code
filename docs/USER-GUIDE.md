@@ -737,9 +737,10 @@ pasco edit 'positioning.statement.en'                     # read it back — did
 
 `--list [<block>]` is read-only discovery (#411): every addressable row, built by
 the same constructors resolution uses, scoped to `positioning`/`headlines`/`bios`/
-`identity.links`; link rows print `(read-only)`, a row the grammar cannot
-express is a warning, and so is any address that resolves to more than one row
-(a duplicate headline/bio, a label-less link sharing its platform) — the list
+`identity.links`; link rows print `(read-only)`. A label the grammar cannot
+express is dropped and the row is listed by its platform when that resolves to
+one row; an address that resolves to more than one row (a duplicate
+headline/bio, a label-less link sharing its platform) is a warning — the list
 only carries paths `edit` accepts. `--json` carries
 `{ addresses: [{ address, kind, readOnly }], warnings }`. `--list` with `--set`,
 `--check` or an address is usage (exit `2`).

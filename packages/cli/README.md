@@ -499,12 +499,13 @@ pasco edit --list headlines             # scope: positioning | headlines | bios 
 pasco edit --list --json                # { addresses: [{ address, kind, readOnly }], warnings }
 ```
 
-Link rows are marked `(read-only)`. A link row the grammar cannot express (a
-platform or label carrying `,`, `]`, `=` or `"`) is reported as a **warning**,
-never printed as an address that would not parse — and so is any address that
-resolves to **more than one row** (a duplicate headline/bio, a label-less link
-sharing its platform): the list advertises only paths that resolve to exactly
-one row, the bar `edit` enforces. `--list` never locates a CST
+Link rows are marked `(read-only)`. A link row whose platform cannot be
+expressed as a selector (empty, padded, or carrying `,`, `]`, `=`, `"` or a
+control character) is a **warning**; a **label** the grammar cannot express is
+dropped and the row is listed by its platform when that resolves to one row (the
+warning says so). Any address that resolves to **more than one row** (a duplicate
+headline/bio, a label-less link sharing its platform) is a warning too: the list
+advertises only paths that resolve to exactly one row, the bar `edit` enforces. `--list` never locates a CST
 node, never takes `content/.pasco-edit.lock` and writes nothing; an empty
 workspace prints the header alone (exit 0). Combining `--list` with `--set`,
 `--check` or an address is usage (exit 2), never a silently ignored argument.

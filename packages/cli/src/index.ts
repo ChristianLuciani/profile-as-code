@@ -94,6 +94,7 @@ Commands:
                                 Not a publication
   edit <contract-path>          [write] Resolve one contract field; --set writes it (comment-preserving,
           [--set <text> [--check]]  validated, atomic) and --set --check previews the published lines
+  edit --list [<block>]         [read]  Every addressable contract path of the workspace, one per line
   diff [--json]                 [read]  Changes since the last release tag (git-based → CHANGELOG hint)
   refine <platform> [--lang]    [write] PARTIAL: emit agent task template; --choose <id> records the
           [--variants N]        chosen variant in content/active.yaml (agent-driven, D11/D13;
@@ -311,11 +312,12 @@ Resolve ONE contract field (epic #247, S1–S5 — read · preview · write · s
 of this workspace, one per line, built by the same constructors resolution uses —
 no second grammar. <block> scopes it to positioning | headlines | bios |
 identity.links; an unknown block, --set, --check or an address next to it is
-usage (exit 2). A link row the grammar cannot express (a platform or label
-carrying a comma, a closing bracket, an equals sign or a double quote), and
-any address that resolves to more than one row (a duplicate headline/bio, a
-label-less link sharing its platform), are warnings — never printed as a path
-the command would reject.
+usage (exit 2). A link row whose platform cannot be expressed as a selector is a
+warning; a label the grammar cannot express is dropped and the row is listed by
+its platform when that resolves to one row (the warning says so). Any address
+that resolves to more than one row (a duplicate headline/bio, a label-less link
+sharing its platform) is a warning too — never printed as a path the command
+would reject.
 It never locates a CST node, takes the edit lock or writes; an empty workspace
 prints the header alone (exit 0). --json payload { addresses: [{ address, kind,
 readOnly }], warnings }.
@@ -797,7 +799,7 @@ async function runMain(): Promise<number> {
           throw new UsageError("--list is read-only: it cannot be combined with --set or --check");
         }
         if (positionals.length > 1) {
-          throw new UsageError("usage: pasco edit --list [<block>]");
+          throw new UsageError("pasco edit --list [<block>]");
         }
       }
       setJsonMode(flags.json === true);

@@ -994,12 +994,12 @@ describe("edit --list — read-only discovery (#411)", () => {
     expect(r.stderr).toContain("--list takes a block, not an address");
   });
 
-  it("reports a link row the grammar cannot express as a warning, never as an address", () => {
+  it("falls back to the platform-only address for an inexpressible label", () => {
     const dir = workspace();
     const identity = join(dir, "content", "identity.yaml");
     writeFileSync(
       identity,
-      `${readFileSync(identity, "utf8")}  - platform: example\n    label: "Doe, Jane"\n    url: https://example.com/jane\n`,
+      `${readFileSync(identity, "utf8")}  - platform: example\n    label: "Doe, Jane"\n    url: https://example.com/jane\n  - platform: ctrl\n    label: "A\\tB"\n    url: https://example.com/ctrl\n`,
     );
     const r = edit(dir, "--list", "identity.links", "--json");
     expect(r.code).toBe(0);
@@ -1007,13 +1007,20 @@ describe("edit --list — read-only discovery (#411)", () => {
       addresses: { address: string }[];
       warnings: string[];
     };
-    expect(data.warnings).toHaveLength(1);
-    expect(data.warnings[0]).toContain('label "Doe, Jane"');
-    for (const entry of data.addresses) expect(entry.address).not.toContain("Doe");
+    // A label the grammar cannot express never drops a row `edit` can address:
+    // the platform-only form resolves to the one row (the review's F1).
+    expect(data.addresses.map((entry) => entry.address)).toContain(
+      "identity.links[platform=example].url",
+    );
+    expect(data.addresses.map((entry) => entry.address)).toContain(
+      "identity.links[platform=ctrl].url",
+    );
+    expect(data.warnings.join("\n")).toContain('label "Doe, Jane"');
     const human = edit(dir, "--list", "identity.links");
     expect(human.stdout).not.toContain("Doe");
+    // One address per line: a control character in a label never splits a line.
+    expect(human.stdout.trimEnd().split("\n")).toHaveLength(data.addresses.length + 1);
     expect(human.stderr).toContain("warning:");
-    expect(human.stderr).toContain('label "Doe, Jane"');
   });
 
   it("prints the header and nothing else on a workspace with no addressable row", () => {

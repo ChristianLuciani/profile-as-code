@@ -305,8 +305,18 @@ export interface EditAddressEntry {
  *  empty (an empty value is a usage error), already trimmed (the parser trims,
  *  so a padded value would resolve to a different row) and free of the
  *  delimiters. A row carrying one is reported, never printed (#411 review F2). */
+function hasControlChar(value: string): boolean {
+  for (const char of value) {
+    const code = char.codePointAt(0) as number;
+    if (code < 0x20 || code === 0x7f) return true;
+  }
+  return false;
+}
+
 function selectorExpressible(value: string): boolean {
-  return value !== "" && value === value.trim() && !SELECTOR_UNSAFE.test(value);
+  return (
+    value !== "" && value === value.trim() && !hasControlChar(value) && !SELECTOR_UNSAFE.test(value)
+  );
 }
 
 /**
@@ -318,8 +328,9 @@ function selectorExpressible(value: string): boolean {
  * `edit` enforces: a duplicate headline/bio and a label-less link on a platform
  * it shares with another link match N>1 rows (the command refuses to choose
  * them), so they are reported as warnings, never printed as a usable path. A
- * row the grammar cannot express at all (platform/label carrying `, ] = "`,
- * empty, or padded — the parser trims) is a warning too.
+ * platform the grammar cannot express (empty, padded, control char, or `, ] = "`)
+ * is a warning; an inexpressible LABEL is dropped and the row is listed by its
+ * platform when that resolves to one row.
  */
 export function listEditAddresses(
   profile: LoadedProfile,
@@ -397,20 +408,22 @@ export function listEditAddresses(
         );
         return;
       }
-      if (row.label !== undefined && !selectorExpressible(row.label)) {
-        warnOnce(
-          `${where}: label ${JSON.stringify(row.label)} cannot be expressed as a selector (empty, padded, or carrying a comma, bracket, equals sign or quote) — not listed`,
-        );
-        return;
-      }
-      // The SAME match rule resolveEditTarget applies: a label-less address
-      // matches every row on that platform.
+      // A label the grammar cannot express is not a reason to drop the row:
+      // fall back to the platform-only address whenever THAT resolves to one row
+      // (the address `edit` accepts and a 0-row read advertises).
+      const label =
+        row.label !== undefined && selectorExpressible(row.label) ? row.label : undefined;
       const matches = links.filter(
         (candidate) =>
           candidate.platform === row.platform &&
-          (row.label === undefined || (candidate.label ?? "") === row.label),
+          (label === undefined || (candidate.label ?? "") === label),
       ).length;
-      add(linkAddress(row.platform, row.label), "link", matches, true);
+      add(linkAddress(row.platform, label), "link", matches, true);
+      if (row.label !== undefined && label === undefined && matches === 1) {
+        warnOnce(
+          `${where}: label ${JSON.stringify(row.label)} cannot be expressed as a selector (empty, padded, or carrying a comma, bracket, equals sign, quote or control character) — listed by its platform only`,
+        );
+      }
     });
   }
 

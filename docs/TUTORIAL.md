@@ -450,10 +450,11 @@ pasco edit --list headlines        # scope: positioning | headlines | bios | ide
 pasco edit --list --json           # { addresses: [{ address, kind, readOnly }], warnings }
 ```
 
-Link rows print `(read-only)`; a link row the grammar cannot express (a platform or label
-carrying `,`, `]`, `=` or `"`) is reported as a warning, never printed as an address that would
-not parse — and so is any address that resolves to more than one row (a duplicate headline/bio,
-a label-less link sharing its platform). An empty workspace prints the header alone. `--list` with `--set`, `--check` or an
+Link rows print `(read-only)`; a link row whose platform cannot be expressed is a warning, a
+label the grammar cannot express is dropped so the row is listed by its platform when that
+resolves to one row, and any address that resolves to more than one row (a duplicate
+headline/bio, a label-less link sharing its platform) is a warning — never an address that
+would not parse. An empty workspace prints the header alone. `--list` with `--set`, `--check` or an
 address is usage (exit `2`). `pasco edit --help` still prints the four address *shapes*.
 
 ### M13 — `export profile`: deterministic, no clock
@@ -645,7 +646,7 @@ cwd. An invalid path exits `1` and names the missing `content/` directory.
 
 | Friction (repro in the section) | Tracking |
 |---|---|
-| `edit` has no discovery surface: the address is learned from help, a usage error or a 0-row read | [#411](https://github.com/ChristianLuciani/profile-as-code/issues/411) (open; the box in M12 is the stopgap) |
+| `edit` has no discovery surface: the address is learned from help, a usage error or a 0-row read | [#411](https://github.com/ChristianLuciani/profile-as-code/issues/411) — fixed on `main` (`edit --list`, PR #424); not in the measured 0.3.7 |
 | `refine` renders a langMap role as `[object Object]` (M21) | [#415](https://github.com/ChristianLuciani/profile-as-code/issues/415) |
 | `refine` hardcodes `gh-en-*` examples for every platform (M21) | [#415](https://github.com/ChristianLuciani/profile-as-code/issues/415) |
 | `usage: usage: …` on `skills:export` and `refine`; `export ai-policy: refusing…` drops the `pasco` prefix (M14, M16, M21) | [#416](https://github.com/ChristianLuciani/profile-as-code/issues/416) |
