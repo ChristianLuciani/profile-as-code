@@ -1359,12 +1359,15 @@ claim about the workspace. Recomputing an overall from `checks[]` requires
 honoring `applicable` — the field is the contract, the score is not.
 
 A **section** carries the same token (`sections.<name>.applicable`): it is
-`false` only when every code it contains is N/A, in which case `score` is the
-placeholder `0` (not a measurement) and the section contributes nothing to the
-overall; `pasco validate` prints `n/a` for it instead of `0/100`. No shipped
-section is all-N/A today — the state is declared, produced by one exported
-builder (`geoSection`) and covered by a unit test, so a future all-N/A section
-cannot silently read as zero.
+`false` when no code in it can contribute weight — every code is N/A, or every
+applicable code declares weight `0` — in which case `score` is the placeholder
+`0` (not a measurement) and the section contributes nothing to the overall;
+`pasco validate` prints `n/a` for it instead of `0/100`. No shipped section is
+N/A today: every section keeps at least one always-applicable code, and the
+state is not reachable through a profile. It is still covered by a unit test
+over the one builder (`geoSection` in `core/src/geo.ts`, module-level so the test
+can call it) plus a wiring assertion that `geoCheck` routes its shipped
+sections through that same function.
 
 **cite-check's fold is its own (#291).** `core/src/normalize.ts` is the case- and
 accent-folding used by `pasco cite-check` (§7.4), which matches the declared

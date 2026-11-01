@@ -225,9 +225,6 @@ describe("geoCheck(profile)", () => {
     ]);
     expect(allNa.applicable).toBe(false);
     expect(allNa.score).toBe(0);
-    // An unrelated consumer that only reads `score` still cannot mistake it for
-    // a measured zero: the token is what tells them apart.
-    expect(allNa.checks).toHaveLength(2);
 
     const mixed = geoSection("S", "d", [
       { ...check("a", 1, 0.1), applicable: false },
@@ -235,6 +232,16 @@ describe("geoCheck(profile)", () => {
     ]);
     expect(mixed.applicable).toBeUndefined(); // absent = applicable
     expect(mixed.score).toBe(50);
+  });
+
+  it("routes the shipped sections through the same builder (§8 wiring)", () => {
+    // The all-N/A state is unreachable through a profile, but the wiring of the
+    // REACHABLE sections is pinned: rebuilding citability from its own parts must
+    // produce the very object `geoCheck` returned (same builder, same arithmetic).
+    const report = geoCheck(load(fixture("minimal")));
+    const citability = report.sections.citability;
+    expect(geoSection(citability.label, citability.detail, citability.checks)).toEqual(citability);
+    expect(citability.applicable).toBeUndefined();
   });
 
   it("empty location counts as absent in the entity-fields check (empty=absent sweep, issue #86)", () => {

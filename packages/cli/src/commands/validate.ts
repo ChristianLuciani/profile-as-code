@@ -3,7 +3,7 @@
  * report (not a gate). Mirror of schema/README.md "Validation semantics".
  */
 
-import type { LoadedProfile } from "@profile-as-code/core";
+import type { GeoSection, LoadedProfile } from "@profile-as-code/core";
 import { geoCheck, LoadError, load, SchemaValidationError } from "@profile-as-code/core";
 import { reconciledDrift } from "../drift-reconcile.js";
 import { EXIT } from "../exit.js";
@@ -11,6 +11,14 @@ import { isJsonMode, line, report, section } from "../output.js";
 
 export interface ValidateArgs {
   workspace: string;
+}
+
+/**
+ * One human line per GEO section (SPEC §8/#399). Exported so the all-N/A branch,
+ * which no shipped profile can reach, is still exercised by a unit test.
+ */
+export function geoSectionLine(s: GeoSection): string {
+  return `  ${s.label}: ${s.applicable === false ? "n/a" : `${s.score}/100`} — ${s.detail}`;
 }
 
 export function runValidate(args: ValidateArgs): number {
@@ -65,7 +73,7 @@ export function runValidate(args: ValidateArgs): number {
   line(`  overall score: ${geo.score}/100`);
   for (const s of Object.values(geo.sections)) {
     // §8/#399: an all-N/A section has no mean; `0/100` would read as a score.
-    line(`  ${s.label}: ${s.applicable === false ? "n/a" : `${s.score}/100`} — ${s.detail}`);
+    line(geoSectionLine(s));
   }
   // The severity tier is CONSUMED here (v1.10/#289, resolved by #322): a code
   // that scored 0 renders one line, prefixed by its tier — `info` is a NOTE,
