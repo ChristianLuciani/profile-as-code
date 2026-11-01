@@ -103,6 +103,20 @@ function json(r: RunResult): { ok: boolean; data: Record<string, unknown> } {
   return JSON.parse(r.stdout) as { ok: boolean; data: Record<string, unknown> };
 }
 
+/** A workspace with NO addressable rows: `pasco init` scaffolds identity.yaml
+ *  with only `name` (no links, no headlines/bios/positioning). */
+function emptyWorkspace(): string {
+  const dir = mkdtempSync(join(tmpdir(), "pasco-edit-list-"));
+  tempDirs.push(dir);
+  const res = spawnSync(process.execPath, [CLI, "init", dir], {
+    encoding: "utf8",
+    timeout: 30_000,
+  });
+  if (res.error !== undefined) throw res.error;
+  if (res.status !== 0) throw new Error(`pasco init failed: ${res.stderr}`);
+  return dir;
+}
+
 describe("pasco edit — resolution, preview and write", () => {
   it("prints the current value of a lang-only address", () => {
     const dir = workspace();
@@ -864,6 +878,174 @@ describe("pasco edit — resolution, preview and write", () => {
   });
 });
 
+describe("edit --list — read-only discovery (#411)", () => {
+  it("prints every addressable row, one per line, links marked read-only, touching nothing", () => {
+    const dir = workspace();
+    const before = workspaceHash(dir);
+    const r = edit(dir, "--list");
+    expect(r.code).toBe(0);
+    const lines = r.stdout.trimEnd().split("\n");
+    expect(lines[0]).toBe("addresses:");
+    const listed = lines.slice(1);
+    // The four blocks, in contract order: statement → headline → bio → link.
+    expect(listed[0]).toBe("positioning.statement.en");
+    expect(listed).toContain("headlines[platform=github-readme,lang=en].text");
+    expect(listed).toContain("bios[platform=linkedin,lang=es,length=medium].text");
+    expect(listed).toContain("identity.links[platform=github,label=GitHub].url  (read-only)");
+    expect(listed.at(-1)).toBe("identity.links[platform=substack,label=Substack].url  (read-only)");
+    // Every link row is marked; no writable row is.
+    for (const line of listed) {
+      expect(line.endsWith("  (read-only)")).toBe(line.startsWith("identity.links["));
+    }
+    // No duplicate address: an address that resolves to several rows is not
+    // addressable, so it is never advertised twice.
+    expect(new Set(listed).size).toBe(listed.length);
+    // Deterministic: the same workspace lists the same bytes.
+    expect(edit(dir, "--list").stdout).toBe(r.stdout);
+    // Read-only: no lock, no content file, nothing on disk moved.
+    expect(r.stderr).toBe("");
+    expect(workspaceHash(dir)).toBe(before);
+  });
+
+  it("carries the machine contract: data.addresses[{address,kind,readOnly}] + warnings", () => {
+    const dir = workspace();
+    const r = edit(dir, "--list", "--json");
+    expect(r.code).toBe(0);
+    const data = json(r).data as {
+      addresses: { address: string; kind: string; readOnly: boolean }[];
+      warnings: string[];
+    };
+    expect(data.warnings).toEqual([]);
+    expect(data.addresses[0]).toEqual({
+      address: "positioning.statement.en",
+      kind: "statement",
+      readOnly: false,
+    });
+    expect(data.addresses.at(-1)).toEqual({
+      address: "identity.links[platform=substack,label=Substack].url",
+      kind: "link",
+      readOnly: true,
+    });
+    // Every entry round-trips through the address grammar (one grammar, no drift).
+    for (const entry of data.addresses) {
+      expect(() => parseEditAddress(entry.address)).not.toThrow();
+    }
+  });
+
+  it("scopes to one block with --list <block>", () => {
+    const dir = workspace();
+    const r = edit(dir, "--list", "headlines");
+    expect(r.code).toBe(0);
+    const listed = r.stdout.trimEnd().split("\n").slice(1);
+    expect(listed.length).toBeGreaterThan(0);
+    for (const line of listed) expect(line.startsWith("headlines[")).toBe(true);
+    expect(edit(dir, "--list", "positioning").stdout.trimEnd().split("\n").slice(1)).toEqual([
+      "positioning.statement.en",
+      "positioning.statement.es",
+    ]);
+  });
+
+  it("lists only addresses that resolve to exactly one row", () => {
+    const dir = workspace();
+    const profile = load(dir);
+    const data = json(edit(dir, "--list", "--json")).data as {
+      addresses: { address: string }[];
+    };
+    for (const entry of data.addresses) {
+      expect(resolveEditTarget(profile, parseEditAddress(entry.address), dir).matches).toBe(1);
+    }
+  });
+
+  it("reports ambiguous or inexpressible rows instead of advertising a path edit rejects", () => {
+    const dir = workspace();
+    // Each of these is schema-legal and, if listed, would be an address `edit`
+    // rejects (exit 1 for N>1 rows) or silently trims onto a different row.
+    const headlines = join(dir, "content", "headlines.yaml");
+    writeFileSync(
+      headlines,
+      `${readFileSync(headlines, "utf8")}- platform: github-readme\n  lang: en\n  text: Duplicate row\n`,
+    );
+    const identity = join(dir, "content", "identity.yaml");
+    writeFileSync(
+      identity,
+      `${readFileSync(identity, "utf8")}  - platform: example\n    label: " Padded "\n    url: https://example.com/padded\n  - platform: example\n    label: ""\n    url: https://example.com/empty\n  - platform: shared\n    label: One\n    url: https://example.com/one\n  - platform: shared\n    url: https://example.com/two\n`,
+    );
+    const r = edit(dir, "--list", "--json");
+    expect(r.code).toBe(0);
+    const data = json(r).data as { addresses: { address: string }[]; warnings: string[] };
+    const listed = data.addresses.map((entry) => entry.address);
+    expect(listed).not.toContain("headlines[platform=github-readme,lang=en].text");
+    expect(listed.some((address) => address.includes("Padded"))).toBe(false);
+    expect(listed.some((address) => address.includes("example"))).toBe(false);
+    expect(listed).not.toContain("identity.links[platform=shared].url");
+    expect(listed).toContain("identity.links[platform=shared,label=One].url");
+    expect(data.warnings.join("\n")).toContain("resolves to 2 rows");
+    // The invariant the review's F1/F2 broke: everything left is usable.
+    const profile = load(dir);
+    for (const address of listed) {
+      expect(resolveEditTarget(profile, parseEditAddress(address), dir).matches).toBe(1);
+    }
+  });
+
+  it("decides usage before reading the workspace config (a bad .pascorc stays exit 2)", () => {
+    const dir = workspace();
+    writeFileSync(join(dir, ".pascorc"), "{not json");
+    // The non-list usage check and the --list flag combinations are decided
+    // BEFORE resolveWorkspace/readWorkspacePascorc: an unreadable config must
+    // not turn a usage error into exit 1 (review round 3, F1).
+    expect(edit(dir, "a", "b").code).toBe(2);
+    expect(edit(dir, "--list", "--set", "x").code).toBe(2);
+    expect(edit(dir, "--list", "nope").code).toBe(2);
+    // A valid --list still needs the workspace to load: that is a real read.
+    expect(edit(dir, "--list").code).toBe(1);
+  });
+
+  it("says `--list <address>` takes a block, not an address", () => {
+    const dir = workspace();
+    const r = edit(dir, "--list", "positioning.statement.en");
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("--list takes a block, not an address");
+  });
+
+  it("falls back to the platform-only address for an inexpressible label", () => {
+    const dir = workspace();
+    const identity = join(dir, "content", "identity.yaml");
+    writeFileSync(
+      identity,
+      `${readFileSync(identity, "utf8")}  - platform: example\n    label: "Doe, Jane"\n    url: https://example.com/jane\n  - platform: ctrl\n    label: "A\\tB"\n    url: https://example.com/ctrl\n`,
+    );
+    const r = edit(dir, "--list", "identity.links", "--json");
+    expect(r.code).toBe(0);
+    const data = json(r).data as {
+      addresses: { address: string }[];
+      warnings: string[];
+    };
+    // A label the grammar cannot express never drops a row `edit` can address:
+    // the platform-only form resolves to the one row (the review's F1).
+    expect(data.addresses.map((entry) => entry.address)).toContain(
+      "identity.links[platform=example].url",
+    );
+    expect(data.addresses.map((entry) => entry.address)).toContain(
+      "identity.links[platform=ctrl].url",
+    );
+    expect(data.warnings.join("\n")).toContain('label "Doe, Jane"');
+    const human = edit(dir, "--list", "identity.links");
+    expect(human.stdout).not.toContain("Doe");
+    // One address per line: a control character in a label never splits a line.
+    expect(human.stdout.trimEnd().split("\n")).toHaveLength(data.addresses.length + 1);
+    expect(human.stderr).toContain("warning:");
+  });
+
+  it("prints the header and nothing else on a workspace with no addressable row", () => {
+    const dir = emptyWorkspace();
+    const r = edit(dir, "--list");
+    expect(r.code).toBe(0);
+    expect(r.stdout).toBe("addresses:\n");
+    const data = json(edit(dir, "--list", "--json")).data as { addresses: unknown[] };
+    expect(data.addresses).toEqual([]);
+  });
+});
+
 describe("exit-code matrix (S5, #252)", () => {
   const cases: [string, string[], number][] = [
     ["read → 0", ["positioning.statement.en"], 0],
@@ -895,6 +1077,12 @@ describe("exit-code matrix (S5, #252)", () => {
     ["--check without --set → 2", ["positioning.statement.en", "--check"], 2],
     ["empty --set → 2", ["positioning.statement.en", "--set", ""], 2],
     ["line break in --set → 2", ["positioning.statement.en", "--set", "a\nb"], 2],
+    ["--list → 0", ["--list"], 0],
+    ["--list <block> → 0", ["--list", "bios"], 0],
+    ["--list unknown block → 2", ["--list", "nope"], 2],
+    ["--list with an address → 2", ["--list", "positioning.statement.en"], 2],
+    ["--list with --set → 2", ["--list", "--set", "x"], 2],
+    ["--list with --check → 2", ["--list", "--check"], 2],
   ];
   for (const [name, args, code] of cases) {
     it(name, () => {

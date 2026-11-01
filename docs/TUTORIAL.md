@@ -438,27 +438,24 @@ write adds `written: yes` and `validates: yes`. The refusals are the contract: a
 line break is usage (exit `2`), a 0-row address exits `1` and lists `available:`, and a missing
 selector exits `2` with the grammar.
 
-**Finding the address.** There is no shell completion and no `pasco edit --list` yet (tracked in
-[#411](https://github.com/ChristianLuciani/profile-as-code/issues/411)). Until it lands, three
-surfaces teach the path:
-
-1. `pasco edit --help` prints the four address shapes.
-2. A 0-row read lists the addresses the workspace has:
-   `pasco edit 'headlines[platform=linkedin,lang=en].text'` → `resolves to 0 rows` +
-   `available:`.
-3. Derive every address from the profile itself — Node is guaranteed because npm installed the
-   CLI:
+**Finding the address.** `pasco edit --list` prints every addressable row of the loaded
+workspace — read-only, deterministic, and built by the same constructors resolution uses, so it
+never teaches a path the command would reject ([#411](https://github.com/ChristianLuciani/profile-as-code/issues/411)).
+It is on `main` and **not yet in the published 0.3.7** this walkthrough measured, so expect the
+next release to carry it:
 
 ```sh
-pasco export profile --json > /tmp/profile.json
-node - /tmp/profile.json <<'JS'
-const { profile: p } = JSON.parse(require("fs").readFileSync(process.argv[2], "utf8")).data;
-for (const h of p.headlines ?? []) console.log(`headlines[platform=${h.platform},lang=${h.lang}].text`);
-for (const b of p.bios ?? []) console.log(`bios[platform=${b.platform},lang=${b.lang},length=${b.length}].text`);
-for (const l of p.identity?.links ?? []) console.log(`identity.links[platform=${l.platform}${l.label ? `,label=${l.label}` : ""}].url`);
-for (const lang of Object.keys(p.positioning?.statement ?? {})) console.log(`positioning.statement.${lang}`);
-JS
+pasco edit --list                  # every block, one address per line
+pasco edit --list headlines        # scope: positioning | headlines | bios | identity.links
+pasco edit --list --json           # { addresses: [{ address, kind, readOnly }], warnings }
 ```
+
+Link rows print `(read-only)`; a link row whose platform cannot be expressed is a warning, a
+label the grammar cannot express is dropped so the row is listed by its platform when that
+resolves to one row, and any address that resolves to more than one row (a duplicate
+headline/bio, a label-less link sharing its platform) is a warning — never an address that
+would not parse. An empty workspace prints the header alone. `--list` with `--set`, `--check` or an
+address is usage (exit `2`). `pasco edit --help` still prints the four address *shapes*.
 
 ### M13 — `export profile`: deterministic, no clock
 
@@ -649,7 +646,7 @@ cwd. An invalid path exits `1` and names the missing `content/` directory.
 
 | Friction (repro in the section) | Tracking |
 |---|---|
-| `edit` has no discovery surface: the address is learned from help, a usage error or a 0-row read | [#411](https://github.com/ChristianLuciani/profile-as-code/issues/411) (open; the box in M12 is the stopgap) |
+| `edit` has no discovery surface: the address is learned from help, a usage error or a 0-row read | [#411](https://github.com/ChristianLuciani/profile-as-code/issues/411) — fixed on `main` (`edit --list`, PR #424); not in the measured 0.3.7 |
 | `refine` renders a langMap role as `[object Object]` (M21) | [#415](https://github.com/ChristianLuciani/profile-as-code/issues/415) |
 | `refine` hardcodes `gh-en-*` examples for every platform (M21) | [#415](https://github.com/ChristianLuciani/profile-as-code/issues/415) |
 | `usage: usage: …` on `skills:export` and `refine`; `export ai-policy: refusing…` drops the `pasco` prefix (M14, M16, M21) | [#416](https://github.com/ChristianLuciani/profile-as-code/issues/416) |

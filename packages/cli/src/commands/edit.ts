@@ -26,7 +26,14 @@
 
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import type { LoadedProfile, MediaAsset, Platform, PlatformProfile } from "@profile-as-code/core";
+import type {
+  BioLength,
+  Lang,
+  LoadedProfile,
+  MediaAsset,
+  Platform,
+  PlatformProfile,
+} from "@profile-as-code/core";
 import {
   collectMedia,
   deployStatus,
@@ -43,13 +50,14 @@ import {
   selectionErrorMessage,
   selectionFindings,
 } from "../artifact-render.js";
-import type { EditAddress } from "../contract.js";
+import type { EditAddress, EditListBlock } from "../contract.js";
 import {
   bioAddress,
   headlineAddress,
   LANGS,
   linkAddress,
   parseEditAddress,
+  statementAddress,
   UsageError,
 } from "../contract.js";
 import { DEFAULT_CHECKS } from "../default-checks.js";
@@ -71,6 +79,10 @@ export interface EditArgs {
   addressArg?: string;
   setArg?: string;
   check: boolean;
+  /** #411: read-only discovery of the workspace's contract paths. */
+  list?: boolean;
+  /** #411: scope `--list` to one block (unset = every block). */
+  listBlock?: EditListBlock;
   pascorc: Pascorc;
 }
 
@@ -85,22 +97,25 @@ const SELECTOR_UNSAFE = /[,\]=]|"/;
  *  share a platform. A label the grammar cannot express is reported with the row
  *  instead of being printed as an address that would not parse. */
 function rowLinkAddress(row: { platform?: string; label?: string }): string {
-  const platform = row.platform ?? "<no platform>";
-  const addressable = row.label !== undefined && !SELECTOR_UNSAFE.test(row.label);
-  return linkAddress(platform, addressable ? row.label : undefined);
+  if (row.platform === undefined) return "<no platform — not addressable>";
+  if (!selectorExpressible(row.platform)) {
+    return `<not addressable: platform ${JSON.stringify(row.platform)} cannot be expressed>`;
+  }
+  const label = row.label !== undefined && selectorExpressible(row.label) ? row.label : undefined;
+  return linkAddress(row.platform, label);
 }
 
 function linkNote(row: { platform?: string; label?: string }): string | undefined {
   const parts: string[] = [];
   if (row.platform === undefined) parts.push("no platform — not addressable");
-  else if (SELECTOR_UNSAFE.test(row.platform)) {
+  else if (!selectorExpressible(row.platform)) {
     parts.push(
-      `platform ${JSON.stringify(row.platform)} contains a character the address grammar cannot express`,
+      `platform ${JSON.stringify(row.platform)} cannot be expressed as a selector (empty, padded, control character or \`, ] = "\`)`,
     );
   }
-  if (row.label !== undefined && SELECTOR_UNSAFE.test(row.label)) {
+  if (row.label !== undefined && !selectorExpressible(row.label)) {
     parts.push(
-      `label ${JSON.stringify(row.label)} contains a character the address grammar cannot express`,
+      `label ${JSON.stringify(row.label)} cannot be expressed as a selector (empty, padded, control character or \`, ] = "\`)`,
     );
   }
   return parts.length === 0 ? undefined : parts.join(" · ");
@@ -152,6 +167,32 @@ function owningFile(workspace: string, root: string): string | undefined {
   return match === undefined ? undefined : `content/${match}`;
 }
 
+/** The rows an address selects — THE addressability rule. Resolution and
+ *  `--list` both call these, so the list cannot drift into a second match
+ *  predicate (#411 review round 4, F3). */
+function headlineHits(profile: LoadedProfile, platform: Platform, lang: Lang) {
+  return profile.headlines
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => row.platform === platform && row.lang === lang);
+}
+
+function bioHits(profile: LoadedProfile, platform: Platform, lang: Lang, length: BioLength) {
+  return profile.bios
+    .map((row, index) => ({ row, index }))
+    .filter(({ row }) => row.platform === platform && row.lang === lang && row.length === length);
+}
+
+type LinkRow = NonNullable<LoadedProfile["identity"]["links"]>[number];
+
+function linkHits(links: LinkRow[], platform: string, label?: string) {
+  return (links ?? [])
+    .map((row, index) => ({ row, index }))
+    .filter(
+      ({ row }) =>
+        row.platform === platform && (label === undefined || (row.label ?? "") === label),
+    );
+}
+
 /**
  * Resolve a contract path against the loaded profile.
  *
@@ -172,7 +213,7 @@ export function resolveEditTarget(
     // "de") is schema-legal but never renders, so listing it would be a trap.
     const available = LANGS.filter(
       (lang) => typeof statement[lang] === "string" && statement[lang] !== "",
-    ).map((lang) => `positioning.statement.${lang}`);
+    ).map((lang) => statementAddress(lang as Lang));
     const file = owningFile(workspace, "positioning");
     return {
       address,
@@ -193,9 +234,7 @@ export function resolveEditTarget(
   }
 
   if (address.kind === "headline") {
-    const hits = profile.headlines
-      .map((row, index) => ({ row, index }))
-      .filter(({ row }) => row.platform === address.platform && row.lang === address.lang);
+    const hits = headlineHits(profile, address.platform, address.lang);
     const file = owningFile(workspace, "headlines");
     return {
       address,
@@ -221,14 +260,7 @@ export function resolveEditTarget(
   }
 
   if (address.kind === "bio") {
-    const hits = profile.bios
-      .map((row, index) => ({ row, index }))
-      .filter(
-        ({ row }) =>
-          row.platform === address.platform &&
-          row.lang === address.lang &&
-          row.length === address.length,
-      );
+    const hits = bioHits(profile, address.platform, address.lang, address.length);
     const file = owningFile(workspace, "bios");
     return {
       address,
@@ -254,13 +286,7 @@ export function resolveEditTarget(
   }
 
   const links = profile.identity.links ?? [];
-  const hits = links
-    .map((row, index) => ({ row, index }))
-    .filter(
-      ({ row }) =>
-        row.platform === address.platform &&
-        (address.label === undefined || (row.label ?? "") === address.label),
-    );
+  const hits = linkHits(links, address.platform, address.label);
   return {
     address,
     // Read-only address: no write handle is emitted (S2 must not grow a second
@@ -280,6 +306,140 @@ export function resolveEditTarget(
       ),
     ],
   };
+}
+
+/** One addressable row of the read-only `--list` surface (#411). */
+export interface EditAddressEntry {
+  address: string;
+  kind: EditAddress["kind"];
+  /** Links are the one address the grammar marks read-only (URL SSOT, §3). */
+  readOnly: boolean;
+}
+
+/** A selector value the grammar accepts as `key=value` WITHOUT changing it: not
+ *  empty (an empty value is a usage error), already trimmed (the parser trims,
+ *  so a padded value would resolve to a different row) and free of the
+ *  delimiters. A row carrying one is reported, never printed (#411 review F2). */
+function hasControlChar(value: string): boolean {
+  for (const char of value) {
+    const code = char.codePointAt(0) as number;
+    if (code < 0x20 || (code >= 0x7f && code <= 0x9f)) return true;
+    if (code === 0x2028 || code === 0x2029) return true; // line/paragraph separators
+  }
+  return false;
+}
+
+function selectorExpressible(value: string): boolean {
+  return (
+    value !== "" && value === value.trim() && !hasControlChar(value) && !SELECTOR_UNSAFE.test(value)
+  );
+}
+
+/**
+ * Every addressable row of the loaded workspace, in block order
+ * (`positioning` → `headlines` → `bios` → `identity.links`), each address built
+ * by the SAME constructor `resolveEditTarget` uses — no second grammar (#411).
+ *
+ * "Addressable" means the address resolves to EXACTLY one row, the same bar
+ * `edit` enforces: a duplicate headline/bio and a label-less link on a platform
+ * it shares with another link match N>1 rows (the command refuses to choose
+ * them), so they are reported as warnings, never printed as a usable path. A
+ * platform the grammar cannot express (empty, padded, control char, or `, ] = "`)
+ * is a warning; an inexpressible LABEL is dropped and the row is listed by its
+ * platform when that resolves to one row.
+ */
+export function listEditAddresses(
+  profile: LoadedProfile,
+  block?: EditListBlock,
+): { addresses: EditAddressEntry[]; warnings: string[] } {
+  const addresses: EditAddressEntry[] = [];
+  const warnings: string[] = [];
+  const seen = new Set<string>();
+  const scoped = (candidate: EditListBlock): boolean => block === undefined || block === candidate;
+  const warnOnce = (message: string): void => {
+    if (!warnings.includes(message)) warnings.push(message);
+  };
+  const add = (
+    address: string,
+    kind: EditAddress["kind"],
+    matches: number,
+    readOnly = false,
+  ): void => {
+    if (seen.has(address)) return;
+    seen.add(address);
+    if (matches !== 1) {
+      warnOnce(
+        `${address} resolves to ${matches} rows — several rows share it and edit refuses to choose; not listed`,
+      );
+      return;
+    }
+    addresses.push({ address, kind, readOnly });
+  };
+
+  if (scoped("positioning")) {
+    const statement: Record<string, string> = profile.positioning?.statement ?? {};
+    for (const lang of LANGS) {
+      // Empty string is ABSENT to compile() (#84) — listing it would be a trap.
+      if (typeof statement[lang] === "string" && statement[lang] !== "") {
+        add(statementAddress(lang as Lang), "statement", 1);
+      }
+    }
+  }
+
+  if (scoped("headlines")) {
+    const counts = new Map<string, number>();
+    for (const row of profile.headlines) {
+      const address = headlineAddress(row.platform, row.lang);
+      counts.set(address, (counts.get(address) ?? 0) + 1);
+    }
+    for (const row of profile.headlines) {
+      const address = headlineAddress(row.platform, row.lang);
+      add(address, "headline", counts.get(address) ?? 0);
+    }
+  }
+
+  if (scoped("bios")) {
+    const counts = new Map<string, number>();
+    for (const row of profile.bios) {
+      const address = bioAddress(row.platform, row.lang, row.length);
+      counts.set(address, (counts.get(address) ?? 0) + 1);
+    }
+    for (const row of profile.bios) {
+      const address = bioAddress(row.platform, row.lang, row.length);
+      add(address, "bio", counts.get(address) ?? 0);
+    }
+  }
+
+  if (scoped("identity.links")) {
+    const links = profile.identity.links ?? [];
+    links.forEach((row, index) => {
+      const where = `identity.links[${index}]`;
+      if (row.platform === undefined) {
+        warnOnce(`${where} has no platform — not addressable, not listed`);
+        return;
+      }
+      if (!selectorExpressible(row.platform)) {
+        warnOnce(
+          `${where}: platform ${JSON.stringify(row.platform)} cannot be expressed as a selector (empty, padded, control character, or carrying a comma, bracket, equals sign or quote) — not listed`,
+        );
+        return;
+      }
+      // A label the grammar cannot express is not a reason to drop the row:
+      // fall back to the platform-only address whenever THAT resolves to one row
+      // (the address `edit` accepts and a 0-row read advertises).
+      const label =
+        row.label !== undefined && selectorExpressible(row.label) ? row.label : undefined;
+      const matches = linkHits(links, row.platform, label).length;
+      add(linkAddress(row.platform, label), "link", matches, true);
+      if (row.label !== undefined && label === undefined && matches === 1) {
+        warnOnce(
+          `${where}: label ${JSON.stringify(row.label)} cannot be expressed as a selector (empty, padded, or carrying a comma, bracket, equals sign, quote or control character) — listed by its platform only`,
+        );
+      }
+    });
+  }
+
+  return { addresses, warnings };
 }
 
 /** Apply the proposal to an in-memory copy. S1 never writes it anywhere; the
@@ -554,6 +714,21 @@ export function runEdit(args: EditArgs): number {
     profile = load(args.workspace);
   } catch (err) {
     return failLoad(err);
+  }
+
+  // #411: discovery is a READ-ONLY mode — it never resolves a target, locates a
+  // CST node or touches the edit lock. Same constructors as resolution: the list
+  // is what the address grammar actually accepts in this workspace.
+  if (args.list === true) {
+    const listed = listEditAddresses(profile, args.listBlock);
+    line("addresses:");
+    for (const entry of listed.addresses) {
+      line(`${entry.address}${entry.readOnly ? "  (read-only)" : ""}`);
+    }
+    for (const warning of listed.warnings) warn(warning);
+    return report("edit", true, EXIT.OK, {
+      data: { addresses: listed.addresses, warnings: listed.warnings },
+    });
   }
 
   if (args.addressArg === undefined) {

@@ -61,7 +61,7 @@ standalone path.
 | `pasco doctor [--json]` | **Engine · schema · workspace** on one line (#348): the installed CLI version, the profile-contract version this build validates (from the schema `$id`), the resolved workspace and whether it loads, plus the **effective** `.pascorc` engine requirement (the strictest declaration in every config the resolution consulted, with its file). `--json` emits `{ engine, schema, workspace, requirement: { declared, met, problem?, source? } }`. Exit 0 healthy · 1 unhealthy · 2 usage; offline, no clock, no writes | ✅ v1 |
 | `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (the eight registered in the generated renderer map) write `profiles/<platform>/README.md` + bundled media; renderer-less manual surfaces with a bio row write `profiles/<platform>.md` (#239). Empty render = no-trace unbuild of the generated output, preserving `profiles/<platform>/variants/` (chosen-variant input, #238; pure profiles/, §15.1 — v1.7). Media in `profiles/<platform>/assets/` + `assets/manifest.json` (M8/§18.6 — see [the media pipeline guide](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/media-pipeline.md)) | ✅ |
 | `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso>] [--json]` | The **local view** (#282): **one** self-contained HTML file of the surfaces `pasco build` writes — inline CSS, no `<script>`, no external asset, no HTTP server. Sections are the published surfaces (`#github-readme`, `#linkedin`, …) plus the ones this language does not publish, named with their reason; the check state is the same report `pasco check` prints, and the text is `build`'s own render decision tree. Default `<workspace>/.pasco/preview/index.html`, then opened in the browser; `--out <dir>` writes and opens **nothing** (the CI-artifact transport). A privacy gate refuses the write (exit 1) on an absolute machine path, a credential shape, an external asset, active content, or a source outside the workspace | ✅ v1 |
-| `pasco edit <contract-path> [--set <text> [--check]]` | Resolve **one** contract field by contract path; `--set` **writes it** (comment-preserving range splice, validated, atomic) and `--set --check` previews the **published lines the edit changes** (or says it changes nothing). Epic #247, S1–S5 landed | ✅ S1–S5 (read · preview · write · surface impact · cap pre-flight · machine contract) |
+| `pasco edit <contract-path> [--set <text> [--check]]` · `--list [<block>]` | Resolve **one** contract field by contract path; `--set` **writes it** (comment-preserving range splice, validated, atomic) and `--set --check` previews the **published lines the edit changes** (or says it changes nothing). `--list` is the read-only discovery surface: every addressable row, one per line, `--json` as `{ addresses: [{ address, kind, readOnly }], warnings }` (#411). Epic #247, S1–S5 landed | ✅ S1–S5 (read · preview · write · surface impact · cap pre-flight · machine contract) + `--list` |
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
 | `pasco status [platform] [--mark <ledgerKey> <platform>] [--verify] [--write-checklist] [--completeness]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never · **certification** (verified/attested/unverifiable/out-of-band-drift, §19.5) + the derived **publication truth** per surface (§20.1, #242) + ledger write paths (D18, §19) | ✅ |
 | `pasco presence [--json]` / `pasco release plan [<id>] [--json]` | **Presence board** (D23/§22, #262): every surface a release has addressed, at its newest release, with the ledger-derived state (`in-sync`/`stale`/`never`), and the **release plan** — the ordered fan-out (`repo-meta` → `profile` → `distribution`, then slug), each surface's state and the per-kind **factual spine**. Copy per channel lives in the shipped skills, not the engine | ✅ v1 |
@@ -488,6 +488,27 @@ authority on what a field is):
 | `headlines[platform=<p>,lang=<l>].text` | the matching `headlines[]` row |
 | `bios[platform=<p>,lang=<l>,length=<len>].text` | the matching `bios[]` row |
 | `identity.links[platform=<p>,label=<l>].url` | the row's URL — **read-only**; `label` disambiguates two links on one platform |
+
+**Finding the path (`--list`, #411).** `pasco edit --list` prints every
+addressable row of the loaded workspace — read-only and deterministic, built by
+the same constructors resolution uses, never a second grammar:
+
+```sh
+pasco edit --list                       # every block, one address per line
+pasco edit --list headlines             # scope: positioning | headlines | bios | identity.links
+pasco edit --list --json                # { addresses: [{ address, kind, readOnly }], warnings }
+```
+
+Link rows are marked `(read-only)`. A link row whose platform cannot be
+expressed as a selector (empty, padded, or carrying `,`, `]`, `=`, `"` or a
+control character) is a **warning**; a **label** the grammar cannot express is
+dropped and the row is listed by its platform when that resolves to one row (the
+warning says so). Any address that resolves to **more than one row** (a duplicate
+headline/bio, a label-less link sharing its platform) is a warning too: the list
+advertises only paths that resolve to exactly one row, the bar `edit` enforces. `--list` never locates a CST
+node, never takes `content/.pasco-edit.lock` and writes nothing; an empty
+workspace prints the header alone (exit 0). Combining `--list` with `--set`,
+`--check` or an address is usage (exit 2), never a silently ignored argument.
 
 **The write (S2, #249).** A byte-range splice over the **original text**: the CST
 locates the scalar and only those bytes are replaced, so comments, alignment and

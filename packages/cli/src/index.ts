@@ -35,7 +35,14 @@ import { runRefine } from "./commands/refine.js";
 import { runSkillsExport } from "./commands/skills-export.js";
 import { runStatus } from "./commands/status.js";
 import { runValidate } from "./commands/validate.js";
-import { parseFlavor, parseLang, UsageError } from "./contract.js";
+import type { EditListBlock } from "./contract.js";
+import {
+  parseEditAddress,
+  parseEditListBlock,
+  parseFlavor,
+  parseLang,
+  UsageError,
+} from "./contract.js";
 import type { EngineConfigSource } from "./engine-gate.js";
 import { engineGateError, evaluateEngineRequirements } from "./engine-gate.js";
 import { EXIT } from "./exit.js";
@@ -87,6 +94,7 @@ Commands:
                                 Not a publication
   edit <contract-path>          [write] Resolve one contract field; --set writes it (comment-preserving,
           [--set <text> [--check]]  validated, atomic) and --set --check previews the published lines
+  edit --list [<block>]         [read]  Every addressable contract path of the workspace, one per line
   diff [--json]                 [read]  Changes since the last release tag (git-based → CHANGELOG hint)
   refine <platform> [--lang]    [write] PARTIAL: emit agent task template; --choose <id> records the
           [--variants N]        chosen variant in content/active.yaml (agent-driven, D11/D13;
@@ -294,11 +302,25 @@ lang and the fact selection, so the surface shows a SUBSET of the SSOT. Every
 omission is reported as a warning; an addressed key that resolves to nothing is
 an error. No selection policy = byte-identical output.`,
   edit: `pasco edit <contract-path> [--set <text> [--check]] [--json] [--workspace <path>]
+       pasco edit --list [<block>] [--json] [--workspace <path>]
 Resolve ONE contract field (epic #247, S1–S5 — read · preview · write · surface impact · cap pre-flight · agent contract):
   positioning.statement.<lang>
   headlines[platform=<p>,lang=<l>].text
   bios[platform=<p>,lang=<l>,length=<len>].text
   identity.links[platform=<p>,label=<l>].url     (read-only; label optional)
+--list is the read-only discovery surface (#411): it prints every addressable row
+of this workspace, one per line, built by the same constructors resolution uses —
+no second grammar. <block> scopes it to positioning | headlines | bios |
+identity.links; an unknown block, --set, --check or an address next to it is
+usage (exit 2). A link row whose platform cannot be expressed as a selector is a
+warning; a label the grammar cannot express is dropped and the row is listed by
+its platform when that resolves to one row (the warning says so). Any address
+that resolves to more than one row (a duplicate headline/bio, a label-less link
+sharing its platform) is a warning too — never printed as a path the command
+would reject.
+It never locates a CST node, takes the edit lock or writes; an empty workspace
+prints the header alone (exit 0). --json payload { addresses: [{ address, kind,
+readOnly }], warnings }.
 Without --set it prints the current value. With --set it WRITES the value — a
 byte-range splice over the original text (the CST locates, it never
 re-serializes), so comments, layout and CRLF survive and the diff is one line;
@@ -763,17 +785,58 @@ async function runMain(): Promise<number> {
       const { flags, positionals } = parseCommandFlags(rest, {
         set: { type: "string" },
         check: { type: "boolean" },
+        list: { type: "boolean" },
       });
       if (flags.help === true) {
         process.stdout.write(`${COMMAND_HELP.edit}\n`);
         return EXIT.OK;
       }
-      if (positionals.length !== 1) {
-        throw new UsageError("usage: pasco edit <contract-path> [--set <text> [--check]]");
+      // #411: `--list [<block>]` is a read-only discovery mode, never a second
+      // invocation form — a write, a preview or an address next to it is usage
+      // (the `skills:export --list` precedent), never a silently ignored flag.
+      // Usage is decided BEFORE the workspace/config is read: an unreadable
+      // .pascorc must not turn a usage error into exit 1 (review round 3 F1,
+      // extended to the <block> positional in round 4 F2).
+      let listBlock: EditListBlock | undefined;
+      if (flags.list === true) {
+        if (flags.set !== undefined || flags.check === true) {
+          throw new UsageError("--list is read-only: it cannot be combined with --set or --check");
+        }
+        if (positionals.length > 1) {
+          throw new UsageError("pasco edit --list [<block>]");
+        }
+        if (positionals.length === 1) {
+          const value = positionals[0] as string;
+          try {
+            listBlock = parseEditListBlock(value);
+          } catch (err) {
+            // A valid address next to --list is the documented usage error; say
+            // so instead of reporting a valid address as an unknown block.
+            try {
+              parseEditAddress(value);
+            } catch {
+              throw err;
+            }
+            throw new UsageError(
+              `--list takes a block, not an address: run \`pasco edit --list\` to list the addresses, or \`pasco edit '${value}'\` to read one`,
+            );
+          }
+        }
+      } else if (positionals.length !== 1) {
+        throw new UsageError("pasco edit <contract-path> [--set <text> [--check]]");
       }
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       const pascorc = readWorkspacePascorc(workspace);
+      if (flags.list === true) {
+        return runEdit({
+          workspace,
+          list: true,
+          check: false,
+          ...(listBlock === undefined ? {} : { listBlock }),
+          pascorc,
+        });
+      }
       return runEdit({
         workspace,
         addressArg: positionals[0],
