@@ -187,9 +187,24 @@ describe("pasco preview — the artifact", () => {
     const result = run(["preview", "--workspace", workspace, "--out", out, "--now", NOW]);
     expect(result.code).toBe(0);
     expect(result.stdout).toContain("not ignored");
+    // #398: the message names the preview destination, not a flag the reader may
+    // not have passed.
+    expect(result.stdout).toContain("preview output");
+    expect(result.stdout).not.toContain("--out lands");
     // …and in the page's own notes: resolving the destination before the render
     // is what keeps the two surfaces from disagreeing (round-2 F7).
     expect(readFileSync(join(out, "index.html"), "utf8")).toContain("not ignored");
+  });
+
+  it("names the preview destination on the DEFAULT location too (#398)", () => {
+    // The repro: `pasco preview --no-open` — no `--out` — warned about `--out`.
+    const workspace = workspaceCopy();
+    expect(spawnSync("git", ["init", "-q", workspace], { encoding: "utf8" }).status).toBe(0);
+    const result = run(["preview", "--workspace", workspace, "--no-open", "--now", NOW]);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain("not ignored");
+    expect(result.stdout).toContain("preview output");
+    expect(result.stdout).not.toContain("--out");
   });
 
   it("refuses a positional argument and a malformed --now (usage, exit 2)", () => {

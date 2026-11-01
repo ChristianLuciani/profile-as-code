@@ -317,7 +317,7 @@ export function runAudit(args: AuditArgs): number {
   section("audit — findings only (no score, no prioritisation)");
   const compared =
     scope.checked.length === 0
-      ? "no surface measured"
+      ? "0 surfaces measured"
       : `${scope.checked.length} surface(s) compared (${scope.checked.join(", ")})`;
   const missing = scope.notRun.length === 0 ? "" : ` · not run: ${scope.notRun.join(", ")}`;
   const declared =
@@ -328,9 +328,23 @@ export function runAudit(args: AuditArgs): number {
         : "";
   line(`  scope: ${compared}${missing}${declared}`);
   if (scope.checked.length === 0) {
-    line(
-      "  an empty scope is not a clean audit — no artifact to compare (run pasco build), or no catalog declares fact-present",
-    );
+    // #397: name the cause that ACTUALLY applies. The old line offered "run
+    // pasco build" in every case — including the repro, where the artifact
+    // existed and the real cause was the second clause.
+    if (scope.catalog === "not-shipped") {
+      line(
+        "  an empty scope is not a clean audit — the built-in check catalog is not shipped with this package, so no rule could declare what to compare",
+      );
+    } else if (scope.declared.length === 0) {
+      line(
+        "  an empty scope is not a clean audit — no check catalog declares the surface-facts rule for this workspace's surfaces (add a content/checks.yaml row to declare it)",
+      );
+    } else {
+      const surfaces = scope.notRun.length > 0 ? ` for ${scope.notRun.join(", ")}` : "";
+      line(
+        `  an empty scope is not a clean audit — no built artifact to compare${surfaces} (run pasco build; a flavor with no renderer cannot be compared)`,
+      );
+    }
   }
   if (findings.length === 0) {
     line("  no findings");
