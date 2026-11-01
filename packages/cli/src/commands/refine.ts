@@ -147,12 +147,15 @@ export function runRefine(args: RefineArgs): number {
   const experience = slice.experience
     .map((e) => `${textOf(e.role, lang)} @ ${e.org} (${e.start}–${e.end ?? "present"})`)
     .join(" | ");
-  // The variant ids follow the addressed platform and language; the examples are
-  // derived from that prefix instead of the GitHub ones (issue #415). Three at
-  // most — the convention is the point, not an exhaustive list.
+  // The variant ids follow the addressed platform's slug and language — the
+  // dialect `docs/USER-GUIDE.md` and the hotmart/kofi skills already document
+  // (`<platform>-<lang>-<n>`). The examples are derived from that prefix instead
+  // of the GitHub abbreviations (issue #415), three at most — the convention is
+  // the point, not an exhaustive list. The floor matters: `.pascorc`'s
+  // `defaults.variants` is not validated, and 0 used to print `(e.g. ).`
   const variantPrefix = platform.replace(/[^a-z]/g, "");
   const variantExamples = Array.from(
-    { length: Math.min(variants, 3) },
+    { length: Math.max(1, Math.min(variants, 3)) },
     (_, i) => `${variantPrefix}-${lang}-${i + 1}`,
   ).join(", ");
   const projects = slice.projects.map((p) => p.name).join(", ");
@@ -175,7 +178,7 @@ export function runRefine(args: RefineArgs): number {
     `Research (dated sources): ${researchPath}`,
     `Variant id convention: ${variantPrefix}-${lang}-<n> (e.g. ${variantExamples}).`,
     ``,
-    `Facts (language-independent — MUST stay byte-identical across variants and platforms):`,
+    `Facts (language-independent — MUST stay byte-identical across variants and platforms, except \`role\`: a langMap resolved to ${lang}):`,
     `  name: ${identity.name}`,
     `  location: ${identity.location ?? "—"}`,
     `  links: ${links || "—"}`,

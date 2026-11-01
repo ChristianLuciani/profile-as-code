@@ -13,6 +13,8 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -85,5 +87,30 @@ describe("pasco refine (agent template)", () => {
     expect(res.code).toBe(0);
     expect(res.stdout).toContain("linkedin-es-1, linkedin-es-2");
     expect(res.stdout).not.toContain("linkedin-es-3");
+  });
+
+  it("uses the same slug dialect for github-readme, which the skill now documents", () => {
+    const res = run(["refine", "github-readme", "--workspace", FIXTURE]);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain("githubreadme-en-<n>");
+    expect(res.stdout).toContain("githubreadme-en-1, githubreadme-en-2, githubreadme-en-3");
+    // The pre-#415 line printed `gh-en-*` here; the dialect is now the slug the
+    // user guide and the shipped skill agree on — never a per-platform table in
+    // the CLI (rule 7).
+    expect(res.stdout).not.toContain("gh-en-");
+  });
+
+  it("still emits one example when an unvalidated `.pascorc` declares 0 variants", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pasco-variants-"));
+    try {
+      cpSync(FIXTURE, dir, { recursive: true });
+      writeFileSync(join(dir, ".pascorc"), JSON.stringify({ defaults: { variants: 0 } }));
+      const res = run(["refine", "linkedin", "--workspace", dir]);
+      expect(res.code).toBe(0);
+      expect(res.stdout).toContain("(e.g. linkedin-en-1)");
+      expect(res.stdout).not.toContain("(e.g. )");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

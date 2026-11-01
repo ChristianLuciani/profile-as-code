@@ -27,7 +27,11 @@ minor versions may contain breaking contract changes.
   falling back to `en` — `textOf` gained the same optional language, one home
   for the read). The `Variant id convention` examples were hardcoded `gh-en-*`
   for every platform; they are derived from the prefix and language the
-  convention line prints (`linkedin-en-1`, …).
+  convention line prints (`linkedin-en-1`, …), and the shipped `github-readme`
+  skill + playbook now document that same slug dialect — they said
+  `gh-<lang>-<n>`, so the template and the skill it points at would have
+  disagreed (operator decision, 2026-11-01: the slug is the one dialect; the
+  hotmart/kofi skills and the user guide already used it).
 - **one prefix policy on the human error surfaces (#416)** — `report()` printed
   `<command>: …` without the `pasco` the success lines carry, and the top-level
   catch added a `usage: ` to `UsageError` messages that already started with
