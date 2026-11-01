@@ -16,10 +16,11 @@ let jsonMode = false;
 
 /** The human label of a command in a diagnostic line: `pasco <command>`.
  *
- *  The success paths already print `pasco export ai-policy: …`; the error path
- *  dropped the `pasco` and read `export ai-policy: …`, so a reader grepping or
- *  copying the line got a command that is not on their PATH (rule 9, issue
- *  #416). One function, so both human paths cannot drift again. */
+ *  The success paths print `pasco export ai-policy: …` as literal strings; the
+ *  error path dropped the `pasco` and read `export ai-policy: …`, so a reader
+ *  grepping or copying the line got a command that is not on their PATH (rule 9,
+ *  issue #416). This is the one spelling the error path uses; it matches the
+ *  success lines by convention, not by sharing a formatter. */
 export function humanCommand(command: string): string {
   return `pasco ${command}`;
 }

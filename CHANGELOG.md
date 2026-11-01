@@ -31,7 +31,12 @@ minor versions may contain breaking contract changes.
   skill + playbook now document that same slug dialect — they said
   `gh-<lang>-<n>`, so the template and the skill it points at would have
   disagreed (operator decision, 2026-11-01: the slug is the one dialect; the
-  hotmart/kofi skills and the user guide already used it).
+  hotmart/kofi skills and the user guide already used it). While reconciling,
+  the same line's variant count turned out to trust `.pascorc`'s
+  `defaults.variants` unchecked — `0` printed "Write 0 variant(s)" and a
+  non-number collapsed the examples — so `parseVariants` now normalizes an
+  unusable fallback to the documented default (3) in one place, which also
+  covers `pasco post`.
 - **one prefix policy on the human error surfaces (#416)** — `report()` printed
   `<command>: …` without the `pasco` the success lines carry, and the top-level
   catch added a `usage: ` to `UsageError` messages that already started with

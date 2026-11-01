@@ -32,8 +32,20 @@ export function parseFlavor(value: string): Flavor {
   throw new UsageError(`unknown flavor "${value}" (allowed: ${FLAVORS.join(", ")})`);
 }
 
+/** The documented `--variants` default (SPEC §7) — one home for the number the
+ *  flag help, `.pascorc` fallbacks and the invariant below all rest on. */
+export const DEFAULT_VARIANTS = 3;
+
 export function parseVariants(value: string | undefined, fallback: number): number {
-  if (value === undefined) return fallback;
+  if (value === undefined) {
+    // The fallback is `.pascorc`'s `defaults.variants`: USER DATA the reader does
+    // not validate (`readWorkspacePascorc` passes the JSON through). Trusting it
+    // let `0` reach the published template as "Write 0 variant(s)" and a
+    // non-number made the example list collapse (`#415` fresh pass, root cause).
+    // An unusable fallback is not a usage error — the user asked for nothing —
+    // so the documented default wins, at the ONE place both callers pass through.
+    return Number.isInteger(fallback) && fallback >= 1 ? fallback : DEFAULT_VARIANTS;
+  }
   const n = Number(value);
   if (!Number.isInteger(n) || n < 1)
     throw new UsageError(`--variants must be a positive integer (got "${value}")`);

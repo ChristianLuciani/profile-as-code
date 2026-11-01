@@ -13,7 +13,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -100,17 +100,43 @@ describe("pasco refine (agent template)", () => {
     expect(res.stdout).not.toContain("gh-en-");
   });
 
-  it("still emits one example when an unvalidated `.pascorc` declares 0 variants", () => {
-    const dir = mkdtempSync(join(tmpdir(), "pasco-variants-"));
-    try {
-      cpSync(FIXTURE, dir, { recursive: true });
-      writeFileSync(join(dir, ".pascorc"), JSON.stringify({ defaults: { variants: 0 } }));
-      const res = run(["refine", "linkedin", "--workspace", dir]);
-      expect(res.code).toBe(0);
-      expect(res.stdout).toContain("(e.g. linkedin-en-1)");
-      expect(res.stdout).not.toContain("(e.g. )");
-    } finally {
-      rmSync(dir, { recursive: true, force: true });
+  it("gates that dialect against the skill the template tells the agent to read", () => {
+    // Both sides are committed: the template derives `<slug>-<lang>-<n>` and the
+    // skill documents it. Reverting either one must fail a test — otherwise the
+    // round-1 alignment can decay silently (fresh pass, F3).
+    const skillDoc = readFileSync(
+      join(__dirname, "..", "..", "..", "skills", "github-readme", "SKILL.md"),
+      "utf8",
+    );
+    const documented = /`variantId` = `([a-z0-9-]+)-<lang>-<n>`/.exec(skillDoc)?.[1];
+    expect(documented).toBeDefined();
+    const res = run(["refine", "github-readme", "--lang", "es", "--workspace", FIXTURE]);
+    expect(res.stdout).toContain(`Variant id convention: ${documented}-es-<n>`);
+    expect(res.stdout).toContain(`${documented}-es-1`);
+  });
+
+  it("ignores an unusable `.pascorc` defaults.variants instead of publishing 0", () => {
+    // `defaults.variants` is user data the reader does not validate: 0 used to
+    // print "Write 0 variant(s)", a non-number collapsed the example list to
+    // `(e.g. )`. The documented default wins, at `parseVariants` (one home).
+    for (const bad of [0, -2, 2.5, "abc"]) {
+      const dir = mkdtempSync(join(tmpdir(), "pasco-variants-"));
+      try {
+        cpSync(FIXTURE, dir, { recursive: true });
+        writeFileSync(join(dir, ".pascorc"), JSON.stringify({ defaults: { variants: bad } }));
+        const res = run(["refine", "linkedin", "--workspace", dir]);
+        expect(res.code, `variants: ${JSON.stringify(bad)}`).toBe(0);
+        expect(res.stdout).toContain("Write 3 variant(s)");
+        expect(res.stdout).toContain("linkedin-en-1, linkedin-en-2, linkedin-en-3");
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
     }
+  });
+
+  it("keeps an explicit `--variants 0` a usage error", () => {
+    const res = run(["refine", "linkedin", "--variants", "0", "--workspace", FIXTURE]);
+    expect(res.code).toBe(2);
+    expect(res.stderr).toContain("--variants must be a positive integer");
   });
 });

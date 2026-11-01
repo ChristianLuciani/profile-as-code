@@ -13,7 +13,13 @@ import { join } from "node:path";
 import type { Lang, Platform } from "@profile-as-code/core";
 import { compile, LoadError, load, SchemaValidationError, textOf } from "@profile-as-code/core";
 import { parseDocument, stringify } from "yaml";
-import { parseLang, parsePlatform, parseVariants, UsageError } from "../contract.js";
+import {
+  DEFAULT_VARIANTS,
+  parseLang,
+  parsePlatform,
+  parseVariants,
+  UsageError,
+} from "../contract.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report } from "../output.js";
 import { lookupSkill, skillLine } from "../skill-path.js";
@@ -90,7 +96,10 @@ export function runRefine(args: RefineArgs): number {
   }
   const platform = parsePlatform(args.platformArg);
   const lang = parseLang(defaultsLang(args.pascorc, args.langArg));
-  const variants = parseVariants(args.variantsArg, args.pascorc.defaults?.variants ?? 3);
+  const variants = parseVariants(
+    args.variantsArg,
+    args.pascorc.defaults?.variants ?? DEFAULT_VARIANTS,
+  );
   if (args.choose !== undefined && !isSafeVariantId(args.choose)) {
     throw new UsageError(
       "--choose <variantId> must be a safe id (letters, digits, dot, underscore, dash; no slash or '..')",
@@ -178,7 +187,7 @@ export function runRefine(args: RefineArgs): number {
     `Research (dated sources): ${researchPath}`,
     `Variant id convention: ${variantPrefix}-${lang}-<n> (e.g. ${variantExamples}).`,
     ``,
-    `Facts (language-independent — MUST stay byte-identical across variants and platforms, except \`role\`: a langMap resolved to ${lang}):`,
+    `Facts (language-independent — MUST stay byte-identical across variants and platforms, except \`role\`: a langMap shown in ${lang}, falling back to en):`,
     `  name: ${identity.name}`,
     `  location: ${identity.location ?? "—"}`,
     `  links: ${links || "—"}`,
