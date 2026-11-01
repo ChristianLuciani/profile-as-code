@@ -227,6 +227,32 @@ describe("scaffolded README references (#385)", () => {
     expect(() => expectSkillsBridge("`pasco skills:export ./../out`", workspace)).toThrow();
   });
 
+  // #387: one home for the cycle (the `--help` block); both templates quote
+  // those four lines verbatim so the two surfaces cannot drift.
+  function cycleSteps(text: string): string[] {
+    const at = text.indexOf("The cycle");
+    if (at < 0) return [];
+    return text
+      .slice(at)
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line !== "" && line !== "```sh" && line !== "```")
+      .slice(1, 5);
+  }
+
+  it("both templates quote the help cycle verbatim (#387)", () => {
+    const steps = cycleSteps(run(["--help"]).stdout);
+    expect(steps).toHaveLength(4);
+
+    for (const flavor of [undefined, "brand"] as const) {
+      const { readme } = scaffold(flavor);
+      expect(
+        cycleSteps(readme),
+        `template (${flavor ?? "person"}) must quote the help block`,
+      ).toEqual(steps);
+    }
+  });
+
   it("the walker catches a workspace path that does not exist", () => {
     const workspace = tempDir();
     mkdirSync(join(workspace, "content"));

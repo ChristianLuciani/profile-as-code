@@ -63,74 +63,82 @@ const VERSION = (() => {
 
 const GLOBAL_HELP = `pasco — profile-as-code CLI v${VERSION}
 
+The cycle:
+  pasco init <dir>        scaffold a workspace (content/, README.md, .pascorc)
+  edit content/*.yaml     the single source of truth — edit these, not profiles/
+  pasco validate          schema + drift + geo (warnings)
+  pasco build [platform]  write the per-platform artifacts
+
+Each command's tag says where it sits in the cycle: [write] · [read] · [check].
+
 Commands:
-  init [dir]                    Scaffold a ${WORKSPACE_NAME} workspace (content/, README.md, .pascorc)
-  validate [--json]             Schema (FAIL, exit 1) + drift/geo (WARN, exit 0) — D12
-  doctor [--json]               Engine · schema · workspace on one line (SPEC §7.6, #348):
+  init [dir]                    [write] Scaffold a ${WORKSPACE_NAME} workspace (content/, README.md, .pascorc)
+  validate [--json]             [check] Schema (FAIL, exit 1) + drift/geo (WARN, exit 0) — D12
+  doctor [--json]               [check] Engine · schema · workspace on one line (SPEC §7.6, #348):
                                 installed version, the profile contract it validates,
                                 and whether the workspace loads; also reports the
                                 .pascorc engine requirement (unmet ⇒ exit 1)
-  build [platform] [--lang]     Deterministic base texts per platform+lang
-  preview [--out <dir>]         ONE self-contained HTML page of the rendered surfaces
+  build [platform] [--lang]     [write] Deterministic base texts per platform+lang
+  preview [--out <dir>]         [read] ONE self-contained HTML page of the rendered surfaces
           [--no-open] [--lang <l>]  (inline CSS, no JS, no external asset) written to
                                 <workspace>/.pasco/preview and opened locally; --out writes
                                 elsewhere and never opens (the CI-artifact transport). Warns when
                                 the destination sits in a repo without an ignore entry.
                                 Not a publication
-  edit <contract-path>          Resolve one contract field; --set writes it (comment-preserving,
+  edit <contract-path>          [write] Resolve one contract field; --set writes it (comment-preserving,
           [--set <text> [--check]]  validated, atomic) and --set --check previews the published lines
-  diff [--json]                 Changes since the last release tag (git-based → CHANGELOG hint)
-  refine <platform> [--lang]    PARTIAL: emit agent task template; --choose <id> records the
+  diff [--json]                 [read] Changes since the last release tag (git-based → CHANGELOG hint)
+  refine <platform> [--lang]    [write] PARTIAL: emit agent task template; --choose <id> records the
           [--variants N]        chosen variant in content/active.yaml (agent-driven, D11/D13;
                                 full variant flow M3)
-  check [platform]              Executes offline rules: brand handle matrix (M6/§17,
+  check [platform]              [check] Executes offline rules: brand handle matrix (M6/§17,
                                 brand flavor), registry checks (M7/§18.8) and
                                 media-transport rules (M8/§18.6) and max-chars/min-chars
                                 over headlines/bios (offline, #240) and fact-present
                                 (the built surface's facts vs the SSOT, #283);
                                 remaining rows M3/M4
-  audit [--json]                Offline diagnostic projection: findings only (no score,
+  audit [--json]                [check] Offline diagnostic projection: findings only (no score,
                                 no prioritisation) in three fixed classes — dangling-ref,
                                 contradiction, unsourced-claim; stricter than
                                 validate/check on those classes; exit 1 iff any FAIL
-  discover <url>... [--json]    Provisional profile from public surfaces: reads each
+  discover <url>... [--json]    [read] Provisional profile from public surfaces: reads each
                                 surface's schema.org JSON-LD + links, writes nothing and
                                 marks every fact unattested; reports the audit classes
                                 (dangling-ref · contradiction · unsourced-claim)
-  entity [--json] [--jsonld]    The schema.org entity projection: facts, @id, sameAs,
+  entity [--json] [--jsonld]    [read] The schema.org entity projection: facts, @id, sameAs,
           [--out <file> [--force]] [--bare] [--lang <l>]
                                 readiness gaps and the FAQPage node as JSON, or the
                                 paste-ready JSON-LD blocks (entity + FAQPage when faq[]
                                 is declared) for surfaces the engine does not render.
                                 Exit 1 when @id is absent (no declared home)
-  cite-check [<answers.ndjson>] Match the workspace's entity against saved answer-engine
+  cite-check [<answers.ndjson>] [check] Match the workspace's entity against saved answer-engine
           [--json]              answers (NDJSON; stdin when no path). Offline, no model,
                                 no clock: per answer it reports cited · confidence · spans
                                 · reasons, never a rate; exit 2 on malformed NDJSON
-  post <subcommand>             MVP (week-1 experiment): seed → task bundle → choose →
+  post <subcommand>             [write] MVP (week-1 experiment): seed → task bundle → choose →
                                 check → optional Postiz draft payload. No LLM call.
                                 Subcommands: seed · task · choose · check · export · import · list
-  status [platform] [--verify]   Per-entry deploy report — origin · surfaces · in-sync/stale/never
+  status [platform] [--verify]  [read] Per-entry deploy report — origin · surfaces · in-sync/stale/never
                                  + certification (D18/§19.5); --verify runs the opt-in C1
                                  live check (the engine's ONE network path, §19.5)
-  presence [--json]             The presence board (D23/§22): every surface a release
+  presence [--json]             [read] The presence board (D23/§22): every surface a release
                                 has addressed, at its newest release, with the
                                 ledger-derived state (in-sync/stale/never)
-  release plan [id] [--json]    One release's ordered fan-out (repo-meta → profile →
+  release plan [id] [--json]    [read] One release's ordered fan-out (repo-meta → profile →
                                 distribution), each surface's state and the per-kind
                                 factual spine; the copy lives in the shipped skills
-  export ai-policy              Write the AI-policy artifacts (SPEC §7.3, M9): robots.txt
+  export ai-policy              [write] Write the AI-policy artifacts (SPEC §7.3, M9): robots.txt
           [--out <dir> | --check] [--lang <l>]  (two named groups — listed retrieval crawlers
                                 allowed, listed training crawlers disallowed, no wildcard) +
                                 llms.txt (the workspace index) + AI-POLICY.md, into <dir>;
                                 --check (exit 1) fails an unsourced, stale or incomplete entry
-  export profile [--json]       The normalized profile for programmatic consumers (SPEC §7.5,
+  export profile [--json]       [read] The normalized profile for programmatic consumers (SPEC §7.5,
           [--now <iso8601>]     #348): { schemaVersion, engine, source: { commit, generatedAt },
                                 profile } — every root the workspace declares, plus every list
                                 root defaulted to [], from the same load() the other commands
                                 use. No clock is read: generatedAt is null unless --now pins
                                 it. Offline; byte-identical across runs
-  skills:export <dir>           Copy the skill channels this package ships into <dir>
+  skills:export <dir>           [write] Copy the skill channels this package ships into <dir>
           [--force] [--list]     (--force overlays; --list shows them); no harness paths
 
 Common flags (after the command):

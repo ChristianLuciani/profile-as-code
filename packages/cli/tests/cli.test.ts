@@ -145,6 +145,28 @@ describe("surface", () => {
     expect(r.stdout).toContain("ko-fi.com/christianluciani");
   });
 
+  // #387: the help is a published surface read by a stranger. A command list
+  // says what each command does, never that the artifact is a rendering of
+  // content/ — the cycle block states the loop before the list.
+  it("opens with the cycle block, in order, before the command list (#387)", () => {
+    const r = run(["--help"]);
+    expect(r.code).toBe(0);
+    const cycleAt = r.stdout.indexOf("The cycle:");
+    const commandsAt = r.stdout.indexOf("Commands:");
+    expect(cycleAt).toBeGreaterThanOrEqual(0);
+    expect(cycleAt).toBeLessThan(commandsAt);
+    const block = r.stdout.slice(cycleAt, commandsAt);
+    const steps = [
+      "pasco init <dir>",
+      "edit content/*.yaml",
+      "pasco validate",
+      "pasco build [platform]",
+    ];
+    const positions = steps.map((step) => block.indexOf(step));
+    expect(positions.every((at) => at >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+  });
+
   it("exit 2 on unknown command", () => {
     const r = run(["frobnicate"]);
     expect(r.code).toBe(2);
