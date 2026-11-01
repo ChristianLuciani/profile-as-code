@@ -79,7 +79,7 @@ Commands:
                                 and whether the workspace loads; also reports the
                                 .pascorc engine requirement (unmet ⇒ exit 1)
   build [platform] [--lang]     [write] Deterministic base texts per platform+lang
-  preview [--out <dir>]         [read] ONE self-contained HTML page of the rendered surfaces
+  preview [--out <dir>]         [read]  ONE self-contained HTML page of the rendered surfaces
           [--no-open] [--lang <l>]  (inline CSS, no JS, no external asset) written to
                                 <workspace>/.pasco/preview and opened locally; --out writes
                                 elsewhere and never opens (the CI-artifact transport). Warns when
@@ -87,7 +87,7 @@ Commands:
                                 Not a publication
   edit <contract-path>          [write] Resolve one contract field; --set writes it (comment-preserving,
           [--set <text> [--check]]  validated, atomic) and --set --check previews the published lines
-  diff [--json]                 [read] Changes since the last release tag (git-based → CHANGELOG hint)
+  diff [--json]                 [read]  Changes since the last release tag (git-based → CHANGELOG hint)
   refine <platform> [--lang]    [write] PARTIAL: emit agent task template; --choose <id> records the
           [--variants N]        chosen variant in content/active.yaml (agent-driven, D11/D13;
                                 full variant flow M3)
@@ -101,11 +101,11 @@ Commands:
                                 no prioritisation) in three fixed classes — dangling-ref,
                                 contradiction, unsourced-claim; stricter than
                                 validate/check on those classes; exit 1 iff any FAIL
-  discover <url>... [--json]    [read] Provisional profile from public surfaces: reads each
+  discover <url>... [--json]    [read]  Provisional profile from public surfaces: reads each
                                 surface's schema.org JSON-LD + links, writes nothing and
                                 marks every fact unattested; reports the audit classes
                                 (dangling-ref · contradiction · unsourced-claim)
-  entity [--json] [--jsonld]    [read] The schema.org entity projection: facts, @id, sameAs,
+  entity [--json] [--jsonld]    [read]  The schema.org entity projection: facts, @id, sameAs,
           [--out <file> [--force]] [--bare] [--lang <l>]
                                 readiness gaps and the FAQPage node as JSON, or the
                                 paste-ready JSON-LD blocks (entity + FAQPage when faq[]
@@ -118,13 +118,13 @@ Commands:
   post <subcommand>             [write] MVP (week-1 experiment): seed → task bundle → choose →
                                 check → optional Postiz draft payload. No LLM call.
                                 Subcommands: seed · task · choose · check · export · import · list
-  status [platform] [--verify]  [read] Per-entry deploy report — origin · surfaces · in-sync/stale/never
+  status [platform] [--verify]  [read]  Per-entry deploy report — origin · surfaces · in-sync/stale/never
                                  + certification (D18/§19.5); --verify runs the opt-in C1
                                  live check (the engine's ONE network path, §19.5)
-  presence [--json]             [read] The presence board (D23/§22): every surface a release
+  presence [--json]             [read]  The presence board (D23/§22): every surface a release
                                 has addressed, at its newest release, with the
                                 ledger-derived state (in-sync/stale/never)
-  release plan [id] [--json]    [read] One release's ordered fan-out (repo-meta → profile →
+  release plan [id] [--json]    [read]  One release's ordered fan-out (repo-meta → profile →
                                 distribution), each surface's state and the per-kind
                                 factual spine; the copy lives in the shipped skills
   export ai-policy              [write] Write the AI-policy artifacts (SPEC §7.3, M9): robots.txt
@@ -132,7 +132,7 @@ Commands:
                                 allowed, listed training crawlers disallowed, no wildcard) +
                                 llms.txt (the workspace index) + AI-POLICY.md, into <dir>;
                                 --check (exit 1) fails an unsourced, stale or incomplete entry
-  export profile [--json]       [read] The normalized profile for programmatic consumers (SPEC §7.5,
+  export profile [--json]       [read]  The normalized profile for programmatic consumers (SPEC §7.5,
           [--now <iso8601>]     #348): { schemaVersion, engine, source: { commit, generatedAt },
                                 profile } — every root the workspace declares, plus every list
                                 root defaulted to [], from the same load() the other commands

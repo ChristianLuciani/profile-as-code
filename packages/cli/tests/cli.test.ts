@@ -167,6 +167,16 @@ describe("surface", () => {
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
+  it("every command summary carries exactly one cycle tag (#387)", () => {
+    const help = run(["--help"]).stdout;
+    const commands = help.slice(help.indexOf("Commands:"), help.indexOf("Common flags"));
+    const rows = commands.split("\n").filter((line) => /^ {2}[a-z][a-z0-9:-]*(?:\s|$)/.test(line));
+    expect(rows.length).toBeGreaterThan(15);
+    for (const row of rows) {
+      expect(row.match(/\[(?:write|read|check)\]/g) ?? [], row).toHaveLength(1);
+    }
+  });
+
   it("exit 2 on unknown command", () => {
     const r = run(["frobnicate"]);
     expect(r.code).toBe(2);
