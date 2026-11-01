@@ -158,8 +158,18 @@ export function runReleasePlan(args: ReleasePlanArgs): number {
   plan.surfaces.forEach((row, index) => {
     const order = String(index + 1).padStart(5);
     line(`${order}  ${row.kind.padEnd(15)} ${row.surface.padEnd(21)} ${row.state}`);
+    // Two distinct causes, named as what they are (#408): a key that resolves
+    // to no SSOT unit IS a defect in the release row; a valid unit with no
+    // record on this surface is a pending fan-out, and the row is correct —
+    // telling the operator to "fix the release row" there sends them to edit a
+    // correct datum.
+    for (const unknown of row.unknownUnits) {
+      line(`       ↳ changedUnit "${unknown}" is not an SSOT unit — fix the release row`);
+    }
     for (const missing of row.missingUnits) {
-      line(`       ↳ changedUnit "${missing}" is not an SSOT unit — fix the release row`);
+      line(
+        `       ↳ changedUnit "${missing}" has no deploy record on this surface yet — pending fan-out`,
+      );
     }
   });
   section("Base text (factual spine; the copy per kind lives in the shipped skills)");

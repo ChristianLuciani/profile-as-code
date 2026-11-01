@@ -13,6 +13,9 @@
  *     it, with counts.
  *   - partial coverage is never in-sync (F1): a changed unit with no record on
  *     the surface makes it `never` and lands in `missingUnits`;
+ *   - the two causes stay apart (#408): a valid unit with no record is a pending
+ *     fan-out (`missingUnits`), a key that resolves to no SSOT unit is a defect
+ *     in the release row (`unknownUnits`) — neither is reported as the other;
  *   - the refusals: no releases, an unknown release id, duplicate release ids,
  *     duplicate surfaces and a surface the registry does not know (a typo must
  *     not silently build a plan).
@@ -89,10 +92,28 @@ describe("releasePlan — the ordered fan-out", () => {
     const plan = releasePlan(profile);
     const readme = plan.surfaces.find((row) => row.surface === "github-readme");
     expect(readme?.state).toBe("never");
+    // `bios:github-readme:en:long` IS an SSOT unit, so this is a pending
+    // fan-out — never the release row being wrong (#408).
     expect(readme?.missingUnits).toEqual(["bios:github-readme:en:long"]);
+    expect(readme?.unknownUnits).toEqual([]);
     // The surface still carries the identity record — coverage is partial, which
     // is exactly why it must not read in-sync.
     expect(plan.surfaces.find((row) => row.surface === "linkedin")?.state).toBe("never");
+  });
+
+  it("keeps a pending fan-out and a non-SSOT key in separate lists (#408)", () => {
+    const profile = load(RELEASES);
+    profile.releases[0]!.changedUnits = [
+      "identity",
+      "bios:github-readme:en:long",
+      "publications:gone",
+    ];
+    const readme = releasePlan(profile).surfaces.find((row) => row.surface === "github-readme");
+    expect(readme?.state).toBe("never");
+    // Valid unit, no deploy record on this surface → fan-out pendiente.
+    expect(readme?.missingUnits).toEqual(["bios:github-readme:en:long"]);
+    // No SSOT unit behind the key → the row itself is wrong.
+    expect(readme?.unknownUnits).toEqual(["publications:gone"]);
   });
 
   it("refuses duplicate release ids instead of silently returning the first", () => {
