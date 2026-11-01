@@ -512,6 +512,7 @@ pasco validate [--json]              # schema (FAIL, exit 1) + drift/geo (WARN, 
 pasco build [platform] [--lang]      # deterministic base texts per platform+lang
 pasco preview [--out <dir>] [--no-open]  # ONE self-contained HTML page, opened locally (#282)
 pasco edit <contract-path> [--set <text> [--check]]  # read / preview / write one field (epic #247)
+pasco edit --list [<block>]          # every contract path this workspace has, read-only (#411)
 pasco diff [--json]                  # what changed since the last release tag
 ```
 
@@ -728,10 +729,18 @@ pasco edit 'headlines[platform=upwork,lang=en].text' --set "…" --json
 answers "what will be published?" without opening YAML:
 
 ```sh
+pasco edit --list                                         # the paths this workspace has, one per line
 pasco edit 'positioning.statement.en' --set "…" --check   # the published lines this edit changes
 pasco edit 'positioning.statement.en' --set "…"           # write it (one line, comments intact)
 pasco edit 'positioning.statement.en'                     # read it back — did it take?
 ```
+
+`--list [<block>]` is read-only discovery (#411): every addressable row, built by
+the same constructors resolution uses, scoped to `positioning`/`headlines`/`bios`/
+`identity.links`; link rows print `(read-only)` and a row the grammar cannot
+express is a warning, never an address that would not parse. `--json` carries
+`{ addresses: [{ address, kind, readOnly }], warnings }`. `--list` with `--set`,
+`--check` or an address is usage (exit `2`).
 
 `--json` is the machine contract (`address · current · proposed · rendered · ok ·
 noop · written · warnings · stale · state · drift · limit · over · variant · reason`)
@@ -1090,6 +1099,7 @@ pasco validate [--json]                    # schema FAIL + drift/geo WARN (D12)
 pasco build [platform] [--lang] [--json]   # base texts; renderers write profiles/
 pasco preview [--out <dir>] [--no-open]    # one self-contained HTML page, opened locally (#282)
 pasco edit <contract-path> [--set <text> [--check]]  # read / preview / write one contract field (#247)
+pasco edit --list [<block>]                # every contract path this workspace has (#411)
 pasco diff [--json]                        # changes since last release-* tag
 pasco refine <platform> [--lang] [--variants N]   # emit the agent task template (full flow M3)
 pasco refine <platform> --choose <id>      # record chosen variant in content/active.yaml

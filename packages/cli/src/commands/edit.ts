@@ -26,7 +26,13 @@
 
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
-import type { LoadedProfile, MediaAsset, Platform, PlatformProfile } from "@profile-as-code/core";
+import type {
+  Lang,
+  LoadedProfile,
+  MediaAsset,
+  Platform,
+  PlatformProfile,
+} from "@profile-as-code/core";
 import {
   collectMedia,
   deployStatus,
@@ -43,13 +49,14 @@ import {
   selectionErrorMessage,
   selectionFindings,
 } from "../artifact-render.js";
-import type { EditAddress } from "../contract.js";
+import type { EditAddress, EditListBlock } from "../contract.js";
 import {
   bioAddress,
   headlineAddress,
   LANGS,
   linkAddress,
   parseEditAddress,
+  statementAddress,
   UsageError,
 } from "../contract.js";
 import { DEFAULT_CHECKS } from "../default-checks.js";
@@ -71,6 +78,10 @@ export interface EditArgs {
   addressArg?: string;
   setArg?: string;
   check: boolean;
+  /** #411: read-only discovery of the workspace's contract paths. */
+  list?: boolean;
+  /** #411: scope `--list` to one block (unset = every block). */
+  listBlock?: EditListBlock;
   pascorc: Pascorc;
 }
 
@@ -172,7 +183,7 @@ export function resolveEditTarget(
     // "de") is schema-legal but never renders, so listing it would be a trap.
     const available = LANGS.filter(
       (lang) => typeof statement[lang] === "string" && statement[lang] !== "",
-    ).map((lang) => `positioning.statement.${lang}`);
+    ).map((lang) => statementAddress(lang as Lang));
     const file = owningFile(workspace, "positioning");
     return {
       address,
@@ -280,6 +291,84 @@ export function resolveEditTarget(
       ),
     ],
   };
+}
+
+/** One addressable row of the read-only `--list` surface (#411). */
+export interface EditAddressEntry {
+  address: string;
+  kind: EditAddress["kind"];
+  /** Links are the one address the grammar marks read-only (URL SSOT, §3). */
+  readOnly: boolean;
+}
+
+/**
+ * Every addressable row of the loaded workspace, in block order
+ * (`positioning` → `headlines` → `bios` → `identity.links`), each address built
+ * by the SAME constructor `resolveEditTarget` uses — no second grammar (#411).
+ *
+ * A row the grammar cannot express is NEVER printed as an address that would not
+ * parse: it is returned as a warning instead (a link whose platform/label carries
+ * `, ] = "`). Duplicate addresses collapse to one entry: an address that resolves
+ * to several rows is not addressable (`edit` refuses to choose), and printing it
+ * twice would advertise a path that cannot be used.
+ */
+export function listEditAddresses(
+  profile: LoadedProfile,
+  block?: EditListBlock,
+): { addresses: EditAddressEntry[]; warnings: string[] } {
+  const addresses: EditAddressEntry[] = [];
+  const warnings: string[] = [];
+  const seen = new Set<string>();
+  const scoped = (candidate: EditListBlock): boolean => block === undefined || block === candidate;
+  const add = (address: string, kind: EditAddress["kind"], readOnly = false): void => {
+    if (seen.has(address)) return;
+    seen.add(address);
+    addresses.push({ address, kind, readOnly });
+  };
+
+  if (scoped("positioning")) {
+    const statement: Record<string, string> = profile.positioning?.statement ?? {};
+    for (const lang of LANGS) {
+      // Empty string is ABSENT to compile() (#84) — listing it would be a trap.
+      if (typeof statement[lang] === "string" && statement[lang] !== "") {
+        add(statementAddress(lang as Lang), "statement");
+      }
+    }
+  }
+
+  if (scoped("headlines")) {
+    for (const row of profile.headlines) {
+      add(headlineAddress(row.platform, row.lang), "headline");
+    }
+  }
+
+  if (scoped("bios")) {
+    for (const row of profile.bios) {
+      add(bioAddress(row.platform, row.lang, row.length), "bio");
+    }
+  }
+
+  if (scoped("identity.links")) {
+    const links = profile.identity.links ?? [];
+    links.forEach((row, index) => {
+      const where = `identity.links[${index}]`;
+      if (row.platform === undefined) {
+        warnings.push(`${where} has no platform — not addressable, not listed`);
+      } else if (SELECTOR_UNSAFE.test(row.platform)) {
+        warnings.push(
+          `${where}: platform ${JSON.stringify(row.platform)} contains a character the address grammar cannot express — not listed`,
+        );
+      } else if (row.label !== undefined && SELECTOR_UNSAFE.test(row.label)) {
+        warnings.push(
+          `${where}: label ${JSON.stringify(row.label)} contains a character the address grammar cannot express — not listed`,
+        );
+      } else {
+        add(linkAddress(row.platform, row.label), "link", true);
+      }
+    });
+  }
+
+  return { addresses, warnings };
 }
 
 /** Apply the proposal to an in-memory copy. S1 never writes it anywhere; the
@@ -554,6 +643,21 @@ export function runEdit(args: EditArgs): number {
     profile = load(args.workspace);
   } catch (err) {
     return failLoad(err);
+  }
+
+  // #411: discovery is a READ-ONLY mode — it never resolves a target, locates a
+  // CST node or touches the edit lock. Same constructors as resolution: the list
+  // is what the address grammar actually accepts in this workspace.
+  if (args.list === true) {
+    const listed = listEditAddresses(profile, args.listBlock);
+    line("addresses:");
+    for (const entry of listed.addresses) {
+      line(`${entry.address}${entry.readOnly ? "  (read-only)" : ""}`);
+    }
+    for (const warning of listed.warnings) warn(warning);
+    return report("edit", true, EXIT.OK, {
+      data: { addresses: listed.addresses, warnings: listed.warnings },
+    });
   }
 
   if (args.addressArg === undefined) {

@@ -80,6 +80,27 @@ export function linkAddress(platform: string, label?: string): string {
     : `identity.links[platform=${platform},label=${label}].url`;
 }
 
+/** The statement row address. It has no selector grammar, so it used to be
+ *  spelled inline by the resolver — and `--list` (#411) must not grow a second
+ *  spelling: both call this. */
+export function statementAddress(lang: Lang): string {
+  return `positioning.statement.${lang}`;
+}
+
+/**
+ * The blocks `pasco edit --list` can scope to (#411). They are the four
+ * addressable contract roots, in the order the list prints them.
+ */
+export const EDIT_LIST_BLOCKS = ["positioning", "headlines", "bios", "identity.links"] as const;
+export type EditListBlock = (typeof EDIT_LIST_BLOCKS)[number];
+
+export function parseEditListBlock(value: string): EditListBlock {
+  if ((EDIT_LIST_BLOCKS as readonly string[]).includes(value)) return value as EditListBlock;
+  throw new UsageError(
+    `unknown block "${value}" — --list scopes to one of: ${EDIT_LIST_BLOCKS.join(" | ")}`,
+  );
+}
+
 /** The grammar, printed verbatim on a usage error — the caller must never have
  *  to guess a shape (S1 acceptance: an unknown address LISTS the valid ones). */
 export function editAddressTable(): string {
