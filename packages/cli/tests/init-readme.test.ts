@@ -240,6 +240,32 @@ describe("scaffolded README references (#385)", () => {
       .slice(1, 5);
   }
 
+  // #390: a scaffold is an on-ramp, not a reference card. The cycle block is
+  // the first thing the reader sees; the directory map stays, but below it.
+  it("the on-ramp precedes the directory map in both templates (#390)", () => {
+    for (const flavor of [undefined, "brand"] as const) {
+      const { readme } = scaffold(flavor);
+      const onRamp = readme.indexOf("## The cycle");
+      const map = readme.indexOf("## Files");
+      expect(onRamp, `template (${flavor ?? "person"}) must carry the cycle`).toBeGreaterThan(-1);
+      expect(map, `template (${flavor ?? "person"}) must carry the directory map`).toBeGreaterThan(
+        -1,
+      );
+      expect(
+        onRamp,
+        `template (${flavor ?? "person"}) must open with the work, before the map`,
+      ).toBeLessThan(map);
+
+      // Stronger than relative order: the on-ramp is the FIRST section, so a
+      // new directory-description heading inserted above it cannot pass.
+      const headings = [...readme.matchAll(/^## (.+)$/gm)].map((match) => match[1] as string);
+      expect(
+        headings[0],
+        `template (${flavor ?? "person"}) must open with the work, before any section`,
+      ).toBe("The cycle");
+    }
+  });
+
   it("both templates quote the help cycle verbatim (#387)", () => {
     const steps = cycleSteps(run(["--help"]).stdout);
     expect(steps).toHaveLength(4);
