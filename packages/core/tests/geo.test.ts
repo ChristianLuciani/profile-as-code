@@ -234,7 +234,7 @@ describe("geoCheck(profile)", () => {
     expect(mixed.score).toBe(50);
   });
 
-  it("routes the shipped sections through the same builder (§8 wiring)", () => {
+  it("scores every shipped section like the shared builder (§8 arithmetic)", () => {
     // An ARITHMETIC guard, not proof of call routing: rebuilding each shipped
     // section from the parts `geoCheck` returned, through the same builder, must
     // reproduce its score and applicability. The all-N/A state itself is pinned
