@@ -186,4 +186,4 @@ export type {
   SocialHandle,
   StructuredDataReadiness,
 } from "./types.js";
-export { LANGS, PLATFORMS } from "./types.js";
+export { LANGS, PLATFORMS, textOf } from "./types.js";

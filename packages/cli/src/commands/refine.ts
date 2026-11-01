@@ -11,7 +11,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Lang, Platform } from "@profile-as-code/core";
-import { compile, LoadError, load, SchemaValidationError } from "@profile-as-code/core";
+import { compile, LoadError, load, SchemaValidationError, textOf } from "@profile-as-code/core";
 import { parseDocument, stringify } from "yaml";
 import { parseLang, parsePlatform, parseVariants, UsageError } from "../contract.js";
 import { EXIT } from "../exit.js";
@@ -140,9 +140,21 @@ export function runRefine(args: RefineArgs): number {
   const slice = compile(profile, platform, lang);
   const identity = slice.identity;
   const links = (identity.links ?? []).map((l) => `${l.platform ?? "?"}:${l.url}`).join(", ");
+  // `role` is a `string | langMap` (schema v1.1) and compile passes FACTS through
+  // untouched, so the template resolves it with the same rule the language-aware
+  // text fields use: the requested language, falling back to `en` (issue #415 —
+  // interpolating the raw map printed `[object Object]`).
   const experience = slice.experience
-    .map((e) => `${e.role} @ ${e.org} (${e.start}–${e.end ?? "present"})`)
+    .map((e) => `${textOf(e.role, lang)} @ ${e.org} (${e.start}–${e.end ?? "present"})`)
     .join(" | ");
+  // The variant ids follow the addressed platform and language; the examples are
+  // derived from that prefix instead of the GitHub ones (issue #415). Three at
+  // most — the convention is the point, not an exhaustive list.
+  const variantPrefix = platform.replace(/[^a-z]/g, "");
+  const variantExamples = Array.from(
+    { length: Math.min(variants, 3) },
+    (_, i) => `${variantPrefix}-${lang}-${i + 1}`,
+  ).join(", ");
   const projects = slice.projects.map((p) => p.name).join(", ");
   const publications = slice.publications.map((p) => p.title).join(" | ");
   const anchors = slice.keywords.geo.associations?.join(", ") ?? "";
@@ -161,7 +173,7 @@ export function runRefine(args: RefineArgs): number {
     `Language: ${lang}`,
     `Skill (communicative strategy — READ IT FIRST): ${skillLine(skill)}`,
     `Research (dated sources): ${researchPath}`,
-    `Variant id convention: ${platform.replace(/[^a-z]/g, "")}-${lang}-<n> (e.g. gh-en-1, gh-en-2, gh-en-3).`,
+    `Variant id convention: ${variantPrefix}-${lang}-<n> (e.g. ${variantExamples}).`,
     ``,
     `Facts (language-independent — MUST stay byte-identical across variants and platforms):`,
     `  name: ${identity.name}`,

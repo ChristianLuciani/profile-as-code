@@ -19,6 +19,22 @@ minor versions may contain breaking contract changes.
   with no SSOT unit behind it: the row IS wrong) and `missingUnits` (a valid
   unit still owed a record) — and the human plan names each. SPEC §7.8/§22
   updated.
+- **`pasco refine`'s agent template renders a langMap `role` and names the
+  addressed platform's variant ids (#415)** — a bilingual
+  `experience[].role` was interpolated raw into the fact sheet the executing
+  agent works from, so it read `[object Object]`; the template now resolves it
+  with the language rule the text fields already use (the requested `--lang`,
+  falling back to `en` — `textOf` gained the same optional language, one home
+  for the read). The `Variant id convention` examples were hardcoded `gh-en-*`
+  for every platform; they are derived from the prefix and language the
+  convention line prints (`linkedin-en-1`, …).
+- **one prefix policy on the human error surfaces (#416)** — `report()` printed
+  `<command>: …` without the `pasco` the success lines carry, and the top-level
+  catch added a `usage: ` to `UsageError` messages that already started with
+  one, so a usage error read `usage: usage: pasco skills:export …`. The label
+  now has one home per axis: `humanCommand()` (`pasco <command>`) on the
+  reported error path, and the catch strips a leading `usage: ` before adding
+  its own. `--json` envelopes are unchanged.
 
 ## [0.3.7] - 2026-10-31
 
