@@ -11,8 +11,10 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -1094,38 +1096,194 @@ describe("pasco check (offline rules) + pasco skills:export (shipped skills)", (
 
 describe("published-surface boundary (#253/#254)", () => {
   const PRIVATE = /skills-studio|prompt-studio|AGOS\b|project\.sh/;
-  // #395: an installed tarball has `dist/ node_modules/ package.json README.md
-  // skills/` — no `packages/`, `schema/`, `docs/`, `scripts/`, `platforms/` or
-  // `site/`. Workspace paths the user creates (`content/`, `profiles/`) and the
-  // shipped `skills/` tree are not repo-relative and stay allowed. `schema/workspace`
-  // and `schema/load` are prose, not paths, so only the README pointer is matched.
-  const REPO_RELATIVE =
-    /(?:^|[\s`"'(])(?:(?:packages|docs|scripts|platforms|site)\/[\w./-]+|schema\/README\b)/u;
 
-  it("help output names no repo or tooling a reader cannot open", () => {
-    const helps = [
-      run(["--help"]),
-      ...[
-        "init",
-        "validate",
-        "build",
-        "diff",
-        "refine",
-        "check",
-        "audit",
-        "discover",
-        "entity",
-        "cite-check",
-        "post",
-        "status",
-        "skills:export",
-      ].map((cmd) => run([cmd, "--help"])),
-    ];
-    for (const r of helps) {
-      expect(r.code).toBe(0);
-      expect(r.stdout).not.toMatch(PRIVATE);
-      expect(r.stdout).not.toMatch(REPO_RELATIVE);
+  // #395: every `--help` (the root one and every advertised command) is a
+  // published surface read by a stranger. The command list is read from the
+  // global help itself, so a command added later is measured the day it ships.
+  // A path is allowed only when an installed package can open it: the packaged
+  // README, a shipped root (`dist/`, `skills/`), an `https://` URL, or nothing.
+  // Workspace paths the reader creates (`content/`, `profiles/`, `posts/`,
+  // `<workspace>/…`) are not references to this repo and are allowed by name.
+  const PATH_TOKEN = /(?<![\w./-])(?:[A-Za-z0-9_.<>-]+\/)+[A-Za-z0-9_.<>-]+/gu;
+  // Reader-owned roots: a path here is created by the reader, never shipped.
+  const WORKSPACE_ROOTS = new Set(["content", "profiles", "posts", ".pasco"]);
+  // Repo-only roots: a reference here is a repository path even when the file
+  // was renamed or deleted — the reader still cannot open it. `schema/` is
+  // prose in `schema/load`/`schema/workspace`, so it counts only when shaped
+  // like a file.
+  const REPO_ONLY_ROOT = /^(?:packages|docs|scripts|platforms|site|templates)\//u;
+  const SOURCE_PATH = /(?:^|\/)src\//u;
+  const FILE_SHAPED = /\.[A-Za-z0-9]+$/u;
+  const PKG_DIR = join(__dirname, "..");
+  const REPO_DIR = join(PKG_DIR, "..", "..");
+  const PACKAGES_DIR = join(REPO_DIR, "packages");
+
+  /** Files under `dir` as paths prefixed by `prefix`. */
+  function walkFiles(dir: string, prefix: string): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const rel = `${prefix}/${entry.name}`;
+      return entry.isDirectory() ? walkFiles(join(dir, entry.name), rel) : [rel];
+    });
+  }
+
+  /** The tarball layout: `files` + the manifest and README npm always ships. */
+  function installedLayout(): Set<string> {
+    const manifest = JSON.parse(readFileSync(join(PKG_DIR, "package.json"), "utf8")) as {
+      files?: string[];
+    };
+    const layout = new Set<string>();
+    for (const root of ["package.json", "README.md", ...(manifest.files ?? [])]) {
+      const abs = join(PKG_DIR, root);
+      if (!existsSync(abs)) continue;
+      if (statSync(abs).isDirectory()) {
+        for (const file of walkFiles(abs, root)) layout.add(file);
+      } else {
+        layout.add(root);
+      }
     }
+    return layout;
+  }
+
+  /** A help placeholder (`<workspace>`, `<id>`, `*`) the reader resolves. */
+  function isPlaceholder(segment: string | undefined): boolean {
+    return segment === "*" || (segment !== undefined && /^<[^<>]+>$/u.test(segment));
+  }
+
+  /**
+   * Does the installed tarball carry a file (or a directory subtree) matching
+   * these path segments? A token naming a shipped directory is openable too.
+   */
+  function packaged(segments: readonly string[], layout: Set<string>): boolean {
+    for (const file of layout) {
+      const parts = file.split("/");
+      if (parts.length < segments.length) continue;
+      if (segments.every((segment, i) => isPlaceholder(segment) || segment === parts[i]))
+        return true;
+    }
+    return false;
+  }
+
+  /** Does a path with these segments exist under `base` in this checkout? */
+  function onDisk(base: string, segments: readonly string[]): boolean {
+    const [head, ...rest] = segments;
+    if (head === undefined) return true;
+    const names = isPlaceholder(head) ? readdirSync(base) : [head];
+    return names.some((name) => {
+      const abs = join(base, name);
+      if (!existsSync(abs)) return false;
+      return rest.length === 0 || (statSync(abs).isDirectory() && onDisk(abs, rest));
+    });
+  }
+
+  // A repo-only path can be written relative to the repo root or to a package
+  // (`src/commands/check.ts` means `packages/cli/src/…`), so both are bases.
+  const CHECKOUT_ROOTS = [
+    REPO_DIR,
+    PACKAGES_DIR,
+    ...readdirSync(PACKAGES_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => join(PACKAGES_DIR, entry.name)),
+  ];
+
+  /** Is this a path token the installed reader cannot open? */
+  function unopenable(token: string, layout: Set<string>): boolean {
+    const segments = token.split("/").filter(Boolean);
+    const first = segments[0];
+    if (segments.length === 0 || isPlaceholder(first) || first === undefined) return false;
+    // Reader-owned roots are allowed by name, not by absence from the repo.
+    if (WORKSPACE_ROOTS.has(first)) return false;
+    // A repository reference under a repo-only root, a source path, or a
+    // file-shaped schema path is judged even when renamed or deleted: "not in
+    // this checkout" must not turn a dead reference into a pass. A path
+    // relative to a package (e.g. `fixtures/…`) is only judged when this
+    // checkout still has it — prose shares that shape and cannot be classified.
+    const repoReference =
+      REPO_ONLY_ROOT.test(token) ||
+      SOURCE_PATH.test(token) ||
+      (token.startsWith("schema/") && FILE_SHAPED.test(token));
+    // Everything else is judged only when the checkout really has it, so prose
+    // (`schema/load`) and invented paths are not repository paths.
+    if (!repoReference && !CHECKOUT_ROOTS.some((base) => onDisk(base, segments))) return false;
+    return !packaged(segments, layout);
+  }
+
+  // Coverage sentinel: the walker derives its list from the help (so a new
+  // command is measured the day it ships), and this list keeps a format change
+  // from quietly hiding an existing command from the parser.
+  const EXPECTED_COMMANDS = [
+    "init",
+    "validate",
+    "doctor",
+    "build",
+    "preview",
+    "edit",
+    "diff",
+    "refine",
+    "check",
+    "audit",
+    "discover",
+    "entity",
+    "cite-check",
+    "post",
+    "status",
+    "presence",
+    "release",
+    "export",
+    "skills:export",
+  ];
+
+  function advertisedCommands(): string[] {
+    const help = run(["--help"]).stdout;
+    const from = help.indexOf("Commands:");
+    const to = help.indexOf("Common flags");
+    expect(from).toBeGreaterThanOrEqual(0);
+    expect(to).toBeGreaterThan(from);
+    // Every command row (exactly two spaces, then a command name) must yield a
+    // name: a format change cannot silently shrink the measured surface.
+    const rows = help
+      .slice(from, to)
+      .split("\n")
+      .filter((line) => /^ {2}\S/u.test(line));
+    const names = rows
+      .map((line) => /^ {2}([a-z][a-z:-]*)(?=\s|$)/u.exec(line)?.[1])
+      .filter((name): name is string => name !== undefined);
+    expect(names.length).toBe(rows.length);
+    return [...new Set(names)];
+  }
+
+  it("every --help names only what an installed reader can open (#254/#395)", () => {
+    const root = run(["--help"]);
+    expect(root.code).toBe(0);
+    const commands = advertisedCommands();
+    expect(commands).toEqual(expect.arrayContaining(EXPECTED_COMMANDS));
+    const helps = [
+      { command: "pasco", output: root.stdout },
+      ...commands.map((command) => {
+        const result = run([command, "--help"]);
+        expect(result.code, `${command} --help`).toBe(0);
+        return { command, output: result.stdout };
+      }),
+    ];
+    const layout = installedLayout();
+    const offenses: string[] = [];
+    for (const { command, output } of helps) {
+      expect(output, `${command} --help`).not.toMatch(PRIVATE);
+      // URLs are reader-openable and carry slashes of their own.
+      const text = output.replace(/https?:\/\/\S+/gu, " ");
+      for (const raw of text.match(PATH_TOKEN) ?? []) {
+        const token = raw.replace(/[.,;:]+$/u, "");
+        if (unopenable(token, layout)) {
+          offenses.push(`${command} --help names "${token}" — not in the installed tarball`);
+        }
+      }
+    }
+    // The gate must fail a dead repo reference (a file renamed away or a typo),
+    // not only paths that still exist in this checkout — that is #395's class.
+    expect(unopenable("docs/renamed-or-deleted.md", layout)).toBe(true);
+    expect(unopenable("packages/cli/src/index.ts", layout)).toBe(true);
+    expect(unopenable("content/identity.yaml", layout)).toBe(false);
+    expect(unopenable("skills/github-readme/SKILL.md", layout)).toBe(false);
+    expect(offenses).toEqual([]);
   });
 
   it("the tip line lives only in the global help (zero-nag promise)", () => {
