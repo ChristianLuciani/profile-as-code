@@ -1190,6 +1190,8 @@ describe("published-surface boundary (#253/#254)", () => {
     const segments = token.split("/").filter(Boolean);
     const first = segments[0];
     if (segments.length === 0 || isPlaceholder(first) || first === undefined) return false;
+    // `./` and `../` are relative to the READER's cwd, not to this repo.
+    if (first === "." || first === "..") return false;
     // Reader-owned roots are allowed by name, not by absence from the repo.
     if (WORKSPACE_ROOTS.has(first)) return false;
     // A repository reference under a repo-only root, a source path, or a
@@ -1283,6 +1285,22 @@ describe("published-surface boundary (#253/#254)", () => {
     expect(unopenable("packages/cli/src/index.ts", layout)).toBe(true);
     expect(unopenable("content/identity.yaml", layout)).toBe(false);
     expect(unopenable("skills/github-readme/SKILL.md", layout)).toBe(false);
+    expect(offenses).toEqual([]);
+  });
+
+  it("the package README names only what an installed reader can open (#395)", () => {
+    const readme = readFileSync(join(PKG_DIR, "README.md"), "utf8");
+    const layout = installedLayout();
+    const offenses: string[] = [];
+    // URLs are the reader-openable way to point at the repository; the link
+    // text may not smuggle a repo path back in.
+    const text = readme.replace(/https?:\/\/\S+/gu, " ");
+    for (const raw of text.match(PATH_TOKEN) ?? []) {
+      const token = raw.replace(/[.,;:]+$/u, "");
+      if (unopenable(token, layout)) {
+        offenses.push(`README.md names "${token}" — not in the installed tarball`);
+      }
+    }
     expect(offenses).toEqual([]);
   });
 
