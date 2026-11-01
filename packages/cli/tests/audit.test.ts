@@ -10,7 +10,15 @@
  * the SSOT). No network: the rule is offline by contract (D19).
  */
 
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -316,6 +324,21 @@ describe("fact-present — the surface's facts vs the SSOT (issue #283)", () => 
     expect(declared.declared).toEqual(["linkedin"]);
     expect(declared.checked).toEqual([]);
     expect(declared.notRun).toEqual(["linkedin"]);
+  });
+
+  it("names the reason the scope is empty and never suggests a step already done (#397)", () => {
+    const ws = workspace({
+      "identity.yaml": "name: Elena Vasquez\n",
+      "bios.yaml":
+        "- platform: linkedin\n  lang: en\n  length: short\n  text: Sovereign AI infrastructure.\n",
+    });
+    // The repro had an artifact on disk; the old hint still offered "run pasco build".
+    json(() => runBuild({ workspace: ws, pascorc: PASCO }));
+    expect(existsSync(join(ws, "profiles", "linkedin.md"))).toBe(true);
+
+    const run = human(() => runAudit({ workspace: ws, pascorc: PASCO }));
+    expect(run.out).toContain("no check catalog declares");
+    expect(run.out).not.toContain("run pasco build");
   });
 
   it("classifies every tampered fact token — URL, date, number — in both directions", () => {

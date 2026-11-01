@@ -212,7 +212,7 @@ export function runCheck(args: CheckArgs): number {
   }
 
   section(
-    `evidence registry (D17/§18.8)${platform !== undefined ? ` for ${platform}` : ""}: ${registry.length} finding(s)`,
+    `evidence registry${platform !== undefined ? ` for ${platform}` : ""}: ${registry.length} finding(s)`,
   );
   for (const finding of registry) {
     line(`  ${finding.severity}: [${finding.code}] ${finding.message} (${finding.path})`);
@@ -221,12 +221,12 @@ export function runCheck(args: CheckArgs): number {
     line("  credential-expiry / no-private-in-public-output: OK");
   } else if (registry.filter((f) => f.severity === "error").length > 0) {
     line(
-      `  ${registry.filter((f) => f.severity === "error").length} leak error(s) — FAIL (§18.5: public output renders only public entries)`,
+      `  ${registry.filter((f) => f.severity === "error").length} leak error(s) — FAIL (public output renders only public entries)`,
     );
   }
 
   section(
-    `media pipeline (M8/§18.6)${platform !== undefined ? ` for ${platform}` : ""}: ${media.length} finding(s)`,
+    `media transport${platform !== undefined ? ` for ${platform}` : ""}: ${media.length} finding(s)`,
   );
   for (const finding of media) {
     line(`  ${finding.severity}: [${finding.code}] ${finding.message} (${finding.path})`);
@@ -246,7 +246,7 @@ export function runCheck(args: CheckArgs): number {
   }
 
   section(
-    `fact-present (surface facts vs the SSOT render, #283): ${facts.findings.length} finding(s)`,
+    `surface facts vs the rendered profile${platform !== undefined ? ` for ${platform}` : ""}: ${facts.findings.length} finding(s)`,
   );
   for (const finding of facts.findings) {
     line(`  warn: [${finding.code}] ${finding.message} (${finding.path})`);
@@ -272,7 +272,7 @@ export function runCheck(args: CheckArgs): number {
   }
 
   if (profile.flavor === "brand") {
-    section("handle matrix (brand, §17)");
+    section("handle matrix (brand)");
     if (profile.socialHandles.length === 0) {
       line("  (no socialHandles rows)");
     } else {
@@ -295,7 +295,7 @@ export function runCheck(args: CheckArgs): number {
   }
 
   line(
-    "pasco check: rule engine for the remaining catalog ships M3/M4 (registry + handle rules already executed above)",
+    "pasco check: the offline rules above ran — evidence registry, media transport, text limits, surface facts, and (for brand) the handle matrix.",
   );
   section(
     `user checks (content/checks.yaml, schema-validated catalog)${platform !== undefined ? ` for ${platform}` : ""}: ${checks.length}`,
@@ -308,9 +308,8 @@ export function runCheck(args: CheckArgs): number {
     );
   }
   line(
-    "  max-chars/min-chars executed above; the remaining rules ship with the skills checks.yaml union (M3) and pasco check (M4)",
+    "  checks whose rule is max-chars or min-chars ran above; the other rule names are listed for the record and do not run in this release.",
   );
-  line(`  owner: ${CHECK_OWNER}`);
 
   return report_.ok ? EXIT.OK : EXIT.FAIL;
 }

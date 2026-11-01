@@ -366,8 +366,10 @@ export function runPreview(args: PreviewArgs): number {
       : resolve(process.cwd(), args.outArg);
   const file = join(outDir, "index.html");
   if (outIsUnignoredInRepo(outDir, file)) {
+    // #398: name the thing the user acted on — the preview destination — not a
+    // flag that may never have been passed (the default location warns too).
     warnings.push(
-      `--out lands inside a git work tree and is not ignored — commit only if you mean to publish it (add "${relative(resolve(args.workspace), file)}" to .gitignore)`,
+      `preview output (${relative(resolve(args.workspace), file)}) lands inside a git work tree and is not ignored — commit only if you mean to publish it (add it to .gitignore)`,
     );
   }
 

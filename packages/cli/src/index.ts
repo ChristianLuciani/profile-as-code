@@ -158,7 +158,8 @@ NDJSON, never a silent skip). Drift warnings exit 0 (D12: facts warn, schema fai
 pasco is free (MIT). Consider a tip ;)
   https://ko-fi.com/christianluciani · https://github.com/sponsors/ChristianLuciani
 
-See packages/cli/README.md for details.
+See README.md in the installed package, or
+https://github.com/ChristianLuciani/profile-as-code for details.
 `;
 
 interface FlagOptions {
@@ -251,7 +252,9 @@ README.md, .pascorc. Minimal but pasco validate-clean. Refuses to overwrite.
   dir   target directory (default: current directory)`,
   validate: `pasco validate [--json] [--workspace <path>]
 Load + validate the workspace (D12): schema violations FAIL (exit 1); drift and
-GEO are warnings (exit 0). See schema/README.md "Validation semantics".
+GEO are warnings (exit 0). See
+https://github.com/ChristianLuciani/profile-as-code/blob/main/schema/README.md
+"Validation semantics".
 A .pascorc "engine" requirement is enforced BEFORE the load: an installed engine
 older than the declared minimum fails with the installed version, the required
 version and the upgrade command (SPEC §7.6).`,
@@ -536,7 +539,7 @@ Two seed formats (#266): short (distribution) and longform (the essay/newsletter
                                    when missing); paste channels → paste-checklist.md
   import <dir> --channel <c>       import historical .md posts as seeds
   list                             list seeds, formats, derivedFrom and chosen variants`,
-  status: `pasco status [platform] [--mark <ledgerKey> <surface>] [--at <iso8601>] [--verify] [--write-checklist] [--completeness] [--json] [--workspace <path>]
+  status: `pasco status [platform] [--mark <ledgerKey> <platform>] [--at <iso8601>] [--verify] [--write-checklist] [--completeness] [--json] [--workspace <path>]
 Per-entry deploy-status report (D18, §19): ledger key · origin (template/user) ·
 surfaces published · sync state (in-sync / stale / never) · certification
 (verified / attested / unverifiable / out-of-band-drift, §19.5) — plus untracked
@@ -545,11 +548,11 @@ It ends with the DERIVED publication truth per surface (SPEC §20.1, #242):
   <surface>: <sync> · artifact: <matches-SSOT|diverges|absent> · limits: <ok|over(cap)>
 — the artifact on disk vs what the SSOT renders TODAY (offline; offline cap
 warnings carry their source). Derived, never stored: nothing here writes.
-  --mark <ledgerKey> <surface>  confirm a manual paste: records deployedAt + the
+  --mark <ledgerKey> <platform>  confirm a manual paste: records deployedAt + the
         CURRENT contentHash in content/deployments.yaml (only pasco writes it,
         D14) plus certification.state attested — and the artifactHash ANCHOR when
         the surface can produce one. --at overrides the timestamp. The anchor is
-        the digest of profiles/<surface>/README.md (what \`pasco build\` wrote, so
+        the digest of profiles/<platform>/README.md (what \`pasco build\` wrote, so
         \`--lang\` is honoured); with no build artifact on disk it renders at
         .pascorc defaults.lang instead.
   --verify [platform]           §19.5 C1: the opt-in live check — the engine's ONE
@@ -1020,7 +1023,7 @@ async function runMain(): Promise<number> {
         return EXIT.OK;
       }
       if (flags.mark !== undefined && positionals.length !== 1) {
-        throw new UsageError("usage: pasco status --mark <ledgerKey> <surface> [--at <iso8601>]");
+        throw new UsageError("usage: pasco status --mark <ledgerKey> <platform> [--at <iso8601>]");
       }
       if (flags.mark === undefined && positionals.length > 1) {
         throw new UsageError(

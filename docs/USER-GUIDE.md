@@ -80,7 +80,7 @@ meaning "published".
 | 2 | **Validate** the source of truth | `pasco validate` | is this schema-valid, and does it drift from my other platforms? ([§5](#5-validate--build)) |
 | 3 | **Build** the artifact | `pasco build <platform>` | what exact bytes go to the platform? ([§5](#5-validate--build)) |
 | 4 | **Publish** it | paste, or PR the artifact into `<you>/<you>` | is the platform showing the new text? ([§7](#7-deploy)) |
-| 5 | **Mark** the deploy | `pasco status --mark <surface-key> <platform>` | which artifact is live, and is it stale? ([§7](#7-deploy)) |
+| 5 | **Mark** the deploy | `pasco status --mark <ledgerKey> <platform>` | which artifact is live, and is it stale? ([§7](#7-deploy)) |
 | 6 | **Verify** (opt-in) | `pasco status --verify` | is this surface *certified* — did a live check actually see it? ([§7](#7-deploy)) |
 | 7 | **Tag** the release | `git tag release-<date> && git push --tags` | what is the baseline for the next `pasco diff`? ([§6](#6-add-entries--update-content)) |
 
@@ -837,7 +837,7 @@ Two deploy classes (D9):
 
 | Class | Platforms | How |
 |---|---|---|
-| **manual** | LinkedIn, Upwork, X, ResearchGate, Substack, Patreon… | copy the generated/curated text → paste into the platform → verify → `pasco status --mark <surface-key> <platform>` (`pasco status` prints each row's key) |
+| **manual** | LinkedIn, Upwork, X, ResearchGate, Substack, Patreon… | copy the generated/curated text → paste into the platform → verify → `pasco status --mark <ledgerKey> <platform>` (`pasco status` prints each row's key) |
 | **git/API** | GitHub profile README, (web, M5) | the artifact is a file: `profiles/github-readme/README.md` → PR/commit it into your GitHub profile repo (e.g. `<you>/<you>`) — the human merges |
 
 Non-negotiables:
@@ -846,8 +846,10 @@ Non-negotiables:
   redeploy — the SSOT is the only place edits happen.
 - After pasting, verify facts — cross-platform factual consistency is the whole
   point (GEO). Then confirm the deploy in the ledger:
-  `pasco status --mark <block>:<id> <platform>` records `deployedAt` + the current
-  `contentHash` — only `pasco` writes `content/deployments.yaml` (D14). It also
+  `pasco status --mark <ledgerKey> <platform>` records `deployedAt` + the current
+  `contentHash` — a `<ledgerKey>` is the key `pasco status` prints for the row: a
+  block name (`identity`) or `<block>:<id>` (`experience:exp-acme`). Only `pasco`
+  writes `content/deployments.yaml` (D14). It also
   records the **certification** of the deploy (`attested`: *you* said so).
 - `pasco status` is the per-entry answer to "what is published where, and what's
   out of date": every unit shows `in-sync` / `stale` / `never` per surface, plus
@@ -948,7 +950,7 @@ pasco build                          # regenerate outputs
 $EDITOR CHANGELOG.md               # what changed → which platforms to re-paste
 git add -A && git commit -m "feat: <what>"
 git push
-# deploy (paste / PR per §7) → pasco status --mark <block>:<id> <platform>
+# deploy (paste / PR per §7) → pasco status --mark <ledgerKey> <platform>
 pasco status                         # what's stale per surface (D18 deploy ledger)
 pasco status --verify                # optional: does the live page still match? (§19.5)
 pasco status --write-checklist       # regenerate CHECKLIST.md from the ledger

@@ -829,11 +829,15 @@ describe("pasco check (offline rules) + pasco skills:export (shipped skills)", (
   it("lists the user checks from the schema-validated catalog", () => {
     const r = run(["check", "github-readme", "--workspace", MINIMAL]);
     expect(r.code).toBe(0);
-    expect(r.stdout).toContain("evidence registry (D17/§18.8)"); // M7 checks execute offline
+    expect(r.stdout).toContain("evidence registry"); // registry checks execute offline
     expect(r.stdout).toContain("credential-expiry / no-private-in-public-output: OK");
     expect(r.stdout).toContain("gh-bio-max");
     expect(r.stdout).toContain("geo-consistent");
     expect(r.stdout).toContain("platform=all"); // union semantics: all applies to every platform
+    // #397: user output states the rules, not the internal milestone/SPEC labels.
+    expect(r.stdout).not.toMatch(/\bM[3-8]\b/);
+    expect(r.stdout).not.toContain("SPEC §");
+    expect(r.stdout).not.toContain("D17");
   });
 
   it("ships a default cap catalog that fires on the #240 repro (surface-scoped)", () => {
@@ -1051,6 +1055,13 @@ describe("pasco check (offline rules) + pasco skills:export (shipped skills)", (
 
 describe("published-surface boundary (#253/#254)", () => {
   const PRIVATE = /skills-studio|prompt-studio|AGOS\b|project\.sh/;
+  // #395: an installed tarball has `dist/ node_modules/ package.json README.md
+  // skills/` — no `packages/`, `schema/`, `docs/`, `scripts/`, `platforms/` or
+  // `site/`. Workspace paths the user creates (`content/`, `profiles/`) and the
+  // shipped `skills/` tree are not repo-relative and stay allowed. `schema/workspace`
+  // and `schema/load` are prose, not paths, so only the README pointer is matched.
+  const REPO_RELATIVE =
+    /(?:^|[\s`"'(])(?:(?:packages|docs|scripts|platforms|site)\/[\w./-]+|schema\/README\b)/u;
 
   it("help output names no repo or tooling a reader cannot open", () => {
     const helps = [
@@ -1074,6 +1085,7 @@ describe("published-surface boundary (#253/#254)", () => {
     for (const r of helps) {
       expect(r.code).toBe(0);
       expect(r.stdout).not.toMatch(PRIVATE);
+      expect(r.stdout).not.toMatch(REPO_RELATIVE);
     }
   });
 
@@ -1326,6 +1338,10 @@ describe("pasco status (D18 deploy ledger)", () => {
     const help = run(["status", "--help"]);
     expect(help.code).toBe(0);
     expect(help.stdout).toContain("--mark");
+    // #398: one vocabulary for the CLI and the guide — `<ledgerKey> <platform>`
+    // (the guide used to say `<surface-key>`, and the CLI `<surface>`).
+    expect(help.stdout).toContain("--mark <ledgerKey> <platform>");
+    expect(help.stdout).not.toContain("surface-key");
     expect(run(["status", "--mark", "identity", "--workspace", mkws()]).code).toBe(2);
   });
 
