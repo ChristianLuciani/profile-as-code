@@ -69,8 +69,13 @@ export function runValidate(args: ValidateArgs): number {
   // The severity tier is CONSUMED here (v1.10/#289, resolved by #322): a code
   // that scored 0 renders one line, prefixed by its tier — `info` is a NOTE,
   // never a warning (D12: facts warn); absent = `warn` (the pre-v1.10 checks
-  // are all warnings and carry no tier key).
+  // are all warnings and carry no tier key). A code that is N/A (§8/#399) is
+  // stated instead of dropped: it carries no weight in the score above.
   for (const c of geo.checks) {
+    if (c.applicable === false) {
+      line(`  n/a: [${c.code}] ${c.detail}`);
+      continue;
+    }
     if (c.score > 0) continue;
     const prefix = c.severity === "info" ? "info" : "warn";
     line(`  ${prefix}: [${c.code}] ${c.detail}`);

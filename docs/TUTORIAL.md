@@ -128,9 +128,11 @@ info note, and an `overall score` in the 55–65 range. That is not a failure an
 - `schema valid` is the gate. Only a schema violation exits `1`.
 - the warnings are a **checklist of what an answer engine would still miss** — semantic anchors,
   an FAQ, more `sameAs` links.
-- **the score can go down when you add content.** In the measured run it went 63 → 56 after
-  adding a project without `evidence[]`. It measures GEO readiness, not effort (tracked as
-  [#399](https://github.com/ChristianLuciani/profile-as-code/issues/399)).
+- **the score is a readiness average, and a code with nothing to measure is `n/a`.** The measured
+  0.3.7 run went 63 → 56 after adding a project without `evidence[]` — the regression
+  [#399](https://github.com/ChristianLuciani/profile-as-code/issues/399), now fixed. An
+  `n/a` code carries no weight, so that addition no longer moves the score; adding a fact can still
+  move it when it changes a ratio a code measures.
 
 The machine view is one flag away:
 
@@ -163,8 +165,11 @@ That footer **ships to the surface** — on GitHub it is public. `3%` is the com
 ([SPEC §20](SPEC.md)); `pasco status --completeness` expands it into the five items. Expect the
 `0/5` to lag the percentage: items earn partial credit before any one is fully satisfied.
 
-> `build` also prints `[github-readme] (no texts for this platform+lang)` when you have no bios or
-> headlines yet. It means "no base texts", not "no artifact" — the artifact is still written.
+> With no bios or headlines yet, the measured 0.3.7 run printed
+> `[github-readme] (no texts for this platform+lang)`, which read as "no artifact"; it never meant
+> that. [#396](https://github.com/ChristianLuciani/profile-as-code/issues/396) rewords it (PR
+> #405) to `0 base texts — bios/headlines — for this platform+lang; the artifact is still written
+> from the declared facts`.
 
 ## Step 6 — see it without publishing it
 
@@ -376,8 +381,9 @@ pasco diff      # → no changes
 
 ## What this run found
 
-The tutorial above is the corrected path. The first run hit these frictions; each is tracked, so a
-future reader does not have to rediscover them:
+The tutorial above is the corrected path. The first run (CLI 0.3.7, 2026-10-31) hit these
+frictions; the #395–#400 set is fixed by PRs #404, #405 and #406, and the table stays as the
+record of that run:
 
 | What surprised the first run | Issue |
 |---|---|

@@ -460,6 +460,15 @@ Two kinds of results (D12):
   platforms or GEO gaps. These do not block you, but fix them: contradictions
   are exactly what gets a profile discounted by LLMs reading it.
 
+`pasco validate` also prints a GEO **overall score** (0–100) and one line per
+code. It is a readiness reading, not a gate. A code with nothing to measure is
+**`n/a`** and carries no weight in the average — for example, `geo/evidence-claims`
+is N/A until some project declares `evidence[]`, so adding a project without
+evidence does not lower the score (evidence coverage is `pasco status
+--completeness`). The number is still an average over what the workspace
+declares, not a count of effort: adding a fact can move it either way when it
+changes a ratio a code measures.
+
 ### 4.4 Your first edit, without an editor
 
 You do not need an editor setup to start — `nano` is enough, and the only thing

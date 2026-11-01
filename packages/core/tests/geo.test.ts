@@ -163,6 +163,7 @@ describe("geoCheck(profile)", () => {
 
     expect(pubs?.score).toBe(1); // 2/2 publications carry a DOI
     expect(evidence?.score).toBe(0.5); // 1/2 projects carry evidence
+    expect(evidence?.applicable).toBe(true); // declared evidence → the ratio scores
   });
 
   it("flags contradictions in the drifting fixture (report, not a gate)", () => {
@@ -181,8 +182,29 @@ describe("geoCheck(profile)", () => {
     const report = geoCheck(bare);
 
     expect(report.checks.find((c) => c.code === "geo/citable-publications")?.score).toBe(1);
-    expect(report.checks.find((c) => c.code === "geo/evidence-claims")?.score).toBe(1);
+    // §8/#399 option C: no evidence declared anywhere → the code is N/A (excluded
+    // from the weighted mean), not a sentinel score of 1 counted in it.
+    const evidence = report.checks.find((c) => c.code === "geo/evidence-claims");
+    expect(evidence?.applicable).toBe(false);
+    expect(evidence?.detail).toContain("not applicable");
+    expect(evidence?.detail).toContain("SPEC §20");
     expect(report.checks.find((c) => c.code === "geo/platform-bio-coverage")?.score).toBe(1);
+  });
+
+  it("does not lower the overall when a project is added without evidence (#399)", () => {
+    // The issue's regression: identity-only scored 63, then one project with
+    // `evidence: []` scored 56. Under §8's N/A reading the addition changes nothing.
+    const profile = load(fixture("minimal"));
+    const identityOnly = { identity: profile.identity };
+    const withProject = {
+      identity: profile.identity,
+      projects: [{ name: "Project without evidence", evidence: [] }],
+    };
+
+    const before = geoCheck(identityOnly);
+    const after = geoCheck(withProject);
+    expect(after.score).toBe(before.score);
+    expect(after.checks.find((c) => c.code === "geo/evidence-claims")?.applicable).toBe(false);
   });
 
   it("empty location counts as absent in the entity-fields check (empty=absent sweep, issue #86)", () => {
