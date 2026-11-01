@@ -20,6 +20,12 @@
  * Partial coverage is NEVER in-sync: a release that changed two units and the
  * surface confirmed only one still owes the other, and `missingUnits` names it.
  *
+ * **Two causes, two fields (#408).** "No ledger record" and "no such SSOT unit"
+ * both make a surface `never`, but they mean opposite things to the operator: the
+ * first is a pending fan-out of a CORRECT row, the second is the row being wrong.
+ * They travel separately (`missingUnits` / `unknownUnits`) so a consumer never
+ * reports one as the other.
+ *
  * A surface the ledger cannot record (a repo-meta/distribution slug outside the
  * platform enum) therefore reads `never`: the honest v1 answer — the plan names
  * what must be touched; closing that loop is a later contract change, never a
@@ -66,10 +72,15 @@ export interface ReleaseSurface {
   surface: string;
   kind: SurfaceKind;
   state: PresenceState;
-  /** changedUnits this surface still owes: no ledger record on the surface, or
-   *  no SSOT unit behind the key (a release citing a deleted key). Any entry
-   *  here means the surface is `never`, never a partial `in-sync`. */
+  /** changedUnits this surface still owes: the key IS an SSOT unit, but the
+   *  ledger has no record of it on THIS surface yet. Any entry here means the
+   *  surface is `never`, never a partial `in-sync` — and it is a pending
+   *  fan-out, not a defect in the release row (#408). */
   missingUnits: string[];
+  /** changedUnits that resolve to no SSOT unit at all: a release row citing a
+   *  deleted or mistyped key. This one IS a defect in the row — reported apart
+   *  from `missingUnits` so a correct row is never sent to be "fixed" (#408). */
+  unknownUnits: string[];
 }
 
 export interface BaseText {
@@ -130,15 +141,18 @@ function surfaceState(
   release: Release,
   surface: string,
   unitHashes: ReadonlyMap<string, string>,
-): { state: PresenceState; missingUnits: string[] } {
+): { state: PresenceState; missingUnits: string[]; unknownUnits: string[] } {
   const missingUnits: string[] = [];
+  const unknownUnits: string[] = [];
   const changed = release.changedUnits ?? [];
-  if (changed.length === 0) return { state: "never", missingUnits };
+  if (changed.length === 0) return { state: "never", missingUnits, unknownUnits };
   let stale = false;
   for (const key of changed) {
     const hash = unitHashes.get(key);
+    // (a) No SSOT unit behind the key: the RELEASE ROW is wrong (a deleted or
+    // mistyped key), so the operator has something to fix.
     if (hash === undefined) {
-      missingUnits.push(key);
+      unknownUnits.push(key);
       continue;
     }
     // `deployments` is keyed by ledger key then by the platform enum; a
@@ -146,16 +160,19 @@ function surfaceState(
     const record = (profile.deployments as Record<string, Record<string, unknown>>)[key]?.[
       surface
     ] as { contentHash?: unknown } | undefined;
-    // A changed unit with no record on THIS surface is a pending fan-out, not an
-    // absence to ignore: it makes the surface `never` (SPEC §7.8/§22.2).
+    // (b) A valid SSOT unit with no record on THIS surface is a pending
+    // fan-out, not an absence to ignore and not a row to fix: it makes the
+    // surface `never` (SPEC §7.8/§22.2, #408).
     if (record === undefined) {
       missingUnits.push(key);
       continue;
     }
     if (record.contentHash !== hash) stale = true;
   }
-  if (missingUnits.length > 0) return { state: "never", missingUnits };
-  return { state: stale ? "stale" : "in-sync", missingUnits };
+  if (missingUnits.length > 0 || unknownUnits.length > 0) {
+    return { state: "never", missingUnits, unknownUnits };
+  }
+  return { state: stale ? "stale" : "in-sync", missingUnits, unknownUnits };
 }
 
 function unitHashMap(profile: LoadedProfile): Map<string, string> {

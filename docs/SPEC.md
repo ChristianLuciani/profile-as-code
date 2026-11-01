@@ -1147,7 +1147,7 @@ the §19 ledger; neither writes, fetches or reads a clock.
   "release": { "id": "v0-3-0", "version": "0.3.0", "date": "2026-10-28",
                "summary": "…", "changedUnits": ["identity"] },
   "surfaces": [ { "surface": "github-repo-meta", "kind": "repo-meta",
-                  "state": "never", "missingUnits": [] } ],
+                  "state": "never", "missingUnits": [], "unknownUnits": [] } ],
   "baseText": [ { "kind": "repo-meta", "text": "What shipped: v0.3.0 (…)" } ]
 }
 ```
@@ -1155,6 +1155,12 @@ the §19 ledger; neither writes, fetches or reads a clock.
 - **State is the ledger's**: for each changed unit on the surface, a missing
   record → `never`; any record whose `contentHash` differs from the unit's
   current hash → `stale`; otherwise `in-sync` (the §19.3 rollup, reused).
+- **Two causes, two fields (#408)**: a changed unit that resolves to no SSOT
+  unit at all is a defect in the RELEASE ROW and is listed in `unknownUnits`; a
+  unit that exists but has no ledger record on this surface is a pending
+  fan-out and is listed in `missingUnits`. Either list non-empty makes the
+  surface `never`, and the human plan names each cause as what it is — it never
+  tells the operator to fix a row that is correct.
 - **Order** is kind rank `repo-meta` → `profile` → `distribution`, then slug. The
   artifact's metadata precedes the identity bodies, which precede the
   announcements.
@@ -2747,7 +2753,8 @@ fan-out. The state is derived per surface from `deployments` (the §19 ledger):
 
 | condition | state |
 |---|---|
-| ANY changed unit has no record on the surface (or resolves to no SSOT unit) | `never` — and `missingUnits` lists it |
+| ANY changed unit resolves to no SSOT unit — a deleted or mistyped key | `never` — and `unknownUnits` lists it (the RELEASE ROW is wrong, #408) |
+| ANY changed unit has no record on the surface | `never` — and `missingUnits` lists it (a pending fan-out, not an error, #408) |
 | every changed unit has a record, and some record's `contentHash` differs from the unit's current hash | `stale` |
 | every changed unit has a record and every hash matches | `in-sync` |
 

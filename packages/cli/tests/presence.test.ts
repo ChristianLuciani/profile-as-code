@@ -8,6 +8,8 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -121,5 +123,44 @@ describe("pasco release plan", () => {
     expect(result.stdout).toContain("Release plan v0.3.0 (2026-10-28) · v0-3-0");
     expect(result.stdout).toMatch(/1\s+repo-meta\s+github-repo-meta\s+never/);
     expect(result.stdout).toContain("[distribution] Announcement: v0.3.0");
+  });
+
+  it("calls a valid changedUnit without a deploy record a pending fan-out, never 'not an SSOT unit' (#408)", () => {
+    const result = run(["release", "plan", "--workspace", RELEASES]);
+    expect(result.code).toBe(0);
+    // `identity` IS an SSOT unit: github-repo-meta and hacker-news simply have no
+    // record in `deployments` — the repro of #408. The plan must not send the
+    // operator to fix a row that is correct.
+    expect(result.stdout).not.toContain("is not an SSOT unit");
+    expect(result.stdout).toContain(
+      'changedUnit "identity" has no deploy record on this surface yet — pending fan-out',
+    );
+  });
+
+  it("still reports a key that resolves to no SSOT unit as a row defect (#408)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pasco-408-"));
+    try {
+      cpSync(RELEASES, dir, { recursive: true });
+      const file = join(dir, "content", "releases.yaml");
+      writeFileSync(
+        file,
+        readFileSync(file, "utf8").replace(
+          "changedUnits: [identity]",
+          "changedUnits: [identity, publications:gone]",
+        ),
+      );
+      const result = run(["release", "plan", "--workspace", dir]);
+      expect(result.code).toBe(0);
+      // The bad key IS a defect in the row → named as one…
+      expect(result.stdout).toContain(
+        'changedUnit "publications:gone" is not an SSOT unit — fix the release row',
+      );
+      // …while the valid unit without a record stays a fan-out, not an error.
+      expect(result.stdout).toContain(
+        'changedUnit "identity" has no deploy record on this surface yet — pending fan-out',
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
