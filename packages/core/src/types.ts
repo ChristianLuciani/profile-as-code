@@ -172,8 +172,14 @@ export interface GeoSection {
   label: string;
   detail: string;
   checks: GeoCheck[];
-  /** 0..100 for this section alone. */
+  /** 0..100 for this section alone. When `applicable` is false this is a
+   *  placeholder (0), not a measurement — no code in the section can contribute
+   *  weight. Absent = applicable (all current sections). */
   score: number;
+  /** §8/#399: present and false when no code in the section can contribute
+   *  weight (every code N/A, or every applicable code declares weight 0). The
+   *  section then has no mean and contributes nothing to the overall. */
+  applicable?: boolean;
 }
 
 export interface StructuredDataReadiness {
