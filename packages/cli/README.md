@@ -501,7 +501,10 @@ pasco edit --list --json                # { addresses: [{ address, kind, readOnl
 
 Link rows are marked `(read-only)`. A link row the grammar cannot express (a
 platform or label carrying `,`, `]`, `=` or `"`) is reported as a **warning**,
-never printed as an address that would not parse. `--list` never locates a CST
+never printed as an address that would not parse — and so is any address that
+resolves to **more than one row** (a duplicate headline/bio, a label-less link
+sharing its platform): the list advertises only paths that resolve to exactly
+one row, the bar `edit` enforces. `--list` never locates a CST
 node, never takes `content/.pasco-edit.lock` and writes nothing; an empty
 workspace prints the header alone (exit 0). Combining `--list` with `--set`,
 `--check` or an address is usage (exit 2), never a silently ignored argument.

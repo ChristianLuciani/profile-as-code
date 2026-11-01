@@ -452,7 +452,8 @@ pasco edit --list --json           # { addresses: [{ address, kind, readOnly }],
 
 Link rows print `(read-only)`; a link row the grammar cannot express (a platform or label
 carrying `,`, `]`, `=` or `"`) is reported as a warning, never printed as an address that would
-not parse. An empty workspace prints the header alone. `--list` with `--set`, `--check` or an
+not parse — and so is any address that resolves to more than one row (a duplicate headline/bio,
+a label-less link sharing its platform). An empty workspace prints the header alone. `--list` with `--set`, `--check` or an
 address is usage (exit `2`). `pasco edit --help` still prints the four address *shapes*.
 
 ### M13 — `export profile`: deterministic, no clock

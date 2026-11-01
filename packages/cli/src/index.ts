@@ -35,7 +35,14 @@ import { runRefine } from "./commands/refine.js";
 import { runSkillsExport } from "./commands/skills-export.js";
 import { runStatus } from "./commands/status.js";
 import { runValidate } from "./commands/validate.js";
-import { parseEditListBlock, parseFlavor, parseLang, UsageError } from "./contract.js";
+import type { EditListBlock } from "./contract.js";
+import {
+  parseEditAddress,
+  parseEditListBlock,
+  parseFlavor,
+  parseLang,
+  UsageError,
+} from "./contract.js";
 import type { EngineConfigSource } from "./engine-gate.js";
 import { engineGateError, evaluateEngineRequirements } from "./engine-gate.js";
 import { EXIT } from "./exit.js";
@@ -305,8 +312,10 @@ of this workspace, one per line, built by the same constructors resolution uses 
 no second grammar. <block> scopes it to positioning | headlines | bios |
 identity.links; an unknown block, --set, --check or an address next to it is
 usage (exit 2). A link row the grammar cannot express (a platform or label
-carrying a comma, a closing bracket, an equals sign or a double quote) is a
-warning, never printed as an address that would not parse.
+carrying a comma, a closing bracket, an equals sign or a double quote), and
+any address that resolves to more than one row (a duplicate headline/bio, a
+label-less link sharing its platform), are warnings — never printed as a path
+the command would reject.
 It never locates a CST node, takes the edit lock or writes; an empty workspace
 prints the header alone (exit 0). --json payload { addresses: [{ address, kind,
 readOnly }], warnings }.
@@ -780,26 +789,44 @@ async function runMain(): Promise<number> {
         process.stdout.write(`${COMMAND_HELP.edit}\n`);
         return EXIT.OK;
       }
-      setJsonMode(flags.json === true);
-      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
-      const pascorc = readWorkspacePascorc(workspace);
+      // #411: `--list [<block>]` is a read-only discovery mode, never a second
+      // invocation form — a write, a preview or an address next to it is usage
+      // (the `skills:export --list` precedent), never a silently ignored flag.
       if (flags.list === true) {
-        // #411: `--list [<block>]` is a read-only discovery mode, never a second
-        // invocation form — a write, a preview or an address next to it is usage
-        // (the `skills:export --list` precedent), never a silently ignored flag.
         if (flags.set !== undefined || flags.check === true) {
           throw new UsageError("--list is read-only: it cannot be combined with --set or --check");
         }
         if (positionals.length > 1) {
           throw new UsageError("usage: pasco edit --list [<block>]");
         }
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      const pascorc = readWorkspacePascorc(workspace);
+      if (flags.list === true) {
+        let listBlock: EditListBlock | undefined;
+        if (positionals.length === 1) {
+          const value = positionals[0] as string;
+          try {
+            listBlock = parseEditListBlock(value);
+          } catch (err) {
+            // A valid address next to --list is the documented usage error; say
+            // so instead of reporting a valid address as an unknown block.
+            try {
+              parseEditAddress(value);
+            } catch {
+              throw err;
+            }
+            throw new UsageError(
+              `--list takes a block, not an address: run \`pasco edit --list\` to list the addresses, or \`pasco edit '${value}'\` to read one`,
+            );
+          }
+        }
         return runEdit({
           workspace,
           list: true,
           check: false,
-          ...(positionals.length === 1
-            ? { listBlock: parseEditListBlock(positionals[0] as string) }
-            : {}),
+          ...(listBlock === undefined ? {} : { listBlock }),
           pascorc,
         });
       }

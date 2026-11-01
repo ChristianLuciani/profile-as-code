@@ -945,6 +945,55 @@ describe("edit --list — read-only discovery (#411)", () => {
     ]);
   });
 
+  it("lists only addresses that resolve to exactly one row", () => {
+    const dir = workspace();
+    const profile = load(dir);
+    const data = json(edit(dir, "--list", "--json")).data as {
+      addresses: { address: string }[];
+    };
+    for (const entry of data.addresses) {
+      expect(resolveEditTarget(profile, parseEditAddress(entry.address), dir).matches).toBe(1);
+    }
+  });
+
+  it("reports ambiguous or inexpressible rows instead of advertising a path edit rejects", () => {
+    const dir = workspace();
+    // Each of these is schema-legal and, if listed, would be an address `edit`
+    // rejects (exit 1 for N>1 rows) or silently trims onto a different row.
+    const headlines = join(dir, "content", "headlines.yaml");
+    writeFileSync(
+      headlines,
+      `${readFileSync(headlines, "utf8")}- platform: github-readme\n  lang: en\n  text: Duplicate row\n`,
+    );
+    const identity = join(dir, "content", "identity.yaml");
+    writeFileSync(
+      identity,
+      `${readFileSync(identity, "utf8")}  - platform: example\n    label: " Padded "\n    url: https://example.com/padded\n  - platform: example\n    label: ""\n    url: https://example.com/empty\n  - platform: shared\n    label: One\n    url: https://example.com/one\n  - platform: shared\n    url: https://example.com/two\n`,
+    );
+    const r = edit(dir, "--list", "--json");
+    expect(r.code).toBe(0);
+    const data = json(r).data as { addresses: { address: string }[]; warnings: string[] };
+    const listed = data.addresses.map((entry) => entry.address);
+    expect(listed).not.toContain("headlines[platform=github-readme,lang=en].text");
+    expect(listed.some((address) => address.includes("Padded"))).toBe(false);
+    expect(listed.some((address) => address.includes("example"))).toBe(false);
+    expect(listed).not.toContain("identity.links[platform=shared].url");
+    expect(listed).toContain("identity.links[platform=shared,label=One].url");
+    expect(data.warnings.join("\n")).toContain("resolves to 2 rows");
+    // The invariant the review's F1/F2 broke: everything left is usable.
+    const profile = load(dir);
+    for (const address of listed) {
+      expect(resolveEditTarget(profile, parseEditAddress(address), dir).matches).toBe(1);
+    }
+  });
+
+  it("says `--list <address>` takes a block, not an address", () => {
+    const dir = workspace();
+    const r = edit(dir, "--list", "positioning.statement.en");
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("--list takes a block, not an address");
+  });
+
   it("reports a link row the grammar cannot express as a warning, never as an address", () => {
     const dir = workspace();
     const identity = join(dir, "content", "identity.yaml");
