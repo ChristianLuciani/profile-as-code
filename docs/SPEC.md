@@ -1349,13 +1349,14 @@ evidence row, the code scores the ratio of projects carrying evidence again. The
 completeness `evidence` item, so absence is not subtracted twice and §20 is the
 declared home of that signal. The machine reading is additive: `checks[].applicable`
 is `false` only for a code with nothing to measure, the declared `weight` stays
-visible, and every other code keeps its weight in the mean.
+visible, and every other code keeps its declared weight: the mean **renormalizes**
+over the applicable weights, so the denominator drops by the excluded 0.08.
 
 An N/A code also keeps `score: 1`, and that is deliberate, not a contradiction:
-the score is **not consulted** by any mean while `applicable` is false, and a
-consumer that predates the field reads the pre-#399 neutral instead of a
-subtraction. Recomputing an overall from `checks[]` therefore requires honoring
-`applicable` — the field is the contract, the score is not.
+no mean consults the score while `applicable` is false; the retained 1 is a
+**placeholder** so a consumer that predates the field does not subtract, not a
+claim about the workspace. Recomputing an overall from `checks[]` requires
+honoring `applicable` — the field is the contract, the score is not.
 
 **cite-check's fold is its own (#291).** `core/src/normalize.ts` is the case- and
 accent-folding used by `pasco cite-check` (§7.4), which matches the declared

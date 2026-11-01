@@ -300,8 +300,8 @@ describe("determinism and portability (D19)", () => {
   });
 });
 
-describe("geoCheck is untouched by this PR (review F2)", () => {
-  it("keeps the pre-PR reading: an unaccented definition does not name the entity", () => {
+describe("geoCheck's name fold is unchanged by this PR (review F2 of #291)", () => {
+  it("keeps the reading #291 pinned: an unaccented definition does not name the entity", () => {
     const dir = tempDir();
     cpSync(PERSON, dir, { recursive: true });
     const identity = join(dir, "content", "identity.yaml");
