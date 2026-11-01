@@ -465,7 +465,7 @@ code. It is a readiness reading, not a gate. A code with nothing to measure is
 **`n/a`** and carries no weight in the average — for example, `geo/evidence-claims`
 is N/A until some project declares `evidence[]`, so adding a project without
 evidence does not lower the score (evidence coverage is `pasco status
---completeness`, §5). The number is still an average over what the workspace
+--completeness`). The number is still an average over what the workspace
 declares, not a count of effort: adding a fact can move it either way when it
 changes a ratio a code measures.
 
