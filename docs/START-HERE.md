@@ -197,7 +197,9 @@ see any of them; the `grep` can.
    Search a short fragment, not the whole sentence: the page HTML-escapes
    punctuation, so an exact multi-line match can miss a text that is present.
 
-8. **Commit, push, and let CI re-read the clean tree.**
+8. **Commit, push, and let CI re-read the clean tree** — when the workspace is
+   its own repo with a CI workflow (Route 1 is not); otherwise the receipt of this
+   step is the clean-tree `pasco doctor` above.
 
    ```sh
    git add -A && git commit -m "chore: upgrade to the current engine"

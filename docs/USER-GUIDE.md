@@ -330,7 +330,7 @@ same absence of automation and history unless your storage provides them.
 - `diff.tagPattern` — the git tag pattern that marks a release (used by `pasco diff`).
 - `engine` — **optional**: the minimum `pasco` version this workspace requires,
   written as exactly `MAJOR.MINOR.PATCH` (no `v`, `^`, `~`, `>=` or `*` — a
-  lower bound only, not a semver range). `validate`, `build` and
+  lower bound only, not a semver range). `validate`, `build`, `preview` and
   `export profile` check it **before doing any work**: an older installed CLI
   exits `1` with the required version, the installed version and the upgrade
   command; a malformed value exits `1` naming the accepted syntax. Absent means
@@ -549,12 +549,14 @@ Everything else needs the editor: `identity.definition.<lang>`, `faq[id=…].q|a
 and any root the workspace does not declare yet — the write is a byte-range splice
 over existing bytes, so it cannot create `content/faq.yaml` (#435). Those are also
 the fields with published caps: `definition` ≤ 160 characters, `faq[]` 3–20
-pairs with `q` ≤ 90 and `a` ≤ 320 — all enforced by the schema. Two answer-surface
-rules are **not** schema: `q` must be unique per workspace (JSON Schema cannot
-express it) and a row with a number but no `source` is a claim; both are
-`geoCheck` rules, so `pasco validate` still exits `0` on a duplicate `q`, and
-`pasco audit` reports the unsourced row as `unsourced-claim` while
-`geo/faq-coverage` scores `0`.
+pairs with `q` ≤ 90 and `a` ≤ 320 — all enforced by the schema. Three
+answer-surface rules are **not** schema: `q` must be unique per workspace, a
+`definition` must contain the entity name, and `geoCheck` wants a `source` on
+every `faq[]` row — JSON Schema cannot express any of the three, so `pasco
+validate` still exits `0` on a duplicate `q` and the answer surface can score
+`0` while validation passes. `pasco audit` is narrower: it reports a row as
+`unsourced-claim` only when the row is *quantitative* (a number that carries a
+unit, currency or percent marker) and `geo/faq-coverage` already scores `0`.
 
 If the profile is live and your edit does not show up, you skipped step 4 of
 [the cycle](#05-the-full-cycle-of-one-change) — `validate` never publishes.

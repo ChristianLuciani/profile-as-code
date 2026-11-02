@@ -92,20 +92,35 @@ const UPGRADE_ROUTES = [
 ];
 
 /** The lines under a heading, down to the next heading of the same or a higher level. */
-function upgradeSection(text, heading) {
-  const lines = text.split("\n");
+function structuralLines(lines) {
   // Fences are content, not structure: a `# comment` inside a code block must
-  // neither start nor end a section (the false red #440's first fresh pass saw).
+  // neither start nor end a section. A fence is tracked by its delimiter and
+  // length (CommonMark), so a 4-backtick block that CONTAINS a 3-backtick line,
+  // a `~~~` inside a ``` block, or a closing fence with trailing spaces are all
+  // read correctly (#440 fresh pass 2, F1).
   const structural = [];
-  let fenced = false;
+  let open = null;
   for (const line of lines) {
-    if (/^\s*(```|~~~)/.test(line)) {
-      fenced = !fenced;
-      structural.push(false);
+    const fence = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (open === null) {
+      if (fence && !(fence[1][0] === "`" && fence[2].includes("`"))) {
+        open = { char: fence[1][0], length: fence[1].length };
+        structural.push(false);
+        continue;
+      }
+      structural.push(true);
       continue;
     }
-    structural.push(!fenced);
+    const close = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
+    if (close && close[1][0] === open.char && close[1].length >= open.length) open = null;
+    structural.push(false);
   }
+  return structural;
+}
+
+function upgradeSection(text, heading) {
+  const lines = text.split("\n");
+  const structural = structuralLines(lines);
   const isHeading = (line, index) => structural[index] && /^#+\s/.test(line);
   const start = lines.findIndex((line, index) => structural[index] && heading.test(line));
   if (start === -1) return null;
@@ -214,6 +229,16 @@ function selfTest() {
   );
   if (!checkUpgradeRoutes(fencedHeading, "0.3.0").some((e) => e.includes("START-HERE")))
     failures.push("treated a fenced heading as a real upgrade section");
+
+  // Nested / other delimiters: a 4-backtick block holding a 3-backtick line must
+  // not end the section early either.
+  const nested = route(
+    "## Route 4 — my workspace is behind",
+    "### 8.2.1 Upgrading a workspace born on an older engine\n````md\n```sh\n# inner\n```\n````\n" +
+      `${PKG}@0.3.0\n### 8.3 next`,
+  );
+  if (checkUpgradeRoutes(nested, "0.3.0").length > 0)
+    failures.push("false positive on a nested code fence");
 
   if (failures.length > 0) throw new Error(`self-test failed: ${failures.join("; ")}`);
   console.log("site version-check self-test: PASS");
