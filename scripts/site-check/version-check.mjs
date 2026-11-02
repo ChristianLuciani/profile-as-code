@@ -94,11 +94,25 @@ const UPGRADE_ROUTES = [
 /** The lines under a heading, down to the next heading of the same or a higher level. */
 function upgradeSection(text, heading) {
   const lines = text.split("\n");
-  const start = lines.findIndex((line) => heading.test(line));
+  // Fences are content, not structure: a `# comment` inside a code block must
+  // neither start nor end a section (the false red #440's first fresh pass saw).
+  const structural = [];
+  let fenced = false;
+  for (const line of lines) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      fenced = !fenced;
+      structural.push(false);
+      continue;
+    }
+    structural.push(!fenced);
+  }
+  const isHeading = (line, index) => structural[index] && /^#+\s/.test(line);
+  const start = lines.findIndex((line, index) => structural[index] && heading.test(line));
   if (start === -1) return null;
   const level = lines[start].match(/^#+/)[0].length;
   const end = lines.findIndex(
-    (line, index) => index > start && /^#+\s/.test(line) && line.match(/^#+/)[0].length <= level,
+    (line, index) =>
+      index > start && isHeading(line, index) && line.match(/^#+/)[0].length <= level,
   );
   return lines.slice(start, end === -1 ? undefined : end).join("\n");
 }
@@ -186,6 +200,20 @@ function selfTest() {
   const noClaim = route("## Route 4 — my workspace is behind", "### 8.2.1 older engine");
   if (!checkUpgradeRoutes(noClaim, "0.3.0").some((e) => e.includes("must state")))
     failures.push("did not catch an upgrade section without the version");
+  // Fences are content: a `# comment` inside a code block must not truncate the
+  // section (false red) and a fenced heading must not fabricate one (false green).
+  const fencedComment = route(
+    "## Route 4 — my workspace is behind",
+    `### 8.2.1 Upgrading a workspace born on an older engine\n\`\`\`sh\n# install first\n${PKG}@0.3.0\n\`\`\`\n### 8.3 next`,
+  );
+  if (checkUpgradeRoutes(fencedComment, "0.3.0").length > 0)
+    failures.push("false positive when a code fence carries a # comment");
+  const fencedHeading = route(
+    "```md\n## Route 4 — my workspace is behind\n```",
+    "### 8.2.1 older engine",
+  );
+  if (!checkUpgradeRoutes(fencedHeading, "0.3.0").some((e) => e.includes("START-HERE")))
+    failures.push("treated a fenced heading as a real upgrade section");
 
   if (failures.length > 0) throw new Error(`self-test failed: ${failures.join("; ")}`);
   console.log("site version-check self-test: PASS");

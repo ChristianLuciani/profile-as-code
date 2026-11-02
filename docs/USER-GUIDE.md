@@ -548,9 +548,13 @@ rest of the contract is reached with an editor:
 Everything else needs the editor: `identity.definition.<lang>`, `faq[id=…].q|a|source`,
 and any root the workspace does not declare yet — the write is a byte-range splice
 over existing bytes, so it cannot create `content/faq.yaml` (#435). Those are also
-the fields whose caps are schema-enforced: `definition` ≤ 160 characters, `faq[]`
-3–20 pairs with `q` ≤ 90 and `a` ≤ 320, `q` unique per workspace. A row without
-`source` is a claim, and `pasco audit` reports it as `unsourced-claim`.
+the fields with published caps: `definition` ≤ 160 characters, `faq[]` 3–20
+pairs with `q` ≤ 90 and `a` ≤ 320 — all enforced by the schema. Two answer-surface
+rules are **not** schema: `q` must be unique per workspace (JSON Schema cannot
+express it) and a row with a number but no `source` is a claim; both are
+`geoCheck` rules, so `pasco validate` still exits `0` on a duplicate `q`, and
+`pasco audit` reports the unsourced row as `unsourced-claim` while
+`geo/faq-coverage` scores `0`.
 
 If the profile is live and your edit does not show up, you skipped step 4 of
 [the cycle](#05-the-full-cycle-of-one-change) — `validate` never publishes.

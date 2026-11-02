@@ -201,7 +201,8 @@ see any of them; the `grep` can.
 
    ```sh
    git add -A && git commit -m "chore: upgrade to the current engine"
-   git push                         # open the PR
+   git push -u origin HEAD          # publish the branch
+   gh pr create --fill              # open the PR (push alone does not)
    gh pr checks                     # receipt: every check green
    ```
 
