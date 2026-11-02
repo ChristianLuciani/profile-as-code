@@ -591,8 +591,10 @@ refs and claims; `export` reads `postiz.yaml` (`channels: {linkedin: …, x: …
 `POST /posts` payload (or a paste checklist for a paste channel); `import` turns historical `.md`
 into `imported-*` seeds. Short rules exist only for `linkedin` and `x`; every other channel here is
 long-form (`devto`, `ghost`, `hashnode`, `listmonk`, `medium`, `substack`, `wordpress`), and
-`task --channel devto` says so with exit `2`. `import` records `sync: published` with `url: null` —
-a reasonable assumption for a historical post, but a state not derived from a remote record.
+`task --channel devto` says so with exit `2`. `import` records each seed **published by
+assumption**: `status: published`, `channel.sync: published`, `certification: unverifiable` and
+`url: null` — a reasonable assumption for a historical post, but a state not derived from a remote
+record (the URL stays open until one is recorded).
 
 ### M21 — `refine` (PARTIAL): template and `--choose`
 

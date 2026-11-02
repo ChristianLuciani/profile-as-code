@@ -693,6 +693,17 @@ pasco refine linkedin --choose linkedin-en-2   # id convention: <platform>-<lang
 The full variant generation flow lands with M3; `--choose` already works and
 writes only `content/active.yaml` — the §5/§7 outputs are generated separately.
 
+### Posts (`pasco post`, experimental)
+
+`pasco post` is an experimental stream outside the schema: a seed at
+`posts/<seed>/` becomes a per-channel projection, and `pasco validate` never
+reads it. `pasco post import <dir> --channel <c>` turns historical `.md` files
+into `imported-*` seeds and records each **published by assumption** — `status:
+published`, `channel.sync: published`, `certification: unverifiable`,
+`url: null`. The engine cannot prove a historical post was published and stores
+no URL; record the URL (or re-choose) to close the gap. The walkthrough lives in
+[the tutorial](TUTORIAL.md) (M20).
+
 ### Keep `CHANGELOG.md` and tags honest
 
 Every workspace change gets a CHANGELOG line (date + what changed + which

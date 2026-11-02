@@ -565,7 +565,10 @@ Two seed formats (#266): short (distribution) and longform (the essay/newsletter
                                    API channels → Postiz POST /posts payload
                                    (integration IDs from postiz.yaml; REPLACE_ME
                                    when missing); paste channels → paste-checklist.md
-  import <dir> --channel <c>       import historical .md posts as seeds
+  import <dir> --channel <c>       import historical .md posts as seeds; each is
+                                   recorded published by assumption
+                                   (certification: unverifiable, url: null until
+                                   a URL is recorded)
   list                             list seeds, formats, derivedFrom and chosen variants`,
   status: `pasco status [platform] [--mark <ledgerKey> <platform>] [--at <iso8601>] [--verify] [--write-checklist] [--completeness] [--json] [--workspace <path>]
 Per-entry deploy-status report (D18, §19): ledger key · origin (template/user) ·

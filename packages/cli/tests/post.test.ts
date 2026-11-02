@@ -21,6 +21,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
+import { parse as parseYaml } from "yaml";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI = join(__dirname, "..", "dist", "index.js");
@@ -190,7 +191,7 @@ describe("pasco post (week-1 MVP)", () => {
     expect(run(["post", "export", "s5", "--date", "not-a-date", "--workspace", ws]).code).toBe(2);
   });
 
-  it("imports historical posts as seeds", () => {
+  it("imports historical posts as seeds, recorded published by assumption", () => {
     const ws = workspace();
     const dir = join(ws, "historico");
     mkdirSync(dir, { recursive: true });
@@ -203,6 +204,22 @@ describe("pasco post (week-1 MVP)", () => {
     expect(listed.code).toBe(0);
     expect(listed.stdout).toContain("imported-one");
     expect(listed.stdout).toContain("imported-two");
+
+    // #423: an imported historical post is assumed published — the engine
+    // cannot prove it and stores no URL, so the pair stays honest
+    // (published + unverifiable + url: null) instead of reading as verified.
+    const ledger = parseYaml(
+      readFileSync(join(ws, "posts", "imported-one", "post.yaml"), "utf8"),
+    ) as {
+      source: string;
+      status: string;
+      channels: Record<string, { sync?: string; certification?: string; url?: string | null }>;
+    };
+    expect(ledger.source).toBe("imported");
+    expect(ledger.status).toBe("published");
+    expect(ledger.channels.linkedin?.sync).toBe("published");
+    expect(ledger.channels.linkedin?.certification).toBe("unverifiable");
+    expect(ledger.channels.linkedin?.url).toBeNull();
   });
 });
 
