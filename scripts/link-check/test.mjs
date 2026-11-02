@@ -56,6 +56,9 @@ if (caseDirs.length === 0) {
 
 const failures = [];
 let passed = 0;
+/** Cases outside the fixture-directory loop; counted so deleting one fails. */
+let extraPassed = 0;
+const EXTRA_CASES = 1;
 
 /** Load a fixture's allowlist if it has one; empty otherwise (hermetic). */
 function allowlistFor(name) {
@@ -415,13 +418,19 @@ rmSync(tmpRoot, { recursive: true, force: true });
     rmSync(root, { recursive: true, force: true });
   }
   if (problems.length === 0) {
+    extraPassed += 1;
     console.log("PASS #442 census ignores a gitignored overlay (index, not working tree)");
   } else {
     failures.push(`FAIL #442 ignored-overlay census:\n  ${problems.join("\n  ")}`);
   }
 }
 
-console.log(`\n${passed}/${caseDirs.length} fixtures passed`);
+console.log(
+  `\n${passed}/${caseDirs.length} fixtures passed + ${extraPassed}/${EXTRA_CASES} named cases`,
+);
+if (extraPassed !== EXTRA_CASES) {
+  failures.push(`named cases: ${extraPassed}/${EXTRA_CASES} ran and passed`);
+}
 if (failures.length > 0) {
   console.error(`\nE-TEST: ${failures.length} self-test failures:\n`);
   for (const failure of failures) console.error(failure);

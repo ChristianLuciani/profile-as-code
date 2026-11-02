@@ -167,7 +167,9 @@ export function collectClaims(root) {
   const claims = [];
   let files;
   try {
-    files = listMarkdown(root);
+    // Worktree, not index: this gate's self-test writes fixture docs and scans
+    // them BEFORE staging (link-check's census reads the index instead — #442).
+    files = listMarkdown(root, { source: "worktree" });
   } catch (error) {
     // link-check's walker throws its own class; translate so this gate's
     // refusals stay one vocabulary (review F6 on #230) — a raw stack is not an

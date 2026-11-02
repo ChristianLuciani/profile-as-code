@@ -169,10 +169,19 @@ function indexMarkdown(root) {
     listing = execFileSync("git", ["-C", root, "ls-files", "-z", "--", "."], {
       encoding: "buffer",
       maxBuffer: 64 * 1024 * 1024,
-      stdio: ["ignore", "pipe", "ignore"],
+      stdio: ["ignore", "pipe", "pipe"],
     });
-  } catch {
-    return null;
+  } catch (error) {
+    // `null` means "not a work tree" and only that: the fixture trees the
+    // self-test synthesizes have no git. Any OTHER failure (git missing, a
+    // corrupt index, a permissions error) must NOT silently fall back to the
+    // walk — that would restore #442's machine-dependent census while looking
+    // green (#442 fresh pass, F2).
+    const stderr = String(error.stderr ?? "");
+    if (/not a git repository|not a working tree|must be run in a work tree/i.test(stderr)) {
+      return null;
+    }
+    throw new Error(`git ls-files failed under ${root}: ${stderr.trim() || error.message}`);
   }
   const files = [];
   for (const rel of listing.toString("utf8").split("\0")) {
@@ -365,11 +374,20 @@ function loadAllowlist(allowlistPath) {
 }
 
 /** Every in-scope Markdown file under `root`, sorted (the corpus definition,
- *  exported so `scripts/evidence-gate` scans the SAME corpus instead of keeping
- *  a second walker that could disagree on scope). Enumeration is the git
- *  index (#442); only a tree outside version control falls back to a walk. */
-export function listMarkdown(root) {
+ *  exported so `scripts/evidence-gate` scans the SAME scope rules instead of
+ *  keeping a second walker that could disagree on them).
+ *
+ *  The census reads the git INDEX (#442): a census whose number depends on
+ *  which files the operator happens to have on disk is not a census of the
+ *  repo — a file only staged counts, an untracked or ignored one does not.
+ *  Callers whose fixtures write Markdown BEFORE staging it ask for
+ *  `{ source: "worktree" }` explicitly; a tree outside version control falls
+ *  back to the walk. */
+export function listMarkdown(root, options = {}) {
   const rootReal = path.resolve(root);
+  if (options.source === "worktree") {
+    return walkMarkdown(rootReal).filter((file) => inScope(relPosix(rootReal, file)));
+  }
   const indexed = indexMarkdown(rootReal);
   if (indexed !== null) return indexed;
   return walkMarkdown(rootReal).filter((file) => inScope(relPosix(rootReal, file)));
