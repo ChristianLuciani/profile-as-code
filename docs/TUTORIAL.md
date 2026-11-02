@@ -593,9 +593,10 @@ refs and claims; `export` reads `postiz.yaml` (`channels: {linkedin: …, x: …
 into `imported-*` seeds. Short rules exist only for `linkedin` and `x`; every other channel here is
 long-form (`devto`, `ghost`, `hashnode`, `listmonk`, `medium`, `substack`, `wordpress`), and
 `task --channel devto` says so with exit `2`. `import` records each seed **published by
-assumption**: `status: published`, `channel.sync: published`, `certification: unverifiable` and
-`url: null` — a reasonable assumption for a historical post, but a state not derived from a remote
-record (no command records a URL yet; it stays open until filled in `post.yaml` by hand).
+assumption**: `status: published`, `channel.sync: published`,
+`channel.certification: unverifiable` and `channel.url: null` — a reasonable assumption for a
+historical post, but a state not derived from a remote record (no command records a URL yet; it
+stays open until filled in `post.yaml` by hand).
 
 ### M21 — `refine` (PARTIAL): template and `--choose`
 
