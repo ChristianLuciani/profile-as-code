@@ -170,6 +170,10 @@ function indexMarkdown(root) {
       encoding: "buffer",
       maxBuffer: 64 * 1024 * 1024,
       stdio: ["ignore", "pipe", "pipe"],
+      // Pin the locale: the "not a work tree" branch below reads git's message,
+      // and a localized git would turn every fixture into a hard failure
+      // (#442 fresh pass 2, F1).
+      env: { ...process.env, LC_ALL: "C", LANG: "C" },
     });
   } catch (error) {
     // `null` means "not a work tree" and only that: the fixture trees the
@@ -379,7 +383,10 @@ function loadAllowlist(allowlistPath) {
  *
  *  The census reads the git INDEX (#442): a census whose number depends on
  *  which files the operator happens to have on disk is not a census of the
- *  repo — a file only staged counts, an untracked or ignored one does not.
+ *  repo. The number is a function of the STAGED TREE — a file staged but not
+ *  yet committed counts, an untracked or ignored one does not — so a dirty
+ *  index can still differ from a clean CI checkout; what it can no longer do is
+ *  change because of a file the index never saw.
  *  Callers whose fixtures write Markdown BEFORE staging it ask for
  *  `{ source: "worktree" }` explicitly; a tree outside version control falls
  *  back to the walk. */
