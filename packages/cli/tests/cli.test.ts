@@ -179,6 +179,21 @@ describe("surface", () => {
     }
   });
 
+  // #420: the artifact path carries no lang, so a later build in another lang
+  // overwrites what the previous one wrote. That is a property of the output a
+  // reader commits, not an implementation detail — the help and the guide must
+  // both say it, or the silence is the defect the issue reported.
+  it("build --help and USER-GUIDE §5 both declare the cross-lang overwrite (#420)", () => {
+    const help = run(["build", "--help"]);
+    expect(help.code).toBe(0);
+    expect(help.stdout).toContain("The artifact path carries no lang");
+    expect(help.stdout).toContain("OVERWRITES the artifact the previous build wrote");
+    const guide = readFileSync(join(__dirname, "..", "..", "..", "docs", "USER-GUIDE.md"), "utf8");
+    const section5 = guide.slice(guide.indexOf("## 5. Validate & build"), guide.indexOf("## 6."));
+    expect(section5).toContain("function of the last `build`");
+    expect(section5).toContain("**overwrites** it");
+  });
+
   it("exit 2 on unknown command", () => {
     const r = run(["frobnicate"]);
     expect(r.code).toBe(2);
