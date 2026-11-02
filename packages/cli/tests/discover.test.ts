@@ -505,7 +505,7 @@ describe("discover", () => {
     expect(goreClaims[0]?.detail).toContain("Al shipped 40 releases");
   });
 
-  it("skips an unlisted short lowercase particle (zu) but keeps the whole name", async () => {
+  it("skips an unlisted short lowercase particle (zu)", async () => {
     const result = await discover({
       urls: ["https://example.com/guttenberg"],
       retrieved: RETRIEVED,

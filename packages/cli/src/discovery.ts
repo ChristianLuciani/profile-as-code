@@ -319,37 +319,27 @@ const NAVIGATION_SEGMENTS = new Set([
 ]);
 
 /**
- * Lowercase particles that link name parts. As prose words they would match any
- * sentence ("van 40 medewerkers", "más de 40"), so the DECLARED lowercase
- * spelling is not a subject token. This list covers the three-plus-character
- * ones; a lowercase word shorter than three is a particle whatever the list
- * says (`zu`, `el`, `te`). A capitalized "Al" is a name word and is kept, and a
- * short single-word name (`Li`) is kept — the whole name is always a token.
+ * Lowercase particles of three or more characters that link name parts. As
+ * prose words they would match any sentence ("van 40 medewerkers", "más de
+ * 40"), so the DECLARED lowercase spelling is not a subject token. One- and
+ * two-character lowercase words are covered by the length signal (`de`, `zu`,
+ * `el`); a capitalized "Al" is a name word and is kept, and a short single-word
+ * name (`Li`) is kept — the whole name is always a token.
  */
 const NAME_PARTICLES = new Set([
-  "al",
   "bin",
-  "da",
   "das",
-  "de",
   "del",
   "den",
   "der",
   "des",
-  "di",
-  "do",
   "dos",
-  "du",
-  "e",
   "ibn",
-  "la",
   "las",
-  "le",
   "los",
   "ter",
   "van",
   "von",
-  "y",
 ]);
 
 /**
