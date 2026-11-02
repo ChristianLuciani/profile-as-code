@@ -488,11 +488,13 @@ describe("discover", () => {
     expect(goghClaims[0]?.detail).toContain("Vincent van Gogh made 40 paintings");
 
     const gore = await discover({
-      urls: ["https://example.com/al"],
+      // The last segment must NOT be `al`: the handle would add `al`/`Al` and
+      // the assertion would pass on the old length-proxy rule too (review F1).
+      urls: ["https://example.com/gore"],
       retrieved: RETRIEVED,
       allowHosts: ["example.com"],
       fetchText: stubFetch({
-        "https://example.com/al": {
+        "https://example.com/gore": {
           status: 200,
           text: page({ "@type": "Person", name: "Al Gore" }, "<p>Al shipped 40 releases.</p>"),
         },
