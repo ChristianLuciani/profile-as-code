@@ -44,17 +44,24 @@ const TABLE: ReadonlyArray<readonly [string, boolean]> = [
   ["v2.1.0", false],
   ["released on 2024-11-02", false],
   ["", false],
-  // The year guard must not swallow real counts (#437 fresh pass, F1).
+  // The year guard must not swallow real counts (#437 fresh pass, F1/F2).
   ["2000 users", true],
   ["1950 clients", true],
   ["2,024 users", true],
+  ["2000 of them", true],
+  ["2000 in revenue", true],
   ["In 2024 the hub served 2000 requests", true],
-  // A year next to a month name stays a date.
+  // A year next to a month name (with or without a day) stays a date.
   ["Aug 2024 edition", false],
-  // Units bind without a space too (F4).
+  ["Aug 25, 2024 release", false],
+  // Units bind without a space too (F4)...
   ["100ms", true],
   ["10GB", true],
   ["50km", true],
+  // ...but a single digit glued to letters names a technology, not a count (F5).
+  ["5G networks", false],
+  ["3D printing", false],
+  ["2FA enabled", false],
   // Currency must be adjacent to the number (F3).
   ["v2.1.0 costs $", false],
   ["₹500", true],
@@ -62,6 +69,8 @@ const TABLE: ReadonlyArray<readonly [string, boolean]> = [
   // Magnitude suffixes, including the long forms.
   ["3bn", true],
   ["1.2M", true],
+  // The token bound is generous enough for real counts (F4 from pass 2).
+  ["1000000000000000 users", true],
 ];
 
 describe("isQuantitativeClaim — a number is a claim only with a quantity marker (#437)", () => {
@@ -78,11 +87,13 @@ describe("isQuantitativeClaim — a number is a claim only with a quantity marke
   });
 
   it("stays linear on a long digit run (the predicate reads untrusted page text)", () => {
-    // #437 fresh pass, F2: an unbounded `\d+` made this quadratic — 32k digits
-    // took seconds through `discover`. The bounded token must return fast.
-    const digits = "1".repeat(64_000);
+    // #437 fresh passes, F1/F2: an unbounded repetition made this quadratic — a
+    // separator run (not just pure digits) took seconds through `discover`.
+    const pure = "1".repeat(64_000);
+    const separated = "1,".repeat(32_000);
     const started = performance.now();
-    expect(isQuantitativeClaim(`prefix ${digits} suffix`)).toBe(false);
+    expect(isQuantitativeClaim(`prefix ${pure} suffix`)).toBe(false);
+    expect(isQuantitativeClaim(`prefix ${separated} suffix`)).toBe(false);
     expect(performance.now() - started).toBeLessThan(250);
   });
 });

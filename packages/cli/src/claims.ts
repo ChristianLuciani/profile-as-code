@@ -18,12 +18,13 @@
  * source.
  */
 
-/** A number token: digits with inner thousands/decimal separators. Bounded on
- *  both sides (`{1,15}`) so a long digit run cannot backtrack: the predicate
- *  runs over untrusted page text (`discover` fetches it), and a quadratic
- *  pattern there is a hang, not a warning (#437 fresh pass, F2). A trailing
- *  separator is deliberately NOT part of it — `76, post-stroke` is a bare age. */
-const NUMBER = String.raw`\d{1,15}(?:[.,]\d{1,15})*`;
+/** A number token: digits with inner thousands/decimal separators. Every
+ *  quantifier is bounded — digits per group AND the number of groups — because
+ *  the predicate runs over untrusted page text (`discover` fetches it) and an
+ *  open-ended repetition is a hang, not a warning (#437 fresh passes, F1/F2).
+ *  A trailing separator is deliberately NOT part of it: `76, post-stroke` is a
+ *  bare age. */
+const NUMBER = String.raw`\d{1,18}(?:[.,]\d{1,18}){0,5}`;
 
 /** A currency sign or percent sign that is ADJACENT to the number (`$2M`,
  *  `40%`, `₹500`). A stray `$` elsewhere in the line does not make the line a
@@ -36,75 +37,18 @@ const CURRENCY_OR_PERCENT = new RegExp(
 /** A number with an explicit magnitude marker: `800+`, `1.5k`, `2M`, `3bn`. */
 const PLUS_OR_MAGNITUDE = new RegExp(String.raw`${NUMBER}\s?(?:\+|(?:bn|tn|[kmb])(?!\p{L}))`, "iu");
 
-/** A number followed by a unit word — with or without a space (`36 tutors`,
- *  `100ms`, `10GB`). Any script's letters count (#437 fresh pass, F4). */
-const NUMBER_THEN_WORD = new RegExp(String.raw`(?<![\w.])(${NUMBER})\s?(\p{L}+)`, "gu");
+/** A number followed by a word — with or without a space (`36 tutors`,
+ *  `100ms`, `10GB`). Any script's letters count (#437 fresh pass, F4). The
+ *  separator is captured so a single digit glued to letters (`5G`, `3D`, `2FA`)
+ *  stays a technology name, not a count. */
+const NUMBER_THEN_WORD = new RegExp(String.raw`(?<![\w.])(${NUMBER})(\s?)(\p{L}+)`, "gu");
 
-/** Words that turn `2024 the hub` into a date rather than "2024 + unit". A year
- *  followed by a noun (`2000 users`) is still a count — that distinction is the
- *  whole point (#437 fresh pass, F1). */
-const FUNCTION_WORDS = new Set([
-  "a",
-  "an",
-  "and",
-  "are",
-  "as",
-  "at",
-  "be",
-  "been",
-  "but",
-  "by",
-  "can",
-  "could",
-  "did",
-  "do",
-  "does",
-  "for",
-  "from",
-  "had",
-  "has",
-  "have",
-  "he",
-  "her",
-  "his",
-  "in",
-  "is",
-  "it",
-  "its",
-  "may",
-  "might",
-  "must",
-  "no",
-  "not",
-  "of",
-  "on",
-  "or",
-  "our",
-  "she",
-  "should",
-  "that",
-  "the",
-  "their",
-  "these",
-  "they",
-  "this",
-  "those",
-  "to",
-  "was",
-  "we",
-  "were",
-  "when",
-  "where",
-  "which",
-  "while",
-  "will",
-  "with",
-  "would",
-]);
-
-/** Month names: `Aug 2024 edition` is a date, not "2024 + unit". */
-const MONTH_BEFORE =
-  /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s*$/i;
+/** A year is a DATE when a month name (optionally with a day) precedes it —
+ *  `Aug 2024`, `August 25, 2024` — or when a date preposition does — `in 2024`,
+ *  `since 2024`. Otherwise a four-digit token followed by a noun is a count:
+ *  `2000 users` (#437 fresh passes, F1/F2/F3). */
+const MONTH_OR_PREPOSITION_BEFORE =
+  /\b(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+(?:\d{1,2},?\s*)?|(?:in|on|since|by|until|during|from)\s+)$/i;
 
 /** A four-digit calendar year (1900–2099). */
 function isCalendarYear(token: string): boolean {
@@ -128,13 +72,15 @@ export function isQuantitativeClaim(text: string): boolean {
   if (PLUS_OR_MAGNITUDE.test(text)) return true;
   for (const match of text.matchAll(NUMBER_THEN_WORD)) {
     const token = match[1] ?? "";
-    const word = (match[2] ?? "").toLowerCase();
-    // `in 2024 the hub`: the year is followed by a function word, so it is a
-    // date, not a measurement.
-    if (isCalendarYear(token) && FUNCTION_WORDS.has(word)) continue;
-    // `Aug 2024 edition`: a year right after a month name is a date.
-    const before = text.slice(0, match.index).slice(-24);
-    if (isCalendarYear(token) && MONTH_BEFORE.test(before)) continue;
+    const separator = match[2] ?? "";
+    // `5G networks`, `3D printing`, `2FA enabled`: a single digit glued to
+    // letters names a technology, not a measurement.
+    if (separator === "" && token.length === 1) continue;
+    // `Aug 2024`, `in 2024 the hub`: a dated year is not a count.
+    if (isCalendarYear(token)) {
+      const before = text.slice(0, match.index);
+      if (MONTH_OR_PREPOSITION_BEFORE.test(before)) continue;
+    }
     return true;
   }
   return false;
