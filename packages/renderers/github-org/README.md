@@ -24,7 +24,8 @@ const { text } = render(compile(profile, "github-org", "en"));
 ## Output
 
 Ordered, deterministic sections: header (org name · tagline · mission) · social
-handles (the claimed matrix, one badge per platform) · newsletter · podcast ·
+handles (the claimed matrix, one badge per platform in the curated set — a
+claimed slug outside it renders no badge; declared limit, #428) · newsletter · podcast ·
 press · audiences (reader profile) · every link (visible list) · `schema.org`
 Organization JSON-LD · generated footer with a fact count.
 

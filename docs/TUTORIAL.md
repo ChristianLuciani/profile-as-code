@@ -625,7 +625,9 @@ pasco check
 
 The scaffold writes `content/{identity,socialHandles,newsletter,podcast,press,audiences,flavor,checks}.yaml`
 plus `README.md` and `.pascorc`; it validates with only `name`. `build github-org` is brand-only and
-writes `# <name>`, tagline, mission, logo, one badge per **claimed** handle, `## Links`, an
+writes `# <name>`, tagline, mission, logo, one badge per **claimed** handle on a
+curated platform (the renderer's declared limit, #428: a claimed slug outside the
+set renders no badge and says nothing), `## Links`, an
 `Organization` JSON-LD block and a footer with claimed/pending/press counts. `check` runs the brand
 handle matrix (`claimed`/`pending`, `handle-claimed`/`handle-consistent`). The scaffold's commented
 `- platform: website` is not one of the 49 platform slugs — the enum is the schema's
