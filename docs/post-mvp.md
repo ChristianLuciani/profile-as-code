@@ -133,7 +133,10 @@ pasco post export <seed-id> --target postiz --workspace <profile-data>
 #    paste channels  → posts/<seed-id>/<channel>/paste-checklist.md
 #                      (substack, ghost: no body API — body + fields, pasted)
 
-# Historical posts (the 20-post test)
+# Historical posts (the 20-post test). An imported .md is recorded published
+# BY ASSUMPTION: status: published, channel.sync: published,
+# certification: unverifiable, url: null — the engine cannot prove it and has
+# no URL-recording command yet.
 pasco post import <dir> --channel linkedin --workspace <profile-data>
 
 # Overview (format + derivedFrom + chosen variants)
