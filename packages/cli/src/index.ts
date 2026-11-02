@@ -110,7 +110,8 @@ Commands:
                                 contradiction, unsourced-claim; stricter than
                                 validate/check on those classes; exit 1 iff any FAIL
   discover <url>... [--json]    [read]  Provisional profile from public surfaces: reads each
-                                surface's schema.org JSON-LD + links, writes nothing and
+                                surface's schema.org Person/Organization JSON-LD + links
+                                (a GitHub profile has no such node), writes nothing and
                                 marks every fact unattested; reports the audit classes
                                 (dangling-ref · contradiction · unsourced-claim)
   entity [--json] [--jsonld]    [read]  The schema.org entity projection: facts, @id, sameAs,
@@ -241,7 +242,13 @@ Read public surfaces and build a PROVISIONAL profile so the audit's checks can
 run for a prospect who has no workspace. Every populated fact carries its
 source (surface, URL, retrieval time) and attested:false; fields that could not
 be discovered are listed as absent, never defaulted. Facts come only from the
-surfaces' schema.org JSON-LD and their links - never prose mining.
+surfaces' schema.org JSON-LD and their links - never prose mining. A surface
+QUALIFIES only when it declares a schema.org Person or Organization node: a
+GitHub profile carries none, and neither does a product/application page
+(SoftwareApplication), so point discover at a personal site or page that does.
+An unsourced quantitative sentence is reported only when it is ABOUT the entity
+(it names it or its handle, or is first-person) - a badge counter or a nameless
+footer is not a claim about the person. Identical sentences are reported once.
 Requests are sequential, never retried, credential-free and confined to a
 closed host allowlist: the platform hosts the engine ships, plus --allow-host
 (comma-separated). A URL outside it is reported as
