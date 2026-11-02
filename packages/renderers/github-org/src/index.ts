@@ -14,7 +14,7 @@
  * generated footer with fact-count.
  */
 
-import type { Lang, PlatformProfile } from "@profile-as-code/core";
+import type { Lang, Platform, PlatformProfile } from "@profile-as-code/core";
 import { mdHref, mdText } from "@profile-as-code/markdown";
 
 export const deploySpec = "git" as const;
@@ -41,9 +41,18 @@ export interface RenderOptions {
   lang?: Lang;
 }
 
-/** Deterministic badge map for brand handle platforms → shield.io style + name. */
-const BADGE: Record<string, { color: string; logo: string; label: string }> = {
-  github: { color: "181717", logo: "github", label: "GitHub" },
+/**
+ * Deterministic badge map for brand handle platforms → shield.io style + name.
+ *
+ * Keyed by `Platform`, not by `string` (issue #417, round-2 finding): the only
+ * read is `BADGE[handle.platform]` over the CLAIMED `socialHandles` matrix, whose
+ * platform is the 49-slug contract enum, so a key outside the enum can never be
+ * selected. Two such keys (`github`, `website`) sat here and made the retired
+ * tutorial claim ("the github-org badge table knows `website`") look true; the
+ * typed literal turns that class into a compile error instead of dead data a docs
+ * author can believe in.
+ */
+const BADGE: Partial<Record<Platform, { color: string; logo: string; label: string }>> = {
   "github-org": { color: "181717", logo: "github", label: "GitHub" },
   x: { color: "000000", logo: "X", label: "X" },
   bluesky: { color: "0285FF", logo: "bluesky", label: "Bluesky" },
@@ -55,7 +64,6 @@ const BADGE: Record<string, { color: string; logo: string; label: string }> = {
   reddit: { color: "FF4500", logo: "reddit", label: "Reddit" },
   mastodon: { color: "6364FF", logo: "mastodon", label: "Mastodon" },
   soundcloud: { color: "FF3300", logo: "soundcloud", label: "SoundCloud" },
-  website: { color: "111111", logo: "internetarchive", label: "Website" },
 };
 
 function hostnamePath(url: string): string {
