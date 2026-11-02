@@ -303,6 +303,9 @@ is left out of the page and listed (never inlined); a remote image becomes a tex
   build: `pasco build [platform] [--view <name>] [--lang <l>] [--json] [--workspace <path>]
 Deterministic base texts per platform+lang (compile() slices). No platform =
 all platforms. lang defaults to .pascorc defaults.lang or 'en'.
+The artifact path carries no lang: one path per surface, so building another
+lang OVERWRITES the artifact the previous build wrote (one README per repo on
+GitHub; for the paste surfaces, re-build before pasting the other language).
 A .pascorc "engine" requirement is enforced before any render (SPEC §7.6).
 --view resolves a declared view (D22/§21): its rule may carry the platform, the
 lang and the fact selection, so the surface shows a SUBSET of the SSOT. Every
