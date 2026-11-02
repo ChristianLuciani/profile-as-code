@@ -35,6 +35,14 @@ minor versions may contain breaking contract changes.
   `2000 users` is still a count. The docstring, `docs/SPEC.md` §7.1 and
   `docs/post-mvp.md` now state this boundary, and a table in
   `packages/cli/tests/claims.test.ts` pins both sides of it.
+- **`geo/freshness` reads a publication year at year granularity (#438)** — the
+  newest `publications[].year` is mapped to `${year}-12-31`, so a publication of
+  the current year was reported as a future-dated fact for the rest of that
+  year; the check now compares a year-precision fact at year granularity (it
+  cannot be future-dated before Jan 1 of the following year) and reports the year
+  itself, never the synthetic December edge. A genuinely future year (2099) is
+  still reported, and a current-year publication now evidences freshness instead
+  of going red exactly when it is most accurate. SPEC §8 updated.
 - **`pasco discover` names the surfaces that qualify instead of a dead end
   (#418)** — the refusal for a page with no entity name now says that discovery
   reads only schema.org `Person`/`Organization` JSON-LD, that a GitHub profile
