@@ -79,6 +79,46 @@ function check(files, version) {
   return errors;
 }
 
+/**
+ * The upgrade route is a published surface too (#440): a workspace born on an
+ * older engine must find a section that teaches the path, and the reference
+ * manual must name the version it upgrades to — in the canonical claim form
+ * `check()` above already validates. Without this, deleting the route leaves the
+ * release gate green.
+ */
+const UPGRADE_ROUTES = [
+  { file: "docs/START-HERE.md", heading: /^#{2,4} .*workspace is behind/i, claims: false },
+  { file: "docs/USER-GUIDE.md", heading: /^#{2,4} .*older engine/i, claims: true },
+];
+
+/** The lines under a heading, down to the next heading of the same or a higher level. */
+function upgradeSection(text, heading) {
+  const lines = text.split("\n");
+  const start = lines.findIndex((line) => heading.test(line));
+  if (start === -1) return null;
+  const level = lines[start].match(/^#+/)[0].length;
+  const end = lines.findIndex(
+    (line, index) => index > start && /^#+\s/.test(line) && line.match(/^#+/)[0].length <= level,
+  );
+  return lines.slice(start, end === -1 ? undefined : end).join("\n");
+}
+
+function checkUpgradeRoutes(files, version) {
+  const errors = [];
+  for (const route of UPGRADE_ROUTES) {
+    const file = files.find((candidate) => candidate.label === route.file);
+    const section = file ? upgradeSection(file.text, route.heading) : null;
+    if (section === null) {
+      errors.push(`${route.file} has no upgrade section for an older workspace (#440)`);
+      continue;
+    }
+    if (route.claims && !section.includes(`${PKG}@${version}`)) {
+      errors.push(`${route.file}'s upgrade section must state ${PKG}@${version}`);
+    }
+  }
+  return errors;
+}
+
 function selfTest() {
   const failures = [];
   const ok = [{ label: "index", text: `<code>${PKG}@0.3.0</code>` }];
@@ -129,6 +169,24 @@ function selfTest() {
   if (mirrorJsonLd.length === 0)
     failures.push("did not catch softwareVersion on a claim-free mirror");
 
+  // The upgrade route (#440): both sections present and the reference names the version.
+  const route = (startHere, guide) => [
+    { label: "docs/START-HERE.md", text: startHere },
+    { label: "docs/USER-GUIDE.md", text: guide },
+  ];
+  const goodRoutes = route(
+    "## Route 4 — my workspace is behind\nsteps",
+    `### 8.2.1 Upgrading a workspace born on an older engine\nuses ${PKG}@0.3.0\n### 8.3 next`,
+  );
+  if (checkUpgradeRoutes(goodRoutes, "0.3.0").length > 0)
+    failures.push("false positive on a complete upgrade route");
+  const noSection = route("# nothing", `### 8.2.1 Upgrading one\nuses ${PKG}@0.3.0`);
+  if (!checkUpgradeRoutes(noSection, "0.3.0").some((e) => e.includes("START-HERE")))
+    failures.push("did not catch a missing upgrade section");
+  const noClaim = route("## Route 4 — my workspace is behind", "### 8.2.1 older engine");
+  if (!checkUpgradeRoutes(noClaim, "0.3.0").some((e) => e.includes("must state")))
+    failures.push("did not catch an upgrade section without the version");
+
   if (failures.length > 0) throw new Error(`self-test failed: ${failures.join("; ")}`);
   console.log("site version-check self-test: PASS");
 }
@@ -149,7 +207,7 @@ const files = [
   })),
 ];
 
-const errors = check(files, version);
+const errors = [...check(files, version), ...checkUpgradeRoutes(files, version)];
 if (errors.length > 0) {
   for (const error of errors) console.error(`E-SITE-VERSION: ${error}`);
   console.error("site version-check: FAIL");
