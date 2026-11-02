@@ -521,7 +521,27 @@ links:
   });
 
   it("geo/freshness: a publication YEAR is read at year granularity, never as a future date (#438)", () => {
-    // Pin the clock to the calendar edge the fix turns on: Dec 31 23:59 UTC.
+    // The REAL repro first: a current-year publication read on an ordinary
+    // November day. With the old `${year}-12-31` mapping this is a future-dated
+    // fact for the rest of the year (#438's field report), so this case — not
+    // the Dec 31 edge — is what the fix has to turn.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-02T00:00:00Z"));
+    try {
+      const pub = (year: number) => `- title: A Paper\n  venue: Somewhere\n  year: ${year}\n`;
+      const repro = find(
+        geoCheck(load(ws({ "identity.yaml": IDENTITY_BODY, "publications.yaml": pub(2026) }))),
+        "geo/freshness",
+      );
+      expect(repro?.score).toBe(1);
+      expect(repro?.detail).not.toContain("future-dated");
+      expect(repro?.detail).toContain("publications:newest-year = 2026");
+      expect(repro?.detail).not.toContain("2026-12-31");
+    } finally {
+      vi.useRealTimers();
+    }
+
+    // Then the calendar edge the fix turns on: Dec 31 23:59 UTC.
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-12-31T23:59:00Z"));
     try {
