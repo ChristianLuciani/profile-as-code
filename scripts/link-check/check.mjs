@@ -37,11 +37,17 @@
  * (`README`, `CONTRIBUTING`, `AGENTS`, `GOVERNANCE`, `SECURITY`,
  * `CODE_OF_CONDUCT`, `CHANGELOG`), `docs/`, `schema/`, `skills/`, `templates/`,
  * and each package README (`packages/<pkg>/README.md`, renderers included).
- * Walking is filesystem based (like `scripts/dep-gate`), skipping VCS, build,
- * and hidden directories — hidden trees (`.github/`, gitignored session
- * artifacts) are excluded by decision, not by accident: they are not live docs
- * (#274). The scope paths are all tracked by construction, and the checker
- * must also run against a bare fixture tree in the self-test.
+ * Enumeration reads the git INDEX (`git -C <root> ls-files`), not the working
+ * tree (#442): the census must be a function of the commit, not of the machine.
+ * A gitignored local overlay (`AGENTS.local.md`) or a local drafts directory
+ * exists on the operator's disk and in no commit, so a filesystem walk counted
+ * 74 files locally against 73 in CI on the SAME commit (observed on PR #441) —
+ * a gate that cannot be green on both. The index
+ * also excludes VCS, build, and hidden paths by decision, not by accident:
+ * hidden trees (`.github/`, gitignored session artifacts) are not live docs
+ * (#274). A tree outside version control (the self-test's synthesized fixture
+ * trees, whose subject IS the layout) falls back to a filesystem walk; no repo
+ * checkout takes that path.
  *
  * Zero dependencies, `node >=22` — runs on a fresh checkout before any install.
  * A file the gate cannot read, or a link shape it cannot parse, is an explicit
@@ -55,6 +61,7 @@
  * elsewhere CITES the block instead of re-typing the number, because a figure
  * that changes with every commit cannot be asserted as current state.
  */
+import { execFileSync } from "node:child_process";
 import {
   existsSync,
   readdirSync,
@@ -139,6 +146,42 @@ function relPosix(root, file) {
 
 function inScope(rel) {
   return SCOPE.some((pattern) => pattern.test(rel));
+}
+
+/** A path whose every segment is non-hidden and outside the skipped dirs. */
+function isVisible(rel) {
+  return !rel.split("/").some((segment) => segment.startsWith(".") || SKIP_DIRS.has(segment));
+}
+
+/**
+ * The in-scope Markdown paths TRACKED at `root`, read from the git index
+ * (#442). `git -C <root>` pins the working directory, so `ls-files` reports
+ * paths relative to `root` no matter where the gate was invoked from — the
+ * census is the same from the repo root and from a subdirectory.
+ *
+ * Returns `null` when `root` is not inside a git work tree (the self-test
+ * synthesizes fixture trees whose subject IS the layout), letting the caller
+ * fall back to the filesystem walk. Every repo checkout takes the index path.
+ */
+function indexMarkdown(root) {
+  let listing;
+  try {
+    listing = execFileSync("git", ["-C", root, "ls-files", "-z", "--", "."], {
+      encoding: "buffer",
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return null;
+  }
+  const files = [];
+  for (const rel of listing.toString("utf8").split("\0")) {
+    if (rel === "") continue;
+    if (!rel.toLowerCase().endsWith(".md")) continue;
+    if (!isVisible(rel) || !inScope(rel)) continue;
+    files.push(path.join(root, rel));
+  }
+  return files.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 /**
@@ -323,9 +366,12 @@ function loadAllowlist(allowlistPath) {
 
 /** Every in-scope Markdown file under `root`, sorted (the corpus definition,
  *  exported so `scripts/evidence-gate` scans the SAME corpus instead of keeping
- *  a second walker that could disagree on scope). */
+ *  a second walker that could disagree on scope). Enumeration is the git
+ *  index (#442); only a tree outside version control falls back to a walk. */
 export function listMarkdown(root) {
   const rootReal = path.resolve(root);
+  const indexed = indexMarkdown(rootReal);
+  if (indexed !== null) return indexed;
   return walkMarkdown(rootReal).filter((file) => inScope(relPosix(rootReal, file)));
 }
 

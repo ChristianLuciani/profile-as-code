@@ -24,6 +24,7 @@
  */
 import { spawnSync } from "node:child_process";
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -351,6 +352,73 @@ rmSync(tmpRoot, { recursive: true, force: true });
   console.log(
     `PASS #226 census block — ${blockPassed}/${blockCases} cases (write, --check, staleness, fail-closed)`,
   );
+}
+
+// ── the census reads the commit, not the machine (#442) ─────────────────────
+//
+// A gitignored Markdown file at a COUNTED path (`AGENTS.local.md`, the
+// operator's local overlay) must not move the census. The fixture is a real
+// temporary git repository — `git init` + `git add`, no commit needed because
+// the gate reads the index — with the overlay present on disk and excluded by
+// `.gitignore`. If enumeration reverts to walking the working tree, the
+// overlay is counted (3 files, 2 links) and this case fails: the defect is
+// seeded, not merely described.
+{
+  const root = mkdtempSync(path.join(os.tmpdir(), "link-check-ignored-"));
+  const git = (...args) => spawnSync("git", ["-C", root, ...args], { encoding: "utf8" });
+  const problems = [];
+  try {
+    mkdirSync(path.join(root, "docs"), { recursive: true });
+    writeFileSync(path.join(root, ".gitignore"), "AGENTS.local.md\n");
+    writeFileSync(path.join(root, "README.md"), "# Doc\n\n[a](docs/a.md)\n");
+    writeFileSync(path.join(root, "docs", "a.md"), "# A\n");
+    writeFileSync(path.join(root, "AGENTS.local.md"), "# Local overlay\n\n[broken](missing.md)\n");
+
+    const init = git("init", "-q");
+    const add = git("add", "-A");
+    const ignored = git("check-ignore", "AGENTS.local.md");
+    if (init.status !== 0 || add.status !== 0 || ignored.status !== 0) {
+      problems.push(
+        `could not build the git fixture: init=${init.status} add=${add.status} ` +
+          `check-ignore=${ignored.status} ${init.stderr}${add.stderr}${ignored.stderr}`,
+      );
+    } else {
+      // The overlay is really on disk, so a working-tree walk would count it:
+      // without this probe the case could pass vacuously on a missing file.
+      if (!existsSync(path.join(root, "AGENTS.local.md"))) {
+        problems.push("the ignored overlay is absent from disk (the case would be vacuous)");
+      }
+      const result = check(root, { allowlist: EMPTY_ALLOWLIST });
+      if (result.files !== 2 || result.links !== 1) {
+        problems.push(
+          "expected the ignored overlay to be invisible (2 files, 1 links), got " +
+            `(${result.files} files, ${result.links} links)`,
+        );
+      }
+      if (result.status !== "pass") {
+        problems.push(`expected pass, got ${result.status}: ${result.messages.join("; ")}`);
+      }
+      // Same commit, different invocation directory: `git -C <root>` pins the
+      // listing, so the census cannot depend on the caller's cwd.
+      const fromSubdir = spawnSync(process.execPath, [CHECK, "--root", root], {
+        cwd: path.join(root, "docs"),
+        encoding: "utf8",
+      });
+      if (!fromSubdir.stdout.includes("Link gate: PASS (2 files, 1 links)")) {
+        problems.push(
+          "invoked from a subdirectory the census moved: " +
+            `status=${fromSubdir.status} ${fromSubdir.stdout}${fromSubdir.stderr}`,
+        );
+      }
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+  if (problems.length === 0) {
+    console.log("PASS #442 census ignores a gitignored overlay (index, not working tree)");
+  } else {
+    failures.push(`FAIL #442 ignored-overlay census:\n  ${problems.join("\n  ")}`);
+  }
 }
 
 console.log(`\n${passed}/${caseDirs.length} fixtures passed`);
