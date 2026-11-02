@@ -113,11 +113,16 @@ function jsonLdOf(html: string): unknown[] {
 
 /** Visible text only: script/style/tags removed. Block boundaries become line
  *  breaks (never a space): the title must not merge into the first body
- *  sentence, or the page's own name turns chrome into a claim (#419). */
+ *  sentence, or the page's own name turns chrome into a claim (#419). A
+ *  newline in the HTML SOURCE is prose wrapping, not a boundary — it is
+ *  collapsed BEFORE the markers are injected, or a wrapped sentence is split
+ *  and its subject lost. */
 function textOf(html: string): string {
-  const withBreaks = html
+  const collapsed = html
     .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
     .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+    .replace(/\s+/g, " ");
+  const withBreaks = collapsed
     .replace(
       /<\/(?:p|div|li|h[1-6]|title|header|footer|section|article|tr|td|th|main|nav)\s*>/gi,
       "\n",
@@ -126,7 +131,7 @@ function textOf(html: string): string {
     .replace(/<[^>]+>/g, " ");
   const lines = decodeEntities(withBreaks)
     .split("\n")
-    .map((line) => line.replace(/[^\S\n]+/g, " ").trim())
+    .map((line) => line.replace(/\s+/g, " ").trim())
     .filter((line) => line !== "");
   return lines.join("\n");
 }

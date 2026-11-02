@@ -433,6 +433,41 @@ describe("discover", () => {
     expect(result.findings.filter((item) => item.class === "unsourced-claim")).toHaveLength(0);
   });
 
+  it("keeps a claim whose sentence is wrapped in the HTML source", async () => {
+    const result = await discover({
+      urls: ["https://github.com/ada"],
+      retrieved: RETRIEVED,
+      fetchText: stubFetch({
+        "https://github.com/ada": {
+          status: 200,
+          text: page(person(), "<p>Ada has\n20 years of experience.</p>"),
+        },
+      }),
+    });
+    const claims = result.findings.filter((item) => item.class === "unsourced-claim");
+    expect(claims).toHaveLength(1);
+    expect(claims[0]?.detail).toContain("Ada has 20 years");
+  });
+
+  it("does not treat a lowercase name particle as the entity", async () => {
+    const result = await discover({
+      urls: ["https://github.com/josedelacruz"],
+      retrieved: RETRIEVED,
+      fetchText: stubFetch({
+        "https://github.com/josedelacruz": {
+          status: 200,
+          text: page(
+            { "@type": "Person", name: "José de la Cruz" },
+            "<p>Más de 40 clientes atendidos.</p><p>José de la Cruz atendió 40 clientes.</p>",
+          ),
+        },
+      }),
+    });
+    const claims = result.findings.filter((item) => item.class === "unsourced-claim");
+    expect(claims).toHaveLength(1);
+    expect(claims[0]?.detail).toContain("José de la Cruz atendió");
+  });
+
   it("matches the handle in a surface URL (#419)", async () => {
     const result = await discover({
       urls: ["https://dev.to/ben"],

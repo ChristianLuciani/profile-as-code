@@ -272,18 +272,48 @@ const NAVIGATION_SEGMENTS = new Set([
   "about",
   "articles",
   "blog",
+  "careers",
+  "categories",
+  "category",
   "contact",
   "cv",
+  "docs",
+  "download",
+  "downloads",
+  "events",
+  "faq",
+  "feed",
+  "help",
   "home",
   "index",
+  "jobs",
+  "login",
   "me",
   "news",
+  "page",
+  "pages",
   "portfolio",
   "posts",
+  "pricing",
+  "privacy",
   "profile",
   "projects",
   "resume",
+  "rss",
+  "search",
+  "series",
+  "signup",
   "site",
+  "sitemap",
+  "subscribe",
+  "support",
+  "t",
+  "tag",
+  "tags",
+  "team",
+  "terms",
+  "topic",
+  "topics",
   "work",
   "writing",
 ]);
@@ -303,9 +333,13 @@ function subjectTokens(
 ): string[] {
   const name = provisional.profile.identity.name.trim();
   const tokens = new Set<string>([name]);
-  for (const word of name.split(/\s+/)) {
-    const trimmed = word.trim();
-    if (trimmed !== "") tokens.add(trimmed);
+  const words = name.split(/\s+/).filter((word) => word !== "");
+  for (const word of words) {
+    // In a multi-word name a short word is a particle ("de", "la"), and as a
+    // lowercase common word it would match any prose. A single-word name keeps
+    // its short token ("Li").
+    if (words.length > 1 && word.length < 3) continue;
+    tokens.add(word);
   }
   for (const url of observations.map((item) => item.url)) {
     let segment: string | undefined;
