@@ -618,8 +618,12 @@ plus `README.md` and `.pascorc`; it validates with only `name`. `build github-or
 writes `# <name>`, tagline, mission, logo, one badge per **claimed** handle, `## Links`, an
 `Organization` JSON-LD block and a footer with claimed/pending/press counts. `check` runs the brand
 handle matrix (`claimed`/`pending`, `handle-claimed`/`handle-consistent`). The scaffold's commented
-`- platform: website` is **not** a valid platform slug, so uncommenting it fails `validate`; the
-`github-org` badge table knows `website`, the enum does not.
+`- platform: website` is not one of the 49 platform slugs — the enum is the schema's
+`$defs.platform.enum` (D16; `platforms/registry.yaml` carries the metadata, never the constraint) and
+it binds the renderer surfaces (`bios`, `headlines`, `socialHandles`, the `checks` catalog) and the
+`deployments` ledger keys, **not** `identity.links[]`: a link's `platform` is a free-form badge label
+(`type: string` — `website`, `orcid`, `scholar`), so uncommenting the example still validates. The
+`github-readme` badge table carries a `website` entry, so such a link still renders a badge.
 
 ### M23 — `--workspace` and resolution from outside
 
@@ -650,7 +654,7 @@ cwd. An invalid path exits `1` and names the missing `content/` directory.
 | `refine` renders a langMap role as `[object Object]` (M21) | [#415](https://github.com/ChristianLuciani/profile-as-code/issues/415) |
 | `refine` hardcodes `gh-en-*` examples for every platform (M21) | [#415](https://github.com/ChristianLuciani/profile-as-code/issues/415) |
 | `usage: usage: …` on `skills:export` and `refine`; `export ai-policy: refusing…` drops the `pasco` prefix (M14, M16, M21) | [#416](https://github.com/ChristianLuciani/profile-as-code/issues/416) |
-| the brand scaffold's `platform: website` is not a valid slug (M22) | [#417](https://github.com/ChristianLuciani/profile-as-code/issues/417) |
+| the brand scaffold's `platform: website` is outside the platform set, but uncommenting it does **not** fail `validate` — `links[].platform` is free-form (M22) | [#417](https://github.com/ChristianLuciani/profile-as-code/issues/417) — reconciled as a wrong claim; no scaffold change |
 | `discover` needs `Person`/`Organization` JSON-LD; a GitHub profile and the project site fail (M18) | [#418](https://github.com/ChristianLuciani/profile-as-code/issues/418) |
 | `discover` reports page chrome as `unsourced-claim`: 40 WARN, 0 profile claims on dev.to (M18) | [#419](https://github.com/ChristianLuciani/profile-as-code/issues/419) |
 | `build --lang` overwrites the same `profiles/` paths; the last build wins (M15) | [#420](https://github.com/ChristianLuciani/profile-as-code/issues/420) |
