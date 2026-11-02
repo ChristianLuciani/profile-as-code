@@ -279,8 +279,8 @@ Engine · schema · workspace on one line (SPEC §7.6, #348):
   schema    the profile contract version this build validates (from the schema $id)
   workspace the resolved path, whether it loads, and the effective .pascorc
             engine requirement (the strictest declaration in every config the
-            resolution consulted, with the file it came from · met / NOT MET /
-            INVALID · upgrade command)
+            resolution consulted · absent when none declares one · met / NOT
+            MET / INVALID, with the declaring file and the upgrade command)
 It writes nothing, reads no clock and touches no network. Exit: 0 healthy
 (workspace loads and any declared engine requirement is met) · 1 unhealthy (the
 workspace fails to load, or the requirement is unmet/malformed) · 2 usage. It
