@@ -708,7 +708,7 @@ pasco status --write-checklist        # regenerate CHECKLIST.md from the ledger
 pasco status                          # …also prints the derived publication-truth line:
                                       #   github-readme: in-sync · artifact: matches-SSOT · limits: ok
 pasco refine linkedin --variants 3            # emits the agent task template (full flow M3)
-pasco refine linkedin --choose li-en-2        # records the chosen variant in content/active.yaml
+pasco refine linkedin --choose linkedin-en-2   # records the chosen variant in content/active.yaml
 pasco check github-readme
 pasco audit                                  # findings only: dangling-ref · contradiction · unsourced-claim
 pasco audit --json                           # { schemaVersion, findings } — exit 1 iff any FAIL

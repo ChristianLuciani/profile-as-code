@@ -24,7 +24,13 @@ import type { LoadedProfile, Platform } from "@profile-as-code/core";
 import { LoadError, load, SchemaValidationError } from "@profile-as-code/core";
 import { parseDocument } from "yaml";
 import { isQuantitativeClaim } from "../claims.js";
-import { parseLang, parsePlatform, parseVariants, UsageError } from "../contract.js";
+import {
+  DEFAULT_VARIANTS,
+  parseLang,
+  parsePlatform,
+  parseVariants,
+  UsageError,
+} from "../contract.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section, warn } from "../output.js";
 import {
@@ -815,7 +821,7 @@ function handleTask(args: PostArgs): number {
   // A long-form piece is usually one projection; a short family wants variants.
   const variants = parseVariants(
     args.variantsArg,
-    format === "longform" ? 1 : (args.pascorc.defaults?.variants ?? 3),
+    format === "longform" ? 1 : (args.pascorc.defaults?.variants ?? DEFAULT_VARIANTS),
   );
   const lang = parseLang(defaultsLang(args.pascorc));
 
