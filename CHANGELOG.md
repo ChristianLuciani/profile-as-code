@@ -11,6 +11,21 @@ minor versions may contain breaking contract changes.
 
 ### Fixed
 
+- **`pasco discover` names the surfaces that qualify instead of a dead end
+  (#418)** — the refusal for a page with no entity name now says that discovery
+  reads only schema.org `Person`/`Organization` JSON-LD, that a GitHub profile
+  (and a product/page node such as `SoftwareApplication`) carries none, and to
+  point at a personal site or page that declares one; `--help` and the tutorial
+  say the same. The matcher and the provisional-profile semantics are unchanged.
+- **`pasco discover` reports only claims about the entity, not page chrome
+  (#419)** — a quantitative sentence now counts only when it names the entity
+  (declared name, its words, or a passed surface's handle) or is first-person;
+  identical sentences are reported once, navigation segments (`/about`,
+  `/blog`, `/team`, …) and lowercase name particles (`de`, `van`, `dos`) are not
+  subjects, short tokens match case-sensitively, and block boundaries no longer
+  merge a page title into the first sentence (nor split prose wrapped in the
+  HTML source). `isQuantitativeClaim` stays the one shared predicate with
+  `post`/`audit`.
 - **`pasco release plan` no longer calls a valid `changedUnit` "not an SSOT
   unit" (#408)** — a changed unit that IS an SSOT unit but has no deploy record
   on a surface is a pending fan-out (`never`), not a malformed release row; the
