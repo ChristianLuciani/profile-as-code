@@ -190,8 +190,9 @@ Without it, the payload uses `REPLACE_ME` and the export warns.
   yet**. The ledger is per seed/channel, not per projection.
 - `post.yaml` is one ledger per seed; concurrent `choose` on the same seed can
   race (single-operator MVP; no lock).
-- `unsourced-claim` is a warning with false positives on dates/versions; it is
-  a nudge, not a gate.
+- `unsourced-claim` is a warning, and since #437 it only fires on a number that
+  carries a unit, currency or percent marker (prose dates and versions no longer
+  match); it is a nudge, not a gate.
 - The paste checklist is a file, not a deploy: no OAuth, no auto-publish.
 
 ## Week-1 protocol (the evaluation)

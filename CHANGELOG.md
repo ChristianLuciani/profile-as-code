@@ -24,6 +24,17 @@ minor versions may contain breaking contract changes.
   `completeness.langs: ["en","es"]` reads `Language coverage (en/es)` on the
   human checklist and in `--json`, matching the detail that already named those
   langs. The shipped default still renders `(en/es/fr)`.
+- **`unsourced-claim` only fires on a number that carries a quantity marker
+  (#437)** — `isQuantitativeClaim`, the one predicate shared by `audit`,
+  `post check` and `discover`, now requires a currency/percent sign adjacent to
+  the number, a trailing `+`/magnitude suffix, or a unit word right after it.
+  A bare run of digits is no longer a claim, so prose years (`Aug 2024`) and
+  ages (`76`) stop producing warnings whose only honest clear was deleting a
+  true private fact or inventing a source; a four-digit calendar year followed
+  by a function word (or preceded by a month name) stays a date, while
+  `2000 users` is still a count. The docstring, `docs/SPEC.md` §7.1 and
+  `docs/post-mvp.md` now state this boundary, and a table in
+  `packages/cli/tests/claims.test.ts` pins both sides of it.
 - **`pasco discover` names the surfaces that qualify instead of a dead end
   (#418)** — the refusal for a page with no entity name now says that discovery
   reads only schema.org `Person`/`Organization` JSON-LD, that a GitHub profile
