@@ -93,7 +93,7 @@ Liderá con #3 filtrado por #1: **stewardship** (proyectos vivos con proof), no 
   1. **Stewardship** (por defecto): lidera con open source + evidencia.
   2. **Soberanía**: lidera con la tesis (IA soberana, economía agéntica), proyectos como prueba.
   3. **Investigador**: lidera con publicaciones/DOI, proyectos como aplicación.
-- Cada variante: `variantId` = `gh-<lang>-<n>` (ej. `gh-en-1`).
+- Cada variante: `variantId` = `githubreadme-<lang>-<n>` (ej. `githubreadme-en-1`).
 - El humano elige; se registra con `pasco refine github-readme --choose <id>` →
   escribe `content/active.yaml`.
 

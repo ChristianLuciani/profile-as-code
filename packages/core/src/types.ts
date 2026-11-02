@@ -115,10 +115,22 @@ export type GeneratedLangMap = { en: string } & Record<string, string>;
  * v1.1: role/degree/field can be a plain string (v1) or a bilingual langMap.
  * Reading helper — consumers never null-check or narrow by hand.
  * Proper nouns (org, institution, venue) are never langMap — pass them directly (SPEC §11).
+ *
+ * `lang` (issue #415): the language-aware form of the same rule `compile()`
+ * applies to text fields — the REQUESTED language, falling back to `en`, with
+ * an empty string counting as absent. It exists for consumers that print a
+ * FACT block (the `refine` task template) where compile passes the raw langMap
+ * through untouched; without a `lang` the behaviour is the pre-#415 one
+ * (`en` only), so no existing caller changes.
  */
-export function textOf(v: string | GeneratedLangMap | undefined): string {
+export function textOf(v: string | GeneratedLangMap | undefined, lang?: Lang): string {
   if (v == null) return "";
-  return typeof v === "string" ? v : (v.en ?? "");
+  if (typeof v === "string") return v;
+  if (lang !== undefined) {
+    const direct = v[lang];
+    if (direct) return direct;
+  }
+  return v.en ?? "";
 }
 
 /** The platform set — the generated `PLATFORM_SLUGS` (D3/D16, #154).

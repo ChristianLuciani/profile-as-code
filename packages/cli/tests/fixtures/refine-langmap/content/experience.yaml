@@ -1,0 +1,12 @@
+# v1.1 langMap role (schema §11): the fact sheet must render the requested
+# language, never the raw map (issue #415).
+- role:
+    en: Demo Engineer
+    es: Ingeniero Demo
+  org: Example Corp
+  start: 2024-03-01
+  end: present
+- role: Data Analyst
+  org: Plain String Ltd
+  start: 2020-01-01
+  end: 2024-02-29

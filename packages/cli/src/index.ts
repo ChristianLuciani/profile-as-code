@@ -1246,7 +1246,13 @@ try {
   exitCode = await runMain();
 } catch (err) {
   if (err instanceof UsageError) {
-    process.stderr.write(`usage: ${err.message}\n`);
+    // ONE home for the `usage: ` label (issue #416): most UsageError messages
+    // already start with it (`usage: pasco skills:export …`), and adding a
+    // second one produced `usage: usage: …`. Stripping here — rather than
+    // editing ~40 message sites — keeps the label next to the exit code that
+    // carries it and leaves messages that state a constraint (`usage: --list
+    // takes no destination …`) untouched.
+    process.stderr.write(`usage: ${err.message.replace(/^usage: */, "")}\n`);
     exitCode = EXIT.USAGE;
   } else if (err instanceof ConfigError) {
     process.stderr.write(`config error: ${err.message}\n`);
