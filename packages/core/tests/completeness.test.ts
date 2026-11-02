@@ -89,6 +89,28 @@ describe("completeness(profile, policy)", () => {
     expect(item(enEsFr)?.score).toBeCloseTo(1 / 3, 6);
   });
 
+  // #436: the label names the policy the item measured. A hardcoded `(en/es/fr)`
+  // claimed a premise the report never read when the workspace declared fewer.
+  it("derives the langCoverage label from the policy — no surface claims fr", () => {
+    const profile = load(
+      workspace({
+        "identity.yaml": IDENTITY_MIN,
+        "positioning.yaml":
+          "statement:\n  en: Engineer building open tools.\n  es: Ingeniero creando herramientas.\n",
+      }),
+    );
+    const policy = { langs: ["en", "es"] } as const;
+    const report = completeness(profile, policy);
+    const item = report.items.find((i) => i.id === "langCoverage");
+    expect(item?.label).toBe("Language coverage (en/es)");
+    // The label + detail are the surface a consumer renders: no token may name
+    // a lang the policy did not ask for.
+    expect(JSON.stringify(report)).not.toContain("fr");
+    // The shipped default still names its own three langs (same derivation).
+    const fallback = completeness(profile).items.find((i) => i.id === "langCoverage");
+    expect(fallback?.label).toBe("Language coverage (en/es/fr)");
+  });
+
   it("scores GEO anchors from reinforced semantic associations", () => {
     const profile = load(
       workspace({

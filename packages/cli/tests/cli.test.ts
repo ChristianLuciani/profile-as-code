@@ -1644,6 +1644,31 @@ describe("pasco status (D18 deploy ledger)", () => {
     expect(data.items.some((i) => i.id === "deployment")).toBe(false);
   });
 
+  // #436: the label is the policy premise, not a hardcoded list. A workspace
+  // declaring en/es must not be told (on any surface) that it also measures fr.
+  it("--completeness names only the policy langs, on the human and --json surfaces", () => {
+    const ws = mkws();
+    writeFileSync(
+      join(ws, ".pascorc"),
+      JSON.stringify({ workspace: ".", completeness: { langs: ["en", "es"] } }),
+      "utf8",
+    );
+    const human = run(["status", "--completeness", "--workspace", ws]);
+    expect(human.code).toBe(0);
+    expect(human.stdout).toContain("Language coverage (en/es)");
+    expect(human.stdout).not.toContain("(en/es/fr)");
+    expect(human.stdout).not.toMatch(/\bfr\b/);
+
+    const res = run(["status", "--completeness", "--json", "--workspace", ws]);
+    expect(res.code).toBe(0);
+    const data = json(res.stdout).data as {
+      items: { id: string; label: string }[];
+    };
+    const item = data.items.find((i) => i.id === "langCoverage");
+    expect(item?.label).toBe("Language coverage (en/es)");
+    expect(res.stdout).not.toMatch(/\bfr\b/);
+  });
+
   it("--write-checklist folds the completeness line into the generated view", () => {
     const ws = mkws();
     expect(run(["status", "--write-checklist", "--workspace", ws]).code).toBe(0);

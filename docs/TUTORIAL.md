@@ -144,7 +144,7 @@ The machine view is one flag away:
 
 ```sh
 pasco validate --json      # { command, ok, exitCode, data: { workspace, schema, drift, geo } }
-pasco doctor               # engine 0.3.7 · schema v1.15 · workspace … (valid) · no engine requirement
+pasco doctor               # engine 0.3.7 · schema v1.15 · workspace … (valid) · engine requirement absent — no .pascorc declares one
 ```
 
 ## Step 5 — build the artifact
