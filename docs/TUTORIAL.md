@@ -500,7 +500,8 @@ content. The other renderers are bio-driven and return empty without a bio row; 
 `github-readme` renders from the facts alone. The `es` run renders the `es` headline/statement/bio
 (no fallback), but **`artifactPath()` has no `lang`**: the next `build` overwrites the same paths,
 so the `es` artifact does not survive. For GitHub that is correct (one README per repo); for the
-paste surfaces it is a silent loss, and §5 of the guide does not say it.
+paste surfaces it means re-build before pasting the other language. §5 of the guide and
+`pasco build --help` both say the overwrite (#420).
 
 ### M16 — `export ai-policy`: check, write, refuse a stale list
 

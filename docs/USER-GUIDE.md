@@ -518,6 +518,12 @@ pasco diff [--json]                  # what changed since the last release tag
 
 - `pasco build` without an argument renders **all** platforms; with
   `--lang` you pick the language slice (defaults to `.pascorc → defaults.lang`).
+- **The artifact is a function of the last `build`, and its path carries no
+  language.** One path per surface (`profiles/<platform>/README.md` or
+  `profiles/<platform>.md`) is written for the `lang` you built, so building
+  another language **overwrites** it — the `es` artifact does not survive a
+  later `en` build. That is right for GitHub (one README per repo); for the
+  paste surfaces it means re-build before pasting the other language (#420).
 - Platforms with a **renderer** write deploy artifacts into your workspace:
   `profiles/<platform>/README.md`. There are eight today (github-readme,
   github-org for brand, and the six paste/monetization adapters).
