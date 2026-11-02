@@ -701,8 +701,9 @@ reads it. `pasco post import <dir> --channel <c>` turns historical `.md` files
 into `imported-*` seeds and records each **published by assumption** — `status:
 published`, `channel.sync: published`, `certification: unverifiable`,
 `url: null`. The engine cannot prove a historical post was published and stores
-no URL; record the URL (or re-choose) to close the gap. The walkthrough lives in
-[the tutorial](TUTORIAL.md) (M20).
+no URL; no command records one yet (re-choosing a variant marks the channel
+`local-only`), so the field stays open until it is filled in `post.yaml` by
+hand. The walkthrough lives in [the tutorial](TUTORIAL.md) (M20).
 
 ### Keep `CHANGELOG.md` and tags honest
 

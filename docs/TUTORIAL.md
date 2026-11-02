@@ -594,7 +594,7 @@ long-form (`devto`, `ghost`, `hashnode`, `listmonk`, `medium`, `substack`, `word
 `task --channel devto` says so with exit `2`. `import` records each seed **published by
 assumption**: `status: published`, `channel.sync: published`, `certification: unverifiable` and
 `url: null` — a reasonable assumption for a historical post, but a state not derived from a remote
-record (the URL stays open until one is recorded).
+record (no command records a URL yet; it stays open until filled in `post.yaml` by hand).
 
 ### M21 — `refine` (PARTIAL): template and `--choose`
 
@@ -668,7 +668,7 @@ cwd. An invalid path exits `1` and names the missing `content/` directory.
 | `build --lang` overwrites the same `profiles/` paths; the last build wins (M15) | [#420](https://github.com/ChristianLuciani/profile-as-code/issues/420) |
 | `release plan --json` has no `order`; the human column is positional (M17) | [#421](https://github.com/ChristianLuciani/profile-as-code/issues/421) |
 | `post` short supports only `linkedin`/`x`, and the help does not list it (M20) | [#422](https://github.com/ChristianLuciani/profile-as-code/issues/422) |
-| `post import` asserts `sync: published` with `url: null` (M20) | [#423](https://github.com/ChristianLuciani/profile-as-code/issues/423) |
+| `post import` asserts `sync: published` with `url: null` (M20) | [#423](https://github.com/ChristianLuciani/profile-as-code/issues/423) — fixed on `main` (help, guide, M20 and the post notes declare the assumption; the import test pins it); not in the measured 0.3.7 |
 | the published `0.3.7` is 53 commits behind `main`: #395–#400 are fixed and closed but unreleased, so old wording (`(no texts…)`, the `geo/evidence-claims` detail) still appears | note, no issue |
 
 ## Command coverage
