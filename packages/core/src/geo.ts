@@ -22,7 +22,10 @@
  *                           signal (INFO), `sameAs` coverage and the honest
  *                           name-collision risk.
  *
- * Every check is weighted; overall score 0..100. Missing data is neutral for the
+ * Every check is weighted; overall score 0..100. It is an INDEX over the fields
+ * the workspace declares — never a measurement of citations (#433, §8): the
+ * report carries `basis` (the weights/predicates version) and `measured: false`.
+ * Missing data is neutral for the
  * FACT checks (score 1); the readiness and citability checks — entity @id,
  * structured person, `sameAs` links, semantic anchors, and the v1.10 codes — can score 0 on
  * absence (the citability property IS the product a buyer pays for: no canonical
@@ -41,6 +44,7 @@
 import { driftCheck } from "./drift.js";
 import { linksWithRole, sameAsUrls, structuredData } from "./structured-data.js";
 import type {
+  GeoBasisVersion,
   GeoCheck,
   GeoReport,
   GeoSection,
@@ -50,6 +54,14 @@ import type {
   SemanticAssociationCoverage,
 } from "./types.js";
 import { PLATFORMS } from "./types.js";
+
+/**
+ * The index's basis (SPEC §8, #433): the version of the weights and predicates
+ * that produce `GeoReport.score`. A quoted number carries the version that
+ * produced it — bump this when a weight or a predicate changes, so a consumer
+ * can tell two indices apart instead of comparing them as if they were one.
+ */
+export const GEO_BASIS_VERSION: GeoBasisVersion = "geo-heuristic-v2";
 
 /** Drift codes that represent fact contradictions (feeding factConsistency). */
 const CONFLICT_CODES = new Set([
@@ -722,5 +734,8 @@ export function geoCheck(profile: Profile, lang: Lang = "en"): GeoReport {
     ),
   };
 
-  return { score, sections, checks };
+  // #433: the report states what it is. `basis` is the version of the weights
+  // and predicates that produced the number; `measured: false` says the number
+  // was NOT observed from citations. Both travel in `--json` (SPEC §8).
+  return { score, sections, checks, basis: GEO_BASIS_VERSION, measured: false };
 }

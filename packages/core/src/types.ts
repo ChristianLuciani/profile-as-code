@@ -311,7 +311,20 @@ export interface GeoReport {
   };
   /** Flat list of every scored check (for `pasco validate` output). */
   checks: GeoCheck[];
+  /**
+   * The index's own provenance (SPEC §8, #433): a deterministic score over the
+   * fields the workspace DECLARES, computed by fixed criteria — never a
+   * measurement of what answer engines actually cite. A consumer that quotes
+   * `score` must read this first; `measured: false` is the machine-readable
+   * half of the same statement.
+   */
+  basis: GeoBasisVersion;
+  measured: false;
 }
+
+/** The version of the weights and predicates that produced a `GeoReport.score`.
+ *  Bump it when a weight or a predicate changes (SPEC §8, #433). */
+export type GeoBasisVersion = "geo-heuristic-v2";
 
 /** The language-aware slice a renderer consumes (SPEC §7, compile()). */
 export interface PlatformProfile {

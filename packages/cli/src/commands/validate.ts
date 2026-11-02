@@ -70,6 +70,13 @@ export function runValidate(args: ValidateArgs): number {
   }
 
   section("geo");
+  // #433: the numbers below are an INDEX over the fields this workspace declares,
+  // not a measurement of citations. The qualifier prints before the score on
+  // every run (and the basis version is derived, never typed), so the number
+  // cannot be read as observed citability. Nothing here changes a score.
+  line(
+    `  basis: heuristic index over the declared fields (${geo.basis}) — not a measurement of citations`,
+  );
   line(`  overall score: ${geo.score}/100`);
   for (const s of Object.values(geo.sections)) {
     // §8/#399: an all-N/A section has no mean; `0/100` would read as a score.
