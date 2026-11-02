@@ -319,6 +319,30 @@ const NAVIGATION_SEGMENTS = new Set([
 ]);
 
 /**
+ * Lowercase particles of three or more characters that link name parts. As
+ * prose words they would match any sentence ("van 40 medewerkers", "más de
+ * 40"), so the DECLARED lowercase spelling is not a subject token. One- and
+ * two-character lowercase words are covered by the length signal (`de`, `zu`,
+ * `el`); a capitalized "Al" is a name word and is kept, and a short single-word
+ * name (`Li`) is kept — the whole name is always a token.
+ */
+const NAME_PARTICLES = new Set([
+  "bin",
+  "das",
+  "del",
+  "den",
+  "der",
+  "des",
+  "dos",
+  "ibn",
+  "las",
+  "los",
+  "ter",
+  "van",
+  "von",
+]);
+
+/**
  * Tokens that identify the profile's subject: the DECLARED name (whole and per
  * word) plus each surface's handle — the last path segment of the URL the
  * operator passed, e.g. `dev.to/ben` → `ben`. Links the page declares
@@ -333,12 +357,13 @@ function subjectTokens(
 ): string[] {
   const name = provisional.profile.identity.name.trim();
   const tokens = new Set<string>([name]);
-  const words = name.split(/\s+/).filter((word) => word !== "");
-  for (const word of words) {
-    // In a multi-word name a short word is a particle ("de", "la"), and as a
-    // lowercase common word it would match any prose. A single-word name keeps
-    // its short token ("Li").
-    if (words.length > 1 && word.length < 3) continue;
+  for (const word of name.split(/\s+/).filter((item) => item !== "")) {
+    // Lowercase only: a capitalized "Al" is a name word. Short lowercase words
+    // are particles whatever the list says (`zu`, `el`, `te`), while the list
+    // covers the three-plus ones (`van`, `dos`, `der`).
+    if (word === word.toLowerCase() && (word.length < 3 || NAME_PARTICLES.has(word))) {
+      continue;
+    }
     tokens.add(word);
   }
   for (const url of observations.map((item) => item.url)) {

@@ -468,6 +468,63 @@ describe("discover", () => {
     expect(claims[0]?.detail).toContain("José de la Cruz atendió");
   });
 
+  it("skips a three-letter lowercase particle (van) but keeps a capitalized Al", async () => {
+    const vangogh = await discover({
+      urls: ["https://example.com/vincent"],
+      retrieved: RETRIEVED,
+      allowHosts: ["example.com"],
+      fetchText: stubFetch({
+        "https://example.com/vincent": {
+          status: 200,
+          text: page(
+            { "@type": "Person", name: "Vincent van Gogh" },
+            "<p>van 40 medewerkers werken hier.</p><p>Vincent van Gogh made 40 paintings.</p>",
+          ),
+        },
+      }),
+    });
+    const goghClaims = vangogh.findings.filter((item) => item.class === "unsourced-claim");
+    expect(goghClaims).toHaveLength(1);
+    expect(goghClaims[0]?.detail).toContain("Vincent van Gogh made 40 paintings");
+
+    const gore = await discover({
+      // The last segment must NOT be `al`: the handle would add `al`/`Al` and
+      // the assertion would pass on the old length-proxy rule too (review F1).
+      urls: ["https://example.com/gore"],
+      retrieved: RETRIEVED,
+      allowHosts: ["example.com"],
+      fetchText: stubFetch({
+        "https://example.com/gore": {
+          status: 200,
+          text: page({ "@type": "Person", name: "Al Gore" }, "<p>Al shipped 40 releases.</p>"),
+        },
+      }),
+    });
+    const goreClaims = gore.findings.filter((item) => item.class === "unsourced-claim");
+    expect(goreClaims).toHaveLength(1);
+    expect(goreClaims[0]?.detail).toContain("Al shipped 40 releases");
+  });
+
+  it("skips an unlisted short lowercase particle (zu)", async () => {
+    const result = await discover({
+      urls: ["https://example.com/guttenberg"],
+      retrieved: RETRIEVED,
+      allowHosts: ["example.com"],
+      fetchText: stubFetch({
+        "https://example.com/guttenberg": {
+          status: 200,
+          text: page(
+            { "@type": "Person", name: "Karl zu Guttenberg" },
+            "<p>Das führt zu 40 Prozent der Fälle.</p><p>Karl zu Guttenberg received 40 awards.</p>",
+          ),
+        },
+      }),
+    });
+    const claims = result.findings.filter((item) => item.class === "unsourced-claim");
+    expect(claims).toHaveLength(1);
+    expect(claims[0]?.detail).toContain("Karl zu Guttenberg received 40 awards");
+  });
+
   it("matches the handle in a surface URL (#419)", async () => {
     const result = await discover({
       urls: ["https://dev.to/ben"],
