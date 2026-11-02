@@ -550,10 +550,11 @@ two node types qualify. A GitHub profile has none, and the project site's JSON-L
 `SoftwareApplication`, so both exit `1`; the error names the requirement and points at a
 qualifying surface (a personal site or page that declares `Person`/`Organization`) instead of an
 ambiguous `no surface declared an entity name` — fixed on `main` (#418). On `dev.to/ben` it reads
-5 facts and lists `experience` as absent; the 40 `unsourced-claim` WARN above are the 0.3.7
-reading, where the whole-page `isQuantitativeClaim` heuristic flagged badges, counters and the
-copyright footer. On `main` an `unsourced-claim` is reported only when the sentence is **about the
-entity** (it names it or its handle, or is first-person), and identical sentences are reported
+5 facts and lists `experience` as absent; the 40 `unsourced-claim` WARN the coverage table records
+for 0.3.7 came from that reading, where the whole-page `isQuantitativeClaim` heuristic flagged
+badges, counters and the copyright footer. On `main` an `unsourced-claim` is reported only when the
+sentence is **about the entity** (it names it or its handle, or is first-person), and identical
+sentences are reported
 once (#419) — that rule is what the fixture tests pin; no committed run re-reads `dev.to/ben` after
 the fix. The audit classes are unchanged: `contradiction`/`dangling-ref` FAIL, `unsourced-claim`
 WARN.

@@ -1295,7 +1295,10 @@ entity). The subject filter is discovery's: a quantitative sentence counts only
 when it names the entity (the declared `identity.name`, its words, or the
 operator-passed surface's handle) or is first-person (`I`, `my`); a sentence that
 does neither — a badge counter, a nameless copyright footer — is not a claim
-about the person (#419). The rule is subject, not region: chrome that DOES name
+about the person (#419). A path segment that is navigation rather than a handle
+(`/about`, `/blog`) is not a subject token, and tokens of four characters or
+fewer match case-sensitively (a short name or handle is also an ordinary
+lowercase word). The rule is subject, not region: chrome that DOES name
 the entity is still a claim. Identical sentences
 are reported once. `isQuantitativeClaim` stays the one shared predicate with
 `post`/`audit`, which ask about the author's own text and need no subject filter.

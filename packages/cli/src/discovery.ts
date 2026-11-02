@@ -265,12 +265,35 @@ export function provisionalProfile(
   };
 }
 
+/** Last path segments that are page navigation, not a handle (`/about`,
+ *  `/blog`): accepting them turns an ordinary word into a subject token and
+ *  makes the filter inert on exactly the surfaces #418 recommends. */
+const NAVIGATION_SEGMENTS = new Set([
+  "about",
+  "articles",
+  "blog",
+  "contact",
+  "cv",
+  "home",
+  "index",
+  "me",
+  "news",
+  "portfolio",
+  "posts",
+  "profile",
+  "projects",
+  "resume",
+  "site",
+  "work",
+  "writing",
+]);
+
 /**
  * Tokens that identify the profile's subject: the DECLARED name (whole and per
- * word, no length threshold) plus each surface's handle — the last path segment
- * of the URL the operator passed, e.g. `dev.to/ben` → `ben`. Links the page
- * declares (`sameAs`) are NOT handles: a repo slug on a linked project is not
- * the person. Discovery-specific by design — `isQuantitativeClaim` stays the
+ * word) plus each surface's handle — the last path segment of the URL the
+ * operator passed, e.g. `dev.to/ben` → `ben`. Links the page declares
+ * (`sameAs`) are NOT handles: a repo slug on a linked project is not the
+ * person. Discovery-specific by design — `isQuantitativeClaim` stays the
  * shared predicate with `post`/`audit`, which ask about the author's own text
  * and need no subject filter (#419).
  */
@@ -301,16 +324,28 @@ function subjectTokens(
     } catch {
       continue;
     }
+    if (NAVIGATION_SEGMENTS.has(decoded.toLowerCase())) continue;
     tokens.add(decoded);
+    // A lowercase handle is written capitalized in prose (`dev.to/ben` talks
+    // about "Ben"); short tokens match case-sensitively, so carry both forms.
+    if (decoded === decoded.toLowerCase() && decoded.length > 1) {
+      tokens.add(decoded.charAt(0).toUpperCase() + decoded.slice(1));
+    }
   }
   return [...tokens];
 }
 
+/** Unicode-aware word boundaries: `\b` is ASCII-only in JavaScript, so a name
+ *  ending in `é`/`ñ` would never match with it. */
+const TOKEN_START = "(?<![\\p{L}\\p{N}_])";
+const TOKEN_END = "(?![\\p{L}\\p{N}_])";
+
 /** Bare `I` is case-sensitive on purpose: under `/i` the abbreviation "i.e."
- *  would make any sentence first-person. */
-const FIRST_PERSON_PRONOUN = /\bI\b/;
-const FIRST_PERSON_CONTRACTION = /\b[Ii]['’](?:m|ve|d|ll)\b/;
-const FIRST_PERSON_POSSESSIVE = /\b(?:my|me|mine|myself)\b/i;
+ *  would make any sentence first-person. The boundaries are Unicode-aware for
+ *  the same reason as the token matcher (`Iñaki` is not the pronoun). */
+const FIRST_PERSON_PRONOUN = new RegExp(`${TOKEN_START}I${TOKEN_END}`, "u");
+const FIRST_PERSON_CONTRACTION = new RegExp(`${TOKEN_START}[Ii]['’](?:m|ve|d|ll)${TOKEN_END}`, "u");
+const FIRST_PERSON_POSSESSIVE = new RegExp(`${TOKEN_START}(?:my|me|mine|myself)${TOKEN_END}`, "iu");
 
 function isFirstPerson(text: string): boolean {
   return (
@@ -320,19 +355,20 @@ function isFirstPerson(text: string): boolean {
   );
 }
 
-/** Unicode-aware word boundaries: `\b` is ASCII-only in JavaScript, so a name
- *  ending in `é`/`ñ` would never match with it. */
-const TOKEN_START = "(?<![\\p{L}\\p{N}_])";
-const TOKEN_END = "(?![\\p{L}\\p{N}_])";
-
 /** True when the sentence is about the entity: it names it (or its handle), or
  *  it is first-person — the page is the profile's own surface. A third party's
- *  counter ("Jane has 10,000 followers") is not the profile's claim. */
+ *  counter ("Jane has 10,000 followers") is not the profile's claim.
+ *
+ *  Tokens of four characters or fewer match CASE-SENSITIVELY: a short declared
+ *  word ("Will") or handle ("ben") is also an ordinary lowercase word, and
+ *  matching "will" in any sentence would make the filter inert. The declared
+ *  spelling is what a claim about the entity uses (`Will shipped…`, `Li…`). */
 function isAboutEntity(text: string, tokens: readonly string[]): boolean {
   if (isFirstPerson(text)) return true;
   return tokens.some((token) => {
     const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    return new RegExp(`${TOKEN_START}${escaped}${TOKEN_END}`, "iu").test(text);
+    const flags = token.length <= 4 ? "u" : "iu";
+    return new RegExp(`${TOKEN_START}${escaped}${TOKEN_END}`, flags).test(text);
   });
 }
 

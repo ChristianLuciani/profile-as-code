@@ -382,6 +382,57 @@ describe("discover", () => {
     expect(result.findings.filter((item) => item.class === "unsourced-claim")).toHaveLength(0);
   });
 
+  it("does not treat a navigation segment (/about) as the entity's handle", async () => {
+    const result = await discover({
+      urls: ["https://example.com/about/"],
+      retrieved: RETRIEVED,
+      allowHosts: ["example.com"],
+      fetchText: stubFetch({
+        "https://example.com/about/": {
+          status: 200,
+          text: page(
+            { "@type": "Person", name: "Ada Lovelace" },
+            "<p>Software about accessibility ships 40 releases a year.</p>",
+          ),
+        },
+      }),
+    });
+    expect(result.findings.filter((item) => item.class === "unsourced-claim")).toHaveLength(0);
+  });
+
+  it("matches a short token case-sensitively (Will is not the word will)", async () => {
+    const result = await discover({
+      urls: ["https://github.com/willsmith"],
+      retrieved: RETRIEVED,
+      fetchText: stubFetch({
+        "https://github.com/willsmith": {
+          status: 200,
+          text: page(
+            { "@type": "Person", name: "Will Smith" },
+            "<p>will ship 40 releases.</p><p>Will shipped 30 releases.</p>",
+          ),
+        },
+      }),
+    });
+    const claims = result.findings.filter((item) => item.class === "unsourced-claim");
+    expect(claims).toHaveLength(1);
+    expect(claims[0]?.detail).toContain("Will shipped 30 releases");
+  });
+
+  it("does not read a name starting with I (Iñaki) as the first-person pronoun", async () => {
+    const result = await discover({
+      urls: ["https://github.com/ada"],
+      retrieved: RETRIEVED,
+      fetchText: stubFetch({
+        "https://github.com/ada": {
+          status: 200,
+          text: page(person(), "<p>Iñaki shipped 40 releases.</p>"),
+        },
+      }),
+    });
+    expect(result.findings.filter((item) => item.class === "unsourced-claim")).toHaveLength(0);
+  });
+
   it("matches the handle in a surface URL (#419)", async () => {
     const result = await discover({
       urls: ["https://dev.to/ben"],
