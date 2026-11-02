@@ -41,8 +41,9 @@ minor versions may contain breaking contract changes.
   year; the check now compares a year-precision fact at year granularity (it
   cannot be future-dated before Jan 1 of the following year) and reports the year
   itself, never the synthetic December edge. A genuinely future year (2099) is
-  still reported, and a current-year publication now evidences freshness instead
-  of going red exactly when it is most accurate. SPEC §8 updated.
+  still reported, and a current-year publication is no longer future-dated, so it can
+  evidence freshness again instead of going red exactly when it is most accurate
+  (a genuinely future year alongside it still fails the signal — the anomaly wins). SPEC §8 updated.
 - **`pasco discover` names the surfaces that qualify instead of a dead end
   (#418)** — the refusal for a page with no entity name now says that discovery
   reads only schema.org `Person`/`Organization` JSON-LD, that a GitHub profile

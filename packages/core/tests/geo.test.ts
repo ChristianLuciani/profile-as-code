@@ -574,6 +574,26 @@ links:
       expect(far?.score).toBe(0);
       expect(far?.detail).toContain("future-dated fact(s)");
       expect(far?.detail).toContain("publications:newest-year = 2099");
+
+      // The newest datum per kind wins, so a mixed set collapses to the FUTURE
+      // year: the anomaly is named, never hidden behind a fresh current-year row
+      // (declared in SPEC §8; pinned here so a "newest non-future" change is a
+      // visible decision, not a silent one — #438 fresh pass 2, F2).
+      const mixed = find(
+        geoCheck(
+          load(
+            ws({
+              "identity.yaml": IDENTITY_BODY,
+              "publications.yaml":
+                "- title: Current\n  venue: Somewhere\n  year: 2026\n- title: Later\n  venue: Somewhere\n  year: 2099\n",
+            }),
+          ),
+        ),
+        "geo/freshness",
+      );
+      expect(mixed?.score).toBe(0);
+      expect(mixed?.detail).toContain("future-dated fact(s)");
+      expect(mixed?.detail).toContain("publications:newest-year = 2099");
     } finally {
       vi.useRealTimers();
     }
