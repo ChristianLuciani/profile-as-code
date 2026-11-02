@@ -505,6 +505,26 @@ describe("discover", () => {
     expect(goreClaims[0]?.detail).toContain("Al shipped 40 releases");
   });
 
+  it("skips an unlisted short lowercase particle (zu) but keeps the whole name", async () => {
+    const result = await discover({
+      urls: ["https://example.com/guttenberg"],
+      retrieved: RETRIEVED,
+      allowHosts: ["example.com"],
+      fetchText: stubFetch({
+        "https://example.com/guttenberg": {
+          status: 200,
+          text: page(
+            { "@type": "Person", name: "Karl zu Guttenberg" },
+            "<p>Das führt zu 40 Prozent der Fälle.</p><p>Karl zu Guttenberg received 40 awards.</p>",
+          ),
+        },
+      }),
+    });
+    const claims = result.findings.filter((item) => item.class === "unsourced-claim");
+    expect(claims).toHaveLength(1);
+    expect(claims[0]?.detail).toContain("Karl zu Guttenberg received 40 awards");
+  });
+
   it("matches the handle in a surface URL (#419)", async () => {
     const result = await discover({
       urls: ["https://dev.to/ben"],

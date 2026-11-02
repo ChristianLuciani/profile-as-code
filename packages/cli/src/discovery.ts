@@ -321,9 +321,10 @@ const NAVIGATION_SEGMENTS = new Set([
 /**
  * Lowercase particles that link name parts. As prose words they would match any
  * sentence ("van 40 medewerkers", "más de 40"), so the DECLARED lowercase
- * spelling is not a subject token. A capitalized "Al" is a name word and is
- * kept, and a short single-word name (`Li`) is kept — the decision is the closed
- * list, not a length rule.
+ * spelling is not a subject token. This list covers the three-plus-character
+ * ones; a lowercase word shorter than three is a particle whatever the list
+ * says (`zu`, `el`, `te`). A capitalized "Al" is a name word and is kept, and a
+ * short single-word name (`Li`) is kept — the whole name is always a token.
  */
 const NAME_PARTICLES = new Set([
   "al",
@@ -367,7 +368,12 @@ function subjectTokens(
   const name = provisional.profile.identity.name.trim();
   const tokens = new Set<string>([name]);
   for (const word of name.split(/\s+/).filter((item) => item !== "")) {
-    if (word === word.toLowerCase() && NAME_PARTICLES.has(word)) continue;
+    // Lowercase only: a capitalized "Al" is a name word. Short lowercase words
+    // are particles whatever the list says (`zu`, `el`, `te`), while the list
+    // covers the three-plus ones (`van`, `dos`, `der`).
+    if (word === word.toLowerCase() && (word.length < 3 || NAME_PARTICLES.has(word))) {
+      continue;
+    }
     tokens.add(word);
   }
   for (const url of observations.map((item) => item.url)) {

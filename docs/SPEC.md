@@ -1299,9 +1299,10 @@ about the person (#419). A path segment in a small DECLARED navigation list
 (`/about`, `/blog`, `/team`, `/docs`, …) is not a handle; a segment outside the
 list is treated as one. Tokens of four characters or fewer match
 case-sensitively (a short name or handle is also an ordinary lowercase word).
-A name word is not a token when it is the DECLARED lowercase spelling of a
-closed particle list (`de`, `la`, `van`, `von`, `dos`, …) — the list decides, not
-a length rule, so a capitalized `Al` and a short single-word name (`Li`) stay.
+A name word is not a token when it is a lowercase particle: a lowercase word
+shorter than three characters, or a lowercase spelling from a closed list
+(`van`, `von`, `dos`, `der`, …). The whole declared name is always a token, so a
+capitalized `Al` and a short single-word name (`Li`) stay addressable.
 Sentence boundaries are the
 HTML block boundaries, never the source's line wrapping. The rule is subject,
 not region: chrome that DOES name
