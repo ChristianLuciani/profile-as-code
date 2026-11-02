@@ -32,8 +32,11 @@ export function parseFlavor(value: string): Flavor {
   throw new UsageError(`unknown flavor "${value}" (allowed: ${FLAVORS.join(", ")})`);
 }
 
-/** The documented `--variants` default (SPEC §7) — one home for the number the
- *  flag help, `.pascorc` fallbacks and the invariant below all rest on. */
+/** The CLI's default variant count: 3. One home for the number the scaffolded
+ *  `.pascorc` seeds (`init.ts`), the cookbook examples show (`--variants 3`) and
+ *  the `.pascorc` fallback below rests on. SPEC §7 and the usage rows print
+ *  `[--variants N]` without a default, so no doc is cited as saying more than it
+ *  does. */
 export const DEFAULT_VARIANTS = 3;
 
 export function parseVariants(value: string | undefined, fallback: number): number {

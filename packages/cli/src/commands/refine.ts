@@ -157,14 +157,15 @@ export function runRefine(args: RefineArgs): number {
     .map((e) => `${textOf(e.role, lang)} @ ${e.org} (${e.start}–${e.end ?? "present"})`)
     .join(" | ");
   // The variant ids follow the addressed platform's slug and language — the
-  // dialect `docs/USER-GUIDE.md` and the hotmart/kofi skills already document
-  // (`<platform>-<lang>-<n>`). The examples are derived from that prefix instead
-  // of the GitHub abbreviations (issue #415), three at most — the convention is
-  // the point, not an exhaustive list. The floor matters: `.pascorc`'s
-  // `defaults.variants` is not validated, and 0 used to print `(e.g. ).`
+  // dialect `docs/USER-GUIDE.md`, the hotmart/kofi skills and the CLI README
+  // already document (`<platform>-<lang>-<n>`). The examples are derived from
+  // that prefix instead of the GitHub abbreviations (issue #415), three at most:
+  // the convention is the point, not an exhaustive list. `variants` is already a
+  // usable count — `parseVariants` normalizes `.pascorc`'s unvalidated
+  // `defaults.variants` at its one home.
   const variantPrefix = platform.replace(/[^a-z]/g, "");
   const variantExamples = Array.from(
-    { length: Math.max(1, Math.min(variants, 3)) },
+    { length: Math.min(variants, 3) },
     (_, i) => `${variantPrefix}-${lang}-${i + 1}`,
   ).join(", ");
   const projects = slice.projects.map((p) => p.name).join(", ");
