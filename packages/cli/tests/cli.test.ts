@@ -215,6 +215,19 @@ describe("pasco validate (D12: fail on schema, warn on drift)", () => {
     expect(r.stdout).toContain("no drift warnings");
   });
 
+  it("declares the index's basis before the score (#433)", () => {
+    const r = run(["validate", "--workspace", MINIMAL]);
+    expect(r.code).toBe(0);
+    // The qualifier must be readable BEFORE the number, on every run: the score
+    // is a heuristic index over declared fields, never a measurement of citations.
+    const basisAt = r.stdout.indexOf("basis: heuristic index over the declared fields");
+    const scoreAt = r.stdout.indexOf("overall score:");
+    expect(basisAt).toBeGreaterThan(-1);
+    expect(scoreAt).toBeGreaterThan(basisAt);
+    expect(r.stdout).toContain("not a measurement of citations");
+    expect(r.stdout).toContain("(geo-heuristic-v2)");
+  });
+
   it("exits 0 but warns on drift", () => {
     const r = run(["validate", "--workspace", DRIFTING]);
     expect(r.code).toBe(0); // D12: facts warn
@@ -276,7 +289,11 @@ describe("pasco validate (D12: fail on schema, warn on drift)", () => {
     const data = JSON.parse(r.stdout) as {
       ok: boolean;
       exitCode: number;
-      data: { schema: string; drift: unknown[]; geo: { score: number } };
+      data: {
+        schema: string;
+        drift: unknown[];
+        geo: { score: number; basis: string; measured: boolean };
+      };
     };
     expect(data.ok).toBe(true);
     expect(data.exitCode).toBe(0);
@@ -284,6 +301,10 @@ describe("pasco validate (D12: fail on schema, warn on drift)", () => {
     expect(data.data.drift).toEqual([]);
     expect(data.data.geo.score).toBeGreaterThanOrEqual(0);
     expect(data.data.geo.score).toBeLessThanOrEqual(100);
+    // #433: the payload carries its own provenance, so no consumer can quote
+    // the number as a measured citability.
+    expect(data.data.geo.basis).toBe("geo-heuristic-v2");
+    expect(data.data.geo.measured).toBe(false);
   });
 
   it("--json carries violations on schema failure", () => {

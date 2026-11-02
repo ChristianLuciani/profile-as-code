@@ -460,12 +460,19 @@ Two kinds of results (D12):
   platforms or GEO gaps. These do not block you, but fix them: contradictions
   are exactly what gets a profile discounted by LLMs reading it.
 
-`pasco validate` also prints a GEO **overall score** (0–100), one line per
+`pasco validate` also prints a GEO **index** (0–100), one line per
 section, and one line per code that has something to report (score `0` or
-`n/a`). It is a readiness reading, not a gate. A code with nothing to measure is
+`n/a`). Before the number it prints its basis — *heuristic index over the
+declared fields, not a measurement of citations* — and that is literal: nothing
+in the engine observes what an answer engine cites. The number is a fixed
+weighting of the fields you declare, so **it moves when you add data, not when
+you get cited**; two workspaces are comparable, two different index versions
+are not (the `basis` in `--json`, e.g. `geo-heuristic-v2`, is the version of the
+weights that produced the number). It is a readiness reading, not a gate. A code
+with nothing to measure is
 **`n/a`** and carries no weight in the average — for example, `geo/evidence-claims`
 is N/A until some project declares `evidence[]`, so adding a project without
-evidence does not lower the score (evidence coverage is `pasco status
+evidence does not lower the index (evidence coverage is `pasco status
 --completeness`). The number is still an average over what the workspace
 declares, not a count of effort: adding a fact can move it either way when it
 changes a ratio a code measures.

@@ -16,6 +16,11 @@ describe("geoCheck(profile)", () => {
 
     expect(report.score).toBeGreaterThan(0);
     expect(report.score).toBeLessThanOrEqual(100);
+    // #433: the report declares what it is. `basis` is the weights/predicates
+    // version, `measured` says the number was NOT observed from citations —
+    // a consumer that quotes `score` reads these first.
+    expect(report.basis).toBe("geo-heuristic-v2");
+    expect(report.measured).toBe(false);
     // 14 since v1.10 (#289): the nine post-v1.6 checks (the canonical @id came
     // with #103/#103's readiness) + the five citability codes of geoCheck v2 —
     // the table in §8 declares them all.

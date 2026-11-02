@@ -59,7 +59,10 @@ export { PASTE_PLATFORMS, PLATFORM_HOSTS, PLATFORM_KINDS } from "./generated/pla
 /** The profile-contract version this build validates — generated from the schema
  *  `$id` (D3, issue #348); `pasco doctor` reports it. */
 export { PROFILE_SCHEMA_VERSION } from "./generated/schema.zod.js";
-export { geoCheck } from "./geo.js";
+/** The GEO index's basis version + the report (SPEC §8, #433): a consumer that
+ *  quotes `score` compares `basis`, and `measured: false` says it was not
+ *  observed from citations. */
+export { GEO_BASIS_VERSION, geoCheck } from "./geo.js";
 export type {
   CertificationRollup,
   CertificationState,
