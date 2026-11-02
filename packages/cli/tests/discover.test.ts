@@ -140,6 +140,49 @@ describe("provisionalProfile", () => {
       ]),
     ).toThrow(DiscoveryError);
   });
+
+  it("names the qualifying surface in the refusal instead of a dead end (#418)", () => {
+    let message = "";
+    try {
+      provisionalProfile([
+        {
+          surface: "github.com",
+          url: "https://github.com/ada",
+          retrieved: RETRIEVED,
+          jsonLd: [],
+          text: "",
+          links: [],
+        },
+      ]);
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).toMatch(/Person/);
+    expect(message).toMatch(/Organization/);
+    expect(message).toMatch(/personal site or page/);
+    expect(message).toMatch(/identity\.name/);
+  });
+
+  it("still refuses a generic SoftwareApplication node (#418: the class is unchanged)", () => {
+    expect(() =>
+      provisionalProfile([
+        {
+          surface: "christianluciani.github.io",
+          url: "https://christianluciani.github.io/profile-as-code/",
+          retrieved: RETRIEVED,
+          jsonLd: [
+            {
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              name: "profile-as-code",
+            },
+          ],
+          text: "",
+          links: [],
+        },
+      ]),
+    ).toThrow(DiscoveryError);
+  });
 });
 
 describe("discover", () => {
@@ -205,20 +248,112 @@ describe("discover", () => {
     expect(dangling[0]?.detail).toContain("404");
   });
 
-  it("warns on a quantitative claim with no source on the surface", async () => {
+  it("warns on a quantitative claim about the entity with no source on the surface", async () => {
     const result = await discover({
       urls: ["https://github.com/ada"],
       retrieved: RETRIEVED,
       fetchText: stubFetch({
         "https://github.com/ada": {
           status: 200,
-          text: page(person(), "<p>Grew revenue 40% in 2022.</p>"),
+          text: page(person(), "<p>Ada grew revenue 40% in 2022.</p>"),
         },
       }),
     });
     const claims = result.findings.filter((item) => item.class === "unsourced-claim");
     expect(claims).toHaveLength(1);
     expect(claims[0]?.severity).toBe("WARN");
+  });
+
+  it("reports only the entity's claim, not badge/footer chrome (#419)", async () => {
+    const result = await discover({
+      urls: ["https://github.com/ada"],
+      retrieved: RETRIEVED,
+      fetchText: stubFetch({
+        "https://github.com/ada": {
+          status: 200,
+          text: page(
+            person(),
+            `<p>Close 10,000 Thumbs Up Milestone Awarded for giving 10,000 thumbs ups</p>
+             <p>DEV Community &copy; 2016 - 2026.</p>
+             <p>Ada advised 12 teams in 2024.</p>`,
+          ),
+        },
+      }),
+    });
+    const claims = result.findings.filter((item) => item.class === "unsourced-claim");
+    expect(claims).toHaveLength(1);
+    expect(claims[0]?.detail).toContain("Ada advised 12 teams in 2024");
+  });
+
+  it("keeps a first-person claim (#419)", async () => {
+    const result = await discover({
+      urls: ["https://github.com/ada"],
+      retrieved: RETRIEVED,
+      fetchText: stubFetch({
+        "https://github.com/ada": {
+          status: 200,
+          text: page(person(), "<p>I have 12 years of experience.</p>"),
+        },
+      }),
+    });
+    const claims = result.findings.filter((item) => item.class === "unsourced-claim");
+    expect(claims).toHaveLength(1);
+    expect(claims[0]?.detail).toContain("I have 12 years");
+  });
+
+  it("drops a third party's claim (#419)", async () => {
+    const result = await discover({
+      urls: ["https://github.com/ada"],
+      retrieved: RETRIEVED,
+      fetchText: stubFetch({
+        "https://github.com/ada": {
+          status: 200,
+          text: page(person(), "<p>Jane has 10,000 followers.</p>"),
+        },
+      }),
+    });
+    expect(result.findings.filter((item) => item.class === "unsourced-claim")).toHaveLength(0);
+  });
+
+  it("matches the handle in a surface URL (#419)", async () => {
+    const result = await discover({
+      urls: ["https://dev.to/ben"],
+      retrieved: RETRIEVED,
+      fetchText: stubFetch({
+        "https://dev.to/ben": {
+          status: 200,
+          text: page(
+            { "@type": "Person", name: "Ben Halpern" },
+            "<p>Ben has shipped 30 products.</p><p>Jane has 10,000 followers.</p>",
+          ),
+        },
+      }),
+    });
+    const claims = result.findings.filter((item) => item.class === "unsourced-claim");
+    expect(claims).toHaveLength(1);
+    expect(claims[0]?.detail).toContain("Ben has shipped 30 products");
+  });
+
+  it("deduplicates identical sentences across surfaces (#419)", async () => {
+    const result = await discover({
+      urls: ["https://github.com/ada", "https://linkedin.com/in/ada"],
+      retrieved: RETRIEVED,
+      fetchText: stubFetch({
+        "https://github.com/ada": {
+          status: 200,
+          text: page(person(), "<p>Ada advised 12 teams in 2024.</p>"),
+        },
+        "https://linkedin.com/in/ada": {
+          status: 200,
+          text: page(
+            person({ worksFor: { "@type": "Organization", name: "Acme", startDate: "2020" } }),
+            "<p>Ada advised 12 teams in 2024.</p>",
+          ),
+        },
+      }),
+    });
+    const claims = result.findings.filter((item) => item.class === "unsourced-claim");
+    expect(claims).toHaveLength(1);
   });
 
   it("declares a surface it could not read instead of pretending it was empty", async () => {
@@ -377,7 +512,7 @@ describe("discovery — address honesty (round-2 majors)", () => {
           status: 200,
           text: page(
             person(),
-            '<a href="https://github.com/ada/one">1</a><a href="https://github.com/ada/two">2</a><p>Grew 40%.</p><p>Saved $500.</p>',
+            '<a href="https://github.com/ada/one">1</a><a href="https://github.com/ada/two">2</a><p>Ada grew 40%.</p><p>Ada saved $500.</p>',
           ),
         },
         "https://github.com/ada/one": { status: 404, text: "" },

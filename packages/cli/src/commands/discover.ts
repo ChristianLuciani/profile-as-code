@@ -111,16 +111,24 @@ function jsonLdOf(html: string): unknown[] {
   return nodes;
 }
 
-/** Visible text only: script/style/tags removed, whitespace collapsed. */
+/** Visible text only: script/style/tags removed. Block boundaries become line
+ *  breaks (never a space): the title must not merge into the first body
+ *  sentence, or the page's own name turns chrome into a claim (#419). */
 function textOf(html: string): string {
-  return decodeEntities(
-    html
-      .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
-      .replace(/<[^>]+>/g, " "),
-  )
-    .replace(/\s+/g, " ")
-    .trim();
+  const withBreaks = html
+    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+    .replace(
+      /<\/(?:p|div|li|h[1-6]|title|header|footer|section|article|tr|td|th|main|nav)\s*>/gi,
+      "\n",
+    )
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, " ");
+  const lines = decodeEntities(withBreaks)
+    .split("\n")
+    .map((line) => line.replace(/[^\S\n]+/g, " ").trim())
+    .filter((line) => line !== "");
+  return lines.join("\n");
 }
 
 function linksOf(html: string, base: string): string[] {

@@ -242,7 +242,7 @@ export function provisionalProfile(
 
   if (name === undefined) {
     throw new DiscoveryError(
-      "no surface declared an entity name (schema.org JSON-LD `Person`/`Organization`) — a provisional profile needs at least `identity.name`; nothing was invented",
+      "no surface declared an entity name: discovery reads only schema.org `Person`/`Organization` JSON-LD, which a GitHub profile (and a product/page node such as `SoftwareApplication`) does not carry — point it at a personal site or page that declares a `Person` or `Organization` node; a provisional profile needs at least `identity.name`, and nothing was invented",
     );
   }
   if (nameSource !== undefined) record("identity.name", nameSource);
@@ -265,7 +265,67 @@ export function provisionalProfile(
   };
 }
 
-/** The role+org key `driftCheck` groups experience rows by. */
+/**
+ * Tokens that identify the profile's subject: the DECLARED name (whole and per
+ * word) plus each surface's handle (the last path segment of its URL, e.g.
+ * `dev.to/ben` → `ben`). Discovery-specific by design — `isQuantitativeClaim`
+ * stays the shared predicate with `post`/`audit`, which ask about the author's
+ * own text and need no subject filter (#419).
+ */
+function subjectTokens(
+  provisional: ProvisionalProfile,
+  observations: readonly SurfaceObservation[],
+): string[] {
+  const tokens = new Set<string>();
+  for (const word of provisional.profile.identity.name.split(/\s+/)) {
+    const trimmed = word.trim();
+    if (trimmed.length >= 3) tokens.add(trimmed);
+  }
+  const urls = [
+    ...observations.map((item) => item.url),
+    ...(provisional.profile.identity.links ?? []).map((item) => item.url),
+  ];
+  for (const url of urls) {
+    let segment: string | undefined;
+    try {
+      segment = new URL(url).pathname
+        .split("/")
+        .filter((item) => item !== "")
+        .pop();
+    } catch {
+      continue;
+    }
+    if (segment === undefined) continue;
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(segment);
+    } catch {
+      continue;
+    }
+    // A handle-shaped segment, never a slug with separator noise (`news-2026`).
+    if (/^[\p{L}\p{N}][\p{L}\p{N}_.-]{2,}$/u.test(decoded)) tokens.add(decoded);
+  }
+  return [...tokens];
+}
+
+const FIRST_PERSON = /\b(i|i['’]m|i['’]ve|i['’]d|i['’]ll|my|me|mine|myself)\b/iu;
+
+/** True when the sentence is about the entity: it names it (or its handle), or
+ *  it is first-person — the page is the profile's own surface. A third party's
+ *  counter ("Jane has 10,000 followers") is not the profile's claim. */
+function isAboutEntity(text: string, tokens: readonly string[]): boolean {
+  if (FIRST_PERSON.test(text)) return true;
+  return tokens.some((token) => {
+    const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const start = /^[\p{L}\p{N}_]/u.test(token) ? "\\b" : "";
+    const end = /[\p{L}\p{N}_]$/u.test(token) ? "\\b" : "";
+    return new RegExp(`${start}${escaped}${end}`, "iu").test(text);
+  });
+}
+
+/**
+ * The role+org key `driftCheck` groups experience rows by.
+ */
 function experienceKey(row: LoadedProfile["experience"][number]): string {
   const role = typeof row.role === "string" ? row.role : row.role.en;
   return `${role}/${row.org}`.toLowerCase();
@@ -346,11 +406,21 @@ export function discoveryFindings(
     );
   }
 
+  const subjects = subjectTokens(provisional, observations);
+  const seenSentences = new Set<string>();
   for (const observation of observations) {
     for (const [index, sentence] of observation.text.split(/(?<=[.!?])\s+|\n/).entries()) {
       const text = sentence.trim();
       if (!isQuantitativeClaim(text)) continue;
       if (/source:|evidence:|https?:\/\//i.test(text)) continue;
+      // Only claims about the entity: the whole-page text also carries the
+      // host's chrome (badges, counters, the copyright footer), which is not a
+      // claim about the person (#419). The same sentence on two surfaces is one
+      // finding.
+      if (!isAboutEntity(text, subjects)) continue;
+      const key = text.toLowerCase();
+      if (seenSentences.has(key)) continue;
+      seenSentences.add(key);
       findings.push(
         finding(
           "unsourced-claim",

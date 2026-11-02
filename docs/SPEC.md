@@ -1267,7 +1267,13 @@ budget it does not have.
 
 **What is read.** Only facts a surface itself declares: schema.org JSON-LD
 (`Person`/`Organization`: `name`, `jobTitle`, `worksFor`/`startDate`/`endDate`,
-`sameAs`) and the page's `<a href>` links. No prose mining — free-text year
+`sameAs`) and the page's `<a href>` links. Only those two node types qualify: a
+generic `SoftwareApplication`/`WebSite` node is not the person or brand the
+command promises to profile, so it is not widened into one. A GitHub profile
+carries no such node, and neither does a product/application page, so both end
+in the declared-name refusal; the message names the requirement and a qualifying
+surface (a personal site/page that declares `Person` or `Organization`) instead
+of leaving the first-run URL a dead end (#418). No prose mining — free-text year
 extraction is the same fragility drift refuses, so a
 surface without JSON-LD yields links and claims, not invented identity — a page
 `<title>` is not a declared name, and when no surface declares `name` the
@@ -1284,7 +1290,14 @@ who wrote 2020 on one surface and 2019 on another must surface as
 surfaces would erase the only evidence of the disagreement. Discovery's own
 classes are `dangling-ref` (a same-host link, at most five per surface, that did
 not resolve) and `unsourced-claim` (a sentence that passes
-`isQuantitativeClaim` with no `source:`/`evidence:`/URL on it). Names and
+`isQuantitativeClaim` with no `source:`/`evidence:`/URL on it AND is about the
+entity). The subject filter is discovery's: a quantitative sentence counts only
+when it names the entity (the declared `identity.name`, its words, or a
+surface's handle) or is first-person (`I`, `my`) — page chrome (badges, counters,
+a copyright footer) is not a claim about the person (#419). Identical sentences
+are reported once. `isQuantitativeClaim` stays the one shared predicate with
+`post`/`audit`, which ask about the author's own text and need no subject filter.
+Names and
 severities are §7.1's (`dangling-ref` FAIL · `contradiction` FAIL ·
 `unsourced-claim` WARN) and the ordering is §7.1's, but the PREDICATES are
 discovery's own, stated here rather than implied: `dangling-ref` is a live

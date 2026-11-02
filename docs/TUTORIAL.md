@@ -545,13 +545,17 @@ pasco discover https://dev.to/ben --json
 
 The command is read-only (`wrote: false`; `content/` unchanged) and closed-allowlist (a host
 outside it is `host-not-allowed` with no request). It builds a provisional profile from the
-surface's **schema.org `Person`/`Organization` JSON-LD and its links** — never prose. A GitHub
-profile has no such node, so `pasco discover https://github.com/<you>` exits `1` with `no surface
-declared an entity name`; the project site's JSON-LD is `SoftwareApplication`, so it does not
-qualify either. On `dev.to/ben` it reads 5 facts, lists `experience` as absent, and reports **40
-`unsourced-claim` WARN** — badges, counters and the copyright line, not claims about the person.
-That is the `isQuantitativeClaim` heuristic applied to the whole page; the signal-to-noise is the
-finding (the audit classes are `contradiction`/`dangling-ref` FAIL, `unsourced-claim` WARN).
+surface's **schema.org `Person`/`Organization` JSON-LD and its links** — never prose. Only those
+two node types qualify. A GitHub profile has none, and the project site's JSON-LD is
+`SoftwareApplication`, so both exit `1`; the error names the requirement and points at a
+qualifying surface (a personal site or page that declares `Person`/`Organization`) instead of an
+ambiguous `no surface declared an entity name` — fixed on `main` (#418). On `dev.to/ben` it reads
+5 facts, lists `experience` as absent, and no longer reports the 40 page-chrome WARN: an
+`unsourced-claim` is reported only when the sentence is **about the entity** (it names it or its
+handle, or is first-person), so badges, counters and the copyright footer are not claims — fixed
+on `main` (#419, the 0.3.7 reading was the whole-page `isQuantitativeClaim` heuristic). Identical
+sentences are reported once. The audit classes are unchanged: `contradiction`/`dangling-ref`
+FAIL, `unsourced-claim` WARN.
 
 ### M19 — `cite-check`: saved answers, a malformed line is exit 2
 
@@ -655,8 +659,8 @@ cwd. An invalid path exits `1` and names the missing `content/` directory.
 | `refine` hardcodes `gh-en-*` examples for every platform (M21) | [#415](https://github.com/ChristianLuciani/profile-as-code/issues/415) |
 | `usage: usage: …` on `skills:export` and `refine`; `export ai-policy: refusing…` drops the `pasco` prefix (M14, M16, M21) | [#416](https://github.com/ChristianLuciani/profile-as-code/issues/416) |
 | the brand scaffold's `platform: website` is outside the platform set, but uncommenting it does **not** fail `validate` — `links[].platform` is free-form (M22) | [#417](https://github.com/ChristianLuciani/profile-as-code/issues/417) — reconciled as a wrong claim; no scaffold change |
-| `discover` needs `Person`/`Organization` JSON-LD; a GitHub profile and the project site fail (M18) | [#418](https://github.com/ChristianLuciani/profile-as-code/issues/418) |
-| `discover` reports page chrome as `unsourced-claim`: 40 WARN, 0 profile claims on dev.to (M18) | [#419](https://github.com/ChristianLuciani/profile-as-code/issues/419) |
+| `discover` needs `Person`/`Organization` JSON-LD; a GitHub profile and the project site fail (M18) | [#418](https://github.com/ChristianLuciani/profile-as-code/issues/418) — fixed on `main` (the refusal names the qualifying surface; docs say which); not in the measured 0.3.7 |
+| `discover` reports page chrome as `unsourced-claim`: 40 WARN, 0 profile claims on dev.to (M18) | [#419](https://github.com/ChristianLuciani/profile-as-code/issues/419) — fixed on `main` (subject filter + dedupe; chrome is not a claim); not in the measured 0.3.7 |
 | `build --lang` overwrites the same `profiles/` paths; the last build wins (M15) | [#420](https://github.com/ChristianLuciani/profile-as-code/issues/420) |
 | `release plan --json` has no `order`; the human column is positional (M17) | [#421](https://github.com/ChristianLuciani/profile-as-code/issues/421) |
 | `post` short supports only `linkedin`/`x`, and the help does not list it (M20) | [#422](https://github.com/ChristianLuciani/profile-as-code/issues/422) |
@@ -683,7 +687,7 @@ was read in the guide.
 | `status` | ✅ report · `--json` · `--completeness` · `--mark` · `--verify` · `--write-checklist` | step 11 |
 | `edit` | ✅ read · `--set --check` · write · refusals · `--json` | Part 2 · M12 |
 | `refine` | ✅ PARTIAL: template · `--choose` · active variant | Part 2 · M21 |
-| `discover` | ✅ on a surface with schema.org `Person` JSON-LD | Part 2 · M18 (GitHub profiles have none) |
+| `discover` | ✅ on a surface with schema.org `Person` JSON-LD | Part 2 · M18 (GitHub profiles have none; only `Person`/`Organization` qualifies) |
 | `cite-check` | ✅ NDJSON fixture; a malformed line is exit 2 | Part 2 · M19 |
 | `post` | ✅ seed · task · choose · check · export · import · list | Part 2 · M20 |
 | `presence` | ✅ empty board + a board with one release | Part 2 · M17 |
