@@ -126,19 +126,24 @@ function describe(reportData: DoctorReport): string {
       }`;
   const requirement = reportData.requirement;
   const from = requirement.source === undefined ? "" : `, declared in ${requirement.source}`;
+  // One derivation, not two: the line branches on the SAME `state` the JSON
+  // reports, so the two surfaces cannot drift apart (#436 fresh pass, F3).
   let requirementText: string;
-  // `problem` wins: a malformed declaration keeps `declared` null (never the
-  // string "null"), and reporting "no requirement" here would be false.
-  if (requirement.problem !== undefined) {
-    requirementText = `engine requirement INVALID: ${requirement.problem}${from}`;
-  } else if (requirement.declared === null) {
-    // `absent` is a state, not a pass: the word is printed even though the
-    // exit stays 0 for a workspace with no declaration (SPEC §7.6).
-    requirementText = "engine requirement absent — no .pascorc declares one";
-  } else if (requirement.met) {
-    requirementText = `requires engine >= ${requirement.declared} (met${from})`;
-  } else {
-    requirementText = `requires engine >= ${requirement.declared} (NOT MET — upgrade: ${ENGINE_UPGRADE_COMMAND}${from})`;
+  switch (requirement.state) {
+    case "INVALID":
+      requirementText = `engine requirement INVALID: ${requirement.problem ?? "malformed declaration"}${from}`;
+      break;
+    case "absent":
+      // `absent` is a state, not a pass: the word is printed even though the
+      // exit stays 0 for a workspace with no declaration (SPEC §7.6).
+      requirementText = "engine requirement absent — no .pascorc declares one";
+      break;
+    case "met":
+      requirementText = `requires engine >= ${requirement.declared} (met${from})`;
+      break;
+    case "NOT MET":
+      requirementText = `requires engine >= ${requirement.declared} (NOT MET — upgrade: ${ENGINE_UPGRADE_COMMAND}${from})`;
+      break;
   }
   return `engine ${reportData.engine.version} · schema v${reportData.schema.version} · workspace ${reportData.workspace.path} (${workspaceState}) · ${requirementText}`;
 }

@@ -2493,7 +2493,7 @@ the engine; the shipped default weights are the ones `COMPLETENESS_CATALOG` decl
 | Item | Weight | Source already in the engine |
 |---|---|---|
 | `presence` | 0.30 | `flavor` + the expected top-level blocks (brand expects `socialHandles`, person expects `education`); a block counts only when it **carries content** — `positioning: {}` / `keywords: {}` are valid but not "present" |
-| `langCoverage` | 0.15 | `en`/`es`/`fr` coverage of every langMap (`load`/schema) |
+| `langCoverage` | 0.15 | coverage of every langMap over the langs the policy declares (`.pascorc` `completeness.langs`, default `en`/`es`/`fr`) — the label is derived from that policy (#436) |
 
 **The one declared `langCoverage` exception is `releases[].summary` (v1.15, D23):** it is
 langMap-SHAPED but it belongs to a release EVENT, not to the workspace's text, and
