@@ -1292,9 +1292,11 @@ classes are `dangling-ref` (a same-host link, at most five per surface, that did
 not resolve) and `unsourced-claim` (a sentence that passes
 `isQuantitativeClaim` with no `source:`/`evidence:`/URL on it AND is about the
 entity). The subject filter is discovery's: a quantitative sentence counts only
-when it names the entity (the declared `identity.name`, its words, or a
-surface's handle) or is first-person (`I`, `my`) — page chrome (badges, counters,
-a copyright footer) is not a claim about the person (#419). Identical sentences
+when it names the entity (the declared `identity.name`, its words, or the
+operator-passed surface's handle) or is first-person (`I`, `my`); a sentence that
+does neither — a badge counter, a nameless copyright footer — is not a claim
+about the person (#419). The rule is subject, not region: chrome that DOES name
+the entity is still a claim. Identical sentences
 are reported once. `isQuantitativeClaim` stays the one shared predicate with
 `post`/`audit`, which ask about the author's own text and need no subject filter.
 Names and

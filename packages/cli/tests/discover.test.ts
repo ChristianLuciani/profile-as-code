@@ -315,6 +315,73 @@ describe("discover", () => {
     expect(result.findings.filter((item) => item.class === "unsourced-claim")).toHaveLength(0);
   });
 
+  it("matches a non-ASCII name (Unicode boundaries, not ASCII \\b)", async () => {
+    const result = await discover({
+      urls: ["https://example.com/"],
+      retrieved: RETRIEVED,
+      allowHosts: ["example.com"],
+      fetchText: stubFetch({
+        "https://example.com/": {
+          status: 200,
+          text: page(
+            { "@type": "Person", name: "José García" },
+            "<p>José García grew revenue 40% in 2022.</p>",
+          ),
+        },
+      }),
+    });
+    const claims = result.findings.filter((item) => item.class === "unsourced-claim");
+    expect(claims).toHaveLength(1);
+    expect(claims[0]?.detail).toContain("José García grew revenue");
+  });
+
+  it("does not treat the abbreviation i.e. as first-person", async () => {
+    const result = await discover({
+      urls: ["https://github.com/ada"],
+      retrieved: RETRIEVED,
+      fetchText: stubFetch({
+        "https://github.com/ada": {
+          status: 200,
+          text: page(person(), "<p>The stack, i.e. 40 services, ships weekly.</p>"),
+        },
+      }),
+    });
+    expect(result.findings.filter((item) => item.class === "unsourced-claim")).toHaveLength(0);
+  });
+
+  it("matches a short declared name (no length threshold)", async () => {
+    const result = await discover({
+      urls: ["https://github.com/li"],
+      retrieved: RETRIEVED,
+      fetchText: stubFetch({
+        "https://github.com/li": {
+          status: 200,
+          text: page({ "@type": "Person", name: "Li" }, "<p>Li shipped 30 products.</p>"),
+        },
+      }),
+    });
+    const claims = result.findings.filter((item) => item.class === "unsourced-claim");
+    expect(claims).toHaveLength(1);
+    expect(claims[0]?.detail).toContain("Li shipped 30 products");
+  });
+
+  it("does not treat a linked repo slug as the entity's handle (#419)", async () => {
+    const result = await discover({
+      urls: ["https://github.com/ada"],
+      retrieved: RETRIEVED,
+      fetchText: stubFetch({
+        "https://github.com/ada": {
+          status: 200,
+          text: page(
+            person({ sameAs: ["https://github.com/ada/profile-as-code"] }),
+            "<p>profile-as-code has 500 stars.</p>",
+          ),
+        },
+      }),
+    });
+    expect(result.findings.filter((item) => item.class === "unsourced-claim")).toHaveLength(0);
+  });
+
   it("matches the handle in a surface URL (#419)", async () => {
     const result = await discover({
       urls: ["https://dev.to/ben"],

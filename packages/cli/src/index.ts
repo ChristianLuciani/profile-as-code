@@ -247,8 +247,8 @@ QUALIFIES only when it declares a schema.org Person or Organization node: a
 GitHub profile carries none, and neither does a product/application page
 (SoftwareApplication), so point discover at a personal site or page that does.
 An unsourced quantitative sentence is reported only when it is ABOUT the entity
-(it names it or its handle, or is first-person) - badge, counter and footer
-chrome is not a claim about the person. Identical sentences are reported once.
+(it names it or its handle, or is first-person) - a badge counter or a nameless
+footer is not a claim about the person. Identical sentences are reported once.
 Requests are sequential, never retried, credential-free and confined to a
 closed host allowlist: the platform hosts the engine ships, plus --allow-host
 (comma-separated). A URL outside it is reported as

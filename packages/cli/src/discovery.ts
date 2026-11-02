@@ -267,25 +267,24 @@ export function provisionalProfile(
 
 /**
  * Tokens that identify the profile's subject: the DECLARED name (whole and per
- * word) plus each surface's handle (the last path segment of its URL, e.g.
- * `dev.to/ben` → `ben`). Discovery-specific by design — `isQuantitativeClaim`
- * stays the shared predicate with `post`/`audit`, which ask about the author's
- * own text and need no subject filter (#419).
+ * word, no length threshold) plus each surface's handle — the last path segment
+ * of the URL the operator passed, e.g. `dev.to/ben` → `ben`. Links the page
+ * declares (`sameAs`) are NOT handles: a repo slug on a linked project is not
+ * the person. Discovery-specific by design — `isQuantitativeClaim` stays the
+ * shared predicate with `post`/`audit`, which ask about the author's own text
+ * and need no subject filter (#419).
  */
 function subjectTokens(
   provisional: ProvisionalProfile,
   observations: readonly SurfaceObservation[],
 ): string[] {
-  const tokens = new Set<string>();
-  for (const word of provisional.profile.identity.name.split(/\s+/)) {
+  const name = provisional.profile.identity.name.trim();
+  const tokens = new Set<string>([name]);
+  for (const word of name.split(/\s+/)) {
     const trimmed = word.trim();
-    if (trimmed.length >= 3) tokens.add(trimmed);
+    if (trimmed !== "") tokens.add(trimmed);
   }
-  const urls = [
-    ...observations.map((item) => item.url),
-    ...(provisional.profile.identity.links ?? []).map((item) => item.url),
-  ];
-  for (const url of urls) {
+  for (const url of observations.map((item) => item.url)) {
     let segment: string | undefined;
     try {
       segment = new URL(url).pathname
@@ -295,31 +294,45 @@ function subjectTokens(
     } catch {
       continue;
     }
-    if (segment === undefined) continue;
+    if (segment === undefined || /^\d+$/u.test(segment)) continue;
     let decoded: string;
     try {
       decoded = decodeURIComponent(segment);
     } catch {
       continue;
     }
-    // A handle-shaped segment, never a slug with separator noise (`news-2026`).
-    if (/^[\p{L}\p{N}][\p{L}\p{N}_.-]{2,}$/u.test(decoded)) tokens.add(decoded);
+    tokens.add(decoded);
   }
   return [...tokens];
 }
 
-const FIRST_PERSON = /\b(i|i['’]m|i['’]ve|i['’]d|i['’]ll|my|me|mine|myself)\b/iu;
+/** Bare `I` is case-sensitive on purpose: under `/i` the abbreviation "i.e."
+ *  would make any sentence first-person. */
+const FIRST_PERSON_PRONOUN = /\bI\b/;
+const FIRST_PERSON_CONTRACTION = /\b[Ii]['’](?:m|ve|d|ll)\b/;
+const FIRST_PERSON_POSSESSIVE = /\b(?:my|me|mine|myself)\b/i;
+
+function isFirstPerson(text: string): boolean {
+  return (
+    FIRST_PERSON_PRONOUN.test(text) ||
+    FIRST_PERSON_CONTRACTION.test(text) ||
+    FIRST_PERSON_POSSESSIVE.test(text)
+  );
+}
+
+/** Unicode-aware word boundaries: `\b` is ASCII-only in JavaScript, so a name
+ *  ending in `é`/`ñ` would never match with it. */
+const TOKEN_START = "(?<![\\p{L}\\p{N}_])";
+const TOKEN_END = "(?![\\p{L}\\p{N}_])";
 
 /** True when the sentence is about the entity: it names it (or its handle), or
  *  it is first-person — the page is the profile's own surface. A third party's
  *  counter ("Jane has 10,000 followers") is not the profile's claim. */
 function isAboutEntity(text: string, tokens: readonly string[]): boolean {
-  if (FIRST_PERSON.test(text)) return true;
+  if (isFirstPerson(text)) return true;
   return tokens.some((token) => {
     const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const start = /^[\p{L}\p{N}_]/u.test(token) ? "\\b" : "";
-    const end = /[\p{L}\p{N}_]$/u.test(token) ? "\\b" : "";
-    return new RegExp(`${start}${escaped}${end}`, "iu").test(text);
+    return new RegExp(`${TOKEN_START}${escaped}${TOKEN_END}`, "iu").test(text);
   });
 }
 
