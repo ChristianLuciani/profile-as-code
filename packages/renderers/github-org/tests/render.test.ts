@@ -10,8 +10,8 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { compile, load } from "@profile-as-code/core";
-import { afterAll, describe, expect, it } from "vitest";
+import { compile, load, PLATFORMS } from "@profile-as-code/core";
+import { afterAll, describe, expect, it, vi } from "vitest";
 import { render } from "../src/index.js";
 
 const tempDirs: string[] = [];
@@ -512,5 +512,99 @@ describe("github-org — link roles (v1.6, #103)", () => {
     } finally {
       cleanup();
     }
+  });
+});
+
+describe("github-org — the curated badge set is a declared limit (issue #428)", () => {
+  /** Brand slice whose claimed handle matrix is exactly `handles`. Every URL is
+   *  `https://example.com/<slug>`, so the badge's outer destination names the
+   *  platform that produced it — the map itself stays private. */
+  const sliceOf = (handles: string) => {
+    const dir = mkdtempSync(join(tmpdir(), "pasco-org-curated-"));
+    tempDirs.push(dir);
+    const content = join(dir, "content");
+    mkdirSync(content, { recursive: true });
+    writeFileSync(join(content, "flavor.yaml"), "brand\n");
+    writeFileSync(
+      join(content, "identity.yaml"),
+      "name: Topia Press\nlinks:\n  - platform: website\n    label: Website\n    url: https://topia.press\n",
+    );
+    writeFileSync(join(content, "socialHandles.yaml"), handles);
+    return compile(load(dir), "github-org", "en");
+  };
+
+  const rowsOf = (slugs: readonly string[]): string =>
+    slugs
+      .map(
+        (p) =>
+          `- platform: ${p}\n  handle: h\n  status: claimed\n  url: https://example.com/${p}\n`,
+      )
+      .join("");
+
+  const badgesOf = (text: string): { label: string; platform: string }[] => {
+    const re =
+      /\[!\[([^\]]+)\]\(https:\/\/img\.shields\.io\/badge\/[^)]*\)\]\(https:\/\/example\.com\/([^)\s]+)\)/g;
+    return [...text.matchAll(re)].map((m) => ({ label: m[1] as string, platform: m[2] as string }));
+  };
+
+  it("a claimed handle on a curated-out platform renders NO badge — and the silence is scoped to the badge surface", () => {
+    // The repro of #428: `linkedin` is a legitimate enum slug, claimed, with a URL,
+    // next to a curated `x` row that does badge.
+    // The silence is part of the contract: no badge AND no warning. Without this
+    // spy the declared "no warning" could regress while the suite stayed green.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const text = render(
+      sliceOf(`- platform: linkedin
+  handle: yourbrand
+  status: claimed
+  url: https://example.com/linkedin
+- platform: x
+  handle: topiapress
+  status: claimed
+  url: https://example.com/x
+`),
+    ).text;
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+
+    expect(badgesOf(text)).toEqual([{ label: "X", platform: "x" }]);
+    expect(text).not.toContain("img.shields.io/badge/LinkedIn");
+
+    // The fact is NOT dropped — only the badge renders nothing. Three surfaces
+    // keep it, which is what makes this a declared limit rather than a data loss.
+    expect(text).toContain("2 claimed surfaces"); // footer
+    expect(text).toContain("- https://example.com/linkedin"); // `## Links` visible list
+    expect(text).toMatch(/"sameAs": \[[^\]]*"https:\/\/example\.com\/linkedin"/); // core JSON-LD
+  });
+
+  it("the map covers a fixed SUBSET of the enum: every curated slug badges, every other claimed slug is silent", () => {
+    // One claimed handle per enum slug: the whole key space in a single render.
+    const text = render(sliceOf(rowsOf(PLATFORMS))).text;
+    const badges = badgesOf(text);
+
+    // The curated set, pinned exactly — a new curated entry, a removed one, or a
+    // generic fallback (option A of #428) all change this and fail loudly.
+    expect(Object.fromEntries(badges.map((b) => [b.platform, b.label]))).toEqual({
+      "github-org": "GitHub",
+      x: "X",
+      bluesky: "Bluesky",
+      substack: "Substack",
+      instagram: "Instagram",
+      tiktok: "TikTok",
+      youtube: "YouTube",
+      spotify: "Spotify",
+      reddit: "Reddit",
+      mastodon: "Mastodon",
+      soundcloud: "SoundCloud",
+    });
+    expect(badges).toHaveLength(11);
+
+    // The gap between the map and the enum is the declared limit; it is not
+    // allowed to collapse to zero silently (update this pin with the direction).
+    expect(PLATFORMS.length).toBeGreaterThan(badges.length);
+    expect(PLATFORMS.length - badges.length).toBe(38);
+
+    // Every claimed handle is still counted, curated or not.
+    expect(text).toContain(`${PLATFORMS.length} claimed surfaces`);
   });
 });

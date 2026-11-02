@@ -7,7 +7,8 @@
  * filtered bios/headlines by exact lang; brand langMaps fall back to en here).
  *
  * Output sections: header (org name + tagline + mission) · social handles
- * (claimed matrix, one badge per platform) · newsletter · podcast · press ·
+ * (claimed matrix, one badge per claimed handle on a CURATED platform — see the
+ * `BADGE` map's declared limit, issue #428) · newsletter · podcast · press ·
  * audiences (reader profile) · every link (visible list) · JSON-LD Organization
  * assembled by core (`structured-data.ts`: `@id` from the `role: identity` link,
  * `sameAs` from the `role: realization` links + claimed handles — v1.6/#103) ·
@@ -51,6 +52,18 @@ export interface RenderOptions {
  * tutorial claim ("the github-org badge table knows `website`") look true; the
  * typed literal turns that class into a compile error instead of dead data a docs
  * author can believe in.
+ *
+ * DECLARED LIMIT (issue #428): this map is a **curated subset**, not a promise
+ * over the enum. A claimed handle whose platform has no entry here renders **no
+ * badge** and emits no warning — most enum slugs have no entry (`linkedin`,
+ * `upwork`, `github-readme`, `kofi`, …). The silence is scoped to the badge
+ * surface only: the handle still counts in the footer, is listed in `## Links`,
+ * and reaches `sameAs` through core. A generic fallback badge for an uncurated
+ * slug is the alternative direction (issue #428, option A) and is deliberately
+ * **not** implemented: it would change rendered bytes for existing brand
+ * workspaces. The map's size and the size of the gap are a READING of the test
+ * suite, which pins both: a curated entry added or removed, or a fallback that
+ * keeps this badge shape, changes the pin and fails it.
  */
 const BADGE: Partial<Record<Platform, { color: string; logo: string; label: string }>> = {
   "github-org": { color: "181717", logo: "github", label: "GitHub" },
@@ -180,8 +193,9 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   // 7. Links (every channel, for humans) + JSON-LD Organization (from core).
   // Contact email (v1.5, issue #71): a fact, output-only — links[] stays
   // page-URLs-only (a mailto: URI is never here). Emitted first.
-  // NB: this is the VISIBLE list (all links); `sameAs` in the structured data is a
-  // narrower set — only role: realization — resolved by core (v1.6/#103).
+  // NB: this is the VISIBLE list (all links + every claimed handle); `sameAs` in
+  // the structured data is a DIFFERENT set — `role: realization` links plus the
+  // claimed handles — resolved by core (v1.6/#103), never re-derived here.
   const visibleLinks = [
     ...(p.identity.links ?? []).map((l) => l.url),
     ...claimed.map((h) => h.url as string),
@@ -195,10 +209,10 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
 
   // The entity's structured data comes from core (v1.6/#103) — this renderer NEVER
   // re-derives `@id`/`sameAs` (SPEC §15.4; the §18.9 credentialLdEntries precedent).
-  // Note the two sets are now DIFFERENT and both are correct: the visible Links
+  // Note the two sets are DIFFERENT and both are correct: the visible Links
   // section above lists every channel (a human wants them all), while `sameAs`
-  // carries only `role: realization` links — including an aggregator there would
-  // blur the hierarchy schema.org defines.
+  // carries `role: realization` links plus the claimed handles — including an
+  // aggregator there would blur the hierarchy schema.org defines.
   // `structuredData` is REQUIRED on PlatformProfile, but a hand-built slice (the documented
   // seam) may omit it: guard the whole chain, not just `jsonLd`, so a partial slice renders
   // without structured data instead of throwing.

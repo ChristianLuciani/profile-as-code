@@ -81,6 +81,22 @@ se cita, se ignora.
 5. Verificación post-deploy: cada badge/link del README resuelve; los handles
    pending NO figuran como surfaces vivas.
 
+## Límite de badges (declarado, #428)
+
+El renderer dibuja un badge sólo para los slugs curados del mapa `BADGE` (hoy
+`github-org`, `x`, `bluesky`, `substack`, `instagram`, `tiktok`, `youtube`,
+`spotify`, `reddit`, `mastodon`, `soundcloud`). Un handle `claimed` sobre un slug
+del enum sin entrada — `linkedin`, `upwork`, `github-readme`, `kofi`, … — **no
+renderiza badge y no emite warning**: el silencio es el contrato, no un bug. El
+handle no se pierde: suma al footer, aparece en `## Links` y entra al `sameAs`
+del JSON-LD. En el README no prometas un badge para un slug fuera del set; si el
+badge es necesario, la salida es curar la entrada (agregarla al mapa) o abrir la
+decisión del fallback genérico (opción A de #428, hoy deliberadamente no
+implementada). El tamaño del set y el del hueco son **una lectura del test**, no
+una cifra escrita acá: `packages/renderers/github-org/tests/render.test.ts` pinea
+ambos conteos, así que curar una entrada o agregar un fallback con la forma actual
+de badge rompe el test primero.
+
 ## GEO
 
 `schema.org/Organization` JSON-LD con `@id` = el link con `role: identity` (ausente si
