@@ -11,6 +11,19 @@ minor versions may contain breaking contract changes.
 
 ### Fixed
 
+- **`pasco doctor` names the engine-requirement state instead of letting
+  "absent" look met (#436)** — the line now reads `engine requirement absent — no
+  .pascorc declares one` for a workspace with no declaration, alongside `met`,
+  `NOT MET` and `INVALID`, and `--json` carries the same value as
+  `requirement.state` (`absent` | `met` | `NOT MET` | `INVALID`). The exit code is
+  unchanged: an absent declaration remains a healthy workspace, but the premise it
+  actually read is now stated, never implied by a green exit.
+- **The completeness label names the policy's langs, not a hardcoded
+  `(en/es/fr)` (#436)** — `COMPLETENESS_CATALOG` owns the base label and the
+  report appends the langs the effective policy declared, so a workspace with
+  `completeness.langs: ["en","es"]` reads `Language coverage (en/es)` on the
+  human checklist and in `--json`, matching the detail that already named those
+  langs. The shipped default still renders `(en/es/fr)`.
 - **`pasco discover` names the surfaces that qualify instead of a dead end
   (#418)** — the refusal for a page with no entity name now says that discovery
   reads only schema.org `Person`/`Organization` JSON-LD, that a GitHub profile

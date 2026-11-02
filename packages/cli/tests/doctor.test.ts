@@ -129,7 +129,13 @@ interface Envelope {
       valid: boolean;
       error?: { kind: string; message: string; violations?: { path: string; message: string }[] };
     };
-    requirement: { declared: string | null; met: boolean; problem?: string; source?: string };
+    requirement: {
+      declared: string | null;
+      met: boolean;
+      state: "absent" | "met" | "NOT MET" | "INVALID";
+      problem?: string;
+      source?: string;
+    };
   };
   error?: { kind: string; message: string };
 }
@@ -154,7 +160,7 @@ describe("pasco doctor — engine · schema · workspace", () => {
     expect(lines[0]).toContain(`engine ${packageVersion()}`);
     expect(lines[0]).toContain(`schema v${schemaVersion()}`);
     expect(lines[0]).toContain(`workspace ${dir} (valid)`);
-    expect(lines[0]).toContain("no engine requirement");
+    expect(lines[0]).toContain("engine requirement absent");
   });
 
   it("emits the frozen --json view inside the standard envelope", () => {
@@ -170,7 +176,24 @@ describe("pasco doctor — engine · schema · workspace", () => {
     // The schema label is the contract's own `$id` version, not a CLI literal.
     expect(envelope.data?.schema.version).toBe(schemaVersion());
     expect(envelope.data?.workspace).toEqual({ path: dir, valid: true });
-    expect(envelope.data?.requirement).toEqual({ declared: null, met: true });
+    expect(envelope.data?.requirement).toEqual({ declared: null, met: true, state: "absent" });
+  });
+
+  // #436: absent is a state, not a silent pass — the line and `--json` name it,
+  // so a green exit can never be read as "the gate passed" when nothing was
+  // declared. `met` and `NOT MET` are the same reading at the other two values.
+  it("names the requirement state in the line and --json: absent | met | NOT MET", () => {
+    const cases = [
+      { engine: undefined, state: "absent", line: "engine requirement absent" },
+      { engine: "0.0.1", state: "met", line: "(met" },
+      { engine: "9.0.0", state: "NOT MET", line: "(NOT MET" },
+    ] as const;
+    for (const { engine, state, line } of cases) {
+      const dir = workspaceCopy(engine);
+      const res = run(["doctor", "--workspace", dir]);
+      expect(res.stdout, state).toContain(line);
+      expect(doctor([], dir).data?.requirement.state, state).toBe(state);
+    }
   });
 
   it("reports a workspace that does not load and exits 1", () => {
@@ -258,6 +281,7 @@ describe("the .pascorc engine-version gate", () => {
     expect(envelope.data?.requirement).toMatchObject({
       declared: "9.0.0",
       met: false,
+      state: "NOT MET",
       source: join(dir, ".pascorc"),
     });
   });
@@ -270,6 +294,7 @@ describe("the .pascorc engine-version gate", () => {
     expect(res.stdout).toContain("MAJOR.MINOR.PATCH");
     const envelope = doctor([], dir);
     expect(envelope.data?.requirement.met).toBe(false);
+    expect(envelope.data?.requirement.state).toBe("INVALID");
     expect(envelope.data?.requirement.problem).toContain("MAJOR.MINOR.PATCH");
   });
 
@@ -277,7 +302,7 @@ describe("the .pascorc engine-version gate", () => {
     const dir = workspaceCopy(null);
     const res = run(["doctor", "--workspace", dir]);
     expect(res.code).toBe(1);
-    expect(res.stdout).not.toContain("no engine requirement");
+    expect(res.stdout).not.toContain("engine requirement absent");
     expect(res.stdout).toContain("engine requirement INVALID");
     const envelope = doctor([], dir);
     expect(envelope.data?.requirement.declared).toBeNull();
@@ -348,7 +373,7 @@ describe("the .pascorc engine-version gate", () => {
     const envelope = JSON.parse(
       run(["doctor", "--json", "--workspace", ws], cwd).stdout,
     ) as Envelope;
-    expect(envelope.data?.requirement).toEqual({ declared: null, met: true });
+    expect(envelope.data?.requirement).toEqual({ declared: null, met: true, state: "absent" });
   });
 
   it("is usage (exit 2) for an extra positional or an unknown flag", () => {

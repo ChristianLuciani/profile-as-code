@@ -9,7 +9,7 @@
  * Five signals, each an already-present engine fact (the set ratified 2026-10-07):
  *
  *   presence     blocks vs the flavor's expected set (flavor + top-level props)
- *   langCoverage en/es/fr coverage of every langMap (load/schema)
+ *   langCoverage coverage of every langMap in the policy's langs (load/schema)
  *   geoAnchors   semantic associations reinforced elsewhere (geoCheck's surface)
  *   evidence     claims that carry a source + registry entries (`evidenceItem`)
  *   deployment   share of trackable units with a ledger record (`ledger`)
@@ -46,7 +46,9 @@ export interface CompletenessCatalogItem {
  */
 export const COMPLETENESS_CATALOG: readonly CompletenessCatalogItem[] = [
   { id: "presence", label: "Required blocks present", block: "profile", weight: 0.3 },
-  { id: "langCoverage", label: "Language coverage (en/es/fr)", block: "langMaps", weight: 0.15 },
+  // No language list in the catalog label: the policy names the langs it
+  // measures, so the report appends them (`Language coverage (en/es)`).
+  { id: "langCoverage", label: "Language coverage", block: "langMaps", weight: 0.15 },
   { id: "geoAnchors", label: "GEO semantic anchors", block: "positioning.geo", weight: 0.15 },
   { id: "evidence", label: "Claims carry evidence", block: "projects.evidence", weight: 0.15 },
   { id: "deployment", label: "Deployed to a surface", block: "deployments", weight: 0.25 },
@@ -316,6 +318,16 @@ function deploymentScore(profile: LoadedProfile): { score: number; detail: strin
 }
 
 /**
+ * The rendered label for one catalog entry. `langCoverage` measures the langs
+ * the POLICY declares, so its label is derived from that list — a hardcoded
+ * `(en/es/fr)` here would name a policy the report never read (#436).
+ */
+function itemLabel(entry: CompletenessCatalogItem, langs: readonly string[]): string {
+  if (entry.id !== "langCoverage" || langs.length === 0) return entry.label;
+  return `${entry.label} (${langs.join("/")})`;
+}
+
+/**
  * Compute the profile's completeness against a policy.
  *
  * @param profile a `load()`ed (normalized) profile — array blocks are defined.
@@ -348,7 +360,7 @@ export function completeness(
     const clamped = Math.max(0, Math.min(1, score));
     items.push({
       id: entry.id,
-      label: entry.label,
+      label: itemLabel(entry, langs),
       block: entry.block,
       score: clamped,
       weight,

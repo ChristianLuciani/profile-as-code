@@ -32,9 +32,15 @@ export const DOCTOR_ENGINE = "@profile-as-code/cli";
 /** The frozen report shape (`--json` `data`). `workspace.error` is present only
  *  when the workspace cannot load; `requirement.problem` only when the field is
  *  malformed; `requirement.source` names the `.pascorc` that produced the
- *  effective (strictest) declaration, so doctor and the gate cannot disagree. A
- *  consumer reads `workspace.valid` and `requirement.met`; the envelope's
+ *  effective (strictest) declaration, so doctor and the gate cannot disagree.
+ *  `requirement.state` names the premise in ONE token — `absent` (nothing was
+ *  declared: not a pass), `met`, `NOT MET`, or `INVALID` (malformed) — so a
+ *  green line can never be read as "gate passed" when nothing was declared. A
+ *  consumer reads `workspace.valid` and `requirement.met` for the verdict and
+ *  `requirement.state` for what was actually read; the envelope's
  *  `ok`/`exitCode` carry the same verdict. */
+export type DoctorRequirementState = "absent" | "met" | "NOT MET" | "INVALID";
+
 export interface DoctorReport {
   engine: { name: typeof DOCTOR_ENGINE; version: string };
   schema: { version: string };
@@ -46,6 +52,7 @@ export interface DoctorReport {
   requirement: {
     declared: string | null;
     met: boolean;
+    state: DoctorRequirementState;
     problem?: string;
     source?: string;
   };
@@ -93,9 +100,18 @@ function requirementOf(
   engineVersion: string,
 ): DoctorReport["requirement"] & EngineRequirement {
   const requirement = evaluateEngineRequirements(sources, engineVersion);
+  const state: DoctorRequirementState =
+    requirement.problem !== undefined
+      ? "INVALID"
+      : requirement.declared === null
+        ? "absent"
+        : requirement.met
+          ? "met"
+          : "NOT MET";
   return {
     declared: requirement.declared,
     met: requirement.met,
+    state,
     ...(requirement.problem === undefined ? {} : { problem: requirement.problem }),
     ...(requirement.source === undefined ? {} : { source: requirement.source }),
   };
@@ -116,7 +132,9 @@ function describe(reportData: DoctorReport): string {
   if (requirement.problem !== undefined) {
     requirementText = `engine requirement INVALID: ${requirement.problem}${from}`;
   } else if (requirement.declared === null) {
-    requirementText = "no engine requirement";
+    // `absent` is a state, not a pass: the word is printed even though the
+    // exit stays 0 for a workspace with no declaration (SPEC §7.6).
+    requirementText = "engine requirement absent — no .pascorc declares one";
   } else if (requirement.met) {
     requirementText = `requires engine >= ${requirement.declared} (met${from})`;
   } else {
