@@ -69,11 +69,23 @@ const BIO_LENGTHS: readonly string[] = ["short", "medium", "long"] as const;
  *   headlines[platform=<p>,lang=<l>].text
  *   bios[platform=<p>,lang=<l>,length=<len>].text
  *   identity.links[platform=<p>].url               (read-only)
+ *
+ * #435 adds the answer-engine surface (#288) with the SAME rules:
+ *   identity.definition.<lang>
+ *   faq[id=<slug>,lang=<l>].q | .a
+ *   faq[id=<slug>].source
+ *
+ * `q`/`a` are langMaps (EN required by the schema), so the language is a
+ * REQUIRED selector: the writer replaces one scalar, and a whole langMap is not
+ * a scalar. `source` is a scalar URL, so it carries no `lang` selector.
  */
 export type EditAddress =
   | { kind: "statement"; lang: Lang; address: string }
   | { kind: "headline"; platform: Platform; lang: Lang; address: string }
   | { kind: "bio"; platform: Platform; lang: Lang; length: BioLength; address: string }
+  | { kind: "definition"; lang: Lang; address: string }
+  /** One `faq[]` row, selected by its stable `id` (§19.2) — never by index. */
+  | { kind: "faq"; id: string; field: "q" | "a" | "source"; lang?: Lang; address: string }
   /** `identity.links` rows carry a free-form `platform` string (the schema does
    *  not constrain it to the platform enum), so it is kept verbatim. `label` is
    *  the optional disambiguator a legal workspace needs when two links share a
@@ -89,6 +101,31 @@ export function bioAddress(platform: Platform, lang: Lang, length: BioLength): s
   return `bios[platform=${platform},lang=${lang},length=${length}].text`;
 }
 
+export function definitionAddress(lang: Lang): string {
+  return `identity.definition.${lang}`;
+}
+
+/** The address of one `faq[]` row field. `q`/`a` carry the lang they address
+ *  (they are langMaps); `source` is a plain URL scalar and takes none. */
+export function faqAddress(id: string, field: "q" | "a" | "source", lang?: Lang): string {
+  if (field === "source") return `faq[id=${id}].source`;
+  return `faq[id=${id},lang=${lang}].${field}`;
+}
+
+/** `$defs/entryId` (schema v1.3, §19.2): the stable slug a `faq[]` row is
+ *  addressed by. A malformed selector can never resolve to a row, so it is a
+ *  usage error that lists the shape instead of a confusing 0-row read. */
+const ENTRY_ID = /^[a-z0-9][a-z0-9._:-]*$/;
+
+function parseEntryId(block: string, value: string): string {
+  if (!ENTRY_ID.test(value)) {
+    throw new UsageError(
+      `${block}: id ${JSON.stringify(value)} is not a valid entry id (the schema's $defs/entryId: ^[a-z0-9][a-z0-9._:-]*$) — valid addresses:\n${editAddressTable()}`,
+    );
+  }
+  return value;
+}
+
 export function linkAddress(platform: string, label?: string): string {
   return label === undefined
     ? `identity.links[platform=${platform}].url`
@@ -102,11 +139,16 @@ export function statementAddress(lang: Lang): string {
   return `positioning.statement.${lang}`;
 }
 
-/**
- * The blocks `pasco edit --list` can scope to (#411). They are the four
- * addressable contract roots, in the order the list prints them.
- */
-export const EDIT_LIST_BLOCKS = ["positioning", "headlines", "bios", "identity.links"] as const;
+/** The blocks `pasco edit --list` can scope to (#411, extended by #435). They
+ *  are the addressable contract roots, in the order the list prints them. */
+export const EDIT_LIST_BLOCKS = [
+  "positioning",
+  "headlines",
+  "bios",
+  "identity.definition",
+  "identity.links",
+  "faq",
+] as const;
 export type EditListBlock = (typeof EDIT_LIST_BLOCKS)[number];
 
 export function parseEditListBlock(value: string): EditListBlock {
@@ -123,6 +165,9 @@ export function editAddressTable(): string {
     `  positioning.statement.<lang>                       lang: ${LANGS.join("|")}`,
     `  headlines[platform=<p>,lang=<l>].text              platform: <schema platform id, §6> · lang: ${LANGS.join("|")}`,
     `  bios[platform=<p>,lang=<l>,length=<len>].text      length: ${BIO_LENGTHS.join("|")}`,
+    `  identity.definition.<lang>                         lang: ${LANGS.join("|")} (the canonical per-language sentence)`,
+    `  faq[id=<slug>,lang=<l>].q | .a                     lang: ${LANGS.join("|")} (q/a are langMaps, so lang is required)`,
+    `  faq[id=<slug>].source                              the optional http(s) pointer backing the answer`,
     `  identity.links[platform=<p>,label=<l>].url         (read-only; label optional — disambiguates two links on one platform)`,
   ].join("\n");
 }
@@ -194,6 +239,34 @@ export function parseEditAddress(raw: string): EditAddress {
   if (statement !== null) {
     const lang = parseLang(statement[1] as string);
     return { kind: "statement", lang, address: statementAddress(lang) };
+  }
+
+  // #435: the canonical per-language definition lives in identity.yaml.
+  const definition = /^identity\.definition\.([A-Za-z0-9_-]+)$/.exec(text);
+  if (definition !== null) {
+    const lang = parseLang(definition[1] as string);
+    return { kind: "definition", lang, address: definitionAddress(lang) };
+  }
+
+  // #435: one faq[] row field. q/a are langMaps (EN required by the schema), so
+  // they take a REQUIRED lang selector; source is a plain URL scalar.
+  const faq = /^faq\[([^\]]*)\]\.([A-Za-z]+)$/.exec(text);
+  if (faq !== null) {
+    const field = faq[2] as string;
+    if (field !== "q" && field !== "a" && field !== "source") {
+      throw new UsageError(
+        `faq[..].${field} is not addressable — the fields are faq[id=<slug>,lang=<l>].q | .a and faq[id=<slug>].source`,
+      );
+    }
+    if (field === "source") {
+      const s = parseSelectors("faq", faq[1] as string, ["id"]);
+      const id = parseEntryId("faq", s.id as string);
+      return { kind: "faq", id, field, address: faqAddress(id, "source") };
+    }
+    const s = parseSelectors("faq", faq[1] as string, ["id", "lang"]);
+    const id = parseEntryId("faq", s.id as string);
+    const lang = parseLang(s.lang as string);
+    return { kind: "faq", id, field, lang, address: faqAddress(id, field, lang) };
   }
 
   const addressed = /^(headlines|bios|identity\.links)\[([^\]]*)\]\.([A-Za-z]+)$/.exec(text);

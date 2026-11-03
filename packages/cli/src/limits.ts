@@ -25,6 +25,37 @@ export interface ApplicableLimit {
   checkId?: string;
 }
 
+/**
+ * The caps of the answer-engine surface (#435) — schema `maxLength`s, not catalog
+ * soft caps: the contract ITSELF declares them (v1.10, #288), so an over-cap value
+ * is a schema FAILURE (D12) rather than the WARN a catalog cap produces. They
+ * live with the other text-limit evidence and the edit pre-flight reports them
+ * the same way, with the same `source`/`tier` shape.
+ */
+const CONTRACT_CAPS = {
+  definition: {
+    cap: 160,
+    source:
+      "[OFICIAL] the v1.10 contract itself (schema maxLength for identity.definition, #288, 2026-10-24) — over the cap the schema refuses the write (D12)",
+  },
+  "faq.q": {
+    cap: 90,
+    source:
+      "[OFICIAL] the v1.10 contract itself (schema maxLength for faq[].q, #288, 2026-10-24) — over the cap the schema refuses the write (D12)",
+  },
+  "faq.a": {
+    cap: 320,
+    source:
+      "[OFICIAL] the v1.10 contract itself (schema maxLength for faq[].a, #288, 2026-10-24) — over the cap the schema refuses the write (D12)",
+  },
+} as const;
+
+/** The contract-declared cap of one answer-engine field. */
+export function contractLimit(field: keyof typeof CONTRACT_CAPS): ApplicableLimit {
+  const row = CONTRACT_CAPS[field];
+  return { cap: row.cap, source: row.source, tier: "OFICIAL" };
+}
+
 /** A text-limit finding is WARN by contract (D12: facts warn, schema fails). */
 export interface LimitFinding {
   severity: "warn";

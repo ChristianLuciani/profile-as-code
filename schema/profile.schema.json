@@ -139,7 +139,7 @@
     "achievements": {
       "type": "array",
       "items": { "$ref": "#/$defs/achievement" },
-      "description": "v1.16 (D24, #446): the career impact log — what CHANGED, as opposed to `experience[].highlights` (what was done) and `projects[].evidence[]` (what can be proven). One ROOT log, never per-row `outcomes[]`: `refs[]` points at the units a result belongs to, so one result is not duplicated across rows. `target` without `value` is a planned goal and the status is DERIVED (planned | measured | achieved | partial), never stored. Optional and additive: a workspace without achievements[] validates and renders byte-identically. No `minItems`: `load()` normalizes an undeclared log to `[]` and `pasco export profile` emits it (the loaded-shape rule every list root follows), so an empty array must stay schema-valid — F3 of the pre-merge review caught `minItems: 1` rejecting the engine's own export payload."
+      "description": "v1.16 (D24, #446): the career impact log — what CHANGED, as opposed to `experience[].highlights` (what was done) and `projects[].evidence[]` (what can be proven). One ROOT log, never per-row `outcomes[]`: `refs[]` points at the units a result belongs to, so one result is not duplicated across rows. `target` without `value` is a planned goal and the status is DERIVED (planned | measured | achieved | partial), never stored. Optional and additive: a workspace without achievements[] validates and renders byte-identically. No `minItems`: `load()` normalizes an undeclared log to `[]` and `pasco export profile` emits it (the loaded-shape rule every list root follows), so an empty array must stay schema-valid: the engine's own export payload materializes it, and `minItems: 1` would reject it."
     }
   },
 
@@ -646,7 +646,7 @@
       "type": "string",
       "minLength": 1,
       "pattern": "^[a-z0-9][a-z0-9._:-]*$",
-      "description": "v1.3 (D18, §19.2): stable entry id — the ledger address. Unique per block (core-checked, fails validation; JSON Schema cannot express uniqueness). Optional: rows without id are listed by `pasco status` as untracked."
+      "description": "v1.3 (D18, §19.2): stable entry id — the ledger address. Unique per block for the ledger row blocks (`experience`, `projects`, `publications`, `education`, `press`): core-checked, fails validation; JSON Schema cannot express uniqueness. `faq[]` is root and not ledger-tracked, so its ids are enforced where they are addressed — `pasco edit` refuses an ambiguous id — not by the schema. Optional: rows without id are listed by `pasco status` as untracked."
     },
 
     "origin": {

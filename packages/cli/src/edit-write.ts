@@ -35,6 +35,7 @@ import {
   cpSync,
   mkdtempSync,
   openSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   renameSync,
@@ -55,6 +56,28 @@ export interface WriteTarget {
   path: (string | number)[];
 }
 
+/**
+ * The content file that owns a root property. The file NAME is the root property
+ * (schema/README.md) and `load()` matches the extension case-insensitively, so
+ * this scans the directory instead of guessing: a default like
+ * `content/headlines.yaml` would point S2 at a file that may not exist while
+ * `content/headlines.YAML` owns the block (review of #331, F4).
+ *
+ * Shared with `--create` (#435), which must refuse a root that ALREADY exists
+ * under any extension case: resolution and creation cannot disagree on what
+ * "the root exists" means.
+ */
+export function owningFile(workspace: string, root: string): string | undefined {
+  let entries: string[];
+  try {
+    entries = readdirSync(join(workspace, "content"));
+  } catch {
+    return undefined;
+  }
+  const match = entries.filter((name) => new RegExp(`^${root}\\.ya?ml$`, "i").test(name)).sort()[0];
+  return match === undefined ? undefined : `content/${match}`;
+}
+
 export interface WriteOutcome {
   /** Workspace-relative file that was written. */
   file: string;
@@ -62,6 +85,14 @@ export interface WriteOutcome {
   before: string;
   /** True when the file already held the value: nothing was written. */
   noop: boolean;
+}
+
+/** The result of a `--create` seed write (#435). */
+export interface CreateOutcome {
+  /** Workspace-relative file the seed lives in. */
+  file: string;
+  /** Always true on a successful write: `--create` refuses an existing root. */
+  created: boolean;
 }
 
 export interface WriteDeps {
@@ -382,4 +413,95 @@ function writeEditLocked(
     rmSync(tempFile, { force: true });
   }
   return { file: args.target.file, before, noop: false };
+}
+
+/** The input of a `--create` seed write (#435). */
+export interface CreateArgs {
+  workspace: string;
+  /** The root property / file stem (`faq`). */
+  root: string;
+  /** The seed text (`edit-seed.ts` owns the templates). */
+  text: string;
+}
+
+/**
+ * Validate a seed WITHOUT writing it — what `--create --check` runs, and the
+ * pre-write gate `createRoot` runs under the lock.
+ *
+ * `--create` is a DIFFERENT operation from the range splice, never a rewrite of
+ * it: the splice keeps its safety property (never invents bytes), and creation
+ * gets its own guard. The seed text is validated by the SAME `load()` gate the
+ * splice uses (schema, ledger, registry) over a temp copy of `content/`; the real
+ * file is written only after that passes, so an invalid seed never reaches disk.
+ *
+ * The idempotence guard is the root's EXISTENCE, under any extension case:
+ * creating `faq` when `content/faq.YAML` exists would make a second file claim
+ * the same root property, which `load()` rejects (`duplicate root property`). The
+ * refusal is an exit-1 write refusal, not usage: the command was right and the
+ * workspace already has the block.
+ */
+export function previewCreate(args: CreateArgs, deps: WriteDeps = {}): { file: string } {
+  const existing = owningFile(args.workspace, args.root);
+  if (existing !== undefined) {
+    throw new WriteRefusedError(
+      `${existing} already exists — --create seeds a root the workspace does not declare yet and never overwrites one (nothing was written); edit it with \`pasco edit\` or an editor`,
+    );
+  }
+  validateSeed(args, deps);
+  return { file: `content/${args.root}.yaml` };
+}
+
+/** The seed write: lock → validate → exclusive create of the NEW file. */
+export function createRoot(args: CreateArgs, deps: WriteDeps = {}): CreateOutcome {
+  return withWriteLock(args.workspace, deps.lockWaitMs ?? 2_000, () => {
+    const { file } = previewCreate(args, deps);
+    const filePath = join(args.workspace, file);
+    // Validation took real time (a temp copy of content/ + load()); an external
+    // editor may have created the same root in the window. Refuse instead of
+    // overwriting — the same "re-read before the rename" discipline as the splice.
+    if (owningFile(args.workspace, args.root) !== undefined) {
+      throw new WriteRefusedError(
+        `${file} appeared while the seed was being validated — nothing was written; re-run`,
+      );
+    }
+    try {
+      // Exclusive create is the O_EXCL step `rename()` does not give: it fails
+      // with EEXIST instead of replacing a root that appeared in the window.
+      // `link(2)` would do it too but needs hardlinks (FAT/exFAT and some mounts
+      // refuse them), so the seed uses `wx` — the primitive the lock already
+      // uses (#435 fresh passes, F4/F3).
+      writeFileSync(filePath, args.text, { mode: 0o644, flag: "wx" });
+    } catch (err) {
+      if (err instanceof WriteRefusedError) throw err;
+      const code = (err as NodeJS.ErrnoException).code ?? "error";
+      // EEXIST is the atomic refusal, not an I/O failure.
+      if (code === "EEXIST") {
+        throw new WriteRefusedError(
+          `${file} appeared before the seed could be written — nothing was written; re-run`,
+        );
+      }
+      throw new LoadError(`${file}: could not write the seed (${code}) — nothing was written`);
+    }
+    return { file, created: true };
+  });
+}
+
+/** The shared validation gate: a temp copy of `content/` plus the seed, through
+ *  the same `load()` the CLI uses. Never touches the workspace. */
+function validateSeed(args: CreateArgs, deps: WriteDeps): void {
+  const validate = deps.validate ?? ((workspace: string) => void load(workspace));
+  const tempWorkspace = mkdtempSync(join(tmpdir(), "pasco-edit-create-"));
+  try {
+    cpSync(join(args.workspace, "content"), join(tempWorkspace, "content"), { recursive: true });
+    writeFileSync(join(tempWorkspace, "content", `${args.root}.yaml`), args.text, { mode: 0o600 });
+    validate(tempWorkspace);
+  } catch (err) {
+    if (err instanceof LoadError) throw err;
+    const code = (err as NodeJS.ErrnoException).code ?? "error";
+    throw new LoadError(
+      `content/${args.root}.yaml: the seed could not be validated (${code}) — nothing was written`,
+    );
+  } finally {
+    rmSync(tempWorkspace, { recursive: true, force: true });
+  }
 }

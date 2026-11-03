@@ -343,6 +343,49 @@ describe("checkAchievementIntegrity — load fails on contract violations", () =
     expect(err.issues[0]?.message).toContain("§18.5");
   });
 
+  it("a PUBLIC achievement pointing at a PRIVATE artifact is the same leak (the other half)", () => {
+    const err = loadFails({
+      "artifacts.yaml": `
+- id: art-private
+  kind: document
+  title: Internal report
+  locator: { url: https://example.com/internal }
+  visibility: private
+`,
+      "achievements.yaml": `
+- id: ach-x
+  statement: { en: One }
+  kind: milestone
+  artifactId: art-private
+  basis: reported
+  visibility: public
+`,
+    });
+    expect(err.issues[0]?.path).toBe("achievements[0].artifactId");
+    expect(err.issues[0]?.message).toContain("§18.5");
+  });
+
+  it("a PUBLIC achievement reaching a private ARTIFACT through refs[] is the same leak", () => {
+    const err = loadFails({
+      "artifacts.yaml": `
+- id: art-private
+  kind: document
+  title: Internal report
+  locator: { url: https://example.com/internal }
+  visibility: private
+`,
+      "achievements.yaml": `
+- id: ach-x
+  statement: { en: One }
+  kind: milestone
+  refs: ["artifacts:art-private"]
+  basis: reported
+  visibility: public
+`,
+    });
+    expect(err.issues[0]?.path).toBe("achievements[0].refs[0]");
+  });
+
   it("a PUBLIC achievement reaching a private credential through refs[] is the same leak", () => {
     const err = loadFails({
       "credentials.yaml": `

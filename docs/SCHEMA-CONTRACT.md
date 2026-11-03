@@ -45,7 +45,7 @@ not need `achievements[]` can keep using unchanged.
 | Field | Value |
 |---|---|
 | Schema version | `v1.16` |
-| sha256 | `f6fb020ec9b547da9912abc8face1afa6f4e2e4677bd6776a03fce5af011929f` |
+| sha256 | `8d79066b9314b585d3d420afb6562e5bd056541028b450ff90cb00c179518165` |
 | Published artifact | none yet — verify against the checkout (the `note` in the manifest) |
 
 A profile that declares no `achievements[]` validates identically against `v1.16`
@@ -69,10 +69,17 @@ PY
 ```
 
 `profile.json` is the `profile` object of `pasco export profile --json` (SPEC
+<<<<<<< HEAD
 §7.5) or any object in that shape. The printed `$id` names the file you fetched:
 `…/v1.15/…` for the released `v0.3.7` artifact, `…/v1.16/…` for a `main`
 checkout — they are no longer the same bytes (the checkout is one minor ahead
 and has no published artifact yet, see above).
+=======
+§7.5) or any object in that shape. The printed `$id` names the file you fetched
+(the id names the contract version, not a byte-image: `main` may carry a newer
+image of the same `v1.15` than the one the `v0.3.7` tag published, so compare the
+sha256 in `schema/consumer-contract.json` when the exact bytes matter).
+>>>>>>> origin/main
 A consumer that uses the CLI for the payload and a standalone validator for the
 check is the intended split: the CLI produces, the schema verifies.
 

@@ -334,8 +334,16 @@ same absence of automation and history unless your storage provides them.
   lower bound only, not a semver range). `validate`, `build`, `preview` and
   `export profile` check it **before doing any work**: an older installed CLI
   exits `1` with the required version, the installed version and the upgrade
-  command; a malformed value exits `1` naming the accepted syntax. Absent means
-  no requirement. When you invoke `pasco` from a directory whose `.pascorc`
+  command; a malformed value exits `1` naming the accepted syntax. **A new
+  workspace declares this floor at birth**: `pasco init` writes `"engine"` with
+  the installed CLI version itself, so the field is never added, typed or
+  maintained by hand. Absent is reachable on a workspace born before that
+  behavior, on one whose scaffold was hand-edited, and on a scaffold written by a
+  pre-release build (which declares nothing rather than pinning an unreleased
+  version) — it means no requirement, and
+  `pasco doctor` names it `absent` instead of looking like a pass. The one-time
+  fix for such a workspace is [§8.2.1](#821-upgrading-a-workspace-born-on-an-older-engine)
+  step 3. When you invoke `pasco` from a directory whose `.pascorc`
   resolves your workspace (`"workspace": "sub"`), both that file and the
   workspace's own `.pascorc` are read and the **stricter** declaration wins; an
   explicit `--workspace` uses only the workspace's file. `pasco doctor` reports
@@ -536,21 +544,36 @@ looks green (`zsh: command not found: #` from a comment, a `parse error near ')'
 and the exit code of the *next* command says nothing about the edit. The engine
 never sees what the shell dropped — the read-back is the only witness (#440).
 
-**What `pasco edit` can address.** Exactly four fields. One is read-only, and the
-rest of the contract is reached with an editor:
+**What `pasco edit` can address.** Seven fields. One is read-only, and the rest
+of the contract is reached with an editor:
 
 | Address | Field | Write |
 |---|---|---|
 | `positioning.statement.<lang>` | the positioning sentence, per language | yes |
 | `headlines[platform=<p>,lang=<l>].text` | one headline row | yes |
 | `bios[platform=<p>,lang=<l>,length=<len>].text` | one bio row (`short`/`medium`/`long`) | yes |
+| `identity.definition.<lang>` | the canonical one-sentence definition, per language | yes |
+| `faq[id=<slug>,lang=<l>].q` / `.a` | one answer row's question/answer, in one language | yes |
+| `faq[id=<slug>].source` | the optional http(s) pointer backing that answer | yes |
 | `identity.links[platform=<p>,label=<l>].url` | one link URL (`label` disambiguates two links on one platform) | **read-only** |
 
-Everything else needs the editor: `identity.definition.<lang>`, `faq[id=…].q|a|source`,
-and any root the workspace does not declare yet — the write is a byte-range splice
-over existing bytes, so it cannot create `content/faq.yaml` (#435). Those are also
-the fields with published caps: `definition` ≤ 160 characters, `faq[]` 3–20
-pairs with `q` ≤ 90 and `a` ≤ 320 — all enforced by the schema. Three
+`faq[]` rows are selected by their stable `id`, never by array index; a repeated
+`id` is ambiguous and the command refuses to choose. `q` and `a` are per-language
+maps, so their `lang` selector is required, and an optional value the row does not
+carry yet (`source`, or `q.es`) is a 0-row address: `edit` changes values, it
+never creates them.
+
+A **root the workspace does not declare yet** needs `pasco edit --create <root>`
+first — the write is a byte-range splice over existing bytes, so it cannot create
+`content/faq.yaml` on its own (#435). `pasco edit --create faq` writes a three-pair
+placeholder template (the schema floor), refuses when the root already exists
+(idempotent), and `--create faq --check` previews it without writing. Replace every
+`<placeholder>`: the engine never invents facts.
+
+Those answer-engine fields are also the ones with published caps: `definition`
+≤ 160 characters, `faq[]` 3–20 pairs with `q` ≤ 90 and `a` ≤ 320 — all enforced by
+the schema and pre-flighted by `pasco edit` (an over-cap value is refused by
+validation, not warned about like a platform's soft cap). Three
 answer-surface rules are **not** schema: `q` must be unique per workspace, a
 `definition` must contain the entity name, and `geoCheck` wants a `source` on
 every `faq[]` row — JSON Schema cannot express any of the three, so `pasco
@@ -1128,16 +1151,23 @@ command, not the engine refusing one.
    meant to install.
 2. **Read the pair** — `pasco doctor` prints engine · schema · workspace on one
    line. Receipt: exit `0` and `(valid)`; on `1`, the line names the failing leg.
-3. **Declare the floor** — add `"engine": "0.3.7"` to `.pascorc` (which is JSON:
+3. **Declare the floor — only if your workspace was born before it** — a new
+   workspace gets the floor at birth: `pasco init` writes the installed version
+   itself, so you never add, type or bump the field by hand. On a workspace born
+   on an older engine, add `"engine": "0.3.7"` to `.pascorc` once (which is JSON:
    no comments). The value is exactly `MAJOR.MINOR.PATCH` — no `^`, `~`, `>=`, `v`
    or `*`. Receipt: `grep -n '"engine"' .pascorc` prints the line **and**
    `pasco doctor` reads the requirement as `met`. The floor is a minimum, not a pin:
    `validate`, `build`, `export profile` and `preview` refuse before doing work when
    the installed CLI is older and name the upgrade command. No floor is not a pass —
-   `doctor` says `absent`.
+   `doctor` says `absent`. On an `Unrecognized key` schema failure `pasco
+   validate` adds one hint naming the upgrade (also when the declared floor is
+   met, i.e. the data is newer than the engine); `build`, `preview` and `export
+   profile` keep the gate's own line, which names the upgrade only when the
+   installed CLI is older than the floor.
 4. **Adopt fields** — additive means opt-in. `pasco edit --list` prints every
-   addressable row your workspace has; the four addresses and the fields that need
-   an editor are the table in [§4.4](#44-your-first-edit-without-an-editor).
+   addressable row your workspace has; the addresses (and the roots that need
+   `--create` first) are the table in [§4.4](#44-your-first-edit-without-an-editor).
    Receipt: `pasco edit '<address>'` without `--set` prints the value you wrote (or
    the `grep` of a hand-edited file) **and** `pasco validate` stays green.
 5. **Rebuild** — `pasco build`. Receipt: `git diff --stat profiles/` names the

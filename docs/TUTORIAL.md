@@ -455,7 +455,16 @@ label the grammar cannot express is dropped so the row is listed by its platform
 resolves to one row, and any address that resolves to more than one row (a duplicate
 headline/bio, a label-less link sharing its platform) is a warning — never an address that
 would not parse. An empty workspace prints the header alone. `--list` with `--set`, `--check` or an
-address is usage (exit `2`). `pasco edit --help` still prints the four address *shapes*.
+address is usage (exit `2`). In the published **0.3.7** this walkthrough measured, `pasco edit
+--help` printed the four address *shapes*.
+
+> **After 0.3.7** the same command reaches the answer-engine surface: `identity.definition.<lang>`
+> and `faq[id=<slug>,lang=<l>].q|.a` / `faq[id=<slug>].source` are addressable (row by stable
+> `id`, never index; a repeated id exits `1` instead of choosing), `--list` covers six scopes
+> (`positioning`, `headlines`, `bios`, `identity.definition`, `identity.links`, `faq` — one
+> address per line, no headers), and
+> `pasco edit --create faq` seeds `content/faq.yaml` — a separate operation that refuses an
+> existing root. The 0.3.7 transcript above is left as the dated record it is.
 
 ### M13 — `export profile`: deterministic, no clock
 

@@ -367,7 +367,7 @@ function writeContract() {
       artifact: published ? releasedUrl(tag) : null,
       note: published
         ? `Published at ${tag} — the tag-pinned URL above identifies these bytes.`
-        : `No released tag carries schema v${schemaVersion} yet, so there is no tag-pinned URL for these bytes: use the repository checkout at a commit whose ${SCHEMA_REL} hashes to this sha256. The next release publishes it.`,
+        : `The v0.3.7 tag publishes an earlier byte-image of schema v${schemaVersion}, not these bytes, so there is no tag-pinned URL for this sha256: use the repository checkout at a commit whose ${SCHEMA_REL} hashes to it. The next release publishes it.`,
     },
     released: {
       tag,

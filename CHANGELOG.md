@@ -11,6 +11,7 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+<<<<<<< HEAD
 - **`achievements[]` — a career impact log with metrics, targets and capture-first
   evidence (#446, D24, schema v1.16)** — the contract recorded what a person DID
   (`experience[].highlights`, free text: no value, unit, baseline, target or link)
@@ -41,9 +42,48 @@ minor versions may contain breaking contract changes.
   SPEC §5 D24 + §6 + §7 + §23, `schema/README.md`, `docs/SCHEMA-CONTRACT.md` and
   `schema/consumer-contract.json` (v1.16, unpublished) document the change, and
   `completeness` counts `achievements[].statement` in language coverage.
+=======
+- **`pasco edit` reaches the answer-engine surface — and `--create` seeds a
+  missing root (#435)** — two addresses join the contract-path grammar with the
+  same rules as the existing ones (exactly one row, `--check` preview, cap
+  pre-flight): `identity.definition.<lang>` and
+  `faq[id=<slug>,lang=<l>].q|.a` / `faq[id=<slug>].source`. `faq[]` rows are
+  selected by their stable `id` (a repeated id is ambiguous and refused, never
+  index-addressed) and `q`/`a` are langMaps, so their `lang` selector is
+  required; an optional value the row does not carry is a 0-row address. The
+  preview is the field's real published surface: `identity.definition` shows the
+  entity JSON-LD line the `github-readme`/`github-org` artifacts embed, and
+  `faq[]` shows the `FAQPage` node `pasco entity --jsonld` emits (no
+  `pasco build` artifact carries it). Both are pre-flighted against the
+  contract's own caps (160 / 90 / 320 chars per value, v1.10 #288): unlike a
+  platform's soft cap, over one is a schema failure, so the pre-flight warns and
+  the write is refused by validation. The byte-range splice cannot invent a
+  root, so `--create <root>` is a SEPARATE operation: it writes a schema-valid
+  template for a root the workspace does not declare yet (`faq`: 3 placeholder
+  pairs, the schema minimum — never invented facts), refuses an existing root
+  under any extension case (idempotent, nothing written), takes the same write
+  lock and validation gate over a temp copy, runs the same cap pre-flight, and
+  `--check` previews the seed. `--list` gains `identity.definition` and `faq`
+  scopes. `--help`, the CLI README, the user guide and SPEC §7 document the new
+  addresses and the seeded root.
+>>>>>>> origin/main
 
 ### Fixed
 
+- **The engine floor is declared at birth, and an old engine's failure names the
+  upgrade (#434)** — `pasco init` now writes `"engine": "<installed CLI version>"`
+  into `.pascorc` (in the gate's `MAJOR.MINOR.PATCH` grammar), so a scaffolded
+  workspace can no longer leave the gate off by default; a build whose version
+  carries a pre-release suffix declares **no** floor at all (reducing it to the
+  numeric triple would pin the scaffold to a version `@latest` may not publish).
+  When schema validation fails on an `Unrecognized key`, `pasco validate` adds
+  ONE hint line naming the likely cause (data newer than the engine) and the
+  remedy (`npm i -g @profile-as-code/cli@latest`, then `pasco doctor`) — as
+  `error.hint` in `--json` too — unless the engine gate already named the
+  mismatch (installed older than the declared floor). The verdict is unchanged: exit `1`, same violations. `init`'s
+  version comes from one shared read (`packages/cli/src/version.ts`), never a
+  literal, and `docs/USER-GUIDE.md` §3/§8.2.1 now state that the floor is
+  declared at birth, not by hand.
 - **`pasco doctor` names the engine-requirement state instead of letting
   "absent" look met (#436)** — the line now reads `engine requirement absent — no
   .pascorc declares one` for a workspace with no declaration, alongside `met`,
