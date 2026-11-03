@@ -154,7 +154,7 @@ pasco build github-readme --lang en   # deterministic base texts
 pasco refine github-readme --variants 3   # agent-driven variants (template + --choose; full flow M3)
 \`\`\`
 
-See the [CLI reference](https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/cli#readme) for the full command reference.
+See the [CLI reference](https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/cli#readme) for the full command reference, including what \`check\` compares against \`content/\`, the order \`build\` chooses an artifact, and where the per-platform character caps come from.
 `;
 
 const BRAND_README_TEMPLATE = `# ${WORKSPACE_NAME}
@@ -202,7 +202,7 @@ pasco check                   # handle-matrix rules (handle-claimed / handle-con
 pasco build github-org --lang en   # org README (git deploy)
 \`\`\`
 
-See the [CLI reference](https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/cli#readme) for the full command reference.
+See the [CLI reference](https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/cli#readme) for the full command reference, including what \`check\` compares against \`content/\`, the order \`build\` chooses an artifact, and where the per-platform character caps come from.
 `;
 
 /**

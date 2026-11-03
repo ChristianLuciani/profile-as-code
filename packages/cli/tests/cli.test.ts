@@ -169,6 +169,20 @@ describe("surface", () => {
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
+  // #389: the three questions a reader had to reconstruct from `dist` (what
+  // `fact-present` compares, build's source order, where the caps come from)
+  // have one written home. `--help` names it in one line, so an agent that can
+  // read the installed package finds the reference without reading the bundle.
+  it("points at the reference for the cycle's rules (#389)", () => {
+    const help = run(["--help"]).stdout;
+    const at = help.indexOf("fact-present");
+    expect(at).toBeGreaterThanOrEqual(0);
+    const line = help.slice(help.lastIndexOf("\n", at) + 1, help.indexOf("\n", at));
+    expect(line).toContain("README.md");
+    expect(line).toContain("build's order");
+    expect(line).toContain("char caps");
+  });
+
   it("every command summary carries exactly one cycle tag (#387)", () => {
     const help = run(["--help"]).stdout;
     const commands = help.slice(help.indexOf("Commands:"), help.indexOf("Common flags"));

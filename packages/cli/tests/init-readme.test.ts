@@ -279,6 +279,24 @@ describe("scaffolded README references (#385)", () => {
     }
   });
 
+  // #389: the scaffold is one of the three on-ramps to the reference. The
+  // pointer names the three questions and lands on the package page — a URL the
+  // reader can open, never a repository path (rule 9).
+  it("both templates point at the reference for the cycle's rules (#389)", () => {
+    for (const flavor of [undefined, "brand"] as const) {
+      const { readme } = scaffold(flavor);
+      const at = readme.indexOf("CLI reference");
+      expect(at, `template (${flavor ?? "person"}) must link the CLI reference`).toBeGreaterThan(
+        -1,
+      );
+      const line = readme.slice(readme.lastIndexOf("\n", at) + 1, readme.indexOf("\n", at));
+      expect(line).toContain("https://");
+      expect(line).toContain("what `check` compares");
+      expect(line).toContain("the order `build` chooses");
+      expect(line).toContain("character caps");
+    }
+  });
+
   it("the walker catches a workspace path that does not exist", () => {
     const workspace = tempDir();
     mkdirSync(join(workspace, "content"));

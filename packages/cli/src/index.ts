@@ -71,6 +71,7 @@ The cycle:
   pasco build [platform]  write the per-platform artifacts
 
 Each command's tag says where it sits in the cycle: [write] · [read] · [check].
+The rules behind it (fact-present, build's order, char caps): README.md in the installed package.
 
 Commands:
   init [dir]                    [write] Scaffold a ${WORKSPACE_NAME} workspace (content/, README.md, .pascorc)
@@ -390,7 +391,7 @@ fabricated one). The block also carries the measured drift count.
 A headline/bio value is pre-flighted against the catalog's own max-chars cap (the
 workspace's checks.yaml, else the sourced caps shipped with pasco) and prints the
 cap, its cited source and tier; over-cap is a WARNING (D12), never a block, and a platform
-with no sourced cap reads \`cap: unknown\`. identity.definition and faq[].q|.a are
+with no sourced cap reads \`cap unknown\`. identity.definition and faq[].q|.a are
 pre-flighted against the contract's own caps (160 / 90 / 320 chars per value,
 #288): over one is a schema failure (D12), so the pre-flight warns and the write
 is refused by validation.
