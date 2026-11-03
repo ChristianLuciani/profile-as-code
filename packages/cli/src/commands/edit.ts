@@ -1335,6 +1335,9 @@ function runCreate(args: EditArgs): number {
       created: !preview,
       preview,
       seed: seedLabel,
+      // The machine contract carries the template too: a label is not a preview
+      // (#451 fresh pass 2, F2).
+      ...(preview ? { template: text } : {}),
       limits: limits.map((limit) => ({
         field: limit.field,
         cap: limit.cap,

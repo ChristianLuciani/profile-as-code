@@ -6,7 +6,7 @@
     "sha256": "b68cbeebb677bf251d226bcffc7f1cec6b49673ca05d5596d788a0eeece67e67",
     "published": false,
     "artifact": null,
-    "note": "No released tag carries schema v1.15 yet, so there is no tag-pinned URL for these bytes: use the repository checkout at a commit whose schema/profile.schema.json hashes to this sha256. The next release publishes it."
+    "note": "The v0.3.7 tag publishes an earlier byte-image of schema v1.15, not these bytes, so there is no tag-pinned URL for this sha256: use the repository checkout at a commit whose schema/profile.schema.json hashes to it. The next release publishes it."
   },
   "released": {
     "tag": "v0.3.7",

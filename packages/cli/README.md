@@ -550,7 +550,7 @@ a **staleness** refusal (exit 1), not a silent write to the wrong row.
 Concurrent `pasco edit` writers on one workspace serialize on
 `content/.pasco-edit.lock` (a second waits 2 s, then refuses; a lock left by a
 crash is broken after 30 s — `--create` takes the same lock and re-checks the
-root immediately before its atomic rename); an external editor is caught by the re-read
+root immediately before its exclusive create); an external editor is caught by the re-read
 immediately before the atomic rename. A symlinked
 content file keeps its link (the target is replaced) and the file mode is
 preserved. Re-setting an identical value is a **noop** (exit 0, nothing written).

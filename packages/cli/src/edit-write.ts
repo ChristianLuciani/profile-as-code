@@ -33,7 +33,6 @@ import {
   closeSync,
   constants,
   cpSync,
-  linkSync,
   mkdtempSync,
   openSync,
   readdirSync,
@@ -42,7 +41,6 @@ import {
   renameSync,
   rmSync,
   statSync,
-  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -453,7 +451,7 @@ export function previewCreate(args: CreateArgs, deps: WriteDeps = {}): { file: s
   return { file: `content/${args.root}.yaml` };
 }
 
-/** The seed write: lock → validate → atomic rename of the NEW file. */
+/** The seed write: lock → validate → exclusive create of the NEW file. */
 export function createRoot(args: CreateArgs, deps: WriteDeps = {}): CreateOutcome {
   return withWriteLock(args.workspace, deps.lockWaitMs ?? 2_000, () => {
     const { file } = previewCreate(args, deps);
@@ -466,33 +464,23 @@ export function createRoot(args: CreateArgs, deps: WriteDeps = {}): CreateOutcom
         `${file} appeared while the seed was being validated — nothing was written; re-run`,
       );
     }
-    const tempFile = join(dirname(filePath), `.pasco-edit-${process.pid}-${randomUUID()}.tmp`);
     try {
-      writeFileSync(tempFile, args.text, { mode: 0o644 });
-      // Last check, immediately before the rename: the residual window is
-      // microseconds, the same one the splice narrows by re-reading the file.
-      if (owningFile(args.workspace, args.root) !== undefined) {
-        throw new WriteRefusedError(
-          `${file} appeared before the seed could be written — nothing was written; re-run`,
-        );
-      }
-      // `linkSync` is the O_EXCL step rename() does not give: it fails with
-      // EEXIST instead of replacing a file that appeared in the window, so the
-      // seed can never overwrite a root (#435 fresh pass, F4).
-      linkSync(tempFile, filePath);
-      unlinkSync(tempFile);
+      // Exclusive create is the O_EXCL step `rename()` does not give: it fails
+      // with EEXIST instead of replacing a root that appeared in the window.
+      // `link(2)` would do it too but needs hardlinks (FAT/exFAT and some mounts
+      // refuse them), so the seed uses `wx` — the primitive the lock already
+      // uses (#435 fresh passes, F4/F3).
+      writeFileSync(filePath, args.text, { mode: 0o644, flag: "wx" });
     } catch (err) {
       if (err instanceof WriteRefusedError) throw err;
       const code = (err as NodeJS.ErrnoException).code ?? "error";
-      // EEXIST is the atomic refusal the link() gives us, not an I/O failure.
+      // EEXIST is the atomic refusal, not an I/O failure.
       if (code === "EEXIST") {
         throw new WriteRefusedError(
           `${file} appeared before the seed could be written — nothing was written; re-run`,
         );
       }
       throw new LoadError(`${file}: could not write the seed (${code}) — nothing was written`);
-    } finally {
-      rmSync(tempFile, { force: true });
     }
     return { file, created: true };
   });

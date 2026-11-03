@@ -460,8 +460,9 @@ address is usage (exit `2`). In the published **0.3.7** this walkthrough measure
 
 > **After 0.3.7** the same command reaches the answer-engine surface: `identity.definition.<lang>`
 > and `faq[id=<slug>,lang=<l>].q|.a` / `faq[id=<slug>].source` are addressable (row by stable
-> `id`, never index; a repeated id exits `1` instead of choosing), `--list` prints six blocks
-> (`positioning` → `headlines` → `bios` → `identity.definition` → `identity.links` → `faq`), and
+> `id`, never index; a repeated id exits `1` instead of choosing), `--list` covers six scopes
+> (`positioning`, `headlines`, `bios`, `identity.definition`, `identity.links`, `faq` — one
+> address per line, no headers), and
 > `pasco edit --create faq` seeds `content/faq.yaml` — a separate operation that refuses an
 > existing root. The 0.3.7 transcript above is left as the dated record it is.
 
