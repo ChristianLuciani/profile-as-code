@@ -35,8 +35,9 @@ minor versions may contain breaking contract changes.
   never as a finding for `reported`. Additive: a workspace without the block
   validates and renders byte-identically — `pasco export profile` emits
   `achievements: []` for it, the same loaded-shape rule every list root follows,
-  which is why the root carries no `minItems` (an explicitly empty array stays
-  schema-valid; the block is absent or non-empty in a workspace).
+  which is why the root carries no `minItems`: an explicitly empty array stays
+  schema-valid, and "declare the block only when you have rows" is an authoring
+  convention the engine does not enforce.
   SPEC §5 D24 + §6 + §7 + §23, `schema/README.md`, `docs/SCHEMA-CONTRACT.md` and
   `schema/consumer-contract.json` (v1.16, unpublished) document the change, and
   `completeness` counts `achievements[].statement` in language coverage.

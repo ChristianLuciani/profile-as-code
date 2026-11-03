@@ -223,11 +223,14 @@ function ssotFindings(profile: LoadedProfile, pascorc: Pascorc): AuditFinding[] 
     ) {
       continue;
     }
-    const row = achievement.id === undefined ? String(index) : achievement.id;
+    // `achievements` is OUTSIDE the `factRef` grammar (§7.1), so the address is
+    // the row INDEX — never the row id: the faq precedent (`faq[1].a`). A row id
+    // here would invent a `block[id]` form the grammar reserves for the blocks it
+    // addresses (round-2 review, F1).
     findings.push(
       finding(
         "unsourced-claim",
-        `achievements[${row}]`,
+        `achievements[${index}]`,
         `the ${achievement.basis} claim carries no pointer (\`source\`, \`artifactId\` or \`credentialId\`) — a claim with no evidence behind it`,
       ),
     );
