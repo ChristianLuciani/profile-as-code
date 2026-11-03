@@ -33,6 +33,7 @@ import {
   closeSync,
   constants,
   cpSync,
+  linkSync,
   mkdtempSync,
   openSync,
   readdirSync,
@@ -41,6 +42,7 @@ import {
   renameSync,
   rmSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -474,10 +476,20 @@ export function createRoot(args: CreateArgs, deps: WriteDeps = {}): CreateOutcom
           `${file} appeared before the seed could be written — nothing was written; re-run`,
         );
       }
-      renameSync(tempFile, filePath);
+      // `linkSync` is the O_EXCL step rename() does not give: it fails with
+      // EEXIST instead of replacing a file that appeared in the window, so the
+      // seed can never overwrite a root (#435 fresh pass, F4).
+      linkSync(tempFile, filePath);
+      unlinkSync(tempFile);
     } catch (err) {
       if (err instanceof WriteRefusedError) throw err;
       const code = (err as NodeJS.ErrnoException).code ?? "error";
+      // EEXIST is the atomic refusal the link() gives us, not an I/O failure.
+      if (code === "EEXIST") {
+        throw new WriteRefusedError(
+          `${file} appeared before the seed could be written — nothing was written; re-run`,
+        );
+      }
       throw new LoadError(`${file}: could not write the seed (${code}) — nothing was written`);
     } finally {
       rmSync(tempFile, { force: true });

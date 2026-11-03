@@ -1305,10 +1305,26 @@ describe("pasco edit — the answer-engine surface (#435)", () => {
     expect(r.code).toBe(0);
     expect(r.stdout).toContain("address:  identity.definition.en");
     expect(r.stdout).toContain("current:  Elena Vasquez is an AI engineer building sovereign");
-    expect(r.stdout).toContain("chars vs cap 160 — ok");
+    expect(r.stdout).toContain(`chars vs cap ${schemaCaps().definition} — ok`);
     expect(r.stdout).toContain("[OFICIAL] the v1.10 contract itself");
     // The §19 unit is `identity` (a root block), not a fabricated row key.
     expect(r.stdout).toContain("surface impact (identity —");
+  });
+
+  it("refuses a definition over the contract cap, and the preview says OVER", () => {
+    const dir = answerWorkspace();
+    const over = "x".repeat(schemaCaps().definition + 1);
+    const preview = edit(dir, "identity.definition.en", "--set", over, "--check");
+    expect(preview.stdout).toContain(`chars vs cap ${schemaCaps().definition} — OVER`);
+    // `--check` only previews (nothing written), so its own exit stays 0; the
+    // WRITE is what the schema refuses.
+    expect(preview.code).toBe(0);
+    // The write is refused by the same schema gate: the file keeps its value.
+    const write = edit(dir, "identity.definition.en", "--set", over);
+    expect(write.code).toBe(1);
+    expect(readFileSync(join(dir, "content", "identity.yaml"), "utf8")).toContain(
+      "Elena Vasquez is an AI engineer building sovereign",
+    );
   });
 
   it("reports 0 rows for an undeclared definition language, listing the ones it has", () => {
@@ -1526,6 +1542,16 @@ describe("pasco edit — the answer-engine surface (#435)", () => {
 });
 
 describe("pasco edit --create — seeding a missing root (#435)", () => {
+  it("--check prints the seed it validated and writes nothing", () => {
+    const dir = workspace();
+    const r = edit(dir, "--create", "faq", "--check");
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("--- seed (nothing was written) ---");
+    // The template itself, not just its label: the pair the schema floor requires.
+    expect(r.stdout).toContain("- id: question-1");
+    expect(r.stdout).toContain("<the first question this entity answers>");
+    expect(existsSync(join(dir, "content", "faq.yaml"))).toBe(false);
+  });
   it("--check validates the seed and writes nothing", () => {
     const dir = workspace();
     const before = workspaceHash(dir);

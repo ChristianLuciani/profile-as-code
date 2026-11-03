@@ -540,7 +540,10 @@ catalog declares no `fact-present` premise at all carries `scope.declared: []`, 
 the contract reads as "nothing measured", not as clean — and a package that ships no
 skills tree says so (`scope.catalog: "not-shipped"`), never "nothing declared".
 `faq` is outside the `factRef` grammar, so a claim finding addresses the row and the
-FIELD that carries the claim with the index (`faq[1].a`), never a row id.
+FIELD that carries the claim with the index (`faq[1].a`), never a row id — the
+audit's addressing. `pasco edit` addresses the same rows by their stable `id`
+(`faq[id=<slug>,lang=<l>].a`, §7): two surfaces, two spellings, each stated; the
+index is never accepted as an edit path (exit 2).
 
 **D23 is ratified and normative (§5, §22).** `surface.kind`, `releases[]`,
 `pasco presence` and `pasco release plan` ship against it (issue #262). `audit`

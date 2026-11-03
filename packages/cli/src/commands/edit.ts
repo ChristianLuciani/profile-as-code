@@ -678,9 +678,12 @@ interface Published {
   error?: string;
 }
 
-/** Pretty JSON — the preview's text form of the entity projection. */
+/** Pretty JSON — the preview's text form of the entity projection. `<` is
+ *  escaped exactly as `entity`'s script serializer escapes it (`jsonLdScript`,
+ *  `commands/entity.ts`), so the previewed bytes are the published bytes and a
+ *  URL cannot terminate the `<script>` early (#435 fresh pass, F3). */
 function jsonText(value: unknown): string {
-  return value === undefined ? "" : JSON.stringify(value, null, 2);
+  return value === undefined ? "" : JSON.stringify(value, null, 2).replace(/</g, "\\u003c");
 }
 
 function publishedByEdit(
@@ -1316,6 +1319,12 @@ function runCreate(args: EditArgs): number {
       ? "would create: yes (--check: validated, nothing was written)"
       : "written:  yes (validated by load()+schema over a temp copy, then written)",
   );
+  if (preview) {
+    // The seed IS the preview: `--check` promises to show what would be created,
+    // and a label ("N pairs") is not the template (#435 fresh pass, F2).
+    line("--- seed (nothing was written) ---");
+    for (const seedLine of text.trimEnd().split("\n")) line(`  ${seedLine}`);
+  }
   line("validates: yes (schema)");
 
   return report("edit", true, EXIT.OK, {
