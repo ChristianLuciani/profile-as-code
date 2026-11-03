@@ -104,10 +104,14 @@ Commands:
                                 contradiction, unsourced-claim; stricter than
                                 validate/check on those classes; exit 1 iff any FAIL
   discover <url>... [--json]    [read]  Provisional profile from public surfaces: reads each
+          [--observations <file>]
                                 surface's schema.org Person/Organization JSON-LD + links
                                 (a GitHub profile has no such node), writes nothing and
                                 marks every fact unattested; reports the audit classes
-                                (dangling-ref · contradiction · unsourced-claim)
+                                (dangling-ref · contradiction · unsourced-claim). A
+                                surface the machine cannot read gets a hand-read row
+                                via --observations (YAML: surface, field, value, url,
+                                retrieved_at) — no request, same audit
   entity [--json] [--jsonld]    [read]  The schema.org entity projection: facts, @id, sameAs,
           [--out <file> [--force]] [--bare] [--lang <l>]
                                 readiness gaps and the FAQPage node as JSON, or the
@@ -204,6 +208,7 @@ interface FlagOptions {
   now?: string;
   "no-open"?: boolean;
   "allow-host"?: string;
+  observations?: string;
 }
 
 function parseCommandFlags(
@@ -237,7 +242,7 @@ function parseCommandFlags(
 }
 
 const COMMAND_HELP: Record<string, string> = {
-  discover: `pasco discover <url>... [--json] [--allow-host <hosts>]
+  discover: `pasco discover <url>... [--json] [--allow-host <hosts>] [--observations <file>]
 Read public surfaces and build a PROVISIONAL profile so the audit's checks can
 run for a prospect who has no workspace. Every populated fact carries its
 source (surface, URL, retrieval time) and attested:false; fields that could not
@@ -249,14 +254,25 @@ GitHub profile carries none, and neither does a product/application page
 An unsourced quantitative sentence is reported only when it is ABOUT the entity
 (it names it or its handle, or is first-person) - a badge counter or a nameless
 footer is not a claim about the person. Identical sentences are reported once.
+A surface the machine cannot read (a wall: http-999/403; no Person node) is a
+job for a human: --observations takes a YAML sequence of rows the operator read
+by hand, each with surface, field (name | link | experience), value, url and
+retrieved_at. Those rows make NO request - their URL is a provenance label - and
+they enter the same provisional profile, so the same classes run over them.
+Two surfaces that declare different names, or experience rows that disagree,
+are reported as a contradiction; what the machine-read surfaces cannot supply
+(a page text for unsourced-claim) is simply not part of a manual row.
 Requests are sequential, never retried, credential-free and confined to a
 closed host allowlist: the platform hosts the engine ships, plus --allow-host
 (comma-separated). A URL outside it is reported as
 host-not-allowed with NO request made. Nothing is written: no content/, no
 ledger, no artifact.
-  --json        machine-readable report: surfaces, unchecked URLs, the
-                provisional profile, its per-fact provenance and the findings
+  --json        machine-readable report: surfaces (with via: fetch|manual),
+                unchecked URLs, the provisional profile, its per-fact provenance
+                and the findings
   --allow-host  extra hostnames the operator declares, comma-separated
+  --observations  YAML rows read by hand (no request made); refused with the row
+                number when a row is malformed
 Exit 1 iff a FAIL finding exists (dangling-ref or contradiction).`,
   init: `pasco init [dir] [--flavor person|brand]
 Scaffold a ${WORKSPACE_NAME} workspace skeleton (SPEC §9): content/identity.yaml,
@@ -992,13 +1008,18 @@ async function runMain(): Promise<number> {
     case "discover": {
       const { flags, positionals } = parseCommandFlags(rest, {
         "allow-host": { type: "string" },
+        observations: { type: "string" },
       });
       if (flags.help === true) {
         process.stdout.write(`${COMMAND_HELP.discover}\n`);
         return EXIT.OK;
       }
-      if (positionals.length === 0)
-        throw new UsageError("usage: pasco discover <url>... [--json] [--allow-host <hosts>]");
+      const observationsPath =
+        typeof flags.observations === "string" ? flags.observations : undefined;
+      if (positionals.length === 0 && observationsPath === undefined)
+        throw new UsageError(
+          "usage: pasco discover <url>... [--observations <file>] [--json] [--allow-host <hosts>]",
+        );
       setJsonMode(flags.json === true);
       const allowHosts =
         typeof flags["allow-host"] === "string"
@@ -1010,6 +1031,7 @@ async function runMain(): Promise<number> {
       return await runDiscover({
         urls: positionals,
         ...(allowHosts !== undefined ? { allowHosts } : {}),
+        ...(observationsPath !== undefined ? { observationsPath } : {}),
       });
     }
     case "audit": {

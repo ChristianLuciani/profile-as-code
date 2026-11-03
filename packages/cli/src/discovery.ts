@@ -27,6 +27,11 @@
  * Facts are not deduplicated ACROSS surfaces on purpose: `driftCheck` can only
  * see a disagreement it is given, so one row per surface is what makes the
  * contradiction observable. Within one surface, identical facts collapse.
+ *
+ * An observation does not have to come from the transport: `--observations`
+ * (#412) turns the operator's hand-read rows into the same shape, so a walled
+ * surface with no JSON-LD enters this assembly instead of a parallel one. The
+ * source is declared per surface in the report (`via`), never inferred.
  */
 
 import {
@@ -467,6 +472,14 @@ export interface UnresolvedLink {
   status: 404 | 410;
 }
 
+/** The entity name one observation DECLARES (never inferred from a page title).
+ *  Exported because the manual-input path needs the same rule to explain its
+ *  refusal before the provisional layer's JSON-LD-specific message would. */
+export function declaredName(observation: SurfaceObservation): string | undefined {
+  const node = flattenJsonLd(observation.jsonLd)[0];
+  return node === undefined ? undefined : asString(node.name);
+}
+
 /**
  * Findings over the provisional profile. Reuses the audit's class contract —
  * same three classes, same fixed severities, same deterministic order — so a
@@ -502,6 +515,29 @@ export function discoveryFindings(
         : provenanceOf(ref);
     const suffix = cited === ref || cited === "" ? "" : ` — asserted by ${cited}`;
     findings.push(finding(mapped, ref, `${issue.code} — ${issue.message}${suffix}`));
+  }
+
+  // The name is the one datum a prospect's surfaces usually DO repeat, and the
+  // provisional profile can hold only one `identity.name` (the first
+  // declaration). Without this rule the second declaration would be dropped in
+  // silence — and the disagreement IS the finding (SPEC §7.10, #412).
+  const declared = observations.flatMap((observation) => {
+    const name = declaredName(observation);
+    return name === undefined ? [] : [{ name, observation }];
+  });
+  const normalizedNames = new Set(
+    declared.map((item) => item.name.toLowerCase().replace(/\s+/gu, " ")),
+  );
+  if (normalizedNames.size > 1) {
+    findings.push(
+      finding(
+        "contradiction",
+        "identity.name",
+        `identity.name is declared differently across surfaces: ${declared
+          .map(({ name, observation }) => `"${name}" — ${observation.surface} (${observation.url})`)
+          .join(" · ")}`,
+      ),
+    );
   }
 
   for (const link of unresolved) {

@@ -11,6 +11,25 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **`discover --observations` — the human reads the surface the machine cannot
+  (#412, SPEC §7.10)** — `discover` reads only schema.org `Person`/`Organization`
+  JSON-LD, which is exactly what a prospect's real surfaces do not publish
+  (measured at `4560ae1`: LinkedIn `http-999`, ResearchGate `http-403`,
+  ORCID/X/Instagram no `Person` node — 0 of 5 usable), so the audit's classes had
+  no input for the person the engine sells an audit to. `--observations <file>`
+  takes a YAML sequence of rows the operator read by hand — `surface`, `field`
+  (`name` · `link` · `experience`), `value`, `url`, `retrieved_at` — and turns
+  each into the SAME `SurfaceObservation` the transport produces, so
+  `provisionalProfile`, per-fact provenance, `absent[]` and `discoveryFindings`
+  run unchanged: one assembly path, one findings path, no parallel shape. Manual
+  rows make NO request (the `url` is a provenance pointer, not a fetch target) and
+  enter first, so a declared name beats a machine-read one. `--json` marks each
+  surface `via: fetch|manual` with `status: null` for a manual row (a fabricated
+  200 would be a claim). Two surfaces that declare different NAMES are now a
+  `contradiction` at `identity.name` with both declarations cited — the profile
+  holds one name, and silently dropping the second hid exactly the disagreement
+  the audit exists to find. A malformed row is refused with its number, never
+  skipped.
 - **`achievements[]` — a career impact log with metrics, targets and capture-first
   evidence (#446, D24, schema v1.16)** — the contract recorded what a person DID
   (`experience[].highlights`, free text: no value, unit, baseline, target or link)
