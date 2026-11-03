@@ -158,11 +158,9 @@ describe("parseObservations — the row grammar", () => {
         job({ role: "Engineer", org: "Acme", start: "2020", location: "Remote" }),
       ],
       ["retrieved_at without a zone", name({ retrieved_at: '"2026-11-01 10:00"' })],
-      // Review F1: a shape regex blessed impossible dates; a provenance instant
-      // nobody can open is refused like any other malformed row.
+      // Review F1: a shape regex blessed impossible dates (month or day 00).
       ["impossible month", name({ retrieved_at: '"2026-13-45"' })],
       ["impossible day in retrieved_at", name({ retrieved_at: '"2026-02-31T00:00:00Z"' })],
-      // Round 2, F1: day 00 was inside the bound (Date.UTC month, 0) and leaked.
       ["day zero in retrieved_at", name({ retrieved_at: '"2026-02-00"' })],
       [
         "day zero in an experience start",
@@ -194,8 +192,7 @@ describe("parseObservations — the row grammar", () => {
   });
 
   it("refuses a second experience row for the same surface and org (review F2)", () => {
-    // The assembly keys employment by (surface, org); without this refusal the
-    // second row is dropped in silence — the class this repo refuses.
+    // Without this refusal the second row is dropped by the assembly in silence.
     const job = (role: string, start: string, end?: string, org = "Acme"): string =>
       row({
         surface: "linkedin.com",

@@ -3,24 +3,18 @@
  * §7.10, issue #412).
  *
  * `discover` reads only schema.org `Person`/`Organization` JSON-LD, which is
- * exactly what a prospect's real surfaces do not publish (LinkedIn answers
- * `http-999`, ResearchGate `http-403`, ORCID/X/Instagram carry no `Person`). The
- * gap was scope, not a defect: the operator is left to invent a profile by hand
- * with no path back into the audit. This module is that path.
- *
- * The division of labour is the point: the human does the reading that the
- * machine cannot (a walled surface, a page with no structured data) and the
- * machine does what a human does not do reliably — diff N surfaces × M fields.
+ * exactly what a prospect's real surfaces do not publish, so the operator was
+ * left to invent a profile by hand with no path back into the audit. This module
+ * is that path: the human does the reading the machine cannot, and the machine
+ * diffs N surfaces × M fields, which a human does not do reliably.
  *
  * It REUSES the provisional shape instead of growing a parallel one: every row
- * is turned into the same `SurfaceObservation` the transport produces (a
- * schema.org node the extractor already understands), so `provisionalProfile`,
- * `provenance`, `absent[]` and `discoveryFindings` run unchanged. There is one
- * assembly path and one findings path; this file owns only the row grammar.
+ * becomes the same `SurfaceObservation` the transport produces, so
+ * `provisionalProfile`, `provenance`, `absent[]` and `discoveryFindings` run
+ * unchanged — one assembly path, one findings path; this file owns the grammar.
  *
- * No network, ever: the row's `url` is a LABEL a reader can open (it becomes the
- * provenance pointer), never a fetch target — so the closed host allowlist of
- * §19.5 does not apply here and nothing is written.
+ * No network, ever: a row's `url` becomes a provenance pointer, never a fetch
+ * target, so §19.5's allowlist and request budget govern only the transport.
  */
 
 import { readFileSync } from "node:fs";
@@ -143,7 +137,10 @@ function sameKeys(record: Record<string, unknown>, allowed: readonly string[]): 
   return keysOf(record).join(",") === [...allowed].sort().join(",");
 }
 
-function experienceNode(value: unknown, index: number): Record<string, unknown> {
+/** One validated row → the schema.org node the extractor already understands. */
+function nodeFor(field: ObservationField, value: unknown, index: number): Record<string, unknown> {
+  if (field === "name") return { "@type": "Person", name: nonEmptyString(value, index, "value") };
+  if (field === "link") return { "@type": "Person", sameAs: [httpUrl(value, index, "value")] };
   if (!isRecord(value)) {
     throw at(index, "`value` for field `experience` must be a map with role, org and start");
   }
@@ -163,35 +160,19 @@ function experienceNode(value: unknown, index: number): Record<string, unknown> 
       `\`value\` for field \`experience\` requires role, org and start (missing: ${missing.join(", ")})`,
     );
   }
-  const role = nonEmptyString(value.role, index, "value.role");
-  const org = nonEmptyString(value.org, index, "value.org");
-  const start = dateValue(value.start, index, "value.start");
   const end = value.end === undefined ? undefined : endValue(value.end, index, "value.end");
-  // The extractor reads schema.org: `jobTitle` + `worksFor.startDate/endDate`.
-  // Absence of an end IS "present" in the provisional profile; an explicit
-  // `present` token is accepted as the same fact rather than dropped silently.
+  // schema.org: `jobTitle` + `worksFor.startDate/endDate`. Absence of an end IS
+  // "present" in the provisional profile; an explicit `present` is that fact.
   return {
     "@type": "Person",
-    jobTitle: role,
+    jobTitle: nonEmptyString(value.role, index, "value.role"),
     worksFor: {
       "@type": "Organization",
-      name: org,
-      startDate: start,
+      name: nonEmptyString(value.org, index, "value.org"),
+      startDate: dateValue(value.start, index, "value.start"),
       ...(end !== undefined && end !== "present" ? { endDate: end } : {}),
     },
   };
-}
-
-/** One validated row → the schema.org node the extractor already understands. */
-function nodeFor(field: ObservationField, value: unknown, index: number): Record<string, unknown> {
-  switch (field) {
-    case "name":
-      return { "@type": "Person", name: nonEmptyString(value, index, "value") };
-    case "link":
-      return { "@type": "Person", sameAs: [httpUrl(value, index, "value")] };
-    case "experience":
-      return experienceNode(value, index);
-  }
 }
 
 function rowFrom(raw: unknown, index: number): SurfaceObservation {

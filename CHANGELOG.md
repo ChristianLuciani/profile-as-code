@@ -21,23 +21,21 @@ minor versions may contain breaking contract changes.
   (`name` · `link` · `experience`), `value`, `url`, `retrieved_at` — and turns
   each into the SAME `SurfaceObservation` the transport produces, so
   `provisionalProfile`, per-fact provenance, `absent[]` and `discoveryFindings`
-  run unchanged: one assembly path, one findings path, no parallel shape. Manual
-  rows make NO request (the `url` is a provenance pointer, not a fetch target) and
-  enter first, so a declared name beats a machine-read one. `--json` is payload
-  **v2** — each surface carries `via: fetch|manual`, and a manual surface's
-  `status` is `null` (no request was made; a fabricated 200 would be a claim), so
-  the shape change is declared instead of shipped under v1. Two surfaces that
-  declare different NAMES are now a `contradiction` at `identity.name` with both
-  declarations cited — the profile holds one name, and silently dropping the
-  second hid exactly the disagreement the audit exists to find. A malformed row is
-  refused with its number, never skipped: an impossible calendar date
-  (`2026-02-31`, `2020-13`, `2026-02-00`), a non-http URL, an unknown key, and a
-  second `experience` row for the same (surface, org) key — the key the assembly
-  itself uses (`experienceId`), so `ACME` and `Acme` collide as one key — fail
-  with the row that declares them. That key holds ONE row by design, so a second
-  role at one org is refused rather than dropped, and a manual row for a surface
-  the transport also reads resolves to the machine row's key: supply one or the
-  other for a given surface.
+  run unchanged: one assembly path, one findings path. Manual rows make NO request
+  (the `url` is a provenance pointer) and enter first, so a declared name beats a
+  machine-read one. `--json` is payload **v2** — each surface carries
+  `via: fetch|manual`, and a manual surface's `status` is `null` (no request was
+  made; a fabricated 200 would be a claim). Two surfaces that declare different
+  NAMES are a `contradiction` at `identity.name` with both declarations cited: the
+  profile holds one name, and silently dropping the second hid the disagreement
+  the audit exists to find. A malformed row is refused with its number, never
+  skipped: an impossible calendar date (`2026-02-31`, `2020-13`, `2026-02-00`), a
+  non-http URL, an unknown key, and a second `experience` row for the same
+  (surface, org) key the assembly uses (`experienceId`, so `ACME` and `Acme`
+  collide) fail with the row that declares them. That key holds ONE row by design,
+  so a second role at one org is refused rather than dropped, and a manual row for
+  a surface the transport also reads resolves to the machine row's key: supply one
+  or the other for a given surface.
 - **`achievements[]` — a career impact log with metrics, targets and capture-first
   evidence (#446, D24, schema v1.16)** — the contract recorded what a person DID
   (`experience[].highlights`, free text: no value, unit, baseline, target or link)

@@ -527,10 +527,9 @@ export function discoveryFindings(
     findings.push(finding(mapped, ref, `${issue.code} — ${issue.message}${suffix}`));
   }
 
-  // The name is the one datum a prospect's surfaces usually DO repeat, and the
-  // provisional profile can hold only one `identity.name` (the first
-  // declaration). Without this rule the second declaration would be dropped in
-  // silence — and the disagreement IS the finding (SPEC §7.10, #412).
+  // The profile holds ONE `identity.name` (the first declaration), so without
+  // this rule a second declaration is dropped in silence — and the disagreement
+  // IS the finding (SPEC §7.10, #412).
   const declared = observations.flatMap((observation) => {
     const name = declaredName(observation);
     return name === undefined ? [] : [{ name, observation }];
