@@ -1002,7 +1002,10 @@ Both commands load through `core.load()`, so they resolve the same generated Zod
 `additionalProperties: false` policy) and cannot diverge on a field a newer schema
 added. The witness is `projects[].artifactRefs` (#333/v1.12): a workspace carrying
 it must be accepted by both, and a workspace carrying an unknown row field must be
-refused by both **with identical violations**. A CLI test pins both directions —
+refused by both **with identical violations** (and, for `export`/`preview`, the
+same `{ kind, violations }` payload; `validate` may add the #434 `error.hint`
+after them — an additive, validate-only line that never changes a violation). A
+CLI test pins both directions —
 the artifactRefs fixture plus an injected unknown key, asserting equal error
 payloads across `validate`, `build`, `export profile` and `preview` — so a second schema or a
 different policy cannot be introduced on one command without failing CI. The new

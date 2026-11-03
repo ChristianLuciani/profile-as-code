@@ -227,13 +227,20 @@ describe("the hint reads the requirement the gate actually evaluated (#434 fresh
 
   it("reads a floor declared in a parent config, not only the workspace file (F5)", () => {
     const parent = tempDir();
+    const dir = join(parent, "ws");
+    expect(run(["init", dir]).code).toBe(0);
+    // The workspace itself declares no floor: the only one in play is the
+    // parent pointer's, which the gate must read (F3 of the second pass: the
+    // fixture used to scaffold into ANOTHER tmp dir, so `parent/ws` did not
+    // exist and the case passed vacuously on a missing workspace).
+    const pascorc = readPascorc(dir);
+    delete pascorc.engine;
+    writePascorc(dir, pascorc);
     writeFileSync(
       join(parent, ".pascorc"),
       `${JSON.stringify({ workspace: "ws", engine: "9.9.9" }, null, 2)}\n`,
     );
-    scaffold();
-    // The parent pointer resolves the workspace and its floor is one of the
-    // sources the gate evaluates (no --workspace: the cwd pointer is the input).
+    // No --workspace: the cwd pointer is the input that resolves the workspace.
     const res = run(["validate"], parent);
     expect(res.code).toBe(1);
     expect(res.stderr).toContain("requires engine 9.9.9 or newer");

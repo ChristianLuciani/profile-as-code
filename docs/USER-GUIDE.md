@@ -336,8 +336,10 @@ same absence of automation and history unless your storage provides them.
   command; a malformed value exits `1` naming the accepted syntax. **A new
   workspace declares this floor at birth**: `pasco init` writes `"engine"` with
   the installed CLI version itself, so the field is never added, typed or
-  maintained by hand. Absent is reachable only on a workspace born before that
-  behavior (or one whose scaffold was hand-edited) — it means no requirement, and
+  maintained by hand. Absent is reachable on a workspace born before that
+  behavior, on one whose scaffold was hand-edited, and on a scaffold written by a
+  pre-release build (which declares nothing rather than pinning an unreleased
+  version) — it means no requirement, and
   `pasco doctor` names it `absent` instead of looking like a pass. The one-time
   fix for such a workspace is [§8.2.1](#821-upgrading-a-workspace-born-on-an-older-engine)
   step 3. When you invoke `pasco` from a directory whose `.pascorc`
