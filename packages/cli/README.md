@@ -401,11 +401,11 @@ is frozen in SPEC §7.5.
 **A consumer that only needs to validate** does not need this package at all: the
 released schema is published as a tag-pinned URL + sha256 in
 [the consumer contract](https://github.com/ChristianLuciani/profile-as-code/blob/main/schema/consumer-contract.json).
-The manifest's `current` block is **not** a published artifact: schema v1.15 has
-no release tag yet (`published: false`, `artifact: null`), and the only released
-artifact is schema **v1.13 at tag v0.3.6**, which **rejects `publication.kind`**
-(`additionalProperties: false`) and has no `releases[]`. A consumer that needs
-either must use a v1.15 checkout (verify its sha256) until the next release. The reading guide is
+The released artifact today is schema **v1.15 at tag `v0.3.7`**; the manifest's
+`current` block is one minor ahead (schema **v1.16**, `published: false`,
+`artifact: null`) because no tag carries those bytes yet. A consumer that needs
+`achievements[]` must use the checkout and verify its sha256 until the next
+release; a consumer that does not can keep pinning `v0.3.7` unchanged. The reading guide is
 [the schema contract reading guide](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SCHEMA-CONTRACT.md) —
 including what structural validation does **not** cover (the cross-file
 invariants core re-checks, engine behavior, `.pascorc` and this payload's

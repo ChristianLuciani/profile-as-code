@@ -11,7 +11,6 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
-<<<<<<< HEAD
 - **`achievements[]` — a career impact log with metrics, targets and capture-first
   evidence (#446, D24, schema v1.16)** — the contract recorded what a person DID
   (`experience[].highlights`, free text: no value, unit, baseline, target or link)
@@ -42,7 +41,6 @@ minor versions may contain breaking contract changes.
   SPEC §5 D24 + §6 + §7 + §23, `schema/README.md`, `docs/SCHEMA-CONTRACT.md` and
   `schema/consumer-contract.json` (v1.16, unpublished) document the change, and
   `completeness` counts `achievements[].statement` in language coverage.
-=======
 - **`pasco edit` reaches the answer-engine surface — and `--create` seeds a
   missing root (#435)** — two addresses join the contract-path grammar with the
   same rules as the existing ones (exactly one row, `--check` preview, cap
@@ -66,7 +64,6 @@ minor versions may contain breaking contract changes.
   `--check` previews the seed. `--list` gains `identity.definition` and `faq`
   scopes. `--help`, the CLI README, the user guide and SPEC §7 document the new
   addresses and the seeded root.
->>>>>>> origin/main
 
 ### Fixed
 

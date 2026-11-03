@@ -1144,7 +1144,7 @@ an immutable artifact identified by **URL + sha256**, recorded in
 | | Artifact | Identity |
 |---|---|---|
 | **Released** | `schema/profile.schema.json` at a published release tag | tag-pinned raw URL + sha256 + `$id` version (today `v0.3.7`, schema v1.15) |
-| **Current** | the committed `schema/profile.schema.json` on this branch | `$id` version + sha256, **identical bytes to the tagged artifact** (today v1.15; `published: true`) |
+| **Current** | the committed `schema/profile.schema.json` on this branch | `$id` version + sha256, plus its own publication truth (`published` + `artifact`) — **not necessarily the tagged bytes** (today v1.16, `published: false`: no tag carries these bytes yet) |
 
 - **Tag-pinned, public repo only.** The released URL is exactly
   `https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/<tag>/schema/profile.schema.json`.
