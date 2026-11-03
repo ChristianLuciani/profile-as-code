@@ -163,10 +163,11 @@ see any of them; the `grep` can.
    pasco edit 'positioning.statement.en'   # receipt: prints the value you wrote
    ```
 
-   `pasco edit` reaches four fields only; `identity.definition`, `faq[]`, and any
-   root that does not exist yet (`content/faq.yaml`) are hand-edited (the table and
-   the caps are in [§4.4](USER-GUIDE.md#44-your-first-edit-without-an-editor);
-   #435). A hand edit's receipt is the `grep` **and** `pasco validate`.
+   `pasco edit` reaches the answer-engine fields too (`identity.definition.<lang>`,
+   `faq[id=…,lang=…].q|.a`, `faq[id=…].source`), and `pasco edit --create faq` seeds
+   a root that does not exist yet (`content/faq.yaml`); the address table and the
+   caps are in [§4.4](USER-GUIDE.md#44-your-first-edit-without-an-editor) (#435).
+   When you do edit by hand, the receipt is the `grep` **and** `pasco validate`.
 
 5. **Rebuild every artifact.**
 

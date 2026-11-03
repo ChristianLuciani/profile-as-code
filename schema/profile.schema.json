@@ -641,7 +641,7 @@
       "type": "string",
       "minLength": 1,
       "pattern": "^[a-z0-9][a-z0-9._:-]*$",
-      "description": "v1.3 (D18, §19.2): stable entry id — the ledger address. Unique per block (core-checked, fails validation; JSON Schema cannot express uniqueness). Optional: rows without id are listed by `pasco status` as untracked."
+      "description": "v1.3 (D18, §19.2): stable entry id — the ledger address. Unique per block for the ledger row blocks (`experience`, `projects`, `publications`, `education`, `press`): core-checked, fails validation; JSON Schema cannot express uniqueness. `faq[]` is root and not ledger-tracked, so its ids are enforced where they are addressed — `pasco edit` refuses an ambiguous id — not by the schema. Optional: rows without id are listed by `pasco status` as untracked."
     },
 
     "origin": {

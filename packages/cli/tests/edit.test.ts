@@ -34,6 +34,7 @@ import { load, trackableUnits } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
 import { resolveEditTarget } from "../src/commands/edit.js";
 import { parseEditAddress } from "../src/contract.js";
+import { SEED_FAQ_ENTRIES, SEEDABLE_ROOTS } from "../src/edit-seed.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI = join(__dirname, "..", "dist", "index.js");
@@ -115,6 +116,66 @@ function emptyWorkspace(): string {
   if (res.error !== undefined) throw res.error;
   if (res.status !== 0) throw new Error(`pasco init failed: ${res.stderr}`);
   return dir;
+}
+
+/** The committed `faq[]` shape (#288): 3 rows (the schema floor), one with a
+ *  Spanish value and a `source`, so the per-lang and source addresses have a row
+ *  and the optional-field rule (0 rows) is reachable. */
+const FAQ_FIXTURE = `# the answer surface (v1.10, #288) — 3 rows is the floor
+- id: what-is-elena
+  q:
+    en: What does Elena Vasquez do?
+    es: ¿A qué se dedica Elena Vasquez?
+  a:
+    en: Elena Vasquez is an AI engineer building sovereign, open-source infrastructure for education.
+    es: Elena Vasquez es ingeniera de IA que construye infraestructura soberana de código abierto.
+  source: https://example.com/about
+- id: where-based
+  q:
+    en: Where is Elena Vasquez based?
+  a:
+    en: Elena Vasquez is based in Madrid, Spain.
+- id: why-profile-as-code
+  q:
+    en: Why profile-as-code?
+  a:
+    en: One identity must stay consistent across every platform.
+`;
+
+/** The `minimal` workspace plus the two answer-engine fields #435 addresses:
+ *  a definition in identity.yaml and a root faq.yaml. */
+function answerWorkspace(): string {
+  const dir = workspace();
+  const identity = join(dir, "content", "identity.yaml");
+  writeFileSync(
+    identity,
+    `${readFileSync(identity, "utf8")}definition:\n  en: Elena Vasquez is an AI engineer building sovereign AI infrastructure.\n`,
+  );
+  writeFileSync(join(dir, "content", "faq.yaml"), FAQ_FIXTURE);
+  return dir;
+}
+
+/** The contract caps, read from the schema itself so the CLI's pre-flight table
+ *  cannot drift from the contract it claims to cite (#288). */
+function schemaCaps(): { definition: number; q: number; a: number } {
+  const schema = JSON.parse(
+    readFileSync(join(__dirname, "..", "..", "..", "schema", "profile.schema.json"), "utf8"),
+  ) as {
+    $defs: {
+      definition: { additionalProperties: { maxLength: number } };
+      faqEntry: {
+        properties: {
+          q: { additionalProperties: { maxLength: number } };
+          a: { additionalProperties: { maxLength: number } };
+        };
+      };
+    };
+  };
+  return {
+    definition: schema.$defs.definition.additionalProperties.maxLength,
+    q: schema.$defs.faqEntry.properties.q.additionalProperties.maxLength,
+    a: schema.$defs.faqEntry.properties.a.additionalProperties.maxLength,
+  };
 }
 
 describe("pasco edit — resolution, preview and write", () => {
@@ -887,7 +948,8 @@ describe("edit --list — read-only discovery (#411)", () => {
     const lines = r.stdout.trimEnd().split("\n");
     expect(lines[0]).toBe("addresses:");
     const listed = lines.slice(1);
-    // The four blocks, in contract order: statement → headline → bio → link.
+    // The addressable blocks, in contract order: statement → headline → bio →
+    // identity.definition → link → faq (the middle/last are empty here).
     expect(listed[0]).toBe("positioning.statement.en");
     expect(listed).toContain("headlines[platform=github-readme,lang=en].text");
     expect(listed).toContain("bios[platform=linkedin,lang=es,length=medium].text");
@@ -1083,6 +1145,12 @@ describe("exit-code matrix (S5, #252)", () => {
     ["--list with an address → 2", ["--list", "positioning.statement.en"], 2],
     ["--list with --set → 2", ["--list", "--set", "x"], 2],
     ["--list with --check → 2", ["--list", "--check"], 2],
+    ["--list with --create → 2", ["--list", "--create", "faq"], 2],
+    ["--create → 0", ["--create", "faq"], 0],
+    ["--create --check → 0", ["--create", "faq", "--check"], 0],
+    ["--create unknown root → 2", ["--create", "projects"], 2],
+    ["--create with --set → 2", ["--create", "faq", "--set", "x"], 2],
+    ["--create with an address → 2", ["--create", "faq", "positioning.statement.en"], 2],
   ];
   for (const [name, args, code] of cases) {
     it(name, () => {
@@ -1227,5 +1295,355 @@ describe("locate — S2's write handle (file-relative + merged-profile paths)", 
       dir,
     );
     expect(target.locate?.file).toBe("content/headlines.YAML");
+  });
+});
+
+describe("pasco edit — the answer-engine surface (#435)", () => {
+  it("resolves identity.definition.<lang> and states its contract cap", () => {
+    const dir = answerWorkspace();
+    const r = edit(dir, "identity.definition.en");
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("address:  identity.definition.en");
+    expect(r.stdout).toContain("current:  Elena Vasquez is an AI engineer building sovereign");
+    expect(r.stdout).toContain(`chars vs cap ${schemaCaps().definition} — ok`);
+    expect(r.stdout).toContain("[OFICIAL] the v1.10 contract itself");
+    // The §19 unit is `identity` (a root block), not a fabricated row key.
+    expect(r.stdout).toContain("surface impact (identity —");
+  });
+
+  it("refuses a definition over the contract cap, and the preview says OVER", () => {
+    const dir = answerWorkspace();
+    const over = "x".repeat(schemaCaps().definition + 1);
+    const preview = edit(dir, "identity.definition.en", "--set", over, "--check");
+    expect(preview.stdout).toContain(`chars vs cap ${schemaCaps().definition} — OVER`);
+    // `--check` only previews (nothing written), so its own exit stays 0; the
+    // WRITE is what the schema refuses.
+    expect(preview.code).toBe(0);
+    // The write is refused by the same schema gate: the file keeps its value.
+    const write = edit(dir, "identity.definition.en", "--set", over);
+    expect(write.code).toBe(1);
+    expect(readFileSync(join(dir, "content", "identity.yaml"), "utf8")).toContain(
+      "Elena Vasquez is an AI engineer building sovereign",
+    );
+  });
+
+  it("reports 0 rows for an undeclared definition language, listing the ones it has", () => {
+    const dir = answerWorkspace();
+    const r = edit(dir, "identity.definition.fr");
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("resolves to 0 rows");
+    const available = r.stdout.split("available:")[1] ?? "";
+    expect(available).toContain("identity.definition.en");
+    expect(available).not.toContain("identity.definition.fr");
+  });
+
+  it("PREVIEWS identity.definition as the artifact JSON-LD line that changes", () => {
+    const dir = answerWorkspace();
+    const before = workspaceHash(dir);
+    const r = edit(
+      dir,
+      "identity.definition.en",
+      "--set",
+      "Elena Vasquez is an AI engineer and writer.",
+      "--check",
+    );
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("published (github-readme/en");
+    expect(r.stdout).toContain(
+      '  -   "description": "Elena Vasquez is an AI engineer building sovereign AI infrastructure."',
+    );
+    expect(r.stdout).toContain(
+      '  +   "description": "Elena Vasquez is an AI engineer and writer."',
+    );
+    // A preview never writes (the S1 invariant the whole file rests on).
+    expect(workspaceHash(dir)).toBe(before);
+  });
+
+  it("WRITES identity.definition with the range splice (one line, comments intact)", () => {
+    const dir = answerWorkspace();
+    const identity = join(dir, "content", "identity.yaml");
+    const before = readFileSync(identity, "utf8");
+    const r = edit(dir, "identity.definition.en", "--set", "Elena Vasquez is an AI engineer.");
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("file:     content/identity.yaml");
+    expect(r.stdout).toContain("written: yes");
+    const after = readFileSync(identity, "utf8");
+    // Nothing but the addressed scalar moved: the fixture's links and name stay.
+    expect(after).toContain("name: Elena Vasquez");
+    expect(after).toContain("url: https://github.com/elenavasquez");
+    const changed = after.split("\n").filter((line, index) => line !== before.split("\n")[index]);
+    expect(changed).toHaveLength(1);
+    expect(changed[0]).toContain("en: Elena Vasquez is an AI engineer.");
+  });
+
+  it("resolves faq q/a (per lang, EN required by the schema) and source", () => {
+    const dir = answerWorkspace();
+    const q = edit(dir, "faq[id=what-is-elena,lang=en].q");
+    expect(q.code).toBe(0);
+    expect(q.stdout).toContain("current:  What does Elena Vasquez do?");
+    expect(q.stdout).toContain("chars vs cap 90 — ok");
+
+    const es = edit(dir, "faq[id=what-is-elena,lang=es].q");
+    expect(es.code).toBe(0);
+    expect(es.stdout).toContain("current:  ¿A qué se dedica Elena Vasquez?");
+
+    const source = edit(dir, "faq[id=what-is-elena].source");
+    expect(source.code).toBe(0);
+    expect(source.stdout).toContain("current:  https://example.com/about");
+
+    // A required, ordinary row read: no global-unit impact to report.
+    const jsonSource = edit(dir, "faq[id=what-is-elena].source", "--json");
+    const data = json(jsonSource).data as { state: unknown; limit: unknown };
+    expect(data.state).toBeNull();
+    expect(data.limit).toBeNull();
+  });
+
+  it("reports 0 rows for a field the row does not carry, and never invents it", () => {
+    const dir = answerWorkspace();
+    const missingLang = edit(dir, "faq[id=where-based,lang=es].q");
+    expect(missingLang.code).toBe(1);
+    expect(missingLang.stdout).toContain("resolves to 0 rows");
+    expect(missingLang.stdout).toContain("faq[id=where-based,lang=en].q");
+
+    const missingSource = edit(dir, "faq[id=where-based].source");
+    expect(missingSource.code).toBe(1);
+    expect(missingSource.stdout).toContain("resolves to 0 rows");
+    expect(missingSource.stdout).toContain("faq[id=what-is-elena].source");
+  });
+
+  it("previews the FAQPage node `pasco entity --jsonld` emits, not the raw row", () => {
+    const dir = answerWorkspace();
+    const r = edit(
+      dir,
+      "faq[id=what-is-elena,lang=en].q",
+      "--set",
+      "What is Elena Vasquez known for?",
+      "--check",
+    );
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("published (entity/en");
+    expect(r.stdout).toContain('  -       "name": "What does Elena Vasquez do?",');
+    expect(r.stdout).toContain('  +       "name": "What is Elena Vasquez known for?",');
+  });
+
+  it("writes q/a/source and leaves the other rows byte-identical", () => {
+    const dir = answerWorkspace();
+    const faq = join(dir, "content", "faq.yaml");
+    const q = edit(dir, "faq[id=why-profile-as-code,lang=en].q", "--set", "Why profile as code?");
+    expect(q.code).toBe(0);
+    expect(q.stdout).toContain("file:     content/faq.yaml");
+    const a = edit(
+      dir,
+      "faq[id=why-profile-as-code,lang=en].a",
+      "--set",
+      "One identity must stay consistent everywhere.",
+    );
+    expect(a.code).toBe(0);
+    // `source` is an OPTIONAL scalar: an existing one is writable, an absent one
+    // is a 0-row address (tested above) — the writer never invents the field.
+    const source = edit(dir, "faq[id=what-is-elena].source", "--set", "https://example.com/x");
+    expect(source.code).toBe(0);
+    expect(readFileSync(faq, "utf8")).toContain("source: https://example.com/x");
+    // The untouched rows still hold their values.
+    expect(readFileSync(faq, "utf8")).toContain("en: Where is Elena Vasquez based?");
+  });
+
+  it("refuses an ambiguous faq id instead of choosing a row", () => {
+    const dir = answerWorkspace();
+    const faq = join(dir, "content", "faq.yaml");
+    writeFileSync(
+      faq,
+      `${readFileSync(faq, "utf8")}- id: where-based\n  q:\n    en: Duplicate question?\n  a:\n    en: Duplicate answer.\n`,
+    );
+    const r = edit(dir, "faq[id=where-based,lang=en].q");
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("resolves to 2 rows");
+    expect(r.stdout).toContain("several faq rows share this id");
+    expect(r.stdout).toContain("Where is Elena Vasquez based?");
+    expect(r.stdout).toContain("Duplicate question?");
+  });
+
+  it("refuses a malformed faq address with the grammar that lists the new rows", () => {
+    const dir = answerWorkspace();
+    const missingLang = edit(dir, "faq[id=what-is-elena].q");
+    expect(missingLang.code).toBe(2);
+    expect(missingLang.stderr).toContain('missing selector "lang"');
+    expect(missingLang.stderr).toContain("faq[id=<slug>,lang=<l>].q | .a");
+    expect(missingLang.stderr).toContain("identity.definition.<lang>");
+
+    const badId = edit(dir, "faq[id=Not A Slug,lang=en].q");
+    expect(badId.code).toBe(2);
+    expect(badId.stderr).toContain("not a valid entry id");
+
+    const badField = edit(dir, "faq[id=what-is-elena].url");
+    expect(badField.code).toBe(2);
+    expect(badField.stderr).toContain("not addressable");
+  });
+
+  it("pre-flights the contract cap: over-cap previews a warning, the write is refused by the schema", () => {
+    const dir = answerWorkspace();
+    const over = "x".repeat(schemaCaps().q + 1);
+    const preview = edit(dir, "faq[id=what-is-elena,lang=en].q", "--set", over, "--check");
+    expect(preview.code).toBe(0); // the FAQPage node changes
+    expect(preview.stdout).toContain(`chars vs cap ${schemaCaps().q} — OVER`);
+    expect(preview.stderr).toContain("over the contract cap");
+    expect(preview.stderr).toContain("the schema refuses the write");
+
+    const write = edit(dir, "faq[id=what-is-elena,lang=en].q", "--set", over);
+    expect(write.code).toBe(1);
+    expect(write.stderr).toContain("validation failed");
+    expect(write.stderr).toContain("Too big");
+  });
+
+  it("lists the new addresses under their blocks, built by the same constructors", () => {
+    const dir = answerWorkspace();
+    const definition = edit(dir, "--list", "identity.definition");
+    expect(definition.code).toBe(0);
+    expect(definition.stdout.trimEnd().split("\n")).toEqual([
+      "addresses:",
+      "identity.definition.en",
+    ]);
+
+    const faq = edit(dir, "--list", "faq", "--json");
+    const data = json(faq).data as { addresses: { address: string; kind: string }[] };
+    expect(data.addresses.map((entry) => entry.address)).toEqual([
+      "faq[id=what-is-elena,lang=en].q",
+      "faq[id=what-is-elena,lang=en].a",
+      "faq[id=what-is-elena,lang=es].q",
+      "faq[id=what-is-elena,lang=es].a",
+      "faq[id=what-is-elena].source",
+      "faq[id=where-based,lang=en].q",
+      "faq[id=where-based,lang=en].a",
+      "faq[id=why-profile-as-code,lang=en].q",
+      "faq[id=why-profile-as-code,lang=en].a",
+    ]);
+    for (const entry of data.addresses) expect(entry.kind).toBe("faq");
+    // Every listed address round-trips and resolves to exactly one row.
+    const profile = load(dir);
+    for (const entry of data.addresses) {
+      expect(resolveEditTarget(profile, parseEditAddress(entry.address), dir).matches).toBe(1);
+    }
+  });
+
+  it("locate carries the FILE-relative and merged-profile paths for faq", () => {
+    const dir = answerWorkspace();
+    const profile = load(dir);
+    const q = resolveEditTarget(profile, parseEditAddress("faq[id=what-is-elena,lang=es].q"), dir);
+    expect(q.locate).toEqual({
+      file: "content/faq.yaml",
+      path: [0, "q", "es"],
+      profilePath: ["faq", 0, "q", "es"],
+    });
+    const source = resolveEditTarget(profile, parseEditAddress("faq[id=where-based].source"), dir);
+    // The row exists but carries no source: no write handle for an absent scalar.
+    expect(source.matches).toBe(0);
+    expect(source.locate).toBeUndefined();
+  });
+});
+
+describe("pasco edit --create — seeding a missing root (#435)", () => {
+  it("--check prints the seed it validated and writes nothing", () => {
+    const dir = workspace();
+    const r = edit(dir, "--create", "faq", "--check");
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("--- seed (nothing was written) ---");
+    // The template itself, not just its label: the pair the schema floor requires.
+    expect(r.stdout).toContain("- id: question-1");
+    expect(r.stdout).toContain("<the first question this entity answers>");
+    expect(existsSync(join(dir, "content", "faq.yaml"))).toBe(false);
+  });
+  it("--check validates the seed and writes nothing", () => {
+    const dir = workspace();
+    const before = workspaceHash(dir);
+    const r = edit(dir, "--create", "content/faq.yaml", "--check");
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("root:     faq");
+    expect(r.stdout).toContain("file:     content/faq.yaml");
+    expect(r.stdout).toContain("would create: yes");
+    expect(r.stdout).toContain("validates: yes");
+    expect(existsSync(join(dir, "content", "faq.yaml"))).toBe(false);
+    expect(workspaceHash(dir)).toBe(before);
+  });
+
+  it("writes a schema-valid seed and is idempotent-refused on the second run", () => {
+    const dir = workspace();
+    const r = edit(dir, "--create", "faq");
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("written:  yes");
+    const faq = join(dir, "content", "faq.yaml");
+    expect(existsSync(faq)).toBe(true);
+
+    // The seed passes the same gate every read uses (schema + ledger + registry).
+    const profile = load(dir);
+    expect(profile.faq).toHaveLength(SEED_FAQ_ENTRIES.length);
+    expect(profile.faq.map((row) => row.id)).toEqual(SEED_FAQ_ENTRIES.map((entry) => entry.id));
+    expect(profile.faq.map((row) => row.q.en)).toEqual(SEED_FAQ_ENTRIES.map((entry) => entry.q));
+    expect(run(dir, "validate").code).toBe(0);
+
+    const before = readFileSync(faq, "utf8");
+    const second = edit(dir, "--create", "faq");
+    expect(second.code).toBe(1);
+    expect(second.stderr).toContain("already exists");
+    expect(second.stderr).toContain("never overwrites");
+    expect(readFileSync(faq, "utf8")).toBe(before);
+  });
+
+  it("carries the machine contract (--json) and the contract caps pre-flight", () => {
+    const dir = workspace();
+    const data = json(edit(dir, "--create", "faq", "--check", "--json")).data as {
+      mode: string;
+      root: string;
+      file: string;
+      created: boolean;
+      preview: boolean;
+      limits: { field: string; cap: number; length: number; over: boolean; source: string }[];
+    };
+    expect(data.mode).toBe("create");
+    expect(data.root).toBe("faq");
+    expect(data.file).toBe("content/faq.yaml");
+    expect(data.created).toBe(false);
+    expect(data.preview).toBe(true);
+    const caps = schemaCaps();
+    expect(data.limits.map((limit) => [limit.field, limit.cap])).toEqual([
+      ["q", caps.q],
+      ["a", caps.a],
+    ]);
+    // The shipped template is inside every contract cap by construction.
+    for (const limit of data.limits) {
+      expect(limit.over).toBe(false);
+      expect(limit.length).toBeLessThanOrEqual(limit.cap);
+    }
+  });
+
+  it("decides usage before reading the workspace config", () => {
+    const dir = workspace();
+    writeFileSync(join(dir, ".pascorc"), "{not json");
+    // Unknown root, an address next to --create, and --set next to it are usage,
+    // decided before resolveWorkspace/readWorkspacePascorc.
+    expect(edit(dir, "--create", "projects").code).toBe(2);
+    expect(edit(dir, "--create", "faq", "positioning.statement.en").code).toBe(2);
+    expect(edit(dir, "--create", "faq", "--set", "x").code).toBe(2);
+    expect(edit(dir, "--list", "--create", "faq").code).toBe(2);
+  });
+
+  it("--help lists every new address and the create form", () => {
+    const dir = workspace();
+    const help = run(dir, "edit", "--help").stdout;
+    expect(help).toContain("identity.definition.<lang>");
+    expect(help).toContain("faq[id=<slug>,lang=<l>].q | .a");
+    expect(help).toContain("faq[id=<slug>].source");
+    expect(help).toContain("pasco edit --create <root>");
+    for (const root of SEEDABLE_ROOTS) expect(help).toContain(root);
+  });
+
+  it("a seeded root is writable by the new addresses (create → edit)", () => {
+    const dir = workspace();
+    expect(edit(dir, "--create", "faq").code).toBe(0);
+    const q = edit(dir, "faq[id=question-1,lang=en].q", "--set", "What does Elena Vasquez do?");
+    expect(q.code).toBe(0);
+    expect(q.stdout).toContain("written: yes");
+    expect(readFileSync(join(dir, "content", "faq.yaml"), "utf8")).toContain(
+      "en: What does Elena Vasquez do?",
+    );
   });
 });

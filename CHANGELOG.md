@@ -9,6 +9,32 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Added
+
+- **`pasco edit` reaches the answer-engine surface — and `--create` seeds a
+  missing root (#435)** — two addresses join the contract-path grammar with the
+  same rules as the existing ones (exactly one row, `--check` preview, cap
+  pre-flight): `identity.definition.<lang>` and
+  `faq[id=<slug>,lang=<l>].q|.a` / `faq[id=<slug>].source`. `faq[]` rows are
+  selected by their stable `id` (a repeated id is ambiguous and refused, never
+  index-addressed) and `q`/`a` are langMaps, so their `lang` selector is
+  required; an optional value the row does not carry is a 0-row address. The
+  preview is the field's real published surface: `identity.definition` shows the
+  entity JSON-LD line the `github-readme`/`github-org` artifacts embed, and
+  `faq[]` shows the `FAQPage` node `pasco entity --jsonld` emits (no
+  `pasco build` artifact carries it). Both are pre-flighted against the
+  contract's own caps (160 / 90 / 320 chars per value, v1.10 #288): unlike a
+  platform's soft cap, over one is a schema failure, so the pre-flight warns and
+  the write is refused by validation. The byte-range splice cannot invent a
+  root, so `--create <root>` is a SEPARATE operation: it writes a schema-valid
+  template for a root the workspace does not declare yet (`faq`: 3 placeholder
+  pairs, the schema minimum — never invented facts), refuses an existing root
+  under any extension case (idempotent, nothing written), takes the same write
+  lock and validation gate over a temp copy, runs the same cap pre-flight, and
+  `--check` previews the seed. `--list` gains `identity.definition` and `faq`
+  scopes. `--help`, the CLI README, the user guide and SPEC §7 document the new
+  addresses and the seeded root.
+
 ### Fixed
 
 - **The engine floor is declared at birth, and an old engine's failure names the

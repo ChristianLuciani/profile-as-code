@@ -61,7 +61,7 @@ standalone path.
 | `pasco doctor [--json]` | **Engine · schema · workspace** on one line (#348): the installed CLI version, the profile-contract version this build validates (from the schema `$id`), the resolved workspace and whether it loads, plus the **effective** `.pascorc` engine requirement (the strictest declaration in every config the resolution consulted, with its file). `--json` emits `{ engine, schema, workspace, requirement: { declared, met, state, problem?, source? } }`, where `state` is `absent` · `met` · `NOT MET` · `INVALID` — an absent declaration is a state, never a silent pass. Exit 0 healthy · 1 unhealthy · 2 usage; offline, no clock, no writes | ✅ v1 |
 | `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (the eight registered in the generated renderer map) write `profiles/<platform>/README.md` + bundled media; renderer-less manual surfaces with a bio row write `profiles/<platform>.md` (#239). Empty render = no-trace unbuild of the generated output, preserving `profiles/<platform>/variants/` (chosen-variant input, #238; pure profiles/, §15.1 — v1.7). Media in `profiles/<platform>/assets/` + `assets/manifest.json` (M8/§18.6 — see [the media pipeline guide](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/media-pipeline.md)) | ✅ |
 | `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso>] [--json]` | The **local view** (#282): **one** self-contained HTML file of the surfaces `pasco build` writes — inline CSS, no `<script>`, no external asset, no HTTP server. Sections are the published surfaces (`#github-readme`, `#linkedin`, …) plus the ones this language does not publish, named with their reason; the check state is the same report `pasco check` prints, and the text is `build`'s own render decision tree. Default `<workspace>/.pasco/preview/index.html`, then opened in the browser; `--out <dir>` writes and opens **nothing** (the CI-artifact transport). A privacy gate refuses the write (exit 1) on an absolute machine path, a credential shape, an external asset, active content, or a source outside the workspace | ✅ v1 |
-| `pasco edit <contract-path> [--set <text> [--check]]` · `--list [<block>]` | Resolve **one** contract field by contract path; `--set` **writes it** (comment-preserving range splice, validated, atomic) and `--set --check` previews the **published lines the edit changes** (or says it changes nothing). `--list` is the read-only discovery surface: every addressable row, one per line, `--json` as `{ addresses: [{ address, kind, readOnly }], warnings }` (#411). Epic #247, S1–S5 landed | ✅ S1–S5 (read · preview · write · surface impact · cap pre-flight · machine contract) + `--list` |
+| `pasco edit <contract-path> [--set <text> [--check]]` · `--list [<block>]` · `--create <root> [--check]` | Resolve **one** contract field by contract path; `--set` **writes it** (comment-preserving range splice, validated, atomic) and `--set --check` previews the **published lines the edit changes** (or says it changes nothing). Covers the answer-engine surface too: `identity.definition.<lang>`, `faq[id=<slug>,lang=<l>].q|.a` and `faq[id=<slug>].source` (#435). `--list` is the read-only discovery surface: every addressable row, one per line, `--json` as `{ addresses: [{ address, kind, readOnly }], warnings }` (#411). `--create <root>` seeds a root the workspace does not declare yet (`content/faq.yaml`): schema-valid template, refused when the root exists, same validation + cap pre-flight, `--check` previews it (#435). Epic #247, S1–S5 landed | ✅ S1–S5 (read · preview · write · surface impact · cap pre-flight · machine contract) + `--list` + `--create` |
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
 | `pasco status [platform] [--mark <ledgerKey> <platform>] [--verify] [--write-checklist] [--completeness]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never · **certification** (verified/attested/unverifiable/out-of-band-drift, §19.5) + the derived **publication truth** per surface (§20.1, #242) + ledger write paths (D18, §19) | ✅ |
 | `pasco presence [--json]` / `pasco release plan [<id>] [--json]` | **Presence board** (D23/§22, #262): every surface a release has addressed, at its newest release, with the ledger-derived state (`in-sync`/`stale`/`never`), and the **release plan** — the ordered fan-out (`repo-meta` → `profile` → `distribution`, then slug), each surface's state and the per-kind **factual spine**. Copy per channel lives in the shipped skills, not the engine | ✅ v1 |
@@ -476,7 +476,10 @@ pasco edit positioning.statement.en                       # the current value
 pasco edit positioning.statement.en --set "…" --check       # the published lines this edit changes
 pasco edit positioning.statement.en --set "…"               # write it (one line, comments intact)
 pasco edit headlines[platform=github-readme,lang=en].text --set "…" --check
+pasco edit identity.definition.en --set "…"                 # the canonical definition
+pasco edit 'faq[id=what-is-elena,lang=en].a' --set "…"      # one answer
 pasco edit identity.links[platform=github].url              # read-only (the URL SSOT)
+pasco edit --create faq                                     # seed a missing root (content/faq.yaml)
 ```
 
 Addressable fields (by **contract path**, never by line/offset — the schema is the
@@ -487,7 +490,15 @@ authority on what a field is):
 | `positioning.statement.<lang>` | `positioning.statement[lang]` (`lang`: `en`/`es`/`fr`) |
 | `headlines[platform=<p>,lang=<l>].text` | the matching `headlines[]` row |
 | `bios[platform=<p>,lang=<l>,length=<len>].text` | the matching `bios[]` row |
+| `identity.definition.<lang>` | the canonical per-language definition (#288, v1.10) |
+| `faq[id=<slug>,lang=<l>].q` / `.a` | one `faq[]` row's question/answer for that language — `q`/`a` are langMaps, so `lang` is **required** |
+| `faq[id=<slug>].source` | the row's optional http(s) pointer (`lang` does not apply) |
 | `identity.links[platform=<p>,label=<l>].url` | the row's URL — **read-only**; `label` disambiguates two links on one platform |
+
+`faq[]` is selected by its stable `id`, never by array index: a repeated id matches
+more than one row and the command refuses to choose, exactly like a duplicate
+bio. An optional field the row does not carry (`source`, or `q.es`) is **0 rows** —
+`edit` never creates it; the row itself must already exist.
 
 **Finding the path (`--list`, #411).** `pasco edit --list` prints every
 addressable row of the loaded workspace — read-only and deterministic, built by
@@ -495,7 +506,7 @@ the same constructors resolution uses, never a second grammar:
 
 ```sh
 pasco edit --list                       # every block, one address per line
-pasco edit --list headlines             # scope: positioning | headlines | bios | identity.links
+pasco edit --list headlines             # scope: positioning | headlines | bios | identity.definition | identity.links | faq
 pasco edit --list --json                # { addresses: [{ address, kind, readOnly }], warnings }
 ```
 
@@ -508,7 +519,21 @@ headline/bio, a label-less link sharing its platform) is a warning too: the list
 advertises only paths that resolve to exactly one row, the bar `edit` enforces. `--list` never locates a CST
 node, never takes `content/.pasco-edit.lock` and writes nothing; an empty
 workspace prints the header alone (exit 0). Combining `--list` with `--set`,
-`--check` or an address is usage (exit 2), never a silently ignored argument.
+`--check`, `--create` or an address is usage (exit 2), never a silently ignored
+argument.
+
+**Creating a missing root (`--create`, #435).** The splice never invents bytes, so
+it cannot create `content/faq.yaml` — the answer-engine surface the product
+exists to be quoted through. `--create <root>` is a **different operation**, not
+a rewrite of the writer: it writes a schema-valid **template** for a root the
+workspace does not declare yet, refuses when the root already exists (idempotent:
+nothing is written, exit 1), and validates the result through the same `load()`
+gate over a temp copy before the file reaches disk. It runs the same cap
+pre-flight as `--set`, and `--check` previews the seed (validates it, writes
+nothing). Both the root name and the file form are accepted:
+`pasco edit --create faq` / `pasco edit --create content/faq.yaml`. Seedable
+roots today: `faq` (3 placeholder pairs — the schema minimum). Every value is a
+`<placeholder>` the owner replaces: the engine never invents facts (D11/D14).
 
 **The write (S2, #249).** A byte-range splice over the **original text**: the CST
 locates the scalar and only those bytes are replaced, so comments, alignment and
@@ -524,7 +549,8 @@ command resolved — a row inserted or reordered since the address was resolved 
 a **staleness** refusal (exit 1), not a silent write to the wrong row.
 Concurrent `pasco edit` writers on one workspace serialize on
 `content/.pasco-edit.lock` (a second waits 2 s, then refuses; a lock left by a
-crash is broken after 30 s); an external editor is caught by the re-read
+crash is broken after 30 s — `--create` takes the same lock and re-checks the
+root immediately before its exclusive create); an external editor is caught by the re-read
 immediately before the atomic rename. A symlinked
 content file keeps its link (the target is replaced) and the file mode is
 preserved. Re-setting an identical value is a **noop** (exit 0, nothing written).
@@ -538,7 +564,11 @@ it is honest where echoing the addressed row would not be: a paste surface
 publishes exactly **one** bio (length priority `long > medium > short`), several
 renderers never emit the statement, and a renderer-less surface carries no
 headline. In those cases the artifact does not change and the preview says so —
-with the reason, and exit `1`. It runs the writer's **eligibility and staleness
+with the reason, and exit `1`. Two #435 fields have a different published
+surface: `identity.definition` reaches the entity JSON-LD that `github-readme`
+and `github-org` embed (the preview shows that block), and `faq[]` has **no**
+`pasco build` artifact — its published surface is the `FAQPage` node
+`pasco entity --jsonld` emits (#360), so `--check` previews that node's bytes. It runs the writer's **eligibility and staleness
 checks first**, so `--check` refuses the same ADDRESSED shapes `--set` refuses
 (block/multi-line/anchored scalars, a stale row, a read-only **file**). A
 read-only **directory**, a validation refusal or a concurrent change can still
@@ -577,7 +607,12 @@ when the workspace declares checks, the **sourced caps shipped with pasco**
 otherwise — and prints the cap, its **cited source** and its provenance tier. Over-cap is a
 **warning**, never a block (D12: facts warn, schema fails): `edit` says so, `check`
 reports the same finding (same executor), and a platform with **no sourced cap**
-says `cap: unknown` instead of guessing a number.
+says `cap: unknown` instead of guessing a number. The answer-engine fields are
+pre-flighted the same way against the **contract's** own caps (#435): 160 chars
+per `identity.definition` value, 90 per `faq[].q`, 320 per `faq[].a` (v1.10,
+#288, `[OFICIAL]`). Those are schema `maxLength`s, so over one the pre-flight
+warns and the **write is refused by validation** — the one place the cap is a
+failure, not a warning (D12).
 
 `--json` payload (inside the CLI's usual envelope, which also carries `command`,
 `ok` and `exitCode`): `{ address, current, proposed, rendered, ok, noop, written,
@@ -588,14 +623,17 @@ record; `null` for a read-only link or an address that is not one row), and
 `noop` says the value was already there, `written` says the file changed, and
 `warnings` carries the non-blocking findings a write proceeded through (a D22/§21
 selection error that makes `pasco build` refuse the workspace — the SSOT write is
-still valid, so it is reported, not blocked). Exit codes: **0** the write succeeded
-(or the noop was a noop), or the preview changes the artifact · **1** the address
-did not resolve to exactly one row, the target is read-only or changed under the
-command (stale), the validation refused the result, or (preview only) the artifact
-does not change or a D22/§21 selection error makes `build` refuse the workspace
-(`kind: "selection"`) · **2** usage (malformed address, read-only field, block/multi-line
-scalar, anchored/aliased scalar, a value with a line break, `--check` without
-`--set`).
+still valid, so it is reported, not blocked). `--create` carries its own payload
+(`{ mode: "create", root, file, created, preview, seed, limits, warnings }`). Exit
+codes: **0** the write succeeded (or the noop was a noop), the preview changes the
+artifact, or the seed was written/previewed · **1** the address did not resolve to
+exactly one row, the target is read-only or changed under the command (stale), the
+validation refused the result, `--create` found the root already present (nothing
+written), or (preview only) the artifact does not change or a D22/§21 selection
+error makes `build` refuse the workspace (`kind: "selection"`) · **2** usage
+(malformed address, read-only field, block/multi-line scalar, anchored/aliased
+scalar, a value with a line break, `--check` without `--set`, `--create` with an
+unknown root or next to `--set`/`--list`/an address).
 
 ### The machine contract (`--json`, S5 / #252)
 
@@ -615,7 +653,7 @@ are the envelope; the edit's own fields are
 | `stale` | `Record<surface, "in-sync" \| "stale">` | each **recorded** surface of the edited unit |
 | `state` | `"never" \| "in-sync" \| "stale" \| null` | the §19 unit rollup (`null` when the address is not one writable unit) |
 | `drift` | number | the measured drift-check count |
-| `limit` | `{cap, source, tier} \| null` | the applicable published cap; `null` when the catalog has none **or** the address type has no cap (a statement or a link) |
+| `limit` | `{cap, source, tier} \| null` | the applicable published cap (the catalog's for headline/bio, the contract's for definition/faq); `null` when there is none **or** the address type has no text cap (a statement, a link, `faq[].source`) |
 | `over` | boolean | the value exceeds that cap |
 | `variant` | string \| null | the active #238 variant shadowing the **addressed platform** (a statement names its variants in `warnings` instead) |
 | `reason` | string \| null | why the preview does not reach the artifact (the same sentence the human output prints as `why:`) |
