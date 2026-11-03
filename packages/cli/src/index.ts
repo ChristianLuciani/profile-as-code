@@ -42,6 +42,7 @@ import {
   parseLang,
   UsageError,
 } from "./contract.js";
+import { parseCreateRoot, SEEDABLE_ROOTS, type SeedableRoot } from "./edit-seed.js";
 import type { EngineConfigSource } from "./engine-gate.js";
 import { engineGateError, evaluateEngineRequirements } from "./engine-gate.js";
 import { EXIT } from "./exit.js";
@@ -190,6 +191,7 @@ interface FlagOptions {
   format?: string;
   from?: string;
   list?: boolean;
+  create?: string;
   force?: boolean;
   jsonld?: boolean;
   bare?: boolean;
@@ -305,24 +307,38 @@ omission is reported as a warning; an addressed key that resolves to nothing is
 an error. No selection policy = byte-identical output.`,
   edit: `pasco edit <contract-path> [--set <text> [--check]] [--json] [--workspace <path>]
        pasco edit --list [<block>] [--json] [--workspace <path>]
+       pasco edit --create <root> [--check] [--json] [--workspace <path>]
 Resolve ONE contract field (epic #247, S1–S5 — read · preview · write · surface impact · cap pre-flight · agent contract):
   positioning.statement.<lang>
   headlines[platform=<p>,lang=<l>].text
   bios[platform=<p>,lang=<l>,length=<len>].text
+  identity.definition.<lang>
+  faq[id=<slug>,lang=<l>].q | .a
+  faq[id=<slug>].source
   identity.links[platform=<p>,label=<l>].url     (read-only; label optional)
 --list is the read-only discovery surface (#411): it prints every addressable row
 of this workspace, one per line, built by the same constructors resolution uses —
 no second grammar. <block> scopes it to positioning | headlines | bios |
-identity.links; an unknown block, --set, --check or an address next to it is
-usage (exit 2). A link row whose platform cannot be expressed as a selector is a
-warning; a label the grammar cannot express is dropped and the row is listed by
-its platform when that resolves to one row (the warning says so). Any address
-that resolves to more than one row (a duplicate headline/bio, a label-less link
-sharing its platform) is a warning too — never printed as a path the command
-would reject.
+identity.definition | identity.links | faq; an unknown block, --set, --check,
+--create or an address next to it is usage (exit 2). A link row whose platform
+cannot be expressed as a selector is a warning; a label the grammar cannot
+express is dropped and the row is listed by its platform when that resolves to
+one row (the warning says so). Any address that resolves to more than one row
+(a duplicate headline/bio, a repeated faq id, a label-less link sharing its
+platform) is a warning too — never printed as a path the command would reject.
 It never locates a CST node, takes the edit lock or writes; an empty workspace
 prints the header alone (exit 0). --json payload { addresses: [{ address, kind,
 readOnly }], warnings }.
+--create <root> seeds a root the workspace does NOT declare yet — a DIFFERENT
+operation from the splice: the splice never invents bytes and --create never
+overwrites one. It writes a schema-valid template (--create faq, or the file form
+--create content/faq.yaml), refuses when the root already exists under any
+extension case (idempotent: nothing is written), and runs the same validation
+(load()+schema over a temp copy) and cap pre-flight as --set. --check previews
+the seed: it validates it and writes nothing. Seedable roots:
+${SEEDABLE_ROOTS.join(", ")} (3 placeholder pairs, the schema minimum) — replace every <placeholder> with the owner's own
+facts, never invented copy. --json payload { mode, root, file, created, preview,
+seed, limits, warnings }.
 Without --set it prints the current value. With --set it WRITES the value — a
 byte-range splice over the original text (the CST locates, it never
 re-serializes), so comments, layout and CRLF survive and the diff is one line;
@@ -338,16 +354,24 @@ failure is only detected by the write.
 With --set --check it PREVIEWS instead: it renders the surface the way
 \`pasco build\` does — active variant (#238) → renderer → shared paste source,
 current vs proposed — and prints the artifact lines the edit changes, saying so
-(with the reason) when the edit does not reach the artifact.
+(with the reason) when the edit does not reach the artifact. A faq[] value has no
+pasco build artifact: its published surface is the FAQPage node of
+\`pasco entity --jsonld\` (#360), and --check previews that node's bytes.
+identity.definition reaches the entity JSON-LD that github-readme/github-org
+embed, so its preview is the artifact's JSON-LD block.
 Every run against a resolved, writable address also prints the edited unit's
 SURFACE IMPACT from the §19 ledger: each
 recorded surface prints stale (the edit changed the hash) or in-sync (it still
 matches), and a unit with no record rolls up to never — derived, never stored.
-The block also carries the measured drift count.
+faq[] has no §19 unit, so it prints no surface-impact block (rather than naming a
+fabricated one). The block also carries the measured drift count.
 A headline/bio value is pre-flighted against the catalog's own max-chars cap (the
 workspace's checks.yaml, else the sourced caps shipped with pasco) and prints the
 cap, its cited source and tier; over-cap is a WARNING (D12), never a block, and a platform
-with no sourced cap reads \`cap: unknown\`.
+with no sourced cap reads \`cap: unknown\`. identity.definition and faq[].q|.a are
+pre-flighted against the contract's own caps (160 / 90 / 320 chars per value,
+#288): over one is a schema failure (D12), so the pre-flight warns and the write
+is refused by validation.
 An active variant (#238) on the addressed platform is NAMED (edit never chooses the
 live variant — that is refine --choose).
 \`--json\` payload { address, current, proposed, rendered, ok, noop, written,
@@ -355,12 +379,15 @@ warnings, stale, state, drift, limit, over, variant, reason } inside the usual
 envelope
 (command · ok · exitCode);
 warnings carries a non-blocking finding the write proceeded through.
-Exit: 0 a read / written / noop / the preview changes the artifact · 1 the address
-did not resolve to exactly one row, the target is read-only or changed under the
-command (stale — nothing was written), the validation refused the result, or
-(preview) the artifact does not change · 2 usage (malformed address, unknown
-platform or language, read-only field, block or multi-line scalar, anchored/aliased
-scalar, a value with a line break, an empty --set, --check without --set).`,
+Exit: 0 a read / written / noop / the preview changes the artifact / the seed was
+written (or previewed) · 1 the address did not resolve to exactly one row, the
+target is read-only or changed under the command (stale — nothing was written),
+--create found the root already present (nothing was written), the validation
+refused the result, or (preview) the artifact does not change · 2 usage
+(malformed address, unknown platform or language, read-only field, block or
+multi-line scalar, anchored/aliased scalar, a value with a line break, an empty
+--set, --check without --set, --create with no seedable root or next to --set /
+--list / an address).`,
   diff: `pasco diff [--json] [--workspace <path>]
 Git-based: what changed since the last tag matching release-* (.pascorc
 diff.tagPattern) — commits + changed content files → CHANGELOG hint.`,
@@ -798,6 +825,7 @@ async function runMain(): Promise<number> {
         set: { type: "string" },
         check: { type: "boolean" },
         list: { type: "boolean" },
+        create: { type: "string" },
       });
       if (flags.help === true) {
         process.stdout.write(`${COMMAND_HELP.edit}\n`);
@@ -810,9 +838,12 @@ async function runMain(): Promise<number> {
       // .pascorc must not turn a usage error into exit 1 (review round 3 F1,
       // extended to the <block> positional in round 4 F2).
       let listBlock: EditListBlock | undefined;
+      let createRoot: SeedableRoot | undefined;
       if (flags.list === true) {
-        if (flags.set !== undefined || flags.check === true) {
-          throw new UsageError("--list is read-only: it cannot be combined with --set or --check");
+        if (flags.set !== undefined || flags.check === true || flags.create !== undefined) {
+          throw new UsageError(
+            "--list is read-only: it cannot be combined with --set, --check or --create",
+          );
         }
         if (positionals.length > 1) {
           throw new UsageError("pasco edit --list [<block>]");
@@ -834,6 +865,20 @@ async function runMain(): Promise<number> {
             );
           }
         }
+      } else if (flags.create !== undefined) {
+        // #435: `--create <root>` is its own invocation form — an address, a
+        // --set write or a --list scope next to it is usage. `--check` is the
+        // seed's preview, so it IS allowed here.
+        if (flags.set !== undefined) {
+          throw new UsageError(
+            "--create seeds a missing root: it cannot be combined with --set (use --create <root> --check to preview the seed)",
+          );
+        }
+        if (positionals.length > 0) {
+          throw new UsageError("pasco edit --create <root> takes no address");
+        }
+        // Pure parse, decided before the workspace/config is read.
+        createRoot = parseCreateRoot(flags.create);
       } else if (positionals.length !== 1) {
         throw new UsageError("pasco edit <contract-path> [--set <text> [--check]]");
       }
@@ -846,6 +891,14 @@ async function runMain(): Promise<number> {
           list: true,
           check: false,
           ...(listBlock === undefined ? {} : { listBlock }),
+          pascorc,
+        });
+      }
+      if (createRoot !== undefined) {
+        return runEdit({
+          workspace,
+          createRoot,
+          check: flags.check === true,
           pascorc,
         });
       }

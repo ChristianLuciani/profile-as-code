@@ -22,10 +22,14 @@
  * (`EditTarget.locate` — owning file + FILE-relative path) and never re-derives
  * an address; `locate` exists ONLY when the address resolves to exactly one row,
  * and only for writable addresses.
+ *
+ * #435 adds the answer-engine surface (`identity.definition.<lang>`,
+ * `faq[id=…,lang=…].q|.a`, `faq[id=…].source`) under the SAME resolution rules,
+ * plus `--create <root>` — a SEPARATE operation that seeds a root the workspace
+ * does not declare yet (`content/faq.yaml`). The splice still never invents
+ * bytes; creation has its own guard (`edit-write.ts`, `edit-seed.ts`).
  */
 
-import { readdirSync } from "node:fs";
-import { join } from "node:path";
 import type {
   BioLength,
   Lang,
@@ -42,6 +46,7 @@ import {
   load,
   PLATFORMS,
   SchemaValidationError,
+  structuredData,
 } from "@profile-as-code/core";
 import {
   compileSlice,
@@ -53,6 +58,8 @@ import {
 import type { EditAddress, EditListBlock } from "../contract.js";
 import {
   bioAddress,
+  definitionAddress,
+  faqAddress,
   headlineAddress,
   LANGS,
   linkAddress,
@@ -61,15 +68,19 @@ import {
   UsageError,
 } from "../contract.js";
 import { DEFAULT_CHECKS } from "../default-checks.js";
+import { SEED_FAQ_ENTRIES, type SeedableRoot, seedTemplate } from "../edit-seed.js";
 import {
+  createRoot,
   inspectTarget,
+  owningFile,
+  previewCreate,
   StaleEditError,
   type WriteOutcome,
   WriteRefusedError,
   writeEdit,
 } from "../edit-write.js";
 import { EXIT } from "../exit.js";
-import { type ApplicableLimit, applicableLimit, limitFindings } from "../limits.js";
+import { type ApplicableLimit, applicableLimit, contractLimit, limitFindings } from "../limits.js";
 import { line, report, warn } from "../output.js";
 import { resolveVariantBody } from "../variant-store.js";
 import type { Pascorc } from "../workspace.js";
@@ -83,6 +94,9 @@ export interface EditArgs {
   list?: boolean;
   /** #411: scope `--list` to one block (unset = every block). */
   listBlock?: EditListBlock;
+  /** #435: seed a root the workspace does not declare yet (a DIFFERENT
+   *  operation from the splice; never combined with an address). */
+  createRoot?: SeedableRoot;
   pascorc: Pascorc;
 }
 
@@ -149,23 +163,7 @@ export interface EditTarget {
   available: string[];
 }
 
-/**
- * The content file that owns a root property. The file NAME is the root property
- * (schema/README.md) and `load()` matches the extension case-insensitively, so
- * this scans the directory instead of guessing: a default like
- * `content/headlines.yaml` would point S2 at a file that may not exist while
- * `content/headlines.YAML` owns the block (review of #331, F4).
- */
-function owningFile(workspace: string, root: string): string | undefined {
-  let entries: string[];
-  try {
-    entries = readdirSync(join(workspace, "content"));
-  } catch {
-    return undefined;
-  }
-  const match = entries.filter((name) => new RegExp(`^${root}\\.ya?ml$`, "i").test(name)).sort()[0];
-  return match === undefined ? undefined : `content/${match}`;
-}
+type FaqEntry = NonNullable<LoadedProfile["faq"]>[number];
 
 /** The rows an address selects — THE addressability rule. Resolution and
  *  `--list` both call these, so the list cannot drift into a second match
@@ -191,6 +189,23 @@ function linkHits(links: LinkRow[], platform: string, label?: string) {
       ({ row }) =>
         row.platform === platform && (label === undefined || (row.label ?? "") === label),
     );
+}
+
+/** `faq[]` rows selected by their stable `id` (#435) — never by index (#435's
+ *  repro: the array index is what `audit` prints, and reordering rows would
+ *  silently retarget it). A duplicated id matches N rows, which the command
+ *  refuses rather than choosing one. */
+function faqHits(rows: FaqEntry[], id: string) {
+  return rows.map((row, index) => ({ row, index })).filter(({ row }) => row.id === id);
+}
+
+/** The scalar a `faq[id=…]` address resolves to. `q`/`a` are langMaps; `source`
+ *  is a plain URL. An empty string counts as ABSENT, like a statement (#84). */
+function faqValue(row: FaqEntry, field: "q" | "a" | "source", lang?: Lang): string | undefined {
+  if (field === "source")
+    return row.source === undefined || row.source === "" ? undefined : row.source;
+  const value = (row[field] as Record<string, string> | undefined)?.[lang as string];
+  return typeof value === "string" && value !== "" ? value : undefined;
 }
 
 /**
@@ -282,6 +297,97 @@ export function resolveEditTarget(
       available: [
         ...new Set(profile.bios.map((row) => bioAddress(row.platform, row.lang, row.length))),
       ],
+    };
+  }
+
+  if (address.kind === "definition") {
+    const definition: Record<string, string> = profile.identity.definition ?? {};
+    const value = definition[address.lang];
+    // Empty string counts as ABSENT, the same rule compile()/statement use (#84).
+    const present = typeof value === "string" && value !== "";
+    const available = LANGS.filter(
+      (lang) => typeof definition[lang] === "string" && definition[lang] !== "",
+    ).map((lang) => definitionAddress(lang as Lang));
+    const file = owningFile(workspace, "identity");
+    return {
+      address,
+      ...(present && file !== undefined
+        ? {
+            locate: {
+              file,
+              path: ["definition", address.lang],
+              profilePath: ["identity", "definition", address.lang],
+            },
+          }
+        : {}),
+      ...(present ? { current: value } : {}),
+      matches: present ? 1 : 0,
+      rows: present ? [{ address: address.address, value }] : [],
+      available,
+    };
+  }
+
+  if (address.kind === "faq") {
+    const rows = profile.faq ?? [];
+    const hits = faqHits(rows, address.id);
+    const file = owningFile(workspace, "faq");
+    const first = hits[0];
+    const value =
+      hits.length === 1 && first !== undefined
+        ? faqValue(first.row, address.field, address.lang)
+        : undefined;
+    // >1 row sharing the id is ambiguity even when the addressed value is absent
+    // in one of them: `edit` refuses to choose a row first.
+    const matches = hits.length > 1 ? hits.length : value === undefined ? 0 : 1;
+    const available = [
+      ...new Set(
+        rows.flatMap((row) => {
+          const out: string[] = [];
+          for (const lang of LANGS) {
+            if (faqValue(row, "q", lang as Lang) !== undefined) {
+              out.push(faqAddress(row.id, "q", lang as Lang));
+            }
+            if (faqValue(row, "a", lang as Lang) !== undefined) {
+              out.push(faqAddress(row.id, "a", lang as Lang));
+            }
+          }
+          if (faqValue(row, "source", undefined) !== undefined) {
+            out.push(faqAddress(row.id, "source"));
+          }
+          return out;
+        }),
+      ),
+    ];
+    const locateIndex = first?.index;
+    return {
+      address,
+      ...(matches === 1 && file !== undefined && locateIndex !== undefined
+        ? {
+            locate: {
+              file,
+              path:
+                address.field === "source"
+                  ? [locateIndex, "source"]
+                  : [locateIndex, address.field, address.lang as Lang],
+              profilePath:
+                address.field === "source"
+                  ? ["faq", locateIndex, "source"]
+                  : ["faq", locateIndex, address.field, address.lang as Lang],
+            },
+          }
+        : {}),
+      ...(matches === 1 ? { current: value } : {}),
+      matches,
+      rows:
+        hits.length > 1
+          ? hits.map(({ row }) => ({
+              address: faqAddress(row.id, address.field, address.lang),
+              value: faqValue(row, address.field, address.lang) ?? "",
+            }))
+          : matches === 1
+            ? [{ address: address.address, value: value as string }]
+            : [],
+      available,
     };
   }
 
@@ -410,6 +516,16 @@ export function listEditAddresses(
     }
   }
 
+  if (scoped("identity.definition")) {
+    const definition: Record<string, string> = profile.identity.definition ?? {};
+    for (const lang of LANGS) {
+      // Empty string is ABSENT to compile() (#84) — listing it would be a trap.
+      if (typeof definition[lang] === "string" && definition[lang] !== "") {
+        add(definitionAddress(lang as Lang), "definition", 1);
+      }
+    }
+  }
+
   if (scoped("identity.links")) {
     const links = profile.identity.links ?? [];
     links.forEach((row, index) => {
@@ -437,6 +553,26 @@ export function listEditAddresses(
         );
       }
     });
+  }
+
+  if (scoped("faq")) {
+    const rows = profile.faq ?? [];
+    const counts = new Map<string, number>();
+    for (const row of rows) counts.set(row.id, (counts.get(row.id) ?? 0) + 1);
+    for (const row of rows) {
+      const matches = counts.get(row.id) ?? 0;
+      for (const lang of LANGS) {
+        if (faqValue(row, "q", lang as Lang) !== undefined) {
+          add(faqAddress(row.id, "q", lang as Lang), "faq", matches);
+        }
+        if (faqValue(row, "a", lang as Lang) !== undefined) {
+          add(faqAddress(row.id, "a", lang as Lang), "faq", matches);
+        }
+      }
+      if (faqValue(row, "source", undefined) !== undefined) {
+        add(faqAddress(row.id, "source"), "faq", matches);
+      }
+    }
   }
 
   return { addresses, warnings };
@@ -528,6 +664,9 @@ function explainMiss(artifact: ArtifactView, address: EditableAddress, platform:
     }
     return `the ${platform} renderer does not emit this headline`;
   }
+  if (address.kind === "definition") {
+    return `the ${platform} artifact embeds no entity JSON-LD — only a renderer that emits it publishes identity.definition`;
+  }
   return "no rendered artifact carries this statement — only renderers that emit it can publish it";
 }
 
@@ -539,6 +678,11 @@ interface Published {
   error?: string;
 }
 
+/** Pretty JSON — the preview's text form of the entity projection. */
+function jsonText(value: unknown): string {
+  return value === undefined ? "" : JSON.stringify(value, null, 2);
+}
+
 function publishedByEdit(
   before: LoadedProfile,
   after: LoadedProfile,
@@ -546,8 +690,29 @@ function publishedByEdit(
   workspace: string,
   pascorc: Pascorc,
 ): Published {
+  // #435: `faq[]` has no `pasco build` artifact — its published surface is the
+  // `FAQPage` node `pasco entity --jsonld` emits (#360), from the same assembler
+  // (`structuredData`, never a second emitter). Preview THAT, so `--check` is
+  // meaningful for the field the issue is about.
+  if (address.kind === "faq") {
+    const lang = address.lang ?? "en";
+    const oldNode = jsonText(structuredData(before, lang).faqJsonLd);
+    const newNode = jsonText(structuredData(after, lang).faqJsonLd);
+    const region = changedRegion(oldNode, newNode);
+    if (region !== undefined) {
+      return { changes: [{ platform: "entity", ...region }] };
+    }
+    return {
+      changes: [],
+      reason:
+        "faq[] reaches the FAQPage node of `pasco entity --jsonld` (#360), and this edit does not change that node's bytes",
+    };
+  }
   const media = collectMedia(before, workspace);
-  const platforms: Platform[] = address.kind === "statement" ? [...PLATFORMS] : [address.platform];
+  const platforms: Platform[] =
+    address.kind === "statement" || address.kind === "definition"
+      ? [...PLATFORMS]
+      : [address.platform];
   // `build`'s selection gate runs over ITS slice set: a bare `pasco build`
   // compiles every platform (the brand-only surface included) and refuses on any
   // per-view error. The preview must refuse identically even when the addressed
@@ -594,9 +759,13 @@ function failLoad(err: unknown): number {
 }
 
 /** The §19.2 ledger key of the unit an address edits — `deployStatus` reads the
- *  ledger by this key, so the report and `pasco status` cannot disagree. */
-function ledgerKeyOf(address: EditableAddress): string {
+ *  ledger by this key, so the report and `pasco status` cannot disagree. `faq`
+ *  is a root block with NO §19 unit (faq rows are not tracked), so it returns
+ *  `undefined`: the report says nothing rather than naming a fabricated unit. */
+function ledgerKeyOf(address: EditableAddress): string | undefined {
   if (address.kind === "statement") return "positioning";
+  if (address.kind === "definition") return "identity";
+  if (address.kind === "faq") return undefined;
   if (address.kind === "bio") {
     return `bios:${address.platform}:${address.lang}:${address.length}`;
   }
@@ -613,19 +782,33 @@ interface LedgerImpact {
   surfaces: Record<string, string>;
 }
 
-function ledgerImpact(profile: LoadedProfile, address: EditableAddress): LedgerImpact {
+function ledgerImpact(profile: LoadedProfile, address: EditableAddress): LedgerImpact | undefined {
   const key = ledgerKeyOf(address);
+  if (key === undefined) return undefined; // `faq[]` has no §19 unit
   const unit = deployStatus(profile).units.find((candidate) => candidate.key === key);
   return { key, state: unit?.state ?? "never", surfaces: unit?.surfaces ?? {} };
 }
 
 /** The text-limit pre-flight of one row (#251): the catalog's own cap, with its
  *  cited source, or `undefined` when the catalog has none (never a guessed
- *  number — evidence rule). WARN, not a block (D12). */
+ *  number — evidence rule). WARN, not a block (D12) — except the #435 contract
+ *  caps, which the schema ENFORCES (`enforced` says so in the report). */
 interface LimitPreflight {
   limit?: ApplicableLimit;
   length: number;
   over: boolean;
+  /** True when the contract itself enforces the cap (a schema maxLength): the
+   *  value previews, but the write would be refused by validation (D12). */
+  enforced?: boolean;
+}
+
+/** The human label of the value a cap applies to. */
+function limitScope(address: EditAddress): string {
+  if (address.kind === "link") return "link";
+  if (address.kind === "definition") return "definition";
+  if (address.kind === "faq")
+    return address.field === "source" ? "faq source" : `faq ${address.field}`;
+  return address.kind === "bio" ? "bio" : "headline";
 }
 
 function limitPreflight(
@@ -633,11 +816,19 @@ function limitPreflight(
   address: EditableAddress,
   text: string,
 ): LimitPreflight | undefined {
-  if (address.kind === "statement") return undefined; // no published cap on a statement
+  if (address.kind === "statement" || (address.kind === "faq" && address.field === "source")) {
+    return undefined; // no published text cap on a statement or a URL
+  }
+  const length = [...text].length;
+  if (address.kind === "definition" || address.kind === "faq") {
+    const limit = contractLimit(
+      address.kind === "definition" ? "definition" : address.field === "q" ? "faq.q" : "faq.a",
+    );
+    return { limit, length, over: length > limit.cap, enforced: true };
+  }
   const surface = address.kind === "bio" ? "bio" : "headline";
   const checks = profile.checks.length > 0 ? profile.checks : DEFAULT_CHECKS;
   const limit = applicableLimit(checks, address.platform, surface);
-  const length = [...text].length;
   return {
     ...(limit === undefined ? {} : { limit }),
     length,
@@ -689,7 +880,9 @@ function warningsForEdit(
   }
   if (preflight?.limit !== undefined && preflight.over) {
     out.push(
-      `${preflight.length} chars is over the published cap ${preflight.limit.cap} (${preflight.limit.source})`,
+      preflight.enforced === true
+        ? `${preflight.length} chars is over the contract cap ${preflight.limit.cap} — the schema refuses the write (D12): shorten it first (${preflight.limit.source})`
+        : `${preflight.length} chars is over the published cap ${preflight.limit.cap} (${preflight.limit.source})`,
     );
   }
   if (address.kind === "headline" || address.kind === "bio") {
@@ -704,6 +897,8 @@ function warningsForEdit(
 /** Human scope label of an address: which artifact(s) carry it. */
 function scopeLabel(address: EditAddress): string {
   if (address.kind === "statement") return "every rendered platform";
+  if (address.kind === "definition") return "every artifact that embeds the entity JSON-LD";
+  if (address.kind === "faq") return "the entity FAQPage (`pasco entity --jsonld`, #360)";
   if (address.kind === "link") return "verbatim — the URL SSOT (§3)";
   return `${address.platform}/${address.lang}`;
 }
@@ -715,6 +910,10 @@ export function runEdit(args: EditArgs): number {
   } catch (err) {
     return failLoad(err);
   }
+
+  // #435: `--create` is a DIFFERENT operation — it seeds a root the workspace
+  // does not declare yet. It never resolves an address or touches the splice.
+  if (args.createRoot !== undefined) return runCreate(args);
 
   // #411: discovery is a READ-ONLY mode — it never resolves a target, locates a
   // CST node or touches the edit lock. Same constructors as resolution: the list
@@ -912,7 +1111,9 @@ export function runEdit(args: EditArgs): number {
     line("resolves to 0 rows — no current value");
     if (proposed !== undefined) {
       line(`proposed: ${proposed}`);
-      line("(edit does not create rows: the field must already exist in the schema and the file)");
+      line(
+        "(edit does not create rows: the field must already exist in the schema and the file; --create seeds a root the workspace does not declare yet)",
+      );
     }
     if (target.available.length > 0) {
       line("available:");
@@ -924,7 +1125,9 @@ export function runEdit(args: EditArgs): number {
         ? "a duplicate row is drift/duplicate-bio"
         : address.kind === "link"
           ? "several links share this platform — add label=<…> (not a drift finding: drift flags the same URL twice)"
-          : "several rows share this address";
+          : address.kind === "faq"
+            ? "several faq rows share this id — fix the duplicate id first"
+            : "several rows share this address";
     line(`resolves to ${target.matches} rows — ${kind}; edit refuses to choose`);
     target.rows.forEach((row, index) => {
       line(
@@ -934,7 +1137,7 @@ export function runEdit(args: EditArgs): number {
   }
 
   if (preflight !== undefined) {
-    const scope = `${address.kind === "bio" ? "bio" : "headline"}`;
+    const scope = limitScope(address);
     if (preflight.limit === undefined) {
       line(
         `limits: ${preflight.length} chars — cap unknown (no sourced max-chars for this ${scope} in the catalog: the workspace's content/checks.yaml or the caps shipped with pasco)`,
@@ -946,7 +1149,9 @@ export function runEdit(args: EditArgs): number {
       );
       if (preflight.over) {
         warn(
-          `${scope} is ${preflight.length} chars, over the published cap ${preflight.limit.cap} — the platform may truncate it (${preflight.limit.source})`,
+          preflight.enforced === true
+            ? `${scope} is ${preflight.length} chars, over the contract cap ${preflight.limit.cap} — the schema refuses the write (D12); shorten it (${preflight.limit.source})`
+            : `${scope} is ${preflight.length} chars, over the published cap ${preflight.limit.cap} — the platform may truncate it (${preflight.limit.source})`,
         );
       }
     }
@@ -1014,6 +1219,121 @@ export function runEdit(args: EditArgs): number {
       over: preflight?.over ?? false,
       variant: activeVariant ?? null,
       reason: published.reason ?? null,
+    },
+  });
+}
+
+/** One seed limit measured before writing: the contract cap and the longest
+ *  value the template holds for it. */
+interface SeedLimit {
+  field: "q" | "a";
+  cap: number;
+  length: number;
+  over: boolean;
+  source: string;
+}
+
+/** The cap pre-flight of a seed (#435): the same contract caps `--set` uses,
+ *  measured over the template's own values. Over-cap is impossible for the
+ *  shipped template (a test pins it), and it would be a schema FAILURE anyway —
+ *  the point is that creation runs the SAME pre-flight, not a weaker one. */
+function seedLimits(root: SeedableRoot): SeedLimit[] {
+  if (root !== "faq") return []; // exhaustive over SeedableRoot (one today)
+  const limits: SeedLimit[] = [];
+  for (const field of ["q", "a"] as const) {
+    const limit = contractLimit(field === "q" ? "faq.q" : "faq.a");
+    const length = Math.max(...SEED_FAQ_ENTRIES.map((entry) => [...entry[field]].length));
+    limits.push({
+      field,
+      cap: limit.cap,
+      length,
+      over: length > limit.cap,
+      source: limit.source,
+    });
+  }
+  return limits;
+}
+
+/**
+ * `pasco edit --create <root>` (#435) — a SEPARATE operation from the splice:
+ * it seeds a root the workspace does not declare yet, refuses an existing root
+ * (idempotent), validates the result through the same `load()` gate and runs
+ * the same cap pre-flight. `--check` previews it (validates, writes nothing).
+ */
+function runCreate(args: EditArgs): number {
+  const root = args.createRoot as SeedableRoot;
+  const text = seedTemplate(root);
+  const limits = seedLimits(root);
+  const preview = args.check;
+  const seedLabel =
+    root === "faq"
+      ? `${SEED_FAQ_ENTRIES.length} pairs (the schema minimum) — replace every <placeholder>`
+      : "template";
+
+  let file: string;
+  try {
+    file = preview
+      ? previewCreate({ workspace: args.workspace, root, text }).file
+      : createRoot({ workspace: args.workspace, root, text }).file;
+  } catch (err) {
+    if (err instanceof WriteRefusedError || err instanceof StaleEditError) {
+      return report("edit", false, EXIT.FAIL, {
+        error: {
+          kind: err instanceof StaleEditError ? "stale" : "refused",
+          message: err.message,
+        },
+      });
+    }
+    if (err instanceof SchemaValidationError || err instanceof LoadError) {
+      return report("edit", false, EXIT.FAIL, {
+        error: {
+          kind: err instanceof SchemaValidationError ? "schema" : "load",
+          message: err.message,
+          ...(err instanceof SchemaValidationError ? { violations: [...err.issues] } : {}),
+        },
+      });
+    }
+    throw err;
+  }
+
+  line(`root:     ${root}`);
+  line(`file:     ${file}`);
+  line(`seed:     ${seedLabel}`);
+  if (limits.length > 0) {
+    for (const limit of limits) {
+      line(
+        `limits:   ${limit.field} ${limit.length}/${limit.cap}${limit.over ? " — OVER" : " — ok"} — ${limit.source}`,
+      );
+      if (limit.over) {
+        warn(
+          `${limit.field} is ${limit.length} chars, over the contract cap ${limit.cap} — the schema refuses the write (D12); shorten it (${limit.source})`,
+        );
+      }
+    }
+  }
+  line(
+    preview
+      ? "would create: yes (--check: validated, nothing was written)"
+      : "written:  yes (validated by load()+schema over a temp copy, then written)",
+  );
+  line("validates: yes (schema)");
+
+  return report("edit", true, EXIT.OK, {
+    data: {
+      mode: "create",
+      root,
+      file,
+      created: !preview,
+      preview,
+      seed: seedLabel,
+      limits: limits.map((limit) => ({
+        field: limit.field,
+        cap: limit.cap,
+        length: limit.length,
+        over: limit.over,
+        source: limit.source,
+      })),
+      warnings: [],
     },
   });
 }

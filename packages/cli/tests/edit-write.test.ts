@@ -21,6 +21,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -32,7 +33,15 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { LoadError } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
-import { StaleEditError, WriteRefusedError, writeEdit } from "../src/edit-write.js";
+import { seedTemplate } from "../src/edit-seed.js";
+import {
+  createRoot,
+  owningFile,
+  previewCreate,
+  StaleEditError,
+  WriteRefusedError,
+  writeEdit,
+} from "../src/edit-write.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI = join(__dirname, "..", "dist", "index.js");
@@ -475,5 +484,66 @@ describe("pasco edit — S2 writer (range splice)", () => {
     expect(r.stdout).toContain("written: yes");
     expect(r.stdout).toContain("does not change the artifact");
     expect(existsSync(fileOf(dir, "headlines.yaml"))).toBe(true);
+  });
+});
+
+describe("--create — the seed writer (#435, a separate operation from the splice)", () => {
+  it("previewCreate validates the seed and writes nothing", () => {
+    const dir = workspace();
+    const before = readdirSync(join(dir, "content")).sort();
+    const plan = previewCreate({ workspace: dir, root: "faq", text: seedTemplate("faq") });
+    expect(plan.file).toBe("content/faq.yaml");
+    expect(existsSync(fileOf(dir, "faq.yaml"))).toBe(false);
+    expect(readdirSync(join(dir, "content")).sort()).toEqual(before);
+  });
+
+  it("createRoot writes the seed atomically and load() reads it back", () => {
+    const dir = workspace();
+    const outcome = createRoot({ workspace: dir, root: "faq", text: seedTemplate("faq") });
+    expect(outcome).toEqual({ file: "content/faq.yaml", created: true });
+    expect(existsSync(fileOf(dir, "faq.yaml"))).toBe(true);
+    // No temp file survives the atomic rename.
+    expect(readdirSync(join(dir, "content")).some((name) => name.includes(".pasco-edit-"))).toBe(
+      false,
+    );
+  });
+
+  it("never overwrites an existing root, under any extension case", () => {
+    const dir = workspace();
+    createRoot({ workspace: dir, root: "faq", text: seedTemplate("faq") });
+    expect(() => createRoot({ workspace: dir, root: "faq", text: seedTemplate("faq") })).toThrow(
+      WriteRefusedError,
+    );
+    // The root guard is file EXISTENCE, not the exact spelling: a .YAML file
+    // already owns the block, so a second file must be refused.
+    renameSync(fileOf(dir, "faq.yaml"), fileOf(dir, "faq.YAML"));
+    expect(owningFile(dir, "faq")).toBe("content/faq.YAML");
+    expect(() => previewCreate({ workspace: dir, root: "faq", text: seedTemplate("faq") })).toThrow(
+      /already exists/,
+    );
+    // Nothing NEW was created: one faq file, still the renamed one.
+    expect(readdirSync(join(dir, "content")).filter((name) => /^faq\.ya?ml$/i.test(name))).toEqual([
+      "faq.YAML",
+    ]);
+  });
+
+  it("an invalid seed never reaches disk (injected validator)", () => {
+    const dir = workspace();
+    const throwing = () => {
+      throw new LoadError("fixture: the seed would not validate");
+    };
+    expect(() =>
+      createRoot({ workspace: dir, root: "faq", text: "not: [valid" }, { validate: throwing }),
+    ).toThrow(LoadError);
+    expect(existsSync(fileOf(dir, "faq.yaml"))).toBe(false);
+    expect(() =>
+      previewCreate(
+        { workspace: dir, root: "faq", text: seedTemplate("faq") },
+        {
+          validate: throwing,
+        },
+      ),
+    ).toThrow(LoadError);
+    expect(existsSync(fileOf(dir, "faq.yaml"))).toBe(false);
   });
 });

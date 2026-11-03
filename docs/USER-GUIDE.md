@@ -543,21 +543,36 @@ looks green (`zsh: command not found: #` from a comment, a `parse error near ')'
 and the exit code of the *next* command says nothing about the edit. The engine
 never sees what the shell dropped — the read-back is the only witness (#440).
 
-**What `pasco edit` can address.** Exactly four fields. One is read-only, and the
-rest of the contract is reached with an editor:
+**What `pasco edit` can address.** Seven fields. One is read-only, and the rest
+of the contract is reached with an editor:
 
 | Address | Field | Write |
 |---|---|---|
 | `positioning.statement.<lang>` | the positioning sentence, per language | yes |
 | `headlines[platform=<p>,lang=<l>].text` | one headline row | yes |
 | `bios[platform=<p>,lang=<l>,length=<len>].text` | one bio row (`short`/`medium`/`long`) | yes |
+| `identity.definition.<lang>` | the canonical one-sentence definition, per language | yes |
+| `faq[id=<slug>,lang=<l>].q` / `.a` | one answer row's question/answer, in one language | yes |
+| `faq[id=<slug>].source` | the optional http(s) pointer backing that answer | yes |
 | `identity.links[platform=<p>,label=<l>].url` | one link URL (`label` disambiguates two links on one platform) | **read-only** |
 
-Everything else needs the editor: `identity.definition.<lang>`, `faq[id=…].q|a|source`,
-and any root the workspace does not declare yet — the write is a byte-range splice
-over existing bytes, so it cannot create `content/faq.yaml` (#435). Those are also
-the fields with published caps: `definition` ≤ 160 characters, `faq[]` 3–20
-pairs with `q` ≤ 90 and `a` ≤ 320 — all enforced by the schema. Three
+`faq[]` rows are selected by their stable `id`, never by array index; a repeated
+`id` is ambiguous and the command refuses to choose. `q` and `a` are per-language
+maps, so their `lang` selector is required, and an optional value the row does not
+carry yet (`source`, or `q.es`) is a 0-row address: `edit` changes values, it
+never creates them.
+
+A **root the workspace does not declare yet** needs `pasco edit --create <root>`
+first — the write is a byte-range splice over existing bytes, so it cannot create
+`content/faq.yaml` on its own (#435). `pasco edit --create faq` writes a three-pair
+placeholder template (the schema floor), refuses when the root already exists
+(idempotent), and `--create faq --check` previews it without writing. Replace every
+`<placeholder>`: the engine never invents facts.
+
+Those answer-engine fields are also the ones with published caps: `definition`
+≤ 160 characters, `faq[]` 3–20 pairs with `q` ≤ 90 and `a` ≤ 320 — all enforced by
+the schema and pre-flighted by `pasco edit` (an over-cap value is refused by
+validation, not warned about like a platform's soft cap). Three
 answer-surface rules are **not** schema: `q` must be unique per workspace, a
 `definition` must contain the entity name, and `geoCheck` wants a `source` on
 every `faq[]` row — JSON Schema cannot express any of the three, so `pasco
@@ -1150,8 +1165,8 @@ command, not the engine refusing one.
    profile` keep the gate's own line, which names the upgrade only when the
    installed CLI is older than the floor.
 4. **Adopt fields** — additive means opt-in. `pasco edit --list` prints every
-   addressable row your workspace has; the four addresses and the fields that need
-   an editor are the table in [§4.4](#44-your-first-edit-without-an-editor).
+   addressable row your workspace has; the addresses (and the roots that need
+   `--create` first) are the table in [§4.4](#44-your-first-edit-without-an-editor).
    Receipt: `pasco edit '<address>'` without `--set` prints the value you wrote (or
    the `grep` of a hand-edited file) **and** `pasco validate` stays green.
 5. **Rebuild** — `pasco build`. Receipt: `git diff --stat profiles/` names the
