@@ -333,8 +333,14 @@ same absence of automation and history unless your storage provides them.
   lower bound only, not a semver range). `validate`, `build`, `preview` and
   `export profile` check it **before doing any work**: an older installed CLI
   exits `1` with the required version, the installed version and the upgrade
-  command; a malformed value exits `1` naming the accepted syntax. Absent means
-  no requirement. When you invoke `pasco` from a directory whose `.pascorc`
+  command; a malformed value exits `1` naming the accepted syntax. **A new
+  workspace declares this floor at birth**: `pasco init` writes `"engine"` with
+  the installed CLI version itself, so the field is never added, typed or
+  maintained by hand. Absent is reachable only on a workspace born before that
+  behavior (or one whose scaffold was hand-edited) — it means no requirement, and
+  `pasco doctor` names it `absent` instead of looking like a pass. The one-time
+  fix for such a workspace is [§8.2.1](#821-upgrading-a-workspace-born-on-an-older-engine)
+  step 3. When you invoke `pasco` from a directory whose `.pascorc`
   resolves your workspace (`"workspace": "sub"`), both that file and the
   workspace's own `.pascorc` are read and the **stricter** declaration wins; an
   explicit `--workspace` uses only the workspace's file. `pasco doctor` reports
@@ -1127,13 +1133,17 @@ command, not the engine refusing one.
    meant to install.
 2. **Read the pair** — `pasco doctor` prints engine · schema · workspace on one
    line. Receipt: exit `0` and `(valid)`; on `1`, the line names the failing leg.
-3. **Declare the floor** — add `"engine": "0.3.7"` to `.pascorc` (which is JSON:
+3. **Declare the floor — only if your workspace was born before it** — a new
+   workspace gets the floor at birth: `pasco init` writes the installed version
+   itself, so you never add, type or bump the field by hand. On a workspace born
+   on an older engine, add `"engine": "0.3.7"` to `.pascorc` once (which is JSON:
    no comments). The value is exactly `MAJOR.MINOR.PATCH` — no `^`, `~`, `>=`, `v`
    or `*`. Receipt: `grep -n '"engine"' .pascorc` prints the line **and**
    `pasco doctor` reads the requirement as `met`. The floor is a minimum, not a pin:
    `validate`, `build`, `export profile` and `preview` refuse before doing work when
    the installed CLI is older and name the upgrade command. No floor is not a pass —
-   `doctor` says `absent`.
+   `doctor` says `absent`, and an `Unrecognized key` schema failure on such a
+   workspace adds one hint naming the upgrade instead of leaving the cause silent.
 4. **Adopt fields** — additive means opt-in. `pasco edit --list` prints every
    addressable row your workspace has; the four addresses and the fields that need
    an editor are the table in [§4.4](#44-your-first-edit-without-an-editor).

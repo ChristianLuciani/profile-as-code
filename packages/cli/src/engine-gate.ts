@@ -81,6 +81,20 @@ export function compareEngineVersions(a: string, b: string): number | null {
   return left.major - right.major || left.minor - right.minor || left.patch - right.patch;
 }
 
+/**
+ * The floor a freshly scaffolded workspace declares (#434): the installed
+ * version written in the gate's own grammar. `parseInstalledVersion` is lenient
+ * about a pre-release suffix (`0.4.0-rc.1`), but a DECLARATION must be exactly
+ * `MAJOR.MINOR.PATCH` — writing the raw installed string would make `init` emit
+ * a `.pascorc` its own gate refuses as malformed. The numeric triple is the
+ * same version the gate compares, so the scaffold always meets its own floor.
+ */
+export function engineFloorFor(installed: string): string {
+  const version = parseInstalledVersion(installed);
+  if (version === null) return installed;
+  return `${version.major}.${version.minor}.${version.patch}`;
+}
+
 export interface EngineRequirement {
   /** The declared minimum, or `null` when no `.pascorc` declares one (or the
    *  declaration is not a string — `problem` then carries the value). */

@@ -6,11 +6,43 @@
 import type { GeoSection, LoadedProfile } from "@profile-as-code/core";
 import { geoCheck, LoadError, load, SchemaValidationError } from "@profile-as-code/core";
 import { reconciledDrift } from "../drift-reconcile.js";
+import { ENGINE_UPGRADE_COMMAND } from "../engine-gate.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
+import { readWorkspacePascorc } from "../workspace.js";
 
 export interface ValidateArgs {
   workspace: string;
+  /**
+   * Whether any `.pascorc` the resolution consulted declares an engine floor
+   * (#434). The dispatcher passes the SAME effective requirement the gate
+   * evaluated (pointer file + workspace, stricter wins); when a caller invokes
+   * `runValidate` directly it falls back to the workspace's own `.pascorc`.
+   * It only decides whether the upgrade hint is printed — never the verdict.
+   */
+  floorDeclared?: boolean;
+}
+
+/**
+ * The one-line upgrade hint (#434) — additive text on a failure that already
+ * exists, never a new verdict. It fires only on the conjunction the issue
+ * observed: the contract rejected an `Unrecognized key` AND the workspace
+ * declares no engine floor. A declared floor is a claim about the engine, so
+ * the normal gate message owns that case; an unrelated schema failure gets no
+ * upgrade advice. Exported so the predicate is pinned by a unit test.
+ */
+export function unrecognizedKeyHint(
+  issues: readonly { path?: string; message: string }[],
+  floorDeclared: boolean,
+): string | null {
+  if (floorDeclared) return null;
+  if (!issues.some((issue) => issue.message.trim().toLowerCase().startsWith("unrecognized key"))) {
+    return null;
+  }
+  return (
+    "hint: the data has a field this engine does not know and the workspace declares no engine floor — " +
+    `the data may be newer than this CLI; upgrade with \`${ENGINE_UPGRADE_COMMAND}\`, then run \`pasco doctor\``
+  );
 }
 
 /**
@@ -27,11 +59,15 @@ export function runValidate(args: ValidateArgs): number {
     profile = load(args.workspace);
   } catch (err) {
     if (err instanceof SchemaValidationError) {
+      const floorDeclared =
+        args.floorDeclared ?? readWorkspacePascorc(args.workspace).engine !== undefined;
+      const hint = unrecognizedKeyHint(err.issues, floorDeclared);
       return report("validate", false, EXIT.FAIL, {
         error: {
           kind: "schema",
           message: `schema validation failed (D12 fail-on-schema) — ${err.issues.length} violation(s)`,
           violations: [...err.issues],
+          ...(hint === null ? {} : { hint }),
         },
       });
     }
