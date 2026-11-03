@@ -228,11 +228,87 @@ describe("parseObservations — the row grammar", () => {
   retrieved_at: "2026-11-01 10:00"
 `,
       ],
+      // Review F1: the shape regex alone blessed impossible dates. A provenance
+      // instant nobody can open is refused like any other malformed row.
+      [
+        "impossible month",
+        `
+- surface: a.com
+  field: name
+  value: Ada
+  url: https://a.com
+  retrieved_at: "2026-13-45"
+`,
+      ],
+      [
+        "impossible day in retrieved_at",
+        `
+- surface: a.com
+  field: name
+  value: Ada
+  url: https://a.com
+  retrieved_at: "2026-02-31T00:00:00Z"
+`,
+      ],
+      [
+        "impossible month in an experience start",
+        `
+- surface: a.com
+  field: experience
+  value:
+    role: Engineer
+    org: Acme
+    start: "2020-13"
+  url: https://a.com
+  retrieved_at: "2026-11-01"
+`,
+      ],
     ];
     for (const [label, text] of cases) {
       expect(() => parseObservations(text), label).toThrow(DiscoveryError);
       expect(() => parseObservations(text), label).toThrow(/observations: row 1: /u);
     }
+  });
+
+  it("accepts a leap day and the last day of a short month", () => {
+    const observations = parseObservations(`
+- surface: a.com
+  field: experience
+  value:
+    role: Engineer
+    org: Acme
+    start: "2024-02-29"
+    end: "2024-04-30"
+  url: https://a.com
+  retrieved_at: "2026-11-01"
+`);
+    expect(observations).toHaveLength(1);
+  });
+
+  it("refuses a second experience row for the same surface and org (review F2)", () => {
+    // The assembly keys employment by (surface, org); without this refusal the
+    // second row is dropped in silence — the class this repo refuses.
+    expect(() =>
+      parseObservations(`
+- surface: linkedin.com
+  field: experience
+  value:
+    role: Engineer
+    org: Acme
+    start: "2018-01"
+    end: "2021-01"
+  url: https://linkedin.com/in/ada
+  retrieved_at: "2026-11-01"
+- surface: linkedin.com
+  field: experience
+  value:
+    role: Senior Engineer
+    org: Acme
+    start: "2021-01"
+  url: https://linkedin.com/in/ada
+  retrieved_at: "2026-11-01"
+`),
+    ).toThrow(/row 2: experience for linkedin.com \/ Acme is already declared by row 1/u);
   });
 
   it("refuses an empty or non-sequence document", () => {
@@ -363,6 +439,45 @@ describe("discover --observations — the same assembly and the same classes", (
 `),
     });
     expect(result.findings.filter((item) => item.path === "identity.name")).toEqual([]);
+  });
+
+  it("treats an NFC/NFD spelling as the same name (review F3)", async () => {
+    const composed = "José García";
+    const decomposed = composed.normalize("NFD");
+    expect(decomposed).not.toBe(composed);
+    const result = await discover({
+      urls: [],
+      fetchText: NO_FETCH,
+      manualObservations: parseObservations(`
+- surface: linkedin.com
+  field: name
+  value: "${composed}"
+  url: https://www.linkedin.com/in/jose
+  retrieved_at: "2026-11-01"
+- surface: x.com
+  field: name
+  value: "${decomposed}"
+  url: https://x.com/jose
+  retrieved_at: "2026-11-01"
+`),
+    });
+    expect(result.findings.filter((item) => item.path === "identity.name")).toEqual([]);
+  });
+
+  it("declares the payload version the shape changes under", async () => {
+    const result = await discover({
+      urls: [],
+      fetchText: NO_FETCH,
+      manualObservations: parseObservations(`
+- surface: linkedin.com
+  field: name
+  value: "Ada Lovelace"
+  url: https://www.linkedin.com/in/ada
+  retrieved_at: "2026-11-01"
+`),
+    });
+    // v2 (#412): `via` added and `status` nullable — declared, not shipped as v1.
+    expect(result.schemaVersion).toBe("2");
   });
 
   it("lists absent fields the operator did not record (never defaulted)", async () => {

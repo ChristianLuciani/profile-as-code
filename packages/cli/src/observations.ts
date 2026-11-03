@@ -61,13 +61,32 @@ function nonEmptyString(value: unknown, index: number, key: string): string {
   return value.trim();
 }
 
+/** Days in a month, calendar-strict: the shape regex alone accepts `2020-13`
+ *  and `2026-02-31`, and a provenance date nobody can open is worse than a
+ *  refusal (review F1). */
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/** True when the parts form a real calendar date at the written precision. */
+function calendarDate(text: string): boolean {
+  const match = /^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/u.exec(text);
+  if (match === null) return false;
+  const year = Number(match[1]);
+  const month = match[2] === undefined ? undefined : Number(match[2]);
+  const day = match[3] === undefined ? undefined : Number(match[3]);
+  if (month !== undefined && (month < 1 || month > 12)) return false;
+  if (day !== undefined && day > daysInMonth(year, month as number)) return false;
+  return true;
+}
+
 /** A date as the human writes it: `2020`, `2020-03`, `2020-03-15`. A bare
  *  numeric year arrives as a YAML number (`start: 2020`) and is the same date,
  *  so it is accepted rather than turned into a puzzling type error. */
 function dateValue(value: unknown, index: number, key: string): string {
   const text = typeof value === "number" && Number.isInteger(value) ? String(value) : value;
-  if (typeof text !== "string" || !DATE.test(text.trim())) {
-    throw at(index, `\`${key}\` must be YYYY, YYYY-MM or YYYY-MM-DD`);
+  if (typeof text !== "string" || !DATE.test(text.trim()) || !calendarDate(text.trim())) {
+    throw at(index, `\`${key}\` must be a real date: YYYY, YYYY-MM or YYYY-MM-DD`);
   }
   return text.trim();
 }
@@ -102,6 +121,12 @@ function retrievedAt(value: unknown, index: number): string {
     );
   }
   const text = value.trim();
+  // The date part is checked against the calendar (F1): `Date.parse` normalizes
+  // `2026-02-31` instead of rejecting it, so a shape-only check would bless a
+  // provenance instant that never existed.
+  if (!calendarDate(text.slice(0, 10))) {
+    throw at(index, `\`retrieved_at\` is not a real calendar date: ${text}`);
+  }
   if (text.length === 10) return `${text}T00:00:00.000Z`;
   if (Number.isNaN(Date.parse(text)))
     throw at(index, `\`retrieved_at\` is not a valid date-time: ${text}`);
@@ -228,7 +253,27 @@ export function parseObservations(text: string): SurfaceObservation[] {
   if (document.length === 0) {
     throw new DiscoveryError("observations: the sequence declares no rows");
   }
-  return document.map((row, index) => rowFrom(row, index));
+  const observations = document.map((row, index) => rowFrom(row, index));
+  // The provisional profile keys an employment row by (surface, org): a second
+  // `experience` row for the same pair would be dropped by the assembly. Refuse
+  // it here, naming BOTH rows, instead of losing a fact the operator wrote down
+  // (review F2 — the silent-collapse class).
+  const employment = new Map<string, number>();
+  for (const [index, observation] of observations.entries()) {
+    const node = observation.jsonLd[0] as Record<string, unknown> | undefined;
+    const worksFor = node?.worksFor as Record<string, unknown> | undefined;
+    if (worksFor === undefined) continue;
+    const key = `${observation.surface}\u0000${String(worksFor.name)}`;
+    const first = employment.get(key);
+    if (first !== undefined) {
+      throw at(
+        index,
+        `experience for ${observation.surface} / ${String(worksFor.name)} is already declared by row ${first + 1} — the provisional profile holds ONE employment row per surface and org; keep one row per (surface, org)`,
+      );
+    }
+    employment.set(key, index);
+  }
+  return observations;
 }
 
 /** Read the operator's file and parse it. A missing/unreadable file is the same

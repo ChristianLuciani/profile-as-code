@@ -1418,7 +1418,10 @@ version (§6/D3 untouched by design — promoting it would be its own decision).
 **Exit matrix:** `0` report produced with no FAIL finding · `1` a FAIL finding
 (`dangling-ref`/`contradiction`), no surface readable, or no surface declared a
 name (never invented) · `2` usage. `--json` is the envelope of §7.1 with
-`schemaVersion: "1"`, `surfaces`, `unchecked`, `provisional`, `findings`.
+`schemaVersion: "2"`, `surfaces` (each with `via` and a nullable `status`),
+`unchecked`, `provisional`, `findings`. **v2** is #412: the per-surface shape
+changed (`via` added, `status` nullable for a manual row), and §7.5's rule —
+the payload version moves when the shape does — applies to this envelope too.
 
 ## 8. GEO as a cross-cutting layer
 

@@ -526,14 +526,18 @@ export function discoveryFindings(
     return name === undefined ? [] : [{ name, observation }];
   });
   const normalizedNames = new Set(
-    declared.map((item) => item.name.toLowerCase().replace(/\s+/gu, " ")),
+    declared.map((item) => item.name.normalize("NFC").toLowerCase().replace(/\s+/gu, " ")),
   );
   if (normalizedNames.size > 1) {
+    const where =
+      new Set(declared.map((item) => item.observation.surface)).size > 1
+        ? "across surfaces"
+        : "on one surface";
     findings.push(
       finding(
         "contradiction",
         "identity.name",
-        `identity.name is declared differently across surfaces: ${declared
+        `identity.name is declared differently ${where}: ${declared
           .map(({ name, observation }) => `"${name}" — ${observation.surface} (${observation.url})`)
           .join(" · ")}`,
       ),

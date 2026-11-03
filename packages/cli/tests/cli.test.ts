@@ -2117,12 +2117,14 @@ describe("pasco discover --observations (manual rows)", () => {
     const data = (
       JSON.parse(r.stdout) as {
         data: {
+          schemaVersion: string;
           wrote: boolean;
           surfaces: { surface: string; status: number | null; via: string }[];
           provisional: { profile: { identity: { name: string } } };
         };
       }
     ).data;
+    expect(data.schemaVersion).toBe("2");
     expect(data.wrote).toBe(false);
     expect(data.surfaces).toEqual([
       {

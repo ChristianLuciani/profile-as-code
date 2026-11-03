@@ -43,8 +43,10 @@ import { loadObservations } from "../observations.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import type { FetchText } from "../verify.js";
 
-/** The frozen `--json` contract version of this command. */
-export const DISCOVER_SCHEMA_VERSION = "1";
+/** The frozen `--json` contract version of this command. **v2 (#412)**: a
+ *  surface entry gained `via` and its `status` became nullable for a manual row,
+ *  so a shape change is declared instead of shipped under v1 (§7.5's rule). */
+export const DISCOVER_SCHEMA_VERSION = "2";
 
 /** A surface not read because its URL could not be parsed at all. */
 export type UnreadReason = SurfaceUnread["reason"] | "invalid-url";
