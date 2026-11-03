@@ -1387,34 +1387,33 @@ and `experience` (a map with `role`, `org`, `start`, optional `end`; `YYYY`,
 `YYYY-MM` or `YYYY-MM-DD`, and `present` is the absence of an end) — so a row
 cannot declare a fact the audit would not read. An unknown or missing key, a
 non-http URL, an impossible calendar date at the written precision (`2026-02-31`,
-`2020-13`, `2026-02-00`), a `retrieved_at` without an explicit zone, or a second
-`experience` row for the same (surface, org) KEY is refused with the row NUMBER;
-an unreadable, empty or non-sequence file is refused the same way (exit `1`,
-`kind: discovery`) — nothing is guessed from a partial file. The employment key
-is the assembly's own (`experienceId(surface, org)`, one home): the provisional
-profile holds ONE row per (surface, org), so a second manual row for that pair
-would be dropped in silence and is refused instead, naming both rows — which also
-means two roles at one org cannot be represented by a manual row set, and a
-promotion is folded into one row. A manual row and a machine-read row of the same
-surface label and org resolve to the same key: the manual declaration enters
-first, so the machine row is the redundant one — do not supply both for one
-surface. Each row becomes the SAME `SurfaceObservation` the transport produces (a
-schema.org node the extractor already understands), so there is ONE assembly path
-and ONE findings path: provenance, `absent[]`, `driftCheck` and the classes run
-unchanged over manual rows. Manual rows enter first, so the operator's declared
-`identity.name` is the one the profile carries, and a machine-read surface that
-disagrees is reported, never silently reconciled. They make NO request — a row's
-`url` is a provenance pointer a reader can open, not a fetch target — so §19.5's
-allowlist and request budget govern only the transport. `--json` marks every
-surface with `via: "fetch"` or `via: "manual"`, and a manual surface's `status` is
-`null`: no request was made, and a fabricated `200` would be a claim. Manual rows
-carry no page `text` and no links, so `unsourced-claim` and `dangling-ref` remain
-properties of a machine-read surface — the report never pretends a hand-read row
-was verified. A NAME declared differently on two surfaces is a `contradiction` at
-`identity.name`, citing both declarations and their sources: the provisional
-profile holds one name, and dropping the second in silence would hide exactly the
-disagreement the audit exists to find. Casing/whitespace variants are the same
-name; the comparison is normalized and the declarations are reported verbatim.
+`2020-13`, `2026-02-00`), a `retrieved_at` **date-time** with no explicit zone
+(a date-only `2026-11-01` is accepted, normalized to `T00:00:00.000Z`), or a
+second `experience` row for the same (surface, org) KEY is refused with the row
+NUMBER; an unreadable, empty or non-sequence file is refused the same way (exit
+`1`, `kind: discovery`) — nothing is guessed from a partial file. The employment
+key is the assembly's own (`experienceId(surface, org)`, one home, and injective:
+two distinct employers that slug alike stay distinct), and it holds ONE row, so a
+second manual row for that (surface, org) is refused naming both rows rather than
+dropped — which also means two roles at one org are not representable, and a
+manual row colliding with a machine-read row of the same surface yields the
+manual one: supply one or the other. Each row becomes the SAME
+`SurfaceObservation` the transport produces (a schema.org node the extractor
+already understands), so there is ONE assembly path and ONE findings path.
+Manual rows enter first, so the operator's declared `identity.name` is the one the
+profile carries, and a machine-read surface that disagrees is reported, never
+silently reconciled. They make NO request — a row's `url` is a provenance pointer
+a reader can open, not a fetch target — so §19.5's allowlist and request budget
+govern only the transport. `--json` marks every surface `via: "fetch"` or
+`via: "manual"`, and a manual surface's `status` is `null`: no request was made,
+and a fabricated `200` would be a claim. Manual rows carry no page `text` and no
+links, so `unsourced-claim` and `dangling-ref` remain properties of a machine-read
+surface — the report never pretends a hand-read row was verified. A NAME declared
+differently on two surfaces is a `contradiction` at `identity.name`, citing both
+declarations and their sources: the profile holds one name, and dropping the
+second in silence would hide the disagreement the audit exists to find.
+Casing/whitespace variants are the same name; the comparison is normalized and
+the declarations are reported verbatim.
 
 **Write rule.** Nothing is written: no `content/`, no ledger, no artifact; the
 report carries `wrote: false` and a test snapshots a working tree's directory

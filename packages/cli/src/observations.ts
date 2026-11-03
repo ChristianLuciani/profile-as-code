@@ -129,9 +129,7 @@ function retrievedAt(value: unknown, index: number): string {
   return text;
 }
 
-function keysOf(record: Record<string, unknown>): string[] {
-  return Object.keys(record).sort();
-}
+const keysOf = (record: Record<string, unknown>): string[] => Object.keys(record).sort();
 
 function sameKeys(record: Record<string, unknown>, allowed: readonly string[]): boolean {
   return keysOf(record).join(",") === [...allowed].sort().join(",");
@@ -237,11 +235,8 @@ export function parseObservations(text: string): SurfaceObservation[] {
     throw new DiscoveryError("observations: the sequence declares no rows");
   }
   const observations = document.map((row, index) => rowFrom(row, index));
-  // The provisional profile keys an employment row by (surface, org) — through
-  // `experienceId`, the ONE key rule. A second manual row with the same key
-  // would be dropped by the assembly, so it is refused here, naming BOTH rows
-  // (review F2 — the silent-collapse class). Two spellings (`Acme`/`ACME`) are
-  // the same key because the id is slugged.
+  // A second manual row with the assembly's key would be dropped silently, so it
+  // is refused here, naming BOTH rows (review F2 — the silent-collapse class).
   const employment = new Map<string, { index: number; org: string }>();
   for (const [index, observation] of observations.entries()) {
     const node = observation.jsonLd[0] as Record<string, unknown> | undefined;

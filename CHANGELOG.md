@@ -13,29 +13,26 @@ minor versions may contain breaking contract changes.
 
 - **`discover --observations` — the human reads the surface the machine cannot
   (#412, SPEC §7.10)** — `discover` reads only schema.org `Person`/`Organization`
-  JSON-LD, which is exactly what a prospect's real surfaces do not publish
-  (measured at `4560ae1`: LinkedIn `http-999`, ResearchGate `http-403`,
-  ORCID/X/Instagram no `Person` node — 0 of 5 usable), so the audit's classes had
-  no input for the person the engine sells an audit to. `--observations <file>`
-  takes a YAML sequence of rows the operator read by hand — `surface`, `field`
-  (`name` · `link` · `experience`), `value`, `url`, `retrieved_at` — and turns
-  each into the SAME `SurfaceObservation` the transport produces, so
-  `provisionalProfile`, per-fact provenance, `absent[]` and `discoveryFindings`
-  run unchanged: one assembly path, one findings path. Manual rows make NO request
-  (the `url` is a provenance pointer) and enter first, so a declared name beats a
-  machine-read one. `--json` is payload **v2** — each surface carries
-  `via: fetch|manual`, and a manual surface's `status` is `null` (no request was
-  made; a fabricated 200 would be a claim). Two surfaces that declare different
-  NAMES are a `contradiction` at `identity.name` with both declarations cited: the
-  profile holds one name, and silently dropping the second hid the disagreement
-  the audit exists to find. A malformed row is refused with its number, never
-  skipped: an impossible calendar date (`2026-02-31`, `2020-13`, `2026-02-00`), a
-  non-http URL, an unknown key, and a second `experience` row for the same
-  (surface, org) key the assembly uses (`experienceId`, so `ACME` and `Acme`
-  collide) fail with the row that declares them. That key holds ONE row by design,
-  so a second role at one org is refused rather than dropped, and a manual row for
-  a surface the transport also reads resolves to the machine row's key: supply one
-  or the other for a given surface.
+  JSON-LD, which a prospect's real surfaces do not publish (measured at `4560ae1`:
+  LinkedIn `http-999`, ResearchGate `http-403`, ORCID/X/Instagram no `Person` —
+  0 of 5 usable), so the audit's classes had no input for the person it sells an
+  audit to. `--observations <file>` takes YAML rows read by hand — `surface`,
+  `field` (`name` · `link` · `experience`), `value`, `url`, `retrieved_at` — and
+  turns each into the SAME `SurfaceObservation` the transport produces, so
+  `provisionalProfile`, provenance, `absent[]` and `discoveryFindings` run
+  unchanged. Rows make NO request (the `url` is a provenance pointer) and enter
+  first, so a declared name beats a machine-read one. `--json` is payload **v2**
+  (`via: fetch|manual`; a manual surface's `status` is `null` — no request, and a
+  fabricated 200 would be a claim). A name declared differently is a
+  `contradiction` at `identity.name` with both sources cited: the profile holds
+  one name, and dropping the second hid the disagreement the audit exists to find.
+  A malformed row is refused with its number: an impossible date (`2026-02-31`,
+  `2020-13`, `2026-02-00`), a non-http URL, an unknown key, and a second
+  `experience` row for the assembly's own (surface, org) key (`experienceId`, so
+  `ACME`/`Acme` collide and `École`/`Cole` do not) fail with the row. That key
+  holds ONE row by design, so a second role at one org is refused rather than
+  dropped, and a surface the transport also reads resolves to the machine row's
+  key: supply one or the other.
 - **`achievements[]` — a career impact log with metrics, targets and capture-first
   evidence (#446, D24, schema v1.16)** — the contract recorded what a person DID
   (`experience[].highlights`, free text: no value, unit, baseline, target or link)

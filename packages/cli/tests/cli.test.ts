@@ -2083,11 +2083,10 @@ describe("pasco entity (dispatcher + exit matrix)", () => {
 });
 
 /**
- * `pasco discover --observations` — the dispatcher side of the manual-input
- * contract (SPEC §7.10, #412): the flag is reachable, a manual-only run makes no
- * request and writes nothing, the observation file is DATA (a malformed row is
- * exit 1 naming the row), and no input at all is usage (exit 2). The row grammar
- * and the assembly are unit-tested in `observations.test.ts`.
+ * `pasco discover --observations` — the dispatcher side (SPEC §7.10, #412): the
+ * flag is reachable, a manual-only run makes no request and writes nothing, a
+ * malformed file is DATA (exit 1 naming the row), no input at all is usage (2).
+ * The grammar and the assembly are unit-tested in `observations.test.ts`.
  */
 describe("pasco discover --observations (manual rows)", () => {
   const ROWS = [

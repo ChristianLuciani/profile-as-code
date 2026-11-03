@@ -1,16 +1,12 @@
 /**
  * Manual observations — the operator's hand-read rows (SPEC §7.10, issue #412).
  *
- * The measured gap (#412): a prospect's real surfaces publish no schema.org
- * `Person`/`Organization`, so `discover` had no input for the person the engine
- * sells an audit to. These cases pin the second input path and, just as
- * importantly, that it is not a second assembly path: rows become the same
- * `SurfaceObservation` the transport produces, so `provisionalProfile`,
- * provenance, `absent[]` and `discoveryFindings` are the ones that already ran.
- *
- * No network anywhere: a manual row's URL is a provenance label. The stub below
- * throws if the transport is touched, which is how "zero requests" is asserted
- * instead of claimed.
+ * A prospect's surfaces publish no schema.org `Person`/`Organization`, so
+ * `discover` had no input for them. These cases pin the second input path and
+ * that it is NOT a second assembly path: rows become the same
+ * `SurfaceObservation` the transport produces, so the existing assembly and
+ * findings run unchanged. No network: the stub throws if the transport is
+ * touched, which is how "zero requests" is asserted instead of claimed.
  */
 
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -206,11 +202,17 @@ describe("parseObservations — the row grammar", () => {
         doc(job("Engineer", '"2018-01"', '"2021-01"'), job("Senior Engineer", '"2021-01"')),
       ),
     ).toThrow(/row 2: experience for linkedin.com \/ Acme is already declared by row 1/u);
-    // Round 2, F2: the refusal uses the ASSEMBLY's key (`experienceId`), so two
-    // spellings of one org are one key — not a second silent collapse.
+    // The refusal uses the ASSEMBLY's key (`experienceId`): two spellings of one
+    // org collide as one key, while the key stays injective for the rest — two
+    // DISTINCT employers that slug alike (`École`/`Cole`) are not refused.
     expect(() =>
       parseObservations(doc(job("Engineer", "2020"), job("Engineer", "2020", undefined, "ACME"))),
     ).toThrow(/already declared by row 1 \(Acme\)/u);
+    expect(
+      parseObservations(
+        doc(job("Teacher", "2020", undefined, "École"), job("Analyst", "2020", undefined, "Cole")),
+      ),
+    ).toHaveLength(2);
   });
 
   it("refuses an empty or non-sequence document", () => {
@@ -348,21 +350,17 @@ describe("discover --observations — the same assembly and the same classes", (
   });
 
   it("names the declarations' scope when they come from one surface", async () => {
-    const result = await manual(
-      doc(
-        adaName,
-        row({
-          surface: "linkedin.com",
-          field: "name",
-          value: '"A. Lovelace"',
-          url: ADA,
-          retrieved_at: AT,
-        }),
-      ),
+    const second = row({
+      surface: "linkedin.com",
+      field: "name",
+      value: '"A. Lovelace"',
+      url: ADA,
+      retrieved_at: AT,
+    });
+    const found = (await manual(doc(adaName, second))).findings.find(
+      (item) => item.path === "identity.name",
     );
-    expect(result.findings.find((item) => item.path === "identity.name")?.detail).toContain(
-      "on one surface",
-    );
+    expect(found?.detail).toContain("on one surface");
   });
 
   it("lists absent fields the operator did not record (never defaulted)", async () => {

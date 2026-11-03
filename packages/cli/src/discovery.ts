@@ -28,10 +28,9 @@
  * see a disagreement it is given, so one row per surface is what makes the
  * contradiction observable. Within one surface, identical facts collapse.
  *
- * An observation does not have to come from the transport: `--observations`
- * (#412) turns the operator's hand-read rows into the same shape, so a walled
- * surface with no JSON-LD enters this assembly instead of a parallel one. The
- * source is declared per surface in the report (`via`), never inferred.
+ * An observation need not come from the transport: `--observations` (#412) turns
+ * hand-read rows into the same shape, so a walled surface enters this assembly
+ * instead of a parallel one; the source is declared per surface (`via`).
  */
 
 import {
@@ -143,14 +142,27 @@ function slug(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/** FNV-1a (32-bit, base36): distinguishes two employers whose slug is the same. */
+function digest(value: string): string {
+  let hash = 0x811c9dc5;
+  for (const byte of Buffer.from(value, "utf8")) {
+    hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;
+  }
+  return hash.toString(36);
+}
+
 /**
- * The id of an experience row — ONE home for the key rule (#412 review F2r2):
- * the assembly keys a row by (surface, org), and the manual parser refuses a
- * second row with the same key. Two spellings of a key (`Acme`/`ACME`) are one
- * key, so the refusal and the collapse cannot disagree.
+ * The id of an experience row — ONE home for the key rule (#412): the assembly
+ * keys a row by (surface, org) and the manual parser refuses a second one, so
+ * the refusal and the collapse cannot disagree (case/whitespace variants are one
+ * key). `slug` drops non-ASCII, so `École`/`Cole` would share a base; a digest
+ * over the normalized raw string keeps the key injective — otherwise the refusal
+ * would reject two distinct employers as "the same org".
  */
 export function experienceId(surface: string, org: string): string {
-  return slug(`${surface}-${org}`);
+  const raw = `${surface}-${org}`.normalize("NFC").toLowerCase().replace(/\s+/gu, " ");
+  const base = slug(raw);
+  return /^[\x20-\x7e]*$/u.test(raw) ? base : `${base}-${digest(raw)}`;
 }
 
 function httpUrl(value: string): string | undefined {
