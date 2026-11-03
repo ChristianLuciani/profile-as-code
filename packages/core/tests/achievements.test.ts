@@ -17,12 +17,13 @@
  *     artifact, including through `refs[]`).
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Achievement } from "../src/index.js";
 import {
+  ACHIEVEMENT_REF_BLOCKS,
   achievementScope,
   achievementStatus,
   DEFAULT_ACHIEVEMENT_DIRECTION,
@@ -176,6 +177,20 @@ describe("achievementStatus — the derived status (table-driven)", () => {
         row({ kind: "metric", basis: "reported", visibility: "public", metric: { unit: "x" } }),
       ),
     ).toBeUndefined();
+  });
+});
+
+describe("the refs vocabulary is not a hand-copy (F6 of the pre-merge review)", () => {
+  it("ACHIEVEMENT_REF_BLOCKS matches the schema's refs alternation exactly", () => {
+    const schema = JSON.parse(
+      readFileSync(new URL("../../../schema/profile.schema.json", import.meta.url), "utf8"),
+    ) as {
+      $defs: { achievement: { properties: { refs: { items: { pattern: string } } } } };
+    };
+    const pattern = schema.$defs.achievement.properties.refs.items.pattern;
+    const alternation = /^\^\(([^)]+)\):/.exec(pattern)?.[1];
+    expect(alternation).toBeDefined();
+    expect(alternation?.split("|")).toEqual([...ACHIEVEMENT_REF_BLOCKS]);
   });
 });
 

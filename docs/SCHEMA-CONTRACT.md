@@ -69,8 +69,10 @@ PY
 ```
 
 `profile.json` is the `profile` object of `pasco export profile --json` (SPEC
-§7.5) or any object in that shape. The printed `$id` names the file you fetched
-(`…/v1.15/…` for both now: the released `v0.3.7` artifact and a `main` checkout are the same bytes).
+§7.5) or any object in that shape. The printed `$id` names the file you fetched:
+`…/v1.15/…` for the released `v0.3.7` artifact, `…/v1.16/…` for a `main`
+checkout — they are no longer the same bytes (the checkout is one minor ahead
+and has no published artifact yet, see above).
 A consumer that uses the CLI for the payload and a standalone validator for the
 check is the intended split: the CLI produces, the schema verifies.
 

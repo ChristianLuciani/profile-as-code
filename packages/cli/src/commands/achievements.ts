@@ -86,15 +86,20 @@ export function achievementPointer(achievement: Achievement): string {
   return "(no pointer)";
 }
 
-/** The one-line human rendering of a row: `[status] statement — metric · basis · pointer`. */
-function rowLine(achievement: Achievement, lang?: "en" | "es" | "fr"): string {
+/** The one-line human rendering of a row: `[status] statement — metric · basis · pointer`.
+ *
+ *  A row with no derived status is labelled by its KIND (F1 of the pre-merge
+ *  review): a `kind: metric` row that declares only a `unit` — valid per §23.2,
+ *  it has nothing to plan or measure — was printed as `[milestone]`, i.e. as the
+ *  other kind. The label only falls back to the kind when there is no status. */
+function rowLine(achievement: Achievement): string {
   const status = achievementStatus(achievement);
-  const label = status === undefined ? "milestone" : status;
+  const label = status ?? achievement.kind;
   const metric =
     achievement.kind === "metric" && achievement.metric !== undefined
       ? ` — ${formatMetric(achievement.metric)}`
       : "";
-  return `[${label}] ${textOf(achievement.statement, lang)}${metric} · basis: ${achievement.basis} · ${achievementPointer(achievement)}`;
+  return `[${label}] ${textOf(achievement.statement)}${metric} · basis: ${achievement.basis} · ${achievementPointer(achievement)}`;
 }
 
 /** Group rows by their FIRST ref (declaration order); `Unattached` collects rows

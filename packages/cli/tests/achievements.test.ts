@@ -182,6 +182,33 @@ describe("pasco achievements — human view", () => {
   });
 });
 
+describe("pasco achievements — the status-less label names the KIND (F1)", () => {
+  it("a metric that declares only a unit reads [metric], never [milestone]", () => {
+    const dir = workspace({
+      "achievements.yaml": `
+- id: ach-unit-only
+  statement: { en: A unit with no number }
+  kind: metric
+  metric: { unit: "tutors" }
+  basis: reported
+  visibility: private
+`,
+    });
+    try {
+      const human = run(["achievements", "--workspace", dir]);
+      expect(human.code).toBe(0);
+      expect(human.stdout).toContain("[metric] A unit with no number");
+      expect(human.stdout).not.toContain("[milestone]");
+      const envelope = json(run(["achievements", "--json", "--workspace", dir]));
+      // No status to derive: null, and the kind is what names the row.
+      expect(envelope.data?.achievements[0]?.status).toBeNull();
+      expect(envelope.data?.achievements[0]?.kind).toBe("metric");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("pasco achievements — refusals", () => {
   it("exit 1 with the violation path when a ref does not resolve (load fails)", () => {
     const dir = workspace({

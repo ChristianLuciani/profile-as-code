@@ -108,8 +108,11 @@ export function achievementScope(achievements: readonly Achievement[]): Achievem
   return scope;
 }
 
-/** The blocks a `refs[]` entry may address (the schema pattern, one home). */
-const REF_BLOCKS = [
+/** The blocks a `refs[]` entry may address — the schema's `refs` alternation and
+ *  this list must agree; `tests/achievements.test.ts` pins them against each
+ *  other (F6 of the pre-merge review: a hand-copy with no guard let a future
+ *  block added only to the schema make a valid ref fail `load` as dangling). */
+export const ACHIEVEMENT_REF_BLOCKS = [
   "experience",
   "projects",
   "publications",
@@ -118,7 +121,7 @@ const REF_BLOCKS = [
   "credentials",
   "artifacts",
 ] as const;
-type RefBlock = (typeof REF_BLOCKS)[number];
+type RefBlock = (typeof ACHIEVEMENT_REF_BLOCKS)[number];
 
 /** `block:id` ids the profile actually declares, per block. */
 function declaredIds(profile: Profile): Map<RefBlock, Set<string>> {
@@ -132,7 +135,7 @@ function declaredIds(profile: Profile): Map<RefBlock, Set<string>> {
     artifacts: profile.artifacts,
   };
   const map = new Map<RefBlock, Set<string>>();
-  for (const block of REF_BLOCKS) {
+  for (const block of ACHIEVEMENT_REF_BLOCKS) {
     const ids = new Set<string>();
     for (const row of rows[block] ?? []) if (row.id !== undefined) ids.add(row.id);
     map.set(block, ids);

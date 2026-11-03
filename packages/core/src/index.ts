@@ -17,6 +17,7 @@ export type {
  *  the block cannot store. One home for `planned | measured | achieved | partial`
  *  and for the post-Zod integrity checks `load()` fails on. */
 export {
+  ACHIEVEMENT_REF_BLOCKS,
   achievementScope,
   achievementStatus,
   checkAchievementIntegrity,

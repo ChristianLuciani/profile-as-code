@@ -139,8 +139,7 @@
     "achievements": {
       "type": "array",
       "items": { "$ref": "#/$defs/achievement" },
-      "minItems": 1,
-      "description": "v1.16 (D24, #446): the career impact log — what CHANGED, as opposed to `experience[].highlights` (what was done) and `projects[].evidence[]` (what can be proven). One ROOT log, never per-row `outcomes[]`: `refs[]` points at the units a result belongs to, so one result is not duplicated across rows. `target` without `value` is a planned goal and the status is DERIVED (planned | measured | achieved | partial), never stored. Optional and additive: a workspace without achievements[] validates and renders byte-identically."
+      "description": "v1.16 (D24, #446): the career impact log — what CHANGED, as opposed to `experience[].highlights` (what was done) and `projects[].evidence[]` (what can be proven). One ROOT log, never per-row `outcomes[]`: `refs[]` points at the units a result belongs to, so one result is not duplicated across rows. `target` without `value` is a planned goal and the status is DERIVED (planned | measured | achieved | partial), never stored. Optional and additive: a workspace without achievements[] validates and renders byte-identically. No `minItems`: `load()` normalizes an undeclared log to `[]` and `pasco export profile` emits it (the loaded-shape rule every list root follows), so an empty array must stay schema-valid — F3 of the pre-merge review caught `minItems: 1` rejecting the engine's own export payload."
     }
   },
 

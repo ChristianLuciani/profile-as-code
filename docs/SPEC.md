@@ -2891,6 +2891,13 @@ internal outcome has no home).
 One root log rather than per-row `outcomes[]`: `refs` attach a result to the
 units it belongs to, so one result is written once and read from several rows.
 
+The root property carries **no `minItems`**: `load()` normalizes an undeclared log
+to `[]` and `pasco export profile` emits that array (the loaded-shape rule every
+list root follows), so `achievements: []` must stay schema-valid — an optional
+block is absent or non-empty in a workspace, but the exported payload always
+materializes it. (`faq[]` keeps its 3–20 floor because it is a *surface* with a
+declared minimum, not just a list.)
+
 ### 23.2 Status is derived, never stored
 
 One core function (`achievementStatus()`) answers for every reader — the CLI, a
