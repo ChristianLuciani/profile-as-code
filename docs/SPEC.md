@@ -125,6 +125,7 @@ not only "is my profile consistent?".
 | D21 | **Contributions are accepted under the Developer's Certificate of Origin 1.1 — no CLA** (issue #95, 2026-10-03): every non-bot, non-merge commit in a PR must carry a `Signed-off-by:` trailer whose email matches the commit author; the canonical text is the root `DCO` file, and the gate is `scripts/dco-check/` (self-test first, `dep-gate` shape) wired as the `dco` workflow | The licence stays **MIT** (`packages/*/package.json`), and with a permissive licence there is nothing left to relicense — so a CLA's only real value (an express sublicense/relicensing grant) would buy permanent contributor friction, a third-party signature-collection app and a legal document to maintain, in exchange for optionality the project has decided not to exercise. The DCO certifies *provenance* of the contribution at zero infrastructure and zero data beyond the git trailer. Alternatives: **CLA** (rejected — friction and upkeep for optionality we don't want); **DCO + relicensing grant** (deferred — cheaper than a CLA and keeps the option open, but a sign-off is weaker evidence of assent than a signature; revisit only if the licence question reopens, and never retroactively for an already-published version). Bot authors are exempt by design: Dependabot cannot sign off, and blocking it would block every dependency PR |
 | D22 | **Fact selection is a workspace policy, and it is subset-only** (issue #235, 2026-10-19): a named **view** selects which SSOT entries a rendered profile emits — `.pascorc` → `selection.views` (`mode: all\|tags`, `tags`, `excludeTags`, `excludeKeys`); **exclusion always wins**; **no policy ⇒ byte-identical output**. A view **removes entries and never edits one**, so the GEO invariant (Goal 2/3, §15.4) is untouched: it constrains what a fact *says* when it appears, not that it appear everywhere, and `geo.ts:21` already scores absence as neutral. **Every view that omits entries WARNS** (operator's G1 amendment, §21.4) and `pasco status --selection` names each omission and its reason | Selection is the one per-surface adaptation the engine was missing beside `lang` (text) and `refine` (storytelling); §18.9 had already *declared* tag selection with no implementation. One identity, several faces — without duplicating facts. Alternatives: **per-entry `platforms[]` in the SSOT** (rejected — couples the platform-agnostic data to the platform enum, turns it into an N×M matrix, and forces every new platform to edit every entry); **renderer-side filtering** (rejected — every adapter re-implements it, and `check`/`status` would see a different slice than `build`, against the `markdown`/`paste`/`artifact` one-home rule); **overlay files** (rejected — a second source of truth for the same fact, so drift becomes "which overlay won?"); **a workspace per audience** (correct for *separate identities* — §18.9/D15 keeps that — wrong for subsets of one identity, where it recreates cross-repo drift) |
 | D23 | **The unit of first class is the presence surface, not the profile** (issue #262, 2026-10-23; restated 2026-10-28 as option B): `surface.kind: profile \| repo-meta \| distribution` is an **additive** dimension on `platforms/registry.yaml` (absent = `profile`; the 49-slug profile enum is untouched), and `releases[]` is the **event** — `{id, version, date, summary, changedUnits[], surfaces[]}` — whose fan-out **reuses** the §19 ledger vocabulary (`in-sync`/`stale`/`never`), derived at read time and stored nowhere. `pasco presence` is the daily board; `pasco release plan` is the launch view (`--json`), ordering surfaces `repo-meta → profile → distribution` and emitting a per-kind factual spine; the announcement copy per channel lives in `skills/` (rule 7 + D9) | A published artifact could appear on **none** of its own operator's surfaces with no representation: no event, no distribution surfaces, no way to ask "which surfaces still owe this publication?". Alternatives: **keep the profile as the unit** (rejected — that question stays unanswerable and every non-rendered surface is unmodeled); **a second state model for releases** (rejected — staleness is already exact and release-tag-independent in §19); **`release` as a top-level command** (rejected by the operator on 2026-10-28: `presence` is the daily board, the plan hangs off it as a view) |
+| D24 | **The impact log is a root block and its status is DERIVED** (issue #446, 2026-11-02; direction blessed by the operator): root `achievements[]` (v1.16, §23) records what **changed** — `{id, statement{lang}, kind: metric\|milestone, metric?, refs[], source?, artifactId?, credentialId?, basis, date?, visibility}`. ONE root log, never per-row `outcomes[]`: `refs` (`block:id`) point at the units a result belongs to, so the same result is never duplicated across rows, and `metric` is structured (`value`/`target`/`baseline`/`unit`/`direction`) instead of prose. `basis` (`measured`\|`estimated`\|`reported`\|`attested`) is the honesty field, **not a gate** — `reported` is first class, because the log is useful before the proof exists; `visibility` is **required** so an internal outcome never becomes public by omission. The status (`planned`\|`measured`\|`achieved`\|`partial`) is derived at read time by one core function, never stored; a `target` without a `value` is a plan. `pasco achievements [--targets] [--json]` is the read-only log view | The contract modeled **what a person did** (`highlights`, free text: no value, unit, baseline, target or link) and **what can be proven** (`evidence[]`, project-scoped and requiring a `source`, so an internal outcome cannot be recorded at all), but not **what changed** — so the effect is not captured when it happens and cannot be reconstructed later; a CV from the workspace reads as a list of duties. Alternatives: **per-row `outcomes[]`** (rejected — duplicates one result across the rows it belongs to and leaves no single place to ask "what changed?"); **free text only** (rejected — no baseline/target, so no goal and no derivable status); **store the status** (rejected — it can silently disagree with the numbers it describes, against §20.1's derived-never-stored rule); **make `basis` a gate** (rejected — it would re-create the gap: an outcome with no public artifact becomes unreportable); **`confidence` instead of `basis`** (rejected — `basis` names HOW the number is known, not how sure the author feels) |
 
 > **Decision note — the release path (2026-10-24, issue #307).** The release path is the **tag
 > run** (guard → build/tests → cohort + CLI over OIDC → GitHub Release → pages deploy);
@@ -353,6 +354,7 @@ active:        { platform: { lang, variantId, chosenAt } }    # which variant is
 deployments:   { <ledgerKey>: { <surface>: { deployedAt, contentHash, source } } }   # per-entry deploy ledger (D18, §19)
 faq:           [ { id, q{lang ≤90, unique}, a{lang ≤320}, source? } ]   # the citable answer surface, 3–20 entries (v1.10, #288)
 releases:      [ { id, version, date, summary{lang}?, changedUnits[], surfaces[] } ]   # the release event and its fan-out (v1.15, D23 §22)
+achievements:  [ { id, statement{lang}, kind: metric|milestone, metric?, refs[], source?, artifactId?, credentialId?, basis, date?, visibility } ]   # the impact log (v1.16, D24 §23)
 ```
 
 **Evidence registry (D17, §18 — additive, v1.4):** `credentials[]` and `artifacts[]` are
@@ -368,6 +370,16 @@ which **surface** the unit was confirmed deployed to, when (`deployedAt`), and i
 `contentHash` at deploy time. `pasco status` derives the sync state (`in-sync` / `stale` /
 `never`) from that hash, and `origin: template` (shipped by the template's fictional
 examples) marks template-provenance entries — absent means user-authored. Detail: §19.
+
+**Impact log (D24, §23 — additive, v1.16):** `achievements[]` records what **changed** — a
+metric (`metric`: value/target/baseline/unit/direction) or a milestone — where
+`experience[].highlights` records what was done and `projects[].evidence[]` records what can
+be proven. One root log, never per-row `outcomes[]`: `refs[]` (`block:id`) point at the units
+a result belongs to, so one result is not duplicated. `basis` (`measured` / `estimated` /
+`reported` / `attested`) declares HOW the number is known — capture first, prove later — and
+`visibility` is **required** (internal outcomes are common and must not become public by
+omission). The status (`planned` / `measured` / `achieved` / `partial`) is **derived at read
+time**, never stored; a target with no value is a plan.
 
 ## 7. Core interfaces (deep module)
 
@@ -422,7 +434,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
 | `pasco edit <contract-path> [--set <text> [--check]]` · `pasco edit --list [<block>]` | read **or write** **one contract field** by contract path — `positioning.statement.<lang>`, `headlines[platform=<p>,lang=<l>].text`, `bios[platform=<p>,lang=<l>,length=<len>].text`, `identity.definition.<lang>`, `faq[id=<slug>,lang=<l>].q|.a`, `faq[id=<slug>].source`, `identity.links[platform=<p>,label=<l>].url` (read-only, `label` optional) — the last three shipped in #435, with the same resolution rules (exactly one row, `--check` preview, cap pre-flight); `faq[]` is selected by its stable `id` (a repeated id is ambiguous and refused, never index-addressed) and `q`/`a` are langMaps, so their `lang` selector is required. `--set` writes it: **byte-range splice over the original text** (the CST locates; it never re-serializes, so comments/layout survive and the diff is one line), block, multi-line and anchored/aliased scalars **refused** in v1, the file's node must still match the resolved value (staleness → exit 1, never a silent wrong-row write), no-op = 0 + `noop`, temp file + `load()`/schema over a temp copy + **atomic rename** (an invalid edit never reaches disk), concurrent writers serialized by an advisory `content/.pasco-edit.lock` plus a re-read immediately before the rename (an external editor is the residual window). `--set --check` previews instead: it renders the surface the way `pasco build` does (active variant → renderer → shared paste source, current vs proposed) and prints **the published lines the edit changes**, reporting an edit that does not reach the artifact with its reason instead of asserting it; `identity.definition` is previewed through the entity JSON-LD the renderers embed, and `faq[]` — which has no `pasco build` artifact — through the `FAQPage` node `pasco entity --jsonld` emits (#360/#435). It also reports the edited unit's **surface impact** from the §19 ledger — every recorded surface prints `stale` after an edit that changes the unit hash (or `in-sync` when the record still matches), and a unit with no record rolls up to `never` — derived on every run and stored nowhere (§20). A headline/bio value is pre-flighted against the catalog's own `max-chars` cap — the workspace's `content/checks.yaml` when it declares checks, else the caps shipped with pasco (#240) with its cited source and tier — over-cap is a WARN, never a block (D12), and a platform with no sourced cap reads `cap: unknown`; `identity.definition`/`faq[].q|.a` are pre-flighted the same way against the contract's own schema caps (160/90/320 chars per value, v1.10 #288), where over-cap is a schema FAILURE the write cannot pass (D12); `--json` carries `{ address, current, proposed, rendered, ok, noop, written, warnings, stale, state, drift, limit, over, variant, reason }` inside the standard envelope (a D22/§21 selection error the write proceeds through is a warning, not a block: the SSOT write is valid even when `build` refuses); a read-only target or a file that changes under the command is exit 1 (`refused` / `stale`, nothing written); its machine contract is frozen for agents (S5, #252): the `--json` field set and the 0/1/2 exit matrix are documented in the CLI README, one test per exit row; `edit` never chooses the live variant (#238 non-goal). `--list` is the read-only discovery surface (#411): every addressable row of the loaded workspace, one per line, built by the same constructors resolution uses (no second grammar), scoped to `positioning`/`headlines`/`bios`/`identity.definition`/`identity.links`/`faq`; link rows are marked `(read-only)` and a link row whose platform cannot be expressed is reported as a warning, a label that cannot be expressed is dropped so the row is listed by its platform when that resolves to one row, and any address that resolves to more than one row (a duplicate headline/bio, a label-less link sharing its platform) is a warning too — never printed as a path `edit` would reject; `--json` carries `{ addresses: [{ address, kind, readOnly }], warnings }`; it never locates a CST node, takes the edit lock or writes (an empty workspace prints the header alone; exit 0 on a readable listing, 1 when the workspace does not load — the same load failure any read reports — and 2 on usage), and combining it with `--set`/`--check`/`--create`/an address is usage (exit 2). `--create <root> [--check]` (#435) is a SEPARATE operation for a root the workspace does not declare yet — the splice never invents bytes, and creation never overwrites one: it writes a schema-valid seed template (`faq`, or its file form `content/faq.yaml`: 3 placeholder pairs, the schema minimum — placeholders, never invented facts), refuses an existing root under any extension case (idempotent, exit 1, nothing written), takes the same write lock, validates through the same `load()` gate over a temp copy before the write, creates the file with an exclusive open (`O_EXCL`/`wx`, so a root that appeared in the window is refused rather than replaced), and runs the same cap pre-flight; `--check` previews the seed (validates, writes nothing); epic #247, S1–S5 + #435 |
 | `pasco check [platform]` | run skill-declared checks before deploy; char limits accept an optional `surface` (`headline`/`bio`/`both`) so a title cap does not flag the bio (#240). **`fact-present`** is executed here (issue #283), **for the surfaces whose catalog declares the premise** (the workspace's `content/checks.yaml` ∪ the shipped `skills/<platform>/checks.yaml`; `link-in-identity` stays a separate premise): the artifact `pasco build` last wrote is compared **symmetrically** against the SSOT render — a URL the surface adds (dangling pointer) or omits (`contradiction`), a date or number either side carries and the other does not (`contradiction`), and a text difference no fact token explains (`contradiction`) are all findings. All are WARN (D12: facts warn), and a targeted surface with no artifact on disk reports the rule as **not run**, never as OK |
-| `pasco audit [--json]` | the **offline diagnostic projection** over the identity: findings only — no score, no prioritisation, no branding (issue #283). `--json` emits `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings: [{ class, severity, path, detail }] }` — `scope` makes "measured nothing" distinguishable from "clean" — with three fixed classes (`dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN); exit 1 iff any FAIL. Composes `load` (schema), `reconciledDrift` (drift + the #238 variant reconciliation), `geoCheck` (its `faq-coverage` premise gates the claim rows), the completeness `evidence` premise, and `fact-present`; it is **deliberately stricter** than `validate`/`check` on the FAIL classes (declared in §7.1) |
+| `pasco audit [--json]` | the **offline diagnostic projection** over the identity: findings only — no score, no prioritisation, no branding (issue #283). `--json` emits `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings: [{ class, severity, path, detail }] }` — `scope` makes "measured nothing" distinguishable from "clean" — with three fixed classes (`dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN); exit 1 iff any FAIL. Composes `load` (schema), `reconciledDrift` (drift + the #238 variant reconciliation), `geoCheck` (its `faq-coverage` premise gates the claim rows), the completeness `evidence` premise, the `achievements[]` evidence posture (§23.3), and `fact-present`; it is **deliberately stricter** than `validate`/`check` on the FAIL classes (declared in §7.1) |
 | `pasco discover <url>... [--json] [--allow-host <hosts>]` | the **provisional Profile** from public surfaces, for a prospect who has no workspace yet (issue #329, §7.10): reads only what a surface itself declares (schema.org JSON-LD + its links), attaches per-fact provenance (`surface` · `url` · `retrieved` · `attested: false`) and lists the fields it did not find as `absent` (never defaulted); runs `driftCheck` over the result plus the two classes discovery owns (`dangling-ref` on a same-host link the pass could not resolve, `unsourced-claim` on surface text). Closed host allowlist checked **before** any request; sequential, no retries, no credentials, redirects refused. Writes NOTHING — no `content/`, no ledger — and the provisional shape is not the persisted contract. Exit `0` when at least one surface was read (a surface it could not read is reported per surface, never silently dropped) · `1` when **none** could be read — a host outside the allowlist is refused before any request, and the envelope carries `kind: discovery` rather than an empty profile · `2` usage |
 | `pasco entity [--json \| --jsonld [--out <file> [--force]] [--bare]] [--lang <l>]` | the **entity projection** for surfaces this engine does not render (issue #287): the schema.org entity assembled by `structuredData()` — `@id`, `sameAs`, type and fields — plus the readiness `gaps` (geoCheck codes, verbatim). `--json` emits `{ schemaVersion: "1", entity: { id, type, name, sameAs, email }, gaps: [{ code, detail }], jsonld: null, faqJsonLd }` — `faqJsonLd` is the assembler's `FAQPage` node, or `null` when `faq[]` is undeclared (#360); `--jsonld` emits the **same assembler output** the renderers embed as a paste-ready `<script type="application/ld+json">` block, plus the `FAQPage` block after it when the workspace declares `faq[]` (never an empty FAQPage, no invented `@id`, `faq[].source` as `acceptedAnswer.citation`); `--bare` = raw JSON (the entity object alone, or a JSON array of the emitted nodes in block order when the FAQPage is present); `--out <file>` writes the bytes atomically and refuses an existing file without `--force`. **Both modes resolve one `lang`** (`--lang`, else `.pascorc defaults.lang`) so a gap and the emitted field cannot disagree. **One assembler, no CLI-local builder**: the projection never invents `@id` and never re-derives the entity or the FAQPage (§15.4). Exit `1` when `@id` is absent (the entity has no declared home) or the `--out` write fails; `0` otherwise; `2` is usage. Offline and deterministic (D19). Contract: §7.2 |
 | `pasco export ai-policy [--out <dir> \| --check] [--json] [--lang <l>]` | the §12 M9 stance as an artifact (issue #290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed `ai-retrieval` crawlers allowed, the listed `ai-training` crawlers disallowed; the file declares that an unlisted crawler is not restricted, each UA commented with its registry entry/operator/source/date), `llms.txt` (the workspace index, with a coverage assertion over every document it claims) and `AI-POLICY.md` (allowed · blocked · the explicit-list limit · who can change it · the date, quoting the M9 floor verbatim); `--check` exits `1` on an incomplete or unsourced entry, a duplicate token, an `as_of` that is malformed/future/older than 180 days, or a `policy.as_of` that is stale or predates its rows; `--out` refuses to write one. The crawler list is projected from `platforms/registry.yaml` (`ai:`) by `pnpm gen:platforms` — never a hardcoded UA list in the CLI. Offline; `--check` is the declared clock-reading path. Contract: §7.3 |
@@ -430,6 +442,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco export profile [--json] [--now <iso8601>]` | the **normalized profile** for programmatic consumers (issue #348): `{ schemaVersion, engine, source: { commit, generatedAt }, profile }`, where `profile` is exactly what `core.load()` returns — **every root the workspace declares, plus every *list* root defaulted to `[]`; an optional *object* root (`newsletter`, `podcast`, `audiences`, `active`) appears only when declared** (no valid empty value exists — §7.5). `artifactRefs` stay ids a consumer joins to `profile.artifacts[]` (`load()` already refuses a dangling ref), `publications[].url` as declared, `deployments` included — never a CLI-local rebuild and never `compile(profile, platform)`'s platform slice (§15.4). `schemaVersion` (`"1"`) is the frozen payload version a consumer refuses if it does not know (§7.5); `source.commit` is the workspace git `HEAD` (`null` outside a git repository); **no clock is read** — `generatedAt` is `null` unless `--now` pins it verbatim after a real-calendar check, so two runs over one workspace are byte-identical. Exit `1` on a load/schema failure (D12) or a malformed `--now` · `2` usage. Contract: §7.5 |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22). **The read report also ends with the derived publication truth per surface (§20.1, #242): ledger · artifact-vs-SSOT · declared cap — computed on every read, stored nowhere** |
+| `pasco achievements [--targets] [--json]` | the **impact log** (D24, §23): one row per result with its DERIVED status (`planned` · `measured` · `achieved` · `partial`), the formatted metric (`72 h → 4 h`), the `basis` and the pointer, grouped by the first `ref`. `--targets` prints only the planned goals; `--json` emits `{ schemaVersion: "1", scope: { total, planned, measured, achieved, partial }, achievements: [{ …row, status }] }` with `scope` counting the rows the view returned, so an empty scope is "nothing declared here" rather than a fabricated zero. Read-only, offline; exit 0 unless the workspace fails to load |
 | `pasco skills:export <dir> [--force] \| --list` | copy the skill channels **this package ships** into a directory the user names; `--force` overlays an existing non-empty directory (nothing is deleted), `--list` shows the channels. The two modes are **separate invocations**: a destination and `--list` are mutually exclusive, and passing both is usage (exit `2`), never a silently ignored argument. No per-agent destination is invented. Skill lookup reads only the package's own `skills/`, an explicit `PASCO_SKILLS_DIR`, or the marked workspace checkout (developers) — #253/#254 |
 | `pasco serve` | run the **minimal reference adapter** (D20) — exposes `Core` over a **local HTTP contract** so any consumer (UI, editor, script, service) drives the engine without re-implementing it. Minimal **by construction**; a deployment that needs more ships its own server against the same contract |
 
@@ -525,6 +538,7 @@ and a finding about a *surface* artifact addresses the artifact path
 | `reconciledDrift` (one home, `drift-reconcile.ts`) | `driftCheck` **plus the #238 variant-store reconciliation `validate` applies** — an `active-variant-missing` already backed by a chosen body is not a finding. Pointer codes (`handle-claimed-not-linked`, `active-platform-unknown`, `active-variant-missing`) → `dangling-ref`; **`url-not-in-identity` gets NO class and is not reported** (declared above); the contradiction/duplicate families (`publication-conflict`, `orcid-conflict`, `date-range-inverted`, `duplicate-*`, `skill-conflict`, `handle-host-mismatch`) → `contradiction` |
 | `geoCheck` | **no class of its own; one premise gate.** Its codes are citability coverage signals (a missing/short `definition` is not a pointer; a claimed handle outside `sameAs` is the legitimate `@id` exclusion). The one class-mappable premise is the answer surface: `geo/faq-coverage` (score 0) owns the ≥3-row / duplicate-`q` / unsourced-row rules, and the audit reports only the deficient ROWS that assert a number with no `source` (`unsourced-claim`). No threshold is re-derived |
 | completeness `evidence` premise | a project whose claim-bearing text is quantitative and has no evidence row with a `source` → `unsourced-claim` (the item's weight `0` in the workspace policy opts the rule out) |
+| `achievements[]` evidence posture (§23.3) | a **public** `measured`/`attested` row with no pointer (`source`, `artifactId` or `credentialId`) → `unsourced-claim`; `reported`/`estimated` rows and non-public rows are never findings — the class comes from the row's own `basis` (capture first, prove later), no threshold re-derived |
 | `fact-present` (§7 `check`) | runs only for the surfaces whose catalog declares the premise (workspace `content/checks.yaml` ∪ the shipped `skills/<platform>/checks.yaml` — the catalog note and the code say the same thing, #283/F6). **Symmetric**: a URL the surface adds → `dangling-ref`; a URL it omits, a date or number either side carries and the other does not, or a projected text difference with no token to attribute → `contradiction`. `unsourced-claim` is never emitted here — a number is a fact, and "no evidence" is a question about `evidence[]`/`source` |
 
 **Declared v1 limits.** Artifacts are read from disk (what `pasco build` last wrote);
@@ -1130,7 +1144,7 @@ an immutable artifact identified by **URL + sha256**, recorded in
 | | Artifact | Identity |
 |---|---|---|
 | **Released** | `schema/profile.schema.json` at a published release tag | tag-pinned raw URL + sha256 + `$id` version (today `v0.3.7`, schema v1.15) |
-| **Current** | the committed `schema/profile.schema.json` on this branch | `$id` version + sha256, **identical bytes to the tagged artifact** (today v1.15; `published: true`) |
+| **Current** | the committed `schema/profile.schema.json` on this branch | `$id` version + sha256, plus its own publication truth (`published` + `artifact`) — **not necessarily the tagged bytes** (today v1.16, `published: false`: no tag carries these bytes yet) |
 
 - **Tag-pinned, public repo only.** The released URL is exactly
   `https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/<tag>/schema/profile.schema.json`.
@@ -2871,3 +2885,101 @@ angles, character budgets, membership/announcement norms — lives in `skills/`
 - Milestone naming follows the decision: M4 is the **presence surfaces (profile
   bodies)** milestone and M5 the **presence consumption** milestone (§12) — no
   new loose milestone.
+
+## 23. Achievements — the impact log (D24 detail, issue #446)
+
+Schema v1.16 adds the root `achievements[]` block: **one log of results**, not a
+per-row outcome list. The block answers a question the contract could not ask
+before — *what changed?* — where `experience[].highlights` says what was done
+(free text: no value, unit, baseline, target or link) and `projects[].evidence[]`
+says what can be proven (project-scoped, and requiring a public `source`, so an
+internal outcome has no home).
+
+### 23.1 The shape
+
+| Field | Required | Meaning |
+|---|---|---|
+| `id` | yes | `$defs/entryId`; unique per block (core-checked, load fails on a duplicate). |
+| `statement` | yes | `$defs/langMap`; one sentence, the human-readable result. Authored, never generated. |
+| `kind` | yes | `metric` or `milestone`. A `metric` row REQUIRES `metric`; a `milestone` row REQUIRES its absence (enforced by core and the CLI, never by `if/then`). An award belongs in `credentials[]` — the achievement references it. |
+| `metric` | when `kind: metric` | `{ value?, target?, baseline?, unit, direction? }`. `unit` required; the numbers are optional and their combination IS the status. `direction`: `increase` \| `decrease` \| `maintain`; **absent = `increase`** — a declared default, never inferred from the baseline. |
+| `refs` | no | `block:id` strings — `experience` \| `projects` \| `publications` \| `education` \| `press` \| `credentials` \| `artifacts`. Resolved by core: a dangling ref fails `load`. |
+| `source` | no | `$defs/url` — a public pointer. |
+| `artifactId` / `credentialId` | no | `$defs/entryId`; resolved by core. |
+| `basis` | yes | `measured` (instrumented/documented) · `estimated` (derived from partial data) · `reported` (the person's own account) · `attested` (a third party confirms). |
+| `date` | no | `$defs/date`; when the result was achieved or measured. |
+| `visibility` | yes | `public` \| `unlisted` \| `private`. Required **in this block**: internal metrics are common and must not become public by omission. |
+
+One root log rather than per-row `outcomes[]`: `refs` attach a result to the
+units it belongs to, so one result is written once and read from several rows.
+
+The root property carries **no `minItems`**: `load()` normalizes an undeclared log
+to `[]` and `pasco export profile` emits that array (the loaded-shape rule every
+list root follows), so `achievements: []` must stay schema-valid: the exported
+payload always materializes the array, and "declare the block only when you have
+rows" is an authoring convention, not something the loader enforces. (`faq[]` keeps its 3–20 floor because it is a *surface* with a
+declared minimum, not just a list.)
+
+### 23.2 Status is derived, never stored
+
+One core function (`achievementStatus()`) answers for every reader — the CLI, a
+future renderer, a consumer of `export profile`:
+
+| Shape | Status |
+|---|---|
+| `metric.target` present, `metric.value` absent | `planned` |
+| `metric.value` present, `metric.target` absent | `measured` |
+| both present, direction met (`increase`: `value >= target` · `decrease`: `value <= target` · `maintain`: `value === target`) | `achieved` |
+| both present, direction not met | `partial` |
+| `kind: milestone` | *no status* — a point event has no progress |
+| `kind: metric` with neither number | *no status* — nothing to plan, nothing to measure |
+
+Storing the status would let it disagree with the numbers it describes (§20.1's
+derived-never-stored rule). A planned row is a **goal**: it appears in the log and
+in `pasco achievements --targets`, never as a rendered achievement.
+
+### 23.3 Evidence posture — capture first, prove later
+
+`basis` is the honesty field, not a gate. `reported` is first class: the log is
+useful before the proof exists, and a false claim of proof is worse than an
+honest account of one. `pasco audit` treats a **public** `measured`/`attested`
+row with no pointer (`source`/`artifactId`/`credentialId`) as `unsourced-claim`
+(WARN, the existing class); a public `reported`/`estimated` row is not a finding;
+a `private` row is outside the public audit surface.
+
+### 23.4 Integrity (post-Zod, core — `load` fails)
+
+- duplicate `achievements[].id`;
+- a `refs[]`, `artifactId` or `credentialId` that does not resolve (the same class
+  as a dangling `artifactRefs`);
+- `kind: metric` without `metric`; `kind: milestone` with one;
+- a **public** achievement pointing at a `private`/`unlisted` credential or
+  artifact — the §18.5 leak rule, through the dedicated fields **and** through
+  `refs[]` (the ref is what a renderer groups the row by);
+- non-numeric `value`/`target`/`baseline` is a schema failure (Zod).
+
+`basis: attested` with no pointer is deliberately **not** a load failure: it is a
+posture, and blocking capture would recreate the gap the block exists to close.
+
+### 23.5 The commands
+
+`pasco achievements [--targets] [--json]` — read-only. The human view groups by
+the first `ref` (rows without refs under `Unattached`, last) and prints the
+derived status, the statement, the formatted metric, the `basis` and the pointer.
+`--targets` prints only `planned` rows (the goal view). `--json` emits
+`{ schemaVersion, scope, achievements }`, where each row carries its derived
+`status` (`null` for a milestone) and `scope` counts the rows the view returned —
+the `pasco audit` shape discipline: "nothing measured" must be distinguishable
+from "clean". Exit 0 unless the workspace fails to load.
+
+### 23.6 Non-goals (v1.16)
+
+- No inference or backfill from `experience`/`projects`: the log is authored, not
+  generated; a lost number is not reconstructed.
+- No renderer/CV integration (v1.16 ships the contract, the checks and the log
+  view); a CV pipeline that consumes it lives outside this repo.
+- No reminders, notifications or goal-tracking workflow.
+- No per-row `outcomes[]` duplicate (rejected in D24).
+- No change to `projects[].evidence[]` semantics.
+- No `period` window and no `statement` length cap in v1.16 (`date` + `unit`
+  cover the first cases; a renderer truncates, the schema does not cap).

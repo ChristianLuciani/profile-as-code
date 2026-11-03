@@ -274,7 +274,7 @@ describe("completeness(profile, policy)", () => {
     // If this fails: the schema gained/lost a langMap location. Update the walk in
     // `src/completeness.ts` (langMaps) AND this number — the body below then proves
     // the new location is actually read.
-    expect(refs.length - releaseSummaryRefs).toBe(22);
+    expect(refs.length - releaseSummaryRefs).toBe(23);
 
     // And prove the walk actually READS the previously-missed spots by putting
     // content there: if any silently disappears, langCoverage cannot reach 100%.

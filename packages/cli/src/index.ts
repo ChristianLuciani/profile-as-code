@@ -15,6 +15,7 @@
 
 import { parseArgs } from "node:util";
 import { PROFILE_SCHEMA_VERSION } from "@profile-as-code/core";
+import { runAchievements } from "./commands/achievements.js";
 import { runAudit } from "./commands/audit.js";
 import { runBuild } from "./commands/build.js";
 import { runCheck } from "./commands/check.js";
@@ -129,6 +130,10 @@ Commands:
   release plan [id] [--json]    [read]  One release's ordered fan-out (repo-meta → profile →
                                 distribution), each surface's state and the per-kind
                                 factual spine; the copy lives in the shipped skills
+  achievements [--targets]      [read]  The career impact log (D24/§23): every row's DERIVED
+          [--json]              status (planned · measured · achieved · partial), the
+                                formatted metric and how the result is known (basis);
+                                --targets prints only the planned goals
   export ai-policy              [write] Write the AI-policy artifacts (SPEC §7.3, M9): robots.txt
           [--out <dir> | --check] [--lang <l>]  (two named groups — listed retrieval crawlers
                                 allowed, listed training crawlers disallowed, no wildcard) +
@@ -181,6 +186,7 @@ interface FlagOptions {
   selection?: boolean;
   view?: string;
   verify?: boolean;
+  targets?: boolean;
   channel?: string;
   variant?: string;
   text?: string;
@@ -423,8 +429,10 @@ URL resolves — canonicalization, which validate warns about) and geoCheck's
 coverage codes.
 Composes load (schema), driftCheck with validate's #238 variant-store
 reconciliation, geoCheck (the faq-coverage premise gate only), the
-completeness evidence premise and fact-present (the built surface's facts vs
-the SSOT render, symmetric; it runs only where the catalog declares it).
+completeness evidence premise, the achievements evidence posture (a public
+measured/attested row with no pointer is unsourced-claim, SPEC §23.3) and
+fact-present (the built surface's facts vs the SSOT render, symmetric; it runs
+only where the catalog declares it).
 Touches no network, and no finding derives from content/deployments.yaml.
 --json emits { schemaVersion: "1", scope: { catalog, declared, checked, notRun },
 findings: [ { class, severity, path, detail } ] }. scope is the artifact side:
@@ -593,6 +601,22 @@ Two seed formats (#266): short (distribution) and longform (the essay/newsletter
                                    unverifiable, url: null; no URL-recording
                                    command yet)
   list                             list seeds, formats, derivedFrom and chosen variants`,
+  achievements: `pasco achievements [--targets] [--json] [--workspace <path>]
+The career impact log (D24, SPEC §23, issue #446): one row per RESULT — a metric
+or a milestone — with the units it belongs to (refs), how the result is known
+(basis: measured | estimated | reported | attested) and its required visibility.
+The status is DERIVED from the numbers, never stored: planned (a target with no
+value) · measured (a value with no goal) · achieved (the direction is met) ·
+partial (both numbers, goal missed). A milestone has no status. Rows are grouped
+by their first ref; Unattached collects the rest.
+--targets prints only the planned rows (the goal view).
+--json emits { schemaVersion: "1", scope, achievements: [...] } where each row
+carries its derived status (null for a milestone) and scope counts the rows this
+view returned — an empty scope reads as "nothing declared here", never as a
+fabricated zero.
+Exit: 0 a successful read · 1 the workspace does not load (a dangling refs[]
+entry fails load, the same class as a dangling artifactRefs).`,
+
   status: `pasco status [platform] [--mark <ledgerKey> <platform>] [--at <iso8601>] [--verify] [--write-checklist] [--completeness] [--json] [--workspace <path>]
 Per-entry deploy-status report (D18, §19): ledger key · origin (template/user) ·
 surfaces published · sync state (in-sync / stale / never) · certification
@@ -1134,6 +1158,24 @@ async function runMain(): Promise<number> {
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       return runReleasePlan({ workspace, releaseArg: positionals[1] });
+    }
+    case "achievements": {
+      const { flags, positionals } = parseCommandFlags(rest, {
+        targets: { type: "boolean" },
+      });
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.achievements}\n`);
+        return EXIT.OK;
+      }
+      if (positionals.length > 0) {
+        throw new UsageError("usage: pasco achievements [--targets] [--json] [--workspace <path>]");
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      return runAchievements({
+        workspace,
+        ...(flags.targets === true ? { targets: true } : {}),
+      });
     }
     case "status": {
       const { flags, positionals } = parseCommandFlags(rest, {

@@ -5,6 +5,24 @@
  * from it (packages/core/scripts/gen-zod.ts) and committed.
  */
 
+export type {
+  Achievement,
+  AchievementBasis,
+  AchievementDirection,
+  AchievementMetric,
+  AchievementScope,
+  AchievementStatus,
+} from "./achievements.js";
+/** D24 (§23, #446): the career impact log — the DERIVED status is the one thing
+ *  the block cannot store. One home for `planned | measured | achieved | partial`
+ *  and for the post-Zod integrity checks `load()` fails on. */
+export {
+  ACHIEVEMENT_REF_BLOCKS,
+  achievementScope,
+  achievementStatus,
+  checkAchievementIntegrity,
+  DEFAULT_ACHIEVEMENT_DIRECTION,
+} from "./achievements.js";
 /** The ONE home of every text-order comparison (D19 byte-parity, #305) —
  *  UTF-16 code units, ICU-free; every engine sort that breaks ties by string
  *  delegates here. */

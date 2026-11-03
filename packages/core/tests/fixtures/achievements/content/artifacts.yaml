@@ -1,0 +1,6 @@
+- id: art-portfolio
+  kind: portfolio
+  title: Portfolio
+  locator:
+    url: https://example.com/portfolio
+  visibility: public

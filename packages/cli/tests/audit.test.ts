@@ -271,6 +271,163 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
   });
 });
 
+describe("achievements — the impact log is capture-first (§23.3, #446)", () => {
+  /** A workspace whose only content is one achievement row. */
+  const log = (row: string): string =>
+    workspace({ "identity.yaml": "name: Someone\n", "achievements.yaml": row });
+
+  const findings = (data: unknown): Finding[] => (data as { findings: Finding[] }).findings;
+
+  it("a PUBLIC `measured` claim with no pointer is unsourced-claim (WARN, exit 0)", () => {
+    const dir = log(`
+- id: ach-measured
+  statement: { en: Shipped 12 features }
+  kind: metric
+  metric: { value: 12, unit: "features" }
+  basis: measured
+  visibility: public
+`);
+    const { code, data } = audit(dir);
+    expect(code).toBe(0);
+    expect(findings(data)).toHaveLength(1);
+    expect(findings(data)[0]).toMatchObject({
+      class: "unsourced-claim",
+      severity: "WARN",
+      path: "achievements[0]",
+    });
+  });
+
+  it("addresses the row by INDEX — the block is outside the factRef grammar (§7.1)", () => {
+    const dir = log(`
+- id: ach-measured
+  statement: { en: Shipped 12 features }
+  kind: metric
+  metric: { value: 12, unit: "features" }
+  basis: measured
+  visibility: public
+`);
+    const path = findings(audit(dir).data)[0]?.path ?? "";
+    expect(path).toBe("achievements[0]");
+    // The `block[id]` form is reserved for the blocks the grammar addresses.
+    expect(path).not.toContain("ach-measured");
+  });
+
+  it("a PUBLIC `attested` claim with no pointer is too (the third party is not a pointer)", () => {
+    const dir = log(`
+- id: ach-attested
+  statement: { en: Certified as a lead auditor }
+  kind: milestone
+  basis: attested
+  visibility: public
+`);
+    const { code, data } = audit(dir);
+    expect(code).toBe(0);
+    expect(findings(data)[0]).toMatchObject({
+      class: "unsourced-claim",
+      severity: "WARN",
+      path: "achievements[0]",
+    });
+  });
+
+  it("`reported` and `estimated` are NEVER findings — capture first, prove later", () => {
+    const dir = log(`
+- id: ach-reported
+  statement: { en: Cut reconciliation from 72 h to 4 h }
+  kind: metric
+  metric: { value: 4, baseline: 72, unit: "hours", direction: "decrease" }
+  basis: reported
+  visibility: public
+- id: ach-estimated
+  statement: { en: Reach 100 tutors }
+  kind: metric
+  metric: { target: 100, unit: "tutors" }
+  basis: estimated
+  visibility: public
+`);
+    const { code, data } = audit(dir);
+    expect(code).toBe(0);
+    expect(findings(data)).toEqual([]);
+  });
+
+  it("a pointer clears the finding (source, artifactId or credentialId)", () => {
+    const dir = log(`
+- id: ach-sourced
+  statement: { en: Shipped 12 features }
+  kind: metric
+  metric: { value: 12, unit: "features" }
+  source: https://example.com/report
+  basis: measured
+  visibility: public
+`);
+    const { code, data } = audit(dir);
+    expect(code).toBe(0);
+    expect(findings(data)).toEqual([]);
+  });
+
+  it("an artifactId pointer clears it too (the OR branch, not just source)", () => {
+    const dir = workspace({
+      "identity.yaml": "name: Someone\n",
+      "artifacts.yaml": `
+- id: art-report
+  kind: document
+  title: Field report
+  locator: { url: https://example.com/report }
+  visibility: public
+`,
+      "achievements.yaml": `
+- id: ach-artifact
+  statement: { en: Shipped 12 features }
+  kind: metric
+  metric: { value: 12, unit: "features" }
+  artifactId: art-report
+  basis: measured
+  visibility: public
+`,
+    });
+    const { code, data } = audit(dir);
+    expect(code).toBe(0);
+    expect(findings(data)).toEqual([]);
+  });
+
+  it("a credentialId pointer clears it too (the third OR branch)", () => {
+    const dir = workspace({
+      "identity.yaml": "name: Someone\n",
+      "credentials.yaml": `
+- id: cred-audit
+  kind: certificate
+  title: Lead auditor
+  issuer: Acme
+  visibility: public
+`,
+      "achievements.yaml": `
+- id: ach-credential
+  statement: { en: Certified as a lead auditor }
+  kind: milestone
+  credentialId: cred-audit
+  basis: attested
+  visibility: public
+`,
+    });
+    const { code, data } = audit(dir);
+    expect(code).toBe(0);
+    expect(findings(data)).toEqual([]);
+  });
+
+  it("a PRIVATE row is outside the public audit surface (§18.5)", () => {
+    const dir = log(`
+- id: ach-private
+  statement: { en: Shipped 12 features }
+  kind: metric
+  metric: { value: 12, unit: "features" }
+  basis: measured
+  visibility: private
+`);
+    const { code, data } = audit(dir);
+    expect(code).toBe(0);
+    expect(findings(data)).toEqual([]);
+  });
+});
+
 describe("fact-present — the surface's facts vs the SSOT (issue #283)", () => {
   it("is green on a freshly built artifact and names the surfaces it compared", () => {
     const ws = copy(COMPLETE);

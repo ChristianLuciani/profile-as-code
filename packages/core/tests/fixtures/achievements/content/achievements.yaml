@@ -1,0 +1,51 @@
+# The impact log (v1.16, D24): a RESULT, the units it belongs to, how it is known.
+- id: ach-reconcile-time
+  statement:
+    en: Cut cash reconciliation from 72 h to 4 h
+    es: Redujo la conciliación de efectivo de 72 h a 4 h
+  kind: metric
+  metric:
+    value: 4
+    baseline: 72
+    target: 4
+    unit: hours
+    direction: decrease
+  refs: ["experience:exp-auditor"]
+  basis: reported
+  date: 2021-05-31
+  visibility: private
+
+- id: ach-tutors
+  statement:
+    en: Field-tested 36 Socratic tutors with Amazonian communities
+  kind: metric
+  metric:
+    value: 36
+    unit: tutors
+  refs: ["experience:exp-auditor", "artifacts:art-portfolio"]
+  source: https://example.com/tutors
+  artifactId: art-portfolio
+  basis: measured
+  date: 2024-08-31
+  visibility: public
+
+- id: ach-certified
+  statement:
+    en: Became an AWS Solutions Architect
+  kind: milestone
+  refs: ["credentials:cred-aws"]
+  credentialId: cred-aws
+  basis: attested
+  date: 2022-03-01
+  visibility: public
+
+- id: ach-next-cohort
+  statement:
+    en: Reach 100 tutors in the next cohort
+  kind: metric
+  metric:
+    target: 100
+    unit: tutors
+  refs: ["experience:exp-auditor"]
+  basis: estimated
+  visibility: public

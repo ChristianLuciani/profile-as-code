@@ -68,6 +68,7 @@ standalone path.
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13); the chosen body is `profiles/<platform>/variants/<id>.md` (a complete platform artifact), rendered by `pasco build` (#238) | 🚧 template + `--choose` (full flow M3) |
 | `pasco check [platform]` | User checks from `content/checks.yaml` (schema-validated catalog) + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) + offline `max-chars`/`min-chars` over headlines/bios (#240) + `fact-present` (the built surface's fact tokens vs the SSOT render, #283) | 🚧 offline rules today (limits + registry + media + fact-present; remaining catalog M3/M4) |
 | `pasco discover <url>... [--json] [--allow-host <hosts>]` | **Provisional profile** from public surfaces (#329, SPEC §7.10), for a prospect with no workspace: reads schema.org JSON-LD + links only (no prose mining), attaches per-fact provenance (`attested: false`) and lists `absent` fields; reports the audit's class names with discovery's own predicates (SPEC §7.10); closed host allowlist checked before any request (sequential, no retries, no credentials); **writes nothing** | ✅ v1 |
+| `pasco achievements [--targets] [--json]` | The **career impact log** (D24/§23, #446): one row per result — `metric` (`value`/`target`/`baseline`/`unit`/`direction`) or `milestone` — with the units it belongs to (`refs`), how the result is known (`basis`) and its required `visibility`. The status is **DERIVED** at read time (`planned` · `measured` · `achieved` · `partial`), never stored; `--targets` prints only the planned goals; `--json` emits `{ schemaVersion: "1", scope, achievements }`. Read-only | ✅ v1 |
 | `pasco audit [--json]` | Offline **diagnostic projection**, findings only (no score/prioritisation/branding, #283): three fixed classes — `dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN — exit 1 iff any FAIL; `--json` carries `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings }` | ✅ v1 |
 | `pasco entity [--json \| --jsonld [--out <file>] [--bare]]` | The **entity projection** for surfaces the engine does not render (#287): `--json` is the frozen view — `entity { id, type, name, sameAs, email }`, the structured-data `gaps` (geoCheck codes verbatim), `jsonld: null` and `faqJsonLd` (the `FAQPage` node, `null` when the workspace declares no `faq[]`); `--jsonld` is the **same assembler output** the renderers embed, as paste-ready `<script type="application/ld+json">` blocks — the entity first, then the `FAQPage` when it exists (#360). Exit 1 when `@id` is absent (never invented) | ✅ v1 |
 | `pasco cite-check [<answers.ndjson>] [--json]` | The **citation matcher** over saved answer-engine answers (#291): reads the runner's NDJSON (stdin when no path), matches the workspace's declared entity and emits, **per answer and never aggregated**, `{ cited, confidence, spans, reasons }`. Ladder: `citation-url` (a citation on the entity's own page or its `sameAs` set — host, and the declared path or a descendant) and `exact-name` → **high**; `alias` (`identity.orgName`) and `handle` → **medium**; `partial` (any contiguous multi-token prefix, ≥ 2 tokens) → **low**, and low is never citable downstream. Refuses to guess: a one-word name with no declared disambiguator (`cited: false`, the longer capitalised reading named as `competing`), or a contrast mention, is not a citation; a declared qualifier or an adjacent capital never disqualifies a hit by itself | ✅ v1 |
@@ -400,11 +401,11 @@ is frozen in SPEC §7.5.
 **A consumer that only needs to validate** does not need this package at all: the
 released schema is published as a tag-pinned URL + sha256 in
 [the consumer contract](https://github.com/ChristianLuciani/profile-as-code/blob/main/schema/consumer-contract.json).
-The manifest's `current` block is **not** a published artifact: schema v1.15 has
-no release tag yet (`published: false`, `artifact: null`), and the only released
-artifact is schema **v1.13 at tag v0.3.6**, which **rejects `publication.kind`**
-(`additionalProperties: false`) and has no `releases[]`. A consumer that needs
-either must use a v1.15 checkout (verify its sha256) until the next release. The reading guide is
+The released artifact today is schema **v1.15 at tag `v0.3.7`**; the manifest's
+`current` block is one minor ahead (schema **v1.16**, `published: false`,
+`artifact: null`) because no tag carries those bytes yet. A consumer that needs
+`achievements[]` must use the checkout and verify its sha256 until the next
+release; a consumer that does not can keep pinning `v0.3.7` unchanged. The reading guide is
 [the schema contract reading guide](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SCHEMA-CONTRACT.md) —
 including what structural validation does **not** cover (the cross-file
 invariants core re-checks, engine behavior, `.pascorc` and this payload's

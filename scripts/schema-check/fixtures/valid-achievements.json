@@ -1,0 +1,24 @@
+{
+  "identity": { "name": "Ada Example" },
+  "experience": [{ "id": "exp-1", "role": "Engineer", "org": "Acme", "start": "2020-01-01" }],
+  "achievements": [
+    {
+      "id": "ach-1",
+      "statement": { "en": "Cut reconciliation from 72 h to 4 h" },
+      "kind": "metric",
+      "metric": { "value": 4, "baseline": 72, "target": 4, "unit": "hours", "direction": "decrease" },
+      "refs": ["experience:exp-1"],
+      "source": "https://example.com/report",
+      "basis": "reported",
+      "date": "2024-08-31",
+      "visibility": "public"
+    },
+    {
+      "id": "ach-2",
+      "statement": { "en": "Became an AWS Solutions Architect" },
+      "kind": "milestone",
+      "basis": "attested",
+      "visibility": "private"
+    }
+  ]
+}

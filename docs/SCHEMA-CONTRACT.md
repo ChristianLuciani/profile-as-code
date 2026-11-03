@@ -33,24 +33,24 @@ same bytes forever. The tag-pinned raw URL is the only published form: a
 floating ref (`main`) or any private path is refused by the gate and may not
 appear on this surface (AGENTS.md rule 9).
 
-## The current contract — published at v0.3.7
+## The current contract — v1.16, not yet published
 
-`main` carries schema **v1.15**, and `v0.3.7` publishes exactly those bytes: the
-`current` and `released` blocks of `schema/consumer-contract.json` now name the
-same sha256, so a checkout of `main` and the tag-pinned download are the same
-contract.
+`main` carries schema **v1.16** (additive: `achievements[]`, D24). No tag carries
+these bytes yet, so `current` in `schema/consumer-contract.json` says
+`published: false` with a `note` naming the checkout — a consumer that needs the
+block verifies the sha256 against a checkout until the next release. The last
+published artifact is **v1.15 at `v0.3.7`** (above), which a consumer that does
+not need `achievements[]` can keep using unchanged.
 
 | Field | Value |
 |---|---|
-| Schema version | `v1.15` |
-| sha256 | `c48296847d99eb2413b7c1dec51e51656f4a4384eb06b7a8955b73c3e9625436` |
-| Published artifact | tag-pinned URL above (identical bytes) |
+| Schema version | `v1.16` |
+| sha256 | `8d79066b9314b585d3d420afb6562e5bd056541028b450ff90cb00c179518165` |
+| Published artifact | none yet — verify against the checkout (the `note` in the manifest) |
 
-`publication.kind` and `releases[]` — the two additions that had no released
-artifact before this tag — validate against `v0.3.7`: `$defs.publication` accepts
-`kind`, and a profile that declares `releases[]` is no longer limited to a
-checkout. A profile that declares neither validates unchanged against every
-release since `v1.13`.
+A profile that declares no `achievements[]` validates identically against `v1.16`
+and `v0.3.7`; the block is additive by construction, and `pasco achievements`
+reads it without writing anything.
 
 ## Validating a profile
 
@@ -69,10 +69,11 @@ PY
 ```
 
 `profile.json` is the `profile` object of `pasco export profile --json` (SPEC
-§7.5) or any object in that shape. The printed `$id` names the file you fetched
-(the id names the contract version, not a byte-image: `main` may carry a newer
-image of the same `v1.15` than the one the `v0.3.7` tag published, so compare the
-sha256 in `schema/consumer-contract.json` when the exact bytes matter).
+§7.5) or any object in that shape. The printed `$id` names the contract version,
+not a byte-image: `…/v1.15/…` for the released `v0.3.7` artifact, `…/v1.16/…` for
+a `main` checkout — the checkout is one minor ahead and has no published
+artifact yet (above). When the exact bytes matter, compare the sha256 in
+`schema/consumer-contract.json`; the `$id` alone does not pin them.
 A consumer that uses the CLI for the payload and a standalone validator for the
 check is the intended split: the CLI produces, the schema verifies.
 
