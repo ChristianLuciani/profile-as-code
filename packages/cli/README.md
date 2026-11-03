@@ -52,6 +52,41 @@ this package page, and — in the repository — the
 (EN). The links point at the public repository; the two commands above are the
 standalone path.
 
+## How the cycle resolves (three questions)
+
+**What does `fact-present` compare?**
+
+> **Symmetric**: a URL the surface adds → `dangling-ref`; a URL it omits, a date or
+> number either side carries and the other does not, or a projected text difference
+> with no token to attribute → `contradiction`.
+
+> All are WARN (D12: facts warn), and a targeted surface with no artifact on disk
+> reports the rule as **not run**, never as OK
+
+Canonical home: [SPEC §7](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md#7-core-interfaces-deep-module).
+
+**In what order does `build` choose an artifact?**
+
+> **The artifact source is resolved in ONE fixed order** (`renderArtifact`): an
+> active variant body (#238, written verbatim as the platform artifact) → the
+> platform renderer from the generated renderer map → the shared paste source
+> (#239, a manual-paste surface writes `profiles/<platform>.md`). First match wins;
+> `preview` and `edit --check` read the same tree.
+
+Canonical home: [SPEC §7](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md#7-core-interfaces-deep-module).
+
+**Where do the per-platform character caps come from?**
+
+> The **limit executor** measures the workspace's `content/checks.yaml` when it
+> declares checks, else the caps shipped with the package (#240); the `max-chars`
+> rows the shipped `skills/<platform>/checks.yaml` declare are **declared and not
+> executed** — no skill row reaches that executor.
+
+> a platform with no sourced cap reads `cap unknown` in text mode (`limit: null` in
+> `--json`)
+
+Canonical home: [SPEC §7](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md#7-core-interfaces-deep-module). The gap these clauses state is tracked in #455.
+
 ## Commands
 
 | Command | Purpose | Status |
@@ -608,7 +643,7 @@ when the workspace declares checks, the **sourced caps shipped with pasco**
 otherwise — and prints the cap, its **cited source** and its provenance tier. Over-cap is a
 **warning**, never a block (D12: facts warn, schema fails): `edit` says so, `check`
 reports the same finding (same executor), and a platform with **no sourced cap**
-says `cap: unknown` instead of guessing a number. The answer-engine fields are
+says `cap unknown` instead of guessing a number. The answer-engine fields are
 pre-flighted the same way against the **contract's** own caps (#435): 160 chars
 per `identity.definition` value, 90 per `faq[].q`, 320 per `faq[].a` (v1.10,
 #288, `[OFICIAL]`). Those are schema `maxLength`s, so over one the pre-flight
