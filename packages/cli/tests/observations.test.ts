@@ -162,6 +162,12 @@ describe("parseObservations — the row grammar", () => {
       // nobody can open is refused like any other malformed row.
       ["impossible month", name({ retrieved_at: '"2026-13-45"' })],
       ["impossible day in retrieved_at", name({ retrieved_at: '"2026-02-31T00:00:00Z"' })],
+      // Round 2, F1: day 00 was inside the bound (Date.UTC month, 0) and leaked.
+      ["day zero in retrieved_at", name({ retrieved_at: '"2026-02-00"' })],
+      [
+        "day zero in an experience start",
+        job({ role: "Engineer", org: "Acme", start: '"2020-01-00"' }),
+      ],
       [
         "impossible month in an experience start",
         job({ role: "Engineer", org: "Acme", start: '"2020-13"' }),
@@ -190,11 +196,11 @@ describe("parseObservations — the row grammar", () => {
   it("refuses a second experience row for the same surface and org (review F2)", () => {
     // The assembly keys employment by (surface, org); without this refusal the
     // second row is dropped in silence — the class this repo refuses.
-    const job = (role: string, start: string, end?: string): string =>
+    const job = (role: string, start: string, end?: string, org = "Acme"): string =>
       row({
         surface: "linkedin.com",
         field: "experience",
-        value: { role, org: "Acme", start, ...(end !== undefined ? { end } : {}) },
+        value: { role, org, start, ...(end !== undefined ? { end } : {}) },
         url: ADA,
         retrieved_at: AT,
       });
@@ -203,6 +209,11 @@ describe("parseObservations — the row grammar", () => {
         doc(job("Engineer", '"2018-01"', '"2021-01"'), job("Senior Engineer", '"2021-01"')),
       ),
     ).toThrow(/row 2: experience for linkedin.com \/ Acme is already declared by row 1/u);
+    // Round 2, F2: the refusal uses the ASSEMBLY's key (`experienceId`), so two
+    // spellings of one org are one key — not a second silent collapse.
+    expect(() =>
+      parseObservations(doc(job("Engineer", "2020"), job("Engineer", "2020", undefined, "ACME"))),
+    ).toThrow(/already declared by row 1 \(Acme\)/u);
   });
 
   it("refuses an empty or non-sequence document", () => {

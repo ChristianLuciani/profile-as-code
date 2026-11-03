@@ -1386,10 +1386,19 @@ the provisional profile can hold — `name` (string), `link` (absolute http(s) U
 and `experience` (a map with `role`, `org`, `start`, optional `end`; `YYYY`,
 `YYYY-MM` or `YYYY-MM-DD`, and `present` is the absence of an end) — so a row
 cannot declare a fact the audit would not read. An unknown or missing key, a
-non-http URL, a malformed date, or a `retrieved_at` without an explicit zone is
-refused with the row NUMBER; an unreadable, empty or non-sequence file is refused
-the same way (exit `1`, `kind: discovery`) — nothing is guessed from a partial
-file. Each row becomes the SAME `SurfaceObservation` the transport produces (a
+non-http URL, an impossible calendar date at the written precision (`2026-02-31`,
+`2020-13`, `2026-02-00`), a `retrieved_at` without an explicit zone, or a second
+`experience` row for the same (surface, org) KEY is refused with the row NUMBER;
+an unreadable, empty or non-sequence file is refused the same way (exit `1`,
+`kind: discovery`) — nothing is guessed from a partial file. The employment key
+is the assembly's own (`experienceId(surface, org)`, one home): the provisional
+profile holds ONE row per (surface, org), so a second manual row for that pair
+would be dropped in silence and is refused instead, naming both rows — which also
+means two roles at one org cannot be represented by a manual row set, and a
+promotion is folded into one row. A manual row and a machine-read row of the same
+surface label and org resolve to the same key: the manual declaration enters
+first, so the machine row is the redundant one — do not supply both for one
+surface. Each row becomes the SAME `SurfaceObservation` the transport produces (a
 schema.org node the extractor already understands), so there is ONE assembly path
 and ONE findings path: provenance, `absent[]`, `driftCheck` and the classes run
 unchanged over manual rows. Manual rows enter first, so the operator's declared

@@ -31,9 +31,13 @@ minor versions may contain breaking contract changes.
   declarations cited — the profile holds one name, and silently dropping the
   second hid exactly the disagreement the audit exists to find. A malformed row is
   refused with its number, never skipped: an impossible calendar date
-  (`2026-02-31`, `2020-13`), a non-http URL, an unknown key, and a second
-  `experience` row for the same surface+org (the profile keys employment by that
-  pair, so it would have been dropped in silence) all fail with the row.
+  (`2026-02-31`, `2020-13`, `2026-02-00`), a non-http URL, an unknown key, and a
+  second `experience` row for the same (surface, org) key — the key the assembly
+  itself uses (`experienceId`), so `ACME` and `Acme` collide as one key — fail
+  with the row that declares them. That key holds ONE row by design, so a second
+  role at one org is refused rather than dropped, and a manual row for a surface
+  the transport also reads resolves to the machine row's key: supply one or the
+  other for a given surface.
 - **`achievements[]` — a career impact log with metrics, targets and capture-first
   evidence (#446, D24, schema v1.16)** — the contract recorded what a person DID
   (`experience[].highlights`, free text: no value, unit, baseline, target or link)

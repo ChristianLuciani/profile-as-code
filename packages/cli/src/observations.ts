@@ -25,7 +25,7 @@
 
 import { readFileSync } from "node:fs";
 import { parse } from "yaml";
-import { DiscoveryError, type SurfaceObservation } from "./discovery.js";
+import { DiscoveryError, experienceId, type SurfaceObservation } from "./discovery.js";
 
 /**
  * The closed field vocabulary: exactly the facts the provisional profile can
@@ -76,7 +76,9 @@ function calendarDate(text: string): boolean {
   const month = match[2] === undefined ? undefined : Number(match[2]);
   const day = match[3] === undefined ? undefined : Number(match[3]);
   if (month !== undefined && (month < 1 || month > 12)) return false;
-  if (day !== undefined && day > daysInMonth(year, month as number)) return false;
+  // Day 0 is not "the last day of the previous month" here: the input is a date,
+  // and `2026-02-00` is not one (review round 2, F1).
+  if (day !== undefined && (day < 1 || day > daysInMonth(year, month as number))) return false;
   return true;
 }
 
@@ -254,24 +256,26 @@ export function parseObservations(text: string): SurfaceObservation[] {
     throw new DiscoveryError("observations: the sequence declares no rows");
   }
   const observations = document.map((row, index) => rowFrom(row, index));
-  // The provisional profile keys an employment row by (surface, org): a second
-  // `experience` row for the same pair would be dropped by the assembly. Refuse
-  // it here, naming BOTH rows, instead of losing a fact the operator wrote down
-  // (review F2 — the silent-collapse class).
-  const employment = new Map<string, number>();
+  // The provisional profile keys an employment row by (surface, org) — through
+  // `experienceId`, the ONE key rule. A second manual row with the same key
+  // would be dropped by the assembly, so it is refused here, naming BOTH rows
+  // (review F2 — the silent-collapse class). Two spellings (`Acme`/`ACME`) are
+  // the same key because the id is slugged.
+  const employment = new Map<string, { index: number; org: string }>();
   for (const [index, observation] of observations.entries()) {
     const node = observation.jsonLd[0] as Record<string, unknown> | undefined;
     const worksFor = node?.worksFor as Record<string, unknown> | undefined;
     if (worksFor === undefined) continue;
-    const key = `${observation.surface}\u0000${String(worksFor.name)}`;
+    const org = String(worksFor.name);
+    const key = experienceId(observation.surface, org);
     const first = employment.get(key);
     if (first !== undefined) {
       throw at(
         index,
-        `experience for ${observation.surface} / ${String(worksFor.name)} is already declared by row ${first + 1} — the provisional profile holds ONE employment row per surface and org; keep one row per (surface, org)`,
+        `experience for ${observation.surface} / ${org} is already declared by row ${first.index + 1} (${first.org}) — the provisional profile holds ONE employment row per surface and org, so a second role at the same org cannot be represented; keep one row per (surface, org)`,
       );
     }
-    employment.set(key, index);
+    employment.set(key, { index, org });
   }
   return observations;
 }

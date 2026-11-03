@@ -143,6 +143,16 @@ function slug(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * The id of an experience row — ONE home for the key rule (#412 review F2r2):
+ * the assembly keys a row by (surface, org), and the manual parser refuses a
+ * second row with the same key. Two spellings of a key (`Acme`/`ACME`) are one
+ * key, so the refusal and the collapse cannot disagree.
+ */
+export function experienceId(surface: string, org: string): string {
+  return slug(`${surface}-${org}`);
+}
+
 function httpUrl(value: string): string | undefined {
   try {
     const url = new URL(value);
@@ -232,7 +242,7 @@ export function provisionalProfile(
     if (role === undefined) continue;
     for (const row of worksForRows(node)) {
       if (row.start === undefined) continue;
-      const id = slug(`${observation.surface}-${row.org}`);
+      const id = experienceId(observation.surface, row.org);
       if (id === "" || experience.some((item) => item.id === id)) continue;
       experience.push({
         id,
