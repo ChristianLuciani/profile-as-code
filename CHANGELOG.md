@@ -11,6 +11,20 @@ minor versions may contain breaking contract changes.
 
 ### Fixed
 
+- **The engine floor is declared at birth, and an old engine's failure names the
+  upgrade (#434)** — `pasco init` now writes `"engine": "<installed CLI version>"`
+  into `.pascorc` (in the gate's `MAJOR.MINOR.PATCH` grammar), so a scaffolded
+  workspace can no longer leave the gate off by default; a build whose version
+  carries a pre-release suffix declares **no** floor at all (reducing it to the
+  numeric triple would pin the scaffold to a version `@latest` may not publish).
+  When schema validation fails on an `Unrecognized key`, `pasco validate` adds
+  ONE hint line naming the likely cause (data newer than the engine) and the
+  remedy (`npm i -g @profile-as-code/cli@latest`, then `pasco doctor`) — as
+  `error.hint` in `--json` too — unless the engine gate already named the
+  mismatch (installed older than the declared floor). The verdict is unchanged: exit `1`, same violations. `init`'s
+  version comes from one shared read (`packages/cli/src/version.ts`), never a
+  literal, and `docs/USER-GUIDE.md` §3/§8.2.1 now state that the floor is
+  declared at birth, not by hand.
 - **`pasco doctor` names the engine-requirement state instead of letting
   "absent" look met (#436)** — the line now reads `engine requirement absent — no
   .pascorc declares one` for a workspace with no declaration, alongside `met`,

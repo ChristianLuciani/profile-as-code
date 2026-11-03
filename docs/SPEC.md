@@ -1002,7 +1002,10 @@ Both commands load through `core.load()`, so they resolve the same generated Zod
 `additionalProperties: false` policy) and cannot diverge on a field a newer schema
 added. The witness is `projects[].artifactRefs` (#333/v1.12): a workspace carrying
 it must be accepted by both, and a workspace carrying an unknown row field must be
-refused by both **with identical violations**. A CLI test pins both directions —
+refused by both **with identical violations** (and, for `export`/`preview`, the
+same `{ kind, violations }` payload; `validate` may add the #434 `error.hint`
+after them — an additive, validate-only line that never changes a violation). A
+CLI test pins both directions —
 the artifactRefs fixture plus an injected unknown key, asserting equal error
 payloads across `validate`, `build`, `export profile` and `preview` — so a second schema or a
 different policy cannot be introduced on one command without failing CI. The new
@@ -1035,6 +1038,21 @@ the workspace requires; `validate`, `build`, `export profile` and `preview` chec
   pre-#348 workspace keeps working. A present value is a **minimum**, never an
   exact pin: the question a workspace asks is "does this engine know my
   contract?", and a patch/minor upgrade within the same major must not refuse.
+- **A new workspace declares the floor at birth (#434).** `pasco init` writes
+  `"engine"` with the installed CLI version, in the accepted grammar above. A
+  build whose version carries a pre-release suffix declares **no** floor at all:
+  reducing `0.4.0-rc.1` to `0.4.0` would pin the scaffold to a version `@latest`
+  may not satisfy, and emitting the raw string would violate the grammar. The
+  declaration is the engine's, not the user's: it is never added or maintained by
+  hand, so "absent" is reachable for workspaces born before this behavior and for
+  pre-release builds. On an `Unrecognized key` schema failure, `pasco validate`
+  adds **one additive hint line** naming the likely cause (data newer than the
+  engine) and the remedy (`npm i -g @profile-as-code/cli@latest`, then `pasco
+  doctor`) — unless the engine gate already explained the mismatch (installed
+  older than the declared floor), in which case that message already names the
+  upgrade. The verdict stays `1` and the violations are untouched; the hint is a
+  `validate` surface, not a promise about `build`/`preview`/`export profile`,
+  which print the gate's line when the floor is unmet.
 - **Accepted syntax: exactly `MAJOR.MINOR.PATCH`** — three dot-separated ASCII
   decimal components, no `v` prefix, no range operator (`^`, `~`, `>=`), no
   `*`, no pre-release/build suffix. This is the whole grammar, deliberately: the

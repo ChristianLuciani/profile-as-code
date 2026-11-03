@@ -9,7 +9,13 @@ export interface JsonEnvelope {
   /** Exit code the process (would) use — mirrors process.exitCode. */
   exitCode: number;
   data?: unknown;
-  error?: { kind: string; message: string; violations?: { path: string; message: string }[] };
+  error?: {
+    kind: string;
+    message: string;
+    violations?: { path: string; message: string }[];
+    /** Additive guidance on the error itself (#434) — never a new verdict. */
+    hint?: string;
+  };
 }
 
 let jsonMode = false;
@@ -56,6 +62,8 @@ export function report(
     for (const v of payload.error.violations ?? []) {
       process.stderr.write(`  ${v.path || "<root>"}: ${v.message}\n`);
     }
+    // #434: one additive line after the violations — the verdict is unchanged.
+    if (payload.error.hint !== undefined) process.stderr.write(`${payload.error.hint}\n`);
   }
   return exitCode;
 }

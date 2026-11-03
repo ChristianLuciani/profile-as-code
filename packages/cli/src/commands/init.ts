@@ -15,8 +15,10 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Flavor } from "@profile-as-code/core";
 import { DEFAULT_CHECKS_YAML } from "../default-checks.js";
+import { engineFloorFor } from "../engine-gate.js";
 import { EXIT } from "../exit.js";
 import { line, report, section } from "../output.js";
+import { CLI_VERSION } from "../version.js";
 import { WORKSPACE_NAME } from "../workspace.js";
 
 const FLAVOR_BRAND_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — content/ flavor (D15/§17)
@@ -203,12 +205,25 @@ pasco build github-org --lang en   # org README (git deploy)
 See the [CLI reference](https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/cli#readme) for the full command reference.
 `;
 
-const PASCORC_TEMPLATE = `{
+/**
+ * The scaffolded `.pascorc` — JSON, not YAML. The `engine` floor is written at
+ * BIRTH (#434) and equals the installed CLI version: the engine knows its own
+ * version, so "absent" is unreachable for a workspace born from this scaffold.
+ * A hand-written floor can be forgotten, typed wrong, or left behind by the
+ * upgrade that changed the contract; a birth-time declaration cannot.
+ */
+export function pascorcTemplate(engineVersion: string): string {
+  const floor = engineFloorFor(engineVersion);
+  // A pre-release build declares no floor at all (see `engineFloorFor`): the
+  // scaffold must never pin a version the published engine cannot satisfy.
+  const engine = floor === null ? "" : `  "engine": "${floor}",\n`;
+  return `{
   "workspace": ".",
-  "defaults": { "lang": "en", "variants": 3 },
+${engine}  "defaults": { "lang": "en", "variants": 3 },
   "diff": { "tagPattern": "release-*" }
 }
 `;
+}
 
 export interface InitArgs {
   cwd: string;
@@ -245,7 +260,7 @@ export function runInit(args: InitArgs): number {
   const targets: { path: string; content: string }[] = [
     ...Object.entries(files).map(([name, content]) => ({ path: join(contentDir, name), content })),
     { path: join(dir, "README.md"), content: brand ? BRAND_README_TEMPLATE : README_TEMPLATE },
-    { path: join(dir, ".pascorc"), content: PASCORC_TEMPLATE },
+    { path: join(dir, ".pascorc"), content: pascorcTemplate(CLI_VERSION) },
   ];
   for (const t of targets) {
     if (existsSync(t.path)) {

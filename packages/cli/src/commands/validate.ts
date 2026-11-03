@@ -6,11 +6,48 @@
 import type { GeoSection, LoadedProfile } from "@profile-as-code/core";
 import { geoCheck, LoadError, load, SchemaValidationError } from "@profile-as-code/core";
 import { reconciledDrift } from "../drift-reconcile.js";
+import { ENGINE_UPGRADE_COMMAND } from "../engine-gate.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
+import { readWorkspacePascorc } from "../workspace.js";
 
 export interface ValidateArgs {
   workspace: string;
+  /**
+   * Whether any `.pascorc` the resolution consulted declares an engine floor
+   * (#434). The dispatcher passes the SAME effective requirement the gate
+   * evaluated (pointer file + workspace, stricter wins); when a caller invokes
+   * `runValidate` directly it falls back to the workspace's own `.pascorc`.
+   * It only decides whether the upgrade hint is printed — never the verdict.
+   */
+  floor?: { declared: string | null; met: boolean };
+}
+
+/**
+ * The one-line upgrade hint (#434) — additive text on a failure that already
+ * exists, never a new verdict.
+ *
+ * It fires on the conjunction the issue observed: the contract rejected an
+ * `Unrecognized key` AND the engine gate is NOT already explaining the
+ * mismatch. A declared floor that the installed CLI does not meet is that
+ * explanation (`installed < declared`) — the gate already printed it, so the
+ * hint would be noise. A declared floor that IS met does not explain the
+ * rejection: the data is newer than the engine that wrote it (the very case
+ * `init` creates, since nobody advances the floor by hand), and the hint is
+ * exactly what the reader needs. Exported so the predicate is pinned by a test.
+ */
+export function unrecognizedKeyHint(
+  issues: readonly { path?: string; message: string }[],
+  floor: { declared: string | null; met: boolean } | undefined,
+): string | null {
+  if (floor?.declared != null && !floor.met) return null;
+  if (!issues.some((issue) => issue.message.trim().toLowerCase().startsWith("unrecognized key"))) {
+    return null;
+  }
+  return (
+    "hint: the data has a field this engine does not know " +
+    `— the data may be newer than this CLI; upgrade with \`${ENGINE_UPGRADE_COMMAND}\`, then run \`pasco doctor\``
+  );
 }
 
 /**
@@ -27,11 +64,21 @@ export function runValidate(args: ValidateArgs): number {
     profile = load(args.workspace);
   } catch (err) {
     if (err instanceof SchemaValidationError) {
+      // The caller passes the SAME requirement the gate evaluated; a direct
+      // caller falls back to the workspace file, where `met` cannot be known and
+      // treating it as met keeps the hint (the safe direction: advice, no verdict).
+      const declared = readWorkspacePascorc(args.workspace).engine;
+      const floor = args.floor ?? {
+        declared: typeof declared === "string" ? declared : null,
+        met: true,
+      };
+      const hint = unrecognizedKeyHint(err.issues, floor);
       return report("validate", false, EXIT.FAIL, {
         error: {
           kind: "schema",
           message: `schema validation failed (D12 fail-on-schema) — ${err.issues.length} violation(s)`,
           violations: [...err.issues],
+          ...(hint === null ? {} : { hint }),
         },
       });
     }

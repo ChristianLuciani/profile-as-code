@@ -13,7 +13,6 @@
  * command that reports data.
  */
 
-import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { PROFILE_SCHEMA_VERSION } from "@profile-as-code/core";
 import { runAudit } from "./commands/audit.js";
@@ -48,6 +47,7 @@ import { engineGateError, evaluateEngineRequirements } from "./engine-gate.js";
 import { EXIT } from "./exit.js";
 import { httpFetchText } from "./fetch-http.js";
 import { report, setJsonMode } from "./output.js";
+import { CLI_VERSION } from "./version.js";
 import {
   ConfigError,
   defaultsLang,
@@ -57,16 +57,8 @@ import {
   WORKSPACE_NAME,
 } from "./workspace.js";
 
-const VERSION = (() => {
-  try {
-    const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
-      version: string;
-    };
-    return pkg.version;
-  } catch {
-    return "0.0.0";
-  }
-})();
+/** One home for the installed version (#434): `version.ts`, shared with `init`. */
+const VERSION = CLI_VERSION;
 
 const GLOBAL_HELP = `pasco — profile-as-code CLI v${VERSION}
 
@@ -710,7 +702,13 @@ async function runMain(): Promise<number> {
       const engineSources = readEnginePascorcSources(process.cwd(), flags.workspace, workspace);
       const engineGate = enforceEngineRequirement("validate", engineSources);
       if (engineGate !== null) return engineGate;
-      return runValidate({ workspace });
+      // #434: the schema-failure hint needs the SAME premise the gate read —
+      // "is a floor declared?" — not a guess from the workspace alone.
+      const requirement = evaluateEngineRequirements(engineSources, VERSION);
+      return runValidate({
+        workspace,
+        floor: { declared: requirement.declared, met: requirement.met },
+      });
     }
     case "doctor": {
       const { flags, positionals } = parseCommandFlags(rest);
