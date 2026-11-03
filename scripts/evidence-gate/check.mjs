@@ -167,6 +167,8 @@ export function collectClaims(root) {
   const claims = [];
   let files;
   try {
+    // The index, exactly like link-check's census (#442): two gates over one
+    // corpus must not disagree about which files the corpus has.
     files = listMarkdown(root);
   } catch (error) {
     // link-check's walker throws its own class; translate so this gate's
