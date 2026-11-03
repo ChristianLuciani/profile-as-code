@@ -20,11 +20,17 @@
  * the workspace is byte-identical after a run.
  *
  * The extraction/assembly/class logic is pure and lives in `../discovery.ts`.
+ *
+ * `--observations` adds rows the OPERATOR read by hand (`../observations.ts`,
+ * SPEC §7.10, #412): they make NO request — a row's URL is a provenance label a
+ * reader can open, never a fetch target — and they enter the same assembly, so
+ * the allowlist and its request budget still govern only the transport.
  */
 
 import { PLATFORM_HOSTS } from "@profile-as-code/core";
 import {
   DiscoveryError,
+  declaredName,
   discoveryFindings,
   provisionalProfile,
   type SurfaceObservation,
@@ -33,19 +39,29 @@ import {
 } from "../discovery.js";
 import { EXIT } from "../exit.js";
 import { httpFetchText } from "../fetch-http.js";
+import { loadObservations } from "../observations.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import type { FetchText } from "../verify.js";
 
-/** The frozen `--json` contract version of this command. */
-export const DISCOVER_SCHEMA_VERSION = "1";
+/** The frozen `--json` contract version of this command. **v2 (#412)**: a
+ *  surface entry gained `via` and its `status` became nullable for a manual row,
+ *  so a shape change is declared instead of shipped under v1 (§7.5's rule). */
+export const DISCOVER_SCHEMA_VERSION = "2";
 
 /** A surface not read because its URL could not be parsed at all. */
 export type UnreadReason = SurfaceUnread["reason"] | "invalid-url";
 
+/** How a surface's facts entered the run: read by the transport, or declared by
+ *  the operator in `--observations` (a label, never a fetch; SPEC §7.10, #412). */
+export type SurfaceVia = "fetch" | "manual";
+
 export interface DiscoverSurface {
   url: string;
   surface: string;
-  status: number;
+  /** The HTTP status of the read; `null` for a manual observation (no request
+   *  was made, so there is no status to report — never a made-up 200). */
+  status: number | null;
+  via: SurfaceVia;
 }
 
 export interface DiscoverResult {
@@ -66,6 +82,11 @@ export interface DiscoverOptions {
   fetchText?: FetchText;
   /** Extra hosts the OPERATOR declares, in addition to the registry's. */
   allowHosts?: readonly string[];
+  /** Rows the operator read by hand (`--observations`, SPEC §7.10). Already
+   *  parsed into the transport's own observation shape; they make NO request and
+   *  are assembled FIRST, so the declared identity name wins when both sources
+   *  carry one. */
+  manualObservations?: readonly SurfaceObservation[];
 }
 
 function hostOf(url: string): string | undefined {
@@ -175,7 +196,24 @@ export async function discover(options: DiscoverOptions): Promise<DiscoverResult
   );
 
   const surfaces: DiscoverSurface[] = [];
-  const observations: SurfaceObservation[] = [];
+  const manual = options.manualObservations ?? [];
+  // Manual rows enter FIRST (they are the operator's own reading of the surface
+  // and carry the declared name when the machine-read surfaces carry none), and
+  // they add their surfaces to the report with `via: "manual"` and NO status —
+  // no request was made, and a fabricated 200 would be a claim, not a reading.
+  const observations: SurfaceObservation[] = [...manual];
+  const seenManual = new Set<string>();
+  for (const observation of manual) {
+    const key = `${observation.surface}\u0000${observation.url}`;
+    if (seenManual.has(key)) continue;
+    seenManual.add(key);
+    surfaces.push({
+      url: observation.url,
+      surface: observation.surface,
+      status: null,
+      via: "manual",
+    });
+  }
   const unchecked: DiscoverResult["unchecked"] = [];
 
   for (const raw of options.urls) {
@@ -203,7 +241,7 @@ export async function discover(options: DiscoverOptions): Promise<DiscoverResult
     }
 
     const html = response.text ?? "";
-    surfaces.push({ url, surface, status: response.status });
+    surfaces.push({ url, surface, status: response.status, via: "fetch" });
     observations.push({
       surface,
       url,
@@ -223,7 +261,8 @@ export async function discover(options: DiscoverOptions): Promise<DiscoverResult
 
   // A pointer that does not resolve: only links on the surface's OWN host are
   // followed (a stranger's host is outside the allowlist and would be a crawl),
-  // capped so a link-heavy page never becomes one.
+  // capped so a link-heavy page never becomes one. Manual rows carry no links,
+  // so this pass is over what the transport read.
   const unresolved: UnresolvedLink[] = [];
   for (const observation of observations) {
     const own = hostOf(observation.url);
@@ -246,6 +285,15 @@ export async function discover(options: DiscoverOptions): Promise<DiscoverResult
     }
   }
 
+  // A manual run that declares no name gets the refusal in its own terms: the
+  // assembly's message names schema.org JSON-LD, which is not what the operator
+  // supplied (a hand-read row). Name is still mandatory and still never invented.
+  if (manual.length > 0 && !observations.some((item) => declaredName(item) !== undefined)) {
+    throw new DiscoveryError(
+      "observations: no row declares `name` (field: name) and no machine-read surface declared one either — a provisional profile needs identity.name, and nothing is invented; add a row with field: name",
+    );
+  }
+
   const provisional = provisionalProfile(observations);
   return {
     schemaVersion: DISCOVER_SCHEMA_VERSION,
@@ -262,12 +310,24 @@ export interface DiscoverCommandArgs {
   allowHosts?: readonly string[];
   retrieved?: string;
   fetchText?: FetchText;
+  /** `--observations <file>`: the operator's hand-read rows (SPEC §7.10). */
+  observationsPath?: string;
 }
 
 export async function runDiscover(args: DiscoverCommandArgs): Promise<number> {
   let result: DiscoverResult;
   try {
-    result = await discover(args);
+    // A malformed, unreadable or empty file refuses through the same discovery
+    // error envelope: the input is data, not a flag mistake.
+    const manualObservations =
+      args.observationsPath === undefined ? undefined : loadObservations(args.observationsPath);
+    result = await discover({
+      urls: args.urls,
+      ...(args.allowHosts !== undefined ? { allowHosts: args.allowHosts } : {}),
+      ...(args.retrieved !== undefined ? { retrieved: args.retrieved } : {}),
+      ...(args.fetchText !== undefined ? { fetchText: args.fetchText } : {}),
+      ...(manualObservations !== undefined ? { manualObservations } : {}),
+    });
   } catch (err) {
     if (err instanceof DiscoveryError) {
       return report("discover", false, EXIT.FAIL, {
@@ -285,7 +345,13 @@ export async function runDiscover(args: DiscoverCommandArgs): Promise<number> {
   }
 
   section("discover — a provisional profile (nothing written, every fact unattested)");
-  for (const surface of result.surfaces) line(`  read ${surface.surface} — ${surface.url}`);
+  for (const surface of result.surfaces) {
+    line(
+      surface.via === "manual"
+        ? `  observed ${surface.surface} — ${surface.url} (manual, no request)`
+        : `  read ${surface.surface} — ${surface.url}`,
+    );
+  }
   for (const item of result.unchecked) line(`  NOT read ${item.surface} — ${item.reason}`);
   line(`  facts: ${Object.keys(result.provisional.provenance).length} with provenance`);
   line(`  absent (not discovered, never defaulted): ${result.provisional.absent.join(", ")}`);

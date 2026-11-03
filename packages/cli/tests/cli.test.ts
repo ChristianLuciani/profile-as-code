@@ -2081,3 +2081,78 @@ describe("pasco entity (dispatcher + exit matrix)", () => {
     expect(run(["entity", "extra", "--workspace", MINIMAL]).code).toBe(2);
   });
 });
+
+/**
+ * `pasco discover --observations` — the dispatcher side (SPEC §7.10, #412): the
+ * flag is reachable, a manual-only run makes no request and writes nothing, a
+ * malformed file is DATA (exit 1 naming the row), no input at all is usage (2).
+ * The grammar and the assembly are unit-tested in `observations.test.ts`.
+ */
+describe("pasco discover --observations (manual rows)", () => {
+  const ROWS = [
+    "- surface: linkedin.com",
+    "  field: name",
+    '  value: "Ada Lovelace"',
+    "  url: https://www.linkedin.com/in/ada",
+    '  retrieved_at: "2026-11-01"',
+    "- surface: orcid.org",
+    "  field: experience",
+    "  value:",
+    "    role: Engineer",
+    "    org: Acme",
+    "    start: 2020",
+    "  url: https://orcid.org/0000-0002-1825-0097",
+    '  retrieved_at: "2026-11-01"',
+  ].join("\n");
+
+  it("reads a file of rows, makes no request and writes nothing", () => {
+    const dir = tempDir();
+    const file = join(dir, "observations.yaml");
+    writeFileSync(file, ROWS);
+    const before = readdirSync(dir).sort();
+    const r = run(["discover", "--observations", file, "--json"]);
+    expect(readdirSync(dir).sort()).toEqual(before);
+    expect(r.code).toBe(0);
+    const data = (
+      JSON.parse(r.stdout) as {
+        data: {
+          schemaVersion: string;
+          wrote: boolean;
+          surfaces: { surface: string; status: number | null; via: string }[];
+          provisional: { profile: { identity: { name: string } } };
+        };
+      }
+    ).data;
+    expect(data.schemaVersion).toBe("2");
+    expect(data.wrote).toBe(false);
+    expect(data.surfaces).toEqual([
+      {
+        url: "https://www.linkedin.com/in/ada",
+        surface: "linkedin.com",
+        status: null,
+        via: "manual",
+      },
+      {
+        url: "https://orcid.org/0000-0002-1825-0097",
+        surface: "orcid.org",
+        status: null,
+        via: "manual",
+      },
+    ]);
+    expect(data.provisional.profile.identity.name).toBe("Ada Lovelace");
+  });
+
+  it("refuses a malformed row by number (exit 1) and no input at all is usage (2)", () => {
+    const dir = tempDir();
+    const bad = join(dir, "bad.yaml");
+    writeFileSync(
+      bad,
+      '- surface: a.com\n  field: headline\n  value: x\n  url: https://a.com\n  retrieved_at: "2026-11-01"\n',
+    );
+    const r = run(["discover", "--observations", bad]);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("observations: row 1:");
+    expect(run(["discover"]).code).toBe(2);
+    expect(run(["discover", "--observations", join(dir, "missing.yaml")]).code).toBe(1);
+  });
+});

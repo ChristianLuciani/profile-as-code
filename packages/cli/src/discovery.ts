@@ -27,6 +27,10 @@
  * Facts are not deduplicated ACROSS surfaces on purpose: `driftCheck` can only
  * see a disagreement it is given, so one row per surface is what makes the
  * contradiction observable. Within one surface, identical facts collapse.
+ *
+ * An observation need not come from the transport: `--observations` (#412) turns
+ * hand-read rows into the same shape, so a walled surface enters this assembly
+ * instead of a parallel one; the source is declared per surface (`via`).
  */
 
 import {
@@ -138,6 +142,29 @@ function slug(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/** FNV-1a (32-bit, base36): distinguishes two employers whose slug is the same. */
+function digest(value: string): string {
+  let hash = 0x811c9dc5;
+  for (const byte of Buffer.from(value, "utf8")) {
+    hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;
+  }
+  return hash.toString(36);
+}
+
+/**
+ * The id of an experience row — ONE home for the key rule (#412): the assembly
+ * keys a row by (surface, org) and the manual parser refuses a second one, so
+ * the refusal and the collapse cannot disagree (case/whitespace variants are one
+ * key). `slug` drops non-ASCII, so `École`/`Cole` would share a base; a digest
+ * over the normalized raw string keeps the key injective — otherwise the refusal
+ * would reject two distinct employers as "the same org".
+ */
+export function experienceId(surface: string, org: string): string {
+  const raw = `${surface}-${org}`.normalize("NFC").toLowerCase().replace(/\s+/gu, " ");
+  const base = slug(raw);
+  return /^[\x20-\x7e]*$/u.test(raw) ? base : `${base}-${digest(raw)}`;
+}
+
 function httpUrl(value: string): string | undefined {
   try {
     const url = new URL(value);
@@ -227,7 +254,7 @@ export function provisionalProfile(
     if (role === undefined) continue;
     for (const row of worksForRows(node)) {
       if (row.start === undefined) continue;
-      const id = slug(`${observation.surface}-${row.org}`);
+      const id = experienceId(observation.surface, row.org);
       if (id === "" || experience.some((item) => item.id === id)) continue;
       experience.push({
         id,
@@ -467,6 +494,14 @@ export interface UnresolvedLink {
   status: 404 | 410;
 }
 
+/** The entity name one observation DECLARES (never inferred from a page title).
+ *  Exported because the manual-input path needs the same rule to explain its
+ *  refusal before the provisional layer's JSON-LD-specific message would. */
+export function declaredName(observation: SurfaceObservation): string | undefined {
+  const node = flattenJsonLd(observation.jsonLd)[0];
+  return node === undefined ? undefined : asString(node.name);
+}
+
 /**
  * Findings over the provisional profile. Reuses the audit's class contract —
  * same three classes, same fixed severities, same deterministic order — so a
@@ -502,6 +537,32 @@ export function discoveryFindings(
         : provenanceOf(ref);
     const suffix = cited === ref || cited === "" ? "" : ` — asserted by ${cited}`;
     findings.push(finding(mapped, ref, `${issue.code} — ${issue.message}${suffix}`));
+  }
+
+  // The profile holds ONE `identity.name` (the first declaration), so without
+  // this rule a second declaration is dropped in silence — and the disagreement
+  // IS the finding (SPEC §7.10, #412).
+  const declared = observations.flatMap((observation) => {
+    const name = declaredName(observation);
+    return name === undefined ? [] : [{ name, observation }];
+  });
+  const normalizedNames = new Set(
+    declared.map((item) => item.name.normalize("NFC").toLowerCase().replace(/\s+/gu, " ")),
+  );
+  if (normalizedNames.size > 1) {
+    const where =
+      new Set(declared.map((item) => item.observation.surface)).size > 1
+        ? "across surfaces"
+        : "on one surface";
+    findings.push(
+      finding(
+        "contradiction",
+        "identity.name",
+        `identity.name is declared differently ${where}: ${declared
+          .map(({ name, observation }) => `"${name}" — ${observation.surface} (${observation.url})`)
+          .join(" · ")}`,
+      ),
+    );
   }
 
   for (const link of unresolved) {
