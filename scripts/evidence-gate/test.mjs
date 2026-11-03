@@ -45,6 +45,10 @@ function write(root, rel, content) {
   const target = join(root, rel);
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, content);
+  // The corpus is read from the GIT INDEX (#442): a fixture that exists only on
+  // disk is invisible to the gate, so every write stages itself. `commit()`
+  // still decides what is history.
+  git(root, ["add", "--", rel]);
 }
 
 function commit(root, message) {

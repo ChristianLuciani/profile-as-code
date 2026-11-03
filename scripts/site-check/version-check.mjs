@@ -79,6 +79,75 @@ function check(files, version) {
   return errors;
 }
 
+/**
+ * The upgrade route is a published surface too (#440): a workspace born on an
+ * older engine must find a section that teaches the path, and the reference
+ * manual must name the version it upgrades to — in the canonical claim form
+ * `check()` above already validates. Without this, deleting the route leaves the
+ * release gate green.
+ */
+const UPGRADE_ROUTES = [
+  { file: "docs/START-HERE.md", heading: /^#{2,4} .*workspace is behind/i, claims: false },
+  { file: "docs/USER-GUIDE.md", heading: /^#{2,4} .*older engine/i, claims: true },
+];
+
+/** The lines under a heading, down to the next heading of the same or a higher level. */
+function structuralLines(lines) {
+  // Fences are content, not structure: a `# comment` inside a code block must
+  // neither start nor end a section. A fence is tracked by its delimiter and
+  // length (CommonMark), so a 4-backtick block that CONTAINS a 3-backtick line,
+  // a `~~~` inside a ``` block, or a closing fence with trailing spaces are all
+  // read correctly (#440 fresh pass 2, F1).
+  const structural = [];
+  let open = null;
+  for (const line of lines) {
+    const fence = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (open === null) {
+      if (fence && !(fence[1][0] === "`" && fence[2].includes("`"))) {
+        open = { char: fence[1][0], length: fence[1].length };
+        structural.push(false);
+        continue;
+      }
+      structural.push(true);
+      continue;
+    }
+    const close = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
+    if (close && close[1][0] === open.char && close[1].length >= open.length) open = null;
+    structural.push(false);
+  }
+  return structural;
+}
+
+function upgradeSection(text, heading) {
+  const lines = text.split("\n");
+  const structural = structuralLines(lines);
+  const isHeading = (line, index) => structural[index] && /^#+\s/.test(line);
+  const start = lines.findIndex((line, index) => structural[index] && heading.test(line));
+  if (start === -1) return null;
+  const level = lines[start].match(/^#+/)[0].length;
+  const end = lines.findIndex(
+    (line, index) =>
+      index > start && isHeading(line, index) && line.match(/^#+/)[0].length <= level,
+  );
+  return lines.slice(start, end === -1 ? undefined : end).join("\n");
+}
+
+function checkUpgradeRoutes(files, version) {
+  const errors = [];
+  for (const route of UPGRADE_ROUTES) {
+    const file = files.find((candidate) => candidate.label === route.file);
+    const section = file ? upgradeSection(file.text, route.heading) : null;
+    if (section === null) {
+      errors.push(`${route.file} has no upgrade section for an older workspace (#440)`);
+      continue;
+    }
+    if (route.claims && !section.includes(`${PKG}@${version}`)) {
+      errors.push(`${route.file}'s upgrade section must state ${PKG}@${version}`);
+    }
+  }
+  return errors;
+}
+
 function selfTest() {
   const failures = [];
   const ok = [{ label: "index", text: `<code>${PKG}@0.3.0</code>` }];
@@ -129,6 +198,48 @@ function selfTest() {
   if (mirrorJsonLd.length === 0)
     failures.push("did not catch softwareVersion on a claim-free mirror");
 
+  // The upgrade route (#440): both sections present and the reference names the version.
+  const route = (startHere, guide) => [
+    { label: "docs/START-HERE.md", text: startHere },
+    { label: "docs/USER-GUIDE.md", text: guide },
+  ];
+  const goodRoutes = route(
+    "## Route 4 — my workspace is behind\nsteps",
+    `### 8.2.1 Upgrading a workspace born on an older engine\nuses ${PKG}@0.3.0\n### 8.3 next`,
+  );
+  if (checkUpgradeRoutes(goodRoutes, "0.3.0").length > 0)
+    failures.push("false positive on a complete upgrade route");
+  const noSection = route("# nothing", `### 8.2.1 Upgrading one\nuses ${PKG}@0.3.0`);
+  if (!checkUpgradeRoutes(noSection, "0.3.0").some((e) => e.includes("START-HERE")))
+    failures.push("did not catch a missing upgrade section");
+  const noClaim = route("## Route 4 — my workspace is behind", "### 8.2.1 older engine");
+  if (!checkUpgradeRoutes(noClaim, "0.3.0").some((e) => e.includes("must state")))
+    failures.push("did not catch an upgrade section without the version");
+  // Fences are content: a `# comment` inside a code block must not truncate the
+  // section (false red) and a fenced heading must not fabricate one (false green).
+  const fencedComment = route(
+    "## Route 4 — my workspace is behind",
+    `### 8.2.1 Upgrading a workspace born on an older engine\n\`\`\`sh\n# install first\n${PKG}@0.3.0\n\`\`\`\n### 8.3 next`,
+  );
+  if (checkUpgradeRoutes(fencedComment, "0.3.0").length > 0)
+    failures.push("false positive when a code fence carries a # comment");
+  const fencedHeading = route(
+    "```md\n## Route 4 — my workspace is behind\n```",
+    "### 8.2.1 older engine",
+  );
+  if (!checkUpgradeRoutes(fencedHeading, "0.3.0").some((e) => e.includes("START-HERE")))
+    failures.push("treated a fenced heading as a real upgrade section");
+
+  // Nested / other delimiters: a 4-backtick block holding a 3-backtick line must
+  // not end the section early either.
+  const nested = route(
+    "## Route 4 — my workspace is behind",
+    "### 8.2.1 Upgrading a workspace born on an older engine\n````md\n```sh\n# inner\n```\n````\n" +
+      `${PKG}@0.3.0\n### 8.3 next`,
+  );
+  if (checkUpgradeRoutes(nested, "0.3.0").length > 0)
+    failures.push("false positive on a nested code fence");
+
   if (failures.length > 0) throw new Error(`self-test failed: ${failures.join("; ")}`);
   console.log("site version-check self-test: PASS");
 }
@@ -149,7 +260,7 @@ const files = [
   })),
 ];
 
-const errors = check(files, version);
+const errors = [...check(files, version), ...checkUpgradeRoutes(files, version)];
 if (errors.length > 0) {
   for (const error of errors) console.error(`E-SITE-VERSION: ${error}`);
   console.error("site version-check: FAIL");
