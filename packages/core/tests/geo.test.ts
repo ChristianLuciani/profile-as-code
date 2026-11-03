@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { geoSection } from "../src/geo.js";
 import type { GeoCheck, GeoReport, Profile } from "../src/index.js";
 import { geoCheck, load } from "../src/index.js";
@@ -490,7 +490,7 @@ links:
     expect(gap?.score).toBe(0);
     expect(gap?.severity).toBe("info"); // INFO, NEVER WARN (#289)
     // Future-dated facts cannot evidence freshness — an anomaly, not a signal
-    // (the 365-day flat constant used to score a typo'd 2099 deploy as 1 — F4).
+    // (the 365-day flat constant used to score a 2099 deploy as 1 — F4).
     const futureTs = new Date(Date.now() + 91 * 86_400_000).toISOString();
     const futureBody = `experience:typo-future:\n  github-readme:\n    deployedAt: ${futureTs}\n    contentHash: ${"d".repeat(64)}\n    source: manual\n`;
     const c2 = find(
@@ -518,6 +518,85 @@ links:
     expect(c4?.score).toBe(1); // the fresh fact still carries the score
     expect(c4?.detail).toContain("fresher than 12 months");
     expect(c4?.detail).toContain("future-dated fact(s)");
+  });
+
+  it("geo/freshness: a publication YEAR is read at year granularity, never as a future date (#438)", () => {
+    // The REAL repro first: a current-year publication read on an ordinary
+    // November day. With the old `${year}-12-31` mapping this is a future-dated
+    // fact for the rest of the year (#438's field report), so this case — not
+    // the Dec 31 edge — is what the fix has to turn.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-02T00:00:00Z"));
+    try {
+      const pub = (year: number) => `- title: A Paper\n  venue: Somewhere\n  year: ${year}\n`;
+      const repro = find(
+        geoCheck(load(ws({ "identity.yaml": IDENTITY_BODY, "publications.yaml": pub(2026) }))),
+        "geo/freshness",
+      );
+      expect(repro?.score).toBe(1);
+      expect(repro?.detail).not.toContain("future-dated");
+      expect(repro?.detail).toContain("publications:newest-year = 2026");
+      expect(repro?.detail).not.toContain("2026-12-31");
+    } finally {
+      vi.useRealTimers();
+    }
+
+    // Then the calendar edge the fix turns on: Dec 31 23:59 UTC.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-12-31T23:59:00Z"));
+    try {
+      const pub = (year: number) => `- title: A Paper\n  venue: Somewhere\n  year: ${year}\n`;
+      const freshness = (year: number) =>
+        find(
+          geoCheck(load(ws({ "identity.yaml": IDENTITY_BODY, "publications.yaml": pub(year) }))),
+          "geo/freshness",
+        );
+
+      // Current year: inside the window and NOT future-dated — Dec 31 is the
+      // edge of the year, not a December date the author claimed. The reader
+      // sees the year, never the synthetic edge.
+      const current = freshness(2026);
+      expect(current?.score).toBe(1);
+      expect(current?.detail).toContain("publications:newest-year = 2026");
+      expect(current?.detail).not.toContain("future-dated");
+      expect(current?.detail).not.toContain("2026-12-31");
+
+      // Jan 1 of the following year is the first future moment: a 2027 year is
+      // future-dated even though only a minute of it has not happened.
+      const next = freshness(2027);
+      expect(next?.score).toBe(0);
+      expect(next?.detail).toContain("future-dated fact(s)");
+      expect(next?.detail).toContain("publications:newest-year = 2027");
+      expect(next?.detail).not.toContain("2027-12-31");
+
+      // A genuinely future year is still reported, as before (#438 acceptance).
+      const far = freshness(2099);
+      expect(far?.score).toBe(0);
+      expect(far?.detail).toContain("future-dated fact(s)");
+      expect(far?.detail).toContain("publications:newest-year = 2099");
+
+      // The newest datum per kind wins, so a mixed set collapses to the FUTURE
+      // year: the anomaly is named, never hidden behind a fresh current-year row
+      // (declared in SPEC §8; pinned here so a "newest non-future" change is a
+      // visible decision, not a silent one — #438 fresh pass 2, F2).
+      const mixed = find(
+        geoCheck(
+          load(
+            ws({
+              "identity.yaml": IDENTITY_BODY,
+              "publications.yaml":
+                "- title: Current\n  venue: Somewhere\n  year: 2026\n- title: Later\n  venue: Somewhere\n  year: 2099\n",
+            }),
+          ),
+        ),
+        "geo/freshness",
+      );
+      expect(mixed?.score).toBe(0);
+      expect(mixed?.detail).toContain("future-dated fact(s)");
+      expect(mixed?.detail).toContain("publications:newest-year = 2099");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("geo/sameas-coverage: pass with the handles resolved; WARN with the @id duplicate or realization < 3", () => {

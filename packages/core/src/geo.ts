@@ -192,25 +192,38 @@ function definitionEntries(profile: Profile): Array<[string, string]> {
   return def ? Object.entries(def).filter(([, v]) => v !== "") : [];
 }
 
-/** Date-bearing facts the freshness signal reads; the newest wins. */
-function freshnessFacts(profile: Profile): Record<string, string> {
-  const facts: Record<string, string> = {};
+/** How precise a freshness datum is. A bare publication year carries YEAR
+ *  precision: the `${year}-12-31` built from it is the latest edge that year
+ *  can mean, not a claim that something happened in December (#438). */
+type FreshnessPrecision = "year" | "instant";
+
+type FreshnessFact = { when: string; precision: FreshnessPrecision };
+
+/** Date-bearing facts the freshness signal reads; the newest wins. A fact
+ *  carries its own precision so the future check reads it at that precision. */
+function freshnessFacts(profile: Profile): Record<string, FreshnessFact> {
+  const facts: Record<string, FreshnessFact> = {};
+  const instant = (when: string): FreshnessFact => ({ when, precision: "instant" });
   for (const [key, rows] of Object.entries(profile.deployments ?? {})) {
     for (const [surface, rec] of Object.entries(rows ?? {})) {
-      facts[`${key}→${surface}`] = rec.deployedAt;
+      facts[`${key}→${surface}`] = instant(rec.deployedAt);
     }
   }
   for (const p of profile.press ?? []) {
-    if (p.date) facts[`press:${(p.outlet ?? p.url ?? "?").toString().slice(0, 40)}`] = p.date;
+    if (p.date)
+      facts[`press:${(p.outlet ?? p.url ?? "?").toString().slice(0, 40)}`] = instant(p.date);
   }
   for (const c of profile.credentials ?? []) {
-    if (c.issued) facts[`credential:${c.title}`] = c.issued;
+    if (c.issued) facts[`credential:${c.title}`] = instant(c.issued);
   }
   if ((profile.publications ?? []).length > 0) {
-    // Year precision: the newest publication year compares at year granularity
-    // (YYYY-12-31 is the LATEST the bare year can mean — the honest edge).
+    // The newest publication year keeps year precision: the synthetic edge is
+    // derived from the datum, never a December date claimed by the author.
     const newestYear = Math.max(...(profile.publications ?? []).map((p) => p.year));
-    facts["publications:newest-year"] = `${newestYear}-12-31`;
+    facts["publications:newest-year"] = {
+      when: `${newestYear}-12-31`,
+      precision: "year",
+    };
   }
   return facts;
 }
@@ -218,32 +231,53 @@ function freshnessFacts(profile: Profile): Record<string, string> {
 /** The calendar 12-month window: a leap year shifts the honest edge, so a flat
  *  365-day constant would drift the claim "inside 12 months" (fresh-pass F4).
  *  Future-dated facts are excluded here — a fact claiming a date that has not
- *  happened (a typo) cannot evidence freshness; readFreshness reports it. */
+ *  happened cannot evidence freshness; readFreshness reports it. */
 function freshnessWindowStart(now: number = Date.now()): number {
   const windowStart = new Date(now);
   windowStart.setUTCMonth(windowStart.getUTCMonth() - 12);
   return windowStart.getTime();
 }
 
+/** Whether a fact claims a moment that has not happened yet, read at the
+ *  datum's own precision: a YEAR-precision fact cannot be future-dated before
+ *  Jan 1 of the following year (#438). An instant keeps its exact comparison. */
+function isFutureDated(fact: FreshnessFact, now: number): boolean {
+  if (fact.precision === "year") {
+    return Number(fact.when.slice(0, 4)) > new Date(now).getUTCFullYear();
+  }
+  return Date.parse(fact.when) > now;
+}
+
+/** The reader-facing name of a fact: a YEAR-precision datum reports its year,
+ *  never the synthetic December edge it was mapped to (#438). */
+function freshnessLabel(fact: FreshnessFact): string {
+  return fact.precision === "year" ? fact.when.slice(0, 4) : fact.when;
+}
+
+/** One hit of the freshness read: the comparison instant (`at`) and the label
+ *  the reader sees (`when`) — they differ for a year-precision datum. */
+type FreshnessHit = { key: string; when: string; at: number };
+
 /** One read of the freshness signal: the newest fact inside the window (the
  *  pass), the newest past-dated one outside it (the observable gap), and every
  *  future-dated fact (an anomaly, never a signal — F4). */
 type FreshnessReading = {
-  fresh?: { key: string; when: string };
-  stale?: { key: string; when: string };
-  future: Array<{ key: string; when: string }>;
+  fresh?: FreshnessHit;
+  stale?: FreshnessHit;
+  future: FreshnessHit[];
 };
 
 function readFreshness(profile: Profile, now: number = Date.now()): FreshnessReading {
   const windowStart = freshnessWindowStart(now);
   const reading: FreshnessReading = { future: [] };
-  for (const [key, when] of Object.entries(freshnessFacts(profile))) {
-    const t = Date.parse(when);
-    if (Number.isNaN(t)) continue;
-    if (t > now) reading.future.push({ key, when });
-    else if (t >= windowStart) {
-      if (!reading.fresh || t > Date.parse(reading.fresh.when)) reading.fresh = { key, when };
-    } else if (!reading.stale || t > Date.parse(reading.stale.when)) reading.stale = { key, when };
+  for (const [key, fact] of Object.entries(freshnessFacts(profile))) {
+    const at = Date.parse(fact.when);
+    if (Number.isNaN(at)) continue;
+    const hit: FreshnessHit = { key, when: freshnessLabel(fact), at };
+    if (isFutureDated(fact, now)) reading.future.push(hit);
+    else if (at >= windowStart) {
+      if (!reading.fresh || at > reading.fresh.at) reading.fresh = hit;
+    } else if (!reading.stale || at > reading.stale.at) reading.stale = hit;
   }
   return reading;
 }
@@ -579,7 +613,9 @@ export function geoCheck(profile: Profile, lang: Lang = "en"): GeoReport {
       // absence of freshness degrades citability without changing the pass story.
       severity: "info",
       // Calendar 12-month window; future-dated facts cannot evidence freshness
-      // (fresh-pass F4: a typo'd 2099 deploy used to score 1).
+      // (fresh-pass F4: a 2099 deploy used to score 1). A year-precision datum
+      // is read at year granularity — a current-year publication is not future
+      // (#438).
       score: freshness.fresh !== undefined ? 1 : 0,
       // The anomaly is reported whenever future-dated facts are OBSERVED (r2
       // fresh-pass F1 of #321) — fresh, failing or both — never only in the
