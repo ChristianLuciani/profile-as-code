@@ -468,6 +468,20 @@ Each finding is `{ class, severity, path, detail }`:
 | `contradiction` | two surfaces assert incompatible values for one datum | **FAIL** |
 | `unsourced-claim` | a quantitative claim carries no evidence | **WARN** |
 
+**What counts as "quantitative" (direction (a), #437).** One predicate,
+`isQuantitativeClaim` (`packages/cli/src/claims.ts`), answers this for `audit`,
+`post check` and `discover`: a number is a claim only when it **carries** a
+quantity marker — a currency or percent sign adjacent to it (`$2M`, `40%`,
+`₹500`), a trailing `+` or magnitude suffix (`800+`, `1.5k`, `3bn`), or a unit
+word right after it (`36 tutors`, `195 jurisdictions`, `100ms`). A bare run of
+digits is not a claim, so prose years (`Aug 2024`) and ages (`76`) stop being
+warnings: the only honest clear for a private fact would be deleting its truth
+or inventing a source. The year exception is narrow by design — a four-digit
+calendar year followed by a function word or preceded by a month name is a date,
+while `2000 users` is a count. The predicate is deliberately conservative
+(a missed WARN is cheaper than a false one) and its boundary is pinned by a
+table in `packages/cli/tests/claims.test.ts`.
+
 Exit `1` if any `FAIL` finding exists, `0` otherwise (WARN-only included); `2` is a
 usage error and a schema/load failure is the standard error envelope at exit `1`.
 No score, no percentage, no ordering-by-importance is emitted: an `[INF]` score in
