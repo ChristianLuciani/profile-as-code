@@ -330,7 +330,7 @@ same absence of automation and history unless your storage provides them.
 - `diff.tagPattern` — the git tag pattern that marks a release (used by `pasco diff`).
 - `engine` — **optional**: the minimum `pasco` version this workspace requires,
   written as exactly `MAJOR.MINOR.PATCH` (no `v`, `^`, `~`, `>=` or `*` — a
-  lower bound only, not a semver range). `validate`, `build` and
+  lower bound only, not a semver range). `validate`, `build`, `preview` and
   `export profile` check it **before doing any work**: an older installed CLI
   exits `1` with the required version, the installed version and the upgrade
   command; a malformed value exits `1` naming the accepted syntax. Absent means
@@ -364,7 +364,7 @@ holds the value **directly**, with no wrapper key. `bios.yaml` contains the
 
 | File | Root property | What goes in |
 |---|---|---|
-| `identity.yaml` | `identity` | name, location, photo, **`links[]`** — the canonical URL list; optional `nationality` |
+| `identity.yaml` | `identity` | name, location, photo, **`links[]`** — the canonical URL list; optional `nationality`; optional `definition` (v1.10 — the sentence an answer engine quotes, ≤ 160 chars) |
 | `positioning.yaml` | `positioning` | statement, audiences, `geo` (semantic anchors, citations goal) |
 | `bios.yaml` | `bios` | one entry per platform+lang+length: short/medium/long text |
 | `headlines.yaml` | `headlines` | per platform + lang headline |
@@ -375,6 +375,8 @@ holds the value **directly**, with no wrapper key. `bios.yaml` contains the
 | `keywords.yaml` | `keywords` | `seo{platform:[]}` and `geo{associations, claims}` |
 | `education.yaml` *(v1.1)* | `education` | formal education (degree, field, institution) |
 | `languages.yaml` *(v1.1)* | `languages` | spoken languages + level |
+| `faq.yaml` *(v1.10)* | `faq` | the citable answer surface: 3–20 Q&A pairs (`q` ≤ 90, `a` ≤ 320); a row without `source` is a claim |
+| `releases.yaml` *(v1.15)* | `releases` | release events — version, date, the ledger units and surfaces each one changed |
 
 **Give each canonical URL its role.** `links[].role` (`identity` | `realization` |
 `aggregator`, v1.6/#103) is what structured data reads: `identity` marks the URLs that
@@ -506,6 +508,55 @@ Three habits that prevent almost every first-run error:
 3. **Validate after each edit, not after five.** A schema failure names the root
    property and the value; five edits later, the message still names the root but you no
    longer remember which change caused it.
+
+**Prove the write landed — the receipt.** An edit is not done when the command exits
+`0`; it is done when you can read the value back. The cheap habit is a **receipt**:
+the command plus one line that proves the effect. For `pasco edit` that line is the
+command without `--set`, which prints the current value of the address:
+
+```sh
+pasco edit 'positioning.statement.en' --set '<the text you adopted>'
+pasco edit 'positioning.statement.en'          # receipt: the text you wrote
+grep -n '<the text you adopted>' content/positioning.yaml   # receipt: the line in the file
+pasco validate
+```
+
+With `nano` the receipt is the `grep`: no tool wrote the line, so the file has to
+show it.
+
+```sh
+nano content/identity.yaml
+grep -n 'definition' content/identity.yaml     # receipt: the line you added
+pasco validate
+```
+
+Why this is not paranoia: a pasted shell block can lose a command and the run still
+looks green (`zsh: command not found: #` from a comment, a `parse error near ')'`),
+and the exit code of the *next* command says nothing about the edit. The engine
+never sees what the shell dropped — the read-back is the only witness (#440).
+
+**What `pasco edit` can address.** Exactly four fields. One is read-only, and the
+rest of the contract is reached with an editor:
+
+| Address | Field | Write |
+|---|---|---|
+| `positioning.statement.<lang>` | the positioning sentence, per language | yes |
+| `headlines[platform=<p>,lang=<l>].text` | one headline row | yes |
+| `bios[platform=<p>,lang=<l>,length=<len>].text` | one bio row (`short`/`medium`/`long`) | yes |
+| `identity.links[platform=<p>,label=<l>].url` | one link URL (`label` disambiguates two links on one platform) | **read-only** |
+
+Everything else needs the editor: `identity.definition.<lang>`, `faq[id=…].q|a|source`,
+and any root the workspace does not declare yet — the write is a byte-range splice
+over existing bytes, so it cannot create `content/faq.yaml` (#435). Those are also
+the fields with published caps: `definition` ≤ 160 characters, `faq[]` 3–20
+pairs with `q` ≤ 90 and `a` ≤ 320 — all enforced by the schema. Three
+answer-surface rules are **not** schema: `q` must be unique per workspace, a
+`definition` must contain the entity name, and `geoCheck` wants a `source` on
+every `faq[]` row — JSON Schema cannot express any of the three, so `pasco
+validate` still exits `0` on a duplicate `q` and the answer surface can score
+`0` while validation passes. `pasco audit` is narrower: it reports a row as
+`unsourced-claim` only when the row is *quantitative* (a number that carries a
+unit, currency or percent marker) and `geo/faq-coverage` already scores `0`.
 
 If the profile is live and your edit does not show up, you skipped step 4 of
 [the cycle](#05-the-full-cycle-of-one-change) — `validate` never publishes.
@@ -1050,19 +1101,62 @@ Match the line to how you installed it in [§2](#2-install-the-pasco-cli):
 ```sh
 # Option A — npm
 npm i -g @profile-as-code/cli@latest
+pasco --version                  # receipt: the version you meant to install
 
 # Option B — from source
 cd /path/to/profile-as-code
-git pull
-pnpm install
+git pull && pnpm install
 pnpm --filter @profile-as-code/cli build   # rebuild core + cli
+node packages/cli/dist/index.js --version  # receipt: the rebuilt version
 ```
 
-Then re-run against your workspace:
+#### 8.2.1 Upgrading a workspace born on an older engine
 
-```sh
-pasco --version && pasco validate && pasco build
-```
+The schema is additive, so an old workspace keeps validating — which is why an
+upgrade can look finished while the workspace still misses every field and check the
+new engine knows. This path targets the engine this guide tracks,
+`@profile-as-code/cli@0.3.7`; the release barrier fails the publish when that claim
+and `packages/cli/package.json` disagree. It is the order that worked on a real
+0.3.0 → 0.3.7 upgrade (#440). Every step ends with a **receipt**: the command plus
+the read-back that proves the effect landed
+([§4.4](#44-your-first-edit-without-an-editor)). The exit code alone is not a
+receipt — four of the six failures in that run were the shell dropping or mangling a
+command, not the engine refusing one.
+
+1. **Install** — the block above. Receipt: `pasco --version` prints the version you
+   meant to install.
+2. **Read the pair** — `pasco doctor` prints engine · schema · workspace on one
+   line. Receipt: exit `0` and `(valid)`; on `1`, the line names the failing leg.
+3. **Declare the floor** — add `"engine": "0.3.7"` to `.pascorc` (which is JSON:
+   no comments). The value is exactly `MAJOR.MINOR.PATCH` — no `^`, `~`, `>=`, `v`
+   or `*`. Receipt: `grep -n '"engine"' .pascorc` prints the line **and**
+   `pasco doctor` reads the requirement as `met`. The floor is a minimum, not a pin:
+   `validate`, `build`, `export profile` and `preview` refuse before doing work when
+   the installed CLI is older and name the upgrade command. No floor is not a pass —
+   `doctor` says `absent`.
+4. **Adopt fields** — additive means opt-in. `pasco edit --list` prints every
+   addressable row your workspace has; the four addresses and the fields that need
+   an editor are the table in [§4.4](#44-your-first-edit-without-an-editor).
+   Receipt: `pasco edit '<address>'` without `--set` prints the value you wrote (or
+   the `grep` of a hand-edited file) **and** `pasco validate` stays green.
+5. **Rebuild** — `pasco build`. Receipt: `git diff --stat profiles/` names the
+   artifacts the new engine rewrote, and `grep -rn '<the text you adopted>'
+   profiles/` finds it in the artifact. A byte diff here is the release doing its
+   job: commit the regenerated `profiles/`.
+6. **Audit** — `pasco audit; echo "exit $?"`. Receipt: `0`, or the FAIL finding that
+   names its path. `audit` is stricter than `validate` on its three classes
+   (`dangling-ref`, `contradiction`, `unsourced-claim`).
+7. **Preview** — `pasco preview --no-open` writes `.pasco/preview/index.html`.
+   Receipt: `grep -n '<a distinctive fragment>' .pasco/preview/index.html` prints
+   the matched line. Search a fragment, not the whole sentence — the page
+   HTML-escapes punctuation.
+8. **CI** — commit, push, open the PR. Receipt: the workspace's CI run is green
+   (`gh pr checks`). It re-runs `validate` and `build` on a clean checkout, which is
+   the whole-run receipt. No CI on your on-ramp? The receipt is step 4's `validate`
+   and step 5's `git diff` on the committed tree.
+
+`START-HERE.md` carries the same eight steps as a one-page route
+([Route 4](START-HERE.md#route-4--my-workspace-is-behind)).
 
 - Schema releases are **additive** (semver minor) — an existing workspace keeps
   validating; new fields are opt-in. See `schema/README.md` in the engine for
