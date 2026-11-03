@@ -33,24 +33,24 @@ same bytes forever. The tag-pinned raw URL is the only published form: a
 floating ref (`main`) or any private path is refused by the gate and may not
 appear on this surface (AGENTS.md rule 9).
 
-## The current contract — published at v0.3.7
+## The current contract — v1.16, not yet published
 
-`main` carries schema **v1.15**, and `v0.3.7` publishes exactly those bytes: the
-`current` and `released` blocks of `schema/consumer-contract.json` now name the
-same sha256, so a checkout of `main` and the tag-pinned download are the same
-contract.
+`main` carries schema **v1.16** (additive: `achievements[]`, D24). No tag carries
+these bytes yet, so `current` in `schema/consumer-contract.json` says
+`published: false` with a `note` naming the checkout — a consumer that needs the
+block verifies the sha256 against a checkout until the next release. The last
+published artifact is **v1.15 at `v0.3.7`** (above), which a consumer that does
+not need `achievements[]` can keep using unchanged.
 
 | Field | Value |
 |---|---|
-| Schema version | `v1.15` |
-| sha256 | `c48296847d99eb2413b7c1dec51e51656f4a4384eb06b7a8955b73c3e9625436` |
-| Published artifact | tag-pinned URL above (identical bytes) |
+| Schema version | `v1.16` |
+| sha256 | `f6fb020ec9b547da9912abc8face1afa6f4e2e4677bd6776a03fce5af011929f` |
+| Published artifact | none yet — verify against the checkout (the `note` in the manifest) |
 
-`publication.kind` and `releases[]` — the two additions that had no released
-artifact before this tag — validate against `v0.3.7`: `$defs.publication` accepts
-`kind`, and a profile that declares `releases[]` is no longer limited to a
-checkout. A profile that declares neither validates unchanged against every
-release since `v1.13`.
+A profile that declares no `achievements[]` validates identically against `v1.16`
+and `v0.3.7`; the block is additive by construction, and `pasco achievements`
+reads it without writing anything.
 
 ## Validating a profile
 

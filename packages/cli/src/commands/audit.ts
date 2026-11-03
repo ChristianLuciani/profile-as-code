@@ -205,6 +205,34 @@ function ssotFindings(profile: LoadedProfile, pascorc: Pascorc): AuditFinding[] 
     }
   }
 
+  // D24 (§23, #446): the impact log is `capture first, prove later`. A row whose
+  // `basis` CLAIMS a strong evidentiary posture (`measured` instrumented,
+  // `attested` third-party) and has NO pointer is the class-mappable case: a
+  // quantitative claim with no evidence. `reported` is a first-class honest
+  // value (the person's own account) and `estimated` is derived from partial
+  // data — neither is a finding, and a `private` row is outside the public audit
+  // surface (§18.5). This is the same WARN class the projects/faq rules use; the
+  // audit never invents a stronger one.
+  for (const [index, achievement] of (profile.achievements ?? []).entries()) {
+    if (achievement.visibility !== "public") continue;
+    if (achievement.basis !== "measured" && achievement.basis !== "attested") continue;
+    if (
+      achievement.source !== undefined ||
+      achievement.artifactId !== undefined ||
+      achievement.credentialId !== undefined
+    ) {
+      continue;
+    }
+    const row = achievement.id === undefined ? String(index) : achievement.id;
+    findings.push(
+      finding(
+        "unsourced-claim",
+        `achievements[${row}]`,
+        `the ${achievement.basis} claim carries no pointer (\`source\`, \`artifactId\` or \`credentialId\`) — a claim with no evidence behind it`,
+      ),
+    );
+  }
+
   // `geo/faq-coverage` owns the premise (≥3 rows, duplicate `q`, a row without
   // `source`) — the audit only reports the deficient ROWS that are class-mappable
   // (a number with no source). No threshold is re-derived here.

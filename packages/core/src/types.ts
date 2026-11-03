@@ -40,6 +40,7 @@ export type LoadedProfile = Omit<
   | "artifacts"
   | "faq"
   | "releases"
+  | "achievements"
 > & {
   flavor: Flavor;
   bios: NonNullable<Profile["bios"]>;
@@ -59,6 +60,8 @@ export type LoadedProfile = Omit<
   faq: NonNullable<Profile["faq"]>;
   /** v1.15 (D23): the release events; always defined on a loaded profile. */
   releases: NonNullable<Profile["releases"]>;
+  /** v1.16 (D24, #446): the career impact log; always defined on a loaded profile. */
+  achievements: NonNullable<Profile["achievements"]>;
 };
 
 /**

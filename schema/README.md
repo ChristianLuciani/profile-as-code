@@ -10,18 +10,31 @@ A consumer that only validates a profile does not need the CLI. The released
 identity of this schema is **URL + sha256**, recorded in
 [`consumer-contract.json`](consumer-contract.json): the immutable copy at a
 published tag (tag-pinned raw URL) and the committed `current` bytes (sha256 +
-`$id` version). **The current v1.15 bytes have no published artifact** — no tag
-contains them (`current.published: false`, `current.artifact: null`); the only
-released artifact is schema **v1.13 at `v0.3.6`**, which rejects
-`publication.kind` and has no `releases[]`. A consumer that needs either must use
-a v1.15 checkout and verify the sha256 until the next release. `node
+`$id` version). **The current v1.16 bytes have no published artifact** — no tag
+contains them (`current.published: false`, `current.artifact: null`); the
+released artifact is schema **v1.15 at `v0.3.7`**, which has no `achievements[]`.
+A consumer that needs the block must use the checkout and verify the sha256 until
+the next release. `node
 scripts/schema-contract/check.mjs --check` verifies both blocks offline; a schema
 edit that forgets the manifest fails CI. The reading guide — how to fetch/verify,
 and what structural validation does **not** cover — is
 [`docs/SCHEMA-CONTRACT.md`](../docs/SCHEMA-CONTRACT.md) (SPEC §7.7).
 
-> Status: **v1.15** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
+> Status: **v1.16** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
 > v1.x is **additive** (semver minor): every earlier workspace still validates unchanged.
+> New in v1.16 (D24, issue #446): `achievements[]` — the career impact log. One root
+> block, never per-row `outcomes[]`: each row states a result (`statement`), classifies
+> it (`kind`: `metric` | `milestone`), carries the numeric shape (`metric`:
+> `value`/`target`/`baseline`/`unit`/`direction`) and points at the units it belongs to
+> (`refs`, `block:id`). `basis` (`measured` | `estimated` | `reported` | `attested`)
+> declares HOW the result is known — capture first, prove later — and `visibility` is
+> **required**, so an internal outcome never becomes public by omission. The status
+> (`planned` | `measured` | `achieved` | `partial`) is **derived** at read time by
+> `achievementStatus()`, never stored; a `target` without a `value` is a plan. Optional
+> and additive: a workspace without `achievements[]` validates and renders byte-identically.
+> `pasco achievements [--targets] [--json]` is the read-only view; a public
+> `measured`/`attested` row with no pointer is an `unsourced-claim` WARN in `pasco audit`.
+>
 > New in v1.15 (D23, issue #262): `releases[]` — the release event (`id`, `version`,
 > `date`, `summary`, `changedUnits[]`, `surfaces[]`) that `pasco presence` and
 > `pasco release plan` read. Optional: a workspace without it validates unchanged.
@@ -107,6 +120,7 @@ validates the result against this schema. File → root property mapping:
 | `artifacts.yaml` | `artifacts[]` | v1.4 (D17): works/media (portfolio/gallery/showreel/dataset/document/code) — `locator: {url \| path}` (capability matrix §18.3), checksum, license, tags, visibility |
 | `faq.yaml` | `faq[]` | v1.10 (issue #288): the citable answer surface — 3–20 fact pairs (`id` §19.2 shape; `q` ≤ 90 per value + unique per workspace, core-check in geoCheck v2 #289; `a` ≤ 320; optional http(s) `source` = an answer with no pointer is a claim). Projected as a `FAQPage` JSON-LD node (#316) **only** when `faq[]` is present — never an empty one |
 | `releases.yaml` | `releases[]` | v1.15 (D23, #262): the release events — `{id, version, date, summary?, changedUnits[], surfaces[]}`. `changedUnits` are §19.2 ledger keys, `surfaces` are `platforms/registry.yaml` slugs of any `kind` (profile · repo-meta · distribution). The fan-out state is DERIVED from the ledger at read time; a workspace without `releases[]` validates unchanged |
+| `achievements.yaml` | `achievements[]` | v1.16 (D24, #446): the impact log — `{id, statement{lang}, kind: metric\|milestone, metric?, refs[], source?, artifactId?, credentialId?, basis, date?, visibility}`. `refs` are `block:id` (`experience`/`projects`/`publications`/`education`/`press`/`credentials`/`artifacts`) and a dangling one fails `load`; `basis` declares how the number is known; `visibility` is required. The status is DERIVED (`achievementStatus()`), never stored |
 
 Files are optional (a fresh user may start with `identity.yaml` only); the schema only
 requires `identity`. Unknown top-level properties **fail validation** (`additionalProperties:

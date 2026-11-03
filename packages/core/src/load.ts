@@ -15,6 +15,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseDocument } from "yaml";
+import { checkAchievementIntegrity } from "./achievements.js";
 import { profileSchema } from "./generated/schema.zod.js";
 import { checkLedgerIntegrity } from "./ledger.js";
 import { checkRegistryIntegrity } from "./registry.js";
@@ -88,6 +89,9 @@ export function normalizeProfile(profile: Profile): LoadedProfile {
     // v1.15 (D23): the release events a workspace declares. Optional and additive
     // — an old workspace without it reads the same, now with an empty list.
     releases: profile.releases ?? [],
+    // v1.16 (D24, #446): the career impact log. Same rule — the loaded shape never
+    // depends on whether the workspace declares results.
+    achievements: profile.achievements ?? [],
   };
 }
 
@@ -150,6 +154,10 @@ export function load(workspace: string): LoadedProfile {
   const registryIssues = checkRegistryIntegrity(profile);
   if (registryIssues.length > 0) {
     throw new SchemaValidationError(registryIssues);
+  }
+  const achievementIssues = checkAchievementIntegrity(profile);
+  if (achievementIssues.length > 0) {
+    throw new SchemaValidationError(achievementIssues);
   }
   return normalizeProfile(profile);
 }

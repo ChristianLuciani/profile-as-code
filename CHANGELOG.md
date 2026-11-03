@@ -9,6 +9,36 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+### Added
+
+- **`achievements[]` — a career impact log with metrics, targets and capture-first
+  evidence (#446, D24, schema v1.16)** — the contract recorded what a person DID
+  (`experience[].highlights`, free text: no value, unit, baseline, target or link)
+  and what can be PROVEN (`projects[].evidence[]`, project-scoped and requiring a
+  public `source`, so an internal outcome had no home), but not what CHANGED — so
+  the effect was not captured when it happened and could not be reconstructed
+  later. One ROOT block, never per-row `outcomes[]`: each row states a `statement`,
+  is a `metric` (`value`/`target`/`baseline`/`unit`/`direction`) or a `milestone`,
+  points at the units it belongs to (`refs`, `block:id`, resolved by core) and
+  declares how the result is known (`basis`: `measured` | `estimated` | `reported`
+  | `attested`) plus a REQUIRED `visibility`, so an internal outcome never becomes
+  public by omission. A `target` without a `value` is a planned goal, and the
+  status (`planned` | `measured` | `achieved` | `partial`) is DERIVED by the one
+  `achievementStatus()` function, never stored — a stored status could disagree
+  with the numbers it describes. `load` fails on duplicate ids, a dangling
+  `refs`/`artifactId`/`credentialId`, a `kind` ↔ `metric` mismatch and a
+  public→private registry leak (§18.5), including through `refs[]`.
+  `pasco achievements [--targets] [--json]` is the read-only log view (grouped by
+  the first ref, with the derived status, the formatted metric, the `basis` and the
+  pointer; `scope` counts the rows the view returned); `pasco audit` reports a
+  public `measured`/`attested` row with no pointer as `unsourced-claim` (WARN) and
+  never as a finding for `reported`. Additive: a workspace without the block
+  validates and renders byte-identically — `pasco export profile` emits
+  `achievements: []` for it, the same loaded-shape rule every list root follows.
+  SPEC §5 D24 + §6 + §7 + §23, `schema/README.md`, `docs/SCHEMA-CONTRACT.md` and
+  `schema/consumer-contract.json` (v1.16, unpublished) document the change, and
+  `completeness` counts `achievements[].statement` in language coverage.
+
 ### Fixed
 
 - **`pasco doctor` names the engine-requirement state instead of letting

@@ -122,7 +122,7 @@ function isLangMapList(v: unknown): v is Record<string, string[]> {
  * audiences · experience role/highlights · education degree/field/note ·
  * projects description/evidence[].claim · press outlet/title · newsletter
  * name/description · podcast title/description · artifacts description ·
- * brandVoice tone. (`publications.title`/`venue` are plain invariant strings —
+ * achievements[].statement · brandVoice tone. (`publications.title`/`venue` are plain invariant strings —
  * proper nouns are never translated — so they carry no coverage.)
  *
  * A `langMapList` (values are string arrays) reports the languages for which it
@@ -184,6 +184,11 @@ function langMaps(profile: LoadedProfile): { path: string; langs: Set<string> }[
   }
   for (const [i, a] of (profile.artifacts ?? []).entries()) {
     push(`artifacts[${i}].description`, a.description);
+  }
+  // v1.16 (D24, #446): the impact log's statement is authored workspace text —
+  // a result the user writes per language, so it is measured like any other map.
+  for (const [i, achievement] of (profile.achievements ?? []).entries()) {
+    push(`achievements[${i}].statement`, achievement.statement);
   }
   // single blocks
   push("newsletter.name", profile.newsletter?.name);

@@ -1,0 +1,11 @@
+{
+  "identity": { "name": "Ada Example" },
+  "achievements": [
+    {
+      "id": "ach-1",
+      "statement": { "en": "A milestone" },
+      "kind": "milestone",
+      "basis": "reported"
+    }
+  ]
+}
