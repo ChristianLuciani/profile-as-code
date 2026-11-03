@@ -10,6 +10,9 @@ row actually makes.
 | **[Someone maintaining or contributing to the engine](#route-2--a-maintainer-or-contributor)** | a clone of this repo | a red CI you cannot read, or a commit that fails the DCO check |
 | **[An agent acting for a person](#route-3--an-agent-acting-for-a-person)** | `pasco status --json` | treating a green `validate` as "my new text is published" |
 
+A fourth route is not a reader but a *state*: your workspace already exists and was
+born on an older engine — [my workspace is behind](#route-4--my-workspace-is-behind).
+
 Routes 1 and 3 end in the same place: [the full cycle of one change](USER-GUIDE.md#05-the-full-cycle-of-one-change)
 — edit → validate → build → **publish** → mark → verify → tag. What the guide never
 did was name the seam between step 3 and step 4. (Route 2 ends at a reviewed PR;
@@ -94,6 +97,125 @@ with no live check reads `attested` (or `unverifiable` when the check could not 
 and `validate` reconciles the **active variant record** (`active[platform]`, including
 `drift/active-variant-missing`) but neither validates that variant's text nor compares
 it with what the platform is showing.
+
+## Route 4 — my workspace is behind
+
+You land here from Route 1 or 3, with a `profile-data-<username>` that validated on
+an engine you installed months ago. Schema releases are **additive**, so nothing is
+broken — which is exactly the trap: the workspace keeps validating while it misses
+every field and check the new engine knows. This is the order that worked on a real
+0.3.0 → 0.3.7 upgrade (#440), with a **receipt** after each step.
+
+A receipt is one line that proves the effect landed — the value read back from the
+file or command that should now carry it. **Never the exit code alone.** In that
+run, four of six failures were the shell, not the engine: `zsh: command not found:
+#` from a pasted comment, a `parse error near ')'` that skipped the edit, and an
+edit block that never ran while the commit still reported success. The engine cannot
+see any of them; the `grep` can.
+
+1. **Install the engine.** Use the line that matches how you installed it
+   ([§2](USER-GUIDE.md#2-install-the-pasco-cli)); the engine is one npm package.
+
+   ```sh
+   npm i -g @profile-as-code/cli@latest
+   pasco --version                  # receipt: the version you meant to install
+   ```
+
+2. **Read the pair, not the binary.** `doctor` names the engine, the schema it
+   validates, and whether your workspace loads.
+
+   ```sh
+   pasco doctor
+   echo "exit $?"                   # receipt: exit 0, and "(valid)" on the line
+   ```
+
+   Stop here if it exits `1`: the line names the failing leg (workspace, or a floor
+   you have not installed yet).
+
+3. **Declare the floor in `.pascorc`.** The minimum engine your workspace now
+   needs — exactly `MAJOR.MINOR.PATCH`, no `^`, `~`, `>=`, `v` or `*`
+   ([§3](USER-GUIDE.md#configure-pascorc-optional-but-useful), SPEC §7.6).
+
+   `.pascorc` is JSON (it takes no comments), so the key goes beside `workspace`:
+
+   ```json
+   {
+     "workspace": ".",
+     "engine": "0.3.7"
+   }
+   ```
+
+   ```sh
+   grep -n '"engine"' .pascorc      # receipt: the line you wrote
+   pasco doctor                     # receipt: the requirement reads "met"
+   ```
+
+   A floor is a *minimum*, not a pin: `validate`, `build`, `export profile` and
+   `preview` refuse before doing work when the installed CLI is older, and name the
+   upgrade command. An unset floor is not a pass — `doctor` says `absent`.
+
+4. **Adopt the fields the release added.** Additive means opt-in: the workspace
+   validates without them and scores lower.
+
+   ```sh
+   pasco edit --list                # every addressable row this workspace has
+   pasco edit 'positioning.statement.en' --set '<the text you adopted>'
+   pasco edit 'positioning.statement.en'   # receipt: prints the value you wrote
+   ```
+
+   `pasco edit` reaches four fields only; `identity.definition`, `faq[]`, and any
+   root that does not exist yet (`content/faq.yaml`) are hand-edited (the table and
+   the caps are in [§4.4](USER-GUIDE.md#44-your-first-edit-without-an-editor);
+   #435). A hand edit's receipt is the `grep` **and** `pasco validate`.
+
+5. **Rebuild every artifact.**
+
+   ```sh
+   pasco build                      # all platforms; --lang for a language slice
+   git diff --stat profiles/        # receipt: the files the new engine rewrote
+   grep -rn '<the text you adopted>' profiles/   # receipt: it reached the artifact
+   ```
+
+   A byte diff after an engine upgrade is the release doing its job — commit the
+   regenerated `profiles/`.
+
+6. **Audit what you would publish.** `audit` is stricter than `validate`: the
+   classes it calls FAIL are publishability, not validity (SPEC §7.1).
+
+   ```sh
+   pasco audit; echo "exit $?"      # receipt: 0, or the FAIL line that names its path
+   ```
+
+7. **See it before publishing it.** One self-contained page, written locally and
+   never published.
+
+   ```sh
+   pasco preview --no-open          # writes .pasco/preview/index.html
+   grep -n '<a distinctive fragment>' .pasco/preview/index.html   # receipt: the matched line
+   ```
+
+   Search a short fragment, not the whole sentence: the page HTML-escapes
+   punctuation, so an exact multi-line match can miss a text that is present.
+
+8. **Commit, push, and let CI re-read the clean tree** — when the workspace is
+   its own repo with a CI workflow (Route 1 is not); otherwise the receipt of this
+   step is the clean-tree `pasco doctor` above.
+
+   ```sh
+   git add -A && git commit -m "chore: upgrade to the current engine"
+   git push -u origin HEAD          # publish the branch
+   gh pr create --fill              # open the PR (push alone does not)
+   gh pr checks                     # receipt: every check green
+   ```
+
+   The workspace's CI is the whole-run receipt — it re-runs `validate` and `build`
+   on a clean checkout. No CI on your on-ramp (Options B/C)? The receipt is step 4's
+   `pasco validate` and step 5's `git diff` on the committed tree.
+
+A step is not done because the next one succeeded. If a receipt is empty, the write
+did not land — redo that step before moving on. The reference version of this path,
+with the address table and the authored caps, is
+[§8.2](USER-GUIDE.md#821-upgrading-a-workspace-born-on-an-older-engine).
 
 ## What this page is not
 
