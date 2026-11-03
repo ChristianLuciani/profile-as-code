@@ -89,9 +89,15 @@ export function compareEngineVersions(a: string, b: string): number | null {
  * a `.pascorc` its own gate refuses as malformed. The numeric triple is the
  * same version the gate compares, so the scaffold always meets its own floor.
  */
-export function engineFloorFor(installed: string): string {
-  const version = parseInstalledVersion(installed);
-  if (version === null) return installed;
+export function engineFloorFor(installed: string): string | null {
+  // A pre-release build declares NOTHING. Stripping the suffix would pin the
+  // scaffold to a version `@latest` may not satisfy yet (an rc of 0.4.0 would
+  // declare `0.4.0` while the published latest is still 0.3.7), and writing the
+  // raw string violates the declaration grammar — both are worse than an absent
+  // floor, which is a state `doctor` now names (#436).
+  const trimmed = installed.trim();
+  const version = parseInstalledVersion(trimmed);
+  if (version === null || /-/.test(trimmed)) return null;
   return `${version.major}.${version.minor}.${version.patch}`;
 }
 

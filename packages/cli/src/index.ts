@@ -705,7 +705,10 @@ async function runMain(): Promise<number> {
       // #434: the schema-failure hint needs the SAME premise the gate read —
       // "is a floor declared?" — not a guess from the workspace alone.
       const requirement = evaluateEngineRequirements(engineSources, VERSION);
-      return runValidate({ workspace, floorDeclared: requirement.declared !== null });
+      return runValidate({
+        workspace,
+        floor: { declared: requirement.declared, met: requirement.met },
+      });
     }
     case "doctor": {
       const { flags, positionals } = parseCommandFlags(rest);

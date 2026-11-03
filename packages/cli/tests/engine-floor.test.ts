@@ -37,8 +37,12 @@ afterAll(() => {
   for (const dir of roots) rmSync(dir, { recursive: true, force: true });
 });
 
-function run(args: string[]): { code: number; stdout: string; stderr: string } {
-  const res = spawnSync(process.execPath, [CLI, ...args], { encoding: "utf8", timeout: 15_000 });
+function run(args: string[], cwd?: string): { code: number; stdout: string; stderr: string } {
+  const res = spawnSync(process.execPath, [CLI, ...args], {
+    encoding: "utf8",
+    timeout: 15_000,
+    ...(cwd === undefined ? {} : { cwd }),
+  });
   if (res.error !== undefined) throw res.error;
   return { code: res.status ?? -1, stdout: res.stdout ?? "", stderr: res.stderr ?? "" };
 }
@@ -83,7 +87,9 @@ describe("pasco init declares the engine floor at birth (#434)", () => {
     it(`writes engine = the installed CLI version (${flavor ?? "person"})`, () => {
       const dir = scaffold(flavor);
       const pascorc = readPascorc(dir);
-      expect(pascorc.engine).toBe(PACKAGE_VERSION);
+      // The declaration is the gate's grammar (normalized), not the raw
+      // manifest string: a pre-release build declares nothing at all (#434 F3).
+      expect(pascorc.engine).toBe(engineFloorFor(PACKAGE_VERSION));
       expect(pascorc.workspace).toBe(".");
     });
   }
@@ -95,12 +101,14 @@ describe("pasco init declares the engine floor at birth (#434)", () => {
     expect(res.stdout).toContain("valid");
   });
 
-  it("writes the declaration grammar even when the installed version carries a suffix", () => {
-    // A declaration must be exactly MAJOR.MINOR.PATCH; a pre-release suffix on
-    // the installed version would make the gate refuse `init`'s own output.
-    expect(engineFloorFor("0.4.0-rc.1")).toBe("0.4.0");
+  it("a pre-release build declares NO floor instead of pinning an unreleased version", () => {
+    // Stripping the suffix would declare `0.4.0` while `@latest` is 0.3.7 — a
+    // floor the published engine cannot meet. The raw string would violate the
+    // declaration grammar. Absent is the honest state (doctor names it, #436).
+    expect(engineFloorFor("0.4.0-rc.1")).toBeNull();
+    expect(engineFloorFor(`${PACKAGE_VERSION}-next.1`)).toBeNull();
     expect(engineFloorFor("0.3.7")).toBe("0.3.7");
-    expect(engineFloorFor(`${PACKAGE_VERSION}-next.1`)).toBe(PACKAGE_VERSION);
+    expect(engineFloorFor("not-a-version")).toBeNull();
   });
 });
 
@@ -118,7 +126,7 @@ describe("an Unrecognized key with no declared floor names the upgrade (#434)", 
     expect(hints).toHaveLength(1);
     expect(hints[0]).toContain("npm i -g @profile-as-code/cli@latest");
     expect(hints[0]).toContain("pasco doctor");
-    expect(hints[0]).toContain("no engine floor");
+    expect(hints[0]).toContain("does not know");
   });
 
   it("carries the same hint inside the --json error (additive, same exit)", () => {
@@ -140,15 +148,18 @@ describe("an Unrecognized key with no declared floor names the upgrade (#434)", 
     expect(envelope.error?.violations?.[0]?.message).toContain("Unrecognized key");
   });
 
-  it("does not fire when a floor is declared", () => {
+  it("fires when a floor is declared and MET — the case init itself creates", () => {
+    // #434 F1: `init` declares the floor at birth and nothing advances it, so an
+    // older engine reading newer data sees a met floor; the gate has no
+    // explanation and the hint is the only thing that names the upgrade.
     const dir = scaffold();
-    expect(readPascorc(dir).engine).toBe(PACKAGE_VERSION);
+    expect(readPascorc(dir).engine).toBe(engineFloorFor(PACKAGE_VERSION));
     addUnrecognizedKey(dir);
 
     const res = run(["validate", "--workspace", dir]);
     expect(res.code).toBe(1);
     expect(res.stderr).toContain('Unrecognized key: "bogusField"');
-    expect(hintLines(res.stderr)).toEqual([]);
+    expect(hintLines(res.stderr)).toHaveLength(1);
   });
 
   it("does not fire on a schema failure that is not an Unrecognized key", () => {
@@ -164,10 +175,68 @@ describe("an Unrecognized key with no declared floor names the upgrade (#434)", 
 });
 
 describe("unrecognizedKeyHint predicate", () => {
-  it("fires only on the conjunction (unknown key AND no declared floor)", () => {
-    const issues = [{ path: "identity", message: 'Unrecognized key: "nationality"' }];
-    expect(unrecognizedKeyHint(issues, false)).toContain("npm i -g @profile-as-code/cli@latest");
-    expect(unrecognizedKeyHint(issues, true)).toBeNull();
-    expect(unrecognizedKeyHint([{ path: "identity", message: "Required" }], false)).toBeNull();
+  const issues = [{ path: "identity", message: 'Unrecognized key: "nationality"' }];
+
+  it("fires when nothing explains the rejection (no floor, or a floor that is met)", () => {
+    expect(unrecognizedKeyHint(issues, { declared: null, met: true })).toContain(
+      "npm i -g @profile-as-code/cli@latest",
+    );
+    // A MET floor does not explain the rejection: the data is newer than the
+    // engine that wrote it (F1).
+    expect(unrecognizedKeyHint(issues, { declared: "0.3.7", met: true })).toContain("pasco doctor");
+  });
+
+  it("stays silent when the gate already names the upgrade (installed < declared)", () => {
+    expect(unrecognizedKeyHint(issues, { declared: "9.9.9", met: false })).toBeNull();
+  });
+
+  it("ignores a failure that is not an unknown key", () => {
+    expect(
+      unrecognizedKeyHint([{ path: "identity", message: "Required" }], {
+        declared: null,
+        met: true,
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("the hint reads the requirement the gate actually evaluated (#434 fresh pass)", () => {
+  it("fires even when a floor IS declared, because nobody advances it by hand", () => {
+    // `init` declares the floor at birth and nothing bumps it: an older engine
+    // reading newer data sees a MET floor, so the gate has no explanation and
+    // the hint is exactly what the reader needs (F1).
+    const dir = scaffold();
+    expect(readPascorc(dir).engine).toBe(engineFloorFor(PACKAGE_VERSION));
+    addUnrecognizedKey(dir);
+    const res = run(["validate", "--workspace", dir]);
+    expect(res.code).toBe(1);
+    expect(hintLines(res.stderr)).toHaveLength(1);
+  });
+
+  it("stays silent when the gate already explains the mismatch (installed < declared)", () => {
+    const dir = scaffold();
+    const pascorc = readPascorc(dir);
+    pascorc.engine = "9.9.9";
+    writePascorc(dir, pascorc);
+    addUnrecognizedKey(dir);
+    const res = run(["validate", "--workspace", dir]);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain("requires engine 9.9.9 or newer");
+    expect(hintLines(res.stderr)).toHaveLength(0);
+  });
+
+  it("reads a floor declared in a parent config, not only the workspace file (F5)", () => {
+    const parent = tempDir();
+    writeFileSync(
+      join(parent, ".pascorc"),
+      `${JSON.stringify({ workspace: "ws", engine: "9.9.9" }, null, 2)}\n`,
+    );
+    scaffold();
+    // The parent pointer resolves the workspace and its floor is one of the
+    // sources the gate evaluates (no --workspace: the cwd pointer is the input).
+    const res = run(["validate"], parent);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain("requires engine 9.9.9 or newer");
+    expect(hintLines(res.stderr)).toHaveLength(0);
   });
 });

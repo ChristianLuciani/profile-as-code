@@ -1142,8 +1142,11 @@ command, not the engine refusing one.
    `pasco doctor` reads the requirement as `met`. The floor is a minimum, not a pin:
    `validate`, `build`, `export profile` and `preview` refuse before doing work when
    the installed CLI is older and name the upgrade command. No floor is not a pass —
-   `doctor` says `absent`, and an `Unrecognized key` schema failure on such a
-   workspace adds one hint naming the upgrade instead of leaving the cause silent.
+   `doctor` says `absent`. On an `Unrecognized key` schema failure `pasco
+   validate` adds one hint naming the upgrade (also when the declared floor is
+   met, i.e. the data is newer than the engine); `build`, `preview` and `export
+   profile` keep the gate's own line, which names the upgrade only when the
+   installed CLI is older than the floor.
 4. **Adopt fields** — additive means opt-in. `pasco edit --list` prints every
    addressable row your workspace has; the four addresses and the fields that need
    an editor are the table in [§4.4](#44-your-first-edit-without-an-editor).

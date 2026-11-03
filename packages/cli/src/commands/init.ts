@@ -213,10 +213,13 @@ See the [CLI reference](https://github.com/ChristianLuciani/profile-as-code/tree
  * upgrade that changed the contract; a birth-time declaration cannot.
  */
 export function pascorcTemplate(engineVersion: string): string {
+  const floor = engineFloorFor(engineVersion);
+  // A pre-release build declares no floor at all (see `engineFloorFor`): the
+  // scaffold must never pin a version the published engine cannot satisfy.
+  const engine = floor === null ? "" : `  "engine": "${floor}",\n`;
   return `{
   "workspace": ".",
-  "engine": "${engineFloorFor(engineVersion)}",
-  "defaults": { "lang": "en", "variants": 3 },
+${engine}  "defaults": { "lang": "en", "variants": 3 },
   "diff": { "tagPattern": "release-*" }
 }
 `;
