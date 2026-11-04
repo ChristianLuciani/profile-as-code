@@ -137,10 +137,10 @@ pasco --version                  # the bin — expect 0.4.0
 One global install: no clone, no build, nothing written outside the npm prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
-> **Status**: this guide tracks the release being cut, `@profile-as-code/cli@0.4.0`
-> (CHANGELOG `[0.4.0]`; the tag is pushed when the release is cut — the npm publish is
-> that release's irreversible step; verify `latest` with `npm view @profile-as-code/cli version`)
-> [OFICIAL] [WEB: registry.npmjs.org]. Earlier publications stay dated records: `0.3.6`
+> **Status**: `@profile-as-code/cli@0.4.0` is **published** and tagged `latest` (published
+> 2026-11-04T19:12:43Z; `npm view @profile-as-code/cli version` → `0.4.0`, checked 2026-11-04)
+> [OFICIAL] [WEB: registry.npmjs.org]. Earlier publications stay dated records: `0.3.7`
+> (2026-10-31), `0.3.6`
 > (2026-10-27), `0.3.5` (2026-10-24; tag `v0.3.5` → `c69e6b7`), `0.3.0` (2026-10-11; tag
 > `v0.3.0` → `21e4cde`).
 > Caveat, closing (#293): the engine repo is **public** (measured 2026-10-24) — `repository.url`

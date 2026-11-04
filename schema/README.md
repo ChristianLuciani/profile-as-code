@@ -10,11 +10,11 @@ A consumer that only validates a profile does not need the CLI. The released
 identity of this schema is **URL + sha256**, recorded in
 [`consumer-contract.json`](consumer-contract.json): the immutable copy at a
 published tag (tag-pinned raw URL) and the committed `current` bytes (sha256 +
-`$id` version). **The current v1.16 bytes have no published artifact** — no tag
-contains them (`current.published: false`, `current.artifact: null`); the
-released artifact is schema **v1.15 at `v0.3.7`**, which has no `achievements[]`.
-A consumer that needs the block must use the checkout and verify the sha256 until
-the next release. `node
+`$id` version). **The current v1.16 bytes are published at `v0.4.0`**
+(`current.published: true`, `artifact` = the tag-pinned URL); `released` names the
+same tag. The earlier artifact — schema **v1.15 at `v0.3.7`** — has no
+`achievements[]` and stays valid forever for a consumer that pins it.
+`node
 scripts/schema-contract/check.mjs --check` verifies both blocks offline; a schema
 edit that forgets the manifest fails CI. The reading guide — how to fetch/verify,
 and what structural validation does **not** cover — is

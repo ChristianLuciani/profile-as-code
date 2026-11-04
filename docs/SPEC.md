@@ -1144,8 +1144,8 @@ an immutable artifact identified by **URL + sha256**, recorded in
 
 | | Artifact | Identity |
 |---|---|---|
-| **Released** | `schema/profile.schema.json` at a published release tag | tag-pinned raw URL + sha256 + `$id` version (today `v0.3.7`, schema v1.15) |
-| **Current** | the committed `schema/profile.schema.json` on this branch | `$id` version + sha256, plus its own publication truth (`published` + `artifact`) — **not necessarily the tagged bytes** (today v1.16, `published: false`: no tag carries these bytes yet) |
+| **Released** | `schema/profile.schema.json` at a published release tag | tag-pinned raw URL + sha256 + `$id` version (today `v0.4.0`, schema v1.16) |
+| **Current** | the committed `schema/profile.schema.json` on this branch | `$id` version + sha256, plus its own publication truth (`published` + `artifact`) — **not necessarily the tagged bytes** (today v1.16, `published: true`: the `v0.4.0` tag carries exactly these bytes) |
 
 - **Tag-pinned, public repo only.** The released URL is exactly
   `https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/<tag>/schema/profile.schema.json`.
@@ -1157,10 +1157,11 @@ an immutable artifact identified by **URL + sha256**, recorded in
   `published` is `false`, `artifact` MUST be `null` and the `note` MUST say where
   the bytes can be obtained (a repository checkout, not a URL). The manifest
   cannot claim a joinable artifact it does not have, and every shipped surface
-  repeats that exact state. **The released v0.3.7 artifact is schema v1.15**, so
-  `publication.kind` and `releases[]` validate against the tag-pinned copy: the
-  two additions that used to require a checkout no longer do (the v0.3.6 artifact,
-  schema v1.13, stays correct forever for a consumer that pins it). The reading guide says so where it
+  repeats that exact state. **The released v0.4.0 artifact is schema v1.16**, so
+  `achievements[]`, `publication.kind` and `releases[]` all validate against the
+  tag-pinned copy: nothing in the current contract still requires a checkout.
+  Earlier artifacts stay correct forever for a consumer that pins them (`v0.3.7`
+  is schema v1.15; `v0.3.6` is v1.13). The reading guide says so where it
   tells a consumer how to validate.
 - **No network in the gate (D19).** `node scripts/schema-contract/check.mjs
   --check` recomputes the sha256 of the committed file, reads the immutable copy
