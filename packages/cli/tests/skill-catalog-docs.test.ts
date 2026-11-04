@@ -11,9 +11,9 @@
  * control; this file pins the words, so the next reader cannot re-derive the old
  * union claim (SPEC §7 `check` row is the contract's one home).
  *
- * Every shipped catalog must carry the split unless it declares that pasco v1
- * does not execute it (`github-repo-meta`); a new catalog that does neither is a
- * documentation regression, not a style choice.
+ * Every shipped catalog must carry the split unless it is the declared
+ * exemption (`github-repo-meta`, which says pasco v1 does not execute it); a new
+ * catalog that does neither is a documentation regression, not a style choice.
  */
 
 import { createHash } from "node:crypto";
@@ -45,13 +45,20 @@ interface CheckCatalog {
   header: string;
 }
 
+/** The ONE catalog that declares itself outside `pasco check` (SPEC §7 v1). */
+const OUTSIDE_PASCO_CHECK = new Set(["github-repo-meta"]);
+
 function checkCatalogs(): CheckCatalog[] {
-  return readdirSync(SKILLS_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => ({ platform: entry.name, path: join(SKILLS_DIR, entry.name, "checks.yaml") }))
-    .filter(({ path }) => existsSync(path))
-    .map(({ platform, path }) => ({ platform, header: headerOf(readFileSync(path, "utf8")) }))
-    .filter(({ header }) => !/no la ejecuta|does not execute|not executed/i.test(flat(header)));
+  return (
+    readdirSync(SKILLS_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => ({ platform: entry.name, path: join(SKILLS_DIR, entry.name, "checks.yaml") }))
+      .filter(({ path }) => existsSync(path))
+      .map(({ platform, path }) => ({ platform, header: headerOf(readFileSync(path, "utf8")) }))
+      // The exemption is DELIBERATE and named: a phrase anywhere in a header
+      // would silently skip a catalog that merely mentions non-execution.
+      .filter(({ platform }) => !OUTSIDE_PASCO_CHECK.has(platform))
+  );
 }
 
 describe("the shipped catalogs state the premise/cap split (#455)", () => {
@@ -159,6 +166,11 @@ describe("the shipped catalogs state the premise/cap split (#455)", () => {
     const start = spec.indexOf("## 3. Success criteria");
     const end = spec.indexOf("## 4. Architecture", start);
     expect(start, "SPEC §3 must exist").toBeGreaterThanOrEqual(0);
+    // Both headings must be unique: a duplicate §3 (or a fake §4 before the
+    // real one) would let the hash cover a copy while the real one is restated.
+    expect(spec.indexOf("## 3. Success criteria", start + 1), "§3 must be unique").toBe(-1);
+    const next4 = spec.indexOf("## 4. Architecture", start + 1);
+    expect(spec.indexOf("## 4. Architecture", next4 + 1), "§4 must be unique").toBe(-1);
     const section = spec.slice(start, end < 0 ? undefined : end);
     // The pointer is the ONLY statement about `pasco check` in §3. The WHOLE
     // section is byte-pinned: a rewritten restatement (or a continuation line)
