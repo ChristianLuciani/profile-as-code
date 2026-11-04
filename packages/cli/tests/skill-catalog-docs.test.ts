@@ -16,6 +16,7 @@
  * documentation regression, not a style choice.
  */
 
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -153,26 +154,26 @@ describe("the shipped catalogs state the premise/cap split (#455)", () => {
     expect(guide).not.toContain("prints `cap: unknown`");
   });
 
-  it("SPEC §3 points at the §7 check row instead of restating the mechanism", () => {
+  it("SPEC §3 is byte-pinned: a restatement cannot ride beside the pointer", () => {
     const spec = readFileSync(join(REPO_DIR, "docs", "SPEC.md"), "utf8");
     const start = spec.indexOf("## 3. Success criteria");
     const end = spec.indexOf("## 4. Architecture", start);
     expect(start, "SPEC §3 must exist").toBeGreaterThanOrEqual(0);
     const section = spec.slice(start, end < 0 ? undefined : end);
-    // The pointer is the ONLY statement about `pasco check` in §3, and it is
-    // pinned VERBATIM: any rewritten restatement — even one that keeps the §7
-    // pointer — fails this equality, which is what the vocabulary denylist
-    // could not deliver (passes 3-5).
+    // The pointer is the ONLY statement about `pasco check` in §3. The WHOLE
+    // section is byte-pinned: a rewritten restatement (or a continuation line)
+    // changes the hash, so it cannot ride beside the pointer — the hole a
+    // vocabulary denylist left open across passes 3-5. Editing §3 is fine; it
+    // just has to be deliberate, and the `pasco check` clause stays a pointer.
     expect(section.match(/`pasco check`/g) ?? [], "§3 must name `pasco check` once").toHaveLength(
       1,
     );
     expect(section, "§3 must carry the exact §7 pointer").toContain(
       "warns on drift/geo (facts); `pasco check` runs the rules SPEC §7 `check` row owns.",
     );
-    // Defense in depth: a continuation line that restates the split is still a
-    // second copy, even when the pinned sentence is intact.
-    expect(section, "§3 must not restate the split").not.toMatch(
-      /union|catalogs?|premises?|caps?|max-chars|char|limit|declare/i,
-    );
+    expect(
+      createHash("sha256").update(section).digest("hex"),
+      "SPEC §3 changed — re-read it; the `pasco check` clause must stay a pointer at the §7 `check` row, never a restatement. Update this pin deliberately.",
+    ).toBe("e5ef63e72a503ce855b9b081605c08bfbbb2eb78caa0b8416ee254578a52f1f8");
   });
 });
