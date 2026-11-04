@@ -137,6 +137,7 @@ export type {
   PresenceState,
   Release,
   ReleasePlan,
+  ReleasePlanSurface,
   ReleaseSurface,
 } from "./presence.js";
 export { PresenceError, presenceBoard, releasePlan, selectRelease } from "./presence.js";
