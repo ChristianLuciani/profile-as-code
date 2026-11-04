@@ -9,6 +9,10 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+_(nothing yet — the next cycle)_
+
+## [0.4.0] - 2026-11-04
+
 ### Added
 
 - **`release plan --json` carries `order` on every row (#421, SPEC §7.8)** — the
@@ -218,6 +222,17 @@ minor versions may contain breaking contract changes.
   now has one home per axis: `humanCommand()` (`pasco <command>`) on the
   reported error path, and the catch strips a leading `usage: ` before adding
   its own. `--json` envelopes are unchanged.
+
+### Internal
+
+- **The CLI goes 0.3.7 → 0.4.0 and the core seam 0.1.2 → 0.1.3** — 166 commits since
+  `v0.3.7`, including schema v1.16 (D24 `achievements[]`) and the presence fan-out's
+  `order` field (#421). The core bump is what makes the release event publish a seam
+  member that carries `ReleasePlanSurface.order` and the v1.16 load/types: the cohort
+  step skips a version already live on the registry, so an unchanged `0.1.2` would keep
+  the published seam package describing the previous tree. The CLI itself is `bin-only`
+  and bundles core, so the bump is for the seam's consumers, not for `pasco`. Both
+  versions publish through the tagged workflow with provenance (#313/#377).
 
 ## [0.3.7] - 2026-10-31
 
