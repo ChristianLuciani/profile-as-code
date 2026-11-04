@@ -2,7 +2,7 @@
 
 A worked run of [Route 1](START-HERE.md#route-1--a-person-with-a-profile-to-publish), written
 from the commands and the output a first-time user actually gets. **Part 1** was run on a clean
-machine on **2026-10-31** with `@profile-as-code/cli@0.3.7` and schema **v1.15**; **Part 2**
+machine on **2026-10-31** with `pasco` 0.3.7 and schema **v1.15**; **Part 2**
 (the rest of the command inventory) was measured on **2026-11-01**, same CLI, on the workspace
 Part 1 left behind. The numbers (scores, byte counts, warning counts) are those runs' readings,
 not promises — a different profile produces different ones.
@@ -405,7 +405,7 @@ record of that run:
 ## Part 2 — the rest of the inventory
 
 Measured on **2026-11-01** on the workspace Part 1 left behind, same
-`@profile-as-code/cli@0.3.7`. Part 1 walked Route 1; this part walks the rows it left pending.
+`pasco` 0.3.7. Part 1 walked Route 1; this part walks the rows it left pending.
 The workspace gained the files each command needs (`headlines.yaml`, `bios.yaml`,
 `positioning.yaml`, `releases.yaml`, `posts/`) and a brand sibling (`~/pasco-brand-demo`). Every
 block below is a command that ran and the lines it printed.

@@ -141,7 +141,7 @@ see any of them; the `grep` can.
    ```json
    {
      "workspace": ".",
-     "engine": "0.3.7"
+     "engine": "0.4.0"
    }
    ```
 
