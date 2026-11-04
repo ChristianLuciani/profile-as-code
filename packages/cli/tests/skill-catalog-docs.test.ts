@@ -159,16 +159,20 @@ describe("the shipped catalogs state the premise/cap split (#455)", () => {
     const end = spec.indexOf("## 4. Architecture", start);
     expect(start, "SPEC §3 must exist").toBeGreaterThanOrEqual(0);
     const section = spec.slice(start, end < 0 ? undefined : end);
-    // The pointer is the ONLY statement about `pasco check` in §3.
+    // The pointer is the ONLY statement about `pasco check` in §3, and it is
+    // pinned VERBATIM: any rewritten restatement — even one that keeps the §7
+    // pointer — fails this equality, which is what the vocabulary denylist
+    // could not deliver (passes 3-5).
     expect(section.match(/`pasco check`/g) ?? [], "§3 must name `pasco check` once").toHaveLength(
       1,
     );
-    expect(section, "§3 must point at the owning row").toContain("§7 `check` row");
-    // A pointer names the row; it never restates the mechanism. Scan the WHOLE
-    // section, not just the named line: a continuation line is still a second,
-    // drift-prone copy (the exact hole pass 4 found).
+    expect(section, "§3 must carry the exact §7 pointer").toContain(
+      "warns on drift/geo (facts); `pasco check` runs the rules SPEC §7 `check` row owns.",
+    );
+    // Defense in depth: a continuation line that restates the split is still a
+    // second copy, even when the pinned sentence is intact.
     expect(section, "§3 must not restate the split").not.toMatch(
-      /\b(union|catalogs?|premises?|caps?|max-chars|char|limit|declare[sd]?)\b/i,
+      /union|catalogs?|premises?|caps?|max-chars|char|limit|declare/i,
     );
   });
 });
