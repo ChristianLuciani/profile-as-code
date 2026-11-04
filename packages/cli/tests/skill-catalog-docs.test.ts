@@ -153,15 +153,23 @@ describe("the shipped catalogs state the premise/cap split (#455)", () => {
     expect(guide).not.toContain("prints `cap: unknown`");
   });
 
-  it("SPEC §3 points at the §7 check row instead of restating the split", () => {
+  it("SPEC §3 points at the §7 check row instead of restating the mechanism", () => {
     const spec = readFileSync(join(REPO_DIR, "docs", "SPEC.md"), "utf8");
     const start = spec.indexOf("## 3. Success criteria");
     const end = spec.indexOf("## 4. Architecture", start);
     expect(start, "SPEC §3 must exist").toBeGreaterThanOrEqual(0);
     const section = spec.slice(start, end < 0 ? undefined : end);
-    expect(section, "§3 must not restate the union").not.toMatch(
-      /runs skill-declared checks|char limits, live links, fact presence|never the char\s+caps/,
+    const mentions = section
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.includes("`pasco check`"));
+    expect(mentions, "§3 must name `pasco check` exactly once").toHaveLength(1);
+    const line = mentions[0] as string;
+    expect(line, "§3 must point at the owning row").toContain("§7 `check` row");
+    // A pointer names the row; it does not restate what the row owns. Any
+    // mechanism noun in this line means §3 is a second, drift-prone copy.
+    expect(line, "§3 must not restate the mechanism").not.toMatch(
+      /catalog|char|caps?|premises?|declare|limit/i,
     );
-    expect(section, "§3 points at the owning row").toContain("§7 `check` row");
   });
 });

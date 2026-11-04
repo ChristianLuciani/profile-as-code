@@ -63,8 +63,7 @@ not only "is my profile consistent?".
 ## 3. Success criteria (v1)
 
 - `pasco build` renders all platforms from one YAML workspace; `pasco validate` rejects schema violations,
-  warns on drift/geo (facts); `pasco check` runs the checks the workspace and skill catalogs declare — the
-  premise/cap split (what runs, where the caps come from) is owned by the §7 `check` row.
+  warns on drift/geo (facts); `pasco check` runs the rules SPEC §7 `check` row owns.
 - `pasco refine <platform> [--lang] [--variants N]` produces N text variants, **agent-driven and
   model-agnostic** (the executing agent's model — AionUi, OpenHands, Claude Code, Cursor…). The chosen
   variant is committed and marked as active. A dedicated model router stays a user choice: the engine

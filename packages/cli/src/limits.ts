@@ -5,8 +5,9 @@
  * #242 gives it a second consumer — the derived publication-truth line asked
  * `pasco status` the same question per surface — and a second copy is exactly the
  * duplication D5/AGENTS rule 7 forbids. `check.ts` and `publication.ts` both
- * import this module; the catalog stays where it was (`content/checks.yaml` ∪
- * `DEFAULT_CHECKS`, #255).
+ * import this module; the catalog stays where it was: the workspace's
+ * `content/checks.yaml` when it declares checks, else `DEFAULT_CHECKS` — whole
+ * catalog, never merged (#255).
  *
  * Contract preserved from #240: deterministic, offline, WARN-only (D12: facts
  * warn, schema fails), `surface:` scopes a title cap off a bio, and a
@@ -93,7 +94,7 @@ function limitRows(profile: LoadedProfile): {
 /**
  * The STRICTEST `max-chars` cap that applies to one platform+surface, or
  * `undefined` when the catalog has no sourced cap for it (the caller must say
- * `cap: unknown`, never guess a number — evidence rule).
+ * `cap unknown`, never guess a number — evidence rule).
  */
 export function applicableLimit(
   checks: LoadedProfile["checks"],
