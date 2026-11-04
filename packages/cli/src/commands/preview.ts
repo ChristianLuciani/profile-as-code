@@ -51,6 +51,7 @@ import {
   selectionErrorMessage,
   selectionFindings,
 } from "../artifact-render.js";
+import { catalogSource } from "../check-catalog.js";
 import { parseLang } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
@@ -391,6 +392,7 @@ export function runPreview(args: PreviewArgs): number {
       rule: row.rule,
       value: JSON.stringify(row.value),
     })),
+    limitsSource: catalogSource(profile),
     warnings,
   });
 

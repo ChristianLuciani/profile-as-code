@@ -204,7 +204,7 @@ They answer different questions:
 
 | Command | Question | In this run |
 |---|---|---|
-| `check` | does a text exceed the cap the catalogue declares? | 4 user checks executed; no measured text yet |
+| `check` | does a text exceed the cap the catalogue declares? | 4 workspace checks executed; no measured text yet |
 | `audit` | do the surfaces still say what the SSOT says? | 0 findings, and it says **why** nothing was measured |
 | `entity --jsonld` | what do I paste into a page the engine does not render? | the same JSON-LD the artifact embeds |
 

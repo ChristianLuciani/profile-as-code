@@ -95,6 +95,37 @@ describe("pasco preview — the artifact", () => {
     expect(html).toContain('name="robots" content="noindex, nofollow, noarchive"');
   });
 
+  // Dogfood 2026-11-04: the limits table captioned the package defaults as
+  // "declared limits (content/checks.yaml)" on a workspace with no catalog. The
+  // caption now names the SOURCE the executor resolved, and never a filename
+  // (`load()` merges content/*.y(a)ml and reports no source).
+  it("captions the limits table with the source it read, never a filename (#dogfood)", () => {
+    const workspace = workspaceCopy();
+    const out = join(workspace, "out");
+    const preview = (): string => {
+      expect(run(["preview", "--workspace", workspace, "--out", out, "--now", NOW]).code).toBe(0);
+      return readFileSync(join(out, "index.html"), "utf8");
+    };
+
+    // The fixture declares no catalog → the package's conservative caps apply.
+    const defaults = preview();
+    expect(defaults).toContain("declared limits (caps shipped with pasco, #240)");
+    expect(defaults).not.toContain("content/checks.yaml");
+
+    // Declare one cap row → the workspace's catalog is the source.
+    writeFileSync(
+      join(workspace, "content", "checks.yaml"),
+      "- id: gh-headline\n  platform: github-readme\n  rule: max-chars\n  value: 280\n",
+    );
+    const declared = preview();
+    expect(declared).toContain("declared limits (content/)");
+    // The row is the workspace's (the table lists platform · rule · value).
+    expect(declared).toMatch(
+      /<td><code>github-readme<\/code><\/td><td>max-chars<\/td><td><code>280<\/code><\/td>/,
+    );
+    expect(declared).not.toContain("content/checks.yaml");
+  });
+
   it("turns a remote badge into text instead of a fetch, and keeps the profile's own links", () => {
     const workspace = workspaceCopy();
     const out = join(workspace, "out");
