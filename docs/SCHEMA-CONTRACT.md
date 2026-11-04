@@ -45,7 +45,7 @@ not need `achievements[]` can keep using unchanged.
 | Field | Value |
 |---|---|
 | Schema version | `v1.16` |
-| sha256 | `8d79066b9314b585d3d420afb6562e5bd056541028b450ff90cb00c179518165` |
+| sha256 | `d6b06b57f1106885ee0467d8aa8009e098b04fe0a5ffad34b97455bc4417fe2f` |
 | Published artifact | none yet — verify against the checkout (the `note` in the manifest) |
 
 A profile that declares no `achievements[]` validates identically against `v1.16`

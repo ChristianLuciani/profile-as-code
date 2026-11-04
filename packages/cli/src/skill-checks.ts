@@ -3,11 +3,13 @@
  * declare?".
  *
  * A skill ships its own `checks.yaml` (`skills/<platform>/checks.yaml`, SPEC §16.1)
- * and `pasco check` runs the UNION of the workspace's `content/checks.yaml` and the
- * shipped skill catalog (SPEC §7). A rule executor that ignored the catalog would
- * run a premise nobody declared, on surfaces nobody asked for — and the catalog
- * note ("what this premise means") could say something different from the code,
- * which is the drift the engine exists to prevent.
+ * and `pasco check` unions the workspace's `content/checks.yaml` with the shipped
+ * skill catalog to decide WHICH PREMISES run (SPEC §7) — the text-limit executor
+ * reads the workspace catalog or the package defaults, never these rows (#455).
+ * A rule executor that ignored the catalog would run a premise nobody declared,
+ * on surfaces nobody asked for — and the catalog note ("what this premise means")
+ * could say something different from the code, which is the drift the engine
+ * exists to prevent.
  *
  * `fact-present` is the first rule to consult this (#283/F6): the rule runs only
  * for a surface whose catalog declares it, and `link-in-identity` stays a SEPARATE

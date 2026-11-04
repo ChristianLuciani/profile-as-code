@@ -98,7 +98,7 @@
     "checks": {
       "type": "array",
       "items": { "$ref": "#/$defs/check" },
-      "description": "User-level declarative checks; unioned with the platform skill's checks.yaml by `pasco check`."
+      "description": "User-level declarative checks. The union with the platform skill's checks.yaml decides which premises run (`fact-present`); when this catalog declares checks it is the whole cap catalog (never merged row by row with the package defaults), and no skill `max-chars` row reaches the limit executor (SPEC §7)."
     },
     "active": {
       "type": "object",
@@ -611,7 +611,7 @@
             "handle-claimed",
             "handle-consistent"
           ],
-          "description": "Rule catalog (extensible). Skills' checks.yaml use the same catalog; `pasco check` runs the union. v1.1 (brand §17): handle-claimed (a claimed handle must resolve to a URL) and handle-consistent (handle matrix coherent across surfaces)."
+          "description": "Rule catalog (extensible). Skills' checks.yaml use the same catalog; the union decides which premises run (`fact-present`), while char caps come from the workspace catalog when it declares checks (whole catalog, never merged row by row) or the caps shipped with pasco — no skill `max-chars` row reaches the limit executor (SPEC §7). v1.1 (brand §17): handle-claimed (a claimed handle must resolve to a URL) and handle-consistent (handle matrix coherent across surfaces)."
         },
         "value": {
           "oneOf": [
