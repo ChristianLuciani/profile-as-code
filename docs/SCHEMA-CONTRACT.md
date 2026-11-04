@@ -17,36 +17,36 @@ The immutable copy at a published release tag:
 
 | Field | Value |
 |---|---|
-| Tag | `v0.3.7` (2026-10-31) |
-| URL | `https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.3.7/schema/profile.schema.json` |
-| Schema version | `v1.15` (the schema's own `$id`) |
-| sha256 | `c48296847d99eb2413b7c1dec51e51656f4a4384eb06b7a8955b73c3e9625436` |
+| Tag | `v0.4.0` (2026-11-04) |
+| URL | `https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.4.0/schema/profile.schema.json` |
+| Schema version | `v1.16` (the schema's own `$id`) |
+| sha256 | `d6b06b57f1106885ee0467d8aa8009e098b04fe0a5ffad34b97455bc4417fe2f` |
 
 ```sh
-curl -sSfL https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.3.7/schema/profile.schema.json \
+curl -sSfL https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.4.0/schema/profile.schema.json \
   -o profile.schema.json
 sha256sum profile.schema.json          # Linux; macOS: shasum -a 256 profile.schema.json
 ```
 
-A tag is immutable, so a consumer that pins `v0.3.7` and checks the hash gets the
+A tag is immutable, so a consumer that pins `v0.4.0` and checks the hash gets the
 same bytes forever. The tag-pinned raw URL is the only published form: a
 floating ref (`main`) or any private path is refused by the gate and may not
 appear on this surface (AGENTS.md rule 9).
 
-## The current contract — v1.16, not yet published
+## The current contract — v1.16, published
 
-`main` carries schema **v1.16** (additive: `achievements[]`, D24). No tag carries
-these bytes yet, so `current` in `schema/consumer-contract.json` says
-`published: false` with a `note` naming the checkout — a consumer that needs the
-block verifies the sha256 against a checkout until the next release. The last
-published artifact is **v1.15 at `v0.3.7`** (above), which a consumer that does
-not need `achievements[]` can keep using unchanged.
+`main` carries schema **v1.16** (additive: `achievements[]`, D24) and the
+`v0.4.0` tag carries exactly these bytes, so `current` in
+`schema/consumer-contract.json` says `published: true` with the tag-pinned URL,
+and `released` names the same tag. The earlier artifact — **v1.15 at `v0.3.7`** —
+stays valid forever for a consumer that pins it and does not need
+`achievements[]`.
 
 | Field | Value |
 |---|---|
 | Schema version | `v1.16` |
 | sha256 | `d6b06b57f1106885ee0467d8aa8009e098b04fe0a5ffad34b97455bc4417fe2f` |
-| Published artifact | none yet — verify against the checkout (the `note` in the manifest) |
+| Published artifact | the tag-pinned `v0.4.0` URL above |
 
 A profile that declares no `achievements[]` validates identically against `v1.16`
 and `v0.3.7`; the block is additive by construction, and `pasco achievements`

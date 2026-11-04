@@ -1,17 +1,17 @@
 {
-  "$comment": "The profile-contract distribution for consumers WITHOUT the engine (SPEC §7.7, issue #348). `current` is the schema committed on this branch: it has NO published artifact until a release tag carries it — verify its sha256 against a checkout. `released` is the immutable copy at a published git tag. Verified offline by `node scripts/schema-contract/check.mjs --check` (CI); a schema edit without regenerating this file fails. Do not hand-edit the hashes: regenerate with `--write` (docs/SCHEMA-CONTRACT.md).",
+  "$comment": "The profile-contract distribution for consumers WITHOUT the engine (SPEC §7.7, issue #348). `current` is the schema committed on this branch; `published` says whether a tag carries exactly these bytes (`artifact` is the tag-pinned URL when it does; `null` plus a `note` naming the checkout when it does not). `released` is the immutable copy at a published git tag. Verified offline by `node scripts/schema-contract/check.mjs --check` (CI); a schema edit without regenerating this file fails. Do not hand-edit the hashes: regenerate with `--write` (docs/SCHEMA-CONTRACT.md).",
   "schemaPath": "schema/profile.schema.json",
   "current": {
     "schemaVersion": "1.16",
     "sha256": "d6b06b57f1106885ee0467d8aa8009e098b04fe0a5ffad34b97455bc4417fe2f",
-    "published": false,
-    "artifact": null,
-    "note": "The v0.3.7 tag publishes an earlier byte-image of schema v1.15, not these bytes, so there is no tag-pinned URL for this sha256: use the repository checkout at a commit whose schema/profile.schema.json hashes to it. The next release publishes it."
+    "published": true,
+    "artifact": "https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.4.0/schema/profile.schema.json",
+    "note": "Published at v0.4.0 — the tag-pinned URL above identifies these bytes."
   },
   "released": {
-    "tag": "v0.3.7",
-    "url": "https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.3.7/schema/profile.schema.json",
-    "schemaVersion": "1.15",
-    "sha256": "c48296847d99eb2413b7c1dec51e51656f4a4384eb06b7a8955b73c3e9625436"
+    "tag": "v0.4.0",
+    "url": "https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.4.0/schema/profile.schema.json",
+    "schemaVersion": "1.16",
+    "sha256": "d6b06b57f1106885ee0467d8aa8009e098b04fe0a5ffad34b97455bc4417fe2f"
   }
 }

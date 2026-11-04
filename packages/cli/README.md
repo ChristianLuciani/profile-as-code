@@ -437,10 +437,10 @@ is frozen in SPEC §7.5.
 **A consumer that only needs to validate** does not need this package at all: the
 released schema is published as a tag-pinned URL + sha256 in
 [the consumer contract](https://github.com/ChristianLuciani/profile-as-code/blob/main/schema/consumer-contract.json).
-This CLI releases schema **v1.16** at tag `v0.4.0`, so the tag-pinned artifact is
-`https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.4.0/schema/profile.schema.json`
-(the tag is the release trigger, so it exists before this tarball is published). A
-consumer that needs `achievements[]` reads that tag; one that does not can keep pinning
+The schema this package releases is **v1.16, published at tag `v0.4.0`**: the
+consumer contract's `released` block carries the tag-pinned URL and sha256
+(`https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.4.0/schema/profile.schema.json`).
+A consumer that needs `achievements[]` pins that tag; one that does not can keep pinning
 `v0.3.7` unchanged. The reading guide is
 [the schema contract reading guide](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SCHEMA-CONTRACT.md) —
 including what structural validation does **not** cover (the cross-file
