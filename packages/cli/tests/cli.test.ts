@@ -208,6 +208,53 @@ describe("surface", () => {
     expect(section5).toContain("**overwrites** it");
   });
 
+  // #422: a reader learned the channel split only by provoking the usage error
+  // (`no short post skill for "devto"`). The split is shipped data, so the help
+  // and the guide name it. Both sets are read from the skills tree here, so a
+  // channel added later fails this test the day it ships — the surfaces cannot
+  // drift from the tree in silence.
+  it("post --help and USER-GUIDE §Posts name the short and long-form channel sets (#422)", () => {
+    const skillsRoot = join(__dirname, "..", "..", "..", "skills");
+    const channelsWith = (file: string): string[] =>
+      readdirSync(skillsRoot, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory() && existsSync(join(skillsRoot, entry.name, file)))
+        .map((entry) => entry.name)
+        .sort();
+    const short = channelsWith("posting.yaml");
+    const longform = channelsWith("longform.yaml");
+    expect(short).toEqual(["linkedin", "x"]);
+    expect(longform.length).toBeGreaterThan(0);
+    expect(short.filter((channel) => longform.includes(channel))).toEqual([]);
+
+    const names = (text: string, list: string[], label: string): void => {
+      for (const channel of list) {
+        expect(text, `${label} names "${channel}"`).toMatch(
+          new RegExp(`(?<![\\w-])${channel}(?![\\w-])`, "u"),
+        );
+      }
+    };
+
+    const help = run(["post", "--help"]);
+    expect(help.code).toBe(0);
+    const flatHelp = help.stdout.replace(/\s+/gu, " ");
+    const shortAt = flatHelp.indexOf("The short rules ship for");
+    expect(shortAt).toBeGreaterThanOrEqual(0);
+    names(flatHelp.slice(shortAt, flatHelp.indexOf(".", shortAt)), short, "post --help");
+    const longAt = flatHelp.indexOf("long-form:");
+    expect(longAt).toBeGreaterThanOrEqual(0);
+    names(flatHelp.slice(longAt, flatHelp.indexOf(".", longAt)), longform, "post --help");
+
+    const guide = readFileSync(join(__dirname, "..", "..", "..", "docs", "USER-GUIDE.md"), "utf8");
+    const posts = guide.slice(
+      guide.indexOf("### Posts (`pasco post`, experimental)"),
+      guide.indexOf("### Keep `CHANGELOG.md` and tags honest"),
+    );
+    const flatPosts = posts.replace(/\s+/gu, " ");
+    const guideShortAt = flatPosts.indexOf("The short rules ship for");
+    expect(guideShortAt, "USER-GUIDE §Posts declares the split").toBeGreaterThanOrEqual(0);
+    names(flatPosts.slice(guideShortAt), [...short, ...longform], "USER-GUIDE §Posts");
+  });
+
   it("exit 2 on unknown command", () => {
     const r = run(["frobnicate"]);
     expect(r.code).toBe(2);

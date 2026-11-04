@@ -96,6 +96,13 @@ minor versions may contain breaking contract changes.
 
 ### Fixed
 
+- **`post --help` names which channels ship short rules and which are long-form
+  (#422)** — `pasco post task <id> --channel devto` exited `2` naming the file it
+  wanted, so a reader learned the split by provoking the error. The help and
+  `docs/USER-GUIDE.md` §Posts now name the short-rule channels (`linkedin`, `x`)
+  and the long-form set (`devto`, `ghost`, `hashnode`, `listmonk`, `medium`,
+  `substack`, `wordpress`); no flag and no runtime discovery. A test reads both
+  sets from `skills/`, so a channel added later fails CI instead of drifting.
 - **The engine floor is declared at birth, and an old engine's failure names the
   upgrade (#434)** — `pasco init` now writes `"engine": "<installed CLI version>"`
   into `.pascorc` (in the gate's `MAJOR.MINOR.PATCH` grammar), so a scaffolded
