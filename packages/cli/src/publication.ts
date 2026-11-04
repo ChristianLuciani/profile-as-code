@@ -54,6 +54,7 @@ import type {
 } from "@profile-as-code/core";
 import { collectMedia, compile, LANGS, PLATFORMS } from "@profile-as-code/core";
 import { pasteSource } from "@profile-as-code/paste";
+import { capCatalog } from "./check-catalog.js";
 import { RENDERERS } from "./generated/renderers.gen.js";
 import { type LimitFinding, limitFindings } from "./limits.js";
 import { resolveVariantBody } from "./variant-store.js";
@@ -286,7 +287,11 @@ export function publicationTruth(args: {
   workspace: string;
   profile: LoadedProfile;
   reportData: LedgerReport;
-  /** The workspace's check rows (`content/checks.yaml` ∪ the shipped catalog). */
+  /** The cap rows measured: the workspace's `content/` catalog (conventionally
+   *  `checks.yaml`), else the conservative catalog shipped with the package
+   *  (#240) — `publicationOfCaller` picks the same source for `status` and
+   *  `status --verify`. The skills catalog is NOT merged in: it declares which
+   *  premises run, not which caps apply. */
   checks: LoadedProfile["checks"];
   lang: Lang;
   completenessPolicy?: CompletenessPolicyConfig;
@@ -354,7 +359,7 @@ export function publicationOfCaller(
   reportData: LedgerReport,
   defaultChecks: LoadedProfile["checks"],
 ): PublicationTruth[] {
-  const checks = profile.checks.length > 0 ? profile.checks : defaultChecks;
+  const checks = capCatalog(profile, defaultChecks);
   return publicationTruth({
     workspace: args.workspace,
     profile,

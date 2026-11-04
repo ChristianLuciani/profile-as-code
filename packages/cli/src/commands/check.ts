@@ -2,11 +2,14 @@
  * pasco check [platform]
  *
  * Runs the deterministic, offline rules NOW (brand handle matrix, v1.1/§17) and
- * reports the user's declarative checks from content/checks.yaml (the
- * schema-validated catalog) per platform. The offline limit slice (#240) now
- * executes `max-chars` / `min-chars` over the headline/bio rows that exist;
- * the remaining catalog (live links, fact presence) ships with the skills
- * checks.yaml union (M3) + the full `pasco check` (M4, SPEC §7).
+ * reports the declarative checks the workspace declares in its `content/`
+ * catalog (conventionally `content/checks.yaml`; the schema-validated catalog)
+ * per platform — or, when it declares none, the conservative caps shipped with
+ * the package (#240), saying so. The
+ * offline limit slice (#240) now executes `max-chars` / `min-chars` over the
+ * headline/bio rows that exist; the remaining catalog (live links, fact presence)
+ * is declared by the skills checks.yaml union (M3) and executed with the full
+ * `pasco check` (M4, SPEC §7).
  *
  * Brand flavor (D15/§17): `handle-claimed` and `handle-consistent` are executed
  * here — drift's handle codes (duplicate-handle, handle-claimed-not-linked,
@@ -29,6 +32,7 @@ import {
   registryCheck,
   SchemaValidationError,
 } from "@profile-as-code/core";
+import { capCatalog, catalogLabel, catalogSource } from "../check-catalog.js";
 import { parsePlatform } from "../contract.js";
 import { DEFAULT_CHECKS } from "../default-checks.js";
 import { EXIT } from "../exit.js";
@@ -101,8 +105,8 @@ export function buildCheckReport(args: {
 }): CheckReport {
   const { workspace, profile, platform } = args;
   // A workspace that predates the catalog (or deliberately has no file) still
-  // gets the conservative defaults; the dogfood case must not stay silent.
-  const baseChecks = profile.checks.length > 0 ? profile.checks : DEFAULT_CHECKS;
+  // gets the conservative defaults; `check-catalog` owns which source applies.
+  const baseChecks = capCatalog(profile, DEFAULT_CHECKS);
   const checks = baseChecks.filter(
     (c) => platform === undefined || c.platform === "all" || c.platform === platform,
   );
@@ -297,8 +301,11 @@ export function runCheck(args: CheckArgs): number {
   line(
     "pasco check: the offline rules above ran — evidence registry, media transport, text limits, surface facts, and (for brand) the handle matrix.",
   );
+  // Name the SOURCE, never the file: `load()` merges content/*.y(a)ml by root
+  // property and reports no source, so `content/checks.yaml` was a claim the
+  // engine cannot make (false for an empty file, false for `checks.yml`).
   section(
-    `user checks (content/checks.yaml, schema-validated catalog)${platform !== undefined ? ` for ${platform}` : ""}: ${checks.length}`,
+    `${catalogLabel(catalogSource(profile))}${platform !== undefined ? ` for ${platform}` : ""}: ${checks.length}`,
   );
   for (const c of checks) {
     const note = c.note !== undefined ? ` note="${c.note}"` : "";

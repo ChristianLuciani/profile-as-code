@@ -96,6 +96,26 @@ minor versions may contain breaking contract changes.
 
 ### Fixed
 
+- **`check` and `preview` name the catalog they actually read (dogfood
+  2026-11-04)** — on a real workspace with no `content/checks.yaml`
+  (`profile-data`), `check` printed `user checks (content/checks.yaml,
+  schema-validated catalog)` over the four rows of `DEFAULT_CHECKS`, and
+  `preview` captioned the same rows `declared limits (content/checks.yaml)`: two
+  published surfaces attributing the caps to a file the engine never read — the
+  provenance class #455 closed in the docs, still live in runtime output.
+  `load()` merges every `content/*.y{a,}ml` by root property and reports no
+  source, so a filename is a claim the engine cannot make (false for an empty
+  `checks.yaml`, false for a workspace using `checks.yml`). The rule "the
+  workspace's catalog, else the package's conservative caps (#240)" now has ONE
+  home (`check-catalog.ts`) instead of four copied ternaries, and every surface
+  derives its wording from `catalogSource()`: `check` says `workspace checks
+  (declared in content/, …)` or `workspace checks: none declared — the
+  conservative caps shipped with pasco apply (#240)`; `preview`'s table captions
+  `declared limits (content/)` or `declared limits (caps shipped with pasco,
+  #240)`. Tests cover the four states — declared, absent, an empty file, and rows
+  in `checks.yml` — and assert that no surface prints `content/checks.yaml`.
+  Values, `check --json` and every exit code are unchanged; the only payload
+  movement is `preview --json`'s `bytes` (the caption's own length).
 - **`post --help` names which channels ship short rules and which are long-form
   (#422)** — `pasco post task <id> --channel devto` exited `2` naming the file it
   wanted, so a reader learned the split by provoking the error. The help and

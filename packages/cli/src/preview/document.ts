@@ -26,6 +26,7 @@
  */
 
 import { Marked } from "marked";
+import type { CatalogSource } from "../check-catalog.js";
 
 /** An asset the preview inlined: deploy-relative target → inline bytes. */
 export interface PreviewAsset {
@@ -55,7 +56,7 @@ export interface PreviewSection {
   notes: readonly string[];
 }
 
-/** A declared limit row (`content/checks.yaml`): the cap that applies where. */
+/** A declared limit row (`content/`, conventionally `checks.yaml`): the cap that applies where. */
 export interface PreviewLimit {
   platform: string;
   rule: string;
@@ -92,6 +93,8 @@ export interface PreviewDocument {
   omitted: readonly OmittedAsset[];
   checks: readonly PreviewCheckFinding[];
   limits: readonly PreviewLimit[];
+  /** Where `limits` came from — the workspace catalog, or the package defaults. */
+  limitsSource: CatalogSource;
   warnings: readonly string[];
 }
 
@@ -229,6 +232,7 @@ function renderSection(section: PreviewSection, assets: ReadonlyMap<string, Prev
 function renderChecks(
   checks: readonly PreviewCheckFinding[],
   limits: readonly PreviewLimit[],
+  limitsSource: CatalogSource,
 ): string {
   const errors = checks.filter((c) => c.severity === "error").length;
   const warns = checks.length - errors;
@@ -247,7 +251,7 @@ function renderChecks(
     <span class="tag">${errors} error(s) · ${warns} warning(s)</span>
     <span class="path">the same offline rules pasco check runs</span>
   </header>
-  <div class="body">${renderLimits(limits)}${rows}</div>
+  <div class="body">${renderLimits(limits, limitsSource)}${rows}</div>
 </section>`;
 }
 
@@ -270,9 +274,13 @@ function renderUnpublished(items: readonly UnpublishedSurface[]): string {
 }
 
 /** The declared caps, so "with its limits" is a table and not a footnote. */
-function renderLimits(limits: readonly PreviewLimit[]): string {
+function renderLimits(limits: readonly PreviewLimit[], source: CatalogSource): string {
   if (limits.length === 0) return "";
-  return `<table class="limits"><caption>declared limits (content/checks.yaml)</caption><thead><tr><th>platform</th><th>rule</th><th>value</th></tr></thead><tbody>${limits
+  const caption =
+    source === "workspace"
+      ? "declared limits (content/)"
+      : "declared limits (caps shipped with pasco, #240)";
+  return `<table class="limits"><caption>${caption}</caption><thead><tr><th>platform</th><th>rule</th><th>value</th></tr></thead><tbody>${limits
     .map(
       (l) =>
         `<tr><td><code>${escapeHtml(l.platform)}</code></td><td>${escapeHtml(l.rule)}</td><td><code>${escapeHtml(l.value)}</code></td></tr>`,
@@ -323,7 +331,7 @@ export function renderPreviewDocument(doc: PreviewDocument): string {
 <main>
 ${doc.sections.map((s) => renderSection(s, assets)).join("\n")}
 ${renderUnpublished(doc.unpublished)}
-${renderChecks(doc.checks, doc.limits)}
+${renderChecks(doc.checks, doc.limits, doc.limitsSource)}
 ${warnings}
 ${
   omitted === ""

@@ -55,6 +55,7 @@ import {
   selectionErrorMessage,
   selectionFindings,
 } from "../artifact-render.js";
+import { capCatalog } from "../check-catalog.js";
 import type { EditAddress, EditListBlock } from "../contract.js";
 import {
   bioAddress,
@@ -830,7 +831,7 @@ function limitPreflight(
     return { limit, length, over: length > limit.cap, enforced: true };
   }
   const surface = address.kind === "bio" ? "bio" : "headline";
-  const checks = profile.checks.length > 0 ? profile.checks : DEFAULT_CHECKS;
+  const checks = capCatalog(profile, DEFAULT_CHECKS);
   const limit = applicableLimit(checks, address.platform, surface);
   return {
     ...(limit === undefined ? {} : { limit }),
@@ -889,7 +890,7 @@ function warningsForEdit(
     );
   }
   if (address.kind === "headline" || address.kind === "bio") {
-    const checks = profile.checks.length > 0 ? profile.checks : DEFAULT_CHECKS;
+    const checks = capCatalog(profile, DEFAULT_CHECKS);
     for (const finding of limitFindings(profile, checks, address.platform)) {
       if (finding.message.includes("non-numeric")) out.push(finding.message);
     }

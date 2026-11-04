@@ -1015,7 +1015,7 @@ describe("pasco refine (partial: template + record)", () => {
 });
 
 describe("pasco check (offline rules) + pasco skills:export (shipped skills)", () => {
-  it("lists the user checks from the schema-validated catalog", () => {
+  it("lists the workspace checks from the schema-validated catalog", () => {
     const r = run(["check", "github-readme", "--workspace", MINIMAL]);
     expect(r.code).toBe(0);
     expect(r.stdout).toContain("evidence registry"); // registry checks execute offline
@@ -1027,6 +1027,56 @@ describe("pasco check (offline rules) + pasco skills:export (shipped skills)", (
     expect(r.stdout).not.toMatch(/\bM[3-8]\b/);
     expect(r.stdout).not.toContain("SPEC §");
     expect(r.stdout).not.toContain("D17");
+  });
+
+  // Dogfood 2026-11-04 (profile-data, no `content/checks.yaml`): the report
+  // printed "user checks (content/checks.yaml, …)" over the package's defaults —
+  // a published surface naming a file it never read. `load()` merges every
+  // content/*.y(a)ml by root property and reports no source, so the report names
+  // the SOURCE and never a filename (false for an empty file, false for .yml).
+  it("names the catalog source, never a filename it cannot know (#dogfood)", () => {
+    const declared = run(["check", "github-readme", "--workspace", MINIMAL]);
+    expect(declared.code).toBe(0);
+    expect(declared.stdout).toContain(
+      "workspace checks (declared in content/, schema-validated catalog)",
+    );
+    expect(declared.stdout).not.toContain("content/checks.yaml");
+
+    const noFile = join(tempDir(), "ws-no-catalog");
+    expect(run(["init", noFile]).code).toBe(0);
+    rmSync(join(noFile, "content", "checks.yaml"));
+    const defaults = run(["check", "github-readme", "--workspace", noFile]);
+    expect(defaults.code).toBe(0);
+    expect(defaults.stdout).toContain("none declared");
+    expect(defaults.stdout).toContain("conservative caps shipped with pasco apply (#240)");
+    // The rows really are the package's catalog…
+    expect(defaults.stdout).toContain("github-readme-headline-max");
+    // …and no filename is claimed, present or absent.
+    expect(defaults.stdout).not.toContain("content/checks.yaml");
+
+    // A file that declares zero rows still reads as "none declared" — same source.
+    const emptyFile = join(tempDir(), "ws-empty-catalog");
+    expect(run(["init", emptyFile]).code).toBe(0);
+    writeFileSync(join(emptyFile, "content", "checks.yaml"), "");
+    const empty = run(["check", "github-readme", "--workspace", emptyFile]);
+    expect(empty.code).toBe(0);
+    expect(empty.stdout).toContain("none declared");
+    expect(empty.stdout).not.toContain("content/checks.yaml");
+
+    // Rows in checks.yml (the loader accepts *.yml) are the workspace's, and are
+    // never attributed to checks.yaml.
+    const yml = join(tempDir(), "ws-yml-catalog");
+    expect(run(["init", yml]).code).toBe(0);
+    rmSync(join(yml, "content", "checks.yaml"));
+    writeFileSync(
+      join(yml, "content", "checks.yml"),
+      "- id: yml-cap\n  platform: github-readme\n  rule: max-chars\n  value: 120\n",
+    );
+    const ymlRun = run(["check", "github-readme", "--workspace", yml]);
+    expect(ymlRun.code).toBe(0);
+    expect(ymlRun.stdout).toContain("declared in content/");
+    expect(ymlRun.stdout).toContain("yml-cap");
+    expect(ymlRun.stdout).not.toContain("content/checks.yaml");
   });
 
   it("ships a default cap catalog that fires on the #240 repro (surface-scoped)", () => {
