@@ -437,11 +437,10 @@ is frozen in SPEC §7.5.
 **A consumer that only needs to validate** does not need this package at all: the
 released schema is published as a tag-pinned URL + sha256 in
 [the consumer contract](https://github.com/ChristianLuciani/profile-as-code/blob/main/schema/consumer-contract.json).
-The released artifact today is schema **v1.15 at tag `v0.3.7`**; the manifest's
-`current` block is one minor ahead (schema **v1.16**, `published: false`,
-`artifact: null`) because no tag carries those bytes yet. A consumer that needs
-`achievements[]` must use the checkout and verify its sha256 until the next
-release; a consumer that does not can keep pinning `v0.3.7` unchanged. The reading guide is
+The schema this CLI ships is **v1.16, released at tag `v0.4.0`**: the consumer
+contract's `released` block carries the tag-pinned URL and sha256 (the tag is the
+release trigger, so it exists before this tarball is published). A consumer that needs
+`achievements[]` reads that tag; one that does not can keep pinning `v0.3.7` unchanged. The reading guide is
 [the schema contract reading guide](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SCHEMA-CONTRACT.md) —
 including what structural validation does **not** cover (the cross-file
 invariants core re-checks, engine behavior, `.pascorc` and this payload's
