@@ -97,6 +97,26 @@ describe("pasco release plan", () => {
     expect(baseText.map((entry) => entry.kind)).toEqual(["repo-meta", "profile", "distribution"]);
   });
 
+  it("carries each row's order and prints the same numbers in ORDER (#421)", () => {
+    const machine = run(["release", "plan", "--json", "--workspace", RELEASES]);
+    const human = run(["release", "plan", "--workspace", RELEASES]);
+    expect(machine.code).toBe(0);
+    expect(human.code).toBe(0);
+    const surfaces = (
+      json(machine).data as { surfaces: { order: number; kind: string; surface: string }[] }
+    ).surfaces;
+    expect(surfaces.map((row) => row.order)).toEqual([1, 2, 3, 4]);
+    surfaces.forEach((row, index) => {
+      expect(row.order).toBe(index + 1);
+    });
+    // The human ORDER column is the same datum, not a second computation.
+    const humanRows = [
+      ...human.stdout.matchAll(/^\s*(\d+)\s+(repo-meta|profile|distribution)\s+(\S+)/gm),
+    ].map((m) => ({ order: Number(m[1]), kind: m[2], surface: m[3] }));
+    expect(humanRows.map((row) => row.order)).toEqual(surfaces.map((row) => row.order));
+    expect(humanRows.map((row) => row.surface)).toEqual(surfaces.map((row) => row.surface));
+  });
+
   it("addresses a release by id", () => {
     const result = run(["release", "plan", "v0-2-0", "--json", "--workspace", RELEASES]);
     expect(result.code).toBe(0);

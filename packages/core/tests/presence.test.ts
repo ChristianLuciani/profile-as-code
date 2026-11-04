@@ -58,6 +58,14 @@ describe("releasePlan — the ordered fan-out", () => {
     ]);
   });
 
+  it("numbers every row 1..n, equal to its array position (#421)", () => {
+    const plan = releasePlan(load(RELEASES));
+    expect(plan.surfaces.map((row) => row.order)).toEqual([1, 2, 3, 4]);
+    plan.surfaces.forEach((row, index) => {
+      expect(row.order).toBe(index + 1);
+    });
+  });
+
   it("derives its state from the §19 ledger, never a second model", () => {
     const plan = releasePlan(load(RELEASES));
     const state = (surface: string) => plan.surfaces.find((row) => row.surface === surface)?.state;

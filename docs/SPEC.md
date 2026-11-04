@@ -1198,7 +1198,7 @@ the §19 ledger; neither writes, fetches or reads a clock.
 {
   "release": { "id": "v0-3-0", "version": "0.3.0", "date": "2026-10-28",
                "summary": "…", "changedUnits": ["identity"] },
-  "surfaces": [ { "surface": "github-repo-meta", "kind": "repo-meta",
+  "surfaces": [ { "order": 1, "surface": "github-repo-meta", "kind": "repo-meta",
                   "state": "never", "missingUnits": [], "unknownUnits": [] } ],
   "baseText": [ { "kind": "repo-meta", "text": "What shipped: v0.3.0 (…)" } ]
 }
@@ -1215,7 +1215,10 @@ the §19 ledger; neither writes, fetches or reads a clock.
   tells the operator to fix a row that is correct.
 - **Order** is kind rank `repo-meta` → `profile` → `distribution`, then slug. The
   artifact's metadata precedes the identity bodies, which precede the
-  announcements.
+  announcements. Each row carries that position as a 1-based additive `order`
+  field (#421): the same number the human plan prints in its ORDER column, so a
+  consumer reads it instead of counting array indices. The array order is
+  unchanged — `order` names it, it does not replace it.
 - **`baseText`** is the per-kind FACTUAL SPINE (`version · date · summary`) — not
   announcement copy. The copy per channel lives in `skills/` (rule 7 + D9).
 - **Refusals (`release plan`)**: a workspace with no `releases[]`, an unknown

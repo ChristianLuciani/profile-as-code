@@ -83,6 +83,14 @@ export interface ReleaseSurface {
   unknownUnits: string[];
 }
 
+/** A plan row: the derived state plus its 1-based fan-out position. `order` is
+ *  the SAME number the human plan prints in its ORDER column (#421), so a
+ *  machine consumer reads it instead of counting array indices — an implicit
+ *  contract a consumer can get wrong. Additive: the array order is unchanged. */
+export interface ReleasePlanSurface extends ReleaseSurface {
+  order: number;
+}
+
 export interface BaseText {
   kind: SurfaceKind;
   /** The factual spine: `"<frame>: v<version> (<date>) — <summary.en | id>"`. */
@@ -97,8 +105,9 @@ export interface ReleasePlan {
     summary: string;
     changedUnits: string[];
   };
-  /** Ordered by kind (repo-meta → profile → distribution), then slug. */
-  surfaces: ReleaseSurface[];
+  /** Ordered by kind (repo-meta → profile → distribution), then slug; each row
+   *  carries its 1-based `order` (the human ORDER column, #421). */
+  surfaces: ReleasePlanSurface[];
   /** One entry per kind PRESENT in `surfaces`, in fan-out order. */
   baseText: BaseText[];
 }
@@ -238,7 +247,7 @@ export function selectRelease(profile: LoadedProfile, id?: string): Release {
 export function releasePlan(profile: LoadedProfile, id?: string): ReleasePlan {
   const release = selectRelease(profile, id);
   const unitHashes = unitHashMap(profile);
-  const surfaces: ReleaseSurface[] = release.surfaces
+  const surfaces: ReleasePlanSurface[] = release.surfaces
     .map((surface) => {
       const kind = kindOf(surface);
       return {
@@ -247,7 +256,8 @@ export function releasePlan(profile: LoadedProfile, id?: string): ReleasePlan {
         ...surfaceState(profile, release, surface, unitHashes),
       };
     })
-    .sort(compareSurfaces);
+    .sort(compareSurfaces)
+    .map((row, index) => ({ order: index + 1, ...row }));
   const summary = release.summary?.en ?? release.id;
   const kinds: SurfaceKind[] = [];
   for (const row of surfaces) if (!kinds.includes(row.kind)) kinds.push(row.kind);
