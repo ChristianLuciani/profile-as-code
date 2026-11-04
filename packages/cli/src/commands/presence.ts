@@ -155,8 +155,8 @@ export function runReleasePlan(args: ReleasePlanArgs): number {
     `Release plan v${plan.release.version} (${plan.release.date}) · ${plan.release.id} — ${plan.release.summary}`,
   );
   line("ORDER  KIND            SURFACE               STATE");
-  plan.surfaces.forEach((row, index) => {
-    const order = String(index + 1).padStart(5);
+  plan.surfaces.forEach((row) => {
+    const order = String(row.order).padStart(5);
     line(`${order}  ${row.kind.padEnd(15)} ${row.surface.padEnd(21)} ${row.state}`);
     // Two distinct causes, named as what they are (#408): a key that resolves
     // to no SSOT unit IS a defect in the release row; a valid unit with no

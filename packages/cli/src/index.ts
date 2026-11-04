@@ -691,7 +691,8 @@ the command prints the per-kind FACTUAL SPINE derived from the release row
 shipped per-platform skills, never in the engine (rule 7).
 <release-id> selects a release; absent = the newest by date (then id).
 --json emits { schemaVersion: "1", release, surfaces, baseText } inside the
-usual envelope.
+usual envelope; every surfaces[] row carries its 1-based \`order\`, the same
+number the human ORDER column prints (issue #421).
 Exit: 0 a successful read · 1 the workspace does not load, declares no
 releases[], the id is not declared, or a surface is not in the registry ·
 2 usage (a subcommand other than plan).`,

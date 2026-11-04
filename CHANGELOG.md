@@ -11,6 +11,13 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **`release plan --json` carries `order` on every row (#421, SPEC §7.8)** — the
+  human plan prints a 1-based ORDER column, but the machine payload had no
+  equivalent: a consumer had to count array indices to reproduce it, an implicit
+  contract it could get wrong. Each `surfaces[]` row now carries `order`
+  (1..n, the array position), and the human column reads the same field instead
+  of recomputing `index + 1`. Additive: the array order is unchanged and no
+  consumer breaks.
 - **`discover --observations` — the human reads the surface the machine cannot
   (#412, SPEC §7.10)** — `discover` reads only schema.org `Person`/`Organization`
   JSON-LD, which a prospect's real surfaces do not publish (measured at `4560ae1`:
