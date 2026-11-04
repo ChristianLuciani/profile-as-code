@@ -423,7 +423,7 @@ The five versions published outside the workflow still carry no attestation and
 never will (`/-/npm/v1/attestations/@profile-as-code/<pkg>@<version>` → 404); that
 stays dated history, and the first *cohort* publish is now on the record above.
 
-**The v0.4.0 release (2026-11-04 — issues #313/#421):** the tag `v0.4.0` →
+**The v0.4.0 release (2026-11-04 — issues #313/#377):** the tag `v0.4.0` →
 `ec1be50` bumped `core` to 0.1.3 and the CLI to 0.4.0, and the tag push run
 [`41893949949`](https://github.com/ChristianLuciani/profile-as-code/actions/runs/41893949949)
 was **green in one attempt** — the first cycle that needed no dispatch retry once
