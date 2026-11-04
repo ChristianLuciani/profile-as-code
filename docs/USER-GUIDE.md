@@ -855,7 +855,7 @@ row in `packages/cli/tests/edit.test.ts` (the write-path rows at the writer seam
 `pasco edit` pre-flights **the value you are about to write** against the same
 catalogue and prints the cap with its cited source and tier; over-cap is a
 **warning, never a block** (the write still happens, because a fact that warns must
-not block — D12). A platform with **no sourced cap** prints `cap: unknown` instead
+not block — D12). A platform with **no sourced cap** prints `cap unknown` instead
 of a guessed number. The `--check` render carries the same warning, so `edit` and
 `check` never disagree about a cap.
 
