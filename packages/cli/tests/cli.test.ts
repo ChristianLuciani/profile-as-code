@@ -209,12 +209,14 @@ describe("surface", () => {
   });
 
   // #422: a reader learned the channel split only by provoking the usage error
-  // (`no short post skill for "devto"`). The split is shipped data, so the help
-  // and the guide name it. Both sets are read from the skills tree here, so a
-  // channel added later fails this test the day it ships — the surfaces cannot
-  // drift from the tree in silence.
-  it("post --help and USER-GUIDE §Posts name the short and long-form channel sets (#422)", () => {
-    const skillsRoot = join(__dirname, "..", "..", "..", "skills");
+  // (`no short post skill for "devto"`). The split is shipped data, so every
+  // surface that states it is pinned against the skills tree — and the compare
+  // is by SET EQUALITY in both directions, not by presence: a surface that keeps
+  // a renamed or deleted channel (or invents one) fails CI just as loudly as a
+  // surface that omits a channel the tree ships.
+  it("every surface that states the post channel split names exactly the shipped sets (#422)", () => {
+    const root = join(__dirname, "..", "..", "..");
+    const skillsRoot = join(root, "skills");
     const channelsWith = (file: string): string[] =>
       readdirSync(skillsRoot, { withFileTypes: true })
         .filter((entry) => entry.isDirectory() && existsSync(join(skillsRoot, entry.name, file)))
@@ -226,33 +228,82 @@ describe("surface", () => {
     expect(longform.length).toBeGreaterThan(0);
     expect(short.filter((channel) => longform.includes(channel))).toEqual([]);
 
-    const names = (text: string, list: string[], label: string): void => {
-      for (const channel of list) {
-        expect(text, `${label} names "${channel}"`).toMatch(
-          new RegExp(`(?<![\\w-])${channel}(?![\\w-])`, "u"),
-        );
-      }
-    };
-
+    const read = (rel: string): string => readFileSync(join(root, rel), "utf8");
     const help = run(["post", "--help"]);
     expect(help.code).toBe(0);
-    const flatHelp = help.stdout.replace(/\s+/gu, " ");
-    const shortAt = flatHelp.indexOf("The short rules ship for");
-    expect(shortAt).toBeGreaterThanOrEqual(0);
-    names(flatHelp.slice(shortAt, flatHelp.indexOf(".", shortAt)), short, "post --help");
-    const longAt = flatHelp.indexOf("long-form:");
-    expect(longAt).toBeGreaterThanOrEqual(0);
-    names(flatHelp.slice(longAt, flatHelp.indexOf(".", longAt)), longform, "post --help");
 
-    const guide = readFileSync(join(__dirname, "..", "..", "..", "docs", "USER-GUIDE.md"), "utf8");
-    const posts = guide.slice(
-      guide.indexOf("### Posts (`pasco post`, experimental)"),
-      guide.indexOf("### Keep `CHANGELOG.md` and tags honest"),
-    );
-    const flatPosts = posts.replace(/\s+/gu, " ");
-    const guideShortAt = flatPosts.indexOf("The short rules ship for");
-    expect(guideShortAt, "USER-GUIDE §Posts declares the split").toBeGreaterThanOrEqual(0);
-    names(flatPosts.slice(guideShortAt), [...short, ...longform], "USER-GUIDE §Posts");
+    interface Split {
+      label: string;
+      text: string;
+      /** [start, end] markers around the short list. */
+      shortAt: [string, string];
+      /** [start, end] markers around the long-form list. */
+      longAt: [string, string];
+      /** Backticked channel names (Markdown), or a plain comma list (CLI help). */
+      markdown: boolean;
+    }
+
+    const surfaces: Split[] = [
+      {
+        label: "post --help",
+        text: help.stdout,
+        shortAt: ["Short rules ship for:", "\n"],
+        longAt: ["Long-form rules ship for:", "\n"],
+        markdown: false,
+      },
+      {
+        label: "USER-GUIDE §Posts",
+        text: read("docs/USER-GUIDE.md"),
+        shortAt: ["The short rules ship for", ";"],
+        longAt: ["the long-form rules ship for", ", and they need"],
+        markdown: true,
+      },
+      {
+        label: "TUTORIAL M20",
+        text: read("docs/TUTORIAL.md"),
+        shortAt: ["Short rules exist only for", ";"],
+        longAt: ["long-form (", "), and"],
+        markdown: true,
+      },
+      {
+        label: "docs/post-mvp.md",
+        text: read("docs/post-mvp.md"),
+        shortAt: ["**Short channels**:", "(`posting.yaml`)"],
+        longAt: ["**Long-form channels**:", "(`longform.yaml`)"],
+        markdown: true,
+      },
+      {
+        label: "skills/README.md",
+        text: read("skills/README.md"),
+        shortAt: ["(`posting.yaml`):", " —"],
+        longAt: ["(`longform.yaml`, #266):", " —"],
+        markdown: true,
+      },
+    ];
+
+    const listAt = (surface: Split, [start, end]: [string, string], what: string): string[] => {
+      const from = surface.text.indexOf(start);
+      expect(
+        from,
+        `${surface.label} declares the ${what} list ("${start}")`,
+      ).toBeGreaterThanOrEqual(0);
+      const to = surface.text.indexOf(end, from + start.length);
+      expect(to, `${surface.label} closes the ${what} list ("${end}")`).toBeGreaterThan(from);
+      const body = surface.text.slice(from + start.length, to);
+      return (
+        surface.markdown
+          ? [...body.matchAll(/`([a-z][a-z0-9-]*)`/gu)].map((match) => match[1] as string)
+          : body.split(",")
+      )
+        .map((channel) => channel.trim())
+        .filter((channel) => channel !== "")
+        .sort();
+    };
+
+    for (const surface of surfaces) {
+      expect(listAt(surface, surface.shortAt, "short"), surface.label).toEqual(short);
+      expect(listAt(surface, surface.longAt, "long-form"), surface.label).toEqual(longform);
+    }
   });
 
   it("exit 2 on unknown command", () => {

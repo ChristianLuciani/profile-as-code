@@ -594,9 +594,10 @@ overlaid, nothing is deleted). No harness-specific destination is invented.`,
   post: `pasco post <seed|task|choose|check|export|import|list> [...] [--json] [--workspace <path>]
 MVP (week-1 experiment): a post is a PROJECTION of a seed, not an identity fact.
 Two seed formats (#266): short (distribution) and longform (the essay/newsletter).
-The short rules ship for linkedin and x; the other channels with post rules are
-long-form: devto, ghost, hashnode, listmonk, medium, substack, wordpress (a channel
-in neither list has no post rule — the usage error names the rule file it wanted).
+Short rules ship for: linkedin, x
+Long-form rules ship for: devto, ghost, hashnode, listmonk, medium, substack, wordpress
+(long-form needs --format longform; short is the default. A channel in neither
+list has no post rule — the usage error names the rule file it wanted.)
   seed <id> --text <file> [--format short|longform]
                                    create posts/<id>/seed.md + post.yaml
   task <id> --channel <c1,c2> [--variants N] [--format short|longform]

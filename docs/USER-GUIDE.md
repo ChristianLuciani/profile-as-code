@@ -792,10 +792,10 @@ files into `imported-*` seeds and records each **published by assumption** —
 prove a historical post was published and stores no URL; no command records one
 yet (re-choosing a variant marks the channel `local-only`), so the field stays
 open until it is filled in `post.yaml` by hand. The short rules ship for
-`linkedin` and `x`; every other channel with post rules is long-form (`devto`,
-`ghost`, `hashnode`, `listmonk`, `medium`, `substack`, `wordpress`), and `task`
-on a channel in neither set exits `2` naming the rule file it expected. The
-walkthrough lives in [the tutorial](TUTORIAL.md) (M20).
+`linkedin` and `x`; the long-form rules ship for `devto`, `ghost`, `hashnode`,
+`listmonk`, `medium`, `substack`, `wordpress`, and they need `--format longform`
+(short is the default). `task` on a channel in neither set exits `2` naming the
+rule file it expected. The walkthrough lives in [the tutorial](TUTORIAL.md) (M20).
 
 ### Keep `CHANGELOG.md` and tags honest
 
