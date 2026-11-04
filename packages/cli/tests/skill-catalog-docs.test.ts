@@ -159,17 +159,16 @@ describe("the shipped catalogs state the premise/cap split (#455)", () => {
     const end = spec.indexOf("## 4. Architecture", start);
     expect(start, "SPEC §3 must exist").toBeGreaterThanOrEqual(0);
     const section = spec.slice(start, end < 0 ? undefined : end);
-    const mentions = section
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.includes("`pasco check`"));
-    expect(mentions, "§3 must name `pasco check` exactly once").toHaveLength(1);
-    const line = mentions[0] as string;
-    expect(line, "§3 must point at the owning row").toContain("§7 `check` row");
-    // A pointer names the row; it does not restate what the row owns. Any
-    // mechanism noun in this line means §3 is a second, drift-prone copy.
-    expect(line, "§3 must not restate the mechanism").not.toMatch(
-      /catalog|char|caps?|premises?|declare|limit/i,
+    // The pointer is the ONLY statement about `pasco check` in §3.
+    expect(section.match(/`pasco check`/g) ?? [], "§3 must name `pasco check` once").toHaveLength(
+      1,
+    );
+    expect(section, "§3 must point at the owning row").toContain("§7 `check` row");
+    // A pointer names the row; it never restates the mechanism. Scan the WHOLE
+    // section, not just the named line: a continuation line is still a second,
+    // drift-prone copy (the exact hole pass 4 found).
+    expect(section, "§3 must not restate the split").not.toMatch(
+      /\b(union|catalogs?|premises?|caps?|max-chars|char|limit|declare[sd]?)\b/i,
     );
   });
 });
