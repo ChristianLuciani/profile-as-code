@@ -12,7 +12,7 @@ skills/<plataforma>/
 ├── research/             # investigación versionada, con fuentes fechadas
 │   └── SOTA-<año>.md
 ├── playbook.md           # pasos de deploy manual + verificación post-pega
-└── checks.yaml           # criterios machine-readable que ejecuta `pasco check`
+└── checks.yaml           # premisas machine-readable: la unión con content/checks.yaml decide qué corre; los caps salen del catálogo del workspace o del paquete (SPEC §7)
 ```
 
 ## División de responsabilidades

@@ -1,5 +1,8 @@
 # checks.yaml — criterios machine-readable para `pasco check kofi`
-# (unión con content/checks.yaml del workspace; misma rule catalog que el schema).
+# Misma rule catalog que el schema; la unión con content/checks.yaml decide qué
+# premisas corren (fact-present) y los caps de caracteres salen del catálogo del
+# workspace o de los defaults del paquete — estas filas de max-chars NO se ejecutan
+# (SPEC §7, pasco check).
 #
 # Fuente de los valores: research/SOTA-2026.md (todas las fuentes fechadas
 # 2026-10-05). Ko-fi NO documenta límite para el About [?] — el max-chars es
