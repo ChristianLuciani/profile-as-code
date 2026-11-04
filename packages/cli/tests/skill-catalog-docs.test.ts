@@ -152,4 +152,16 @@ describe("the shipped catalogs state the premise/cap split (#455)", () => {
     );
     expect(guide).not.toContain("prints `cap: unknown`");
   });
+
+  it("SPEC §3 points at the §7 check row instead of restating the split", () => {
+    const spec = readFileSync(join(REPO_DIR, "docs", "SPEC.md"), "utf8");
+    const start = spec.indexOf("## 3. Success criteria");
+    const end = spec.indexOf("## 4. Architecture", start);
+    expect(start, "SPEC §3 must exist").toBeGreaterThanOrEqual(0);
+    const section = spec.slice(start, end < 0 ? undefined : end);
+    expect(section, "§3 must not restate the union").not.toMatch(
+      /runs skill-declared checks|char limits, live links, fact presence|never the char\s+caps/,
+    );
+    expect(section, "§3 points at the owning row").toContain("§7 `check` row");
+  });
 });
