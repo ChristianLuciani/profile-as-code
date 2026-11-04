@@ -63,7 +63,9 @@ not only "is my profile consistent?".
 ## 3. Success criteria (v1)
 
 - `pasco build` renders all platforms from one YAML workspace; `pasco validate` rejects schema violations,
-  warns on drift/geo (facts); `pasco check` runs skill-declared checks (char limits, live links, fact presence).
+  warns on drift/geo (facts); `pasco check` runs the premises the skill catalogs declare, never the char
+  caps — those come from the workspace catalog when it declares checks (the whole catalog wins, never merged
+  row by row) or the package defaults.
 - `pasco refine <platform> [--lang] [--variants N]` produces N text variants, **agent-driven and
   model-agnostic** (the executing agent's model — AionUi, OpenHands, Claude Code, Cursor…). The chosen
   variant is committed and marked as active. A dedicated model router stays a user choice: the engine
@@ -403,8 +405,9 @@ interface Renderer {
                                           // must equal pasco.deploySpec (CI-asserted, #165)
 }
 
-interface SkillChecks {  // from skills/<platform>/checks.yaml
-  run(p: PlatformProfile): CheckResult[]; // limits, links, fact-presence, GEO consistency
+interface SkillChecks {  // from skills/<platform>/checks.yaml — the PREMISE catalog
+  run(p: PlatformProfile): CheckResult[]; // the premises it declares (fact-present, …); char caps are
+                                          // the workspace catalog or the package defaults (SPEC §7 `check`)
 }
 ```
 

@@ -2,19 +2,18 @@
  * The shipped skill catalogs, `skills/README.md`, the two published schema
  * descriptions and `docs/USER-GUIDE.md` all document the split (#455).
  *
- * The catalogs and `skills/README.md` present a `checks.yaml` as the rule set
- * `pasco check` executes, as if the workspace catalog were unioned into every
- * executor. It is not: the union decides WHICH PREMISES run (`fact-present`);
- * the char caps come from the workspace's `content/checks.yaml`, else the caps
- * shipped with pasco (#240), and no skill `max-chars` row reaches that executor.
- * `readme-reference.test.ts` already pins the behaviour with a control; this
- * file pins the words, so the next reader cannot re-derive the old union claim
- * (SPEC §7 `check` row is the contract's one home).
+ * The catalogs and `skills/README.md` presented a `checks.yaml` as the rule set
+ * `pasco check` executes. It is not: the union decides WHICH PREMISES run
+ * (`fact-present`); the char caps come from the workspace's `content/checks.yaml`
+ * when it declares checks (the whole catalog wins, never merged row by row),
+ * else the caps shipped with pasco (#240), and no skill `max-chars` row reaches
+ * that executor. `readme-reference.test.ts` already pins the behaviour with a
+ * control; this file pins the words, so the next reader cannot re-derive the old
+ * union claim (SPEC §7 `check` row is the contract's one home).
  *
- * The catalogs that announce themselves as `pasco check` inputs must carry the
- * split; a new catalog that does not is a documentation regression, not a style
- * choice. `github-repo-meta` is out of scope by class: it already declares that
- * pasco v1 does not execute it.
+ * Every shipped catalog must carry the split unless it declares that pasco v1
+ * does not execute it (`github-repo-meta`); a new catalog that does neither is a
+ * documentation regression, not a style choice.
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -39,7 +38,7 @@ function flat(header: string): string {
   return header.replace(/^# ?/gm, "").replace(/\s+/g, " ").trim();
 }
 
-/** One shipped catalog that declares itself an input of `pasco check`. */
+/** One shipped catalog that does not declare itself outside `pasco check`. */
 interface CheckCatalog {
   platform: string;
   header: string;
@@ -51,15 +50,15 @@ function checkCatalogs(): CheckCatalog[] {
     .map((entry) => ({ platform: entry.name, path: join(SKILLS_DIR, entry.name, "checks.yaml") }))
     .filter(({ path }) => existsSync(path))
     .map(({ platform, path }) => ({ platform, header: headerOf(readFileSync(path, "utf8")) }))
-    .filter(({ header }) => /criterios machine-readable para `pasco check/.test(header));
+    .filter(({ header }) => !/no la ejecuta|does not execute|not executed/i.test(flat(header)));
 }
 
 describe("the shipped catalogs state the premise/cap split (#455)", () => {
   const catalogs = checkCatalogs();
 
   it("covers the four catalogs that ship a `pasco check` header", () => {
-    // The four, not the count: a new catalog with a `pasco check` header joins
-    // the contract below whether or not it is listed here.
+    // The four, not the count: a new catalog joins the contract below unless it
+    // declares that pasco v1 does not execute it.
     expect(catalogs.map(({ platform }) => platform)).toEqual(
       expect.arrayContaining(["github-org", "github-readme", "hotmart", "kofi"]),
     );
@@ -73,10 +72,15 @@ describe("the shipped catalogs state the premise/cap split (#455)", () => {
       );
       expect(text, `${platform}: name what the union decides (premises)`).toMatch(/premisas?/i);
       expect(text, `${platform}: name where the caps come from`).toContain(
-        "catálogo del workspace",
+        "catálogo del workspace cuando declara checks",
+      );
+      expect(text, `${platform}: the whole catalog wins, not a per-row merge`).toContain(
+        "sin merge por fila",
       );
       expect(text, `${platform}: name the fallback cap source`).toContain("defaults del paquete");
-      expect(text, `${platform}: say the limit rows do not execute`).toMatch(/NO se ejecutan/);
+      expect(text, `${platform}: say the limit rows do not execute`).toContain(
+        "nunca de estas filas",
+      );
       expect(text, `${platform}: point at the contract's one home`).toContain("SPEC §7");
     }
   });
@@ -87,6 +91,13 @@ describe("the shipped catalogs state the premise/cap split (#455)", () => {
         "unión con content/checks.yaml del workspace; misma rule catalog que el schema",
       );
     }
+  });
+
+  it("github-repo-meta is exempt by its own non-execution declaration", () => {
+    const meta = readFileSync(join(SKILLS_DIR, "github-repo-meta", "checks.yaml"), "utf8");
+    expect(flat(headerOf(meta)), "the exemption must be written, not inferred").toMatch(
+      /`pasco check` no la ejecuta/,
+    );
   });
 
   it("skills/README.md's checks.yaml entry carries the same split", () => {
@@ -100,7 +111,10 @@ describe("the shipped catalogs state the premise/cap split (#455)", () => {
       "the tree comment must not say pasco check executes it unqualified",
     ).not.toContain("criterios machine-readable que ejecuta `pasco check`");
     expect(entry, "name what the union decides (premises)").toMatch(/premisas?/i);
-    expect(entry, "name the cap source").toContain("catálogo del workspace");
+    expect(entry, "name the cap source condition").toContain(
+      "catálogo del workspace cuando declara checks",
+    );
+    expect(entry, "the whole catalog wins, not a per-row merge").toContain("sin merge por fila");
     expect(entry, "point at the contract's one home").toContain("SPEC §7");
   });
 
@@ -112,12 +126,18 @@ describe("the shipped catalogs state the premise/cap split (#455)", () => {
       $defs: { check: { properties: { rule: { description: string } } } };
     };
     const rows = [
-      ["checks", schema.properties.checks.description],
-      ["check.rule", schema.$defs.check.properties.rule.description],
+      { label: "checks", text: schema.properties.checks.description, fallback: "package defaults" },
+      {
+        label: "check.rule",
+        text: schema.$defs.check.properties.rule.description,
+        fallback: "caps shipped with pasco",
+      },
     ] as const;
-    for (const [label, text] of rows) {
+    for (const { label, text, fallback } of rows) {
       expect(text, `${label}: the union decides which premises run`).toContain("premises run");
-      expect(text, `${label}: name the cap source`).toContain("caps shipped with pasco");
+      expect(text, `${label}: the workspace catalog wins whole`).toContain("declares checks");
+      expect(text, `${label}: no per-row merge`).toContain("never merged row by row");
+      expect(text, `${label}: name the fallback cap source`).toContain(fallback);
       expect(text, `${label}: say the skill rows do not execute`).toMatch(
         /no skill `max-chars` row reaches the limit executor/,
       );
