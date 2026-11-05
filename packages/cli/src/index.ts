@@ -80,6 +80,8 @@ Commands:
                                 installed version, the profile contract it validates,
                                 and whether the workspace loads; also reports the
                                 .pascorc engine requirement (unmet ⇒ exit 1)
+          [--contract-delta]    what the schema minors BETWEEN the workspace contract
+                                floor and the installed one added, and what it buys
   build [platform] [--lang]     [write] Deterministic base texts per platform+lang
   preview [--out <dir>]         [read]  ONE self-contained HTML page of the rendered surfaces
           [--no-open] [--lang <l>]  (inline CSS, no JS, no external asset) written to
@@ -187,6 +189,7 @@ interface FlagOptions {
   check?: boolean;
   at?: string;
   "write-checklist"?: boolean;
+  "contract-delta"?: boolean;
   completeness?: boolean;
   selection?: boolean;
   view?: string;
@@ -301,7 +304,17 @@ Engine · schema · workspace on one line (SPEC §7.6, #348):
 It writes nothing, reads no clock and touches no network. Exit: 0 healthy
 (workspace loads and any declared engine requirement is met) · 1 unhealthy (the
 workspace fails to load, or the requirement is unmet/malformed) · 2 usage. It
-reports the same truth the gate enforces; it does not replace the gate.`,
+reports the same truth the gate enforces; it does not replace the gate.
+
+--contract-delta (#439) adds the answer to "so what changed?": the .pascorc
+contract floor the workspace was written against ("contract": "1.16", written at
+birth by pasco init) is diffed against the contract this build validates, and
+every minor in between is printed with the fields it added and the surface that
+reads them. --json carries the rows under "contractDelta". The floor declares
+and is never enforced, so the flag does not change the exit code: a missing floor
+prints "no delta" with the remedy, an equal floor prints "no delta (workspace
+floor = installed contract)", and a malformed one prints "contract floor INVALID"
+without claiming a pass.`,
   preview: `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso8601>] [--json] [--workspace <path>]
 Render every surface ONCE into a single self-contained HTML file (SPEC §7.9, #282):
 inline CSS, no <script>, no external asset, no HTTP server. Open it with a
@@ -784,13 +797,17 @@ async function runMain(): Promise<number> {
       });
     }
     case "doctor": {
-      const { flags, positionals } = parseCommandFlags(rest);
+      const { flags, positionals } = parseCommandFlags(rest, {
+        "contract-delta": { type: "boolean" },
+      });
       if (flags.help === true) {
         process.stdout.write(`${COMMAND_HELP.doctor}\n`);
         return EXIT.OK;
       }
       if (positionals.length > 0) {
-        throw new UsageError("usage: pasco doctor [--json] [--workspace <path>]");
+        throw new UsageError(
+          "usage: pasco doctor [--json] [--workspace <path>] [--contract-delta]",
+        );
       }
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
@@ -799,6 +816,7 @@ async function runMain(): Promise<number> {
         engineVersion: VERSION,
         schemaVersion: PROFILE_SCHEMA_VERSION,
         engineSources: readEnginePascorcSources(process.cwd(), flags.workspace, workspace),
+        contractDelta: flags["contract-delta"] === true,
       });
     }
     case "build": {

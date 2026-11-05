@@ -11,12 +11,24 @@
  * and exits `1` because the workspace is unhealthy. The three commands still
  * refuse before doing any work.
  *
+ * `--contract-delta` (#439) answers the follow-up question the one line raises:
+ * the workspace declares a contract floor at birth (`"contract": "1.16"`, #439)
+ * and this engine validates another one — which minors lie between, what did
+ * each ADD, and which surface reads it. The table it reads is a projection of
+ * the schema's own `description` narration (`../contract-history.ts`), pinned by
+ * `consumer-contract.test.ts`, so a schema bump that forgets it fails `pnpm test`.
+ * The floor DECLARES and is never enforced (v1): `validate`/`build` do not read
+ * it, so `doctor` reports its state without inventing a verdict the gate does not
+ * back — the exit matrix below is unchanged by the flag.
+ *
  * Exit matrix (the repo's): `0` healthy (workspace loads and any declared engine
  * requirement is met) · `1` unhealthy (the workspace fails to load, the engine
  * requirement is unmet or malformed) · `2` usage (dispatcher).
  */
 
 import { LoadError, load, SchemaValidationError } from "@profile-as-code/core";
+import type { ContractDeltaReport } from "../contract-history.js";
+import { evaluateContractDelta } from "../contract-history.js";
 import type { EngineConfigSource, EngineRequirement } from "../engine-gate.js";
 import {
   ENGINE_UPGRADE_COMMAND,
@@ -56,6 +68,11 @@ export interface DoctorReport {
     problem?: string;
     source?: string;
   };
+  /** Present only with `--contract-delta` (#439): the additive block, so a
+   *  consumer that never passes the flag sees the frozen §7.6 shape unchanged.
+   *  `rows` is the MINORS between the declared floor and the installed contract,
+   *  each with the fields it added and the surface that reads them. */
+  contractDelta?: ContractDeltaReport;
 }
 
 export interface DoctorArgs {
@@ -68,6 +85,8 @@ export interface DoctorArgs {
   /** Every `.pascorc` the workspace resolution consulted (cwd pointer +
    *  workspace), so the report matches what the gate enforces. */
   engineSources: readonly EngineConfigSource[];
+  /** Issue #439: include the contract delta (the `--contract-delta` flag). */
+  contractDelta: boolean;
 }
 
 function loadWorkspace(workspace: string): {
@@ -148,9 +167,48 @@ function describe(reportData: DoctorReport): string {
   return `engine ${reportData.engine.version} · schema v${reportData.schema.version} · workspace ${reportData.workspace.path} (${workspaceState}) · ${requirementText}`;
 }
 
+/**
+ * The `--contract-delta` block: one line per MINOR the workspace has not been
+ * told about, then the fields and what they buy. Branches on the SAME `state`
+ * the JSON reports — the two surfaces cannot drift apart.
+ */
+function describeContractDelta(delta: ContractDeltaReport): string[] {
+  const from = delta.source === undefined ? "" : ` (declared in ${delta.source})`;
+  switch (delta.state) {
+    case "none":
+      // The equality case the issue names verbatim: nothing to adopt.
+      return ["no delta (workspace floor = installed contract)"];
+    case "absent":
+      // `absent` is a state, not a pass — same discipline as the engine floor.
+      return [
+        `no delta — no .pascorc declares a contract floor (add "contract": "${delta.installed}" to the workspace .pascorc, or re-run pasco init)`,
+      ];
+    case "INVALID":
+      return [`contract floor INVALID: ${delta.problem ?? "malformed declaration"}`];
+    case "ahead":
+      return [
+        `no delta — contract floor ${delta.floor} is AHEAD of the installed contract v${delta.installed}; this engine cannot validate a workspace written for a newer contract (upgrade: ${ENGINE_UPGRADE_COMMAND})`,
+      ];
+    case "delta": {
+      const minors = delta.rows.length;
+      const lines = [
+        `contract delta — floor ${delta.floor}${from} → installed v${delta.installed} · ${minors} minor${minors === 1 ? "" : "s"} to adopt`,
+      ];
+      for (const minor of delta.rows) {
+        lines.push(`  v${minor.version}  ${minor.fields.join(" · ")}`);
+        lines.push(`         ${minor.buys}`);
+      }
+      return lines;
+    }
+  }
+}
+
 export function runDoctor(args: DoctorArgs): number {
   const workspace = loadWorkspace(args.workspace);
   const requirement = requirementOf(args.engineSources, args.engineVersion);
+  const contractDelta = args.contractDelta
+    ? evaluateContractDelta(args.engineSources, args.schemaVersion)
+    : undefined;
   const data: DoctorReport = {
     engine: { name: DOCTOR_ENGINE, version: args.engineVersion },
     schema: { version: args.schemaVersion },
@@ -160,6 +218,7 @@ export function runDoctor(args: DoctorArgs): number {
       ...(workspace.error === undefined ? {} : { error: workspace.error }),
     },
     requirement,
+    ...(contractDelta === undefined ? {} : { contractDelta }),
   };
   const healthy = workspace.valid && engineGateError(requirement, args.engineVersion) === null;
 
@@ -167,5 +226,8 @@ export function runDoctor(args: DoctorArgs): number {
     return report("doctor", healthy, healthy ? EXIT.OK : EXIT.FAIL, { data });
   }
   line(describe(data));
+  if (contractDelta !== undefined) {
+    for (const deltaLine of describeContractDelta(contractDelta)) line(deltaLine);
+  }
   return healthy ? EXIT.OK : EXIT.FAIL;
 }

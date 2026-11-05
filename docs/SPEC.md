@@ -429,7 +429,7 @@ declared renderer or an explicit "not implemented yet").
 |---|---|
 | `pasco init` | scaffold a profile-data workspace from the template |
 | `pasco validate` | schema (fail) + drift/geo checks (facts warn). Text mode renders one line per GEO code that scored 0, prefixed by its severity tier — `warn: [code] …` is a warning, `info: [geo/freshness]`-style lines are NOTES, never warnings (v1.10 tiers, #322); a code that scored above 0 renders no finding line, and `absent` tier = `warn`. A code with nothing to measure renders one `n/a: [code] …` line instead (§8/#399): it is not a finding — its `score` is not consumed by the overall, so it is neither a warning nor a note. A section in which no code can contribute weight prints `n/a` instead of `0/100`. `--json` carries every check (with its `severity` and `detail`, plus `applicable: false` on an N/A code or section) — a check whose detail holds an anomaly note (future-dated freshness) is always fully visible there. The human report prints the index's basis before the number — `basis: heuristic index over the declared fields (geo-heuristic-v2) — not a measurement of citations` (#433) — and `--json` carries `geo.basis` plus `geo.measured: false` on the report, so no consumer can quote the number as measured citability (§8) |
-| `pasco doctor [--json]` | the **engine · schema · workspace** reading on ONE line (issue #348): the installed CLI version, the profile-contract version this build validates (derived from the schema `$id` by `pnpm gen:zod`, never a literal), the resolved workspace path and whether it loads, plus the `.pascorc` engine requirement, whose state is named in one token: `absent` (nothing was declared — not a pass, even though a requirement-less workspace stays healthy) · `met` · `NOT MET` with the upgrade command · `INVALID` with the syntax problem. Chosen over overloading `--version` because `--version` describes the binary and must work with no workspace, while `doctor` describes the pair. `--json` emits `{ engine: { name, version }, schema: { version }, workspace: { path, valid, error? }, requirement: { declared, met, state, problem?, source? } }` in the standard envelope, `state` being `absent` | `met` | `NOT MET` | `INVALID`. Exit `0` healthy · `1` unhealthy (workspace fails to load, requirement unmet or malformed) · `2` usage. Offline, no clock, no writes. Contract: §7.6 |
+| `pasco doctor [--json]` | the **engine · schema · workspace** reading on ONE line (issue #348): the installed CLI version, the profile-contract version this build validates (derived from the schema `$id` by `pnpm gen:zod`, never a literal), the resolved workspace path and whether it loads, plus the `.pascorc` engine requirement, whose state is named in one token: `absent` (nothing was declared — not a pass, even though a requirement-less workspace stays healthy) · `met` · `NOT MET` with the upgrade command · `INVALID` with the syntax problem. Chosen over overloading `--version` because `--version` describes the binary and must work with no workspace, while `doctor` describes the pair. `--json` emits `{ engine: { name, version }, schema: { version }, workspace: { path, valid, error? }, requirement: { declared, met, state, problem?, source? } }` in the standard envelope, `state` being `absent` | `met` | `NOT MET` | `INVALID`. Exit `0` healthy · `1` unhealthy (workspace fails to load, requirement unmet or malformed) · `2` usage. Offline, no clock, no writes. `--contract-delta` (#439) adds the minors between the workspace's declared `contract` floor and the installed contract, each with the fields it added and the surface that reads them (`--json` → `data.contractDelta`, present only with the flag); it reports and never changes the exit code. Contract: §7.6 |
 | `pasco build [platform] [--view <name>] [--lang]` | render deterministic base texts. **The artifact source is resolved in ONE fixed order** (`renderArtifact`): an active variant body (#238, written verbatim as the platform artifact) → the platform renderer from the generated renderer map → the shared paste source (#239, a manual-paste surface writes `profiles/<platform>.md`). First match wins; `preview` and `edit --check` read the same tree. `--view` resolves a declared view's platform/lang + fact selection (D22, §21) |
 | `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso8601>] [--json]` | the **local view** of the data without publishing it (issue #282): **one** self-contained HTML file — inline CSS, no `<script>`, no external asset, no HTTP server — whose sections are the surfaces `pasco build` would write (`#github-readme`, `#linkedin`, …), each with the check state, plus every surface this language does **not** publish (named with its reason, never dropped). Default `<workspace>/.pasco/preview/index.html`, then opened in the browser; `--out <dir>` writes `<dir>/index.html` and opens **nothing** (the CI-artifact transport, uploaded by the workspace template's opt-in workflow). The text is `renderArtifact`'s — the same active-variant → renderer → paste-source tree `build` writes, selection gate included — and the check state is the same report `pasco check` prints: no second renderer, no second rule engine. A **privacy gate** refuses the write (exit 1) on an absolute machine path, a credential shape, an external asset, active content, or a source outside the workspace (evidence-root media is never inlined; a remote image becomes a note, not a fetch). `--now` pins the freshness stamp — the document is the one declared clock read, and pinning it makes two runs byte-identical. Contract: §7.9 |
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
@@ -1071,6 +1071,15 @@ the workspace requires; `validate`, `build`, `export profile` and `preview` chec
   upgrade. The verdict stays `1` and the violations are untouched; the hint is a
   `validate` surface, not a promise about `build`/`preview`/`export profile`,
   which print the gate's line when the floor is unmet.
+- **The CONTRACT floor is the second birth-time declaration (#439).** `pasco init`
+  also writes `"contract": "<MAJOR.MINOR>"` from the schema `$id` this build
+  validates (e.g. `"1.16"`). It is the floor `doctor --contract-delta` diffs
+  against after an upgrade; absent means the floor is **unknown**, which doctor
+  reports as `absent` rather than as "nothing changed". **A reader, not a gate
+  (v1):** `validate`, `build`, `preview` and `export profile` never read it, so a
+  contract floor ahead of the installed engine does not refuse work — it is
+  reported. Declaring it enforced is a future additive change, not a
+  reinterpretation of this one.
 - **Accepted syntax: exactly `MAJOR.MINOR.PATCH`** — three dot-separated ASCII
   decimal components, no `v` prefix, no range operator (`^`, `~`, `>=`), no
   `*`, no pre-release/build suffix. This is the whole grammar, deliberately: the
@@ -1127,7 +1136,30 @@ engine 0.3.6 · schema v1.15 · workspace /path/to/workspace (valid) · requires
   error? }, requirement: { declared, met, state, problem?, source? } }`; `state`
   is `absent` | `met` | `NOT MET` | `INVALID`, `source` names the `.pascorc`
   that produced the effective (strictest) declaration, and `error` is present
-  only when the workspace cannot load.
+  only when the workspace cannot load. `contractDelta` is added **only** with
+  `--contract-delta`, so the shape above stays frozen for every other consumer.
+- **`--contract-delta` (#439)** answers the question the one line raises: after
+  an upgrade the workspace learns **which versions** it is between, never **which
+  fields** it could adopt. The flag prints, under the line, one entry per
+  contract minor strictly between the workspace's declared `contract` floor and
+  the installed contract: the fields it added and the surface that reads them
+  ("what it buys"). The table is a **projection of the schema's own narration** —
+  `schema/profile.schema.json`'s `description` narrates every minor and its `$id`
+  carries the installed version — pinned by
+  `packages/cli/tests/consumer-contract.test.ts`: a schema bump that forgets a
+  row, a row that invents a minor, or a row that claims a field its minor never
+  narrated fails `pnpm test`. The floor is read from **every** consulted
+  `.pascorc` with the **lowest** declaration winning (the delta answers "what did
+  I miss", so the most inclusive reading is the honest one — the mirror of the
+  engine gate's strictest-wins). Five states are printed and carried:
+  `delta` · `none` (`no delta (workspace floor = installed contract)`) ·
+  `absent` (with the remedy: add `"contract"` or re-run `pasco init`) ·
+  `INVALID` (the grammar, never coerced) · `ahead` (the workspace declares a
+  newer contract than this engine validates — reported, not enforced).
+  `--json` adds `data.contractDelta = { floor, installed, state, problem?,
+  source?, rows: [{ version, fields, buys }] }`. The flag does **not** change the
+  exit matrix below: the contract floor declares and is never enforced, so
+  `doctor` does not invent a verdict the gate does not back.
 - **Exit matrix:** `0` healthy (workspace loads and any declared requirement is
   met) · `1` unhealthy (workspace fails to load, requirement unmet or malformed)
   · `2` usage. `doctor` **reports** the three facts but does not replace the

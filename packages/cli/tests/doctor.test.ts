@@ -27,6 +27,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
+import { CONTRACT_HISTORY, compareContractVersions } from "../src/contract-history.js";
 import {
   compareEngineVersions,
   evaluateEngineRequirement,
@@ -136,6 +137,15 @@ interface Envelope {
       problem?: string;
       source?: string;
     };
+    /** #439: present only with `--contract-delta`. */
+    contractDelta?: {
+      floor: string | null;
+      installed: string;
+      state: "delta" | "none" | "ahead" | "absent" | "INVALID";
+      problem?: string;
+      source?: string;
+      rows: { version: string; fields: string[]; buys: string }[];
+    };
   };
   error?: { kind: string; message: string };
 }
@@ -207,6 +217,144 @@ describe("pasco doctor — engine · schema · workspace", () => {
     expect(envelope.exitCode).toBe(1);
     expect(envelope.data?.workspace.valid).toBe(false);
     expect(envelope.data?.workspace.error?.kind).toBe("schema");
+  });
+});
+
+/** A workspace whose `.pascorc` declares the contract floor (and nothing else). */
+function contractWorkspace(contract?: unknown): string {
+  const dir = mkdtempSync(join(tmpdir(), "pasco-doctor-delta-"));
+  tempDirs.push(dir);
+  cpSync(FIXTURE, dir, { recursive: true });
+  writeFileSync(
+    join(dir, ".pascorc"),
+    `${JSON.stringify({ workspace: ".", ...(contract === undefined ? {} : { contract }) })}\n`,
+  );
+  return dir;
+}
+
+/**
+ * #439: the upgrade names the versions, never the fields. `--contract-delta`
+ * diffs the workspace's birth-time contract floor against the installed
+ * contract and prints what each minor in between ADDED — the difference between
+ * a supervision session (read the CHANGELOG and the geo report) and a command.
+ *
+ * The exit matrix is the flag's declaration, not its payload: the floor is a
+ * READER (v1), so a missing, equal, ahead or malformed floor is reported and the
+ * exit code stays the one the engine gate already owns.
+ */
+describe("pasco doctor --contract-delta", () => {
+  const installed = schemaVersion();
+  const newer = (version: string, than: string) =>
+    (compareContractVersions(version, than) ?? 0) > 0;
+  const minorsBetween = (floor: string) =>
+    CONTRACT_HISTORY.filter(
+      (minor) => newer(minor.version, floor) && !newer(minor.version, installed),
+    );
+
+  it("lists every minor between the declared floor and the installed contract, with its fields", () => {
+    const dir = contractWorkspace("1.9");
+    const res = run(["doctor", "--workspace", dir, "--contract-delta"]);
+    expect(res.code).toBe(0);
+    const lines = res.stdout.trim().split("\n");
+    // The existing one-liner is untouched; the delta follows it.
+    expect(lines[0]).toContain(`schema v${installed}`);
+    expect(lines[0]).not.toContain("contract delta");
+
+    const expected = minorsBetween("1.9");
+    expect(expected.length).toBeGreaterThan(0);
+    const block = lines.join("\n");
+    expect(block).toContain(
+      `contract delta — floor 1.9 (declared in ${join(dir, ".pascorc")}) → installed v${installed} · ${expected.length} minor`,
+    );
+    for (const minor of expected) {
+      expect(block, minor.version).toContain(`  v${minor.version}  ${minor.fields.join(" · ")}`);
+      // The one line a projection cannot derive: what the fields BUY.
+      expect(block, minor.version).toContain(minor.buys);
+    }
+  });
+
+  // The exact upgrade the issue observed (0.3.0 → 0.3.7, contract v1.9 → newer):
+  // all six adoptable fields it had to find by reading three documents.
+  it.skipIf(!newer(installed, "1.15"))(
+    "names the six fields the issue's real upgrade had to find by hand",
+    () => {
+      const dir = contractWorkspace("1.9");
+      const block = run(["doctor", "--workspace", dir, "--contract-delta"]).stdout;
+      for (const field of [
+        "identity.definition",
+        "faq",
+        "publication.kind",
+        "releases",
+        "projects[].artifactRefs",
+        "nationality",
+      ]) {
+        expect(block, field).toContain(field);
+      }
+    },
+  );
+
+  it("prints the equality case verbatim: no delta (workspace floor = installed contract)", () => {
+    const dir = contractWorkspace(installed);
+    const res = run(["doctor", "--workspace", dir, "--contract-delta"]);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain("no delta (workspace floor = installed contract)");
+    expect(res.stdout).not.toContain("contract delta —");
+  });
+
+  it("reports an ABSENT floor with the remedy instead of inventing a delta", () => {
+    const dir = contractWorkspace();
+    const res = run(["doctor", "--workspace", dir, "--contract-delta"]);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain('no .pascorc declares a contract floor (add "contract"');
+    expect(res.stdout).not.toContain("contract delta —");
+    expect(doctor(["--contract-delta"], dir).data?.contractDelta).toMatchObject({
+      floor: null,
+      installed,
+      state: "absent",
+      rows: [],
+    });
+  });
+
+  it("refuses a malformed floor without claiming a pass (never coerced)", () => {
+    for (const contract of ["v1.9", "^1.9", "1", "1.9.0", 1.9]) {
+      const dir = contractWorkspace(contract);
+      const res = run(["doctor", "--workspace", dir, "--contract-delta"]);
+      expect(res.code, JSON.stringify(contract)).toBe(0);
+      expect(res.stdout).toContain("contract floor INVALID:");
+      expect(res.stdout).toContain("MAJOR.MINOR");
+      expect(res.stdout).toContain(JSON.stringify(contract));
+      expect(res.stdout).not.toContain("contract delta —");
+    }
+  });
+
+  it("reports a floor AHEAD of the installed contract as ahead, not as a delta", () => {
+    const dir = contractWorkspace("99.0");
+    const res = run(["doctor", "--workspace", dir, "--contract-delta"]);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain("contract floor 99.0 is AHEAD of the installed contract");
+    expect(doctor(["--contract-delta"], dir).data?.contractDelta).toMatchObject({
+      state: "ahead",
+      rows: [],
+    });
+  });
+
+  it("carries the rows in --json, and only when the flag is passed", () => {
+    const dir = contractWorkspace("1.9");
+    const envelope = doctor(["--contract-delta"], dir);
+    expect(envelope.ok).toBe(true);
+    expect(envelope.exitCode).toBe(0);
+    const delta = envelope.data?.contractDelta;
+    expect(delta?.state).toBe("delta");
+    expect(delta?.floor).toBe("1.9");
+    expect(delta?.installed).toBe(installed);
+    expect(delta?.source).toBe(join(dir, ".pascorc"));
+    expect(delta?.rows.map((row) => row.version)).toEqual(
+      minorsBetween("1.9").map((minor) => minor.version),
+    );
+    expect(delta?.rows.every((row) => row.fields.length > 0 && row.buys !== "")).toBe(true);
+
+    // Additive: a consumer that never passes the flag sees the frozen shape.
+    expect(doctor([], dir).data?.contractDelta).toBeUndefined();
   });
 });
 
