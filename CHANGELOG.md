@@ -27,11 +27,12 @@ minor versions may contain breaking contract changes.
   check (#462, SPEC §21.8)** — the rule lived only in one platform skill (as a
   golden rule) and as a product goal, so a workspace could unify one headline
   across its GitHub README, LinkedIn and X “for consistency” and `pasco check`
-  stayed green. **SPEC §21.8** now states it normatively: facts (`content/*.yaml`,
-  including `identity.definition`) are one and identical across surfaces and a
-  contradiction is a defect, not an adaptation; narrative (reader, emphasis,
-  order, subset via `selection.views`, composition via the variant body) is per
-  surface and is never propagated. `pasco check` gains the **advisory**
+  stayed green. **SPEC §21.8** now states it normatively: every FACT in
+  `content/*.yaml` (including `identity.definition`) is one and identical across
+  surfaces and a contradiction is a defect, not an adaptation, while the
+  per-platform `headlines`/`bios` rows are the narrative text; narrative
+  (reader, emphasis, order, subset via `selection.views`, composition via the
+  variant body) is per surface and is never propagated. `pasco check` gains the **advisory**
   `text/same-across-platforms` — a **warn** naming both platforms and the text
   kind when two different platforms carry a byte-identical `headline` or a `bio`
   in the same `length` band; exempt: the same platform across langs and
