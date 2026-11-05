@@ -273,7 +273,7 @@ describe("pasco build --view orderKeys — the empty-list edge (#458)", () => {
 
   it("the empty list is a no-op: the rendered order is the comparator's", () => {
     const ws = workspace({ selection: { views: { v: { orderKeys: [] } } } });
-    expect(run(["build", "github-readme", "--view", "v"], ws).code).toBe(0);
+    expect(run(["build", "github-readme", "--view", "v", "--lang", "en"], ws).code).toBe(0);
     const readme = readReadme(ws);
     const section = readme.split("## Projects")[1]?.split("\n## ")[0] ?? "";
     const order = [...section.matchAll(/- \*\*([^*]+)\*\*/g)].map((m) => m[1]);
@@ -304,10 +304,18 @@ describe("build — active variant vs a resolved orderKeys (#458)", () => {
     writeFileSync(join(ws, "content", "active.yaml"), ACTIVE);
   }
 
-  const buildJson = (ws: string, view?: string) =>
+  const buildJson = (ws: string, view?: string, lang?: string) =>
     JSON.parse(
-      run(["build", "github-readme", ...(view === undefined ? [] : ["--view", view]), "--json"], ws)
-        .stdout,
+      run(
+        [
+          "build",
+          "github-readme",
+          ...(view === undefined ? [] : ["--view", view]),
+          ...(lang === undefined ? [] : ["--lang", lang]),
+          "--json",
+        ],
+        ws,
+      ).stdout,
     ) as {
       data: { written: { variant?: string }[]; warnings: { reason: string }[] };
     };
@@ -345,7 +353,10 @@ describe("build — active variant vs a resolved orderKeys (#458)", () => {
   });
 
   it("runs §16.2 step 4 (remove entry → build → write body → refine --choose) and preserves other choices", () => {
+    // `defaults.lang: es` so `--lang en` in build/refine DISCRIMINATES: a
+    // regression that ignored the flag would write/compile `es`.
     const ws = workspace({
+      defaults: { lang: "es" },
       selection: { views: { v: { orderKeys: ["projects:p-open"] } } },
     });
     withVariant(ws);
@@ -354,7 +365,7 @@ describe("build — active variant vs a resolved orderKeys (#458)", () => {
       join(ws, "content", "active.yaml"),
       'linkedin:\n  lang: en\n  variantId: li-1\n  chosenAt: "2026-11-05T00:00:00.000Z"\n',
     );
-    expect(run(["build", "github-readme", "--view", "v"], ws).code).toBe(0);
+    expect(run(["build", "github-readme", "--view", "v", "--lang", "en"], ws).code).toBe(0);
     expect(projectOrder(ws)).toEqual(["Open Project", "Confidential Project"]);
     // 2-3. take the ordered render as the base and write it as the body. The
     // agent's composition (chrome/JSON-LD) is not mechanizable here; this test
@@ -366,9 +377,11 @@ describe("build — active variant vs a resolved orderKeys (#458)", () => {
     const choose = run(["refine", "github-readme", "--choose", "gh-1", "--lang", "en"], ws);
     expect(choose.code).toBe(0);
     const active = readFileSync(join(ws, "content", "active.yaml"), "utf8");
-    expect(active).toContain("github-readme:");
-    expect(active).toContain("linkedin:");
-    const data = buildJson(ws, "v");
+    // Assert the ENTRY content, not just the key: the lang must travel and the
+    // sibling entry must survive intact.
+    expect(active).toMatch(/github-readme:\n {2}lang: en\n {2}variantId: gh-1/);
+    expect(active).toMatch(/linkedin:\n {2}lang: en\n {2}variantId: li-1/);
+    const data = buildJson(ws, "v", "en");
     expect(data.data.written[0]?.variant).toBe("gh-1");
     // The artifact is the composed body, and it carries the resolved order.
     expect(readFileSync(join(ws, "profiles", "github-readme", "README.md"), "utf8")).toBe(

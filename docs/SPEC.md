@@ -2017,9 +2017,10 @@ First platform: **`github-readme`** — the only 100% git/API-deployable surface
    1. remove **that platform's entry** from `content/active.yaml` — the file is one
       for all platforms, so never delete the file: the other platforms' entries stay
       untouched;
-   2. `pasco build <platform> --lang <l>` with the view whose `orderKeys` must reach
-      the body, and take the rendered `profiles/<platform>/README.md` (or
-      `<platform>.md` for a paste surface) as the base;
+   2. `pasco build <platform> --view <name> --lang <l>` with the view whose
+      `orderKeys` must reach the body, and take the rendered
+      `profiles/<platform>/README.md` (or `<platform>.md` for a paste surface) as
+      the base;
    3. compose the body from that base per the platform skill (chrome/JSON-LD are
       that layer's editorial decisions, not an engine-declared set) and write it to
       `profiles/<platform>/variants/<variantId>.md`;
