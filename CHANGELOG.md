@@ -9,6 +9,10 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+_(nothing yet — the next cycle)_
+
+## [0.4.1] - 2026-11-05
+
 ### Added
 
 - **per-view `selection.views.<v>.orderKeys` — the narrative order the featured
@@ -45,6 +49,14 @@ minor versions may contain breaking contract changes.
   forgets a row, an invented minor, or a row that omits a field its minor narrates
   fails `pnpm test`; a `notFields` label is a review judgement, as SPEC §7.6
   states.
+
+### Internal
+
+- **The core seam goes 0.1.3 → 0.1.4 (#458)** — `orderedForSurface` is a new
+  public export of `@profile-as-code/core`, so the published seam member must
+  carry it for direct consumers; the CLI bundles core and is unaffected. The
+  cohort step skips a version already live on the registry, so an unchanged
+  0.1.3 would leave the published core describing the previous tree.
 
 ## [0.4.0] - 2026-11-04
 
