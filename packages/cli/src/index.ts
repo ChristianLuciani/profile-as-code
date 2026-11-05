@@ -25,7 +25,7 @@ import { runDiscover } from "./commands/discover.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runEdit } from "./commands/edit.js";
 import { runEntity } from "./commands/entity.js";
-import { runAiPolicyCheck, runAiPolicyExport } from "./commands/export.js";
+import { runAiPolicyCheck, runAiPolicyExport, runAiPolicyFileCheck } from "./commands/export.js";
 import { resolveNow, runExportProfile } from "./commands/export-profile.js";
 import { runInit } from "./commands/init.js";
 import { runPost } from "./commands/post.js";
@@ -142,10 +142,12 @@ Commands:
                                 formatted metric and how the result is known (basis);
                                 --targets prints only the planned goals
   export ai-policy              [write] Write the AI-policy artifacts (SPEC §7.3, M9): robots.txt
-          [--out <dir> | --check] [--lang <l>]  (two named groups — listed retrieval crawlers
-                                allowed, listed training crawlers disallowed, no wildcard) +
-                                llms.txt (the workspace index) + AI-POLICY.md, into <dir>;
-                                --check (exit 1) fails an unsourced, stale or incomplete entry
+          [--out <dir> | --check] (two named groups — listed retrieval crawlers allowed, listed
+          [--lang <l>]           training crawlers disallowed, no wildcard) + llms.txt (the
+          [--file <robots.txt>]  workspace index) + AI-POLICY.md, into <dir>; --check (exit 1)
+                                 fails an unsourced, stale or incomplete entry; --check --file
+                                 verifies a committed robots.txt against the registry's
+                                 agent↔group map — offline, no workspace
   export profile [--json]       [read]  The normalized profile for programmatic consumers (SPEC §7.5,
           [--now <iso8601>]     #348): { schemaVersion, engine, source: { commit, generatedAt },
                                 profile } — every root the workspace declares, plus every list
@@ -165,7 +167,8 @@ the installed CLI does not meet (validate · build · export profile · preview)
 finding that blocks the
 command (edit: the address is not one row or the edit does not change the
 published artifact; audit: at least one FAIL finding; entity: no canonical @id;
-export ai-policy: an unsourced or stale UA list, or a refused write;
+export ai-policy: an unsourced or stale UA list, a robots.txt whose agent↔group
+map disagrees with the registry (--file), or a refused write;
 cite-check: the input file cannot be read) · 2 usage error (cite-check: malformed
 NDJSON, never a silent skip). Drift warnings exit 0 (D12: facts warn, schema fails).
 
@@ -200,6 +203,7 @@ interface FlagOptions {
   text?: string;
   target?: string;
   out?: string;
+  file?: string;
   type?: string;
   date?: string;
   format?: string;
@@ -538,7 +542,8 @@ line, in input order, NEVER aggregated (no rate, no score, no total).
 Exit: 0 a successful read, whatever the matches (a non-citation is data) ·
 1 the workspace cannot load, or the input path cannot be read · 2 usage, or
 malformed NDJSON. Offline and deterministic: no network, no model, no clock.`,
-  export: `pasco export ai-policy [--out <dir> | --check] [--lang <l>] [--json] [--workspace <path>]
+  export: `pasco export ai-policy [--out <dir> | --check [--file <robots.txt>]] [--lang <l>]
+                      [--json] [--workspace <path>]
 pasco export profile [--json] [--now <iso8601>] [--workspace <path>]
 
 --- export ai-policy -----------------------------------------------------------------
@@ -568,13 +573,26 @@ writes, one verifies):
                 ai.policy.as_of itself is malformed, stale, future-dated or older
                 than the newest crawler row it seals.
                 --check reads no workspace (the list is registry data).
+                --check --file <robots.txt> verifies a COMMITTED file instead of
+                the list: parses it by group (RFC 9309 §2.2) and compares the
+                agent↔group map with ai-retrieval / ai-training, one finding per
+                crawler that is absent from every group, present in two groups
+                (RFC merges them — a contradictory posture) or sitting in the
+                group that states the opposite rule for "/"; plus a
+                \`User-agent: *\` group and any rule no group owns. This is what
+                catches the two lists SWAPPED — a structurally valid file that
+                states the exact opposite policy. It loads no workspace, no
+                network and no clock: the same file yields the same findings on
+                any day, which is what a consumer's CI gate needs.
 The crawler list is derived, never hardcoded here: it is projected from the
 \`ai:\` block of the platform registry by \`pnpm gen:platforms\`.
 --lang        the language of the llms.txt text (default: .pascorc defaults.lang,
               else 'en').
 Exit: 0 ok · 1 a --check problem, a schema/load failure or a write failure ·
-2 usage (no ai-policy subcommand, --out with --check, --force without --out).
-Offline; --out reads no clock and two runs produce byte-identical files.
+2 usage (no ai-policy subcommand, --out with --check, --file without --check,
+--force without --out).
+Offline; --out reads no clock and two runs produce byte-identical files, and
+--check --file reads no clock either.
 
 --- export profile ------------------------------------------------------------------
 The normalized profile for programmatic consumers (SPEC §7.5, #348). One payload,
@@ -1291,6 +1309,7 @@ async function runMain(): Promise<number> {
       const { flags, positionals } = parseCommandFlags(rest, {
         out: { type: "string" },
         check: { type: "boolean" },
+        file: { type: "string" },
         force: { type: "boolean" },
         lang: { type: "string" },
         now: { type: "string" },
@@ -1302,7 +1321,7 @@ async function runMain(): Promise<number> {
       const subcommand = positionals[0];
       if (positionals.length !== 1 || (subcommand !== "ai-policy" && subcommand !== "profile")) {
         throw new UsageError(
-          "usage: pasco export <ai-policy | profile> — ai-policy: --out <dir> | --check; profile: [--json] [--now <iso8601>]",
+          "usage: pasco export <ai-policy | profile> — ai-policy: --out <dir> | --check [--file <robots.txt>]; profile: [--json] [--now <iso8601>]",
         );
       }
       // `export profile` is a read-only projection: the writer/verifier flags of
@@ -1312,11 +1331,12 @@ async function runMain(): Promise<number> {
         if (
           flags.out !== undefined ||
           flags.check === true ||
+          flags.file !== undefined ||
           flags.force === true ||
           flags.lang !== undefined
         ) {
           throw new UsageError(
-            "usage: pasco export profile [--json] [--now <iso8601>] — --out/--check/--force/--lang do not apply",
+            "usage: pasco export profile [--json] [--now <iso8601>] — --out/--check/--file/--force/--lang do not apply",
           );
         }
         setJsonMode(flags.json === true);
@@ -1353,8 +1373,16 @@ async function runMain(): Promise<number> {
           "usage: --lang only applies to --out <dir> (--check loads no workspace)",
         );
       }
+      // `--file` extends `--check` to a committed file (#477); on its own it
+      // would be an argument with no mode to honour, so it is refused.
+      if (flags.file !== undefined && flags.check !== true) {
+        throw new UsageError(
+          "usage: --file only applies to --check (pasco export ai-policy --check --file <robots.txt>)",
+        );
+      }
       setJsonMode(flags.json === true);
       if (flags.out === undefined) {
+        if (flags.file !== undefined) return runAiPolicyFileCheck({ file: flags.file });
         return runAiPolicyCheck({ now: new Date() });
       }
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);

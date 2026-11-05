@@ -33,6 +33,14 @@
  * clock at all — its dated stamp is `ai.policy.as_of`, so two runs at different
  * times produce byte-identical files (D19).
  *
+ * `--check --file <robots.txt>` verifies a file someone else committed against
+ * this same registry (#477): `robots.ts` parses it by group (RFC 9309 §2.2) and
+ * the agent↔group map is compared with `ai-retrieval`/`ai-training`. That is the
+ * half a consumer cannot check on its own — a file with the two lists swapped is
+ * structurally valid and states the opposite policy — so the classification keeps
+ * one home. It reads no workspace, no clock and no network: the same text yields
+ * the same findings on any day.
+ *
  * Exit: 0 ok · 1 a --check problem, a schema/load failure (D12) or a write
  * failure · 2 usage (dispatcher).
  */
@@ -60,6 +68,7 @@ import {
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import type { Pascorc } from "../workspace.js";
+import { parseRobots, type RobotsFile, type RobotsFinding, verifyRobotsFile } from "./robots.js";
 
 /** The frozen contract version of the `--json` payload (SPEC §7.3). */
 export const AI_POLICY_SCHEMA_VERSION = "1";
@@ -650,6 +659,75 @@ export function runAiPolicyCheck(args: AiPolicyCheckArgs): number {
     ok
       ? `pasco export ai-policy --check: ${AI_CRAWLERS.length} crawler(s) sourced and inside the ${AI_POLICY_MAX_AGE_DAYS}-day window — exit 0`
       : `pasco export ai-policy --check: ${data.problems.length} problem(s) — the UA list must be sourced and reviewed before it ships — exit 1`,
+  );
+  return exitCode;
+}
+
+/** The `--check --file` payload: the parsed map plus one finding per fact (#477). */
+export interface AiPolicyFileData {
+  schemaVersion: string;
+  /** The path as the caller gave it, so a finding is traceable to that invocation. */
+  file: string;
+  policy: { version: number; asOf: string };
+  /** What the file says, so a machine consumer does not have to re-parse it. */
+  groups: RobotsFile["groups"];
+  orphanRules: RobotsFile["orphanRules"];
+  /** Empty = the file expresses the registry's posture. */
+  findings: RobotsFinding[];
+}
+
+export interface AiPolicyFileCheckArgs {
+  /** The `robots.txt` to verify. Read as text; the path is echoed, never resolved. */
+  file: string;
+}
+
+/**
+ * `--check --file <robots.txt>`: verify a committed file against the registry.
+ * No workspace, no clock, no network — the `now` parameter of `--check` has no
+ * role here, which is what makes a consumer's CI gate reproducible.
+ */
+export function runAiPolicyFileCheck(args: AiPolicyFileCheckArgs): number {
+  let text: string;
+  try {
+    text = readFileSync(args.file, "utf8");
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    return report("export ai-policy", false, EXIT.FAIL, {
+      error: {
+        kind: "file",
+        message: `cannot read ${args.file} — ${code === undefined ? String(err) : code}`,
+      },
+    });
+  }
+
+  const parsed = parseRobots(text);
+  const findings = verifyRobotsFile(parsed, AI_CRAWLERS);
+  const ok = findings.length === 0;
+  const exitCode = ok ? EXIT.OK : EXIT.FAIL;
+  const data: AiPolicyFileData = {
+    schemaVersion: AI_POLICY_SCHEMA_VERSION,
+    file: args.file,
+    policy: { version: AI_POLICY_VERSION, asOf: AI_POLICY_AS_OF },
+    groups: parsed.groups,
+    orphanRules: parsed.orphanRules,
+    findings,
+  };
+
+  if (isJsonMode()) {
+    return report("export ai-policy", ok, exitCode, { data });
+  }
+  section(
+    `ai-policy v${AI_POLICY_VERSION} — as of ${AI_POLICY_AS_OF} · ` +
+      `${args.file} vs ${AI_CRAWLERS.length} registry crawler(s)`,
+  );
+  line(`  ${parsed.groups.length} group(s), ${parsed.orphanRules.length} rule(s) outside a group`);
+  for (const finding of findings) {
+    line(`  ${finding.kind} · ${finding.entry} — ${finding.detail}`);
+  }
+  line(
+    ok
+      ? "pasco export ai-policy --check --file: the agent↔group map matches the registry — exit 0"
+      : `pasco export ai-policy --check --file: ${findings.length} finding(s) — the file does not express the registry's posture — exit 1`,
   );
   return exitCode;
 }
