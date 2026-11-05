@@ -200,7 +200,7 @@ describe("pasco preview — the artifact", () => {
     expect(readFileSync(join(future, "index.html"), "utf8")).toContain("expired 2023-01-01");
   });
 
-  it("carries the advisory narrative finding the check report carries (#462, premerge F3)", () => {
+  it("carries the advisory narrative finding the check report carries (#462, fresh pass F3)", () => {
     // `preview` documents itself as "the same report `pasco check` prints", so a
     // new check rule that the page silently dropped would be a parity break.
     const workspace = workspaceCopy();
