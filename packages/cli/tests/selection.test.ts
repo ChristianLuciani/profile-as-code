@@ -8,7 +8,7 @@
  */
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -273,10 +273,128 @@ describe("pasco build --view orderKeys — the empty-list edge (#458)", () => {
 
   it("the empty list is a no-op: the rendered order is the comparator's", () => {
     const ws = workspace({ selection: { views: { v: { orderKeys: [] } } } });
-    expect(run(["build", "github-readme", "--view", "v"], ws).code).toBe(0);
+    expect(run(["build", "github-readme", "--view", "v", "--lang", "en"], ws).code).toBe(0);
     const readme = readReadme(ws);
     const section = readme.split("## Projects")[1]?.split("\n## ")[0] ?? "";
     const order = [...section.matchAll(/- \*\*([^*]+)\*\*/g)].map((m) => m[1]);
     expect(order).toEqual(["Confidential Project", "Open Project"]);
+  });
+});
+
+describe("build — active variant vs a resolved orderKeys (#458)", () => {
+  const ACTIVE = [
+    "github-readme:",
+    "  lang: en",
+    "  variantId: gh-1",
+    '  chosenAt: "2026-11-05T00:00:00.000Z"',
+    "linkedin:",
+    "  lang: en",
+    "  variantId: li-1",
+    '  chosenAt: "2026-11-05T00:00:00.000Z"',
+    "",
+  ].join("\n");
+
+  /** Add an active variant body so renderArtifact writes it verbatim. */
+  function withVariant(ws: string): void {
+    mkdirSync(join(ws, "profiles", "github-readme", "variants"), { recursive: true });
+    writeFileSync(
+      join(ws, "profiles", "github-readme", "variants", "gh-1.md"),
+      "# Hand-authored body\n",
+    );
+    writeFileSync(join(ws, "content", "active.yaml"), ACTIVE);
+  }
+
+  const buildJson = (ws: string, view?: string, lang?: string) =>
+    JSON.parse(
+      run(
+        [
+          "build",
+          "github-readme",
+          ...(view === undefined ? [] : ["--view", view]),
+          ...(lang === undefined ? [] : ["--lang", lang]),
+          "--json",
+        ],
+        ws,
+      ).stdout,
+    ) as {
+      data: { written: { variant?: string }[]; warnings: { reason: string }[] };
+    };
+
+  const projectOrder = (dir: string) =>
+    [
+      ...(
+        readFileSync(join(dir, "profiles", "github-readme", "README.md"), "utf8")
+          .split("## Projects")[1]
+          ?.split("\n## ")[0] ?? ""
+      ).matchAll(/- \*\*([^*]+)\*\*/g),
+    ].map((m) => m[1]);
+
+  it("warns that the order applied to the render, not the verbatim variant body", () => {
+    const ws = workspace({
+      selection: { views: { v: { orderKeys: ["projects:p-open"] } } },
+    });
+    withVariant(ws);
+    const data = buildJson(ws, "v");
+    expect(data.data.written[0]?.variant).toBe("gh-1");
+    // The variant is authoritative; the engine must not stay silent about the no-op.
+    expect(data.data.warnings.map((w) => w.reason).join(" ")).toMatch(
+      /active variant "gh-1".*resolved order applies to the render, not to this body/,
+    );
+  });
+
+  it("the note is permanent: a nominal order that pins the already-first key still warns", () => {
+    // `p-secret` is already first by name, so the ordered render is byte-identical
+    // to the no-order render. The note is about the LAYER, not a delta — §21.3 r11.
+    const ws = workspace({ selection: { views: { v: { orderKeys: ["projects:p-secret"] } } } });
+    withVariant(ws);
+    const data = buildJson(ws, "v");
+    expect(data.data.warnings).toHaveLength(1);
+    expect(data.data.warnings[0]?.reason).toContain("informational");
+  });
+
+  it("runs §16.2 step 4 (remove entry → build → write body → refine --choose) and preserves other choices", () => {
+    // `defaults.lang: es` so `--lang en` in build/refine DISCRIMINATES: a
+    // regression that ignored the flag would write/compile `es`.
+    const ws = workspace({
+      defaults: { lang: "es" },
+      selection: { views: { v: { orderKeys: ["projects:p-open"] } } },
+    });
+    withVariant(ws);
+    // 1. remove THAT platform's entry (never the file — the linkedin choice stays)
+    writeFileSync(
+      join(ws, "content", "active.yaml"),
+      'linkedin:\n  lang: en\n  variantId: li-1\n  chosenAt: "2026-11-05T00:00:00.000Z"\n',
+    );
+    expect(run(["build", "github-readme", "--view", "v", "--lang", "en"], ws).code).toBe(0);
+    expect(projectOrder(ws)).toEqual(["Open Project", "Confidential Project"]);
+    // 2-3. take the ordered render as the base and write it as the body. The
+    // agent's composition (chrome/JSON-LD) is not mechanizable here; this test
+    // pins the mechanical sequence the engine owns.
+    const orderedBody = readFileSync(join(ws, "profiles", "github-readme", "README.md"), "utf8");
+    writeFileSync(join(ws, "profiles", "github-readme", "variants", "gh-1.md"), orderedBody);
+    // 4. re-record through the real CLI path; `--lang` is part of the entry and
+    // `recordVariant` must preserve the other platform's choice.
+    const choose = run(["refine", "github-readme", "--choose", "gh-1", "--lang", "en"], ws);
+    expect(choose.code).toBe(0);
+    const active = readFileSync(join(ws, "content", "active.yaml"), "utf8");
+    // Assert the ENTRY content, not just the key: the lang must travel and the
+    // sibling entry must survive intact.
+    expect(active).toMatch(/github-readme:\n {2}lang: en\n {2}variantId: gh-1/);
+    expect(active).toMatch(/linkedin:\n {2}lang: en\n {2}variantId: li-1/);
+    const data = buildJson(ws, "v", "en");
+    expect(data.data.written[0]?.variant).toBe("gh-1");
+    // The artifact is the composed body, and it carries the resolved order.
+    expect(readFileSync(join(ws, "profiles", "github-readme", "README.md"), "utf8")).toBe(
+      orderedBody,
+    );
+    // The note is permanent/informational while the variant serves the surface.
+    expect(data.data.warnings.map((w) => w.reason).join(" ")).toContain('active variant "gh-1"');
+  });
+
+  it("does not warn when the view resolves no order", () => {
+    const ws = workspace({});
+    withVariant(ws);
+    const data = buildJson(ws);
+    expect(data.data.warnings).toEqual([]);
   });
 });
