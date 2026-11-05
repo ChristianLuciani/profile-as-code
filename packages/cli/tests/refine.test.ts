@@ -149,7 +149,7 @@ describe("pasco refine (agent template)", () => {
     expect(res.code).toBe(0);
     // The line must carry the skill path ITSELF: asserting both strings
     // separately let the pre-existing "Skill (…)" line satisfy the path
-    // (premerge F4), so the new line could lose it and stay green.
+    // (fresh pass F4), so the new line could lose it and stay green.
     expect(res.stdout).toMatch(
       /^Reader & angle \(the narrative axis[^\n]*skills\/linkedin\/SKILL\.md/m,
     );
