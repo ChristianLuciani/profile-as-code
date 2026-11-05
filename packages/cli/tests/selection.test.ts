@@ -282,8 +282,17 @@ describe("pasco build --view orderKeys — the empty-list edge (#458)", () => {
 });
 
 describe("build — active variant vs a resolved orderKeys (#458)", () => {
-  const ACTIVE =
-    'github-readme:\n  lang: en\n  variantId: gh-1\n  chosenAt: "2026-11-05T00:00:00.000Z"\n';
+  const ACTIVE = [
+    "github-readme:",
+    "  lang: en",
+    "  variantId: gh-1",
+    '  chosenAt: "2026-11-05T00:00:00.000Z"',
+    "linkedin:",
+    "  lang: en",
+    "  variantId: li-1",
+    '  chosenAt: "2026-11-05T00:00:00.000Z"',
+    "",
+  ].join("\n");
 
   /** Add an active variant body so renderArtifact writes it verbatim. */
   function withVariant(ws: string): void {
@@ -335,20 +344,30 @@ describe("build — active variant vs a resolved orderKeys (#458)", () => {
     expect(data.data.warnings[0]?.reason).toContain("informational");
   });
 
-  it("composes the order into the body per §16.2 step 4 (remove entry → build → write → restore)", () => {
+  it("runs §16.2 step 4 (remove entry → build → write body → refine --choose) and preserves other choices", () => {
     const ws = workspace({
       selection: { views: { v: { orderKeys: ["projects:p-open"] } } },
     });
     withVariant(ws);
-    // 1. remove THAT platform's entry (never the file — other choices would be lost)
-    writeFileSync(join(ws, "content", "active.yaml"), "{}\n");
+    // 1. remove THAT platform's entry (never the file — the linkedin choice stays)
+    writeFileSync(
+      join(ws, "content", "active.yaml"),
+      'linkedin:\n  lang: en\n  variantId: li-1\n  chosenAt: "2026-11-05T00:00:00.000Z"\n',
+    );
     expect(run(["build", "github-readme", "--view", "v"], ws).code).toBe(0);
     expect(projectOrder(ws)).toEqual(["Open Project", "Confidential Project"]);
-    // 2-3. take the ordered render and compose it as the body
+    // 2-3. take the ordered render as the base and write it as the body. The
+    // agent's composition (chrome/JSON-LD) is not mechanizable here; this test
+    // pins the mechanical sequence the engine owns.
     const orderedBody = readFileSync(join(ws, "profiles", "github-readme", "README.md"), "utf8");
     writeFileSync(join(ws, "profiles", "github-readme", "variants", "gh-1.md"), orderedBody);
-    // 4. restore the choice
-    writeFileSync(join(ws, "content", "active.yaml"), ACTIVE);
+    // 4. re-record through the real CLI path; `--lang` is part of the entry and
+    // `recordVariant` must preserve the other platform's choice.
+    const choose = run(["refine", "github-readme", "--choose", "gh-1", "--lang", "en"], ws);
+    expect(choose.code).toBe(0);
+    const active = readFileSync(join(ws, "content", "active.yaml"), "utf8");
+    expect(active).toContain("github-readme:");
+    expect(active).toContain("linkedin:");
     const data = buildJson(ws, "v");
     expect(data.data.written[0]?.variant).toBe("gh-1");
     // The artifact is the composed body, and it carries the resolved order.

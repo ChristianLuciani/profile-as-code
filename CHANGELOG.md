@@ -58,10 +58,12 @@ minor versions may contain breaking contract changes.
   wins and the slice carries a resolved order, `build` emits a **permanent,
   informational** note naming the variant and the layer (the body is
   authoritative; the order applied to the render) — not a staleness verdict and
-  not a silent no-op. SPEC §16.2 step 4 owns the composition procedure (remove
-  that platform's `active.yaml` entry, build the ordered render, compose and write
-  the body, re-record the choice), cited from §21.3 rule 11 and §21.6, with an
-  end-to-end test.
+  not a silent no-op. SPEC §16.2 step 4 owns the mechanical sequence — remove
+  that platform's `active.yaml` entry (the other platforms stay), build the
+  ordered render as the **base**, let the executing agent compose the body per the
+  platform skill (the engine models no composition, #476), and re-record with
+  `refine --choose <id> --lang <l>` — cited from §21.3 rule 11 and §21.6, with an
+  end-to-end test that runs it and asserts the other platform's choice survives.
 
 ## [0.4.0] - 2026-11-04
 

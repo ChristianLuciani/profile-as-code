@@ -2009,18 +2009,23 @@ First platform: **`github-readme`** — the only 100% git/API-deployable surface
    platform artifact for that lang, records the variant in the build report, and
    falls back to the deterministic render with a warning when the file is missing,
    empty or for another lang (#238).
-4. **Composing a variant body from the render (#458).** The body is authored input,
-   so it is composed, never rewritten by `build`:
+4. **Composing a variant body from the render (#458, #476).** The engine has **no
+   composition model**: it offers the ordered render as the *base*, and composing
+   the body — chrome, hidden JSON-LD, the editorial layer — is the job of the
+   executing agent following `skills/<platform>/SKILL.md` (the same judgment layer
+   steps 1–2 use). The mechanical sequence is:
    1. remove **that platform's entry** from `content/active.yaml` — the file is one
-      for all platforms, so never delete the file (every other choice would be
-      lost);
-   2. `pasco build <platform>` with the view whose `orderKeys` must reach the body,
-      and take the rendered `profiles/<platform>/README.md` (or `<platform>.md` for
-      a paste surface) as the base region;
-   3. apply the workspace's declared composition on top (chrome, hidden JSON-LD,
-      …) and write the result to `profiles/<platform>/variants/<variantId>.md`;
-   4. restore the entry and record the choice with
-      `pasco refine <platform> --choose <variantId>`.
+      for all platforms, so never delete the file: the other platforms' entries stay
+      untouched;
+   2. `pasco build <platform> --lang <l>` with the view whose `orderKeys` must reach
+      the body, and take the rendered `profiles/<platform>/README.md` (or
+      `<platform>.md` for a paste surface) as the base;
+   3. compose the body from that base per the platform skill (chrome/JSON-LD are
+      that layer's editorial decisions, not an engine-declared set) and write it to
+      `profiles/<platform>/variants/<variantId>.md`;
+   4. re-record the choice with `pasco refine <platform> --choose <variantId>
+      --lang <l>` — the lang is part of the entry and must match step 1's, and
+      `recordVariant` preserves the other platforms' entries.
 
    `build` then writes the body verbatim (§21.3 rule 11), and the resolved order
    travels with the render the body was composed from — the hand-ordering step
