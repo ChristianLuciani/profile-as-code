@@ -22,7 +22,7 @@ import {
 } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report } from "../output.js";
-import { lookupSkill, skillLine } from "../skill-path.js";
+import { lookupSkill, NOT_SHIPPED_MESSAGE, skillLine } from "../skill-path.js";
 import { hasVariantBody, isSafeVariantId, variantBodyPath } from "../variant-store.js";
 import type { Pascorc } from "../workspace.js";
 import { defaultsLang } from "../workspace.js";
@@ -181,10 +181,15 @@ export function runRefine(args: RefineArgs): number {
   // home — the platform skill — so the template names it instead of restating it
   // (a second copy drifts), and says out loud that a variant must not restate
   // another platform's narrative.
+  // The three lookup states stay distinct (#253): "this channel has no skill" and
+  // "this build ships no skills tree" are different diagnoses, and collapsing them
+  // told a skills-less install that the platform had no skill.
   const readerLine =
-    skillPath === undefined
-      ? `no ${platform} skill in this install — write for ${platform}'s own reader; do not borrow another platform's text`
-      : `${skillPath} (its audience/angle section) — write for ${platform}'s reader; never borrow another platform's headline, bio or body`;
+    skill.state === "found"
+      ? `${skill.path} (its audience/angle section) — write for ${platform}'s reader; never borrow another platform's headline, bio or body`
+      : skill.state === "not-shipped"
+        ? `${NOT_SHIPPED_MESSAGE}; write for ${platform}'s own reader — do not borrow another platform's text`
+        : `no ${platform} skill in this install — write for ${platform}'s own reader; do not borrow another platform's text`;
 
   const template = [
     `# pasco refine — agent task (agent-driven: D10/D11/D13; no LLM call, no hub)`,

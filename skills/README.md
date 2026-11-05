@@ -81,8 +81,10 @@ Every post channel also carries its judgment layer: the `post.md`, plus a
 and `x` were the two channels with no strategy file, and that is exactly where a
 narrative copied across surfaces went uncited).
 
-- `post.md` — what a piece on that channel is for, its shape, its voice, and its
-  GEO and i18n policy, plus what `export: api | paste` means for the writing.
+- `post.md` — what a piece on that channel is for, its shape and its voice, plus
+  what `export: api | paste` means for the writing. The channel's GEO/i18n policy
+  lives in `post.md` or in its `SKILL.md`'s own section — both are one read away,
+  and neither duplicates the other.
 - `SKILL.md` — the channel skill document: mission, when the skill runs, the
   flow, the pointers to the contract, and the suggested model in its frontmatter.
   It is a strategy reference, not a bundle input: `pasco post task` carries the

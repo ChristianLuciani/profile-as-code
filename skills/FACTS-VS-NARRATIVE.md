@@ -1,8 +1,11 @@
 # Facts are unique · narrative is per surface
 
 The one rule every platform skill in this tree carries. It has a single home —
-**this file** — and each `SKILL.md` points at it instead of restating it, so the
-norm cannot drift between skills. The normative version is SPEC §21.8.
+**this file** — and each `SKILL.md` points at it. A skill may keep its platform's
+own gold rule, but it may not present a second definition of the two axes nor
+contradict this one: in particular, **order is narrative**, so ordering facts
+differently is not a fact change. The normative version is SPEC §21.8, and the
+pointer is asserted by `packages/cli/tests/skill-two-axis.test.ts`.
 
 ## The two axes
 
@@ -11,8 +14,9 @@ norm cannot drift between skills. The normative version is SPEC §21.8.
 | **Facts** | `content/*.yaml` — name, dates, roles, numbers, DOIs, links, evidence | **No.** One and identical everywhere. A contradiction between two surfaces is a defect (GEO/citability), not an adaptation. |
 | **Narrative** | reader, emphasis, **order**, subset, composition | **Yes — deliberately.** It **must not** be propagated "for consistency". |
 
-The one text that is shared verbatim across surfaces is the identity definition
-(`identity.definition`) — it is a **fact**, not a per-platform text.
+The texts shared verbatim across surfaces are the root-block facts themselves
+(`identity.definition`, `positioning.statement`) — **facts**, not per-platform
+texts. No per-platform `headlines`/`bios` row is shared.
 
 ## The pasco surfaces the rule touches
 
@@ -22,7 +26,7 @@ The one text that is shared verbatim across surfaces is the identity definition
 | `bios` | text (narrative), banded by `length` | per-platform rows |
 | `selection.views` | **subset** + **`orderKeys`** | workspace policy (`.pascorc`), never an SSOT field — order is narrative (SPEC §21.2/§21.3) |
 | variant body | **composition** | `profiles/<platform>/variants/<id>.md` — the chosen variant's body |
-| `identity.definition` | **fact** | one row, identical everywhere |
+| `identity.definition` · `positioning.statement` | **fact** | one row each, identical everywhere |
 
 ## What the engine does about it
 

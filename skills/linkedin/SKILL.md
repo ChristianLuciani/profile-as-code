@@ -1,12 +1,13 @@
 ---
 name: linkedin-post
 description: >
-  Channel skill for LinkedIn. Says what a LinkedIn post is for and how the agent
-  writes it; the machine contract is skills/linkedin/posting.yaml (char limit,
-  hashtag cap, link policy) and the judgment layer — shape, voice, GEO, i18n — is
-  post.md. Audience and angle are THIS channel's, deliberately different from the
-  GitHub profile README's. The agent writes N variants, the operator picks one,
-  and the choice is recorded with `pasco post choose`.
+  Channel skill for LinkedIn. Says what a post on the channel is for and how the
+  agent writes it; the machine contract is
+  `skills/linkedin/posting.yaml` (char limit, hashtag cap, link policy) and the judgment layer is split:
+  `post.md` owns the shape and the voice, this file's own GEO/i18n section
+  owns that policy. Audience and angle are THIS channel's, deliberately
+  different from the GitHub profile README's. The agent writes N variants,
+  the operator picks one, and the choice is recorded with `pasco post choose`.
 model: juicio (frontier) — the angle and the claim are judgment; the character
   count is not
 applies_to: linkedin
@@ -23,7 +24,7 @@ sources: skills/linkedin/posting.yaml
 Turn one canonical seed into a post that earns the next line for a
 **professional reader**: a peer, a hiring manager, a collaborator. The post is a
 claim or a story, not a profile summary. The skill is the judgment layer (D5); the
-contract plus `pasco post check` are the deterministic part.
+contract plus `pasco post check <seed>` are the deterministic part.
 
 ## Who reads it, and what changes
 
@@ -58,7 +59,7 @@ command: with a `SKILL.md` present it resolves this file and emits a profile tas
 1. Read `posting.yaml` + `post.md`; the contract owns every limit.
 2. Write N variants at `posts/<seed>/linkedin/linkedin-<n>.md`.
 3. The operator picks one; record it with `pasco post choose`.
-4. `pasco post check` — fix the findings.
+4. `pasco post check <seed>` — fix the findings.
 5. Publish manually and verify the live post.
 
 ## Contract pointers (single source each)
@@ -86,7 +87,7 @@ canonical. The crawler stance is the repo's global `ai.policy`
 
 ## Verification
 
-- `pasco post check` exit 0; the findings it prints are the gate.
+- `pasco post check <seed>` exit 0; the findings it prints are the gate.
 - Facts byte-identical to the SSOT — no rounded date, number or DOI.
 - Links ⊆ the SSOT link sources; no invented or shortened URL.
 - The post does not restate another channel's profile text.
