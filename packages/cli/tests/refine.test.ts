@@ -157,7 +157,7 @@ describe("pasco refine (agent template)", () => {
     expect(res.stdout).toContain("Narrative is PER SURFACE (SPEC §21.8)");
   });
 
-  it("says there is no skill to read when none ships for the platform (#462, premerge F4)", () => {
+  it("says there is no skill to read when none ships for the platform (#462, fresh pass F4)", () => {
     // `upwork` has no skill directory: the fallback branch must not invent a
     // path, and must still carry the non-propagation rule.
     const res = run(["refine", "upwork", "--workspace", FIXTURE]);
