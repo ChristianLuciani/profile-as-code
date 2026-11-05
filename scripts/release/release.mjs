@@ -34,10 +34,11 @@
  * Usage: node scripts/release/release.mjs <check|cut|pages|verify> [options]
  */
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { extractReleaseNotes } from "../../packages/cli/scripts/release-notes.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..", "..");
@@ -100,22 +101,20 @@ export function repoSlog(root) {
   return `${match[1]}/${match[2]}`;
 }
 
-/** The CHANGELOG section for one version, or null. `[Unreleased]` is not it. */
+/** The CHANGELOG section for one version, or null. It DELEGATES to the extractor
+ *  `release.yml` runs before publishing, so the heading pattern has one home:
+ *  a section this check accepts but the extractor refuses would publish nothing
+ *  (the run dies before the publish) — a false PASS. */
 export function changelogSection(text, version) {
-  const lines = text.split("\n");
-  const escaped = version.replace(/\./g, "\\.");
-  const start = lines.findIndex((line) => new RegExp(`^## \\[${escaped}\\]`).test(line));
-  if (start === -1) return null;
-  const end = lines.findIndex((line, index) => index > start && /^## /.test(line));
-  return lines.slice(start, end === -1 ? undefined : end).join("\n");
+  return extractReleaseNotes(text, version);
 }
 
 /** A release section needs at least one `### Added|Fixed|…` and one bullet. */
 export function sectionIsSubstantive(section) {
   if (section === null) return false;
-  const body = section.split("\n").slice(1);
-  const hasHeading = body.some((line) => /^### \S/.test(line));
-  const hasBullet = body.some((line) => /^- \S/.test(line));
+  const lines = section.split("\n");
+  const hasHeading = lines.some((line) => /^### \S/.test(line));
+  const hasBullet = lines.some((line) => /^- \S/.test(line));
   return hasHeading && hasBullet;
 }
 
@@ -127,11 +126,16 @@ function previousTag(root, currentTag) {
 }
 
 /**
- * The offline preconditions of a release. Every refusal names the fix.
- * `ref` is what the tag must point at (the workflow guard requires the default
- * branch tip at push time).
+ * The preconditions of a release. Every refusal names the fix.
+ *
+ * `ref` is what the tag must point at (the workflow guard requires the
+ * default-branch tip at push time). By DEFAULT the check fetches origin and
+ * reads the remote tip + remote tags: a local-only comparison is exactly how a
+ * stale `origin/main` looked green while the remote had moved, and the guard
+ * then refuses the tag after it was already pushed. `offline: true` skips the
+ * network for fixtures and air-gapped reads and says so in a warning.
  */
-export function checkRelease({ root = ROOT, ref = "origin/main" } = {}) {
+export function checkRelease({ root = ROOT, ref = "origin/main", offline = false } = {}) {
   const errors = [];
   const warnings = [];
   const fail = (message) => errors.push(message);
@@ -145,6 +149,19 @@ export function checkRelease({ root = ROOT, ref = "origin/main" } = {}) {
       commit: null,
       tag: null,
     };
+  }
+
+  if (offline) {
+    warnings.push(
+      "offline — the remote tip and remote tags were not verified (cut never uses this mode)",
+    );
+  } else {
+    const fetched = gitMaybe(root, ["fetch", "--quiet", "--prune", "origin"]);
+    if (fetched.status !== 0) {
+      fail(
+        `cannot verify the remote tip — git fetch origin failed: ${(fetched.stderr || "").trim().split("\n")[0]}`,
+      );
+    }
   }
 
   let cli;
@@ -178,6 +195,22 @@ export function checkRelease({ root = ROOT, ref = "origin/main" } = {}) {
   if (gitRead(root, ["tag", "--list", tag]) !== "") {
     fail(`tag ${tag} already exists locally — a release version is never reused`);
   }
+  if (!offline) {
+    const remoteTag = gitMaybe(root, [
+      "ls-remote",
+      "--tags",
+      "origin",
+      `refs/tags/${tag}`,
+      `refs/tags/${tag}^{}`,
+    ]);
+    if (remoteTag.status !== 0) {
+      fail(
+        `cannot verify remote tags — git ls-remote failed: ${(remoteTag.stderr || "").trim().split("\n")[0]}`,
+      );
+    } else if (remoteTag.stdout !== "") {
+      fail(`tag ${tag} already exists on origin — a release version is never reused`);
+    }
+  }
 
   const dirty = gitRead(root, ["status", "--porcelain", "--untracked-files=no"]);
   if (dirty !== "") fail(`working tree is dirty (tracked files):\n${dirty}`);
@@ -195,7 +228,13 @@ export function checkRelease({ root = ROOT, ref = "origin/main" } = {}) {
       fail(`${CHANGELOG} section "## [${version}]" has no ### heading + bullet`);
   }
 
-  const core = readJson(root, CORE_MANIFEST);
+  let core;
+  try {
+    core = readJson(root, CORE_MANIFEST);
+  } catch (error) {
+    fail(`cannot read ${CORE_MANIFEST}: ${error.message}`);
+    return { errors, warnings, version, tag, commit: head, coreVersion: null, previous: null };
+  }
   if (!semver(core.version))
     fail(`${CORE_MANIFEST} version "${core.version}" is not MAJOR.MINOR.PATCH`);
   const previous = previousTag(root, tag);
@@ -254,13 +293,16 @@ function afterCut(result) {
 }
 
 function cmdCheck(args) {
-  const { root, ref } = parse(args, { ref: "origin/main" });
-  return printCheck(checkRelease({ root, ref }), { ref });
+  const { root, ref, offline } = parse(args, { ref: "origin/main", offline: false });
+  return printCheck(checkRelease({ root, ref, offline }), { ref });
 }
 
 function cmdCut(args) {
   const options = parse(args, { ref: "origin/main", yes: false, dryRun: false, push: true });
   if (options.noPush === true) options.push = false;
+  if (options.offline === true) {
+    throw new Refused("cut verifies origin before pushing — --offline is check-only");
+  }
   const result = checkRelease({ root: options.root, ref: options.ref });
   const failed = printCheck(result, { ref: options.ref });
   if (failed !== 0) return failed;
@@ -325,7 +367,9 @@ async function fetchText(url) {
   return response.text();
 }
 
-/** Reads the four published surfaces: registry ×2, Release, live page. */
+/** Reads the published surfaces. Every surface is ATTEMPTED: one unreachable
+ *  URL is a FAIL row, never the end of the report (and a rejected fetch is
+ *  caught, not a stack). */
 export async function verifyRelease({ root = ROOT, version = null } = {}) {
   const cli = readJson(root, CLI_MANIFEST);
   const core = readJson(root, CORE_MANIFEST);
@@ -336,61 +380,70 @@ export async function verifyRelease({ root = ROOT, version = null } = {}) {
   if (tagCommit.status !== 0) throw new Refused(`tag ${tag} does not resolve locally`);
 
   const checks = [];
-  const cliMeta = await fetchJson(`https://registry.npmjs.org/@profile-as-code/cli/${target}`);
-  checks.push([
-    "npm @profile-as-code/cli",
-    cliMeta.status === 200,
-    cliMeta.status === 200
-      ? `published, gitHead ${cliMeta.body.gitHead ?? "?"}`
-      : "not on the registry",
-  ]);
+  const record = async (label, probe) => {
+    try {
+      const [ok, detail] = await probe();
+      checks.push([label, ok, detail]);
+    } catch (error) {
+      checks.push([label, false, `unreachable: ${error.message}`]);
+    }
+  };
+
+  let cliMeta = { status: 0, body: null };
+  await record("npm @profile-as-code/cli", async () => {
+    cliMeta = await fetchJson(`https://registry.npmjs.org/@profile-as-code/cli/${target}`);
+    return cliMeta.status === 200
+      ? [true, `published, gitHead ${cliMeta.body.gitHead ?? "?"}`]
+      : [false, "not on the registry"];
+  });
   if (cliMeta.status === 200) {
-    checks.push([
-      "cli gitHead is the tag",
+    await record("cli gitHead is the tag", async () => [
       cliMeta.body.gitHead === tagCommit.stdout,
       `want ${tagCommit.stdout.slice(0, 7)}`,
     ]);
-    checks.push([
-      "cli attestations",
+    await record("cli attestations", async () => [
       Boolean(cliMeta.body.dist?.attestations),
       "dist.attestations present",
     ]);
   }
 
-  const coreMeta = await fetchJson(
-    `https://registry.npmjs.org/@profile-as-code/core/${core.version}`,
-  );
-  checks.push([
-    "npm @profile-as-code/core",
-    coreMeta.status === 200,
-    coreMeta.status === 200 ? `published ${core.version}` : "not on the registry",
-  ]);
+  let coreMeta = { status: 0, body: null };
+  await record("npm @profile-as-code/core", async () => {
+    coreMeta = await fetchJson(`https://registry.npmjs.org/@profile-as-code/core/${core.version}`);
+    return coreMeta.status === 200
+      ? [true, `published ${core.version}`]
+      : [false, "not on the registry"];
+  });
   if (coreMeta.status === 200) {
-    checks.push([
-      "core attestations",
+    await record("core attestations", async () => [
       Boolean(coreMeta.body.dist?.attestations),
       "dist.attestations present",
     ]);
   }
 
-  const gh = run("gh", ["release", "view", tag, "--repo", repoSlog(root), "--json", "tagName"], {
-    root,
-    allowFail: true,
+  let slug = null;
+  await record("origin remote", async () => {
+    slug = repoSlog(root);
+    return [slug !== null, slug];
   });
-  checks.push([
-    "GitHub Release",
-    gh.status === 0,
-    gh.status === 0 ? `${tag} page exists` : "no Release for the tag",
-  ]);
-
-  const [owner, name] = repoSlog(root).split("/");
-  const html = await fetchText(`https://${owner}.github.io/${name}/`);
-  const live = html.match(/"softwareVersion"\s*:\s*"([^"]+)"/)?.[1] ?? null;
-  checks.push([
-    "live page softwareVersion",
-    live === target,
-    live === null ? "page does not expose softwareVersion" : `page says ${live}`,
-  ]);
+  if (slug !== null) {
+    await record("GitHub Release", async () => {
+      const gh = run("gh", ["release", "view", tag, "--repo", slug, "--json", "tagName"], {
+        root,
+        allowFail: true,
+      });
+      return [gh.status === 0, gh.status === 0 ? `${tag} page exists` : "no Release for the tag"];
+    });
+    const [owner, name] = slug.split("/");
+    await record("live page softwareVersion", async () => {
+      const html = await fetchText(`https://${owner}.github.io/${name}/`);
+      const live = html.match(/"softwareVersion"\s*:\s*"([^"]+)"/)?.[1] ?? null;
+      return [
+        live === target,
+        live === null ? "page does not expose softwareVersion" : `page says ${live}`,
+      ];
+    });
+  }
 
   let failed = 0;
   for (const [label, ok, detail] of checks) {
@@ -404,7 +457,7 @@ export async function verifyRelease({ root = ROOT, version = null } = {}) {
 }
 
 /** Flags that carry no value (the rest consume the next token). */
-const BOOLEAN_FLAGS = new Set(["yes", "dryRun", "noPush"]);
+const BOOLEAN_FLAGS = new Set(["yes", "dryRun", "noPush", "offline"]);
 
 /** Minimal option parser: `--flag`, `--key value`, `--key=value`. */
 function parse(args, defaults) {
@@ -415,9 +468,13 @@ function parse(args, defaults) {
     if (!token.startsWith("--")) throw new Refused(`unexpected argument "${token}"`);
     const [key, inline] = token.slice(2).split("=", 2);
     const name = key.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+    const isBoolean =
+      BOOLEAN_FLAGS.has(name) || defaults[name] === true || defaults[name] === false;
     if (inline !== undefined) {
+      // A boolean flag's presence IS the value: `--yes=false` once published.
+      if (isBoolean) throw new Refused(`--${key} takes no value (got "${inline}")`);
       options[name] = inline;
-    } else if (BOOLEAN_FLAGS.has(name) || defaults[name] === true || defaults[name] === false) {
+    } else if (isBoolean) {
       options[name] = true;
     } else {
       const value = rest.shift();
@@ -434,7 +491,7 @@ function usage() {
     [
       "release — cut a profile-as-code release (maintainer tooling)",
       "",
-      "  check   [--ref origin/main] [--root DIR]            offline preconditions",
+      "  check   [--ref origin/main] [--root DIR] [--offline] preconditions (fetches origin)",
       "  cut     [--yes] [--dry-run] [--no-push] [--ref ..]  tag + push (human-run)",
       "  pages   --ref <commit-or-tag> [--release vX] [--dry-run]   re-deploy the site",
       "  verify  [--version X.Y.Z]                            registry + Release + page",
@@ -474,9 +531,14 @@ async function main() {
   }
 }
 
-if (
-  process.argv[1] !== undefined &&
-  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
-) {
+// Compared by REALPATH: a symlinked invocation (e.g. /tmp → /private/tmp on
+// macOS) must still run main(). Following release-notes.mjs, where "could not
+// decide" must never read as "did nothing, exit 0".
+function isMainModule() {
+  const entry = process.argv[1];
+  return entry !== undefined && realpathSync(entry) === fileURLToPath(import.meta.url);
+}
+
+if (isMainModule()) {
   process.exitCode = await main();
 }

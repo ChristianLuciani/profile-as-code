@@ -1,26 +1,31 @@
 #!/usr/bin/env node
 /**
- * release tooling — the self-test (offline, no network, no `gh`).
+ * release tooling — the self-test (offline unless a bare file remote is used).
  *
  * A gate that cannot fail is folklore: every refusal below is provoked against a
- * real temporary git repository (local refs only), and the two acting commands
- * are exercised through `--dry-run` so the test never tags or dispatches.
+ * real temporary git repository, and the two acting commands are exercised
+ * through `--dry-run` so the test never tags, pushes or dispatches. The
+ * remote-verification cases use a bare repository on the local filesystem; no
+ * network, no `gh`.
  *
  * What it proves:
  *   1. `check` PASSES on a well-formed release commit and REFUSES each broken
- *      precondition with its own reason (dirty tree, missing/empty CHANGELOG
- *      section, existing tag, HEAD behind the tip, bad semver);
- *   2. `cut` refuses without `--yes` and prints the exact commands in `--dry-run`;
- *   3. `pages --dry-run` names `pages.yml`, the repo derived from `origin`, and
- *      both inputs — no hardcoded owner;
- *   4. `changelogSection` selects the version's own section and never
- *      `[Unreleased]`.
+ *      precondition with its own reason (dirty tree, missing/non-canonical
+ *      CHANGELOG section, existing tag locally AND on origin, HEAD behind the
+ *      remote tip, bad semver, unreadable core manifest);
+ *   2. a boolean flag's PRESENCE is its value: `cut --yes=false` is refused and
+ *      creates no tag;
+ *   3. `cut` refuses without `--yes`, never uses `--offline`, and prints the
+ *      exact commands in `--dry-run`;
+ *   4. `pages --dry-run` names `pages.yml`, the repo derived from `origin`, and
+ *      both inputs;
+ *   5. the entrypoint guard decides by realpath, so a symlinked invocation runs.
  *
  * Zero dependencies, node >=22. Usage: node scripts/release/test.mjs
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -61,7 +66,7 @@ function commit(root, message) {
   ]);
 }
 
-/** A temporary repository shaped like this repo, with a local origin/main ref. */
+/** A temporary repository shaped like this repo. */
 function fixture({ version = "0.4.0", changelog = CHANGELOG(version) } = {}) {
   const root = mkdtempSync(path.join(os.tmpdir(), "release-test-"));
   mkdirSync(path.join(root, "packages", "cli"), { recursive: true });
@@ -85,11 +90,25 @@ function fixture({ version = "0.4.0", changelog = CHANGELOG(version) } = {}) {
   return root;
 }
 
+/** The same fixture with a real (bare, local) `origin` and its main pushed. */
+function onlineFixture(options) {
+  const root = fixture(options);
+  const bare = mkdtempSync(path.join(os.tmpdir(), "release-bare-"));
+  git(bare, ["init", "--bare", "-q"]);
+  git(root, ["remote", "set-url", "origin", bare]);
+  git(root, ["push", "-q", "-u", "origin", "main"]);
+  return { root, bare };
+}
+
 function release(root, args) {
   const result = spawnSync(process.execPath, [SCRIPT, ...args, "--root", root], {
     encoding: "utf8",
   });
   return { status: result.status ?? -1, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
+}
+
+function tags(root) {
+  return git(root, ["tag", "--list"]);
 }
 
 function cleanup(root) {
@@ -98,23 +117,31 @@ function cleanup(root) {
 
 console.log("release — self-test");
 
-it("changelogSection selects the version, never [Unreleased]", () => {
+it("changelogSection delegates to the extractor: exact version, never [Unreleased]", () => {
   const text = CHANGELOG("0.4.0");
   const section = changelogSection(text, "0.4.0");
   assert.ok(section !== null);
-  assert.match(section, /^## \[0\.4\.0\]/);
+  assert.match(section, /^### Added/);
   assert.ok(!section.includes("[Unreleased]"));
   assert.equal(changelogSection(text, "9.9.9"), null);
   assert.ok(sectionIsSubstantive(section));
-  assert.ok(!sectionIsSubstantive("## [0.4.0] - 2026-11-04\n\n### Added\n"));
+  assert.ok(!sectionIsSubstantive("### Added\n"));
+});
+
+it("the canonical heading pattern is the extractor's, not a looser one", () => {
+  // A linked heading is not what `release-notes.mjs` extracts, so `check` must
+  // refuse it too — otherwise the release run dies after the tag is pushed.
+  const linked = "## [0.4.0](https://example.test/0.4.0) - 2026-11-04\n\n### Added\n\n- x\n";
+  assert.equal(changelogSection(linked, "0.4.0"), null);
 });
 
 it("check passes on a well-formed release commit", () => {
   const root = fixture();
   try {
-    const result = release(root, ["check"]);
+    const result = release(root, ["check", "--offline"]);
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /release: PASS \(v0\.4\.0 at [0-9a-f]{7}/);
+    assert.match(result.stdout, /remote tip and remote tags were not verified/);
   } finally {
     cleanup(root);
   }
@@ -124,7 +151,7 @@ it("check refuses a dirty tracked tree", () => {
   const root = fixture();
   try {
     writeFileSync(path.join(root, "README.md"), "# changed\n");
-    const result = release(root, ["check"]);
+    const result = release(root, ["check", "--offline"]);
     assert.equal(result.status, 1);
     assert.match(result.stderr, /working tree is dirty/);
   } finally {
@@ -135,7 +162,7 @@ it("check refuses a dirty tracked tree", () => {
 it("check refuses a missing CHANGELOG section", () => {
   const root = fixture({ changelog: "# Changelog\n\n## [Unreleased]\n" });
   try {
-    const result = release(root, ["check"]);
+    const result = release(root, ["check", "--offline"]);
     assert.equal(result.status, 1);
     assert.match(result.stderr, /has no "## \[0\.4\.0\]" section/);
   } finally {
@@ -146,7 +173,7 @@ it("check refuses a missing CHANGELOG section", () => {
 it("check refuses a section with no heading and bullet", () => {
   const root = fixture({ changelog: "# Changelog\n\n## [0.4.0] - 2026-11-04\n\nprose only\n" });
   try {
-    const result = release(root, ["check"]);
+    const result = release(root, ["check", "--offline"]);
     assert.equal(result.status, 1);
     assert.match(result.stderr, /has no ### heading \+ bullet/);
   } finally {
@@ -154,25 +181,75 @@ it("check refuses a section with no heading and bullet", () => {
   }
 });
 
-it("check refuses an existing tag", () => {
+it("check refuses an existing local tag", () => {
   const root = fixture();
   try {
     git(root, ["tag", "v0.4.0"]);
-    const result = release(root, ["check"]);
+    const result = release(root, ["check", "--offline"]);
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /already exists/);
+    assert.match(result.stderr, /already exists locally/);
   } finally {
     cleanup(root);
   }
 });
 
-it("check refuses a HEAD that is not the tip the tag must match", () => {
+it("check fetches origin and refuses a HEAD that is not the remote tip", () => {
+  const { root, bare } = onlineFixture();
+  const other = mkdtempSync(path.join(os.tmpdir(), "release-other-"));
+  try {
+    const first = release(root, ["check"]);
+    assert.equal(first.status, 0, first.stderr || first.stdout);
+    // Someone else pushes to main after our checkout: a local-only check would
+    // still read green, and the tag guard would refuse the pushed tag.
+    git(os.tmpdir(), ["clone", "-q", bare, other]);
+    writeFileSync(path.join(other, "README.md"), "# moved remotely\n");
+    git(other, [
+      "-c",
+      "user.name=Other",
+      "-c",
+      "user.email=other@example.test",
+      "commit",
+      "-qam",
+      "move",
+    ]);
+    git(other, ["push", "-q", "origin", "main"]);
+
+    // The offline read cannot see the move and says it did not verify it;
+    // the online read fetches and refuses. (The fetch updates the local
+    // remote-tracking ref, so this order is the only one that can show both.)
+    assert.equal(release(root, ["check", "--offline"]).status, 0);
+    const online = release(root, ["check"]);
+    assert.equal(online.status, 1);
+    assert.match(online.stderr, /is not origin\/main/);
+  } finally {
+    cleanup(root);
+    cleanup(bare);
+    cleanup(other);
+  }
+});
+
+it("check refuses a tag that exists only on origin", () => {
+  const { root, bare } = onlineFixture();
+  try {
+    git(root, ["tag", "v0.4.0"]);
+    git(root, ["push", "-q", "origin", "v0.4.0"]);
+    git(root, ["tag", "-d", "v0.4.0"]);
+    const result = release(root, ["check"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /already exists on origin/);
+  } finally {
+    cleanup(root);
+    cleanup(bare);
+  }
+});
+
+it("check refuses a HEAD that is not the local tip", () => {
   const root = fixture();
   try {
     writeFileSync(path.join(root, "README.md"), "# moved\n");
     git(root, ["add", "-A"]);
     commit(root, "unpushed");
-    const result = release(root, ["check"]);
+    const result = release(root, ["check", "--offline"]);
     assert.equal(result.status, 1);
     assert.match(result.stderr, /is not origin\/main/);
   } finally {
@@ -183,7 +260,7 @@ it("check refuses a HEAD that is not the tip the tag must match", () => {
 it("check refuses a non-semver manifest version", () => {
   const root = fixture({ version: "0.4" });
   try {
-    const result = release(root, ["check"]);
+    const result = release(root, ["check", "--offline"]);
     assert.equal(result.status, 1);
     assert.match(result.stderr, /is not MAJOR\.MINOR\.PATCH/);
   } finally {
@@ -191,32 +268,71 @@ it("check refuses a non-semver manifest version", () => {
   }
 });
 
-it("cut refuses without --yes and never tags", () => {
+it("check reports an unreadable core manifest instead of crashing", () => {
   const root = fixture();
   try {
-    const result = release(root, ["cut"]);
+    writeFileSync(path.join(root, "packages", "core", "package.json"), "{ not json");
+    const result = release(root, ["check", "--offline"]);
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /irreversible publish step/);
-    assert.equal(
-      spawnSync("git", ["tag", "--list", "v0.4.0"], { cwd: root, encoding: "utf8" }).stdout.trim(),
-      "",
-    );
+    assert.match(result.stderr, /cannot read packages\/core\/package\.json/);
+    assert.doesNotMatch(result.stderr, /at Object\.|TypeError|SyntaxError/);
   } finally {
     cleanup(root);
   }
 });
 
+it("a boolean flag's presence is its value: --yes=false never publishes", () => {
+  const { root, bare } = onlineFixture();
+  try {
+    const result = release(root, ["cut", "--yes=false"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /--yes takes no value/);
+    assert.equal(tags(root), "");
+    assert.equal(git(bare, ["tag", "--list"]), "", "a refused cut must not push a tag");
+  } finally {
+    cleanup(root);
+    cleanup(bare);
+  }
+});
+
+it("cut refuses --offline (it must verify origin before pushing)", () => {
+  const { root, bare } = onlineFixture();
+  try {
+    const result = release(root, ["cut", "--yes", "--offline"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /--offline is check-only/);
+    assert.equal(tags(root), "");
+  } finally {
+    cleanup(root);
+    cleanup(bare);
+  }
+});
+
+it("cut refuses without --yes and never tags", () => {
+  const { root, bare } = onlineFixture();
+  try {
+    const result = release(root, ["cut"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /irreversible publish step/);
+    assert.equal(tags(root), "");
+  } finally {
+    cleanup(root);
+    cleanup(bare);
+  }
+});
+
 it("cut --dry-run prints the tag and push for the checked commit", () => {
-  const root = fixture();
+  const { root, bare } = onlineFixture();
   try {
     const head = git(root, ["rev-parse", "HEAD"]);
     const result = release(root, ["cut", "--dry-run"]);
     assert.equal(result.status, 0, result.stderr);
     assert.ok(result.stdout.includes(`git tag v0.4.0 ${head}`), result.stdout);
     assert.ok(result.stdout.includes("git push origin v0.4.0"), result.stdout);
-    assert.equal(git(root, ["tag", "--list", "v0.4.0"]), "");
+    assert.equal(tags(root), "");
   } finally {
     cleanup(root);
+    cleanup(bare);
   }
 });
 
@@ -244,6 +360,19 @@ it("pages refuses without --ref", () => {
     assert.match(result.stderr, /needs --ref/);
   } finally {
     cleanup(root);
+  }
+});
+
+it("the entrypoint guard decides by realpath, so a symlinked invocation runs", () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "release-link-"));
+  try {
+    const link = path.join(dir, "release.mjs");
+    symlinkSync(SCRIPT, link);
+    const result = spawnSync(process.execPath, [link, "--help"], { encoding: "utf8" });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /release — cut a profile-as-code release/);
+  } finally {
+    cleanup(dir);
   }
 });
 

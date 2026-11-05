@@ -838,19 +838,24 @@ Do this in order:
 5. **Verify** — the post-publish checks in
    ["Post-publish verification"](#post-publish-verification-issue-142), plus that the GitHub
    Release for the tag exists (the TAG run creates it; the dispatch only ever would, as a
-   Retry).
+   retry).
 
-**The local front desk.** `scripts/release/` wraps steps 1–5 with the same refusals:
-`pnpm release:check` is the offline precondition pass (the CLI version, a
-`## [<version>]` CHANGELOG section, a clean tree, `HEAD` equal to `origin/main`,
-and no existing tag); `pnpm release:cut -- --yes` tags and pushes that checked
-commit (it refuses without `--yes`; `--dry-run` prints the two git commands);
+**The local front desk.** `scripts/release/` wraps the routine steps (preparation,
+the tag, step 3's override and the verification) with the same refusals:
+`pnpm release:check` is the precondition pass — it **fetches origin** by default
+and checks the CLI version, a `## [<version>]` CHANGELOG section extracted by the
+same parser the release run uses, a clean tree, `HEAD` equal to `origin/main`, and
+that the tag exists neither locally nor on origin (`--offline` skips the network
+and says so; `cut` refuses it). `pnpm release:cut -- --yes` tags and pushes that
+checked commit (it refuses without `--yes`; `--dry-run` prints the two git
+commands, and a boolean flag's presence IS its value, so `--yes=false` refuses).
 `pnpm release:pages -- --ref <sha> --release v<version>` is step 3's documented
-override; and `pnpm release:verify` reads the registry, the Release and the live
-page's `softwareVersion` back. The script never publishes — the workflow does —
-and its self-test (`node scripts/release/test.mjs`, run in CI) provokes every
-refusal against a temporary repository, so a broken precondition cannot pass
-silently.
+override; `pnpm release:verify` reads the registry, the Release and the live page's
+`softwareVersion` back, reporting every surface it attempted. The script never
+publishes — the workflow does — and its self-test (`node scripts/release/test.mjs`,
+run in CI) provokes each of its own refusals against a temporary repository (a bare
+local remote for the remote-tip and remote-tag cases), so a broken precondition
+cannot pass silently.
 
 **What a tag push does — measured.** The tag run **publishes**
 (OIDC with `dist.attestations`, the Release page created by the same run — `v0.3.5`'s run
