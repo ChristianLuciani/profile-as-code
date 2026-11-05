@@ -14,6 +14,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Flavor } from "@profile-as-code/core";
+import { PROFILE_SCHEMA_VERSION } from "@profile-as-code/core";
 import { DEFAULT_CHECKS_YAML } from "../default-checks.js";
 import { engineFloorFor } from "../engine-gate.js";
 import { EXIT } from "../exit.js";
@@ -206,20 +207,26 @@ See the [CLI reference](https://github.com/ChristianLuciani/profile-as-code/tree
 `;
 
 /**
- * The scaffolded `.pascorc` — JSON, not YAML. The `engine` floor is written at
- * BIRTH (#434) and equals the installed CLI version: the engine knows its own
- * version, so "absent" is unreachable for a workspace born from this scaffold.
- * A hand-written floor can be forgotten, typed wrong, or left behind by the
- * upgrade that changed the contract; a birth-time declaration cannot.
+ * The scaffolded `.pascorc` — JSON, not YAML. Two floors are written at BIRTH:
+ *  - `engine` (#434) equals the installed CLI version, so "absent" is
+ *    unreachable for a workspace born from this scaffold. A hand-written floor
+ *    can be forgotten, typed wrong, or left behind by the upgrade that changed
+ *    the contract; a birth-time declaration cannot.
+ *  - `contract` (#439) equals the profile contract this build validates. It is
+ *    what `pasco doctor --contract-delta` diffs against after an upgrade, so the
+ *    workspace can say WHICH minors it has not adopted; without it that question
+ *    has no floor and the delta is unanswerable (doctor reports `absent`).
+ *    Always written: the schema version is exact even for a pre-release build.
  */
-export function pascorcTemplate(engineVersion: string): string {
+export function pascorcTemplate(engineVersion: string, contractVersion: string): string {
   const floor = engineFloorFor(engineVersion);
-  // A pre-release build declares no floor at all (see `engineFloorFor`): the
+  // A pre-release build declares no ENGINE floor (see `engineFloorFor`): the
   // scaffold must never pin a version the published engine cannot satisfy.
   const engine = floor === null ? "" : `  "engine": "${floor}",\n`;
   return `{
   "workspace": ".",
-${engine}  "defaults": { "lang": "en", "variants": 3 },
+${engine}  "contract": "${contractVersion}",
+  "defaults": { "lang": "en", "variants": 3 },
   "diff": { "tagPattern": "release-*" }
 }
 `;
@@ -260,7 +267,7 @@ export function runInit(args: InitArgs): number {
   const targets: { path: string; content: string }[] = [
     ...Object.entries(files).map(([name, content]) => ({ path: join(contentDir, name), content })),
     { path: join(dir, "README.md"), content: brand ? BRAND_README_TEMPLATE : README_TEMPLATE },
-    { path: join(dir, ".pascorc"), content: pascorcTemplate(CLI_VERSION) },
+    { path: join(dir, ".pascorc"), content: pascorcTemplate(CLI_VERSION, PROFILE_SCHEMA_VERSION) },
   ];
   for (const t of targets) {
     if (existsSync(t.path)) {

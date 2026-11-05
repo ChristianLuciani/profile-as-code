@@ -322,6 +322,7 @@ same absence of automation and history unless your storage provides them.
 {
   "workspace": ".",
   "engine": "0.4.0",
+  "contract": "1.16",
   "defaults": { "lang": "en", "variants": 3 },
   "diff": { "tagPattern": "release-*" }
 }
@@ -357,6 +358,14 @@ same absence of automation and history unless your storage provides them.
   ```
 
   Contract: SPEC §7.6.
+- `contract` — **written at birth, not by hand**: the profile-contract version
+  your workspace was written against, as `MAJOR.MINOR` (e.g. `"1.16"`), set by
+  `pasco init` from the contract the installed engine validates. It is the floor
+  `pasco doctor --contract-delta` diffs against: after an upgrade that command
+  prints every minor in between, the fields each added and the surface that reads
+  them — the answer to "so what can I adopt now?". A reader, not a gate: nothing
+  refuses work because of it, and `doctor` reports an absent, malformed or
+  ahead-of-engine floor as a state instead of guessing.
 
 Workspace resolution order (D14): `--workspace <path>` flag → `.pascorc` →
 current directory. With `workspace: "."`, run `pasco` from the workspace root and
@@ -1154,7 +1163,13 @@ command, not the engine refusing one.
 1. **Install** — the block above. Receipt: `pasco --version` prints the version you
    meant to install.
 2. **Read the pair** — `pasco doctor` prints engine · schema · workspace on one
-   line. Receipt: exit `0` and `(valid)`; on `1`, the line names the failing leg.
+   line. Then `pasco doctor --contract-delta` names **what changed** between your
+   workspace's contract floor and the installed one: one row per minor with the
+   fields it added and what they buy. Receipt: exit `0` and `(valid)`; on `1`, the
+   line names the failing leg. A workspace born before the `contract` floor existed
+   prints `no delta — no .pascorc declares a contract floor`: add `"contract"`
+   with the version you are coming **from** (the schema your old engine
+   validated — `1.9` for the 0.3.0 → 0.4.0 jump), and re-run.
 3. **Declare the floor — only if your workspace was born before it** — a new
    workspace gets the floor at birth: `pasco init` writes the installed version
    itself, so you never add, type or bump the field by hand. On a workspace born
@@ -1169,7 +1184,8 @@ command, not the engine refusing one.
    met, i.e. the data is newer than the engine); `build`, `preview` and `export
    profile` keep the gate's own line, which names the upgrade only when the
    installed CLI is older than the floor.
-4. **Adopt fields** — additive means opt-in. `pasco edit --list` prints every
+4. **Adopt fields** — additive means opt-in, and step 2's delta is the shopping
+   list. `pasco edit --list` prints every
    addressable row your workspace has; the addresses (and the roots that need
    `--create` first) are the table in [§4.4](#44-your-first-edit-without-an-editor).
    Receipt: `pasco edit '<address>'` without `--set` prints the value you wrote (or

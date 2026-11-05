@@ -101,6 +101,23 @@ describe("pasco init declares the engine floor at birth (#434)", () => {
     expect(res.stdout).toContain("valid");
   });
 
+  // #439: the CONTRACT floor is the second birth-time declaration — without it
+  // `doctor --contract-delta` has nothing to diff against and answers "absent".
+  it("also declares the contract floor at birth, so a fresh scaffold has no delta", () => {
+    const dir = scaffold();
+    const schema = JSON.parse(
+      readFileSync(join(__dirname, "..", "..", "..", "schema", "profile.schema.json"), "utf8"),
+    ) as { $id: string };
+    const installed = /\/v(\d+\.\d+)\/profile\.schema\.json$/.exec(schema.$id)?.[1];
+    expect(installed).toBeDefined();
+    expect(readPascorc(dir).contract).toBe(installed);
+    // The pair is coherent on day one: the workspace is exactly at the contract
+    // this engine validates, which is the equality case doctor prints verbatim.
+    const res = run(["doctor", "--contract-delta"], dir);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain("no delta (workspace floor = installed contract)");
+  });
+
   it("a pre-release build declares NO floor instead of pinning an unreleased version", () => {
     // Stripping the suffix would declare `0.4.0` while `@latest` is 0.3.7 — a
     // floor the published engine cannot meet. The raw string would violate the

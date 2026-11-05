@@ -72,6 +72,15 @@ export interface Pascorc {
    * range is deliberately not accepted (the repo is dependency-light).
    */
   engine?: string;
+  /**
+   * Issue #439: the profile-contract version this workspace was written against,
+   * written at BIRTH by `pasco init` as `MAJOR.MINOR` (e.g. `"1.16"`) from the
+   * schema `$id` this build validates. `pasco doctor --contract-delta` diffs the
+   * installed contract against THIS floor; absent means the floor is unknown,
+   * which `doctor` reports as `absent` — never as "nothing changed". A reader,
+   * not a gate (v1): `validate`/`build` do not enforce it.
+   */
+  contract?: string;
   defaults?: PascorcDefaults;
   diff?: { tagPattern?: string };
   /** Issue #102: completeness policy (weights/target/langs) — optional. */
