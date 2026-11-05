@@ -80,7 +80,7 @@ describe("pasco check — text/same-across-platforms (SPEC §21.8, #462)", () =>
     expect(findings[0]?.kind).toBe("headline");
     expect(findings[0]?.surfaces).toEqual(["linkedin", "x"]);
     expect(findings[0]?.message).toContain("linkedin, x");
-    expect(findings[0]?.path).toBe("headlines:linkedin/en");
+    expect(findings[0]?.path).toBe("headlines:linkedin:en");
 
     const human = run(["check", "--workspace", ws]);
     expect(human.stdout).toContain("text/same-across-platforms");

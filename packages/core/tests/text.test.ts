@@ -98,6 +98,6 @@ describe("sameTextAcrossPlatforms(profile) — the advisory narrative rule (SPEC
         { platform: "x" as const, lang: "en" as const, text },
       ],
     });
-    expect(findings[0]?.path).toBe("headlines:linkedin/en");
+    expect(findings[0]?.path).toBe("headlines:linkedin:en");
   });
 });
