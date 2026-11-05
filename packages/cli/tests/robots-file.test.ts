@@ -213,26 +213,59 @@ describe("verifyRobotsFile — the agent↔group map", () => {
     expect(orphan?.detail).toContain("RFC 9309 §2.2.2");
   });
 
-  it("reads `/*` and `/$` as rules for the root path (RFC 9309 §2.2.2 patterns)", () => {
-    // Review F1 of the fresh pass: a rule is a prefix match with `*` = 0+
-    // characters, so `Disallow: /*` blocks `/` — it is not "no rule".
-    const wildcardRoot = correct
-      .replaceAll("Allow: /", "Allow: /*")
-      .replaceAll("Disallow: /", "Disallow: /*");
-    expect(verifyRobotsFile(parseRobots(wildcardRoot), AI_CRAWLERS)).toEqual([]);
+  // ESCALATE(2) instrument: round 2 found the same class twice on `rootStance`
+  // (first the literal "/", then "any allow wins"). This table is what closes
+  // the class — a reader that skips the longest-match rule fails it.
+  describe("§2.2.2 precedence — conformance table", () => {
+    const googlebot = AI_CRAWLERS.find((row) => row.slug === "googlebot");
+    const cases: { rules: string[]; expected: "allow" | "disallow" | "none"; why: string }[] = [
+      { rules: ["Allow: /"], expected: "allow", why: "plain allow" },
+      { rules: ["Disallow: /"], expected: "disallow", why: "plain disallow" },
+      { rules: ["Allow: /*"], expected: "allow", why: "`*` matches zero characters" },
+      { rules: ["Disallow: /*"], expected: "disallow", why: "`/*` blocks the root" },
+      { rules: ["Allow: /$"], expected: "allow", why: "`$` anchors the end" },
+      { rules: ["Disallow: /$"], expected: "disallow", why: "`/$` blocks the root" },
+      { rules: [], expected: "none", why: "a group with no rule restricts nothing" },
+      { rules: ["Allow: /public"], expected: "none", why: "a narrower pattern misses `/`" },
+      { rules: ["Allow: /", "Disallow: /"], expected: "allow", why: "equivalent → allow wins" },
+      {
+        rules: ["Allow: /", "Disallow: /*"],
+        expected: "disallow",
+        why: "the longer pattern governs",
+      },
+      {
+        rules: ["Disallow: /", "Allow: /*"],
+        expected: "allow",
+        why: "the longer pattern governs, allow side",
+      },
+      {
+        rules: ["Allow: /", "Disallow: /$"],
+        expected: "disallow",
+        why: "an anchored pattern is more specific",
+      },
+      {
+        rules: ["Allow: /", "Disallow: /private"],
+        expected: "allow",
+        why: "a narrower pattern misses `/`",
+      },
+    ];
 
-    const anchoredRoot = correct
-      .replaceAll("Allow: /", "Allow: /$")
-      .replaceAll("Disallow: /", "Disallow: /$");
-    expect(verifyRobotsFile(parseRobots(anchoredRoot), AI_CRAWLERS)).toEqual([]);
-
-    // A narrower pattern does not touch `/`: the group states no root rule, and
-    // the detail must say exactly that rather than "wrong rule".
-    const narrow = correct.replace("Disallow: /", "Disallow: /private");
-    const findings = verifyRobotsFile(parseRobots(narrow), AI_CRAWLERS);
-    expect(findings.map((finding) => finding.entry)).toEqual(training.map((row) => row.slug));
-    expect(findings[0]?.detail).toContain("no rule for `/`");
-    expect(findings[0]?.detail).toContain("not restricted");
+    for (const { rules, expected, why } of cases) {
+      it(`${why}: ${rules.join(" + ") || "(no rule)"} → ${expected}`, () => {
+        expect(googlebot).toBeDefined();
+        const text = ["User-agent: Googlebot", ...rules, ""].join("\n");
+        const findings = verifyRobotsFile(parseRobots(text), googlebot ? [googlebot] : []);
+        if (expected === "allow") {
+          expect(findings).toEqual([]);
+          return;
+        }
+        expect(findings).toHaveLength(1);
+        expect(findings[0]?.kind).toBe("wrong-group");
+        expect(findings[0]?.detail).toContain(
+          expected === "disallow" ? "Disallow: /` (everything blocked)" : "no rule for `/`",
+        );
+      });
+    }
   });
 
   it("fails an empty file: every registry crawler is missing", () => {

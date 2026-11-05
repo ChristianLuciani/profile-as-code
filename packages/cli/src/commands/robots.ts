@@ -123,13 +123,28 @@ function matchesRootPath(pattern: string): boolean {
   return new RegExp(`^${source}${anchored ? "$" : ""}`, "u").test("/");
 }
 
+/**
+ * How specific a pattern is, for RFC 9309 §2.2.2's "the most specific match
+ * found MUST be used … the match that has the most octets". Measured on the
+ * pattern, and the `$` anchor counts: an anchored pattern matches strictly fewer
+ * URIs than the same unanchored one (`/$` ⊂ `/`), so it is the more specific rule.
+ */
+function specificity(pattern: string): number {
+  return pattern.length;
+}
+
 /** The rule a group states for the root path `/`, if any. */
 function rootStance(group: RobotsGroup): "allow" | "disallow" | "none" {
   const atRoot = group.rules.filter((rule) => matchesRootPath(rule.path));
-  // §2.2.2: an `allow` and a `disallow` for the same pattern — the `allow` wins.
-  if (atRoot.some((rule) => rule.key === "allow")) return "allow";
-  if (atRoot.some((rule) => rule.key === "disallow")) return "disallow";
-  return "none";
+  if (atRoot.length === 0) return "none";
+  // §2.2.2: the LONGEST matching pattern wins; only when the `allow` and the
+  // `disallow` are equivalent (same octets) does the `allow` win. Taking "any
+  // allow" as the answer reads `Allow: /` + `Disallow: /*` as allowed, though
+  // `/*` is the longer, governing rule — the exact inversion this gate exists to
+  // catch would pass (round-2 finding, ESCALATE(2)).
+  const longest = Math.max(...atRoot.map((rule) => specificity(rule.path)));
+  const governing = atRoot.filter((rule) => specificity(rule.path) === longest);
+  return governing.some((rule) => rule.key === "allow") ? "allow" : "disallow";
 }
 
 function describeStance(stance: "allow" | "disallow" | "none"): string {

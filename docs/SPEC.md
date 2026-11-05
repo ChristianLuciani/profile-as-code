@@ -775,8 +775,10 @@ group and is ignored by crawlers — §2.2.2) and compares the map with
 `ai-retrieval`/`ai-training`. A group's rule for the root path is evaluated as a
 pattern, not as the literal text `/` (§2.2.2/§2.2.3: a prefix match where `*`
 matches zero or more characters and `$` anchors the end), so `Disallow: /*` and
-`Disallow: /$` are a root block; an empty pattern (`Allow:` with no path)
-restricts nothing and is not read as a root rule.
+`Disallow: /$` are a root block; the **longest matching pattern governs**, and only
+equivalent patterns resolve to `allow` — so `Allow: /` beside `Disallow: /*` is a
+block, not an allow. An empty pattern (`Allow:` with no path) restricts nothing and
+is not read as a root rule.
 
 It exits `1` with **one finding per fact**, never a generic "robots.txt invalid":
 `missing` (a registry crawler is in no group), `duplicate` (the same token in two
