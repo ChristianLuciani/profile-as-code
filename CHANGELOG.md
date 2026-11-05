@@ -11,6 +11,21 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **«facts are unique · narrative is per surface» — the norm and its advisory
+  check (#462, SPEC §21.8)** — the rule lived only in one platform skill (as a
+  golden rule) and as a product goal, so a workspace could unify one headline
+  across its GitHub README, LinkedIn and X “for consistency” and `pasco check`
+  stayed green. **SPEC §21.8** now states it normatively: facts (`content/*.yaml`,
+  including `identity.definition`) are one and identical across surfaces and a
+  contradiction is a defect, not an adaptation; narrative (reader, emphasis,
+  order, subset via `selection.views`, composition via the variant body) is per
+  surface and is never propagated. `pasco check` gains the **advisory**
+  `text/same-across-platforms` — a **warn** naming both platforms and the text
+  kind when two different platforms carry a byte-identical `headline` or a `bio`
+  in the same `length` band; exempt: the same platform across langs and
+  `identity.definition`. No schema change, no hard gate. The skills half
+  (`linkedin`/`x` `SKILL.md` + the shared two-axis statement) lands in the
+  chained PR.
 - **per-view `selection.views.<v>.orderKeys` — the narrative order the featured
   sort was missing (#458, SPEC §21.2/§21.3)** — `github-readme`'s featured list is
   fully derived (`status` rank → skill weight → name), so a workspace that wanted

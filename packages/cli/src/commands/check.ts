@@ -21,6 +21,13 @@
  * the ones the SSOT render carries. WARN in every case (D12: facts warn); the
  * class it carries is what `pasco audit` grades. A surface with no artifact is
  * reported as NOT RUN, never as OK — an unmeasured surface is not a green one.
+ *
+ * `text/same-across-platforms` (#462, SPEC §21.8): the ADVISORY half of the
+ * facts/narrative split — two different platforms carrying byte-identical
+ * `headlines`, or `bios` of the same `length`, get a warn that names both
+ * platforms and the text kind. Identical text across surfaces is the signature
+ * of a narrative copied "for consistency", not an adaptation; it is a heuristic,
+ * so it never fails the command and never blocks a build.
  */
 
 import type { LoadedProfile, Platform } from "@profile-as-code/core";
@@ -31,6 +38,7 @@ import {
   load,
   registryCheck,
   SchemaValidationError,
+  sameTextAcrossPlatforms,
 } from "@profile-as-code/core";
 import { capCatalog, catalogLabel, catalogSource } from "../check-catalog.js";
 import { parsePlatform } from "../contract.js";
@@ -42,7 +50,7 @@ import { isJsonMode, line, report, section } from "../output.js";
 import type { Pascorc } from "../workspace.js";
 
 export const CHECK_OWNER =
-  "M6: handle-matrix rules (brand, offline) executed; M7 (D17/§18.8): registry checks (credential-expiry, no-private-in-public-output) executed; M8 (§18.6): media-transport rules executed; limits: max-chars/min-chars over existing rows executed (offline); fact-present (#283): the built surface's fact tokens vs the SSOT render executed (offline); remaining catalog ships with M3/M4 (SPEC §7)";
+  "M6: handle-matrix rules (brand, offline) executed; M7 (D17/§18.8): registry checks (credential-expiry, no-private-in-public-output) executed; M8 (§18.6): media-transport rules executed; limits: max-chars/min-chars over existing rows executed (offline); fact-present (#283): the built surface's fact tokens vs the SSOT render executed (offline); text/same-across-platforms (#462, SPEC §21.8): the advisory narrative rule executed (warn-only); remaining catalog ships with M3/M4 (SPEC §7)";
 
 /** Handle drift codes the offline handle-matrix execution reports. */
 const HANDLE_CODES = new Set([
@@ -75,6 +83,8 @@ export interface CheckReport {
     media: boolean;
     limits: boolean;
     factPresent: boolean;
+    /** SPEC §21.8 (#462): the advisory narrative rule — always executed. */
+    sameText: boolean;
   };
   checks: LoadedProfile["checks"];
   handleMatrix: {
@@ -89,6 +99,8 @@ export interface CheckReport {
   media: ReturnType<typeof collectMedia>["findings"];
   limits: ReturnType<typeof limitFindings>;
   factPresent: ReturnType<typeof factPresentFindings>;
+  /** SPEC §21.8 (#462) — ADVISORY, warn-only: the same text on two platforms. */
+  sameText: ReturnType<typeof sameTextAcrossPlatforms>;
   ownedBy: string;
   /** `false` when a §18.5 leak error must fail the command. */
   ok: boolean;
@@ -132,6 +144,13 @@ export function buildCheckReport(args: {
   // machine external state (no evidence root, symlink escape, oversize) warns.
   const media = collectMedia(profile, workspace).findings;
   const limits = limitFindings(profile, checks, platform);
+  // SPEC §21.8 (#462): ADVISORY — the same text on two different platforms is
+  // the signature of a narrative copied "for consistency". Warn-only by
+  // contract; scoped to the addressed platform when one is given, like every
+  // other section here.
+  const sameText = sameTextAcrossPlatforms(profile).filter(
+    (finding) => platform === undefined || finding.surfaces.includes(platform),
+  );
   const facts = factPresentFindings({
     workspace,
     profile,
@@ -153,6 +172,7 @@ export function buildCheckReport(args: {
       media: true,
       limits: true,
       factPresent: true,
+      sameText: true,
     },
     checks,
     handleMatrix,
@@ -161,6 +181,7 @@ export function buildCheckReport(args: {
     media,
     limits,
     factPresent: facts,
+    sameText,
     ownedBy: CHECK_OWNER,
     ok: [...registry, ...media].every((f) => f.severity !== "error"),
   };
@@ -194,7 +215,7 @@ export function runCheck(args: CheckArgs): number {
     ...(platform === undefined ? {} : { platform }),
     pascorc: args.pascorc,
   });
-  const { checks, handleIssues, registry, media, limits, factPresent: facts } = report_;
+  const { checks, handleIssues, registry, media, limits, factPresent: facts, sameText } = report_;
 
   if (isJsonMode()) {
     return report("check", report_.ok, report_.ok ? EXIT.OK : EXIT.FAIL, {
@@ -210,6 +231,7 @@ export function runCheck(args: CheckArgs): number {
         media: report_.media,
         limits: report_.limits,
         factPresent: report_.factPresent,
+        sameText: report_.sameText,
         ownedBy: report_.ownedBy,
       },
     });
@@ -247,6 +269,21 @@ export function runCheck(args: CheckArgs): number {
   }
   if (limits.length === 0) {
     line("  text limits: OK (no findings)");
+  }
+
+  // SPEC §21.8 (#462): advisory by contract — it names the copy, it never fails.
+  section(
+    `narrative across platforms (advisory)${platform !== undefined ? ` for ${platform}` : ""}: ${sameText.length} finding(s)`,
+  );
+  for (const finding of sameText) {
+    line(`  warn: [${finding.code}] ${finding.message} (${finding.path})`);
+  }
+  if (sameText.length === 0) {
+    line("  text/same-across-platforms: OK (no byte-identical text across platforms)");
+  } else {
+    line(
+      "  advisory only: facts stay identical across surfaces, the narrative is per surface — rewrite the copy instead of propagating one platform's text (SPEC §21.8).",
+    );
   }
 
   section(
@@ -299,7 +336,7 @@ export function runCheck(args: CheckArgs): number {
   }
 
   line(
-    "pasco check: the offline rules above ran — evidence registry, media transport, text limits, surface facts, and (for brand) the handle matrix.",
+    "pasco check: the offline rules above ran — evidence registry, media transport, text limits, the advisory narrative rule (text/same-across-platforms), surface facts, and (for brand) the handle matrix.",
   );
   // Name the SOURCE, never the file: `load()` merges content/*.y(a)ml by root
   // property and reports no source, so `content/checks.yaml` was a claim the

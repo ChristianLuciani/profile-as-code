@@ -434,7 +434,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso8601>] [--json]` | the **local view** of the data without publishing it (issue #282): **one** self-contained HTML file — inline CSS, no `<script>`, no external asset, no HTTP server — whose sections are the surfaces `pasco build` would write (`#github-readme`, `#linkedin`, …), each with the check state, plus every surface this language does **not** publish (named with its reason, never dropped). Default `<workspace>/.pasco/preview/index.html`, then opened in the browser; `--out <dir>` writes `<dir>/index.html` and opens **nothing** (the CI-artifact transport, uploaded by the workspace template's opt-in workflow). The text is `renderArtifact`'s — the same active-variant → renderer → paste-source tree `build` writes, selection gate included — and the check state is the same report `pasco check` prints: no second renderer, no second rule engine. A **privacy gate** refuses the write (exit 1) on an absolute machine path, a credential shape, an external asset, active content, or a source outside the workspace (evidence-root media is never inlined; a remote image becomes a note, not a fetch). `--now` pins the freshness stamp — the document is the one declared clock read, and pinning it makes two runs byte-identical. Contract: §7.9 |
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
 | `pasco edit <contract-path> [--set <text> [--check]]` · `pasco edit --list [<block>]` | read **or write** **one contract field** by contract path — `positioning.statement.<lang>`, `headlines[platform=<p>,lang=<l>].text`, `bios[platform=<p>,lang=<l>,length=<len>].text`, `identity.definition.<lang>`, `faq[id=<slug>,lang=<l>].q|.a`, `faq[id=<slug>].source`, `identity.links[platform=<p>,label=<l>].url` (read-only, `label` optional) — the last three shipped in #435, with the same resolution rules (exactly one row, `--check` preview, cap pre-flight); `faq[]` is selected by its stable `id` (a repeated id is ambiguous and refused, never index-addressed) and `q`/`a` are langMaps, so their `lang` selector is required. `--set` writes it: **byte-range splice over the original text** (the CST locates; it never re-serializes, so comments/layout survive and the diff is one line), block, multi-line and anchored/aliased scalars **refused** in v1, the file's node must still match the resolved value (staleness → exit 1, never a silent wrong-row write), no-op = 0 + `noop`, temp file + `load()`/schema over a temp copy + **atomic rename** (an invalid edit never reaches disk), concurrent writers serialized by an advisory `content/.pasco-edit.lock` plus a re-read immediately before the rename (an external editor is the residual window). `--set --check` previews instead: it renders the surface the way `pasco build` does (active variant → renderer → shared paste source, current vs proposed) and prints **the published lines the edit changes**, reporting an edit that does not reach the artifact with its reason instead of asserting it; `identity.definition` is previewed through the entity JSON-LD the renderers embed, and `faq[]` — which has no `pasco build` artifact — through the `FAQPage` node `pasco entity --jsonld` emits (#360/#435). It also reports the edited unit's **surface impact** from the §19 ledger — every recorded surface prints `stale` after an edit that changes the unit hash (or `in-sync` when the record still matches), and a unit with no record rolls up to `never` — derived on every run and stored nowhere (§20). A headline/bio value is pre-flighted against the catalog's own `max-chars` cap — the workspace's `content/checks.yaml` when it declares checks, else the caps shipped with pasco (#240) with its cited source and tier — over-cap is a WARN, never a block (D12), and a platform with no sourced cap reads `cap unknown` in text mode (`limit: null` in `--json`); `identity.definition`/`faq[].q|.a` are pre-flighted the same way against the contract's own schema caps (160/90/320 chars per value, v1.10 #288), where over-cap is a schema FAILURE the write cannot pass (D12); `--json` carries `{ address, current, proposed, rendered, ok, noop, written, warnings, stale, state, drift, limit, over, variant, reason }` inside the standard envelope (a D22/§21 selection error the write proceeds through is a warning, not a block: the SSOT write is valid even when `build` refuses); a read-only target or a file that changes under the command is exit 1 (`refused` / `stale`, nothing written); its machine contract is frozen for agents (S5, #252): the `--json` field set and the 0/1/2 exit matrix are documented in the CLI README, one test per exit row; `edit` never chooses the live variant (#238 non-goal). `--list` is the read-only discovery surface (#411): every addressable row of the loaded workspace, one per line, built by the same constructors resolution uses (no second grammar), scoped to `positioning`/`headlines`/`bios`/`identity.definition`/`identity.links`/`faq`; link rows are marked `(read-only)` and a link row whose platform cannot be expressed is reported as a warning, a label that cannot be expressed is dropped so the row is listed by its platform when that resolves to one row, and any address that resolves to more than one row (a duplicate headline/bio, a label-less link sharing its platform) is a warning too — never printed as a path `edit` would reject; `--json` carries `{ addresses: [{ address, kind, readOnly }], warnings }`; it never locates a CST node, takes the edit lock or writes (an empty workspace prints the header alone; exit 0 on a readable listing, 1 when the workspace does not load — the same load failure any read reports — and 2 on usage), and combining it with `--set`/`--check`/`--create`/an address is usage (exit 2). `--create <root> [--check]` (#435) is a SEPARATE operation for a root the workspace does not declare yet — the splice never invents bytes, and creation never overwrites one: it writes a schema-valid seed template (`faq`, or its file form `content/faq.yaml`: 3 placeholder pairs, the schema minimum — placeholders, never invented facts), refuses an existing root under any extension case (idempotent, exit 1, nothing written), takes the same write lock, validates through the same `load()` gate over a temp copy before the write, creates the file with an exclusive open (`O_EXCL`/`wx`, so a root that appeared in the window is refused rather than replaced), and runs the same cap pre-flight; `--check` previews the seed (validates, writes nothing); epic #247, S1–S5 + #435 |
-| `pasco check [platform]` | run skill-declared checks before deploy; char limits accept an optional `surface` (`headline`/`bio`/`both`) so a title cap does not flag the bio (#240). The **limit executor** measures the workspace's `content/checks.yaml` when it declares checks, else the caps shipped with the package (#240); the `max-chars` rows the shipped `skills/<platform>/checks.yaml` declare are **declared and not executed** — no skill row reaches that executor. **`fact-present`** is executed here (issue #283), **for the surfaces whose catalog declares the premise** (the workspace's `content/checks.yaml` ∪ the shipped `skills/<platform>/checks.yaml`; `link-in-identity` stays a separate premise): the artifact `pasco build` last wrote is compared **symmetrically** against the SSOT render — a URL the surface adds (dangling pointer) or omits (`contradiction`), a date or number either side carries and the other does not (`contradiction`), and a text difference no fact token explains (`contradiction`) are all findings. All are WARN (D12: facts warn), and a targeted surface with no artifact on disk reports the rule as **not run**, never as OK |
+| `pasco check [platform]` | run skill-declared checks before deploy; char limits accept an optional `surface` (`headline`/`bio`/`both`) so a title cap does not flag the bio (#240). The **limit executor** measures the workspace's `content/checks.yaml` when it declares checks, else the caps shipped with the package (#240); the `max-chars` rows the shipped `skills/<platform>/checks.yaml` declare are **declared and not executed** — no skill row reaches that executor. **`fact-present`** is executed here (issue #283), **for the surfaces whose catalog declares the premise** (the workspace's `content/checks.yaml` ∪ the shipped `skills/<platform>/checks.yaml`; `link-in-identity` stays a separate premise): the artifact `pasco build` last wrote is compared **symmetrically** against the SSOT render — a URL the surface adds (dangling pointer) or omits (`contradiction`), a date or number either side carries and the other does not (`contradiction`), and a text difference no fact token explains (`contradiction`) are all findings. All are WARN (D12: facts warn), and a targeted surface with no artifact on disk reports the rule as **not run**, never as OK. **`text/same-across-platforms`** (issue #462, the advisory half of §21.8) is executed here: two *different* platforms carrying a byte-identical `headline` (or a `bio` in the same `length` band) emit a **warn** naming both platforms and the text kind — a heuristic, so it never fails the command and never blocks a build; the same platform across langs and `identity.definition` are exempt |
 | `pasco audit [--json]` | the **offline diagnostic projection** over the identity: findings only — no score, no prioritisation, no branding (issue #283). `--json` emits `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings: [{ class, severity, path, detail }] }` — `scope` makes "measured nothing" distinguishable from "clean" — with three fixed classes (`dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN); exit 1 iff any FAIL. Composes `load` (schema), `reconciledDrift` (drift + the #238 variant reconciliation), `geoCheck` (its `faq-coverage` premise gates the claim rows), the completeness `evidence` premise, the `achievements[]` evidence posture (§23.3), and `fact-present`; it is **deliberately stricter** than `validate`/`check` on the FAIL classes (declared in §7.1) |
 | `pasco discover <url>... [--json] [--allow-host <hosts>] [--observations <file>]` | the **provisional Profile** from public surfaces, for a prospect who has no workspace yet (issue #329, §7.10): reads only what a surface itself declares (schema.org JSON-LD + its links), attaches per-fact provenance (`surface` · `url` · `retrieved` · `attested: false`) and lists the fields it did not find as `absent` (never defaulted); runs `driftCheck` over the result plus the two classes discovery owns (`dangling-ref` on a same-host link the pass could not resolve, `unsourced-claim` on surface text). Closed host allowlist checked **before** any request; sequential, no retries, no credentials, redirects refused. `--observations <file>` adds rows the operator read by hand — `surface`, `field` (`name` · `link` · `experience`), `value`, `url`, `retrieved_at` — for the surfaces the machine cannot read (#412, §7.10); those rows make NO request (the URL is a provenance label) and are assembled first, so a declared name beats a machine-read one. Writes NOTHING — no `content/`, no ledger — and the provisional shape is not the persisted contract. Exit `0` when at least one surface was read or one observation row was given (a surface it could not read is reported per surface, never silently dropped) · `1` when **none** could be read or the observation file is unreadable/malformed (the message names the row) — a host outside the allowlist is refused before any request, and the envelope carries `kind: discovery` rather than an empty profile · `2` usage |
 | `pasco entity [--json \| --jsonld [--out <file> [--force]] [--bare]] [--lang <l>]` | the **entity projection** for surfaces this engine does not render (issue #287): the schema.org entity assembled by `structuredData()` — `@id`, `sameAs`, type and fields — plus the readiness `gaps` (geoCheck codes, verbatim). `--json` emits `{ schemaVersion: "1", entity: { id, type, name, sameAs, email }, gaps: [{ code, detail }], jsonld: null, faqJsonLd }` — `faqJsonLd` is the assembler's `FAQPage` node, or `null` when `faq[]` is undeclared (#360); `--jsonld` emits the **same assembler output** the renderers embed as a paste-ready `<script type="application/ld+json">` block, plus the `FAQPage` block after it when the workspace declares `faq[]` (never an empty FAQPage, no invented `@id`, `faq[].source` as `acceptedAnswer.citation`); `--bare` = raw JSON (the entity object alone, or a JSON array of the emitted nodes in block order when the FAQPage is present); `--out <file>` writes the bytes atomically and refuses an existing file without `--force`. **Both modes resolve one `lang`** (`--lang`, else `.pascorc defaults.lang`) so a gap and the emitted field cannot disagree. **One assembler, no CLI-local builder**: the projection never invents `@id` and never re-derives the entity or the FAQPage (§15.4). Exit `1` when `@id` is absent (the entity has no declared home) or the `--out` write fails; `0` otherwise; `2` is usage. Offline and deterministic (D19). Contract: §7.2 |
@@ -1861,6 +1861,12 @@ for a consumer. **"Published" has two owners on purpose:** §19/§20.1 answer th
 question (is there a public artifact behind this project?). Different axes, different owners —
 neither is a score.
 
+**Facts vs narrative (§21.8).** Every value in the list above is a **fact** and is
+identical on every surface. What the renderer composes *around* those facts — the
+headline copy, the order the sections take, the subset a view keeps, the variant
+body — is **narrative**: per surface, deliberately different, never propagated
+"for consistency" (§21.8 states the rule, its homes and the advisory check).
+
 ### 15.4 Drift/GEO contract
 
 - The renderer NEVER outputs a URL outside the **URL SSOT**: `identity.links` plus the proof
@@ -2762,7 +2768,9 @@ pattern) · D12 (advisory, never a validation failure) · D18 (generated view).
 The engine adapts three things per surface, and they are orthogonal: `lang` adapts
 **text**, `refine` adapts **storytelling**, and a **view** selects **which facts**.
 The first two never change what a fact says; selection must not either. That single
-constraint is the whole contract.
+constraint is the whole contract. What the three axes mean *in practice* — the
+facts/narrative split they all obey, and why a narrative is never propagated
+"for consistency" — is §21.8.
 
 **Why selection is admissible.** Goal 2/3 and §15.4 constrain what a fact *says* when
 it appears, not that it must appear on every surface. A rendered profile is a
@@ -2916,6 +2924,65 @@ Phase 2 adds optional `tags[]` to six entry blocks (additive; `pnpm gen:zod`).
 **Phase 3** (several views on one platform, `profiles/<view>/`) needs a D19 amendment
 and is **not** implied by this section. View-aware `geoCheck`/`driftCheck` scoring is
 out of scope: both keep reading the SSOT.
+
+### 21.8 Facts are unique, narrative is per surface (#462)
+
+**Normative.** The whole contract in one sentence: **facts are one and identical
+across surfaces; narrative is per surface, and a narrative is never propagated
+"for consistency".** Goal 2/3 and §15.4 already constrain what a fact *says* when
+it appears; this subsection says which axis a change belongs to, so a surface that
+reads differently is not mistaken for an inconsistency to be fixed.
+
+**Facts.** Every **fact** in `content/*.yaml` — the entry arrays and the root
+blocks — is ONE value, identical on every surface: names, dates, roles, numbers,
+DOIs, URLs (`identity.links` is the URL SSOT, §15.4), and `identity.definition`. A
+contradiction in a fact between two surfaces is a **defect** — an LLM
+triangulating the surfaces finds two people (§8) — never an adaptation. Fix it at
+the SSOT, once, for every surface. The per-platform texts (`headlines`, `bios`) are
+**not** facts in this sense even though they live in `content/`: they are the
+narrative rows the next paragraph describes.
+
+**Narrative.** Per surface, deliberately: the **reader**, the emphasis, the
+**order**, the **subset** and the **composition**. It **may** differ and **must
+not** be aligned across surfaces. Its four homes, one per axis:
+
+| Narrative axis | Home |
+|---|---|
+| text | `headlines` / `bios` per platform (banded by `length`) |
+| subset + **order** | a view's `selection` / `orderKeys` (§21.2/§21.3) — order is narrative, so it lives in the policy, never in the SSOT |
+| composition | the chosen variant's body (`profiles/<platform>/variants/<id>.md`) |
+| reader / angle | the platform's skill (`skills/<platform>/SKILL.md`) |
+
+The one text that is shared verbatim is `identity.definition`, and it is a **fact**,
+not a per-platform text.
+
+**Visibility, not enforcement.** The engine cannot judge voice, so this rule ships
+an **advisory** check and no gate: `pasco check` emits
+`text/same-across-platforms` — a **warn** — when two *different* platforms carry a
+byte-identical `headline`, or a `bio` in the same `length` band, naming both
+platforms and the text kind. Identical text across surfaces is the mechanical
+signature of a narrative copied instead of written; because it is a heuristic it
+cites and never fails (D12), and it cannot block a build. Exempt by construction:
+the same platform across langs, a different `length` band, and
+`identity.definition`. There is **no schema field** for narrative (`reader`,
+`angle` stay in the skill) and no new hard gate.
+
+**Skills are the narrative axis's home.** Every `skills/<platform>/` carries a
+`SKILL.md` stating its own reader and angle; all of them cite **one** shared
+statement of the two-axis rule (`skills/FACTS-VS-NARRATIVE.md`) instead of
+restating it, so the norm cannot drift between skills. `pasco refine`'s task
+template names the platform skill as the source of the reader/angle and states
+that a variant must not restate another platform's narrative. This is the norm;
+the skills layer that satisfies it (the two missing `SKILL.md`, the shared
+statement, the `refine` template line) lands in the chained PR #474, which closes
+#462 — merging this section alone leaves the reference dangling until then.
+
+**Why.** Consistency is about facts, not voice. A workspace unified one headline
+across its GitHub README, LinkedIn and X "for consistency" and `pasco check` stayed
+green; the two surfaces whose narrative was overwritten were exactly the two with
+no skill to consult and no instrument to notice. The rule now has a name, a homes
+table and a warn that cites the copy — the judgment stays human, which is why the
+check never blocks.
 
 
 ## 22. Presence surfaces and the release event (D23 detail, issue #262)
