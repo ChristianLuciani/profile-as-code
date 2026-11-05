@@ -51,6 +51,10 @@ export interface SelectionRuleConfig {
   tags?: readonly string[];
   excludeTags?: readonly string[];
   excludeKeys?: readonly string[];
+  /** #458: per-view narrative order by §19.2 key. Validated here, not in core:
+   *  a non-string entry is a config error (the same discipline as a `platform`
+   *  typo), while a string that addresses nothing is a WARN from the engine. */
+  orderKeys?: readonly string[];
   platform?: string;
   lang?: string;
 }
@@ -119,9 +123,11 @@ export function sanitizeCompletenessPolicy(raw: CompletenessPolicyConfig | undef
  * Normalize `.pascorc` `selection` before it reaches core (same discipline as
  * `sanitizeCompletenessPolicy`, review of #205 F5): every malformed piece is
  * DROPPED rather than coerced, so a typo cannot become "omit everything" or
- * "omit nothing" by accident. Returns `undefined` when nothing survives — which
- * keeps the no-policy ⇒ byte-identical guarantee intact for a broken config that
- * happened to contain no usable rule.
+ * "omit nothing" by accident. THE ONE EXCEPTION is `orderKeys` (#458): a
+ * non-string there is a ConfigError, because a dropped order would publish a
+ * different first impression than the one declared. Returns `undefined` when
+ * nothing survives — which keeps the no-policy ⇒ byte-identical guarantee intact
+ * for a broken config that happened to contain no usable rule.
  */
 export function sanitizeSelectionPolicy(raw: SelectionPolicyConfig | undefined):
   | {
@@ -135,12 +141,39 @@ export function sanitizeSelectionPolicy(raw: SelectionPolicyConfig | undefined):
     const kept = v.filter((x): x is string => typeof x === "string" && x !== "");
     return kept.length > 0 ? kept : undefined;
   };
-  const rule = (r: SelectionRuleConfig | undefined): SelectionRuleConfig | undefined => {
+  /** #458: `orderKeys` is the ONE selection field a malformed value REJECTS
+   *  instead of dropping. An order is a narrative claim about the surface, and a
+   *  silently-dropped key would publish a different first impression than the
+   *  one declared — the same reasoning that makes an unknown `platform`/`lang`
+   *  a config error, not a silent no-op. Strings that address nothing are the
+   *  engine's WARN (`selection/order-key-unknown`), not a config error. */
+  const orderKeysOf = (v: unknown, where: string): readonly string[] | undefined => {
+    if (v === undefined) return undefined;
+    if (!Array.isArray(v)) {
+      throw new ConfigError(`${where}: "orderKeys" must be an array of §19.2 keys (strings)`);
+    }
+    for (const key of v) {
+      if (typeof key !== "string" || key === "") {
+        throw new ConfigError(
+          `${where}: "orderKeys" must contain only non-empty strings (§19.2 keys) — found ${String(key)}`,
+        );
+      }
+    }
+    // Keep an EXPLICIT empty list as a declared (no-op) value: dropping it would
+    // make `views.v = { orderKeys: [] }` collapse to "unknown view v", though the
+    // field's documented default is exactly `[]`.
+    return v as readonly string[];
+  };
+  const rule = (
+    r: SelectionRuleConfig | undefined,
+    where: string,
+  ): SelectionRuleConfig | undefined => {
     if (r === undefined) return undefined;
     const mode = r.mode === "all" || r.mode === "tags" ? r.mode : undefined;
     const tags = strings(r.tags);
     const excludeTags = strings(r.excludeTags);
     const excludeKeys = strings(r.excludeKeys);
+    const orderKeys = orderKeysOf(r.orderKeys, where);
     const platform = typeof r.platform === "string" && r.platform !== "" ? r.platform : undefined;
     const lang = typeof r.lang === "string" && r.lang !== "" ? r.lang : undefined;
     if (
@@ -148,6 +181,7 @@ export function sanitizeSelectionPolicy(raw: SelectionPolicyConfig | undefined):
       tags === undefined &&
       excludeTags === undefined &&
       excludeKeys === undefined &&
+      orderKeys === undefined &&
       platform === undefined &&
       lang === undefined
     ) {
@@ -158,16 +192,17 @@ export function sanitizeSelectionPolicy(raw: SelectionPolicyConfig | undefined):
       ...(tags === undefined ? {} : { tags }),
       ...(excludeTags === undefined ? {} : { excludeTags }),
       ...(excludeKeys === undefined ? {} : { excludeKeys }),
+      ...(orderKeys === undefined ? {} : { orderKeys }),
       ...(platform === undefined ? {} : { platform }),
       ...(lang === undefined ? {} : { lang }),
     };
   };
   const views: Record<string, SelectionRuleConfig> = {};
   for (const [name, r] of Object.entries(raw.views ?? {})) {
-    const clean = rule(r);
+    const clean = rule(r, `selection.views[${JSON.stringify(name)}]`);
     if (clean !== undefined) views[name] = clean;
   }
-  const def = rule(raw.default);
+  const def = rule(raw.default, "selection.default");
   if (def === undefined && Object.keys(views).length === 0) return undefined;
   return {
     ...(def === undefined ? {} : { default: def }),

@@ -11,6 +11,21 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **per-view `selection.views.<v>.orderKeys` — the narrative order the featured
+  sort was missing (#458, SPEC §21.2/§21.3)** — `github-readme`'s featured list is
+  fully derived (`status` rank → skill weight → name), so a workspace that wanted
+  "these two first" for one surface had only false claims (change `status`) or
+  invisible tiebreak tuning (change `skills[].keywords`); the measured case kept
+  the order as hand-edited text, outside the engine. A view now declares
+  `orderKeys` by §19.2 key: the listed entries render first, in declared order,
+  **per block**; the remaining entries keep the renderer's comparator. It is
+  workspace policy, never an SSOT field — order is narrative and two surfaces may
+  legitimately disagree. The pinning rule lives once in core (`pinnedRanks`),
+  used by the slice and by the sorting adapters through `orderedForSurface`;
+  `pasco status --selection` prints the resolved order. A non-string key is a
+  config error in `.pascorc` and a warn at the pure core seam; a key the view does
+  not emit warns (`selection/order-key-unknown`) instead of no-op'ing silently.
+  No `orderKeys` ⇒ byte-identical artifact and report.
 - **`doctor --contract-delta` — the upgrade names the fields, not only the
   versions (#439, SPEC §7.6)** — `doctor` reported `engine 0.4.0 · schema v1.16 ·
   requires engine >= 0.4.0 (met)` and never WHAT changed between the two: a real

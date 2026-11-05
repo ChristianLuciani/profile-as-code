@@ -684,7 +684,8 @@ warnings carry their source). Derived, never stored: nothing here writes.
         the percentage is DERIVED — only the policy is ever stored. Carries the
         publication-coverage line (SPEC §20.1): coverage, never a new score.
   --selection [--view <name>]   the resolved VIEW (D22/§21): what the surface
-        emits, every entry it omits and WHY. Read-only. Policy from .pascorc
+        emits, every entry it omits and WHY, and the narrative order the view's
+        orderKeys pins (#458). Read-only. Policy from .pascorc
         "selection". Subset-only by design — the report exists so an omission is
         never silent.`,
   presence: `pasco presence [--json] [--workspace <path>]

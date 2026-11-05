@@ -1006,3 +1006,98 @@ describe("renderer github-readme — publication.kind (v1.14, #349)", () => {
     expect(after).toContain("**A Paper** — Somewhere, 2024.");
   });
 });
+
+describe("renderer github-readme — per-view orderKeys (#458)", () => {
+  const FOUR = [
+    "- id: p-a",
+    "  name: Alpha",
+    "  status: active",
+    "- id: p-b",
+    "  name: Beta",
+    "  status: active",
+    "- id: p-c",
+    "  name: Gamma",
+    "  status: active",
+    "- id: p-d",
+    "  name: Delta",
+    "  status: active",
+    "",
+  ].join("\n");
+
+  function sliceWith(orderKeys: string[] | undefined, projects: string) {
+    const dir = mkdtempSync(join(tmpdir(), "pasco-render-order-"));
+    mkdirSync(join(dir, "content"), { recursive: true });
+    writeFileSync(join(dir, "content", "identity.yaml"), "name: Elena Vasquez\n", "utf8");
+    writeFileSync(join(dir, "content", "skills.yaml"), "- name: X\n", "utf8");
+    writeFileSync(join(dir, "content", "projects.yaml"), projects, "utf8");
+    try {
+      const slice = compile(
+        load(dir),
+        "github-readme",
+        "en",
+        orderKeys === undefined
+          ? undefined
+          : { selection: { views: { "github-readme": { orderKeys } } } },
+      );
+      return { slice, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+    } catch (err) {
+      rmSync(dir, { recursive: true, force: true });
+      throw err;
+    }
+  }
+
+  const orderOf = (slice: ReturnType<typeof compile>) =>
+    [
+      ...(render(slice).text.split("## Projects")[1]?.split("\n## ")[0] ?? "").matchAll(
+        /- \*\*([^*]+)\*\*/g,
+      ),
+    ].map((m) => m[1]);
+
+  it("pins the declared keys first, in declared order; the rest keep the status comparator", () => {
+    const { slice, cleanup } = sliceWith(["projects:p-c", "projects:p-a"], FOUR);
+    try {
+      // Default comparator: Alpha, Beta, Delta, Gamma. Pinned: Gamma, Alpha.
+      expect(orderOf(slice)).toEqual(["Gamma", "Alpha", "Beta", "Delta"]);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("a pinned entry survives the top-6 cut it would otherwise fall out of", () => {
+    const six = Array.from({ length: 6 }, (_, i) => `- name: A${i}\n  status: active\n`).join("");
+    const projects = `${six}- id: p-archived\n  name: "Kontablo"\n  status: archived\n`;
+    const { slice, cleanup } = sliceWith(["projects:p-archived"], projects);
+    try {
+      const order = orderOf(slice);
+      expect(order[0]).toBe("Kontablo");
+      expect(order).toHaveLength(6);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("no orderKeys ⇒ byte-identical to a policy-less compile (§21.3 rule 5)", () => {
+    const plain = sliceWith(undefined, FOUR);
+    const empty = sliceWith([], FOUR);
+    try {
+      expect(empty.slice.selection).toBeDefined();
+      expect(render(empty.slice).text).toBe(render(plain.slice).text);
+    } finally {
+      plain.cleanup();
+      empty.cleanup();
+    }
+  });
+
+  it("an order key the view does not emit warns instead of no-op'ing silently", () => {
+    const { slice, cleanup } = sliceWith(["projects:ghost"], FOUR);
+    try {
+      expect(slice.selection?.findings.some((f) => f.code === "selection/order-key-unknown")).toBe(
+        true,
+      );
+      // The comparator still governs every entry: the warning did not reorder.
+      expect(orderOf(slice)).toEqual(["Alpha", "Beta", "Delta", "Gamma"]);
+    } finally {
+      cleanup();
+    }
+  });
+});
