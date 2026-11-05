@@ -34,7 +34,11 @@ export interface ContractMinor {
    *  pre-existing field the minor only extends (`press`, `links`), a `$defs`
    *  reference (`url`), the name of a projection (`description`), or a note
    *  that deliberately did not change (`evidence`). Anything else the narration
-   *  names must appear in `fields` — a row that under-reports fails `pnpm test`. */
+   *  names must appear in `fields` or be declared here, so an omission can never
+   *  be SILENT — every narrated field forces a decision. What the pin cannot
+   *  judge is the classification: a genuinely new field moved into this list
+   *  stays green, so labelling a token here is a review judgement, not a
+   *  mechanical guarantee. */
   notFields?: readonly string[];
   /** One line: which score/report surface reads them ("what it buys"). */
   buys: string;
