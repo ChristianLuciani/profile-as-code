@@ -74,8 +74,9 @@ export interface ViewRule {
    *  emits come first in this declared order; the rest keep the renderer's
    *  comparator (or the SSOT order when the renderer does not sort). Ordering is
    *  PRESENTATION, never a fact: the SSOT carries no order. A key the view does
-   *  not emit warns (`selection/order-key-unknown`) rather than no-op'ing
-   *  silently. */
+   *  not emit, and a malformed value at the pure core seam (non-array, or a
+   *  non-string entry), warn (`selection/order-key-unknown`) rather than
+   *  no-op'ing silently. */
   orderKeys?: readonly string[];
   /** Optional target, so `--view <name>` alone resolves platform + lang. */
   platform?: Platform;
@@ -221,6 +222,15 @@ function pinnedRanks<T>(
     if (index !== undefined && !rankByIndex.has(index)) rankByIndex.set(index, rank);
   });
   return rankByIndex;
+}
+
+/** Readable shape of a malformed value, without the "a object" artifact of a
+ *  bare `typeof` (a YAML map and `null` are the likely untyped configs). */
+function describeShape(value: unknown): string {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return "an array";
+  if (typeof value === "object") return "an object";
+  return `a ${typeof value}`;
 }
 
 /** Stable partition of one block's survivors: the pinned slots first, in their
@@ -388,11 +398,18 @@ export function selectFacts(
   // ── findings ───────────────────────────────────────────────────────────────
   const findings: SelectionFinding[] = [];
 
-  // #458: a non-string `orderKeys` entry. `.pascorc` is validated by the CLI
-  // before it reaches the engine (a config error), but the §21.5 core seam never
-  // throws; a direct caller gets this warning instead of a silent skip.
-  const rawOrderKeys = rule.orderKeys;
-  if (Array.isArray(rawOrderKeys)) {
+  // #458: a malformed `orderKeys` at the pure engine seam. `.pascorc` is
+  // validated by the CLI before it reaches the engine (a config error), but
+  // `selectFacts` never throws; a direct caller gets a warning instead of a
+  // silent skip — for a non-array value as much as for a non-string entry.
+  const rawOrderKeys: unknown = rule.orderKeys;
+  if (rawOrderKeys !== undefined && !Array.isArray(rawOrderKeys)) {
+    findings.push({
+      code: "selection/order-key-unknown",
+      severity: "warn",
+      message: `view "${view}" declares orderKeys as ${describeShape(rawOrderKeys)} — ignored; use an array of §19.2 keys`,
+    });
+  } else if (Array.isArray(rawOrderKeys)) {
     for (const key of rawOrderKeys) {
       if (typeof key !== "string" || key === "") {
         findings.push({

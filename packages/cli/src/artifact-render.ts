@@ -25,7 +25,9 @@ export interface RenderedArtifact {
   text: string;
   source: "variant" | "renderer" | "paste";
   variantId?: string;
-  /** Non-fatal workspace finding from the variant store (`build` warns). */
+  /** Non-fatal note carried to the build report: a variant-store fallback, or the
+   *  #458 selection-order notice (the verbatim variant body is authoritative and
+   *  the resolved order applied to the render, not the body). */
   warning?: string;
   /** Deploy-relative asset targets the renderer references (M8/§18.6); empty for
    *  variant and paste artifacts, which reference no bundle entries. */
@@ -87,7 +89,26 @@ export function renderArtifact(
   const variant = resolveVariantBody(workspace, slice);
   const warning = variant.warning === undefined ? {} : { warning: variant.warning };
   if (variant.text !== undefined && variant.id !== undefined) {
-    return { text: variant.text, source: "variant", variantId: variant.id, ...warning };
+    // #458: an active variant body is written verbatim, so the order `selectFacts`
+    // resolved does NOT reach the artifact. Both facts are in hand HERE; staying
+    // silent would be the one failure mode the feature forbids (a no-op order).
+    // The note is PERMANENT and informational while the variant serves the surface
+    // (SPEC §21.3 rule 11): it states the layer, not a staleness verdict — the
+    // engine cannot compare a composed body (chrome/JSON-LD) with the render.
+    const ordered = slice.selection?.ordered;
+    const orderWarning =
+      ordered !== undefined && Object.keys(ordered).length > 0
+        ? `surface "${slice.platform}" is served by the active variant "${variant.id}" (written verbatim): the view's resolved order applies to the render, not to this body — informational, the body is authoritative`
+        : undefined;
+    const notes = [variant.warning, orderWarning].filter(
+      (note): note is string => note !== undefined,
+    );
+    return {
+      text: variant.text,
+      source: "variant",
+      variantId: variant.id,
+      ...(notes.length === 0 ? {} : { warning: notes.join(" · ") }),
+    };
   }
   const renderer = RENDERERS[slice.platform];
   if (renderer === undefined) return { text: pasteSource(slice), source: "paste", ...warning };

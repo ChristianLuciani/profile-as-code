@@ -2009,6 +2009,28 @@ First platform: **`github-readme`** — the only 100% git/API-deployable surface
    platform artifact for that lang, records the variant in the build report, and
    falls back to the deterministic render with a warning when the file is missing,
    empty or for another lang (#238).
+4. **Composing a variant body from the render (#458, #476).** The engine has **no
+   composition model**: it offers the ordered render as the *base*, and composing
+   the body — chrome, hidden JSON-LD, the editorial layer — is the job of the
+   executing agent following `skills/<platform>/SKILL.md` (the same judgment layer
+   steps 1–2 use). The mechanical sequence is:
+   1. remove **that platform's entry** from `content/active.yaml` — the file is one
+      for all platforms, so never delete the file: the other platforms' entries stay
+      untouched;
+   2. `pasco build <platform> --view <name> --lang <l>` with the view whose
+      `orderKeys` must reach the body, and take the rendered
+      `profiles/<platform>/README.md` (or `<platform>.md` for a paste surface) as
+      the base;
+   3. compose the body from that base per the platform skill (chrome/JSON-LD are
+      that layer's editorial decisions, not an engine-declared set) and write it to
+      `profiles/<platform>/variants/<variantId>.md`;
+   4. re-record the choice with `pasco refine <platform> --choose <variantId>
+      --lang <l>` — the lang is part of the entry and must match step 1's, and
+      `recordVariant` preserves the other platforms' entries.
+
+   `build` then writes the body verbatim (§21.3 rule 11), and the resolved order
+   travels with the render the body was composed from — the hand-ordering step
+   disappears.
 
 ### 16.3 github-readme skill — strategy (summary)
 
@@ -2816,11 +2838,12 @@ any view that `views` does not name (including the implicit view of a positional
 opens the list* is an editorial decision that legitimately differs per surface — the
 same shape as a headline. It never enters the SSOT (no `projects[].order`, no
 `featured: boolean`) and it never adds, removes or rewrites an entry: it only
-re-sequences entries the view already emits. A non-string entry in `.pascorc` is a
-**config error** (the same discipline as a `platform` typo); the pure core seam never
-throws, so a direct caller gets the same signal as a `selection/order-key-unknown`
-warn instead of a silent skip. A string that addresses nothing is that **warn**,
-never a silent no-op. An explicit `orderKeys: []` is a declared no-op, not an
+re-sequences entries the view already emits. A **non-array** `orderKeys` and a
+non-string **entry** are a **config error** in `.pascorc` (the same discipline as a
+`platform` typo); the pure core seam never throws, so a direct caller gets the same
+signal as a `selection/order-key-unknown` warn instead of a silent skip. A string that
+addresses nothing is that **warn**, never a silent no-op. An explicit `orderKeys: []`
+is a declared no-op, not an
 undeclared view.
 
 ### 21.3 Resolution rules
@@ -2858,6 +2881,20 @@ undeclared view.
     slice and `orderedForSurface` to a renderer's comparator. Without
     `orderKeys` the output is byte-identical (§21.3 rule 5), the diagnostic report
     included (no `ordered` key is added).
+11. **The active variant is a separate layer (#458).** `orderKeys` orders the
+    compile slice and the renderer output; an active
+    `profiles/<platform>/variants/<id>.md` body is a complete artifact written
+    verbatim (§7 `renderArtifact`), so the field does **not** rewrite it. The
+    engine does not stay silent about that: when the active variant wins and the
+    slice carries a resolved order, **`build` warns** naming the variant. That note
+    is **permanent and informational** — it states the layer (the body is
+    authoritative; the order applied to the render), not a staleness verdict, and it
+    has no clear condition while the variant serves the surface. To carry the
+    resolved order into a body, compose it as **§16.2 step 4** describes (remove
+    that platform's `active.yaml` entry, build the ordered render, compose and write
+    the body, re-record the choice). Hand-declaring a different order inside the
+    body is a divergence the engine **cannot detect** in v1: an editorial rule, not
+    a gate.
 
 ### 21.4 Every omission WARNS (operator's G1 amendment)
 
@@ -2892,7 +2929,7 @@ Codes follow the `<ns>/<slug>` convention of `drift/*`, `geo/*`, `check/*`:
 | `selection/empty-facts` | warn | a view selected nothing while the SSOT had candidates |
 | `selection/anchor-omitted` | warn | a `positioning.geo.semanticAssociations` anchor is reinforced only by omitted entries |
 | `selection/omits-facts` | **warn** | **any** omission, named with its reason (§21.4) |
-| `selection/order-key-unknown` | warn | an `orderKeys` entry this view does not emit (typo, excluded, or not tagged) — a silent no-op would make the order untrustworthy (#458) |
+| `selection/order-key-unknown` | warn | an `orderKeys` entry this view does not emit (typo, excluded, or not tagged), or a malformed `orderKeys` at the pure core seam (non-array value, non-string entry) — a silent no-op would make the order untrustworthy (#458) |
 
 `selection/unknown-view` is the seventh code but **not** a finding: it fires before the
 profile is read, as a config error (exit 1).
@@ -2906,7 +2943,16 @@ profile is read, as a config error (exit 1).
 name, so a workspace with no policy behaves exactly as before. `--selection` prints the
 resolved `orderKeys` per block (`order projects: projects:a → projects:b`); the `--json`
 report carries the same map as `ordered`, so a consumer reads the applied order instead
-of re-deriving the policy.
+of re-deriving the policy. `status --selection` does **not** inspect the active variant:
+it prints the same `order …` lines either way. The variant interaction is reported by
+the writer instead — `build` warns when an active body wins and the slice carries a
+resolved order (§21.3 rule 11) — because the body is written verbatim and the order
+applied to the render. That note is **permanent and informational** while the variant
+serves the surface (the body is authoritative), not a staleness signal. Composing the
+order into a body is **§16.2 step 4** (remove that platform's `active.yaml` entry,
+build the ordered render, compose and write the body, re-record the choice); v1 has no
+`--no-variant` flag, and `build`/`preview`/`edit --check` all resolve the active variant
+first (§7 `renderArtifact`).
 
 ### 21.7 Scope boundary
 
