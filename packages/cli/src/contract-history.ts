@@ -172,6 +172,15 @@ export function compareContractVersions(a: string, b: string): number | null {
   return left.major * 1000 + left.minor - (right.major * 1000 + right.minor);
 }
 
+/** One row as `--json` publishes it — the `notFields` escape is editorial
+ *  bookkeeping for the freshness pin, never part of the delta a consumer reads
+ *  (fresh pass 2, F8: the documented shape is `{ version, fields, buys }`). */
+export type ContractDeltaRow = Pick<ContractMinor, "version" | "fields" | "buys">;
+
+export function publishedRows(minors: readonly ContractMinor[]): ContractDeltaRow[] {
+  return minors.map(({ version, fields, buys }) => ({ version, fields, buys }));
+}
+
 /** The rows a workspace at `floor` has not been told about: strictly newer than
  *  the floor and not newer than the installed contract. `[]` when the two are
  *  equal, when the floor is ahead, or when either value does not parse. */
@@ -203,7 +212,7 @@ export interface ContractDeltaReport {
   problem?: string;
   /** Only when a `.pascorc` declares the floor: the file that produced it. */
   source?: string;
-  rows: ContractMinor[];
+  rows: ContractDeltaRow[];
 }
 
 export interface ContractFloor {
@@ -263,5 +272,9 @@ export function evaluateContractDelta(
   const compared = compareContractVersions(floor.declared, installed);
   if (compared === null || compared > 0) return { ...base, state: "ahead", rows: [] };
   if (compared === 0) return { ...base, state: "none", rows: [] };
-  return { ...base, state: "delta", rows: contractDelta(floor.declared, installed) };
+  return {
+    ...base,
+    state: "delta",
+    rows: publishedRows(contractDelta(floor.declared, installed)),
+  };
 }

@@ -1151,7 +1151,9 @@ engine 0.3.6 · schema v1.15 · workspace /path/to/workspace (valid) · requires
   row, a row that invents a minor, a row that claims a field its minor never
   narrated, and a row that OMITS a field its minor narrates (unless the row
   declares it in `notFields` — a pre-existing field, a `$defs` reference or a
-  projection name) all fail `pnpm test`. The floor is read from **every** consulted
+  projection name) all fail `pnpm test`. The classification of a `notFields`
+  entry is a REVIEW judgement, not a mechanical one: the test can prove an
+  omission is never silent, not that a label is honest. The floor is read from **every** consulted
   `.pascorc` with the **lowest** declaration winning (the delta answers "what did
   I miss", so the most inclusive reading is the honest one — the mirror of the
   engine gate's strictest-wins). Five states are printed and carried:

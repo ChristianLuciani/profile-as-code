@@ -348,33 +348,41 @@ describe("pasco doctor --contract-delta", () => {
   // of the engine gate's strictest-wins): the delta answers "what did I miss", so
   // the most inclusive floor is the honest one. An explicit `--workspace`
   // bypasses the cwd config by D14, which is why this case runs from `cwd`.
-  it("reads the LOWEST floor across every consulted .pascorc", () => {
-    const cwd = mkdtempSync(join(tmpdir(), "pasco-doctor-delta-cwd-"));
-    tempDirs.push(cwd);
-    const ws = join(cwd, "ws");
-    mkdirSync(ws);
-    cpSync(FIXTURE, ws, { recursive: true });
-    writeFileSync(
-      join(cwd, ".pascorc"),
-      `${JSON.stringify({ workspace: "ws", contract: "1.10" })}\n`,
-    );
-    writeFileSync(
-      join(ws, ".pascorc"),
-      `${JSON.stringify({ workspace: ".", contract: "1.14" })}\n`,
-    );
+  // Both orders: "first declaration wins" would pass a cwd-low-only case, so the
+  // mirror (lower floor in the WORKSPACE file) is what actually pins the rule.
+  for (const order of ["cwd-low", "workspace-low"] as const) {
+    it(`reads the LOWEST floor across every consulted .pascorc (${order})`, () => {
+      const cwd = mkdtempSync(join(tmpdir(), "pasco-doctor-delta-cwd-"));
+      tempDirs.push(cwd);
+      const ws = join(cwd, "ws");
+      mkdirSync(ws);
+      cpSync(FIXTURE, ws, { recursive: true });
+      const cwdLow = order === "cwd-low";
+      const lower = join(cwdLow ? cwd : ws, ".pascorc");
+      writeFileSync(
+        lower,
+        `${JSON.stringify({ workspace: cwdLow ? "ws" : ".", contract: "1.10" })}\n`,
+      );
+      writeFileSync(
+        join(cwdLow ? ws : cwd, ".pascorc"),
+        `${JSON.stringify({ workspace: cwdLow ? "." : "ws", contract: "1.14" })}\n`,
+      );
 
-    const res = run(["doctor", "--json", "--contract-delta"], cwd);
-    expect(res.code).toBe(0);
-    const delta = (JSON.parse(res.stdout) as Envelope).data?.contractDelta;
-    expect(delta?.floor).toBe("1.10");
-    // macOS `/var` is a symlink to `/private/var`: compare the resolved path.
-    expect(delta?.source).toBe(realpathSync(join(cwd, ".pascorc")));
-    // The lower floor wins, so the rows are the ones 1.10 has not seen.
-    expect(delta?.rows.map((row) => row.version)).toEqual(
-      minorsBetween("1.10").map((minor) => minor.version),
-    );
-    expect(minorsBetween("1.10").length).toBeGreaterThanOrEqual(minorsBetween("1.14").length);
-  });
+      const res = run(["doctor", "--json", "--contract-delta"], cwd);
+      expect(res.code).toBe(0);
+      const delta = (JSON.parse(res.stdout) as Envelope).data?.contractDelta;
+      expect(delta?.floor).toBe("1.10");
+      // macOS `/var` is a symlink to `/private/var`: compare the resolved path.
+      expect(delta?.source).toBe(realpathSync(lower));
+      // The lower floor wins, so the rows are the ones 1.10 has not seen.
+      expect(delta?.rows.map((row) => row.version)).toEqual(
+        minorsBetween("1.10").map((minor) => minor.version),
+      );
+      expect(minorsBetween("1.10").length).toBeGreaterThanOrEqual(minorsBetween("1.14").length);
+      // F8: the editorial `notFields` never reaches the published row shape.
+      for (const row of delta?.rows ?? []) expect(row).not.toHaveProperty("notFields");
+    });
+  }
 
   it("carries the rows in --json, and only when the flag is passed", () => {
     const dir = contractWorkspace("1.9");

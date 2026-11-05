@@ -227,7 +227,11 @@ describe("the contract minor history (doctor --contract-delta)", () => {
   // pass F2: v1.4 named `credentialId`/`artifactId` and the row listed neither).
   // Every schema-field token a minor backticks must now be in the row, or be
   // declared in its `notFields` — which forces a decision on the next narration
-  // edit instead of silently letting the table go stale.
+  // edit instead of silently letting the table go stale. DECLARED LIMIT (pass 2,
+  // F7): the pin cannot tell a legitimate `notFields` entry from a mislabel —
+  // moving a genuinely new field there stays green. That classification is a
+  // review concern, not a mechanical one; what the pin does guarantee is that an
+  // omission can never be silent.
   it("names every field its own minor narrated (under-reporting fails)", () => {
     const names = schemaFieldNames();
     const slices = new Map(narratedMinors().map((minor) => [minor.version, minor.slice]));
