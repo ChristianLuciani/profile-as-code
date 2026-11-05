@@ -238,21 +238,25 @@ export function orderedForSurface<T>(
   compare: (a: T, b: T) => number,
 ): T[] {
   if (orderedKeys === undefined || orderedKeys.length === 0) return [...entries].sort(compare);
-  const byKey = new Map<string, T>();
-  for (const entry of entries) {
+  // Index-addressed, never identity-addressed: the YAML loader preserves aliases
+  // (`&row` / `*row`), so two array slots can share ONE object. Keying by
+  // identity would then drop the second slot from the surface — selection may
+  // reorder, never lose an entry (D22 subset rule).
+  const indexByKey = new Map<string, number>();
+  entries.forEach((entry, index) => {
     const key = keyOf(block, entry as Entry);
-    if (key !== undefined && !byKey.has(key)) byKey.set(key, entry);
-  }
-  const pinned: T[] = [];
-  const used = new Set<T>();
-  for (const key of orderedKeys) {
-    const entry = byKey.get(key);
-    if (entry === undefined || used.has(entry)) continue;
-    pinned.push(entry);
-    used.add(entry);
-  }
-  if (pinned.length === 0) return [...entries].sort(compare);
-  const rest = entries.filter((entry) => !used.has(entry));
+    if (key !== undefined && !indexByKey.has(key)) indexByKey.set(key, index);
+  });
+  const rankByIndex = new Map<number, number>();
+  orderedKeys.forEach((key, rank) => {
+    const index = indexByKey.get(key);
+    if (index !== undefined && !rankByIndex.has(index)) rankByIndex.set(index, rank);
+  });
+  if (rankByIndex.size === 0) return [...entries].sort(compare);
+  const pinned = [...rankByIndex.entries()]
+    .sort(([aIndex, aRank], [bIndex, bRank]) => aRank - bRank || aIndex - bIndex)
+    .map(([index]) => entries[index] as T);
+  const rest = entries.filter((_, index) => !rankByIndex.has(index));
   rest.sort(compare);
   return [...pinned, ...rest];
 }

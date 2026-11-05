@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Profile, SelectionPolicy } from "../src/index.js";
-import { compile, selectFacts } from "../src/index.js";
+import { compile, orderedForSurface, selectFacts } from "../src/index.js";
 
 /**
  * A workspace with one entry per selectable block, addressable ids on the ones
@@ -367,5 +367,48 @@ describe("selectFacts — per-view orderKeys (#458: order is narrative, not a fa
     });
     expect(slice.projects.map((p) => p.id)).toEqual(["p-film", "p-ai"]);
     expect(slice.selection?.ordered.projects).toEqual(["projects:p-film"]);
+  });
+});
+
+describe("orderedForSurface — the renderer's re-application (#458)", () => {
+  type Row = { id: string; name: string };
+  const rows: Row[] = [
+    { id: "p-c", name: "Gamma" },
+    { id: "p-a", name: "Alpha" },
+    { id: "p-b", name: "Beta" },
+  ];
+  const byName = (a: Row, b: Row): number => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+
+  it("pins the declared keys and leaves the rest to the comparator", () => {
+    const out = orderedForSurface(rows, "projects", ["projects:p-c", "projects:p-a"], byName);
+    expect(out.map((r) => r.id)).toEqual(["p-c", "p-a", "p-b"]);
+  });
+
+  it("no keys ⇒ the caller's comparator alone (byte-identical path)", () => {
+    expect(orderedForSurface(rows, "projects", undefined, byName).map((r) => r.id)).toEqual([
+      "p-a",
+      "p-b",
+      "p-c",
+    ]);
+    expect(orderedForSurface(rows, "projects", [], byName).map((r) => r.id)).toEqual([
+      "p-a",
+      "p-b",
+      "p-c",
+    ]);
+  });
+
+  it("never loses a slot when two array slots share one object (YAML alias)", () => {
+    // The loader preserves aliases, so the same object can occupy two slots. An
+    // identity-addressed `used` set dropped the second one from the surface.
+    const shared: Row = { id: "p-a", name: "Alpha" };
+    expect(orderedForSurface([shared, shared], "projects", ["projects:p-a"], byName)).toHaveLength(
+      2,
+    );
+  });
+
+  it("the input array is never mutated", () => {
+    const before = rows.map((r) => r.id);
+    orderedForSurface(rows, "projects", ["projects:p-c"], byName);
+    expect(rows.map((r) => r.id)).toEqual(before);
   });
 });
