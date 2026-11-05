@@ -282,6 +282,9 @@ describe("pasco build --view orderKeys — the empty-list edge (#458)", () => {
 });
 
 describe("build — active variant vs a resolved orderKeys (#458)", () => {
+  const ACTIVE =
+    'github-readme:\n  lang: en\n  variantId: gh-1\n  chosenAt: "2026-11-05T00:00:00.000Z"\n';
+
   /** Add an active variant body so renderArtifact writes it verbatim. */
   function withVariant(ws: string): void {
     mkdirSync(join(ws, "profiles", "github-readme", "variants"), { recursive: true });
@@ -289,35 +292,77 @@ describe("build — active variant vs a resolved orderKeys (#458)", () => {
       join(ws, "profiles", "github-readme", "variants", "gh-1.md"),
       "# Hand-authored body\n",
     );
-    writeFileSync(
-      join(ws, "content", "active.yaml"),
-      'github-readme:\n  lang: en\n  variantId: gh-1\n  chosenAt: "2026-11-05T00:00:00.000Z"\n',
-    );
+    writeFileSync(join(ws, "content", "active.yaml"), ACTIVE);
   }
+
+  const buildJson = (ws: string, view?: string) =>
+    JSON.parse(
+      run(["build", "github-readme", ...(view === undefined ? [] : ["--view", view]), "--json"], ws)
+        .stdout,
+    ) as {
+      data: { written: { variant?: string }[]; warnings: { reason: string }[] };
+    };
+
+  const projectOrder = (dir: string) =>
+    [
+      ...(
+        readFileSync(join(dir, "profiles", "github-readme", "README.md"), "utf8")
+          .split("## Projects")[1]
+          ?.split("\n## ")[0] ?? ""
+      ).matchAll(/- \*\*([^*]+)\*\*/g),
+    ].map((m) => m[1]);
 
   it("warns that the order applied to the render, not the verbatim variant body", () => {
     const ws = workspace({
       selection: { views: { v: { orderKeys: ["projects:p-open"] } } },
     });
     withVariant(ws);
-    const r = run(["build", "github-readme", "--view", "v", "--json"], ws);
-    expect(r.code).toBe(0);
-    const data = JSON.parse(r.stdout) as {
-      data: { written: { variant?: string }[]; warnings: { reason: string }[] };
-    };
+    const data = buildJson(ws, "v");
     expect(data.data.written[0]?.variant).toBe("gh-1");
     // The variant is authoritative; the engine must not stay silent about the no-op.
     expect(data.data.warnings.map((w) => w.reason).join(" ")).toMatch(
-      /active variant "gh-1".*orderKeys ordered the render, not this body/,
+      /active variant "gh-1".*resolved order applies to the render, not to this body/,
     );
+  });
+
+  it("the note is permanent: a nominal order that pins the already-first key still warns", () => {
+    // `p-secret` is already first by name, so the ordered render is byte-identical
+    // to the no-order render. The note is about the LAYER, not a delta — §21.3 r11.
+    const ws = workspace({ selection: { views: { v: { orderKeys: ["projects:p-secret"] } } } });
+    withVariant(ws);
+    const data = buildJson(ws, "v");
+    expect(data.data.warnings).toHaveLength(1);
+    expect(data.data.warnings[0]?.reason).toContain("informational");
+  });
+
+  it("composes the order into the body per §16.2 step 4 (remove entry → build → write → restore)", () => {
+    const ws = workspace({
+      selection: { views: { v: { orderKeys: ["projects:p-open"] } } },
+    });
+    withVariant(ws);
+    // 1. remove THAT platform's entry (never the file — other choices would be lost)
+    writeFileSync(join(ws, "content", "active.yaml"), "{}\n");
+    expect(run(["build", "github-readme", "--view", "v"], ws).code).toBe(0);
+    expect(projectOrder(ws)).toEqual(["Open Project", "Confidential Project"]);
+    // 2-3. take the ordered render and compose it as the body
+    const orderedBody = readFileSync(join(ws, "profiles", "github-readme", "README.md"), "utf8");
+    writeFileSync(join(ws, "profiles", "github-readme", "variants", "gh-1.md"), orderedBody);
+    // 4. restore the choice
+    writeFileSync(join(ws, "content", "active.yaml"), ACTIVE);
+    const data = buildJson(ws, "v");
+    expect(data.data.written[0]?.variant).toBe("gh-1");
+    // The artifact is the composed body, and it carries the resolved order.
+    expect(readFileSync(join(ws, "profiles", "github-readme", "README.md"), "utf8")).toBe(
+      orderedBody,
+    );
+    // The note is permanent/informational while the variant serves the surface.
+    expect(data.data.warnings.map((w) => w.reason).join(" ")).toContain('active variant "gh-1"');
   });
 
   it("does not warn when the view resolves no order", () => {
     const ws = workspace({});
     withVariant(ws);
-    const r = run(["build", "github-readme", "--json"], ws);
-    expect(r.code).toBe(0);
-    const data = JSON.parse(r.stdout) as { data: { warnings: unknown[] } };
+    const data = buildJson(ws);
     expect(data.data.warnings).toEqual([]);
   });
 });

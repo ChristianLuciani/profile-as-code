@@ -2009,6 +2009,22 @@ First platform: **`github-readme`** — the only 100% git/API-deployable surface
    platform artifact for that lang, records the variant in the build report, and
    falls back to the deterministic render with a warning when the file is missing,
    empty or for another lang (#238).
+4. **Composing a variant body from the render (#458).** The body is authored input,
+   so it is composed, never rewritten by `build`:
+   1. remove **that platform's entry** from `content/active.yaml` — the file is one
+      for all platforms, so never delete the file (every other choice would be
+      lost);
+   2. `pasco build <platform>` with the view whose `orderKeys` must reach the body,
+      and take the rendered `profiles/<platform>/README.md` (or `<platform>.md` for
+      a paste surface) as the base region;
+   3. apply the workspace's declared composition on top (chrome, hidden JSON-LD,
+      …) and write the result to `profiles/<platform>/variants/<variantId>.md`;
+   4. restore the entry and record the choice with
+      `pasco refine <platform> --choose <variantId>`.
+
+   `build` then writes the body verbatim (§21.3 rule 11), and the resolved order
+   travels with the render the body was composed from — the hand-ordering step
+   disappears.
 
 ### 16.3 github-readme skill — strategy (summary)
 
@@ -2863,14 +2879,16 @@ undeclared view.
     compile slice and the renderer output; an active
     `profiles/<platform>/variants/<id>.md` body is a complete artifact written
     verbatim (§7 `renderArtifact`), so the field does **not** rewrite it. The
-    engine does not stay silent about that no-op: when the active variant wins and
-    the slice carries a resolved order, **`build` warns** naming the variant and
-    saying the order applied to the render, not the body. To put the resolved
-    order into the artifact, **recompose the variant from the ordered render**
-    (build with `content/active.yaml` absent — the documented composition
-    procedure; v1 has no `--no-variant` flag). Hand-declaring a different order
-    inside the body is a divergence the engine **cannot detect** in v1: an
-    editorial rule, not a gate.
+    engine does not stay silent about that: when the active variant wins and the
+    slice carries a resolved order, **`build` warns** naming the variant. That note
+    is **permanent and informational** — it states the layer (the body is
+    authoritative; the order applied to the render), not a staleness verdict, and it
+    has no clear condition while the variant serves the surface. To carry the
+    resolved order into a body, compose it as **§16.2 step 4** describes (remove
+    that platform's `active.yaml` entry, build the ordered render, compose and write
+    the body, re-record the choice). Hand-declaring a different order inside the
+    body is a divergence the engine **cannot detect** in v1: an editorial rule, not
+    a gate.
 
 ### 21.4 Every omission WARNS (operator's G1 amendment)
 
@@ -2922,10 +2940,13 @@ report carries the same map as `ordered`, so a consumer reads the applied order 
 of re-deriving the policy. `status --selection` does **not** inspect the active variant:
 it prints the same `order …` lines either way. The variant interaction is reported by
 the writer instead — `build` warns when an active body wins and the slice carries a
-resolved order (§21.3 rule 11), because the body is written verbatim and the order
-applied to the render. Recomposing a variant means running the render with
-`content/active.yaml` absent: v1 has no `--no-variant` flag, and `build`/`preview`/
-`edit --check` all resolve the active variant first (§7 `renderArtifact`).
+resolved order (§21.3 rule 11) — because the body is written verbatim and the order
+applied to the render. That note is **permanent and informational** while the variant
+serves the surface (the body is authoritative), not a staleness signal. Composing the
+order into a body is **§16.2 step 4** (remove that platform's `active.yaml` entry,
+build the ordered render, compose and write the body, re-record the choice); v1 has no
+`--no-variant` flag, and `build`/`preview`/`edit --check` all resolve the active variant
+first (§7 `renderArtifact`).
 
 ### 21.7 Scope boundary
 

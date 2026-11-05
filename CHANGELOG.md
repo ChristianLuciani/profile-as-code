@@ -54,10 +54,14 @@ minor versions may contain breaking contract changes.
   error, so only direct `selectFacts`/`compile` callers see the new warning. The
   active-variant interaction the dogfood measured is now reported by the writer
   and documented: a variant body is a complete artifact written verbatim, so
-  `orderKeys` orders the render and does not rewrite it — when the active variant
-  wins and the slice carries a resolved order, `build` warns naming the variant
-  and the recomposition route (SPEC §21.3 rule 11, §21.6), instead of leaving a
-  silent no-op.
+  `orderKeys` orders the render and does not rewrite it. When the active variant
+  wins and the slice carries a resolved order, `build` emits a **permanent,
+  informational** note naming the variant and the layer (the body is
+  authoritative; the order applied to the render) — not a staleness verdict and
+  not a silent no-op. SPEC §16.2 step 4 owns the composition procedure (remove
+  that platform's `active.yaml` entry, build the ordered render, compose and write
+  the body, re-record the choice), cited from §21.3 rule 11 and §21.6, with an
+  end-to-end test.
 
 ## [0.4.0] - 2026-11-04
 
