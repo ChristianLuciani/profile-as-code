@@ -2955,8 +2955,9 @@ not** be aligned across surfaces. Its four homes, one per axis:
 | composition | the chosen variant's body (`profiles/<platform>/variants/<id>.md`) |
 | reader / angle | the platform's skill (`skills/<platform>/SKILL.md`) |
 
-The one text that is shared verbatim is `identity.definition`, and it is a **fact**,
-not a per-platform text.
+The only texts shared verbatim across surfaces are the root-block facts themselves
+(`identity.definition`, `positioning.statement`); no **per-platform** row of
+`headlines`/`bios` is shared, and that is the point.
 
 **Visibility, not enforcement.** The engine cannot judge voice, so this rule ships
 an **advisory** check and no gate: `pasco check` emits
@@ -2966,13 +2967,18 @@ platforms and the text kind. Identical text across surfaces is the mechanical
 signature of a narrative copied instead of written; because it is a heuristic it
 cites and never fails (D12), and it cannot block a build. Exempt by construction:
 the same platform across langs, a different `length` band, and
-`identity.definition`. There is **no schema field** for narrative (`reader`,
-`angle` stay in the skill) and no new hard gate.
+`identity.definition`. There is **no narrative-specific schema field** (`reader`,
+`angle` stay in the skill) and no new hard gate: the per-platform rows that carry
+narrative text (`headlines`/`bios`) are the roots they already were.
 
 **Skills are the narrative axis's home.** Every `skills/<platform>/` carries a
 `SKILL.md` stating its own reader and angle; all of them cite **one** shared
-statement of the two-axis rule (`skills/FACTS-VS-NARRATIVE.md`) instead of
-restating it, so the norm cannot drift between skills. `pasco refine`'s task
+statement of the two-axis rule (`skills/FACTS-VS-NARRATIVE.md`). A skill may keep
+its platform's own gold rule, but it may not present a second definition of the
+two axes and may not contradict the shared one — in particular, **order is
+narrative**, so ordering facts differently is not a fact change (D22/§21.2). The
+shared statement is the only place the rule is defined, which is what keeps the
+norm from drifting between skills. `pasco refine`'s task
 template names the platform skill as the source of the reader/angle and states
 that a variant must not restate another platform's narrative. This is the norm;
 the skills layer that satisfies it (the two missing `SKILL.md`, the shared
