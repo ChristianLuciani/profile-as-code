@@ -13,7 +13,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { PLATFORM_VALUES } from "../src/generated/schema.zod.js";
-import { driftCheck, load, PASTE_PLATFORMS, PLATFORMS } from "../src/index.js";
+import { compile, driftCheck, load, PASTE_PLATFORMS, PLATFORMS } from "../src/index.js";
 
 const SCHEMA = JSON.parse(
   readFileSync(
@@ -345,4 +345,41 @@ links:
       }
     },
   );
+});
+
+/**
+ * Publication blocks are flavor-neutral (#481): `newsletter` and `podcast` are
+ * data any workspace may declare — a person writing a newsletter is the common
+ * case. The schema has no flavor conditional (it never did); this test pins the
+ * SEMANTICS the SPEC now states, so a future `flavor` conditional cannot slip in
+ * unnoticed.
+ */
+describe("publication blocks are flavor-neutral (#481)", () => {
+  it("a person workspace declares newsletter and podcast, loads and compiles", () => {
+    const dir = makeWorkspace({
+      "identity.yaml": 'name: "Ada Example"\n',
+      "newsletter.yaml": `platform: substack
+url: https://adaexample.substack.com
+name:
+  en: Notes on examples
+cadence: weekly
+`,
+      "podcast.yaml": `title:
+  en: Notes on examples, audio
+status: planned
+`,
+    });
+    try {
+      const profile = load(dir);
+      expect(profile.flavor ?? "person").toBe("person");
+      expect(profile.newsletter?.url).toBe("https://adaexample.substack.com");
+      expect(profile.podcast?.title.en).toBe("Notes on examples, audio");
+
+      const slice = compile(profile, "substack", "en");
+      expect(slice.newsletter?.url).toBe("https://adaexample.substack.com");
+      expect(slice.podcast?.title.en).toBe("Notes on examples, audio");
+    } finally {
+      clean(dir);
+    }
+  });
 });
