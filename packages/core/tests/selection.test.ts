@@ -380,10 +380,28 @@ describe("selectFacts — per-view orderKeys (#458: order is narrative, not a fa
       "v",
       policy({ v: { orderKeys: "projects:p-b" as unknown as string[] } }),
     );
-    const finding = report.findings.find((f) => f.code === "selection/order-key-unknown");
-    expect(finding?.severity).toBe("warn");
-    expect(finding?.message).toContain("array");
+    const mentions = report.findings.filter((f) => f.code === "selection/order-key-unknown");
+    expect(mentions).toHaveLength(1);
+    expect(mentions[0]?.severity).toBe("warn");
+    expect(mentions[0]?.message).toContain("as a string");
     expect(report.ordered).toBeUndefined();
+  });
+
+  it("names an untyped shape without the 'a object' artifact", () => {
+    for (const [value, shape] of [
+      [{ projects: ["p-b"] }, "an object"],
+      [null, "null"],
+    ] as const) {
+      const { report } = omit(
+        workspace(),
+        "v",
+        policy({ v: { orderKeys: value as unknown as string[] } }),
+      );
+      const mentions = report.findings.filter((f) => f.code === "selection/order-key-unknown");
+      expect(mentions).toHaveLength(1);
+      expect(mentions[0]?.message).toContain(shape);
+      expect(mentions[0]?.message).not.toContain("a object");
+    }
   });
 
   it("compile carries the ordered slice so a renderer can re-apply the precedence", () => {

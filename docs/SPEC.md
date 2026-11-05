@@ -2816,11 +2816,12 @@ any view that `views` does not name (including the implicit view of a positional
 opens the list* is an editorial decision that legitimately differs per surface — the
 same shape as a headline. It never enters the SSOT (no `projects[].order`, no
 `featured: boolean`) and it never adds, removes or rewrites an entry: it only
-re-sequences entries the view already emits. A non-string entry in `.pascorc` is a
-**config error** (the same discipline as a `platform` typo); the pure core seam never
-throws, so a direct caller gets the same signal as a `selection/order-key-unknown`
-warn instead of a silent skip. A string that addresses nothing is that **warn**,
-never a silent no-op. An explicit `orderKeys: []` is a declared no-op, not an
+re-sequences entries the view already emits. A **non-array** `orderKeys` and a
+non-string **entry** are a **config error** in `.pascorc` (the same discipline as a
+`platform` typo); the pure core seam never throws, so a direct caller gets the same
+signal as a `selection/order-key-unknown` warn instead of a silent skip. A string that
+addresses nothing is that **warn**, never a silent no-op. An explicit `orderKeys: []`
+is a declared no-op, not an
 undeclared view.
 
 ### 21.3 Resolution rules
@@ -2861,9 +2862,15 @@ undeclared view.
 11. **The active variant is a separate layer (#458).** `orderKeys` orders the
     compile slice and the renderer output; an active
     `profiles/<platform>/variants/<id>.md` body is a complete artifact written
-    verbatim (§7 `renderArtifact`), so the field does **not** rewrite it. A variant
-    composed from the render must be recomposed from the ordered render, and must
-    not hand-declare a second order — one surface, one declared order.
+    verbatim (§7 `renderArtifact`), so the field does **not** rewrite it. The
+    engine does not stay silent about that no-op: when the active variant wins and
+    the slice carries a resolved order, **`build` warns** naming the variant and
+    saying the order applied to the render, not the body. To put the resolved
+    order into the artifact, **recompose the variant from the ordered render**
+    (build with `content/active.yaml` absent — the documented composition
+    procedure; v1 has no `--no-variant` flag). Hand-declaring a different order
+    inside the body is a divergence the engine **cannot detect** in v1: an
+    editorial rule, not a gate.
 
 ### 21.4 Every omission WARNS (operator's G1 amendment)
 
@@ -2898,7 +2905,7 @@ Codes follow the `<ns>/<slug>` convention of `drift/*`, `geo/*`, `check/*`:
 | `selection/empty-facts` | warn | a view selected nothing while the SSOT had candidates |
 | `selection/anchor-omitted` | warn | a `positioning.geo.semanticAssociations` anchor is reinforced only by omitted entries |
 | `selection/omits-facts` | **warn** | **any** omission, named with its reason (§21.4) |
-| `selection/order-key-unknown` | warn | an `orderKeys` entry this view does not emit (typo, excluded, or not tagged) — a silent no-op would make the order untrustworthy (#458) |
+| `selection/order-key-unknown` | warn | an `orderKeys` entry this view does not emit (typo, excluded, or not tagged), or a malformed `orderKeys` at the pure core seam (non-array value, non-string entry) — a silent no-op would make the order untrustworthy (#458) |
 
 `selection/unknown-view` is the seventh code but **not** a finding: it fires before the
 profile is read, as a config error (exit 1).
@@ -2912,10 +2919,13 @@ profile is read, as a config error (exit 1).
 name, so a workspace with no policy behaves exactly as before. `--selection` prints the
 resolved `orderKeys` per block (`order projects: projects:a → projects:b`); the `--json`
 report carries the same map as `ordered`, so a consumer reads the applied order instead
-of re-deriving the policy. When the surface is served by an active variant body, the
-printed order describes the **render/slice**, not that body: the variant is written
-verbatim (§21.3 rule 11), so a workspace that composes one must recompose it from the
-ordered render rather than read the report as the artifact's order.
+of re-deriving the policy. `status --selection` does **not** inspect the active variant:
+it prints the same `order …` lines either way. The variant interaction is reported by
+the writer instead — `build` warns when an active body wins and the slice carries a
+resolved order (§21.3 rule 11), because the body is written verbatim and the order
+applied to the render. Recomposing a variant means running the render with
+`content/active.yaml` absent: v1 has no `--no-variant` flag, and `build`/`preview`/
+`edit --check` all resolve the active variant first (§7 `renderArtifact`).
 
 ### 21.7 Scope boundary
 

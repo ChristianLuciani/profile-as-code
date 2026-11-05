@@ -8,7 +8,7 @@
  */
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -278,5 +278,46 @@ describe("pasco build --view orderKeys — the empty-list edge (#458)", () => {
     const section = readme.split("## Projects")[1]?.split("\n## ")[0] ?? "";
     const order = [...section.matchAll(/- \*\*([^*]+)\*\*/g)].map((m) => m[1]);
     expect(order).toEqual(["Confidential Project", "Open Project"]);
+  });
+});
+
+describe("build — active variant vs a resolved orderKeys (#458)", () => {
+  /** Add an active variant body so renderArtifact writes it verbatim. */
+  function withVariant(ws: string): void {
+    mkdirSync(join(ws, "profiles", "github-readme", "variants"), { recursive: true });
+    writeFileSync(
+      join(ws, "profiles", "github-readme", "variants", "gh-1.md"),
+      "# Hand-authored body\n",
+    );
+    writeFileSync(
+      join(ws, "content", "active.yaml"),
+      'github-readme:\n  lang: en\n  variantId: gh-1\n  chosenAt: "2026-11-05T00:00:00.000Z"\n',
+    );
+  }
+
+  it("warns that the order applied to the render, not the verbatim variant body", () => {
+    const ws = workspace({
+      selection: { views: { v: { orderKeys: ["projects:p-open"] } } },
+    });
+    withVariant(ws);
+    const r = run(["build", "github-readme", "--view", "v", "--json"], ws);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as {
+      data: { written: { variant?: string }[]; warnings: { reason: string }[] };
+    };
+    expect(data.data.written[0]?.variant).toBe("gh-1");
+    // The variant is authoritative; the engine must not stay silent about the no-op.
+    expect(data.data.warnings.map((w) => w.reason).join(" ")).toMatch(
+      /active variant "gh-1".*orderKeys ordered the render, not this body/,
+    );
+  });
+
+  it("does not warn when the view resolves no order", () => {
+    const ws = workspace({});
+    withVariant(ws);
+    const r = run(["build", "github-readme", "--json"], ws);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as { data: { warnings: unknown[] } };
+    expect(data.data.warnings).toEqual([]);
   });
 });
