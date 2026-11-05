@@ -95,6 +95,9 @@ function onlineFixture(options) {
   const root = fixture(options);
   const bare = mkdtempSync(path.join(os.tmpdir(), "release-bare-"));
   git(bare, ["init", "--bare", "-q"]);
+  // Pin the bare HEAD: `git init` defaults to master on some hosts, and a clone
+  // of a bare repo whose HEAD names a missing branch checks out nothing.
+  git(bare, ["symbolic-ref", "HEAD", "refs/heads/main"]);
   git(root, ["remote", "set-url", "origin", bare]);
   git(root, ["push", "-q", "-u", "origin", "main"]);
   return { root, bare };
@@ -203,13 +206,14 @@ it("check fetches origin and refuses a HEAD that is not the remote tip", () => {
     // still read green, and the tag guard would refuse the pushed tag.
     git(os.tmpdir(), ["clone", "-q", bare, other]);
     writeFileSync(path.join(other, "README.md"), "# moved remotely\n");
+    git(other, ["add", "-A"]);
     git(other, [
       "-c",
       "user.name=Other",
       "-c",
       "user.email=other@example.test",
       "commit",
-      "-qam",
+      "-qm",
       "move",
     ]);
     git(other, ["push", "-q", "origin", "main"]);
@@ -373,6 +377,77 @@ it("the entrypoint guard decides by realpath, so a symlinked invocation runs", (
     assert.match(result.stdout, /release — cut a profile-as-code release/);
   } finally {
     cleanup(dir);
+  }
+});
+
+it("cut refuses --no-push: the push IS the release", () => {
+  const { root, bare } = onlineFixture();
+  try {
+    const result = release(root, ["cut", "--no-push"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /--no-push is not supported/);
+    assert.equal(tags(root), "");
+  } finally {
+    cleanup(root);
+    cleanup(bare);
+  }
+});
+
+it("verify refuses a tag that is not local, before touching the network", () => {
+  const root = fixture();
+  try {
+    const result = release(root, ["verify"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /tag v0\.4\.0 does not resolve locally/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+it("verify refuses a non-semver version", () => {
+  const root = fixture();
+  try {
+    const result = release(root, ["verify", "--version", "0.4"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /is not MAJOR\.MINOR\.PATCH/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+it("verify reports unreadable manifests instead of crashing", () => {
+  const root = fixture();
+  try {
+    writeFileSync(path.join(root, "packages", "core", "package.json"), "{ not json");
+    const result = release(root, ["verify"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /cannot read the release manifests/);
+    assert.doesNotMatch(result.stderr, /SyntaxError|at Object\./);
+  } finally {
+    cleanup(root);
+  }
+});
+
+it("pages refuses an origin that is not github.com", () => {
+  const root = fixture();
+  try {
+    git(root, ["remote", "set-url", "origin", "/tmp/not-github"]);
+    const result = release(root, ["pages", "--ref", "abc", "--dry-run"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /origin is not a github\.com remote/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+it("check refuses a directory that is not a git repository", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "release-nogit-"));
+  try {
+    const result = release(root, ["check", "--offline"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /is not a git repository/);
+  } finally {
+    cleanup(root);
   }
 });
 

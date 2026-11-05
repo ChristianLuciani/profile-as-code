@@ -19,8 +19,9 @@
  * the workflow's job, and `verify` reads their result afterwards.
  *
  * The four steps, in order:
- *   check  — offline preconditions (version, CHANGELOG section, clean tree,
- *            HEAD is the tip, no existing tag); exit 1 on any failure.
+ *   check  — preconditions (version, CHANGELOG section, clean tree, HEAD is the
+ *            tip, no tag locally or on origin); FETCHES ORIGIN by default,
+ *            `--offline` skips the network and says so; exit 1 on any failure.
  *   cut    — runs check, then `git tag` + `git push origin vX.Y.Z` (human-run).
  *   pages  — the documented override that re-deploys the site from a commit
  *            (the tag run deploys from the tag commit; a post-tag docs commit
@@ -28,8 +29,9 @@
  *   verify — reads the registry, the Release and the live page: the tag
  *            published, with attestations, and the page says this version.
  *
- * Zero dependencies, node >=22. `check`/`cut --dry-run`/`pages --dry-run` are
- * offline; `cut`, `pages` and `verify` call git/gh/network when asked to act.
+ * Zero dependencies, node >=22. `cut --dry-run` and `pages --dry-run` make no
+ * network call; `check` fetches origin unless `--offline`; `cut`, `pages` and
+ * `verify` call git/gh/network when asked to act.
  *
  * Usage: node scripts/release/release.mjs <check|cut|pages|verify> [options]
  */
@@ -298,8 +300,14 @@ function cmdCheck(args) {
 }
 
 function cmdCut(args) {
-  const options = parse(args, { ref: "origin/main", yes: false, dryRun: false, push: true });
-  if (options.noPush === true) options.push = false;
+  const options = parse(args, { ref: "origin/main", yes: false, dryRun: false });
+  if (options.noPush !== undefined) {
+    // A local-only tag looked like a release and left the next `check` refusing
+    // "already exists locally": one state, one meaning — the push IS the release.
+    throw new Refused(
+      "--no-push is not supported — the release path is the push; use --dry-run to inspect the commands",
+    );
+  }
   if (options.offline === true) {
     throw new Refused("cut verifies origin before pushing — --offline is check-only");
   }
@@ -320,7 +328,7 @@ function cmdCut(args) {
   }
 
   run("git", plan.commands[0][1], { root: options.root });
-  if (options.push) run("git", plan.commands[1][1], { root: options.root });
+  run("git", plan.commands[1][1], { root: options.root });
   afterCut(result);
   return 0;
 }
@@ -355,14 +363,17 @@ function cmdPages(args) {
 }
 
 async function fetchJson(url) {
-  const response = await fetch(url, { headers: { accept: "application/json" } });
+  const response = await fetch(url, {
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(10_000),
+  });
   if (response.status === 404) return { status: 404, body: null };
   if (!response.ok) throw new Refused(`GET ${url} → HTTP ${response.status}`);
   return { status: response.status, body: await response.json() };
 }
 
 async function fetchText(url) {
-  const response = await fetch(url);
+  const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
   if (!response.ok) throw new Refused(`GET ${url} → HTTP ${response.status}`);
   return response.text();
 }
@@ -371,8 +382,14 @@ async function fetchText(url) {
  *  URL is a FAIL row, never the end of the report (and a rejected fetch is
  *  caught, not a stack). */
 export async function verifyRelease({ root = ROOT, version = null } = {}) {
-  const cli = readJson(root, CLI_MANIFEST);
-  const core = readJson(root, CORE_MANIFEST);
+  let cli;
+  let core;
+  try {
+    cli = readJson(root, CLI_MANIFEST);
+    core = readJson(root, CORE_MANIFEST);
+  } catch (error) {
+    throw new Refused(`cannot read the release manifests: ${error.message}`);
+  }
   const target = version ?? cli.version;
   if (!semver(target)) throw new Refused(`"${target}" is not MAJOR.MINOR.PATCH`);
   const tag = `v${target}`;
@@ -492,7 +509,7 @@ function usage() {
       "release — cut a profile-as-code release (maintainer tooling)",
       "",
       "  check   [--ref origin/main] [--root DIR] [--offline] preconditions (fetches origin)",
-      "  cut     [--yes] [--dry-run] [--no-push] [--ref ..]  tag + push (human-run)",
+      "  cut     [--yes] [--dry-run] [--ref ..]              tag + push (human-run)",
       "  pages   --ref <commit-or-tag> [--release vX] [--dry-run]   re-deploy the site",
       "  verify  [--version X.Y.Z]                            registry + Release + page",
       "",

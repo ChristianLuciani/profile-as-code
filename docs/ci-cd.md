@@ -853,9 +853,10 @@ commands, and a boolean flag's presence IS its value, so `--yes=false` refuses).
 override; `pnpm release:verify` reads the registry, the Release and the live page's
 `softwareVersion` back, reporting every surface it attempted. The script never
 publishes — the workflow does — and its self-test (`node scripts/release/test.mjs`,
-run in CI) provokes each of its own refusals against a temporary repository (a bare
-local remote for the remote-tip and remote-tag cases), so a broken precondition
-cannot pass silently.
+run in CI) provokes the `check` preconditions (local and remote, including a tag
+that exists only on origin), the `cut`/`pages` usage refusals and `verify`'s
+address refusals — against temporary repositories and a bare local remote — so a
+broken precondition cannot pass silently.
 
 **What a tag push does — measured.** The tag run **publishes**
 (OIDC with `dist.attestations`, the Release page created by the same run — `v0.3.5`'s run
