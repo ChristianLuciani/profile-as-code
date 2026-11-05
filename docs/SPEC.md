@@ -2992,11 +2992,12 @@ narrative rows the next paragraph describes.
 
 **Narrative.** Per surface, deliberately: the **reader**, the emphasis, the
 **order**, the **subset** and the **composition**. It **may** differ and **must
-not** be aligned across surfaces. Its four homes, one per axis:
+not** be aligned across surfaces. Its homes — one axis each, with subset and order
+sharing the view and reader/angle pairing with the skill:
 
 | Narrative axis | Home |
 |---|---|
-| text | `headlines` / `bios` per platform (banded by `length`) |
+| text (the words, the emphasis) | `headlines` / `bios` per platform (banded by `length`) |
 | subset + **order** | a view's `selection` / `orderKeys` (§21.2/§21.3) — order is narrative, so it lives in the policy, never in the SSOT |
 | composition | the chosen variant's body (`profiles/<platform>/variants/<id>.md`) |
 | reader / angle | the platform's skill (`skills/<platform>/SKILL.md`) |
