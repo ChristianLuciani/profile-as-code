@@ -161,6 +161,7 @@ export type {
   ViewRule,
 } from "./selection.js";
 export {
+  orderedForSurface,
   resolveView,
   SELECTION_BLOCKS,
   selectFacts,

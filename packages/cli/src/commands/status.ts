@@ -501,6 +501,10 @@ function runSelection(args: StatusArgs, profile: LoadedProfile): number {
     line(
       `\n[${r.platform}]${r.mode === "tags" ? " (mode: tags)" : ""} — ${emitted || "no entries"}`,
     );
+    // #458: the resolved narrative order, in the order it is applied.
+    for (const [block, keys] of Object.entries(r.ordered)) {
+      if (keys.length > 0) line(`  order ${block}: ${keys.join(" → ")}`);
+    }
     for (const o of r.omitted) line(`  omitted ${o.block}:${o.label} — ${o.reason}`);
     for (const f of r.findings) line(`  ${f.severity}: [${f.code}] ${f.message}`);
   }

@@ -292,3 +292,80 @@ describe("compile — the filtered/unfiltered split (§21.5)", () => {
     expect(slice.selection?.selected.education).toBe(0);
   });
 });
+
+describe("selectFacts — per-view orderKeys (#458: order is narrative, not a fact)", () => {
+  it("pins the listed keys first, in DECLARED order", () => {
+    const { profile, report } = omit(
+      workspace(),
+      "v",
+      policy({ v: { orderKeys: ["projects:p-film", "projects:p-ai"] } }),
+    );
+    expect(profile.projects?.map((p) => p.id)).toEqual(["p-film", "p-ai"]);
+    expect(report.ordered).toEqual({ projects: ["projects:p-film", "projects:p-ai"] });
+  });
+
+  it("orders only the blocks its keys name (per-block, no global sequence)", () => {
+    const { profile, report } = omit(
+      workspace(),
+      "v",
+      policy({ v: { orderKeys: ["projects:p-film"] } }),
+    );
+    expect(profile.projects?.map((p) => p.id)).toEqual(["p-film", "p-ai"]);
+    // The un-named block keeps the SSOT declaration order, untouched.
+    expect(profile.experience?.map((e) => e.id)).toEqual(["acme-2019", "film-2021"]);
+    expect(report.ordered).toEqual({ projects: ["projects:p-film"] });
+  });
+
+  it("the remaining entries keep the SSOT order (the renderer applies its own comparator)", () => {
+    // `p-ai` and `p-film` both survive; only `p-film` is pinned. The tail stays
+    // in declaration order here — the sort a renderer adds is its own concern.
+    const { profile } = omit(workspace(), "v", policy({ v: { orderKeys: ["projects:p-film"] } }));
+    expect(profile.projects?.map((p) => p.id)).toEqual(["p-film", "p-ai"]);
+  });
+
+  it("orders skills by their natural §19.2 key", () => {
+    const { profile, report } = omit(
+      workspace(),
+      "v",
+      policy({ v: { orderKeys: ["skills:Direction", "skills:TypeScript"] } }),
+    );
+    expect(profile.skills?.map((s) => s.name)).toEqual(["Direction", "TypeScript"]);
+    expect(report.ordered).toEqual({ skills: ["skills:Direction", "skills:TypeScript"] });
+  });
+
+  it("a typo warns with its own code instead of no-op'ing silently", () => {
+    const { report } = omit(workspace(), "v", policy({ v: { orderKeys: ["projects:ghost"] } }));
+    const finding = report.findings.find((f) => f.code === "selection/order-key-unknown");
+    expect(finding?.severity).toBe("warn");
+    expect(finding?.message).toContain("projects:ghost");
+    expect(report.ordered).toEqual({});
+  });
+
+  it("an entry the same view EXCLUDES cannot be ordered — the key warns", () => {
+    const { profile, report } = omit(
+      workspace(),
+      "v",
+      policy({ v: { excludeKeys: ["projects:p-ai"], orderKeys: ["projects:p-ai"] } }),
+    );
+    expect(profile.projects?.map((p) => p.id)).toEqual(["p-film"]);
+    expect(report.findings.some((f) => f.code === "selection/order-key-unknown")).toBe(true);
+  });
+
+  it("a key of a non-selectable block warns too (addresses nothing)", () => {
+    const { report } = omit(workspace(), "v", policy({ v: { orderKeys: ["identity:me"] } }));
+    expect(report.findings.some((f) => f.code === "selection/order-key-unknown")).toBe(true);
+  });
+
+  it("no orderKeys ⇒ the report carries no resolved order (compatibility)", () => {
+    const { report } = omit(workspace(), "v", policy({ v: { excludeKeys: ["projects:p-ai"] } }));
+    expect(report.ordered).toEqual({});
+  });
+
+  it("compile carries the ordered slice so a renderer can re-apply the precedence", () => {
+    const slice = compile(workspace(), "github-readme", "en", {
+      selection: { views: { "github-readme": { orderKeys: ["projects:p-film"] } } },
+    });
+    expect(slice.projects.map((p) => p.id)).toEqual(["p-film", "p-ai"]);
+    expect(slice.selection?.ordered.projects).toEqual(["projects:p-film"]);
+  });
+});

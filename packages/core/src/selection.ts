@@ -13,14 +13,22 @@
  *   between the ones that remain — which is what Goal 2/3 and §15.4 constrain.
  *   The cost is COVERAGE, never consistency, and §21.4 makes it warn.
  *
+ *   ORDER IS NARRATIVE, NOT A FACT (#458). A view may also declare `orderKeys`
+ *   (`.pascorc`) to pin the entries it already emits into a presentation order.
+ *   That is not a re-sort by value: it never adds, removes or rewrites an entry,
+ *   the SSOT keeps no order, and the remaining entries keep the renderer's own
+ *   comparator. Same class as a headline: two surfaces may legitimately disagree
+ *   on what goes first.
+ *
  * The policy lives in workspace config (`.pascorc` → `selection`), never in the
  * SSOT: the data stays platform-agnostic (§9/D14) and a new platform never forces
  * an edit to every entry. That is §20's pattern — compute in the engine, store
  * only the policy — applied to a second axis.
  *
  * Pure, deterministic, offline: same profile + same policy ⇒ same output.
- * Iteration follows the SSOT's declaration order (never a map's order), because
- * byte-stability (§15.1) is a property of the output, not of the runtime.
+ * Iteration follows the SSOT's declaration order (never a map's order), unless a
+ * view pins `orderKeys`; byte-stability (§15.1) is a property of the output, not
+ * of the runtime.
  */
 
 import type { Lang, Platform, Profile } from "./types.js";
@@ -62,6 +70,13 @@ export interface ViewRule {
   excludeTags?: readonly string[];
   /** Deny by §19.2 key (`experience:<id>`, `projects:<id>`, `skills:<name>`, …). */
   excludeKeys?: readonly string[];
+  /** Narrative order by §19.2 key (#458): within each block, the keys this view
+   *  emits come first in this declared order; the rest keep the renderer's
+   *  comparator (or the SSOT order when the renderer does not sort). Ordering is
+   *  PRESENTATION, never a fact: the SSOT carries no order. A key the view does
+   *  not emit warns (`selection/order-key-unknown`) rather than no-op'ing
+   *  silently. */
+  orderKeys?: readonly string[];
   /** Optional target, so `--view <name>` alone resolves platform + lang. */
   platform?: Platform;
   lang?: Lang;
@@ -87,6 +102,7 @@ export interface SelectionOmission {
 export type SelectionFindingCode =
   | "selection/unknown-key"
   | "selection/unknown-tag"
+  | "selection/order-key-unknown"
   | "selection/empty-facts"
   | "selection/anchor-omitted"
   | "selection/omits-facts";
@@ -106,6 +122,11 @@ export interface SelectionReport {
   selected: Record<SelectionBlock, number>;
   /** Every entry the view removed, with its reason (§21.4). */
   omitted: SelectionOmission[];
+  /** Per-block declared order actually applied (#458), in declared key order.
+   *  Empty when the view declares no `orderKeys`, so a policy without the field
+   *  reports exactly what it reported before it existed. `pasco status
+   *  --selection` prints it and a sorting renderer re-applies it. */
+  ordered: Partial<Record<SelectionBlock, string[]>>;
   findings: SelectionFinding[];
 }
 
@@ -158,6 +179,84 @@ export function resolveView(policy: SelectionPolicy | undefined, view: string): 
   return policy.views?.[view] ?? policy.default ?? {};
 }
 
+/** The declared `orderKeys` that are actual strings, first occurrence winning
+ *  (a repeated key is one instruction, not two positions). Core never throws on
+ *  malformed config — the CLI validates the types before it gets here (§21.2);
+ *  anything else would make `pasco validate` unable to show the user the file. */
+function declaredOrderOf(rule: ViewRule): string[] {
+  const raw = rule.orderKeys;
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const key of raw) {
+    if (typeof key !== "string" || key === "" || seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+  }
+  return out;
+}
+
+/** Stable partition of one block's survivors: the declared keys first, in their
+ *  declared order, then everything else in SSOT order. Ungraded entries never
+ *  change relative position, so the no-`orderKeys` output is untouched. */
+function orderSurvivors(
+  block: SelectionBlock,
+  survivors: Entry[],
+  positions: ReadonlyMap<string, number>,
+): Entry[] {
+  const decorated = survivors.map((entry, index) => ({
+    entry,
+    index,
+    position: positions.get(keyOf(block, entry) ?? ""),
+  }));
+  decorated.sort((a, b) => {
+    if (a.position !== undefined && b.position !== undefined) {
+      return a.position - b.position || a.index - b.index;
+    }
+    if (a.position !== undefined) return -1;
+    if (b.position !== undefined) return 1;
+    return a.index - b.index;
+  });
+  return decorated.map((row) => row.entry);
+}
+
+/**
+ * Re-apply a view's declared order over a renderer's OWN comparator (#458).
+ *
+ * A renderer that sorts a block (`github-readme` sorts the featured projects by
+ * status and the skills by weight) would otherwise destroy the order
+ * `selectFacts` resolved. It calls this instead: the keys the view pinned come
+ * first in declared order, and the rest keep the caller's comparator — the
+ * precedence is implemented ONCE, here, never per adapter. With no pinned keys
+ * the result is exactly `[...entries].sort(compare)`, so a policy without
+ * `orderKeys` stays byte-identical.
+ */
+export function orderedForSurface<T>(
+  entries: readonly T[],
+  block: SelectionBlock,
+  orderedKeys: readonly string[] | undefined,
+  compare: (a: T, b: T) => number,
+): T[] {
+  if (orderedKeys === undefined || orderedKeys.length === 0) return [...entries].sort(compare);
+  const byKey = new Map<string, T>();
+  for (const entry of entries) {
+    const key = keyOf(block, entry as Entry);
+    if (key !== undefined && !byKey.has(key)) byKey.set(key, entry);
+  }
+  const pinned: T[] = [];
+  const used = new Set<T>();
+  for (const key of orderedKeys) {
+    const entry = byKey.get(key);
+    if (entry === undefined || used.has(entry)) continue;
+    pinned.push(entry);
+    used.add(entry);
+  }
+  if (pinned.length === 0) return [...entries].sort(compare);
+  const rest = entries.filter((entry) => !used.has(entry));
+  rest.sort(compare);
+  return [...pinned, ...rest];
+}
+
 /**
  * Apply a view's selection to a profile (D22, §21).
  *
@@ -179,6 +278,21 @@ export function selectFacts(
   const excludeKeys = new Set(rule.excludeKeys ?? []);
   const excludeTags = new Set(rule.excludeTags ?? []);
   const includeTags = new Set(rule.tags ?? []);
+  // #458: the declared narrative order, grouped by the block its key names.
+  // A key with no `:` (or an unknown prefix) addresses nothing and falls to the
+  // unknown-key warning below — never a silent no-op.
+  const declaredOrder = declaredOrderOf(rule);
+  const positionsByBlock = new Map<SelectionBlock, Map<string, number>>();
+  declaredOrder.forEach((key, index) => {
+    const block = key.split(":")[0] as SelectionBlock;
+    if (!(SELECTION_BLOCKS as readonly string[]).includes(block)) return;
+    let positions = positionsByBlock.get(block);
+    if (positions === undefined) {
+      positions = new Map<string, number>();
+      positionsByBlock.set(block, positions);
+    }
+    if (!positions.has(key)) positions.set(key, index);
+  });
 
   const selected: Record<SelectionBlock, number> = {
     experience: 0,
@@ -249,12 +363,49 @@ export function selectFacts(
       keptRefs.push({ block, entry });
     });
 
-    kept.set(block, survivors);
-    selected[block] = survivors.length;
+    const positions = positionsByBlock.get(block);
+    const orderedSurvivors =
+      positions === undefined ? survivors : orderSurvivors(block, survivors, positions);
+    kept.set(block, orderedSurvivors);
+    selected[block] = orderedSurvivors.length;
   }
 
   // ── findings ───────────────────────────────────────────────────────────────
   const findings: SelectionFinding[] = [];
+
+  // #458: resolve the order that was ACTUALLY applied. A key is applied only if
+  // this view emits it; an absent/excluded/untagged key, an unknown block prefix
+  // or a typo warns instead of becoming a silent no-op (the same discipline as
+  // `selection/omits-facts`: a statement the surface cannot honour is told).
+  const emittedKeys = new Set<string>();
+  for (const block of SELECTION_BLOCKS) {
+    for (const entry of kept.get(block) ?? []) {
+      const key = keyOf(block, entry);
+      if (key !== undefined) emittedKeys.add(key);
+    }
+  }
+  const ordered: Partial<Record<SelectionBlock, string[]>> = {};
+  const warnedOrderKeys = new Set<string>();
+  for (const key of declaredOrder) {
+    if (!emittedKeys.has(key)) {
+      if (!warnedOrderKeys.has(key)) {
+        warnedOrderKeys.add(key);
+        findings.push({
+          code: "selection/order-key-unknown",
+          severity: "warn",
+          message: `view "${view}" orders "${key}", which the view does not emit — check the §19.2 key (a typo, or the entry is excluded / not tagged by this view)`,
+        });
+      }
+      continue;
+    }
+    const block = key.split(":")[0] as SelectionBlock;
+    let list = ordered[block];
+    if (list === undefined) {
+      list = [];
+      ordered[block] = list;
+    }
+    list.push(key);
+  }
 
   // G6 (error): an addressed key that resolves to nothing is an unsatisfied
   // instruction — the §19.2 "addressed ⇒ resolvable" rule. A typo must fail
@@ -330,6 +481,6 @@ export function selectFacts(
 
   return {
     profile: filtered,
-    report: { view, platform, lang, mode, selected, omitted, findings },
+    report: { view, platform, lang, mode, selected, omitted, ordered, findings },
   };
 }

@@ -7,11 +7,12 @@
  * for langMaps (compile already filtered bios/headlines by exact lang).
  *
  * Output sections (§15.3): header (name + headline + identity badges) ·
- * statement · featured projects (ordered by github-readme skill weight) ·
- * publications (DOI-resolvable) · skills (weight order) · links (sameAs) ·
- * evidence registry (v1.4/D17/§18: credentials + artifacts, `public` only —
- * §18.5; `path` locators never emit a URL, §18.3 capability matrix) ·
- * JSON-LD Person (with hasCredential, §18.9) · generated footer with fact-count.
+ * statement · featured projects (status-led; a view's `orderKeys` pins its head,
+ * #458) · publications (DOI-resolvable) · skills (weight order, with the same
+ * view-order precedence) · links (sameAs) · evidence registry (v1.4/D17/§18:
+ * credentials + artifacts, `public` only — §18.5; `path` locators never emit a
+ * URL, §18.3 capability matrix) · JSON-LD Person (with hasCredential, §18.9) ·
+ * generated footer with fact-count.
  */
 
 import type {
@@ -23,7 +24,12 @@ import type {
   Project,
   Skill,
 } from "@profile-as-code/core";
-import { byteOrder, completenessLine, isPublicEntry } from "@profile-as-code/core";
+import {
+  byteOrder,
+  completenessLine,
+  isPublicEntry,
+  orderedForSurface,
+} from "@profile-as-code/core";
 import { mdHref, mdText } from "@profile-as-code/markdown";
 
 export const deploySpec = "git" as const;
@@ -236,7 +242,13 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   //    (the rank leads, the weight is the tiebreak, the name closes in UTF-16
   //    code-unit order — D19 byte-parity; localeCompare is ICU-dependent,
   //    never here — the compare delegates to core's `byteOrder` home, #305).
-  const projects = [...p.projects].sort(
+  //    #458: a view's `orderKeys` pins entries FIRST, in declared order; the
+  //    rest keep this comparator. The precedence lives in core's
+  //    `orderedForSurface` (one home), never re-implemented per adapter.
+  const projects = orderedForSurface(
+    p.projects,
+    "projects",
+    p.selection?.ordered?.projects,
     (a, b) =>
       statusRank(a.status) - statusRank(b.status) ||
       projectWeight(b, p.skills) - projectWeight(a, p.skills) ||
@@ -273,8 +285,12 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     }
   }
 
-  // 5. Skills — weight order for this platform.
-  const skills = [...p.skills].sort(
+  // 5. Skills — weight order for this platform (a view's `orderKeys` pins the
+  //    head first, #458 — same core precedence as the featured projects).
+  const skills = orderedForSurface(
+    p.skills,
+    "skills",
+    p.selection?.ordered?.skills,
     (a, b) => skillWeight(b) - skillWeight(a) || byteOrder(a.name, b.name),
   );
   if (skills.length > 0) {

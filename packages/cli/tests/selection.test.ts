@@ -213,3 +213,51 @@ describe("pasco status --selection (D22/§21.4)", () => {
     expect(r.stdout).toContain("nothing omitted");
   });
 });
+
+describe("pasco build --view orderKeys (#458)", () => {
+  const projectOrder = (dir: string) =>
+    [
+      ...(
+        readFileSync(join(dir, "profiles", "github-readme", "README.md"), "utf8")
+          .split("## Projects")[1]
+          ?.split("\n## ")[0] ?? ""
+      ).matchAll(/- \*\*([^*]+)\*\*/g),
+    ].map((m) => m[1]);
+
+  it("renders the pinned keys first, in declared order", () => {
+    const ws = workspace({
+      selection: { views: { v: { orderKeys: ["projects:p-open"] } } },
+    });
+    const r = run(["build", "github-readme", "--view", "v", "--json"], ws);
+    expect(r.code).toBe(0);
+    // Default alphabetical order would put Confidential first; the view pins Open.
+    expect(projectOrder(ws)).toEqual(["Open Project", "Confidential Project"]);
+  });
+
+  it("status --selection shows the resolved order", () => {
+    const ws = workspace({
+      selection: { views: { v: { orderKeys: ["projects:p-open"] } } },
+    });
+    const r = run(["status", "github-readme", "--selection", "--view", "v"], ws);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("order projects: projects:p-open");
+  });
+
+  it("an order key the view does not emit WARNS and the build still succeeds", () => {
+    const ws = workspace({
+      selection: { views: { v: { orderKeys: ["projects:ghost"] } } },
+    });
+    const r = run(["build", "github-readme", "--view", "v", "--json"], ws);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("selection/order-key-unknown");
+  });
+
+  it("a non-string orderKeys entry is a config error (exit 1), never a dropped order", () => {
+    const ws = workspace({
+      selection: { views: { v: { orderKeys: ["projects:p-open", 42] } } },
+    });
+    const r = run(["build", "github-readme", "--view", "v"], ws);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toMatch(/config error: .*orderKeys/);
+  });
+});
