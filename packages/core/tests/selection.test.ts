@@ -338,7 +338,7 @@ describe("selectFacts — per-view orderKeys (#458: order is narrative, not a fa
     const finding = report.findings.find((f) => f.code === "selection/order-key-unknown");
     expect(finding?.severity).toBe("warn");
     expect(finding?.message).toContain("projects:ghost");
-    expect(report.ordered).toEqual({});
+    expect(report.ordered).toBeUndefined();
   });
 
   it("an entry the same view EXCLUDES cannot be ordered — the key warns", () => {
@@ -358,7 +358,20 @@ describe("selectFacts — per-view orderKeys (#458: order is narrative, not a fa
 
   it("no orderKeys ⇒ the report carries no resolved order (compatibility)", () => {
     const { report } = omit(workspace(), "v", policy({ v: { excludeKeys: ["projects:p-ai"] } }));
-    expect(report.ordered).toEqual({});
+    expect(report.ordered).toBeUndefined();
+    // Not even an empty key: a no-order report is byte-identical to the pre-#458 shape.
+    expect(JSON.stringify(report)).not.toContain('"ordered"');
+  });
+
+  it("a non-string orderKeys entry WARNs at the core seam (never a silent skip)", () => {
+    const { report } = omit(
+      workspace(),
+      "v",
+      policy({ v: { orderKeys: [42 as unknown as string, "projects:p-b"] } }),
+    );
+    const finding = report.findings.find((f) => f.code === "selection/order-key-unknown");
+    expect(finding?.severity).toBe("warn");
+    expect(finding?.message).toContain("non-string");
   });
 
   it("compile carries the ordered slice so a renderer can re-apply the precedence", () => {
@@ -366,7 +379,7 @@ describe("selectFacts — per-view orderKeys (#458: order is narrative, not a fa
       selection: { views: { "github-readme": { orderKeys: ["projects:p-film"] } } },
     });
     expect(slice.projects.map((p) => p.id)).toEqual(["p-film", "p-ai"]);
-    expect(slice.selection?.ordered.projects).toEqual(["projects:p-film"]);
+    expect(slice.selection?.ordered?.projects).toEqual(["projects:p-film"]);
   });
 });
 

@@ -159,7 +159,10 @@ export function sanitizeSelectionPolicy(raw: SelectionPolicyConfig | undefined):
         );
       }
     }
-    return v.length > 0 ? (v as readonly string[]) : undefined;
+    // Keep an EXPLICIT empty list as a declared (no-op) value: dropping it would
+    // make `views.v = { orderKeys: [] }` collapse to "unknown view v", though the
+    // field's documented default is exactly `[]`.
+    return v as readonly string[];
   };
   const rule = (
     r: SelectionRuleConfig | undefined,

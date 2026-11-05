@@ -1831,7 +1831,7 @@ Ordered, deterministic sections (all text from the SSOT; nothing invented by the
    order, before this comparator; the rest keep the status-led order. Ordering is
    narrative, so it lives in the view and never in the SSOT (§21.2).
 4. **Publications** (citable): title, venue, year, DOI link. DOI-only entries (the GEO anchor).
-5. **Skills** (ordered by weight; the name tie closes in core's `byteOrder` UTF-16 code-unit order, #305):
+5. **Skills** (ordered by weight; the name tie closes in core's `byteOrder` UTF-16 code-unit order, #305; a view's `orderKeys` for `skills:` pins its head first, #458):
    `name` + keywords, from the SSOT. No invented prose.
 6. **Links**: `identity.email` first (a contact fact leads, channels follow — `- [Email](mailto:…)`),
    then **every** `identity.links` entry as the visible link list (humans want all channels), then
@@ -2816,9 +2816,12 @@ any view that `views` does not name (including the implicit view of a positional
 opens the list* is an editorial decision that legitimately differs per surface — the
 same shape as a headline. It never enters the SSOT (no `projects[].order`, no
 `featured: boolean`) and it never adds, removes or rewrites an entry: it only
-re-sequences entries the view already emits. A non-string entry is a **config error**
-(the same discipline as a `platform` typo); a string that addresses nothing is the
-**warn** `selection/order-key-unknown`, never a silent no-op.
+re-sequences entries the view already emits. A non-string entry in `.pascorc` is a
+**config error** (the same discipline as a `platform` typo); the pure core seam never
+throws, so a direct caller gets the same signal as a `selection/order-key-unknown`
+warn instead of a silent skip. A string that addresses nothing is that **warn**,
+never a silent no-op. An explicit `orderKeys: []` is a declared no-op, not an
+undeclared view.
 
 ### 21.3 Resolution rules
 
@@ -2850,9 +2853,11 @@ re-sequences entries the view already emits. A non-string entry is a **config er
     listed keys come first, in declared order; the remaining entries keep the
     renderer's own comparator (a renderer that does not sort therefore keeps SSOT
     order). There is **no global sequence across blocks** — `projects:` keys never
-    move an `experience` entry. Precedence is implemented once, in core
-    (`orderedForSurface`), and delegated by the sorting adapters. Without
-    `orderKeys` the output is byte-identical (§21.3 rule 5).
+    move an `experience` entry. The pinning rule — first slot per key, declared
+    order — lives once in core (`pinnedRanks`): `selectFacts` applies it to the
+    slice and `orderedForSurface` to a renderer's comparator. Without
+    `orderKeys` the output is byte-identical (§21.3 rule 5), the diagnostic report
+    included (no `ordered` key is added).
 
 ### 21.4 Every omission WARNS (operator's G1 amendment)
 
@@ -2889,7 +2894,7 @@ Codes follow the `<ns>/<slug>` convention of `drift/*`, `geo/*`, `check/*`:
 | `selection/omits-facts` | **warn** | **any** omission, named with its reason (§21.4) |
 | `selection/order-key-unknown` | warn | an `orderKeys` entry this view does not emit (typo, excluded, or not tagged) — a silent no-op would make the order untrustworthy (#458) |
 
-`selection/unknown-view` is the sixth code but **not** a finding: it fires before the
+`selection/unknown-view` is the seventh code but **not** a finding: it fires before the
 profile is read, as a config error (exit 1).
 
 ### 21.6 CLI

@@ -261,3 +261,22 @@ describe("pasco build --view orderKeys (#458)", () => {
     expect(r.stderr).toMatch(/config error: .*orderKeys/);
   });
 });
+
+describe("pasco build --view orderKeys — the empty-list edge (#458)", () => {
+  it("an explicit orderKeys: [] still declares the view (no unknown-view)", () => {
+    const ws = workspace({ selection: { views: { v: { orderKeys: [] } } } });
+    const r = run(["build", "github-readme", "--view", "v", "--json"], ws);
+    expect(r.code).toBe(0);
+    const data = JSON.parse(r.stdout) as { data: { selection: unknown[] } };
+    expect(data.data.selection).toEqual([]);
+  });
+
+  it("the empty list is a no-op: the rendered order is the comparator's", () => {
+    const ws = workspace({ selection: { views: { v: { orderKeys: [] } } } });
+    expect(run(["build", "github-readme", "--view", "v"], ws).code).toBe(0);
+    const readme = readReadme(ws);
+    const section = readme.split("## Projects")[1]?.split("\n## ")[0] ?? "";
+    const order = [...section.matchAll(/- \*\*([^*]+)\*\*/g)].map((m) => m[1]);
+    expect(order).toEqual(["Confidential Project", "Open Project"]);
+  });
+});

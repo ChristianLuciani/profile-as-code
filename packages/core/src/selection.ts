@@ -123,10 +123,11 @@ export interface SelectionReport {
   /** Every entry the view removed, with its reason (§21.4). */
   omitted: SelectionOmission[];
   /** Per-block declared order actually applied (#458), in declared key order.
-   *  Empty when the view declares no `orderKeys`, so a policy without the field
-   *  reports exactly what it reported before it existed. `pasco status
-   *  --selection` prints it and a sorting renderer re-applies it. */
-  ordered: Partial<Record<SelectionBlock, string[]>>;
+   *  ABSENT when the view applies no order — so a policy without `orderKeys`
+   *  reports exactly what it reported before the field existed (byte-identical,
+   *  `--json` included). `pasco status --selection` prints it and a sorting
+   *  renderer re-applies it. */
+  ordered?: Partial<Record<SelectionBlock, string[]>>;
   findings: SelectionFinding[];
 }
 
@@ -181,8 +182,9 @@ export function resolveView(policy: SelectionPolicy | undefined, view: string): 
 
 /** The declared `orderKeys` that are actual strings, first occurrence winning
  *  (a repeated key is one instruction, not two positions). Core never throws on
- *  malformed config — the CLI validates the types before it gets here (§21.2);
- *  anything else would make `pasco validate` unable to show the user the file. */
+ *  malformed config — the CLI validates the types before it gets here (§21.2),
+ *  and a direct caller gets a warning (see `selectFacts`); throwing would make
+ *  `pasco validate` unable to show the user the file. */
 function declaredOrderOf(rule: ViewRule): string[] {
   const raw = rule.orderKeys;
   if (!Array.isArray(raw)) return [];
@@ -196,25 +198,50 @@ function declaredOrderOf(rule: ViewRule): string[] {
   return out;
 }
 
-/** Stable partition of one block's survivors: the declared keys first, in their
- *  declared order, then everything else in SSOT order. Ungraded entries never
- *  change relative position, so the no-`orderKeys` output is untouched. */
+/** The ONE pinning rule (#458): which array slots a declared order pins, and at
+ *  which rank. Index-addressed, never identity-addressed — the YAML loader
+ *  preserves aliases (`&row` / `*row`), so two slots can share one object. First
+ *  slot per key wins; a duplicate-key slot keeps its tail position. Both the
+ *  filtered slice (`orderSurvivors`) and the renderer re-application
+ *  (`orderedForSurface`) read this same map, so the precedence is not re-declared
+ *  per consumer. */
+function pinnedRanks<T>(
+  entries: readonly T[],
+  block: SelectionBlock,
+  orderedKeys: readonly string[],
+): Map<number, number> {
+  const indexByKey = new Map<string, number>();
+  entries.forEach((entry, index) => {
+    const key = keyOf(block, entry as Entry);
+    if (key !== undefined && !indexByKey.has(key)) indexByKey.set(key, index);
+  });
+  const rankByIndex = new Map<number, number>();
+  orderedKeys.forEach((key, rank) => {
+    const index = indexByKey.get(key);
+    if (index !== undefined && !rankByIndex.has(index)) rankByIndex.set(index, rank);
+  });
+  return rankByIndex;
+}
+
+/** Stable partition of one block's survivors: the pinned slots first, in their
+ *  declared rank, then everything else in SSOT order. A no-`orderKeys` view never
+ *  reaches this path, so its output is untouched. */
 function orderSurvivors(
   block: SelectionBlock,
   survivors: Entry[],
-  positions: ReadonlyMap<string, number>,
+  orderedKeys: readonly string[],
 ): Entry[] {
+  const ranks = pinnedRanks(survivors, block, orderedKeys);
+  if (ranks.size === 0) return survivors;
   const decorated = survivors.map((entry, index) => ({
     entry,
     index,
-    position: positions.get(keyOf(block, entry) ?? ""),
+    rank: ranks.get(index),
   }));
   decorated.sort((a, b) => {
-    if (a.position !== undefined && b.position !== undefined) {
-      return a.position - b.position || a.index - b.index;
-    }
-    if (a.position !== undefined) return -1;
-    if (b.position !== undefined) return 1;
+    if (a.rank !== undefined && b.rank !== undefined) return a.rank - b.rank || a.index - b.index;
+    if (a.rank !== undefined) return -1;
+    if (b.rank !== undefined) return 1;
     return a.index - b.index;
   });
   return decorated.map((row) => row.entry);
@@ -227,9 +254,9 @@ function orderSurvivors(
  * status and the skills by weight) would otherwise destroy the order
  * `selectFacts` resolved. It calls this instead: the keys the view pinned come
  * first in declared order, and the rest keep the caller's comparator — the
- * precedence is implemented ONCE, here, never per adapter. With no pinned keys
- * the result is exactly `[...entries].sort(compare)`, so a policy without
- * `orderKeys` stays byte-identical.
+ * pinning rule lives once in core (`pinnedRanks`), never per adapter. With no
+ * pinned keys the result is exactly `[...entries].sort(compare)`, so a policy
+ * without `orderKeys` stays byte-identical.
  */
 export function orderedForSurface<T>(
   entries: readonly T[],
@@ -238,25 +265,12 @@ export function orderedForSurface<T>(
   compare: (a: T, b: T) => number,
 ): T[] {
   if (orderedKeys === undefined || orderedKeys.length === 0) return [...entries].sort(compare);
-  // Index-addressed, never identity-addressed: the YAML loader preserves aliases
-  // (`&row` / `*row`), so two array slots can share ONE object. Keying by
-  // identity would then drop the second slot from the surface — selection may
-  // reorder, never lose an entry (D22 subset rule).
-  const indexByKey = new Map<string, number>();
-  entries.forEach((entry, index) => {
-    const key = keyOf(block, entry as Entry);
-    if (key !== undefined && !indexByKey.has(key)) indexByKey.set(key, index);
-  });
-  const rankByIndex = new Map<number, number>();
-  orderedKeys.forEach((key, rank) => {
-    const index = indexByKey.get(key);
-    if (index !== undefined && !rankByIndex.has(index)) rankByIndex.set(index, rank);
-  });
-  if (rankByIndex.size === 0) return [...entries].sort(compare);
-  const pinned = [...rankByIndex.entries()]
+  const ranks = pinnedRanks(entries, block, orderedKeys);
+  if (ranks.size === 0) return [...entries].sort(compare);
+  const pinned = [...ranks.entries()]
     .sort(([aIndex, aRank], [bIndex, bRank]) => aRank - bRank || aIndex - bIndex)
     .map(([index]) => entries[index] as T);
-  const rest = entries.filter((_, index) => !rankByIndex.has(index));
+  const rest = entries.filter((_, index) => !ranks.has(index));
   rest.sort(compare);
   return [...pinned, ...rest];
 }
@@ -286,17 +300,14 @@ export function selectFacts(
   // A key with no `:` (or an unknown prefix) addresses nothing and falls to the
   // unknown-key warning below — never a silent no-op.
   const declaredOrder = declaredOrderOf(rule);
-  const positionsByBlock = new Map<SelectionBlock, Map<string, number>>();
-  declaredOrder.forEach((key, index) => {
+  const orderKeysByBlock = new Map<SelectionBlock, string[]>();
+  for (const key of declaredOrder) {
     const block = key.split(":")[0] as SelectionBlock;
-    if (!(SELECTION_BLOCKS as readonly string[]).includes(block)) return;
-    let positions = positionsByBlock.get(block);
-    if (positions === undefined) {
-      positions = new Map<string, number>();
-      positionsByBlock.set(block, positions);
-    }
-    if (!positions.has(key)) positions.set(key, index);
-  });
+    if (!(SELECTION_BLOCKS as readonly string[]).includes(block)) continue;
+    const keys = orderKeysByBlock.get(block);
+    if (keys === undefined) orderKeysByBlock.set(block, [key]);
+    else keys.push(key);
+  }
 
   const selected: Record<SelectionBlock, number> = {
     experience: 0,
@@ -367,15 +378,31 @@ export function selectFacts(
       keptRefs.push({ block, entry });
     });
 
-    const positions = positionsByBlock.get(block);
+    const orderKeys = orderKeysByBlock.get(block);
     const orderedSurvivors =
-      positions === undefined ? survivors : orderSurvivors(block, survivors, positions);
+      orderKeys === undefined ? survivors : orderSurvivors(block, survivors, orderKeys);
     kept.set(block, orderedSurvivors);
     selected[block] = orderedSurvivors.length;
   }
 
   // ── findings ───────────────────────────────────────────────────────────────
   const findings: SelectionFinding[] = [];
+
+  // #458: a non-string `orderKeys` entry. `.pascorc` is validated by the CLI
+  // before it reaches the engine (a config error), but the §21.5 core seam never
+  // throws; a direct caller gets this warning instead of a silent skip.
+  const rawOrderKeys = rule.orderKeys;
+  if (Array.isArray(rawOrderKeys)) {
+    for (const key of rawOrderKeys) {
+      if (typeof key !== "string" || key === "") {
+        findings.push({
+          code: "selection/order-key-unknown",
+          severity: "warn",
+          message: `view "${view}" declares a non-string orderKeys entry (${String(key)}) — ignored; use an §19.2 key`,
+        });
+      }
+    }
+  }
 
   // #458: resolve the order that was ACTUALLY applied. A key is applied only if
   // this view emits it; an absent/excluded/untagged key, an unknown block prefix
@@ -485,6 +512,15 @@ export function selectFacts(
 
   return {
     profile: filtered,
-    report: { view, platform, lang, mode, selected, omitted, ordered, findings },
+    report: {
+      view,
+      platform,
+      lang,
+      mode,
+      selected,
+      omitted,
+      ...(Object.keys(ordered).length > 0 ? { ordered } : {}),
+      findings,
+    },
   };
 }
