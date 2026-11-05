@@ -9,7 +9,27 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
-_(nothing yet — the next cycle)_
+### Added
+
+- **`doctor --contract-delta` — the upgrade names the fields, not only the
+  versions (#439, SPEC §7.6)** — `doctor` reported `engine 0.4.0 · schema v1.16 ·
+  requires engine >= 0.4.0 (met)` and never WHAT changed between the two: a real
+  0.3.0 → 0.3.7 upgrade (contract v1.9 → v1.15) moved six adoptable fields, and
+  finding them took a supervision session across the CHANGELOG, the schema
+  `description` and the geo report. `pasco init` now writes a `"contract"` floor
+  into `.pascorc` at birth — beside the #434 `"engine"` floor, from the same
+  generated `PROFILE_SCHEMA_VERSION`, never a literal — and `doctor
+  --contract-delta` diffs that floor against the installed contract: one entry per
+  minor with the fields it added and the surface that reads them, in five states
+  (`delta` · `none` · `absent` with the remedy · `INVALID` · `ahead`). `--json`
+  adds `data.contractDelta` only when the flag is passed, rows of exactly
+  `{ version, fields, buys }`. The exit matrix is unchanged: the floor DECLARES
+  and is never enforced (v1), so `doctor` reports without inventing a verdict the
+  gate does not back. The rows are a projection of the schema's own narration,
+  pinned in both directions by `consumer-contract.test.ts` — a schema bump that
+  forgets a row, an invented minor, or a row that omits a field its minor narrates
+  fails `pnpm test`; a `notFields` label is a review judgement, as SPEC §7.6
+  states.
 
 ## [0.4.0] - 2026-11-04
 
