@@ -1861,11 +1861,13 @@ for a consumer. **"Published" has two owners on purpose:** §19/§20.1 answer th
 question (is there a public artifact behind this project?). Different axes, different owners —
 neither is a score.
 
-**Facts vs narrative (§21.8).** Every value in the list above is a **fact** and is
+**Facts vs narrative (§21.8).** Every value the list above takes from the SSOT —
+names, dates, roles, numbers, DOIs, URLs, publications — is a **fact** and is
 identical on every surface. What the renderer composes *around* those facts — the
-headline copy, the order the sections take, the subset a view keeps, the variant
-body — is **narrative**: per surface, deliberately different, never propagated
-"for consistency" (§21.8 states the rule, its homes and the advisory check).
+platform headline text it prints (a `headlines[]` row), the order the sections
+take, the subset a view keeps, the variant body — is **narrative**: per surface,
+deliberately different, never propagated "for consistency". §21.8 states the rule,
+its homes per axis and the advisory check that makes a copied narrative visible.
 
 ### 15.4 Drift/GEO contract
 

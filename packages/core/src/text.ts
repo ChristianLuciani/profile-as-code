@@ -95,13 +95,13 @@ export function sameTextAcrossPlatforms(profile: Profile): TextFinding[] {
   const headlines: Row[] = (profile.headlines ?? []).map((h) => ({
     platform: h.platform,
     text: h.text,
-    path: `headlines:${h.platform}/${h.lang}`,
+    path: `headlines:${h.platform}:${h.lang}`,
   }));
   const bios: Row[] = (profile.bios ?? []).map((b) => ({
     platform: b.platform,
     text: b.text,
     bucket: b.length,
-    path: `bios:${b.platform}/${b.lang}/${b.length}`,
+    path: `bios:${b.platform}:${b.lang}:${b.length}`,
   }));
 
   return [
