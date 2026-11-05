@@ -374,6 +374,18 @@ describe("selectFacts — per-view orderKeys (#458: order is narrative, not a fa
     expect(finding?.message).toContain("non-string");
   });
 
+  it("a non-array orderKeys WARNs at the core seam too (#458 dogfood)", () => {
+    const { report } = omit(
+      workspace(),
+      "v",
+      policy({ v: { orderKeys: "projects:p-b" as unknown as string[] } }),
+    );
+    const finding = report.findings.find((f) => f.code === "selection/order-key-unknown");
+    expect(finding?.severity).toBe("warn");
+    expect(finding?.message).toContain("array");
+    expect(report.ordered).toBeUndefined();
+  });
+
   it("compile carries the ordered slice so a renderer can re-apply the precedence", () => {
     const slice = compile(workspace(), "github-readme", "en", {
       selection: { views: { "github-readme": { orderKeys: ["projects:p-film"] } } },

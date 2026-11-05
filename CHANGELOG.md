@@ -46,6 +46,18 @@ minor versions may contain breaking contract changes.
   fails `pnpm test`; a `notFields` label is a review judgement, as SPEC §7.6
   states.
 
+### Fixed
+
+- **`orderKeys` follow-ups from the #458 dogfood** — the pure core seam now warns
+  (`selection/order-key-unknown`) when `orderKeys` is a **non-array** value
+  instead of ignoring it silently; `.pascorc` already rejected it as a config
+  error, so only direct `selectFacts`/`compile` callers see the new warning. SPEC
+  §21.3 rule 11 and §21.6 now state the active-variant interaction the dogfood
+  measured: a variant body is a complete artifact written verbatim, so
+  `orderKeys` orders the render/slice and does not rewrite it — a composed
+  variant must be recomposed from the ordered render, with one declared order per
+  surface.
+
 ## [0.4.0] - 2026-11-04
 
 ### Added

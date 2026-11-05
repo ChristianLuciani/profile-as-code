@@ -388,11 +388,18 @@ export function selectFacts(
   // ── findings ───────────────────────────────────────────────────────────────
   const findings: SelectionFinding[] = [];
 
-  // #458: a non-string `orderKeys` entry. `.pascorc` is validated by the CLI
-  // before it reaches the engine (a config error), but the §21.5 core seam never
-  // throws; a direct caller gets this warning instead of a silent skip.
-  const rawOrderKeys = rule.orderKeys;
-  if (Array.isArray(rawOrderKeys)) {
+  // #458: a malformed `orderKeys` at the pure engine seam. `.pascorc` is
+  // validated by the CLI before it reaches the engine (a config error), but
+  // `selectFacts` never throws; a direct caller gets a warning instead of a
+  // silent skip — for a non-array value as much as for a non-string entry.
+  const rawOrderKeys: unknown = rule.orderKeys;
+  if (rawOrderKeys !== undefined && !Array.isArray(rawOrderKeys)) {
+    findings.push({
+      code: "selection/order-key-unknown",
+      severity: "warn",
+      message: `view "${view}" declares orderKeys as a ${typeof rawOrderKeys} — ignored; use an array of §19.2 keys`,
+    });
+  } else if (Array.isArray(rawOrderKeys)) {
     for (const key of rawOrderKeys) {
       if (typeof key !== "string" || key === "") {
         findings.push({

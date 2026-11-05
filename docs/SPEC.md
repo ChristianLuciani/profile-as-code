@@ -2858,6 +2858,12 @@ undeclared view.
     slice and `orderedForSurface` to a renderer's comparator. Without
     `orderKeys` the output is byte-identical (§21.3 rule 5), the diagnostic report
     included (no `ordered` key is added).
+11. **The active variant is a separate layer (#458).** `orderKeys` orders the
+    compile slice and the renderer output; an active
+    `profiles/<platform>/variants/<id>.md` body is a complete artifact written
+    verbatim (§7 `renderArtifact`), so the field does **not** rewrite it. A variant
+    composed from the render must be recomposed from the ordered render, and must
+    not hand-declare a second order — one surface, one declared order.
 
 ### 21.4 Every omission WARNS (operator's G1 amendment)
 
@@ -2906,7 +2912,10 @@ profile is read, as a config error (exit 1).
 name, so a workspace with no policy behaves exactly as before. `--selection` prints the
 resolved `orderKeys` per block (`order projects: projects:a → projects:b`); the `--json`
 report carries the same map as `ordered`, so a consumer reads the applied order instead
-of re-deriving the policy.
+of re-deriving the policy. When the surface is served by an active variant body, the
+printed order describes the **render/slice**, not that body: the variant is written
+verbatim (§21.3 rule 11), so a workspace that composes one must recompose it from the
+ordered render rather than read the report as the artifact's order.
 
 ### 21.7 Scope boundary
 
