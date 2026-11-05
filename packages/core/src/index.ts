@@ -174,6 +174,11 @@ export {
   sameAsUrls,
   structuredData,
 } from "./structured-data.js";
+/** SPEC §21.8 (#462): facts are unique, narrative is per surface — the ADVISORY
+ *  detector of a narrative propagated "for consistency" (byte-identical text on
+ *  two different platforms). Heuristic, so WARN and never a gate. */
+export type { TextFinding, TextKind } from "./text.js";
+export { sameTextAcrossPlatforms } from "./text.js";
 export type {
   ActiveEntry,
   Artifact,

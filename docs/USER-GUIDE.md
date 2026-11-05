@@ -682,6 +682,23 @@ upload is **opt-in** (`workflow_dispatch`), uses no Pages, and the resulting
 artifact is readable by anyone with access to the repository. Delete it if the
 repository ever becomes public.
 
+### The same words on two surfaces (`pasco check`, #462)
+
+`pasco check` warns with `text/same-across-platforms` when two **different**
+platforms carry the same `headline`, or a `bio` in the same `length` band. It is
+the machine's only way to see the one mistake it can see here: a narrative copied
+from one surface to another "for consistency". **Facts** (dates, numbers, URLs,
+DOIs, your name and definition) are one and identical everywhere — a contradiction
+there is a defect. **Narrative** (the reader, the emphasis, the order, the subset
+a view keeps, the variant body) is written per surface: it may differ and it must
+not be aligned. The rule is normative in SPEC §21.8.
+
+The finding is **advisory**: it names both platforms and the text kind, exits
+`0` and never blocks a build — rewriting the copy for that surface's reader is a
+judgment call the engine cannot make. `pasco check --json` exposes it as
+`data.sameText`; the same platform across langs and `identity.definition` are
+exempt.
+
 ---
 
 ## 6. Add entries & update content

@@ -200,6 +200,25 @@ describe("pasco preview — the artifact", () => {
     expect(readFileSync(join(future, "index.html"), "utf8")).toContain("expired 2023-01-01");
   });
 
+  it("carries the advisory narrative finding the check report carries (#462, fresh pass F3)", () => {
+    // `preview` documents itself as "the same report `pasco check` prints", so a
+    // new check rule that the page silently dropped would be a parity break.
+    const workspace = workspaceCopy();
+    const text = "Sovereign AI infrastructure, built in the open";
+    writeFileSync(
+      join(workspace, "content", "headlines.yaml"),
+      [
+        `- platform: linkedin\n  lang: en\n  text: ${text}\n`,
+        `- platform: x\n  lang: en\n  text: ${text}\n`,
+      ].join(""),
+    );
+    const out = join(workspace, "out");
+    expect(run(["preview", "--workspace", workspace, "--out", out, "--now", NOW]).code).toBe(0);
+    const html = readFileSync(join(out, "index.html"), "utf8");
+    expect(html).toContain("text/same-across-platforms");
+    expect(html).toContain("linkedin, x");
+  });
+
   it("is byte-identical for the same workspace and the same --now", () => {
     const workspace = workspaceCopy();
     const a = join(workspace, "a");
