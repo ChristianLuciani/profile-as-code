@@ -2898,7 +2898,10 @@ profile is read, as a config error (exit 1).
 `pasco status [platform] --selection [--view <name>]`. `--selection` is a
 **boolean** and the view is named with `--view`, so it can never be confused with the
 `[platform]` positional. The positional platform remains the implicit view of the same
-name, so a workspace with no policy behaves exactly as before.
+name, so a workspace with no policy behaves exactly as before. `--selection` prints the
+resolved `orderKeys` per block (`order projects: projects:a → projects:b`); the `--json`
+report carries the same map as `ordered`, so a consumer reads the applied order instead
+of re-deriving the policy.
 
 ### 21.7 Scope boundary
 
