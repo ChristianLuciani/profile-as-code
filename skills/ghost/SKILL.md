@@ -83,3 +83,9 @@ its own domain. The crawler stance is the repo's global `ai.policy`
   renders it); canonical, if set, matches the SSOT.
 - Report any contract gap as a finding — the engine is not extended from a
   skill (#361).
+
+## Facts vs narrative (the two axes)
+
+Facts are unique; narrative is per surface. Read the rule and the pasco surfaces it
+touches in [`../FACTS-VS-NARRATIVE.md`](../FACTS-VS-NARRATIVE.md) (SPEC §21.8) — one
+home, never restated here.

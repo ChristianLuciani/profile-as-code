@@ -105,3 +105,9 @@ ninguno lo declara) y `sameAs` = los links con `role: realization` + claimed han
 (`identity.email`, v1.5/#71) sale como propiedad `email`, nunca dentro de `sameAs`. Un LLM que triangule la marca debe encontrar el mismo nombre,
 misión y set de handles en GitHub, X, Bluesky y el newsletter — esa consistencia
 ES la citabilidad.
+
+## Facts vs narrative (the two axes)
+
+Facts are unique; narrative is per surface. Read the rule and the pasco surfaces it
+touches in [`../FACTS-VS-NARRATIVE.md`](../FACTS-VS-NARRATIVE.md) (SPEC §21.8) — one
+home, never restated here.

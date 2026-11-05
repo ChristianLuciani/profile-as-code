@@ -691,13 +691,16 @@ from one surface to another "for consistency". **Facts** (dates, numbers, URLs,
 DOIs, your name and definition) are one and identical everywhere — a contradiction
 there is a defect. **Narrative** (the reader, the emphasis, the order, the subset
 a view keeps, the variant body) is written per surface: it may differ and it must
-not be aligned. The rule is normative in SPEC §21.8.
+not be aligned. The rule is normative in SPEC §21.8; the shared statement every
+skill cites is
+[`skills/FACTS-VS-NARRATIVE.md`](https://github.com/ChristianLuciani/profile-as-code/blob/main/skills/FACTS-VS-NARRATIVE.md).
 
 The finding is **advisory**: it names both platforms and the text kind, exits
 `0` and never blocks a build — rewriting the copy for that surface's reader is a
 judgment call the engine cannot make. `pasco check --json` exposes it as
 `data.sameText`; the same platform across langs and `identity.definition` are
-exempt.
+exempt. `pasco refine` names the same rule in its task template, pointing at the
+target platform's skill for its reader and angle.
 
 ---
 

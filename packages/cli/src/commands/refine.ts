@@ -177,6 +177,14 @@ export function runRefine(args: RefineArgs): number {
     skillPath === undefined ? undefined : skillPath.replace(/SKILL\.md$/, "research/SOTA-2026.md");
   const researchPath =
     researchCandidate !== undefined && existsSync(researchCandidate) ? researchCandidate : "—";
+  // SPEC §21.8 (#462): the narrative axis of the task. The reader/angle has ONE
+  // home — the platform skill — so the template names it instead of restating it
+  // (a second copy drifts), and says out loud that a variant must not restate
+  // another platform's narrative.
+  const readerLine =
+    skillPath === undefined
+      ? `no ${platform} skill in this install — write for ${platform}'s own reader; do not borrow another platform's text`
+      : `${skillPath} (its audience/angle section) — write for ${platform}'s reader; never borrow another platform's headline, bio or body`;
 
   const template = [
     `# pasco refine — agent task (agent-driven: D10/D11/D13; no LLM call, no hub)`,
@@ -185,6 +193,7 @@ export function runRefine(args: RefineArgs): number {
     `Platform: ${platform}`,
     `Language: ${lang}`,
     `Skill (communicative strategy — READ IT FIRST): ${skillLine(skill)}`,
+    `Reader & angle (the narrative axis — THIS platform's, never another's): ${readerLine}`,
     `Research (dated sources): ${researchPath}`,
     `Variant id convention: ${variantPrefix}-${lang}-<n> (e.g. ${variantExamples}).`,
     ``,
@@ -205,6 +214,7 @@ export function runRefine(args: RefineArgs): number {
     ``,
     `Constraints:`,
     `  - Facts never change (D4) — only storytelling/angles vary.`,
+    `  - Narrative is PER SURFACE (SPEC §21.8): facts are unique, voice is not — never restate another platform's headline, bio or body "for consistency".`,
     `  - Every text langMap must include 'en' (contract requirement) and the requested lang.`,
     `  - Never invent URLs, DOIs or numbers — evidence claims stay untouched.`,
     `  - Platform-specific limits come from the platform skill (SPEC §16) + checks.yaml.`,

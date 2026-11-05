@@ -7,13 +7,23 @@ al renderer (capa determinista de código).
 ## Estructura de una skill
 
 ```
-skills/<plataforma>/
-├── SKILL.md              # frontmatter (nombre, descripción, modelo sugerido) + flujo
-├── research/             # investigación versionada, con fuentes fechadas
-│   └── SOTA-<año>.md
-├── playbook.md           # pasos de deploy manual + verificación post-pega
-└── checks.yaml           # premisas machine-readable: la unión con content/checks.yaml decide qué corre; los caps salen del catálogo del workspace cuando declara checks (entero, sin merge por fila) o de los defaults del paquete (SPEC §7)
+skills/
+├── FACTS-VS-NARRATIVE.md # la regla de dos ejes, UN hogar; cada SKILL.md la referencia (SPEC §21.8)
+└── <plataforma>/
+    ├── SKILL.md              # OBLIGATORIO: frontmatter (nombre, descripción, modelo sugerido) + flujo + lector/ángulo
+    ├── research/             # investigación versionada, con fuentes fechadas
+    │   └── SOTA-<año>.md
+    ├── playbook.md           # pasos de deploy manual + verificación post-pega
+    └── checks.yaml           # premisas machine-readable: la unión con content/checks.yaml decide qué corre; los caps salen del catálogo del workspace cuando declara checks (entero, sin merge por fila) o de los defaults del paquete (SPEC §7)
 ```
+
+Every `skills/<plataforma>/` carries a `SKILL.md` — the profile channels and the
+post channels alike (#462: `linkedin` and `x` shipped `post.md`/`posting.yaml`
+with no strategy file, which is where a homogenized narrative went unnoticed).
+The two-axis rule is **one** file, cited by every skill. A skill may restate its
+own platform's golden rule, but it must not contradict the shared statement — in
+particular, **order is narrative** (SPEC §21.2), so ordering facts differently is
+not a fact change.
 
 ## División de responsabilidades
 
@@ -66,8 +76,10 @@ The week-1 post experiment uses a **different shape** from the profile skills:
   surfaces). The word band is house style, not a platform limit: cite a source
   before encoding a hard cap.
 
-Every long-form channel also carries its judgment layer (#361): the `post.md` the
-short channels already have, plus a `SKILL.md` that they do not ship.
+Every post channel also carries its judgment layer: the `post.md`, plus a
+`SKILL.md` (#361 for the long-form channels, #462 for the short ones — `linkedin`
+and `x` were the two channels with no strategy file, and that is exactly where a
+narrative copied across surfaces went uncited).
 
 - `post.md` — what a piece on that channel is for, its shape, its voice, and its
   GEO and i18n policy, plus what `export: api | paste` means for the writing.
