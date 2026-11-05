@@ -293,7 +293,7 @@ https://github.com/ChristianLuciani/profile-as-code/blob/main/schema/README.md
 A .pascorc "engine" requirement is enforced BEFORE the load: an installed engine
 older than the declared minimum fails with the installed version, the required
 version and the upgrade command (SPEC §7.6).`,
-  doctor: `pasco doctor [--json] [--workspace <path>]
+  doctor: `pasco doctor [--json] [--workspace <path>] [--contract-delta]
 Engine · schema · workspace on one line (SPEC §7.6, #348):
   engine    the installed pasco version
   schema    the profile contract version this build validates (from the schema $id)
@@ -314,7 +314,8 @@ reads them. --json carries the rows under "contractDelta". The floor declares
 and is never enforced, so the flag does not change the exit code: a missing floor
 prints "no delta" with the remedy, an equal floor prints "no delta (workspace
 floor = installed contract)", and a malformed one prints "contract floor INVALID"
-without claiming a pass.`,
+without claiming a pass — it names the version the workspace was written
+against, never the installed one (declaring that would answer "no delta").`,
   preview: `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso8601>] [--json] [--workspace <path>]
 Render every surface ONCE into a single self-contained HTML file (SPEC §7.9, #282):
 inline CSS, no <script>, no external asset, no HTTP server. Open it with a

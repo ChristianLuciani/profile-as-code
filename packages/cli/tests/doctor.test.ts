@@ -305,7 +305,13 @@ describe("pasco doctor --contract-delta", () => {
     const dir = contractWorkspace();
     const res = run(["doctor", "--workspace", dir, "--contract-delta"]);
     expect(res.code).toBe(0);
-    expect(res.stdout).toContain('no .pascorc declares a contract floor (add "contract"');
+    expect(res.stdout).toContain(
+      "no .pascorc declares a contract floor, so there is nothing to diff",
+    );
+    // Fresh pass F1: the remedy must NOT name the installed contract — declaring
+    // it resolves to `none` and erases the answer the user asked for.
+    expect(res.stdout).not.toContain(`"contract": "${installed}"`);
+    expect(res.stdout).toContain("the one your previous engine validated");
     expect(res.stdout).not.toContain("contract delta —");
     expect(doctor(["--contract-delta"], dir).data?.contractDelta).toMatchObject({
       floor: null,
@@ -336,6 +342,38 @@ describe("pasco doctor --contract-delta", () => {
       state: "ahead",
       rows: [],
     });
+  });
+
+  // The consult-every-`.pascorc` rule with the LOWEST floor winning (the mirror
+  // of the engine gate's strictest-wins): the delta answers "what did I miss", so
+  // the most inclusive floor is the honest one. An explicit `--workspace`
+  // bypasses the cwd config by D14, which is why this case runs from `cwd`.
+  it("reads the LOWEST floor across every consulted .pascorc", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "pasco-doctor-delta-cwd-"));
+    tempDirs.push(cwd);
+    const ws = join(cwd, "ws");
+    mkdirSync(ws);
+    cpSync(FIXTURE, ws, { recursive: true });
+    writeFileSync(
+      join(cwd, ".pascorc"),
+      `${JSON.stringify({ workspace: "ws", contract: "1.10" })}\n`,
+    );
+    writeFileSync(
+      join(ws, ".pascorc"),
+      `${JSON.stringify({ workspace: ".", contract: "1.14" })}\n`,
+    );
+
+    const res = run(["doctor", "--json", "--contract-delta"], cwd);
+    expect(res.code).toBe(0);
+    const delta = (JSON.parse(res.stdout) as Envelope).data?.contractDelta;
+    expect(delta?.floor).toBe("1.10");
+    // macOS `/var` is a symlink to `/private/var`: compare the resolved path.
+    expect(delta?.source).toBe(realpathSync(join(cwd, ".pascorc")));
+    // The lower floor wins, so the rows are the ones 1.10 has not seen.
+    expect(delta?.rows.map((row) => row.version)).toEqual(
+      minorsBetween("1.10").map((minor) => minor.version),
+    );
+    expect(minorsBetween("1.10").length).toBeGreaterThanOrEqual(minorsBetween("1.14").length);
   });
 
   it("carries the rows in --json, and only when the flag is passed", () => {

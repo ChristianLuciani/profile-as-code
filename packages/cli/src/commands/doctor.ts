@@ -180,8 +180,12 @@ function describeContractDelta(delta: ContractDeltaReport): string[] {
       return ["no delta (workspace floor = installed contract)"];
     case "absent":
       // `absent` is a state, not a pass — same discipline as the engine floor.
+      // The remedy must name the version the workspace is coming FROM: declaring
+      // the INSTALLED contract resolves to `none` and erases the very answer the
+      // user asked for (fresh pass F1). `pasco init` is not a remedy either — it
+      // refuses a directory that already has `content/` (F3).
       return [
-        `no delta — no .pascorc declares a contract floor (add "contract": "${delta.installed}" to the workspace .pascorc, or re-run pasco init)`,
+        `no delta — no .pascorc declares a contract floor, so there is nothing to diff (add "contract" with the contract version this workspace was written against — the one your previous engine validated — then re-run)`,
       ];
     case "INVALID":
       return [`contract floor INVALID: ${delta.problem ?? "malformed declaration"}`];

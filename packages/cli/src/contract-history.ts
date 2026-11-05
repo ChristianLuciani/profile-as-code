@@ -3,10 +3,10 @@
  * what that buys (issue #439, SPEC §7.6).
  *
  * `pasco doctor` already names the two versions (`engine 0.4.0 · schema v1.16 ·
- * requires engine >= 0.4.0 (met)`); it never says what changed between them. An
- * upgrade from a workspace born under v1.9 to an engine validating v1.16 moved
- * six adoptable fields, and finding them required reading the CHANGELOG and the
- * schema description — a supervision session, not a command.
+ * requires engine >= 0.4.0 (met)`); it never says what changed between them. The
+ * upgrade the issue observed (contract v1.9 → v1.15) moved six adoptable fields,
+ * and finding them required reading the CHANGELOG, the schema description and the
+ * geo report — a supervision session, not a command.
  *
  * **This table is a PROJECTION, never a second source.** `schema/profile.schema.json`
  * narrates every minor in its own `description` (`New in v1.10 (issue #288): …`)
@@ -29,6 +29,13 @@ export interface ContractMinor {
   version: string;
   /** The contract paths the minor added — the things a workspace can adopt. */
   fields: readonly string[];
+  /** Narration tokens that are NOT new fields, so the freshness pin can demand
+   *  that EVERY field a minor's narration backticks is named above: a
+   *  pre-existing field the minor only extends (`press`, `links`), a `$defs`
+   *  reference (`url`), the name of a projection (`description`), or a note
+   *  that deliberately did not change (`evidence`). Anything else the narration
+   *  names must appear in `fields` — a row that under-reports fails `pnpm test`. */
+  notFields?: readonly string[];
   /** One line: which score/report surface reads them ("what it buys"). */
   buys: string;
 }
@@ -69,17 +76,20 @@ export const CONTRACT_HISTORY: readonly ContractMinor[] = [
   },
   {
     version: "1.4",
-    fields: ["credentials", "artifacts", "artifactRefs"],
+    fields: ["credentials", "artifacts", "credentialId", "artifactId", "artifactRefs"],
+    notFields: ["evidenceItem", "publications", "press", "evidence"],
     buys: "the evidence registry (D17) — attestations and works/media become pointer-first rows that publications and press can cite",
   },
   {
     version: "1.5",
     fields: ["identity.email"],
+    notFields: ["links"],
     buys: "a contact email as a first-class fact (schema.org `email`, not a `mailto:` link the validator rejects)",
   },
   {
     version: "1.6",
     fields: ["identity.links[].role"],
+    notFields: ["identity", "url"],
     buys: "the link ROLE (D17/§15.4) — the JSON-LD `@id` and `sameAs` are derived from a declared `identity` link instead of guessed",
   },
   {
@@ -99,12 +109,14 @@ export const CONTRACT_HISTORY: readonly ContractMinor[] = [
   },
   {
     version: "1.10",
-    fields: ["identity.definition", "faq"],
+    fields: ["identity.definition", "faq[]", "faq[].q", "faq[].a", "faq[].source"],
+    notFields: ["url", "description"],
     buys: "the answer-engine surface (#288) — a citable per-language definition plus a 3–20 row FAQ, projected into Person `description` and a `FAQPage` JSON-LD node by `entity`/`build`",
   },
   {
     version: "1.12",
     fields: ["projects[].artifactRefs"],
+    notFields: ["projects", "url"],
     buys: "a project names the work behind it — published-vs-in-development is DERIVED from the artifacts (`visibility` + `locator.url`), never stored (§20.1)",
   },
   {
@@ -119,12 +131,23 @@ export const CONTRACT_HISTORY: readonly ContractMinor[] = [
   },
   {
     version: "1.15",
-    fields: ["releases"],
+    fields: ["releases[]", "releases[].changedUnits", "releases[].surfaces"],
+    notFields: ["kind"],
     buys: "the release EVENT and its fan-out (D23) — each release names the ledger units it changed and the presence surfaces it must reach",
   },
   {
     version: "1.16",
-    fields: ["achievements"],
+    fields: [
+      "achievements[]",
+      "achievements[].statement",
+      "achievements[].kind",
+      "achievements[].metric",
+      "achievements[].refs",
+      "achievements[].basis",
+      "achievements[].visibility",
+      "achievements[].target",
+      "achievements[].value",
+    ],
     buys: "the career impact log (D24) — `pasco achievements` reads measured/planned results with a derived status, instead of free-text highlights",
   },
 ];

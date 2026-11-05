@@ -1141,19 +1141,25 @@ engine 0.3.6 · schema v1.15 · workspace /path/to/workspace (valid) · requires
 - **`--contract-delta` (#439)** answers the question the one line raises: after
   an upgrade the workspace learns **which versions** it is between, never **which
   fields** it could adopt. The flag prints, under the line, one entry per
-  contract minor strictly between the workspace's declared `contract` floor and
-  the installed contract: the fields it added and the surface that reads them
-  ("what it buys"). The table is a **projection of the schema's own narration** —
+  contract minor newer than the workspace's declared `contract` floor and no
+  newer than the installed contract — the installed minor IS included, so a
+  floor at 1.9 lists the v1.16 row: the fields it added and the surface that
+  reads them ("what it buys"). The table is a **projection of the schema's own narration** —
   `schema/profile.schema.json`'s `description` narrates every minor and its `$id`
   carries the installed version — pinned by
   `packages/cli/tests/consumer-contract.test.ts`: a schema bump that forgets a
-  row, a row that invents a minor, or a row that claims a field its minor never
-  narrated fails `pnpm test`. The floor is read from **every** consulted
+  row, a row that invents a minor, a row that claims a field its minor never
+  narrated, and a row that OMITS a field its minor narrates (unless the row
+  declares it in `notFields` — a pre-existing field, a `$defs` reference or a
+  projection name) all fail `pnpm test`. The floor is read from **every** consulted
   `.pascorc` with the **lowest** declaration winning (the delta answers "what did
   I miss", so the most inclusive reading is the honest one — the mirror of the
   engine gate's strictest-wins). Five states are printed and carried:
   `delta` · `none` (`no delta (workspace floor = installed contract)`) ·
-  `absent` (with the remedy: add `"contract"` or re-run `pasco init`) ·
+  `absent` (with the remedy: add `"contract"` naming the version the workspace
+  was written against — never the installed one, which would answer "no delta";
+  `pasco init` is not a remedy, it refuses a directory that already has
+  `content/`) ·
   `INVALID` (the grammar, never coerced) · `ahead` (the workspace declares a
   newer contract than this engine validates — reported, not enforced).
   `--json` adds `data.contractDelta = { floor, installed, state, problem?,

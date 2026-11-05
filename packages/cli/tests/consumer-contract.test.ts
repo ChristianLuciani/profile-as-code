@@ -174,6 +174,38 @@ describe("the contract minor history (doctor --contract-delta)", () => {
     expect(narratedMinors().some((minor) => minor.version === installed)).toBe(true);
   });
 
+  /** Every property/definition name the committed schema declares. A narration
+   *  token that resolves to one of these is talking about a FIELD, not prose. */
+  function schemaFieldNames(): Set<string> {
+    const names = new Set<string>();
+    const walk = (node: unknown): void => {
+      if (Array.isArray(node)) {
+        for (const item of node) walk(item);
+        return;
+      }
+      if (node === null || typeof node !== "object") return;
+      const record = node as Record<string, unknown>;
+      const properties = record.properties;
+      if (properties !== undefined && typeof properties === "object" && properties !== null) {
+        for (const key of Object.keys(properties)) names.add(key);
+      }
+      const defs = record.$defs;
+      if (defs !== undefined && typeof defs === "object" && defs !== null) {
+        for (const key of Object.keys(defs)) names.add(key);
+      }
+      for (const value of Object.values(record)) walk(value);
+    };
+    walk(JSON.parse(current));
+    return names;
+  }
+
+  const LEAF = (token: string): string =>
+    token
+      .replace(/\[\]$/, "")
+      .split(/[.[\]]/)
+      .filter(Boolean)
+      .pop() as string;
+
   it("only claims fields its own minor narrated", () => {
     const slices = new Map(narratedMinors().map((minor) => [minor.version, minor.slice]));
     for (const minor of CONTRACT_HISTORY) {
@@ -184,12 +216,38 @@ describe("the contract minor history (doctor --contract-delta)", () => {
       for (const field of minor.fields) {
         // The leaf segment is what a narration can be expected to spell out
         // (`projects[].artifactRefs` is narrated as "projects[] gains artifactRefs").
-        const leaf = field
-          .replace(/\[\]$/, "")
-          .split(/[.[\]]/)
-          .filter(Boolean)
-          .pop() as string;
-        expect(slice ?? "", `${minor.version}/${field}`).toContain(leaf);
+        expect(slice ?? "", `${minor.version}/${field}`).toContain(LEAF(field));
+      }
+    }
+  });
+
+  // The OTHER direction — the one a first pass missed. Containment of the row's
+  // fields in the narration says nothing about a field the narration names and
+  // the row forgot, so a row could under-report forever and stay green (fresh
+  // pass F2: v1.4 named `credentialId`/`artifactId` and the row listed neither).
+  // Every schema-field token a minor backticks must now be in the row, or be
+  // declared in its `notFields` — which forces a decision on the next narration
+  // edit instead of silently letting the table go stale.
+  it("names every field its own minor narrated (under-reporting fails)", () => {
+    const names = schemaFieldNames();
+    const slices = new Map(narratedMinors().map((minor) => [minor.version, minor.slice]));
+    for (const minor of CONTRACT_HISTORY) {
+      const slice = slices.get(minor.version) ?? "";
+      const narrated = new Set<string>();
+      for (const match of slice.matchAll(/`([^`]+)`/g)) {
+        // One backtick can name several fields (`publication.authors/url`).
+        for (const piece of (match[1] as string).split(/[/\s,·]+/)) {
+          const leaf = LEAF(piece.trim());
+          if (leaf !== "" && names.has(leaf)) narrated.add(leaf);
+        }
+      }
+      const covered = new Set([...minor.fields.map(LEAF), ...(minor.notFields ?? [])]);
+      const missing = [...narrated].filter((leaf) => !covered.has(leaf)).sort();
+      expect(missing, `${minor.version}: narrated but neither in fields nor notFields`).toEqual([]);
+      // A `notFields` entry must actually be narrated, or it is dead weight
+      // pretending the row considered a token it never had to.
+      for (const declared of minor.notFields ?? []) {
+        expect(narrated.has(declared), `${minor.version}/${declared}`).toBe(true);
       }
     }
   });
