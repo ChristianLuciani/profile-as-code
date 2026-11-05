@@ -9,6 +9,10 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+_(nothing yet — the next cycle)_
+
+## [0.4.1] - 2026-11-05
+
 ### Added
 
 - **`doctor --contract-delta` — the upgrade names the fields, not only the
