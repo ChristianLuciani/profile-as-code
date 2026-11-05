@@ -213,6 +213,28 @@ describe("verifyRobotsFile — the agent↔group map", () => {
     expect(orphan?.detail).toContain("RFC 9309 §2.2.2");
   });
 
+  it("reads `/*` and `/$` as rules for the root path (RFC 9309 §2.2.2 patterns)", () => {
+    // Review F1 of the fresh pass: a rule is a prefix match with `*` = 0+
+    // characters, so `Disallow: /*` blocks `/` — it is not "no rule".
+    const wildcardRoot = correct
+      .replaceAll("Allow: /", "Allow: /*")
+      .replaceAll("Disallow: /", "Disallow: /*");
+    expect(verifyRobotsFile(parseRobots(wildcardRoot), AI_CRAWLERS)).toEqual([]);
+
+    const anchoredRoot = correct
+      .replaceAll("Allow: /", "Allow: /$")
+      .replaceAll("Disallow: /", "Disallow: /$");
+    expect(verifyRobotsFile(parseRobots(anchoredRoot), AI_CRAWLERS)).toEqual([]);
+
+    // A narrower pattern does not touch `/`: the group states no root rule, and
+    // the detail must say exactly that rather than "wrong rule".
+    const narrow = correct.replace("Disallow: /", "Disallow: /private");
+    const findings = verifyRobotsFile(parseRobots(narrow), AI_CRAWLERS);
+    expect(findings.map((finding) => finding.entry)).toEqual(training.map((row) => row.slug));
+    expect(findings[0]?.detail).toContain("no rule for `/`");
+    expect(findings[0]?.detail).toContain("not restricted");
+  });
+
   it("fails an empty file: every registry crawler is missing", () => {
     const findings = verifyRobotsFile(parseRobots(""), AI_CRAWLERS);
     expect(findings).toHaveLength(AI_CRAWLERS.length);
@@ -267,7 +289,7 @@ describe("CLI surface — --check --file", () => {
     expect(first.code).toBe(second.code);
   });
 
-  it("--json carries the findings and the parsed map", () => {
+  it("--json carries the findings and the parsed map, discriminated by mode", () => {
     const path = fileWith(swapped);
     const res = run(["export", "ai-policy", "--check", "--file", path, "--json"]);
     const envelope = JSON.parse(res.stdout) as {
@@ -275,6 +297,7 @@ describe("CLI surface — --check --file", () => {
       ok: boolean;
       exitCode: number;
       data: {
+        mode: string;
         schemaVersion: string;
         file: string;
         policy: { version: number; asOf: string };
@@ -285,6 +308,9 @@ describe("CLI surface — --check --file", () => {
     expect(res.code).toBe(1);
     expect(envelope.command).toBe("export ai-policy");
     expect(envelope.ok).toBe(false);
+    // The two bodies share the version string but not the shape: `mode` is the
+    // discriminator a consumer must read before `data` (review F2).
+    expect(envelope.data.mode).toBe("file");
     expect(envelope.data.schemaVersion).toBe("1");
     expect(envelope.data.file).toBe(path);
     expect(envelope.data.groups).toHaveLength(2);
@@ -292,6 +318,14 @@ describe("CLI surface — --check --file", () => {
     // No clock in the payload: a consumer's gate cannot depend on the day.
     expect(Object.keys(envelope.data)).not.toContain("problems");
     expect(envelope.data.policy.asOf).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("the list-check body carries no mode: the discriminator is file-only", () => {
+    const res = run(["export", "ai-policy", "--check", "--json"]);
+    const envelope = JSON.parse(res.stdout) as { data: Record<string, unknown> };
+    expect(res.code).toBe(0);
+    expect(envelope.data.mode).toBeUndefined();
+    expect(envelope.data).toHaveProperty("problems");
   });
 
   it("reports an unreadable file as a check failure, not a crash", () => {

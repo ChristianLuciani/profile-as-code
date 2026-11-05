@@ -106,9 +106,26 @@ export function parseRobots(text: string): RobotsFile {
   return { groups, orphanRules };
 }
 
+/**
+ * Does a rule pattern match the URI path `/`? (RFC 9309 §2.2.2/§2.2.3: the
+ * pattern is a prefix match on the path, `*` matches zero or more characters,
+ * `$` anchors the end.) An empty pattern (`Allow:` with no path) restricts
+ * nothing, so it is not read as a root rule.
+ */
+function matchesRootPath(pattern: string): boolean {
+  if (pattern === "") return false;
+  const anchored = pattern.endsWith("$");
+  const body = anchored ? pattern.slice(0, -1) : pattern;
+  const source = body
+    .split("*")
+    .map((part) => part.replace(/[$.*+?^${}()|[\]\\]/gu, (char) => `\\${char}`))
+    .join(".*");
+  return new RegExp(`^${source}${anchored ? "$" : ""}`, "u").test("/");
+}
+
 /** The rule a group states for the root path `/`, if any. */
 function rootStance(group: RobotsGroup): "allow" | "disallow" | "none" {
-  const atRoot = group.rules.filter((rule) => rule.path === "/");
+  const atRoot = group.rules.filter((rule) => matchesRootPath(rule.path));
   // §2.2.2: an `allow` and a `disallow` for the same pattern — the `allow` wins.
   if (atRoot.some((rule) => rule.key === "allow")) return "allow";
   if (atRoot.some((rule) => rule.key === "disallow")) return "disallow";

@@ -665,6 +665,14 @@ export function runAiPolicyCheck(args: AiPolicyCheckArgs): number {
 
 /** The `--check --file` payload: the parsed map plus one finding per fact (#477). */
 export interface AiPolicyFileData {
+  /**
+   * The discriminator. The list-check body carries no `mode`; this one is
+   * `"file"`. The shapes are NOT interchangeable (there is no `problems`,
+   * `stance` or `maxAgeDays` here, and `groups` is an array), so a consumer MUST
+   * read `mode` before it reads `data` — the shared version string alone cannot
+   * tell the two bodies apart.
+   */
+  mode: "file";
   schemaVersion: string;
   /** The path as the caller gave it, so a finding is traceable to that invocation. */
   file: string;
@@ -705,6 +713,7 @@ export function runAiPolicyFileCheck(args: AiPolicyFileCheckArgs): number {
   const ok = findings.length === 0;
   const exitCode = ok ? EXIT.OK : EXIT.FAIL;
   const data: AiPolicyFileData = {
+    mode: "file",
     schemaVersion: AI_POLICY_SCHEMA_VERSION,
     file: args.file,
     policy: { version: AI_POLICY_VERSION, asOf: AI_POLICY_AS_OF },

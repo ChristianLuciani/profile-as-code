@@ -772,7 +772,11 @@ comment, a `User-agent` line after a group's rules opens a new group and before 
 joins the group being declared, an unknown record such as `Sitemap` does not
 terminate a group, and a rule that precedes the first `User-agent` belongs to no
 group and is ignored by crawlers — §2.2.2) and compares the map with
-`ai-retrieval`/`ai-training`.
+`ai-retrieval`/`ai-training`. A group's rule for the root path is evaluated as a
+pattern, not as the literal text `/` (§2.2.2/§2.2.3: a prefix match where `*`
+matches zero or more characters and `$` anchors the end), so `Disallow: /*` and
+`Disallow: /$` are a root block; an empty pattern (`Allow:` with no path)
+restricts nothing and is not read as a root rule.
 
 It exits `1` with **one finding per fact**, never a generic "robots.txt invalid":
 `missing` (a registry crawler is in no group), `duplicate` (the same token in two
@@ -794,12 +798,17 @@ freshness stays `--check` without `--file`; a consumer runs both.
 `{ slug, ua, operator, source, asOf, ageDays }`, a problem is `{ kind, entry,
 detail }` (`incomplete` · `unsourced` · `stale` · `future-dated` · `policy-date` ·
 `unknown-family` · `duplicate-ua` · `empty-group`), and `files` (`{ name, path, bytes }`) is present only under
-`--out`. The string `"1"` is the contract version, as in §7.1/§7.2. Under `--file`
-the payload is the same version with a different, mode-specific body: `{ "schemaVersion": "1",
-"file", "policy": { "version", "asOf" }, "groups": [{ "line", "agents": [], "rules":
-[{ "line", "key", "path" }] }], "orphanRules": [...], "findings": [{ "kind",
-"entry", "detail" }] }` — an additive mode, so a v1 consumer of the list check is
-unaffected.
+`--out`. The string `"1"` is the contract version, as in §7.1/§7.2.
+
+The `--file` mode has a **different body under the same version**, so it carries an
+explicit discriminator and is **not** additive: `{ "mode": "file", "schemaVersion":
+"1", "file", "policy": { "version", "asOf" }, "groups": [{ "line", "agents": [],
+"rules": [{ "line", "key", "path" }] }], "orphanRules": [...], "findings":
+[{ "kind", "entry", "detail" }] }`. The list-check body omits `mode`; a consumer
+MUST read `mode` before it reads `data`, because the shapes are not interchangeable
+(`groups` is an array here and an object there; there is no `problems`, `stance` or
+`maxAgeDays`). A consumer that does not know `mode` refuses the payload — the
+version string alone cannot tell the two apart.
 
 **Exit matrix.** `0` ok (a clean `--check`, a successful write) · `1` a `--check`
 problem, a `--file` finding, an unreadable `--file`, a schema/load failure (D12) or

@@ -527,6 +527,17 @@ runs are byte-identical. An existing file that lacks the generator marker is ref
 with `unsourced · gptbot — no operator page`; the generator refuses to write a list it would
 reject.
 
+A consumer that commits the generated `robots.txt` can have it verified against that same
+registry — no workspace, no network, no clock — so the two lists swapped fails instead of
+passing a structure gate green (#477):
+
+```sh
+pasco export ai-policy --check --file public/robots.txt
+```
+
+It exits `1` with one finding per fact (`missing` · `duplicate` · `wrong-group` · `wildcard` ·
+`orphan-rule`), and `--file` without `--check` is usage (`2`).
+
 ### M17 — `presence` and `release plan`
 
 `presence` needs `content/releases.yaml`; `release plan` exits `1` without it. A release row is
@@ -710,7 +721,7 @@ was read in the guide.
 | `presence` | ✅ empty board + a board with one release | Part 2 · M17 |
 | `release plan` | ✅ ordered fan-out; reproduces #408 | Part 2 · M17 |
 | `export profile` | ✅ `--json` · determinism · `--now` | Part 2 · M13 |
-| `export ai-policy` | ✅ `--check` · `--out` · a missing source is exit 1 | Part 2 · M16 |
+| `export ai-policy` | ✅ `--check` · `--out` · `--check --file` · a missing source is exit 1 | Part 2 · M16 |
 | `skills:export` | ✅ `--list` · export · `--force` | Part 2 · M14 |
 | `build --lang` · all platforms | ✅ the `es` slice + all 49 platforms | Part 2 · M15 |
 | `--workspace <path>` | ✅ precedence and resolution from outside | Part 2 · M23 |
