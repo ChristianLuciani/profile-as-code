@@ -58,6 +58,17 @@ describe("the two-axis rule has one home and every skill cites it (#462)", () =>
     }
   });
 
+  it("no channel directory ships without a SKILL.md", () => {
+    // `skillDocs()` filters by existence, so a `skills/<new>/post.md` with no
+    // strategy file would slip through — exactly the state #462 fixed. The
+    // inventory is the assertion: every channel directory is in the cited set.
+    const channels = readdirSync(SKILLS_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+    const cited = new Set(skillDocs().map(({ platform }) => platform));
+    expect(channels.filter((channel) => !cited.has(channel))).toEqual([]);
+  });
+
   it("carries the two channels this issue named", () => {
     const platforms = skillDocs().map(({ platform }) => platform);
     expect(platforms).toContain("linkedin");

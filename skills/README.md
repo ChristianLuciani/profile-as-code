@@ -83,8 +83,9 @@ narrative copied across surfaces went uncited).
 
 - `post.md` — what a piece on that channel is for, its shape and its voice, plus
   what `export: api | paste` means for the writing. The channel's GEO/i18n policy
-  lives in `post.md` or in its `SKILL.md`'s own section — both are one read away,
-  and neither duplicates the other.
+  lives in `post.md` and/or in its `SKILL.md`'s own section: the short channels
+  (`linkedin`, `x`) state it only in the skill, the long-form channels state it
+  in both — and where they do, `post.md` is the one to read first.
 - `SKILL.md` — the channel skill document: mission, when the skill runs, the
   flow, the pointers to the contract, and the suggested model in its frontmatter.
   It is a strategy reference, not a bundle input: `pasco post task` carries the
