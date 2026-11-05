@@ -81,3 +81,9 @@ repo's global `ai.policy` (`platforms/registry.yaml`, v1, 2026-10-27).
 - Facts byte-identical to the SSOT; every URL from the identity SSOT.
 - Report any contract gap as a finding — the engine is not extended from a
   skill (#361).
+
+## Facts vs narrative (the two axes)
+
+Facts are unique; narrative is per surface. Read the rule and the pasco surfaces it
+touches in [`../FACTS-VS-NARRATIVE.md`](../FACTS-VS-NARRATIVE.md) (SPEC §21.8) — one
+home, never restated here.

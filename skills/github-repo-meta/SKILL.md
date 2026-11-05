@@ -80,3 +80,9 @@ skill es la capa de juicio que convierte esa espina en metadata publicable.
 ejecuta una superficie fuera del enum de perfiles: el catálogo queda declarado
 para cuando la superficie tenga renderer, y hoy la verificación es la del
 playbook.
+
+## Facts vs narrative (the two axes)
+
+Facts are unique; narrative is per surface. Read the rule and the pasco surfaces it
+touches in [`../FACTS-VS-NARRATIVE.md`](../FACTS-VS-NARRATIVE.md) (SPEC §21.8) — one
+home, never restated here.

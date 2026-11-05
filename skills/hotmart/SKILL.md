@@ -148,3 +148,9 @@ documenta acá con fuente.
 - **i18n**: Hotmart localiza el marketplace por `<lang>` (`/en/`, `/pt-br/`,
   `/es/` — SOTA-2026 §5) — priorizá `es` para audiencia EC/ES, `en` como
   requerido por D8/§11.
+
+## Facts vs narrative (the two axes)
+
+Facts are unique; narrative is per surface. Read the rule and the pasco surfaces it
+touches in [`../FACTS-VS-NARRATIVE.md`](../FACTS-VS-NARRATIVE.md) (SPEC §21.8) — one
+home, never restated here.

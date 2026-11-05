@@ -139,4 +139,32 @@ describe("pasco refine (agent template)", () => {
     expect(res.code).toBe(2);
     expect(res.stderr).toContain("--variants must be a positive integer");
   });
+
+  it("names the narrative axis: this platform's reader/angle, and no propagation (#462)", () => {
+    // The template used to carry facts + existing texts and no statement of the
+    // NARRATIVE axis, so an agent read "Existing texts (base to vary)" as an
+    // invitation to align them across platforms. SPEC §21.8: facts are unique,
+    // narrative is per surface.
+    const res = run(["refine", "linkedin", "--workspace", FIXTURE]);
+    expect(res.code).toBe(0);
+    // The line must carry the skill path ITSELF: asserting both strings
+    // separately let the pre-existing "Skill (…)" line satisfy the path
+    // (fresh pass F4), so the new line could lose it and stay green.
+    expect(res.stdout).toMatch(
+      /^Reader & angle \(the narrative axis[^\n]*skills\/linkedin\/SKILL\.md/m,
+    );
+    expect(res.stdout).toContain("never borrow another platform's headline, bio or body");
+    expect(res.stdout).toContain("Narrative is PER SURFACE (SPEC §21.8)");
+  });
+
+  it("says there is no skill to read when none ships for the platform (#462, fresh pass F4)", () => {
+    // `upwork` has no skill directory: the fallback branch must not invent a
+    // path, and must still carry the non-propagation rule.
+    const res = run(["refine", "upwork", "--workspace", FIXTURE]);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toMatch(
+      /^Reader & angle \(the narrative axis[^\n]*no upwork skill in this install/m,
+    );
+    expect(res.stdout).toContain("do not borrow another platform's text");
+  });
 });

@@ -11,6 +11,18 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **the narrative skills that did not exist — `linkedin`, `x`, and one shared
+  two-axis statement every platform skill cites (#462, part B)** — the two
+  channels that shipped `post.md`/`posting.yaml` with no `SKILL.md` are exactly
+  the two whose narrative a session overwrote “for consistency”. They now carry
+  one — reader, angle, how it deliberately differs from `github-readme`, the whole
+  channel flow, and contract pointers (every limit cited from `posting.yaml`,
+  never re-typed). The two-axis rule (`skills/FACTS-VS-NARRATIVE.md`) has ONE
+  home; every platform skill links it, and no skill's own golden rule may
+  contradict it (order is narrative, not a fact), so the norm cannot drift
+  between skills; `skills/README.md` records that `SKILL.md` is required. `pasco refine`'s task template names the target platform's skill as
+  the source of its reader/angle and states that a variant must not restate
+  another platform's headline, bio or body.
 - **«facts are unique · narrative is per surface» — the norm and its advisory
   check (#462, SPEC §21.8)** — the rule lived only in one platform skill (as a
   golden rule) and as a product goal, so a workspace could unify one headline

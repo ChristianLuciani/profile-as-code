@@ -28,7 +28,9 @@ determinista (`pasco build`) — esta skill es la capa de **juicio y narrativa**
 > Los HECHOS son sagrados (byte-idénticos al SSOT); solo la HISTORIA varía.
 
 - Nombres, fechas, DOIs, números, URLs: **idénticos** a `content/*.yaml`. Prohibido
-  inventar, redondear o reordenar hechos.
+  inventar, redondear o alterar un hecho. El **orden** NO es un hecho: es narrativa
+  (vive en la vista / `orderKeys`, SPEC §21.2), y por eso puede diferir entre
+  superficies sin contradecir el SSOT.
 - URLs SOLO de `identity.links` (regla drift). No inventes links.
 - Claims cuantitativos SOLO de `projects[].evidence` o `keywords.geo.claims`.
 
@@ -112,3 +114,9 @@ Liderá con #3 filtrado por #1: **stewardship** (proyectos vivos con proof), no 
   roles, papers) — un LLM que triangula y encuentra contradicción te descarta.
 - Los anchors semánticos se refuerzan naturalmente en la prosa (no keyword stuffing:
   los LLM lo descuentan, SPEC §8 anti-patterns).
+
+## Facts vs narrative (the two axes)
+
+Facts are unique; narrative is per surface. Read the rule and the pasco surfaces it
+touches in [`../FACTS-VS-NARRATIVE.md`](../FACTS-VS-NARRATIVE.md) (SPEC §21.8) — one
+home, never restated here.
