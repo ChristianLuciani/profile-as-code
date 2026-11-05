@@ -476,12 +476,26 @@ export async function verifyRelease({ root = ROOT, version = null } = {}) {
 /** Flags that carry no value (the rest consume the next token). */
 const BOOLEAN_FLAGS = new Set(["yes", "dryRun", "noPush", "offline"]);
 
-/** Minimal option parser: `--flag`, `--key value`, `--key=value`. */
+/** Minimal option parser: `--flag`, `--key value`, `--key=value`, and the `--`
+ *  separator every runner inserts. */
 function parse(args, defaults) {
   const options = { ...defaults, root: ROOT };
   const rest = [...args];
   while (rest.length > 0) {
     const token = rest.shift();
+    if (token === "--") {
+      // The `--` that `pnpm run <script> -- <args>` inserts is meant to be
+      // CONSUMED by the runner. npm does; pnpm v11 forwards it verbatim
+      // (measured 2026-11-05: `cut -- --dry-run --ref HEAD` reached the check,
+      // lost `--dry-run`, and refused asking for `--yes`), so the script — the
+      // process that receives it — must consume it: the pre-fix parser read it
+      // as an option with an EMPTY name and swallowed the following token as
+      // that option's value, which made the form this tool prints
+      // (`pnpm release:cut -- --yes`) unable to publish. POSIX guideline 10 is
+      // the norm; cargo and npm implement the same consumption for their
+      // wrappers.
+      continue;
+    }
     if (!token.startsWith("--")) throw new Refused(`unexpected argument "${token}"`);
     const [key, inline] = token.slice(2).split("=", 2);
     const name = key.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());

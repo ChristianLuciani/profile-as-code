@@ -340,6 +340,40 @@ it("cut --dry-run prints the tag and push for the checked commit", () => {
   }
 });
 
+// `pnpm run <script> -- <args>` puts a `--` in argv, and pnpm v11 forwards it
+// instead of consuming it (measured 2026-11-05). The tool prints that form as
+// its own next step, so receiving the separator must not eat the flag after it:
+// pre-fix, `cut -- --dry-run` lost `--dry-run` and refused asking for `--yes`.
+it("consumes the `--` separator a runner inserts instead of eating the next flag", () => {
+  const { root, bare } = onlineFixture();
+  try {
+    const head = git(root, ["rev-parse", "HEAD"]);
+    const result = release(root, ["cut", "--", "--dry-run"]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.stdout.includes(`git tag v0.4.0 ${head}`), result.stdout);
+    assert.equal(tags(root), "");
+  } finally {
+    cleanup(root);
+    cleanup(bare);
+  }
+});
+
+it("and `--yes` after the separator is a real flag (both forms reach the same gate)", () => {
+  const { root, bare } = onlineFixture();
+  try {
+    // `--yes` after the separator must be HONORED, not swallowed: with
+    // `--no-push` in the mix the refusal is about the flag, not about `--yes`.
+    const result = release(root, ["cut", "--", "--yes", "--no-push"]);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /--no-push is not supported/);
+    assert.equal(tags(root), "");
+    assert.equal(git(bare, ["tag", "--list"]), "");
+  } finally {
+    cleanup(root);
+    cleanup(bare);
+  }
+});
+
 it("pages --dry-run derives the repo from origin and passes both inputs", () => {
   const root = fixture();
   try {
