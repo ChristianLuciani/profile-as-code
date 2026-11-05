@@ -346,7 +346,7 @@ export function runPreview(args: PreviewArgs): number {
     ...checks.limits,
     ...checks.factPresent.findings,
     // SPEC §21.8 (#462): the advisory narrative rule is part of the report
-    // `pasco check` prints, so the page cannot silently drop it (premerge F3).
+    // `pasco check` prints, so the page cannot silently drop it (fresh pass F3).
     ...checks.sameText,
   ].map((finding) => ({
     severity: finding.severity,
