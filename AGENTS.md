@@ -36,6 +36,7 @@ per-user private repo (`profile-data`), scaffolded from the template
 | `scripts/dep-gate/` | D20 scope self-test (CI): server→core only, core never reaches server | issue #98 |
 | `scripts/agnostic-check/` | Public-surface gate (CI): no tracked file names a private path/repo/tool a reader cannot open; dated records are out of scope by class, other historical copies/fixtures exempt by file or by the declared names (`names`) | issue #274 · #369 · rule 9 · offline; self-tested |
 | `scripts/release-rehearsal/` | Pre-publish rehearsal of the seam cohort: publish order, packed manifests, `workspace:*` rewrite — packs, publishes nothing | issue #313 · offline; runs on manifest PRs and as a barrier inside `release.yml` |
+| `scripts/release/` | Maintainer front desk for cutting a release: preconditions (`check`, fetches origin; `--offline` skips), tag + push (`cut`, refuses without `--yes`), the Pages override (`pages`), post-publish verification (`verify`) | publishes nothing — the tag run does; self-tested without network |
 
 ## Rules for agents (in addition to CONTRIBUTING.md)
 
@@ -115,6 +116,10 @@ node scripts/spec-drefs/check.mjs --check    # assert every D-ref resolves to a 
 node scripts/agnostic-check/check.mjs        # assert no surface names a private target (#274)
 node scripts/evidence-gate/check.mjs         # assert run-citations are anchored reachably
 pnpm rehearse:release                        # pack the seam cohort + assert order/manifests, publishes nothing
+pnpm release:check                           # release preconditions — fetches origin (version · CHANGELOG · tip · unused tag)
+pnpm release:cut -- --yes                    # tag + push the checked commit (human-run; the tag run publishes)
+pnpm release:pages -- --ref <sha> --release vX   # re-deploy the site from a commit (runbook step 3)
+pnpm release:verify                          # registry + Release + live page agree with the tag
 pnpm site                                    # project the docs into site/docs/ + gate every page
                                              # + assert every published version claim matches the CLI manifest
 python3 -m venv /tmp/schema-venv && /tmp/schema-venv/bin/pip install jsonschema pyyaml

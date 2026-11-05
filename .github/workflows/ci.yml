@@ -256,6 +256,15 @@ jobs:
           node scripts/schema-contract/test.mjs
           node scripts/schema-contract/check.mjs --check
 
+      # The release front desk (`scripts/release/`) is maintainer tooling, but its
+      # refusals are the release invariants (version, CHANGELOG section, clean
+      # tree, tip, unused tag). The self-test provokes each one against a temporary
+      # git repository, offline and with no dependencies — so a refusal cannot rot
+      # into folklore.
+      - name: Release tooling self-test (offline)
+        if: hashFiles('package.json') != ''
+        run: node scripts/release/test.mjs
+
       - name: Install dependencies
         if: hashFiles('package.json') != ''
         run: pnpm install --frozen-lockfile

@@ -840,6 +840,24 @@ Do this in order:
    Release for the tag exists (the TAG run creates it; the dispatch only ever would, as a
    retry).
 
+**The local front desk.** `scripts/release/` wraps the routine steps (preparation,
+the tag, step 3's override and the verification) with the same refusals:
+`pnpm release:check` is the precondition pass — it **fetches origin** by default
+and checks the CLI version, a `## [<version>]` CHANGELOG section extracted by the
+same parser the release run uses, a clean tree, `HEAD` equal to `origin/main`, and
+that the tag exists neither locally nor on origin (`--offline` skips the network
+and says so; `cut` refuses it). `pnpm release:cut -- --yes` tags and pushes that
+checked commit (it refuses without `--yes`; `--dry-run` prints the two git
+commands, and a boolean flag's presence IS its value, so `--yes=false` refuses).
+`pnpm release:pages -- --ref <sha> --release v<version>` is step 3's documented
+override; `pnpm release:verify` reads the registry, the Release and the live page's
+`softwareVersion` back, reporting every surface it attempted. The script never
+publishes — the workflow does — and its self-test (`node scripts/release/test.mjs`,
+run in CI) provokes the `check` preconditions (local and remote, including a tag
+that exists only on origin), the `cut`/`pages` usage refusals and `verify`'s
+address refusals — against temporary repositories and a bare local remote — so a
+broken precondition cannot pass silently.
+
 **What a tag push does — measured.** The tag run **publishes**
 (OIDC with `dist.attestations`, the Release page created by the same run — `v0.3.5`'s run
 `40059745390`), and since 2026-10-27 it also **deploys the page**: the `v0.3.6` tag run
