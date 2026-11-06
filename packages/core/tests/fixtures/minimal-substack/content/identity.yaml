@@ -1,0 +1,11 @@
+name: Elena Vasquez
+location: Madrid, Spain
+photo: https://example.com/elena-vasquez.jpg
+handle: elenavasquez
+links:
+  - platform: github
+    label: GitHub
+    url: https://github.com/elenavasquez
+  - platform: substack
+    label: Substack
+    url: https://elenavasquez.substack.com

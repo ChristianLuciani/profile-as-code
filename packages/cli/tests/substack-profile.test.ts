@@ -168,6 +168,31 @@ describe("pasco refine substack — the profile/publication task (#482)", () => 
     expect(without.stdout).toContain("newsletter: —");
   });
 
+  it("never lists another platform's newsletter in the task (#483)", () => {
+    // `compile()` passes `newsletter` raw into every slice; a Substack task must
+    // not hand the agent a Ghost publication, and the Ghost task must keep it.
+    const dir = substackWorkspace("A profile bio.", 180);
+    writeFileSync(
+      join(dir, "content", "newsletter.yaml"),
+      [
+        "platform: ghost",
+        "url: https://notes.elena.dev",
+        "name:",
+        "  en: Ghost publication",
+        "",
+      ].join("\n"),
+    );
+    const substack = run(["refine", "substack", "--workspace", dir]);
+    expect(substack.code).toBe(0);
+    expect(substack.stdout).toContain("newsletter: —");
+    expect(substack.stdout).not.toContain("notes.elena.dev");
+    expect(substack.stdout).not.toContain("Ghost publication");
+    const ghost = run(["refine", "ghost", "--workspace", dir]);
+    expect(ghost.code).toBe(0);
+    expect(ghost.stdout).toContain("Ghost publication");
+    expect(ghost.stdout).toContain("https://notes.elena.dev");
+  });
+
   it("keeps the post judgment and its refine note in post.md", () => {
     const post = readFileSync(join(SKILL_DIR, "post.md"), "utf8");
     // The post flow is still here (the criterion is "post.md conserves it").
@@ -207,13 +232,12 @@ describe("pasco check substack — the profile bundle's premises (#482, #455)", 
     expect(human.stdout).not.toContain("not declared by any catalog for this surface");
   });
 
-  it("pins the pre-#483 fallback: the build writes only the long bio, so fact-present sees no gap", () => {
-    // The instrument ESCALATE(4) asked for: the claim "a sheet without the
-    // publication fields is NOT RUN" is false. `pasco build substack` has no
-    // renderer yet, so it falls back to the shared paste source (the `long` bio)
-    // and `fact-present` compares that artifact with the same fallback render:
-    // `checked` with 0 findings. When #483 lands, this test must be updated to
-    // assert the full sheet — that is the signal the gap closed.
+  it("compares the built SHEET, not a long-bio fallback (#483 closed that gap)", () => {
+    // #482 pinned the pre-renderer fallback as the instrument ESCALATE(4) asked
+    // for: the build wrote only the `long` bio, so the publication fields never
+    // entered the artifact and `fact-present` could not see them. #483 ships the
+    // renderer; this test is the signal the gap closed — the built sheet carries
+    // both bio rows and the publication copy, and `fact-present` still agrees.
     const dir = substackWorkspace("Profile-header bio for the short row.", 180);
     appendFileSync(
       join(dir, "content", "bios.yaml"),
@@ -221,7 +245,7 @@ describe("pasco check substack — the profile bundle's premises (#482, #455)", 
         "- platform: substack",
         "  lang: en",
         "  length: long",
-        '  text: "The long About body the fallback paste source writes today."',
+        '  text: "The long About body the renderer writes into the sheet."',
         "",
       ].join("\n"),
     );
@@ -241,9 +265,12 @@ describe("pasco check substack — the profile bundle's premises (#482, #455)", 
 
     const build = run(["build", "substack", "--workspace", dir]);
     expect(build.code).toBe(0);
-    const artifact = readFileSync(join(dir, "profiles", "substack.md"), "utf8");
-    expect(artifact).toContain("The long About body");
-    expect(artifact).not.toContain("Example Weekly");
+    const artifact = readFileSync(join(dir, "profiles", "substack", "README.md"), "utf8");
+    expect(artifact).toContain("Bio (profile): Profile-header bio for the short row.");
+    expect(artifact).toContain("About: The long About body the renderer writes into the sheet.");
+    expect(artifact).toContain("Publication: Example Weekly");
+    expect(artifact).toContain("Short description: Notes on shipping sovereign software.");
+    expect(artifact).toContain("Canonical: https://example.substack.com");
 
     const res = run(["check", "substack", "--json", "--workspace", dir]);
     const data = (JSON.parse(res.stdout) as { data: CheckPayload }).data;

@@ -53,11 +53,10 @@ import type {
   SelectionPolicy,
 } from "@profile-as-code/core";
 import { collectMedia, compile, LANGS, PLATFORMS } from "@profile-as-code/core";
-import { pasteSource } from "@profile-as-code/paste";
+import { renderArtifact } from "./artifact-render.js";
 import { capCatalog } from "./check-catalog.js";
 import { RENDERERS } from "./generated/renderers.gen.js";
 import { type LimitFinding, limitFindings } from "./limits.js";
-import { resolveVariantBody } from "./variant-store.js";
 import {
   type CompletenessPolicyConfig,
   type SelectionPolicyConfig,
@@ -167,16 +166,17 @@ export function createArtifactResolver(args: {
       // `build` renders `github-org` for BRAND workspaces only (D15/§17). A person
       // workspace must never "match" bytes the engine would not produce.
       if (surface === "github-org" && args.profile.flavor !== "brand") return undefined;
-      const renderer = RENDERERS[surface];
       // The implicit view is the platform itself — what a plain `pasco build`
       // resolves (#238 makes the variant body part of the artifact).
       const slice = compile(args.profile, surface as Platform, lang, {
         ...policy,
         ...(selection === undefined ? {} : { selection, view: surface }),
       });
-      const variant = resolveVariantBody(args.workspace, slice);
-      if (variant.text !== undefined) return variant.text;
-      return renderer === undefined ? pasteSource(slice) : renderer(slice, media()).text;
+      // ONE decision tree: `renderArtifact` is the same function `build` (and
+      // `preview`, `edit --check`) executes — variant body → renderer → paste
+      // source. A second implementation here would let "buildable" drift from
+      // "what the build writes" (#490).
+      return renderArtifact(slice, args.workspace, media()).text;
     },
   };
 }

@@ -623,8 +623,10 @@ pasco diff [--json]                  # what changed since the last release tag
   later `en` build. That is right for GitHub (one README per repo); for the
   paste surfaces it means re-build before pasting the other language (#420).
 - Platforms with a **renderer** write deploy artifacts into your workspace:
-  `profiles/<platform>/README.md`. There are eight today (github-readme,
-  github-org for brand, and the six paste/monetization adapters).
+  `profiles/<platform>/README.md`. There are nine today (github-readme,
+  github-org for brand, and the seven paste/monetization adapters). A renderer
+  writes only when its slice carries a body: with none it renders `""` and the
+  platform is **unbuilt** (no file left behind).
 - Renderer-less **manual surfaces with a bio row** write one file,
   `profiles/<platform>.md`, ready to paste (#239). A surface with only a
   headline still prints its slice in the terminal.
@@ -916,7 +918,7 @@ engine reports; the consumer ranks (that split is the contract, not a stage).
 
 ```sh
 pasco audit          # a human list, one block per finding
-pasco audit --json   # { schemaVersion: "1", scope: { declared, checked, notRun }, findings: [...] }
+pasco audit --json   # { schemaVersion: "2", scope: { catalog, declared, checked, notRun, notBuildable }, findings: [...] }
 ```
 
 | Class | What it means | Severity |
@@ -948,9 +950,11 @@ carries the claim. A
 finding about a built surface addresses the artifact instead
 (`profiles/github-readme/README.md`), because a fact the SSOT does not carry has
 no fact address by definition. `check --json` exposes the same rule under
-`data.factPresent` (`declared` / `checked` / `notRun` / `findings`). A declared
-surface with no artifact reads **not run**, and `declared: []` says the catalog
-declares no such premise — in both cases nothing was measured, never silently OK.
+`data.factPresent` (`declared` / `checked` / `notRun` / `notBuildable` /
+`findings`). A declared surface with no artifact reads **not run**; its
+`notBuildable` subset names the ones no body or renderer can ever produce, so the
+fix is adding content, not running the build. `declared: []` says the catalog
+declares no such premise — nothing was measured, never silently OK.
 `scope` in the audit payload carries the same lists plus `catalog` (`shipped` |
 `not-shipped` — a package without its skills tree says so instead of "nothing
 declared"), because an audit with an empty scope is not a clean audit.

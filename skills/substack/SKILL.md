@@ -4,8 +4,8 @@ description: >
   Turns the SSOT facts into Substack's identity-bearing copy: the profile header
   (display name, bio, links) and the publication's textual identity (name, short
   description, About page body, canonical URL) as one paste sheet — the target
-  artifact of `pasco build substack` (#483 ships its renderer; until then the
-  build falls back to the `long` bio, see `playbook.md`). Substack is a paste
+  artifact of `pasco build substack` (#483 ships the renderer, see `playbook.md`).
+  Substack is a paste
   surface (D9) — no public body-write API — so that artifact is what gets pasted,
   and this skill is the judgment layer. The post
   flow is a different file: `post.md` + `longform.yaml`, driven by `pasco post`.
@@ -24,8 +24,8 @@ sources: skills/substack/research/SOTA-2026.md
 Turn the workspace's FACTS (SSOT) into the **two identity-bearing bodies**
 Substack publishes under one slug — the **profile** (display name, bio, links) and
 the **publication** (name, short description, About page) — as ONE paste sheet
-(the target artifact; #483 ships the renderer, and until then `pasco build
-substack` writes only the `long` bio) that agrees with every other surface.
+(the target artifact; `pasco build substack` writes it, #483) that agrees with
+every other surface.
 Substack is a **paste** platform (D9): there is no public body-write API
 (SOTA-2026 §5), so the target artifact is what gets pasted. This file is the judgment and narrative layer
 (D4/D5); the post contract lives in `post.md` + `longform.yaml` and is operated
@@ -90,7 +90,9 @@ first.
 ## Structure (two bodies, one voice)
 
 1. **Profile — header.** Display name (`identity.name`), bio (the `short` row of
-   `bios`), links (from `identity.links`), photo (pointer from `identity.photo`;
+   `bios`; a `medium` row is promoted to Bio when neither `short` nor `long`
+   exists, and to About when it pairs with a `short`), links (from
+   `identity.links`), photo (pointer from `identity.photo`;
    the upload/crop is manual). The Posts tab shows the publication's posts unless
    the publication is in private mode (SOTA-2026 §1).
 2. **Publication — name and one-liner.** Publication name (`newsletter.name`),
@@ -177,7 +179,8 @@ catalog, they stay curated (D12: facts warn, the schema fails).
 
 - The **post** flow (issue/long-form): `post.md` + `longform.yaml`, operated by
   `pasco post`. That is the channel's other axis.
-- The `substack` **renderer** (the deterministic paste sheet): #483.
+- The `substack` **renderer** itself (the code of the deterministic paste
+  sheet): `packages/renderers/substack` (#483).
 - Design, billing, analytics, rich About composition and account settings:
   `playbook.md` and SOTA-2026 §8 — manual steps, deliberately outside the
   contract.

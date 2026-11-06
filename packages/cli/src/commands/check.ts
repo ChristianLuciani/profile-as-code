@@ -307,9 +307,17 @@ export function runCheck(args: CheckArgs): number {
     line(`  compared: ${facts.checked.join(", ")}`);
   }
   if (facts.notRun.length > 0) {
-    line(
-      `  not run: ${facts.notRun.join(", ")} — no artifact on disk (run pasco build) or no renderer for this flavor`,
-    );
+    // #490: "not built yet" is actionable; "not buildable" is not. The old line
+    // offered "run pasco build" for both, which was false for the second.
+    const runnable = facts.notRun.filter((surface) => !facts.notBuildable.includes(surface));
+    if (runnable.length > 0) {
+      line(`  not run: ${runnable.join(", ")} — no artifact on disk (run pasco build)`);
+    }
+    if (facts.notBuildable.length > 0) {
+      line(
+        `  not buildable: ${facts.notBuildable.join(", ")} — no body or renderer produces an artifact (add a bio row or a renderer)`,
+      );
+    }
   }
 
   if (profile.flavor === "brand") {

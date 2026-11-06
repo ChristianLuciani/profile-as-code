@@ -30,12 +30,16 @@
  *
  * Declared v1 limits (stated, never silently absent):
  *   - the scope is the surfaces the profile TARGETS (bios · headlines · active ·
- *     keywords.seo · socialHandles) **that also DECLARE the premise** in their
- *     catalog (workspace `content/checks.yaml` ∪ the shipped
+ *     keywords.seo · socialHandles · newsletter, #483) **that also DECLARE the
+ *     premise** in their catalog (workspace `content/checks.yaml` ∪ the shipped
  *     `skills/<platform>/checks.yaml`) — the rule never runs a premise nobody
  *     declared (#283/F6). A declared surface with no artifact is reported in
- *     `notRun`; a declared set that is empty is itself reported (`declared: []`),
- *     so "measured nothing" is never indistinguishable from "found nothing";
+ *     `notRun`; its `notBuildable` subset names the ones `renderArtifact` cannot
+ *     produce at any contract lang (a curated row with no body, `github-org` on a
+ *     person, a renderer that returns empty), so the "run pasco build" advice is
+ *     not offered where it would be false (#490). A declared set that is empty is
+ *     itself reported (`declared: []`), so "measured nothing" is never
+ *     indistinguishable from "found nothing";
  *   - the engine-owned region only, via `projectArtifact` (§19.5) — chrome a user
  *     adds around it is outside the artifact and is not judged;
  *   - the artifact is compared at every contract lang (§11) and the render with the
@@ -102,14 +106,27 @@ export interface FactPresentReport {
   /** Declared surfaces the rule could not run on — no artifact on disk, or no
    *  renderer for this workspace flavor. Never folded into "OK". */
   notRun: string[];
+  /** Subset of `notRun` with NO buildable body: no renderer output, no paste
+   *  source, no variant body (#483/#490). The distinction matters because
+   *  "not built yet" is actionable (run the build) while "not buildable" is not:
+   *  the fix is adding a bio row, a renderer, or declaring the surface elsewhere. */
+  notBuildable: string[];
   findings: FactPresentFinding[];
 }
 
 /**
  * The surfaces the profile TARGETS: the platform rows the user curates a surface
- * for. `pasco build` writes an artifact for exactly these (a platform with no row
- * has nothing to build), so deriving scope from them — instead of from the files
- * that already exist — is what makes "not built yet" expressible.
+ * for. This is CURATION, not buildability: `pasco build` normally writes an
+ * artifact for these, but a curated row can exist for a platform the build cannot
+ * produce a body for (a handle without a bio, `github-org` on a person, a
+ * whitespace-only bio). The rule distinguishes the two outcomes in the report:
+ * `notRun` (declared, not compared) and its `notBuildable` subset, which says the
+ * build can never satisfy the advice. Keeping curation and buildability separate
+ * is what lets `declared` stay the catalog's meaning (SPEC §7.1) while the
+ * `notBuildable` reason is honest (#483/#490).
+ *
+ * `newsletter` is a curated body of its own: a Substack sheet exists with a
+ * publication and no bio row (#483), so its platform is targeted too.
  */
 export function targetedSurfaces(profile: LoadedProfile): string[] {
   const surfaces = new Set<string>();
@@ -118,6 +135,7 @@ export function targetedSurfaces(profile: LoadedProfile): string[] {
   for (const key of Object.keys(profile.active ?? {})) surfaces.add(key);
   for (const key of Object.keys(profile.keywords?.seo ?? {})) surfaces.add(key);
   for (const handle of profile.socialHandles ?? []) surfaces.add(handle.platform);
+  if (profile.newsletter !== undefined) surfaces.add(profile.newsletter.platform);
   return [...surfaces]
     .filter((surface) => (PLATFORMS as readonly string[]).includes(surface))
     .sort();
@@ -305,18 +323,25 @@ export function factPresentFindings(args: {
 
   const checked: string[] = [];
   const notRun: string[] = [];
+  const notBuildable: string[] = [];
   const findings: FactPresentFinding[] = [];
 
   for (const surface of declared) {
     const artifact = artifactPath(args.workspace, surface);
     const built = existsSync(artifact) ? readFileSync(artifact, "utf8") : undefined;
     // A surface with no artifact — or one this workspace/flavor would never render
-    // (`github-org` on a person) — did not run. Absence is not a pass.
+    // (`github-org` on a person) — did not run. Absence is not a pass. The render
+    // comes from `renderArtifact` — the SAME decision tree `build` executes (the
+    // resolver delegates to it), so "buildable" is not a parallel predicate. The
+    // emptiness rule is build's own (`text === ""` unbuilds): a schema-legal
+    // whitespace bio writes bytes, so it is buildable (#490).
     const renders = langs
       .map((lang) => resolver.render(surface, lang))
       .filter((text): text is string => text !== undefined);
-    if (built === undefined || renders.length === 0) {
+    const buildable = renders.some((text) => text !== "");
+    if (built === undefined || !buildable) {
       notRun.push(surface);
+      if (!buildable) notBuildable.push(surface);
       continue;
     }
     checked.push(surface);
@@ -346,5 +371,5 @@ export function factPresentFindings(args: {
     if (!matched) findings.push(...(best ?? [textFinding(path, surface)]));
   }
 
-  return { catalog: catalogState(), declared, checked, notRun, findings };
+  return { catalog: catalogState(), declared, checked, notRun, notBuildable, findings };
 }

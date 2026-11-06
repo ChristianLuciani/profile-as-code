@@ -1,0 +1,58 @@
+{
+  "name": "@profile-as-code/renderers-substack",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Renderer substack (issue #483): deterministic paste sheet for a Substack profile + publication from a PlatformProfile slice. Substack has no public body-write API — the artifact IS the field-by-field paste source. Pure function of the SSOT — no network, no AI, no randomness.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChristianLuciani/profile-as-code.git",
+    "directory": "packages/renderers/substack"
+  },
+  "bugs": {
+    "url": "https://github.com/ChristianLuciani/profile-as-code/issues"
+  },
+  "homepage": "https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/renderers/substack#readme",
+  "sideEffects": false,
+  "pasco": {
+    "platform": "substack",
+    "deploySpec": "manual"
+  },
+  "keywords": [
+    "profile-as-code",
+    "substack",
+    "newsletter",
+    "publication",
+    "paste",
+    "renderer"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "pnpm build && vitest run",
+    "test:watch": "vitest"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@profile-as-code/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

@@ -19,9 +19,28 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PLATFORMS } from "@profile-as-code/core";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 import { RENDERER_DEPLOY_SPECS, RENDERERS } from "../src/generated/renderers.gen.js";
 
 const RENDERERS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "renderers");
+const REGISTRY = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+  "platforms",
+  "registry.yaml",
+);
+
+interface RegistryEntry {
+  status: string;
+  deploy?: string;
+  renderer?: boolean;
+}
+
+const registry = (
+  parse(readFileSync(REGISTRY, "utf8")) as { platforms: Record<string, RegistryEntry> }
+).platforms;
 
 interface RendererManifest {
   dir: string;
@@ -102,6 +121,23 @@ describe("renderer map — one data home (#165)", () => {
       expect(module.consumesAssets ?? false, `${name}: module vs manifest pasco.assets`).toBe(
         pasco.assets === true,
       );
+    }
+  });
+
+  // The reverse half of the #165 gate: the registry DECLARES `renderer` and
+  // `deploy`, so the projection must agree with it in both directions — a
+  // `renderer: true` with no map entry (or a map entry the registry calls
+  // `false`) is the same drift, and a renderer whose declared deploy spec
+  // differs from the registry's `deploy` breaks the D9 contract. `gen-platforms
+  // --check` asserts the same pair in CI; this is the local `pnpm test` signal.
+  it("the registry's renderer flag and deploy spec agree with the map (#165/D9)", () => {
+    const members = Object.entries(registry).filter(([, entry]) => entry.status === "member");
+    expect(members.length).toBeGreaterThan(0);
+    for (const [slug, entry] of members) {
+      expect(entry.renderer, `${slug}.renderer`).toBe(RENDERERS[slug] !== undefined);
+      if (entry.renderer === true) {
+        expect(entry.deploy, `${slug}.deploy`).toBe(RENDERER_DEPLOY_SPECS[slug]);
+      }
     }
   });
 });

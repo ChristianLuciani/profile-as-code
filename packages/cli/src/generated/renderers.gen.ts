@@ -17,6 +17,7 @@ import { render as renderHotmart } from "@profile-as-code/renderers-hotmart";
 import { render as renderKofi } from "@profile-as-code/renderers-kofi";
 import { render as renderLiberapay } from "@profile-as-code/renderers-liberapay";
 import { render as renderPayhip } from "@profile-as-code/renderers-payhip";
+import { render as renderSubstack } from "@profile-as-code/renderers-substack";
 
 export type RendererFn = (
   slice: PlatformProfile,
@@ -36,6 +37,7 @@ export const RENDERERS: Partial<Record<string, RendererFn>> = {
   kofi: (slice) => renderKofi(slice),
   liberapay: (slice) => renderLiberapay(slice),
   payhip: (slice) => renderPayhip(slice),
+  substack: (slice) => renderSubstack(slice),
 };
 
 /** SPEC §7 `deploySpec`, projected from the same data home. This is the
@@ -52,4 +54,5 @@ export const RENDERER_DEPLOY_SPECS: Partial<Record<string, DeploySpec>> = {
   kofi: "manual",
   liberapay: "manual",
   payhip: "manual",
+  substack: "manual",
 };
