@@ -155,7 +155,14 @@ function describeStance(stance: "allow" | "disallow" | "none"): string {
 
 /**
  * Compare a parsed file against the registry: one finding per crawler that is
- * absent, duplicated or in the wrong group, plus the structural findings.
+ * absent, duplicated or whose effective access contradicts its family, plus the
+ * structural findings.
+ *
+ * The comparison is on EFFECTIVE ACCESS, not on the literal rule text (§2.2.2:
+ * "if no match is found … the URI is allowed"). A retrieval crawler whose group
+ * states no rule for `/` is unrestricted, which is exactly the posture the
+ * registry asks of it, so that is not a finding; a training crawler in the same
+ * position is not blocked, so it is one.
  */
 export function verifyRobotsFile(
   file: RobotsFile,
@@ -184,19 +191,22 @@ export function verifyRobotsFile(
       findings.push({
         kind: "duplicate",
         entry: crawler.slug,
-        detail: `"${crawler.ua}" appears in ${holders.length} groups (${where}) — RFC 9309 §2.2.1 merges them into one, so the file states a contradictory posture`,
+        detail: `"${crawler.ua}" appears in ${holders.length} groups (${where}) — the emitted file carries one group per family; RFC 9309 §2.2.1 merges the matching groups, so the posture can no longer be read off a single family`,
       });
       continue;
     }
 
     const group = holders[0];
     if (group === undefined) continue;
-    const actual = rootStance(group);
-    if (actual !== expected) {
+    const stance = rootStance(group);
+    // `none` permits everything, so it satisfies a retrieval crawler and fails a
+    // training one — the finding is about the access, never the token that wrote it.
+    const allowed = stance !== "disallow";
+    if (allowed !== (expected === "allow")) {
       findings.push({
         kind: "wrong-group",
         entry: crawler.slug,
-        detail: `"${crawler.ua}" is in the ${crawler.family} role but its group (line ${group.line}) states ${describeStance(actual)} — expected ${expectedRule}`,
+        detail: `"${crawler.ua}" is in the ${crawler.family} role but its group (line ${group.line}) states ${describeStance(stance)} — expected ${expectedRule}`,
       });
     }
   }

@@ -180,7 +180,11 @@ describe("verifyRobotsFile — the agent↔group map", () => {
     expect(findings.map((finding) => `${finding.kind}:${finding.entry}`)).toEqual([
       "duplicate:googlebot",
     ]);
-    expect(findings[0]?.detail).toContain("merges them");
+    expect(findings[0]?.detail).toContain("one group per family");
+    expect(findings[0]?.detail).toContain("merges the matching groups");
+    // The reason is the shape, not a claim of contradiction: RFC 9309 merges
+    // matching groups, so the merged rules may well be consistent.
+    expect(findings[0]?.detail).not.toContain("contradictory");
   });
 
   it("names a `User-agent: *` group — the policy is an explicit list", () => {
@@ -216,56 +220,100 @@ describe("verifyRobotsFile — the agent↔group map", () => {
   // ESCALATE(2) instrument: round 2 found the same class twice on `rootStance`
   // (first the literal "/", then "any allow wins"). This table is what closes
   // the class — a reader that skips the longest-match rule fails it.
+  //
+  // Round 3 found the sibling decision point: the stance was compared with the
+  // family's rule TEXT, so a retrieval group with no rule for `/` failed even
+  // though §2.2.2 leaves such a crawler unrestricted. The table therefore
+  // exercises every case against BOTH families: the finding is about effective
+  // access, never about which token happened to be written.
   describe("§2.2.2 precedence — conformance table", () => {
     const googlebot = AI_CRAWLERS.find((row) => row.slug === "googlebot");
-    const cases: { rules: string[]; expected: "allow" | "disallow" | "none"; why: string }[] = [
-      { rules: ["Allow: /"], expected: "allow", why: "plain allow" },
-      { rules: ["Disallow: /"], expected: "disallow", why: "plain disallow" },
-      { rules: ["Allow: /*"], expected: "allow", why: "`*` matches zero characters" },
-      { rules: ["Disallow: /*"], expected: "disallow", why: "`/*` blocks the root" },
-      { rules: ["Allow: /$"], expected: "allow", why: "`$` anchors the end" },
-      { rules: ["Disallow: /$"], expected: "disallow", why: "`/$` blocks the root" },
-      { rules: [], expected: "none", why: "a group with no rule restricts nothing" },
-      { rules: ["Allow: /public"], expected: "none", why: "a narrower pattern misses `/`" },
-      { rules: ["Allow: /", "Disallow: /"], expected: "allow", why: "equivalent → allow wins" },
+    const gptbot = AI_CRAWLERS.find((row) => row.slug === "gptbot");
+    const cases: { rules: string[]; access: "allow" | "blocked"; why: string }[] = [
+      { rules: ["Allow: /"], access: "allow", why: "plain allow" },
+      { rules: ["Disallow: /"], access: "blocked", why: "plain disallow" },
+      { rules: ["Allow: /*"], access: "allow", why: "`*` matches zero characters" },
+      { rules: ["Disallow: /*"], access: "blocked", why: "`/*` blocks the root" },
+      { rules: ["Allow: /$"], access: "allow", why: "`$` anchors the end" },
+      { rules: ["Disallow: /$"], access: "blocked", why: "`/$` blocks the root" },
+      { rules: [], access: "allow", why: "no rule ⇒ unrestricted (§2.2.2)" },
+      {
+        rules: ["Allow: /private"],
+        access: "allow",
+        why: "a narrower allow misses `/` ⇒ unrestricted",
+      },
+      {
+        rules: ["Disallow: /private"],
+        access: "allow",
+        why: "a narrower disallow misses `/` ⇒ unrestricted",
+      },
+      { rules: ["Allow: /", "Disallow: /"], access: "allow", why: "equivalent → allow wins" },
       {
         rules: ["Allow: /", "Disallow: /*"],
-        expected: "disallow",
+        access: "blocked",
         why: "the longer pattern governs",
       },
       {
         rules: ["Disallow: /", "Allow: /*"],
-        expected: "allow",
+        access: "allow",
         why: "the longer pattern governs, allow side",
       },
       {
         rules: ["Allow: /", "Disallow: /$"],
-        expected: "disallow",
+        access: "blocked",
         why: "an anchored pattern is more specific",
       },
       {
         rules: ["Allow: /", "Disallow: /private"],
-        expected: "allow",
+        access: "allow",
         why: "a narrower pattern misses `/`",
       },
     ];
 
-    for (const { rules, expected, why } of cases) {
-      it(`${why}: ${rules.join(" + ") || "(no rule)"} → ${expected}`, () => {
+    for (const { rules, access, why } of cases) {
+      it(`${why}: ${rules.join(" + ") || "(no rule)"} → ${access}`, () => {
         expect(googlebot).toBeDefined();
-        const text = ["User-agent: Googlebot", ...rules, ""].join("\n");
-        const findings = verifyRobotsFile(parseRobots(text), googlebot ? [googlebot] : []);
-        if (expected === "allow") {
-          expect(findings).toEqual([]);
+        expect(gptbot).toBeDefined();
+        const textFor = (agent: string) => [`User-agent: ${agent}`, ...rules, ""].join("\n");
+        const retrievalFindings = verifyRobotsFile(parseRobots(textFor("Googlebot")), [
+          ...(googlebot ? [googlebot] : []),
+        ]);
+        const trainingFindings = verifyRobotsFile(parseRobots(textFor("GPTBot")), [
+          ...(gptbot ? [gptbot] : []),
+        ]);
+
+        if (access === "allow") {
+          // A retrieval crawler is unrestricted, which is what the registry asks.
+          expect(retrievalFindings).toEqual([]);
+          // The same text under a training crawler is NOT the posture asked.
+          expect(trainingFindings).toHaveLength(1);
+          expect(trainingFindings[0]?.kind).toBe("wrong-group");
+          expect(trainingFindings[0]?.detail).toContain("expected `Disallow: /`");
           return;
         }
-        expect(findings).toHaveLength(1);
-        expect(findings[0]?.kind).toBe("wrong-group");
-        expect(findings[0]?.detail).toContain(
-          expected === "disallow" ? "Disallow: /` (everything blocked)" : "no rule for `/`",
-        );
+        expect(retrievalFindings).toHaveLength(1);
+        expect(retrievalFindings[0]?.kind).toBe("wrong-group");
+        expect(retrievalFindings[0]?.detail).toContain("everything blocked");
+        expect(trainingFindings).toEqual([]);
       });
     }
+  });
+
+  it("a retrieval group with no rule for `/` is NOT a finding (effective access)", () => {
+    // Round-3 F1: `none` permits everything, so it satisfies the retrieval
+    // family. Comparing the rule text instead produced a false positive whose
+    // own detail said "the crawler is not restricted".
+    const text = canonical.replace(/^Allow: \/$/mu, "Allow: /private");
+    const findings = verifyRobotsFile(parseRobots(text), AI_CRAWLERS);
+    expect(findings).toEqual([]);
+  });
+
+  it("a training group with no rule for `/` IS a finding (nothing is blocked)", () => {
+    const text = canonical.replace(/^Disallow: \/$/mu, "Disallow: /private");
+    const findings = verifyRobotsFile(parseRobots(text), AI_CRAWLERS);
+    expect(findings.map((finding) => finding.entry)).toEqual(training.map((row) => row.slug));
+    expect(findings[0]?.detail).toContain("no rule for `/`");
+    expect(findings[0]?.detail).toContain("not restricted");
   });
 
   it("fails an empty file: every registry crawler is missing", () => {

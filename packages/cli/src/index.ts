@@ -577,18 +577,21 @@ writes, one verifies):
                 the list: parses it by group (RFC 9309 §2.2) and compares the
                 agent↔group map with ai-retrieval / ai-training, one finding per
                 crawler that is absent from every group, present in two groups
-                (RFC merges them — a contradictory posture) or sitting in the
-                group that states the opposite rule for "/"; plus a
-                \`User-agent: *\` group and any rule no group owns. This is what
-                catches the two lists SWAPPED — a structurally valid file that
-                states the exact opposite policy. It loads no workspace, no
+                (RFC merges them, so the posture is no longer one family's) or
+                whose EFFECTIVE access to "/" contradicts its family (RFC: no
+                matching rule means allowed, so an unrestricted retrieval
+                crawler is right and an unrestricted training crawler is not);
+                plus a \`User-agent: *\` group and any rule no group owns. This is
+                what catches the two lists SWAPPED — a structurally valid file
+                that states the exact opposite policy. It loads no workspace, no
                 network and no clock: the same file yields the same findings on
                 any day, which is what a consumer's CI gate needs.
 The crawler list is derived, never hardcoded here: it is projected from the
 \`ai:\` block of the platform registry by \`pnpm gen:platforms\`.
 --lang        the language of the llms.txt text (default: .pascorc defaults.lang,
               else 'en').
-Exit: 0 ok · 1 a --check problem, a schema/load failure or a write failure ·
+Exit: 0 ok · 1 a --check problem (including a --file finding or a --file that
+cannot be read), a schema/load failure or a write failure ·
 2 usage (no ai-policy subcommand, --out with --check, --file without --check,
 --force without --out).
 Offline; --out reads no clock and two runs produce byte-identical files, and

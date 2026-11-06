@@ -782,12 +782,21 @@ is not read as a root rule.
 
 It exits `1` with **one finding per fact**, never a generic "robots.txt invalid":
 `missing` (a registry crawler is in no group), `duplicate` (the same token in two
-groups — RFC 9309 §2.2.1 merges matching groups, so the file states a contradictory
-posture), `wrong-group` (the crawler's group states the opposite rule for `/`, or
-none — the swapped-lists case produces one per crawler), `wildcard` (a
+groups — the emitted file carries one group per family, and RFC 9309 §2.2.1 merges
+the matching groups, so the posture can no longer be read off a single family),
+`wrong-group` (the crawler's **effective access** to `/` contradicts its family: a
+retrieval crawler that is blocked, or a training crawler that is allowed or
+unrestricted — the swapped-lists case produces one per crawler), `wildcard` (a
 `User-agent: *` group, which restricts every crawler the explicit list does not
 name) and `orphan-rule` (a rule no group owns). Findings are ordered: the
 registry's crawler order first, then the structural ones in file order.
+
+The comparison is on **effective access, not on the rule text**: under §2.2.2 a URI
+with no matching rule is allowed, so a group that states nothing for `/` leaves its
+crawler unrestricted — which is what the registry asks of a retrieval crawler (no
+finding) and not what it asks of a training crawler (a finding). A gate that
+compared tokens instead would reject a file that grants exactly the access the
+registry wants.
 
 It reads **no workspace, no network and no clock** — unlike `--check` alone, the
 180-day window does not apply to this mode — so the same file yields byte-identical
