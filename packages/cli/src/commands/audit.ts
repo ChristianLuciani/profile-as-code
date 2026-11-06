@@ -62,6 +62,16 @@ import { type Pascorc, sanitizeCompletenessPolicy } from "../workspace.js";
  *  refuses a version it does not know instead of guessing at the shape. */
 export const AUDIT_SCHEMA_VERSION = "2";
 
+/** The frozen `scope` key set, in contract order (#490). Docs and tests read this
+ *  instead of re-typing the list, so an enumeration cannot silently drop a bucket. */
+export const AUDIT_SCOPE_KEYS = [
+  "catalog",
+  "declared",
+  "checked",
+  "notRun",
+  "notBuildable",
+] as const;
+
 export type AuditClass = FactFindingClass;
 
 export interface AuditFinding {

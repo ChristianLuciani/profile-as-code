@@ -918,7 +918,7 @@ engine reports; the consumer ranks (that split is the contract, not a stage).
 
 ```sh
 pasco audit          # a human list, one block per finding
-pasco audit --json   # { schemaVersion: "2", scope: { declared, checked, notRun, notBuildable }, findings: [...] }
+pasco audit --json   # { schemaVersion: "2", scope: { catalog, declared, checked, notRun, notBuildable }, findings: [...] }
 ```
 
 | Class | What it means | Severity |
