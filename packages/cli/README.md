@@ -107,7 +107,7 @@ Canonical home: [SPEC §7](https://github.com/ChristianLuciani/profile-as-code/b
 | `pasco audit [--json]` | Offline **diagnostic projection**, findings only (no score/prioritisation/branding, #283): three fixed classes — `dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN — exit 1 iff any FAIL; `--json` carries `{ schemaVersion: "1", scope: { declared, checked, notRun }, findings }` | ✅ v1 |
 | `pasco entity [--json \| --jsonld [--out <file>] [--bare]]` | The **entity projection** for surfaces the engine does not render (#287): `--json` is the frozen view — `entity { id, type, name, sameAs, email }`, the structured-data `gaps` (geoCheck codes verbatim), `jsonld: null` and `faqJsonLd` (the `FAQPage` node, `null` when the workspace declares no `faq[]`); `--jsonld` is the **same assembler output** the renderers embed, as paste-ready `<script type="application/ld+json">` blocks — the entity first, then the `FAQPage` when it exists (#360). Exit 1 when `@id` is absent (never invented) | ✅ v1 |
 | `pasco cite-check [<answers.ndjson>] [--json]` | The **citation matcher** over saved answer-engine answers (#291): reads the runner's NDJSON (stdin when no path), matches the workspace's declared entity and emits, **per answer and never aggregated**, `{ cited, confidence, spans, reasons }`. Ladder: `citation-url` (a citation on the entity's own page or its `sameAs` set — host, and the declared path or a descendant) and `exact-name` → **high**; `alias` (`identity.orgName`) and `handle` → **medium**; `partial` (any contiguous multi-token prefix, ≥ 2 tokens) → **low**, and low is never citable downstream. Refuses to guess: a one-word name with no declared disambiguator (`cited: false`, the longer capitalised reading named as `competing`), or a contrast mention, is not a citation; a declared qualifier or an adjacent capital never disqualifies a hit by itself | ✅ v1 |
-| `pasco export ai-policy [--out <dir> \| --check] [--lang <l>]` | The M9 stance as an artifact (#290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed retrieval crawlers allowed, the listed training crawlers disallowed, each UA commented with its registry entry/operator/source/date; the file declares that a crawler it does not name is **not restricted**), `llms.txt` (the workspace index: name, definition, canonical identity, `faq[]`, `publications[]`, with a coverage assertion) and `AI-POLICY.md` (allowed · blocked · that same explicit-list limit · who can change it · the date, quoting the stance verbatim). `--check` exits 1 on an incomplete or unsourced entry, a duplicate token (case-insensitive), a malformed/future/`>180`-day `as_of`, or a `policy.as_of` that is stale or older than its newest row; `--out` refuses to write one. The UA list is projected from the platform registry — never hardcoded in the CLI | ✅ v1 |
+| `pasco export ai-policy [--out <dir> \| --check [--file <robots.txt>]] [--lang <l>]` | The M9 stance as an artifact (#290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed retrieval crawlers allowed, the listed training crawlers disallowed, each UA commented with its registry entry/operator/source/date; the file declares that a crawler it does not name is **not restricted**), `llms.txt` (the workspace index: name, definition, canonical identity, `faq[]`, `publications[]`, with a coverage assertion) and `AI-POLICY.md` (allowed · blocked · that same explicit-list limit · who can change it · the date, quoting the stance verbatim). `--check` exits 1 on an incomplete or unsourced entry, a duplicate token (case-insensitive), a malformed/future/`>180`-day `as_of`, or a `policy.as_of` that is stale or older than its newest row; `--check --file` verifies a committed `robots.txt` against the registry instead (RFC 9309 §2.2 parse, one finding per crawler that is absent, duplicated, or whose effective access to `/` contradicts its family — the swapped-lists case #477 — plus a `User-agent: *` group and a rule no group owns); `--out` refuses to write one. The UA list is projected from the platform registry — never hardcoded in the CLI | ✅ v1 |
 | `pasco export profile [--json] [--now <iso8601>]` | The **normalized profile** for programmatic consumers (#348): `{ schemaVersion, engine, source: { commit, generatedAt }, profile }` — `profile` is exactly what `core.load()` returns (**every root the workspace declares, plus every list root defaulted to `[]`**; an optional object root appears only when declared), never a platform slice (`compile()` makes that other object). `artifactRefs` ids resolve in `profile.artifacts[]`, `publications[].url` as declared, `deployments` included. No clock is read: `generatedAt` is `null` unless `--now` pins it, so two runs are byte-identical; `source.commit` is the workspace git HEAD (`null` outside a repo) | ✅ v1 |
 | `pasco post <seed\|task\|choose\|check\|export\|import\|list>` | Post experiment (#264/#265, long-form #266): a seed at `posts/<seed>/` → task bundle → chosen variant → check → Postiz draft payload (API channels) or paste checklist (Substack/Ghost). Two seed formats (`short`/`longform`); a short child derived from an essay records `derivedFrom`. The CLI never calls an LLM | 🚧 experiment (not in the v1 contract; [the post experiment notes](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/post-mvp.md)) |
 | `pasco skills:export <dir> [--force] \| --list` | Copy the platform skills this package ships into a directory you name (`--list` shows them; no per-agent paths are invented — #254). A destination and `--list` are **separate invocations**: both together is usage (exit 2), never an ignored argument | ✅ |
@@ -396,6 +396,30 @@ different days produce byte-identical files.
 is not ours needs `--force`. A refused write or a failed `--check` is exit `1`, a
 usage error is exit `2`. The `--json` contract is frozen in SPEC §7.3.
 
+**Verifying a file somebody else committed.** If you commit the generated
+`robots.txt` into a site repo, that repo can check its *structure* on its own — two
+groups, no mixed group, no wildcard — but not *which crawler belongs in which
+group*: a file with the two lists swapped is structurally valid and states the
+exact opposite policy. Keep the classification in one home and ask the engine:
+
+```sh
+pasco export ai-policy --check --file public/robots.txt
+```
+
+It parses the file by group (RFC 9309 §2.2) and compares the agent↔group map with
+the registry, exiting `1` with **one finding per fact** — `missing` (a registry
+crawler in no group), `duplicate` (one token in two groups: the emitted file has
+one group per family, and RFC 9309 merges matching groups, so the posture is no
+longer one family's), `wrong-group` (the crawler's **effective access** to `/`
+contradicts its family — a retrieval crawler that is blocked, or a training crawler
+that is allowed or unrestricted; the swapped lists produce one per crawler),
+`wildcard` (a `User-agent: *` group) and `orphan-rule` (a rule no group owns, which
+crawlers ignore). Effective access is what counts, not the rule text: under §2.2.2
+no matching rule means allowed, so a group that says nothing about `/` is right for
+a retrieval crawler and wrong for a training one. It reads no workspace, no network
+and no clock, so two runs over the same file agree byte for byte — the registry's
+own freshness is still `--check` without `--file`.
+
 ### The normalized profile (`pasco export profile`, #348)
 
 `build` renders platform texts and `validate` checks the workspace, but neither
@@ -438,7 +462,7 @@ pasco export profile --json --now 2026-10-28T00:00:00Z | jq .  # pin the stamp
   slice (that is `pasco build`, via `compile()`).
 
 Exit `0` ok · `1` the workspace fails to load or `--now` is malformed · `2` usage
-(`--out`/`--check`/`--force`/`--lang` belong to `export ai-policy`). The contract
+(`--out`/`--check`/`--file`/`--force`/`--lang` belong to `export ai-policy`). The contract
 is frozen in SPEC §7.5.
 
 **A consumer that only needs to validate** does not need this package at all: the
@@ -860,7 +884,7 @@ written to the workspace; only this policy is stored.
 | Code | Meaning |
 |---|---|
 | `0` | OK — schema valid. Drift warnings still exit 0 (D12: facts warn, schema fails). |
-| `1` | Schema or operational failure (workspace not found, bad YAML, not a git repo for `diff`), **an unmet or malformed `.pascorc` `engine` requirement** (`validate` · `build` · `export profile` · `preview`, before any work), **or a data finding that blocks the command** (`edit`: the address is not exactly one row, or the edit does not change the published artifact; `audit`: at least one `FAIL` finding; `export ai-policy`: an unsourced or stale UA list, or a refused write; `preview`: the privacy gate refused a document, or the write failed). |
+| `1` | Schema or operational failure (workspace not found, bad YAML, not a git repo for `diff`), **an unmet or malformed `.pascorc` `engine` requirement** (`validate` · `build` · `export profile` · `preview`, before any work), **or a data finding that blocks the command** (`edit`: the address is not exactly one row, or the edit does not change the published artifact; `audit`: at least one `FAIL` finding; `export ai-policy`: an unsourced or stale UA list, a refused write, or `--check --file` findings (an unreadable file is `1` too); `preview`: the privacy gate refused a document, or the write failed). |
 | `2` | Usage error (unknown command/platform/lang, bad flags). |
 
 Human output is EN by default (D8/§11); `--json` prints a machine-readable
