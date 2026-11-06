@@ -183,10 +183,12 @@ All textual fields support `{ lang: value }` maps (EN required; ES, FR optional 
 Facts (dates, DOIs, URLs) are language-independent — **the GEO anchor**.
 
 **Brand flavor (D15, §17 — additive, v1.1):** `flavor: person | brand` at root; brand
-workspaces add `socialHandles[]` (handle matrix, `status: claimed|pending`), `newsletter`,
-`podcast`, `press[]`, `audiences`, and the org identity variant (`orgName`, `logo`,
-`brandVoice`, `mission`, `tagline`, `established`). Person-only root blocks (`experience`,
-`publications`) stay optional and keep their meaning (essays/issues for a brand).
+workspaces add `socialHandles[]` (handle matrix, `status: claimed|pending`), `press[]`,
+`audiences`, and the org identity variant (`orgName`, `logo`, `brandVoice`, `mission`,
+`tagline`, `established`). The publication blocks `newsletter` and `podcast` are
+**flavor-neutral** (#481): a person workspace may declare them — the writer with a
+newsletter is the common case. Person-only root blocks (`experience`, `publications`) stay
+optional and keep their meaning (essays/issues for a brand).
 
 **URL scheme boundary (issue #53):** every URL field validates `^https?://` at the single
 source (`$defs/url`, additive constraint on top of `format: uri`) — `format: uri` alone
@@ -1660,9 +1662,9 @@ workspace (`profile-data`, no suffix) predates the convention and keeps its name
 
 **Workspace flavor (D15):** every workspace declares its flavor in `content/flavor.yaml`
 (`flavor: person | brand`, default `person`). The flavor is a contract field, not a separate
-product: it only changes which blocks/checks apply (brand adds `socialHandles`, `newsletter`,
-`podcast`, `press`, `audiences` and org identity fields; GEO emits `schema.org/Organization`
-instead of `Person`). See §17.
+product: it only changes which blocks/checks apply (brand adds `socialHandles`, `press`,
+`audiences` and org identity fields; GEO emits `schema.org/Organization` instead of
+`Person`). `newsletter`/`podcast` are flavor-neutral (#481). See §17.
 
 ### 9.2 On-ramps — three peers, capability differences said up front
 
@@ -1805,8 +1807,10 @@ policy — instead of keeping a second copy of the classification (#477). Decisi
 
 ## 14. Open questions (remaining)
 
-- Q5: Substack adds a *content* surface (newsletter) beyond profile fields — the brand flavor
-  ships `newsletter` as a block (§17); the person-flavor newsletter *issue* surface stays open.
+- Q5 (**resolved 2026-11-05, #481**): Substack adds a *content* surface (newsletter) beyond
+  profile fields. The `newsletter` block is **flavor-neutral** — a person workspace may declare
+  it; the person-flavor *issue* surface is the `pasco post` long-form path (#266), not a schema
+  block. Brand still adds the org variant and the handle/press/audiences blocks (§17.1).
 - Q6: CI-as-a-service for user workspaces (symlink mount) — worth it in v1 or later?
 - Q7 (**idea, not a decision**): `profile-me` — a command/skill/experience layer that APPLIES the
   engine to the user's `profile-data` to produce results (today: `pasco build`/`pasco refine`);
@@ -2131,9 +2135,11 @@ engine solves (issue #25).
    - `identity` org variant: `orgName`, `logo`, `brandVoice` (tone matrix), `mission`,
      `tagline`, `established` — all optional; person-only fields (`experience`,
      `publications`…) stay optional and map naturally (essays/issues, not CV items).
+   - Publication blocks — **not** a flavor difference (#481): `newsletter`
+     (Substack/Ghost) and `podcast` (Spotify/RSS) — any flavor may declare them;
+     a person writing a newsletter does not need `flavor: brand`.
    - Brand blocks: `socialHandles` (platform → handle + `status: claimed|pending`),
-     `newsletter` (Substack/Ghost), `podcast` (Spotify/RSS), `press` (media mentions),
-     `audiences` (reader profile, not recruiter).
+     `press` (media mentions), `audiences` (reader profile, not recruiter).
    - Proof layer (v1.4, D17/§18) applies to brands verbatim: `credentials[]` (ISO
      certifications, awards, patents) and `artifacts[]` (logo kits, product galleries) —
      `schema.org/hasCredential` is defined for `Organization` as well as `Person`.

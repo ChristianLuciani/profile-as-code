@@ -284,6 +284,10 @@ overwrite** anything that exists:
 | `person` (default) | `content/identity.yaml` + `content/checks.yaml` + `README.md` + `.pascorc` |
 | `brand` | `content/{identity,socialHandles,newsletter,podcast,press,audiences,flavor,checks}.yaml` + `README.md` + `.pascorc` |
 
+`newsletter` and `podcast` are **flavor-neutral** (#481): the brand scaffold
+creates them by default, and a `person` workspace may declare them too — a writer
+with a newsletter does not need `--flavor brand`.
+
 From inside the workspace, copy the channel skills and posting guidance in with
 `pasco skills:export .pasco-skills`; they are what an agent reads to know what
 to write for each platform.

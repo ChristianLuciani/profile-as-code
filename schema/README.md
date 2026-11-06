@@ -97,10 +97,10 @@ validates the result against this schema. File → root property mapping:
 | File (content/) | Root property(s) | Notes |
 |---|---|---|
 | `identity.yaml` | `identity` | Required at profile level (the GEO anchor). v1.5 (issue #71): `email` — the contact email as a fact (NOT in `links[]`; renderers emit a mailto: href + JSON-LD `email`). v1.6 (#103): `links[].role` — `identity` \| `realization` \| `aggregator` (see §15.4). v1.13 (#334): `nationality` — ISO 3166-1 alpha-2 code, emitted as Person JSON-LD `Country.identifier` (no `nationality` property on the Organization JSON-LD for brand) |
-| `flavor.yaml` | `flavor` | v1.1 (D15): `person` \| `brand`. **The file value IS the root value** — a bare scalar (`brand`), not a key:value map |
+| `flavor.yaml` | `flavor` | v1.1 (D15): `person` \| `brand`. **The file value IS the root value** — a bare scalar (`brand`), not a key:value map. `newsletter`/`podcast` are flavor-neutral (#481) |
 | `socialHandles.yaml` | `socialHandles[]` | v1.1 (brand): handle matrix (platform → handle + `status: claimed\|pending`) |
-| `newsletter.yaml` | `newsletter` | v1.1 (brand): Substack/Ghost |
-| `podcast.yaml` | `podcast` | v1.1 (brand): Spotify/RSS |
+| `newsletter.yaml` | `newsletter` | v1.1 (flavor-neutral #481): the identity's newsletter surface (Substack/Ghost) |
+| `podcast.yaml` | `podcast` | v1.1 (flavor-neutral #481): the identity's podcast (Spotify/RSS) |
 | `press.yaml` | `press[]` | v1.1 (brand): media mentions |
 | `audiences.yaml` | `audiences` | v1.1 (brand): reader profiles |
 | `positioning.yaml` | `positioning` | Statement, audience angles, GEO intent |
@@ -174,5 +174,6 @@ false`) — that IS the "fail on schema" side of D12.
 - Additive changes (new optional fields) can land in v1; `additionalProperties: false`
   guarantees unknown fields never silently pass.
 - **v1.1** (in this file, additive): brand flavor (D15/§17) — `flavor`, org identity
-  variant, `socialHandles`/`newsletter`/`podcast`/`press`/`audiences`, brand platforms,
-  `handle-claimed`/`handle-consistent` rules. Every v1 workspace still validates.
+  variant, `socialHandles`/`press`/`audiences`, brand platforms,
+  `handle-claimed`/`handle-consistent` rules. `newsletter`/`podcast` are flavor-neutral
+  (#481): a person workspace may declare them. Every v1 workspace still validates.
