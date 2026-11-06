@@ -170,6 +170,21 @@ export function runRefine(args: RefineArgs): number {
   ).join(", ");
   const projects = slice.projects.map((p) => p.name).join(", ");
   const publications = slice.publications.map((p) => p.title).join(" | ");
+  // #482: the publication block is identity-bearing copy for the profile surface
+  // (`substack` is one slug over profile + publication), so the task carries it
+  // instead of making the agent rediscover `content/newsletter.yaml`. The two
+  // langMaps resolve with the same `textOf` rule as `role`; absent => "—".
+  const newsletter =
+    slice.newsletter === undefined
+      ? "—"
+      : [
+          textOf(slice.newsletter.name, lang),
+          textOf(slice.newsletter.description, lang),
+          slice.newsletter.cadence,
+          slice.newsletter.url,
+        ]
+          .filter((part) => part !== undefined && part !== "")
+          .join(" | ");
   const anchors = slice.keywords.geo.associations?.join(", ") ?? "";
   const skill = lookupSkill(platform, "SKILL.md");
   const skillPath = skill.state === "found" ? skill.path : undefined;
@@ -202,13 +217,14 @@ export function runRefine(args: RefineArgs): number {
     `Research (dated sources): ${researchPath}`,
     `Variant id convention: ${variantPrefix}-${lang}-<n> (e.g. ${variantExamples}).`,
     ``,
-    `Facts (language-independent — MUST stay byte-identical across variants and platforms, except \`role\`: a langMap shown in ${lang}, falling back to en):`,
+    `Facts (language-independent — MUST stay byte-identical across variants and platforms, except \`role\` and \`newsletter.name\`/\`newsletter.description\`: langMaps shown in ${lang}, falling back to en):`,
     `  name: ${identity.name}`,
     `  location: ${identity.location ?? "—"}`,
     `  links: ${links || "—"}`,
     `  experience: ${experience || "—"}`,
     `  projects: ${projects || "—"}`,
     `  publications: ${publications || "—"}`,
+    `  newsletter: ${newsletter}`,
     ``,
     `Existing ${platform} texts (base to vary):`,
     `  bios: ${slice.bios.map((b) => `[${b.length}] ${b.text}`).join(" | ") || "—"}`,

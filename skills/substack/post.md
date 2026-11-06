@@ -7,6 +7,22 @@
 > claim; re-verify before making a hard one, and cite a source (date + tier)
 > before calling anything a limit.
 
+## `pasco refine substack` is the PROFILE command — a post goes through `pasco post`
+
+This channel has two axes, and each has its own command:
+
+- **Profile / publication** → `pasco refine substack` (it resolves
+  `skills/substack/SKILL.md`, the profile skill) — profile task, saved to
+  `profiles/substack/variants/<id>.md`.
+- **Post (an issue)** → `pasco post` with this file and `longform.yaml` — never
+  `refine`.
+
+The older warning against refine on this channel is retired: it existed
+because the post skill occupied the slot the engine reads as the *profile* skill.
+#482 moved the post judgment here and made `SKILL.md` the profile skill, so
+`refine` is now the correct command for the profile and the wrong one for a
+post — same rule as every profile platform, no engine change needed.
+
 ## What a Substack piece is for
 
 A newsletter issue for subscribers that also becomes a public archive page. Two

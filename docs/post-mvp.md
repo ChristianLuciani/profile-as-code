@@ -42,14 +42,21 @@ The format is a property of the **seed**, not of the channel:
 
 Both shapes ship the judgment layer the task bundle points at: `post.md` beside
 the rule file (the short channels since #266, the seven long-form channels since
-#361). The long-form channels add a `SKILL.md` that the bundle does not carry: it
-is a strategy reference, not an input to `post task`. Adding it does change
-`pasco refine <channel>` — refine finds a skill where it used to find none, and
-emits a **profile** task that saves to `profiles/<channel>/variants/<id>.md`, so
-do not use refine on a post channel; the post path is `pasco post`, and the rule
-file remains the only machine contract. (`checks.yaml` is not part of this:
-`pasco check` reads it and reports "no catalog" without failing when it is
-absent.)
+#361). The post bundle never carries a `SKILL.md`. What that file is depends on
+the channel: for six of the seven long-form channels it is a strategy reference
+for the post, while for `substack` it is the channel's **profile/publication**
+skill (#482) — `substack` ships both shapes, the profile trio
+(`SKILL.md` + `checks.yaml` + `playbook.md`) and the post contract
+(`post.md` + `longform.yaml`).
+
+The consequence for `pasco refine <channel>`: refine reads `SKILL.md`, so on
+`substack` it resolves the **profile** skill and emits a profile task that saves
+to `profiles/substack/variants/<id>.md` — that is the right command for the
+profile. On the other long-form channels the `SKILL.md` still documents the post,
+so refine there is not the post path either: the post is always `pasco post`, on
+every channel, and the rule file remains the only machine contract.
+(`checks.yaml` is not part of this: `pasco check` reads it and reports "no
+catalog" without failing when it is absent.)
 
 The **short family** is derived from the essay: `post task <child> --format
 short --from <essay> --channel linkedin,x` creates a child seed whose
