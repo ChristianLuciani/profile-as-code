@@ -1,10 +1,11 @@
 /**
- * Contract tests for the platform set (D16, issue #30): Postiz parity + operator
- * extras. Guards the single-source discipline the schema documents:
+ * Contract tests for the platform set (D16, issue #30) and the publication-block
+ * semantics (#481). Guards the single-source discipline the schema documents:
  *   - the generated `PLATFORM_VALUES` matches the schema enum (codegen boundary)
  *   - PLATFORMS has no duplicates
  *   - behavior: new platform hosts are recognized by drift (patreon regression,
  *     ghost subdomains) and accepted by load (checks + bios on new platforms)
+ *   - `newsletter`/`podcast` are flavor-neutral: a person workspace declares them
  */
 
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";

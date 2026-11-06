@@ -2077,9 +2077,9 @@ engine solves (issue #25).
    - `identity` org variant: `orgName`, `logo`, `brandVoice` (tone matrix), `mission`,
      `tagline`, `established` — all optional; person-only fields (`experience`,
      `publications`…) stay optional and map naturally (essays/issues, not CV items).
-   - Publication blocks (flavor-neutral, #481): `newsletter` (Substack/Ghost) and
-     `podcast` (Spotify/RSS) — any flavor may declare them; a person writing a
-     newsletter does not need `flavor: brand`.
+   - Publication blocks — **not** a flavor difference (#481): `newsletter`
+     (Substack/Ghost) and `podcast` (Spotify/RSS) — any flavor may declare them;
+     a person writing a newsletter does not need `flavor: brand`.
    - Brand blocks: `socialHandles` (platform → handle + `status: claimed|pending`),
      `press` (media mentions), `audiences` (reader profile, not recruiter).
    - Proof layer (v1.4, D17/§18) applies to brands verbatim: `credentials[]` (ISO
