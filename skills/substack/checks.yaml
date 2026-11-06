@@ -1,0 +1,48 @@
+# checks.yaml — machine-readable criteria for `pasco check substack`
+# Misma rule catalog que el schema; la unión con content/checks.yaml decide qué
+# premisas corren (fact-present) y los caps de caracteres salen del catálogo del
+# workspace cuando declara checks — entero, sin merge por fila — o de los defaults
+# del paquete; nunca de estas filas (SPEC §7, pasco check).
+#
+# Source of the values: research/SOTA-2026.md (every dated source fetched
+# 2026-11-05). Substack documents NO character limit for the profile bio, the
+# short description, the hero text or the About body [?] — the max-chars row is a
+# curated soft cap, never a hard rule (SOTA-2026 §1, §2.1, §6). A workspace that
+# copies it into content/checks.yaml gets a WARN (D12), never a block.
+
+- id: s-profile-bio-soft
+  platform: substack
+  rule: max-chars
+  value: 180
+  surface: bio
+  note: "Curated soft cap for the PROFILE-header bio ([?] Substack documents no bio limit; ~26 words before truncation is [EXPERTO], SOTA-2026 §1, §6, fetched 2026-11-05). The limit executor scopes a cap by platform+surface, not by bios length band: a workspace that copies this row also measures its long (About) bio against it, so keep the row as curation and read the About by shape, not by chars."
+
+- id: s-facts-identity
+  platform: substack
+  rule: fact-present
+  value: true
+  note: "The paste sheet `pasco build` wrote is compared with the current SSOT render in BOTH directions — a URL, date or number added or omitted, and a text difference with no token to explain it (WARN, D12; `pasco audit` grades the class). It covers the identity bodies: profile header + publication copy (SOTA-2026 §7, §9). `link-in-identity` is a separate premise."
+
+- id: s-links-identity
+  platform: substack
+  rule: link-in-identity
+  value: true
+  note: "Every URL on the surface comes from identity.links or newsletter.url — the profile's links field is the one home; the bio carries no inline links (SOTA-2026 §1, §7)."
+
+- id: s-geo-consistent
+  platform: substack
+  rule: geo-consistent
+  value: true
+  note: "Facts consistent with CV/LinkedIn/GitHub = citability; the profile and the About page are public and indexable, the citation unit is a section heading plus its claim resolving to newsletter.url (SOTA-2026 §9)."
+
+- id: s-live
+  platform: substack
+  rule: url-live
+  value: true
+  note: "The profile URL and the publication URL resolve — help-center and public pages return Cloudflare 403 to plain fetchers; verify the live page with a browser (SOTA-2026 Method, §5)."
+
+- id: s-lang
+  platform: substack
+  rule: lang-present
+  value: en
+  note: "EN required (D8/SPEC §11); compile makes no per-row fallback, so an empty bio/description is a visible gap, not silence. A Spanish publication is a separate surface with its own canonical URL (SOTA-2026 §9)."

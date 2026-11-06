@@ -55,7 +55,7 @@ not a fact change.
 3. `upwork` — servicio/cliente
 4. `x` — visibilidad
 5. `researchgate` — ciencia
-6. `substack` — newsletter/audiencia propia (superficie de contenido + perfil)
+6. `substack` — newsletter/audiencia propia: perfil + publicación (bundle de perfil) y post largo (`post.md`)
 
 ## Brand flavor (M6, §17)
 
@@ -67,7 +67,8 @@ offline en `pasco check`), trademark/impersonación. Ver `skills/github-org/`.
 
 The week-1 post experiment uses a **different shape** from the profile skills:
 `skills/<platform>/post.md` (judgment) + a machine-readable rule file.
-`pasco post` reads them; `pasco refine` keeps reading `SKILL.md`.
+`pasco post` reads them; `pasco refine` reads `SKILL.md`, whose role differs by
+channel (below).
 
 - **Short** (`posting.yaml`): `linkedin`, `x` — char limits, hashtags.
 - **Long-form** (`longform.yaml`, #266): `substack`, `ghost`, `medium`, `devto`,
@@ -76,29 +77,39 @@ The week-1 post experiment uses a **different shape** from the profile skills:
   surfaces). The word band is house style, not a platform limit: cite a source
   before encoding a hard cap.
 
-Every post channel also carries its judgment layer: the `post.md`, plus a
-`SKILL.md` (#361 for the long-form channels, #462 for the short ones — `linkedin`
-and `x` were the two channels with no strategy file, and that is exactly where a
-narrative copied across surfaces went uncited).
+Every post channel also carries its judgment layer: the `post.md` — plus a
+`SKILL.md`, whose role depends on the channel.
 
 - `post.md` — what a piece on that channel is for, its shape and its voice, plus
   what `export: api | paste` means for the writing. The channel's GEO/i18n policy
   lives in `post.md` and/or in its `SKILL.md`'s own section: the short channels
   (`linkedin`, `x`) state it only in the skill, the long-form channels state it
   in both — and where they do, `post.md` is the one to read first.
-- `SKILL.md` — the channel skill document: mission, when the skill runs, the
-  flow, the pointers to the contract, and the suggested model in its frontmatter.
-  It is a strategy reference, not a bundle input: `pasco post task` carries the
-  contract and `post.md`, never this file.
+- `SKILL.md` — for **every channel except `substack`**, the channel strategy
+  document (#361 for the long-form channels, #462 for the short ones — `linkedin`
+  and `x` were the two channels with no strategy file, and that is exactly where a
+  narrative copied across surfaces went uncited): mission, when the skill runs,
+  the flow, the pointers to the contract, and the suggested model in its
+  frontmatter. It is a strategy reference, not a bundle input: `pasco post task`
+  carries the contract and `post.md`, never this file.
+- `substack` is the channel that ships BOTH shapes as first-class (#482):
+  `skills/substack/SKILL.md` is its **profile/publication** skill (with
+  `checks.yaml` + `playbook.md`, like the profile platforms above), and
+  `post.md` + `longform.yaml` are its long-form post skill. The slot is the
+  profile one, which is what `pasco refine` reads.
 
-**Do not use `pasco refine <channel>` on a post channel.** Refine is the
-profile-refinement command; with a `SKILL.md` present it now resolves the file (it
-used to answer "no skill yet") and emits a **profile** task that saves to
-`profiles/<channel>/variants/<id>.md` — not a post workflow. The path for these
-channels is `pasco post` with `longform.yaml`. Teaching the engine to tell a
-profile skill from a post skill is a separate engine matter, not something a
-skill can fix. (`checks.yaml` is not the cause: `pasco check` reads that catalog
-and reports "no catalog" without failing when it is missing.)
+**`pasco refine <channel>` reads the PROFILE skill.** For a profile platform —
+`substack` included after #482 — refine resolves `SKILL.md` and emits a profile
+task that saves to `profiles/<channel>/variants/<id>.md`. A post is never
+written by refine: the post path is `pasco post` with `posting.yaml` /
+`longform.yaml`, on every channel. That is why the old warning ("do not use
+refine on a post channel") is gone for `substack` — the slot it warned about was
+the post skill occupying the profile slot. For the remaining long-form channels
+the engine still cannot tell the two apart (their `SKILL.md` documents the post
+channel), so refine there resolves a file that was written for the post;
+separating those two shapes is an engine matter, not something a skill can fix.
+(`checks.yaml` is not the cause: `pasco check` reads that catalog and reports
+"no catalog" without failing when it is missing.)
 
 `longform.yaml` stays the contract: required/optional fields, the word band and
 `export` are declared there, and the prose explains them instead of restating
@@ -106,6 +117,8 @@ their numbers. A channel's *dated* platform sources live in the contract's
 `sources[]`; a claim the contract does not already carry needs its own source
 (URL + date + tier) before it enters either file. The post shape is Markdown
 beside the rule file — not the `research/` + `playbook.md` + `checks.yaml` trio,
-which belongs to the profile skills above.
+which belongs to the profile skills above. `substack` is the one channel that
+carries both: the trio for its profile/publication surface and `post.md` +
+`longform.yaml` for the issue.
 
 Neither shape is projected to harnesses yet — see `docs/post-mvp.md`.
