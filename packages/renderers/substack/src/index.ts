@@ -79,15 +79,19 @@ function linksOf(p: PlatformProfile): string | undefined {
 /**
  * Render the paste sheet from the compile() slice.
  *
- * Two guards keep the sheet honest about WHOSE it is:
+ * Guards that keep the sheet honest:
  *   - `compile()` passes `newsletter` through RAW into every platform slice and
  *     the schema admits `ghost`, so only a `platform: substack` newsletter is
  *     consumed; a Ghost publication must never render a Substack sheet.
  *   - the body fields are the `short` (profile header) and `long` (About) bios.
- *     A lone `medium` row is a declared text too, so it becomes the profile bio
- *     instead of being dropped; a `long` row is not duplicated into the header.
+ *     A lone `medium` row is a declared text too, so it becomes the profile bio;
+ *     with `short`+`medium` (no `long`) the `medium` row becomes About, so no
+ *     declared body is dropped and none is duplicated.
+ *   - the empty guard looks at the EMITTED text, not at the presence of a row: a
+ *     whitespace-only bio (schema-legal `min(1)`) must not produce a header-only
+ *     sheet.
  *
- * A workspace with no substack bio row AND no substack `newsletter` block yields
+ * A workspace with no substack body and no substack `newsletter` block yields
  * `""` (unbuild, §15.1) — the sheet would carry only the header, which is not a
  * deployable artifact.
  */
@@ -96,10 +100,13 @@ export function render(p: PlatformProfile): RenderResult {
   const shortBio = p.bios.find((bio) => bio.length === "short");
   const mediumBio = p.bios.find((bio) => bio.length === "medium");
   const longBio = p.bios.find((bio) => bio.length === "long");
+  // `short` is the profile-header field; a lone `medium` is promoted so no
+  // declared text is lost. `long` (or, when there is no `long`, the `medium`
+  // left over next to a `short`) is the About body.
   const profileBio = shortBio ?? (longBio === undefined ? mediumBio : undefined);
-  if (profileBio === undefined && longBio === undefined && newsletter === undefined) {
-    return { text: "" };
-  }
+  const aboutBio = longBio ?? (shortBio !== undefined ? mediumBio : undefined);
+  const hasBio = (profileBio?.text.trim() ?? "") !== "" || (aboutBio?.text.trim() ?? "") !== "";
+  if (!hasBio && newsletter === undefined) return { text: "" };
 
   const handle = handleOf(p);
   const lines = [
@@ -107,7 +114,7 @@ export function render(p: PlatformProfile): RenderResult {
     field("Handle", handle === undefined ? undefined : `@${handle}`),
     field("Display name", p.identity.name),
     field("Bio (profile)", profileBio?.text),
-    field("About", longBio?.text),
+    field("About", aboutBio?.text),
     field("Links", linksOf(p)),
     field("Publication", newsletter === undefined ? undefined : textOf(newsletter.name, p.lang)),
     field(

@@ -174,14 +174,21 @@ export function runRefine(args: RefineArgs): number {
   // (`substack` is one slug over profile + publication), so the task carries it
   // instead of making the agent rediscover `content/newsletter.yaml`. The two
   // langMaps resolve with the same `textOf` rule as `role`; absent => "—".
+  // #483: `compile()` passes `newsletter` raw into EVERY slice, so only the slice
+  // whose platform owns the block may show it — a task for Linkedin must not list
+  // a Ghost publication (the renderer applies the same guard).
+  const ownedNewsletter =
+    slice.newsletter !== undefined && slice.newsletter.platform === platform
+      ? slice.newsletter
+      : undefined;
   const newsletter =
-    slice.newsletter === undefined
+    ownedNewsletter === undefined
       ? "—"
       : [
-          textOf(slice.newsletter.name, lang),
-          textOf(slice.newsletter.description, lang),
-          slice.newsletter.cadence,
-          slice.newsletter.url,
+          textOf(ownedNewsletter.name, lang),
+          textOf(ownedNewsletter.description, lang),
+          ownedNewsletter.cadence,
+          ownedNewsletter.url,
         ]
           .filter((part) => part !== undefined && part !== "")
           .join(" | ");

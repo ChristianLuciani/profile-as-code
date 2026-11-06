@@ -168,6 +168,31 @@ describe("pasco refine substack — the profile/publication task (#482)", () => 
     expect(without.stdout).toContain("newsletter: —");
   });
 
+  it("never lists another platform's newsletter in the task (#483)", () => {
+    // `compile()` passes `newsletter` raw into every slice; a Substack task must
+    // not hand the agent a Ghost publication, and the Ghost task must keep it.
+    const dir = substackWorkspace("A profile bio.", 180);
+    writeFileSync(
+      join(dir, "content", "newsletter.yaml"),
+      [
+        "platform: ghost",
+        "url: https://notes.elena.dev",
+        "name:",
+        "  en: Ghost publication",
+        "",
+      ].join("\n"),
+    );
+    const substack = run(["refine", "substack", "--workspace", dir]);
+    expect(substack.code).toBe(0);
+    expect(substack.stdout).toContain("newsletter: —");
+    expect(substack.stdout).not.toContain("notes.elena.dev");
+    expect(substack.stdout).not.toContain("Ghost publication");
+    const ghost = run(["refine", "ghost", "--workspace", dir]);
+    expect(ghost.code).toBe(0);
+    expect(ghost.stdout).toContain("Ghost publication");
+    expect(ghost.stdout).toContain("https://notes.elena.dev");
+  });
+
   it("keeps the post judgment and its refine note in post.md", () => {
     const post = readFileSync(join(SKILL_DIR, "post.md"), "utf8");
     // The post flow is still here (the criterion is "post.md conserves it").

@@ -54,6 +54,7 @@ import { relative } from "node:path";
 import { projectArtifact } from "@profile-as-code/artifact";
 import type { Lang, LoadedProfile, Platform } from "@profile-as-code/core";
 import { PLATFORMS } from "@profile-as-code/core";
+import { RENDERERS } from "./generated/renderers.gen.js";
 import {
   artifactPath,
   candidateLangs,
@@ -112,9 +113,11 @@ export interface FactPresentReport {
  * that already exist — is what makes "not built yet" expressible.
  *
  * #483: a `newsletter` block is a body of its own — the Substack sheet exists
- * with a publication and no bio row — so its platform is a targeted surface too.
- * Without it, `pasco check`/`pasco audit` would report `declared: []` for a
- * workspace whose artifact `build` demonstrably wrote.
+ * with a publication and no bio row — so its platform is a targeted surface too,
+ * but ONLY when that platform can actually produce an artifact (a renderer owns
+ * it). A `ghost` newsletter has no renderer and no bio row, so it cannot build;
+ * targeting it would leave a permanent `notRun` whose advice ("run pasco build")
+ * can never be satisfied. "Targeted" means buildable.
  */
 export function targetedSurfaces(profile: LoadedProfile): string[] {
   const surfaces = new Set<string>();
@@ -123,7 +126,9 @@ export function targetedSurfaces(profile: LoadedProfile): string[] {
   for (const key of Object.keys(profile.active ?? {})) surfaces.add(key);
   for (const key of Object.keys(profile.keywords?.seo ?? {})) surfaces.add(key);
   for (const handle of profile.socialHandles ?? []) surfaces.add(handle.platform);
-  if (profile.newsletter !== undefined) surfaces.add(profile.newsletter.platform);
+  if (profile.newsletter !== undefined && RENDERERS[profile.newsletter.platform] !== undefined) {
+    surfaces.add(profile.newsletter.platform);
+  }
   return [...surfaces]
     .filter((surface) => (PLATFORMS as readonly string[]).includes(surface))
     .sort();

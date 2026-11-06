@@ -210,4 +210,35 @@ name:
     expect(text).not.toContain("About:");
     expect(text).not.toBe("# Substack — Elena Vasquez (en)\nDisplay name: Elena Vasquez\n");
   });
+
+  it("publishes a short+medium pair as Bio + About, losing no declared text", () => {
+    // There is no `long` row, so the `medium` text is the only body left: it
+    // becomes About instead of being silently dropped (the pre-#483 paste
+    // source would have published it).
+    const dir = workspace({
+      "identity.yaml": IDENTITY,
+      "bios.yaml": `- platform: substack
+  lang: en
+  length: short
+  text: Header bio.
+- platform: substack
+  lang: en
+  length: medium
+  text: The medium body.
+`,
+    });
+    const text = render(compile(load(dir), "substack", "en")).text;
+    expect(text).toContain("Bio (profile): Header bio.");
+    expect(text).toContain("About: The medium body.");
+  });
+
+  it("unbuilds on a whitespace-only bio: the guard reads the text, not the row", () => {
+    // `min(1)` admits "   "; the sheet's `field()` trims it away, so a guard on
+    // row presence would leave a header-only artifact.
+    const dir = workspace({
+      "identity.yaml": IDENTITY,
+      "bios.yaml": '- platform: substack\n  lang: en\n  length: short\n  text: "   "\n',
+    });
+    expect(render(compile(load(dir), "substack", "en")).text).toBe("");
+  });
 });

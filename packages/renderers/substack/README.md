@@ -43,7 +43,9 @@ Canonical: <newsletter.url>
 - **Bio (profile)** and **About** read the `short` and `long` rows that
   `compile()` already filtered by exact platform+lang (bio rows do not fall back
   to `en`). A lone `medium` row — legal, and the shape several fixtures use — is
-  promoted to **Bio (profile)** so a declared text is never dropped.
+  promoted to **Bio (profile)**; with `short`+`medium` (no `long`) the `medium`
+  row becomes **About**, so a declared body is never dropped and none is
+  duplicated.
 - **Publication** and **Short description** are RAW langMaps on the slice;
   they are resolved with core's `textOf(..., lang)` (#415), which owns the
   `es`→`en` fallback. The renderer never re-implements it. Only a

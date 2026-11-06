@@ -90,8 +90,9 @@ first.
 ## Structure (two bodies, one voice)
 
 1. **Profile — header.** Display name (`identity.name`), bio (the `short` row of
-   `bios`; a lone `medium` row is promoted when neither `short` nor `long`
-   exists), links (from `identity.links`), photo (pointer from `identity.photo`;
+   `bios`; a `medium` row is promoted to Bio when neither `short` nor `long`
+   exists, and to About when it pairs with a `short`), links (from
+   `identity.links`), photo (pointer from `identity.photo`;
    the upload/crop is manual). The Posts tab shows the publication's posts unless
    the publication is in private mode (SOTA-2026 §1).
 2. **Publication — name and one-liner.** Publication name (`newsletter.name`),

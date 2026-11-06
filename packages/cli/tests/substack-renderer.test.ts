@@ -208,6 +208,29 @@ describe("pasco build substack — the paste sheet (issue #483)", () => {
     expect(audit.data.scope.checked).toContain("substack");
   });
 
+  it("does not target a newsletter platform that cannot build (#483)", () => {
+    // `targetedSurfaces` means BUILDABLE: a Ghost newsletter has no renderer and
+    // no substack bio, so naming it would leave a permanent `notRun` whose advice
+    // ("run pasco build") can never be satisfied.
+    const ws = mkdtempSync(join(tmpdir(), "pasco-substack-ghost-scope-"));
+    created.push(ws);
+    mkdirSync(join(ws, "content"), { recursive: true });
+    writeFileSync(join(ws, "content", "identity.yaml"), "name: Elena Vasquez\n");
+    writeFileSync(
+      join(ws, "content", "newsletter.yaml"),
+      "platform: ghost\nurl: https://notes.elena.dev\n",
+    );
+    writeFileSync(
+      join(ws, "content", "checks.yaml"),
+      "- platform: all\n  rule: fact-present\n  value: true\n",
+    );
+    const check = JSON.parse(run(["check", "--json", "--workspace", ws]).stdout) as {
+      data: { factPresent: { declared: string[]; notRun: string[] } };
+    };
+    expect(check.data.factPresent.declared).not.toContain("ghost");
+    expect(check.data.factPresent.notRun).not.toContain("ghost");
+  });
+
   it("records the manual deploy with the existing ledger shape", () => {
     const ws = fixtureWorkspace();
     expect(run(["build", "substack", "--workspace", ws]).code).toBe(0);
