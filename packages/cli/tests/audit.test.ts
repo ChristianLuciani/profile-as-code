@@ -24,7 +24,12 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { load } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
-import { AUDIT_SCHEMA_VERSION, AUDIT_SCOPE_KEYS, factRef, runAudit } from "../src/commands/audit.js";
+import {
+  AUDIT_SCHEMA_VERSION,
+  AUDIT_SCOPE_KEYS,
+  factRef,
+  runAudit,
+} from "../src/commands/audit.js";
 import { runBuild } from "../src/commands/build.js";
 import { runCheck } from "../src/commands/check.js";
 import { runValidate } from "../src/commands/validate.js";
