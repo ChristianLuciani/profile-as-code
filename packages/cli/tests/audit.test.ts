@@ -24,7 +24,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { load } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
-import { AUDIT_SCHEMA_VERSION, factRef, runAudit } from "../src/commands/audit.js";
+import { AUDIT_SCHEMA_VERSION, AUDIT_SCOPE_KEYS, factRef, runAudit } from "../src/commands/audit.js";
 import { runBuild } from "../src/commands/build.js";
 import { runCheck } from "../src/commands/check.js";
 import { runValidate } from "../src/commands/validate.js";
@@ -155,13 +155,10 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
     expect(code).toBe(0);
     const report = data as { schemaVersion: string; scope: Scope; findings: Finding[] };
     expect(Object.keys(report).sort()).toEqual(["findings", "schemaVersion", "scope"]);
-    expect(Object.keys(report.scope).sort()).toEqual([
-      "catalog",
-      "checked",
-      "declared",
-      "notBuildable",
-      "notRun",
-    ]);
+    // The runtime payload and the single key-set source must agree in both
+    // directions: a bucket dropped from `AUDIT_SCOPE_KEYS` (and its docs) fails
+    // here because the engine still emits it (#490 review).
+    expect(Object.keys(report.scope).sort()).toEqual([...AUDIT_SCOPE_KEYS].sort());
     expect(report.schemaVersion).toBe("2");
     expect(report.schemaVersion).toBe(AUDIT_SCHEMA_VERSION);
     expect(report.findings).toHaveLength(1);
