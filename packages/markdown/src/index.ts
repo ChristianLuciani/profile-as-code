@@ -41,8 +41,9 @@
  *
  * Used by EVERY markdown destination a renderer emits from a SSOT URL: badges,
  * project links, evidence sources, DOI hrefs, credential `verifyUrl`s, artifact
- * url locators (issue #73), brand handles/newsletter/podcast/press/logo
- * (issue #75), asset targets (M8/§18.6) and the contact email (v1.5/#71). It is
+ * url locators (issue #73), social handles, publication blocks
+ * (`newsletter`/`podcast`), `press`, `logo` (issue #75), asset targets
+ * (M8/§18.6) and the contact email (v1.5/#71). It is
  * NOT for filesystem-facing surfaces: the manifest and the renderer's declared
  * asset target keep the RAW path (they address the file; the href addresses the
  * URL on the deploy surface).

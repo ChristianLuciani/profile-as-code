@@ -88,7 +88,7 @@ export function compile(
     if (text !== undefined) audiences[name] = text;
   }
 
-  // Brand blocks (v1.1/§17): text is lang-filtered (falling back to en), facts
+  // Brand audiences (v1.1/§17): text is lang-filtered (falling back to en), facts
   // (urls, dates, status) pass through untouched.
   const brandAudiences: Record<string, string> = {};
   for (const [name, map] of Object.entries(profile.audiences ?? {})) {
