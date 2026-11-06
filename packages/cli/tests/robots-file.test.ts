@@ -9,9 +9,9 @@
  *   2. a file with the two lists swapped FAILS, one finding per crawler: that is
  *      the case a structural gate passes green, and the whole reason this
  *      command exists;
- *   3. each detection has its own finding kind — absent, duplicated, in the
- *      group that states the opposite rule, a wildcard group, a rule no group
- *      owns — never a generic "invalid robots.txt";
+ *   3. each detection has its own finding kind — absent, duplicated, a group
+ *      whose EFFECTIVE access contradicts the crawler's family, a wildcard
+ *      group, a rule no group owns — never a generic "invalid robots.txt";
  *   4. parsing is RFC 9309 §2.2: a `User-agent` line after a group's rules starts
  *      a new group, before them it joins the group; `#` starts a comment; an
  *      unknown record (`Sitemap`) does not terminate a group; a rule before the
@@ -192,6 +192,16 @@ describe("verifyRobotsFile — the agent↔group map", () => {
     const findings = verifyRobotsFile(parseRobots(text), AI_CRAWLERS);
     expect(findings.map((finding) => finding.kind)).toEqual(["wildcard"]);
     expect(findings[0]?.entry).toBe("*");
+  });
+
+  it("a rules-less wildcard group is reported as a shape, not as a restriction", () => {
+    // Round-4 F2: the finding claimed the wildcard "restricts every crawler the
+    // list does not name", but a group with no rule restricts nothing (§2.2.2).
+    const text = `User-agent: *\n\n${correct}`;
+    const findings = verifyRobotsFile(parseRobots(text), AI_CRAWLERS);
+    expect(findings.map((finding) => finding.kind)).toEqual(["wildcard"]);
+    expect(findings[0]?.detail).toContain("restricts nothing today");
+    expect(findings[0]?.detail).not.toContain("restricts every crawler");
   });
 
   it("fails `Allow: /` under the training crawlers and `Disallow: /` under retrieval", () => {

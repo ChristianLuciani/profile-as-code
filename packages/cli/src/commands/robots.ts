@@ -51,9 +51,9 @@ export interface RobotsFile {
  */
 export type RobotsFindingKind =
   | "missing" // a registry crawler is in no group
-  | "duplicate" // the same token in two groups (RFC merges them — contradictory posture)
-  | "wrong-group" // the crawler's group states the opposite rule for "/"
-  | "wildcard" // a `User-agent: *` group: the policy is an explicit list
+  | "duplicate" // one token in two groups: the file no longer maps it to a single family
+  | "wrong-group" // the crawler's EFFECTIVE access to "/" contradicts its family
+  | "wildcard" // a `User-agent: *` group: the policy is an explicit list, not a wildcard
   | "orphan-rule"; // a rule with no group, which crawlers ignore
 
 export interface RobotsFinding {
@@ -216,7 +216,7 @@ export function verifyRobotsFile(
     findings.push({
       kind: "wildcard",
       entry: "*",
-      detail: `line ${group.line} — a \`User-agent: *\` group restricts every crawler the list does not name; the policy is an explicit list, never a wildcard`,
+      detail: `line ${group.line} — a \`User-agent: *\` group makes every crawler the list does not name a subject of this file; the policy is an explicit list. A wildcard group with no rule for \`/\` restricts nothing today, but the next rule under it would apply to all of them`,
     });
   }
 

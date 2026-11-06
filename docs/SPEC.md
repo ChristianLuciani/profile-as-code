@@ -787,8 +787,8 @@ the matching groups, so the posture can no longer be read off a single family),
 `wrong-group` (the crawler's **effective access** to `/` contradicts its family: a
 retrieval crawler that is blocked, or a training crawler that is allowed or
 unrestricted — the swapped-lists case produces one per crawler), `wildcard` (a
-`User-agent: *` group, which restricts every crawler the explicit list does not
-name) and `orphan-rule` (a rule no group owns). Findings are ordered: the
+`User-agent: *` group, which makes every crawler the explicit list does not name a
+subject of the file) and `orphan-rule` (a rule no group owns). Findings are ordered: the
 registry's crawler order first, then the structural ones in file order.
 
 The comparison is on **effective access, not on the rule text**: under §2.2.2 a URI
@@ -1088,7 +1088,7 @@ and therefore the same promise.
 
 **Exit matrix.** `0` ok · `1` the workspace fails to load (schema/ledger/registry —
 D12) or `--now` is malformed · `2` usage (unknown `export` subcommand, or the
-`ai-policy`-only `--out`/`--check`/`--force`/`--lang` flags). Human mode prints a
+`ai-policy`-only `--out`/`--check`/`--file`/`--force`/`--lang` flags). Human mode prints a
 summary of the same object; `--json` is the contract.
 
 **Not here.** The `.pascorc` engine-version gate and `pasco doctor` are §7.6; the
