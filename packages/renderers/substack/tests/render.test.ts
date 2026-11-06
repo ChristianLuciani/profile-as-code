@@ -241,4 +241,50 @@ name:
     });
     expect(render(compile(load(dir), "substack", "en")).text).toBe("");
   });
+
+  it("does not let a whitespace-only row shadow a real body", () => {
+    // A blank `long` must not hide the `medium` that is the only real text, and
+    // a blank row must not satisfy the empty guard: selection and the guard read
+    // the same trimmed text.
+    const dir = workspace({
+      "identity.yaml": IDENTITY,
+      "bios.yaml": `- platform: substack
+  lang: en
+  length: medium
+  text: The medium body.
+- platform: substack
+  lang: en
+  length: long
+  text: "   "
+`,
+    });
+    const text = render(compile(load(dir), "substack", "en")).text;
+    expect(text).toContain("Bio (profile): The medium body.");
+    expect(text).not.toContain("About:");
+  });
+
+  it("does not publish the middle row when short+medium+long all exist", () => {
+    // The sheet has exactly two body fields: short → Bio, long → About. The
+    // `medium` row is the middle variant and stays unpublished (documented).
+    const dir = workspace({
+      "identity.yaml": IDENTITY,
+      "bios.yaml": `- platform: substack
+  lang: en
+  length: short
+  text: Header bio.
+- platform: substack
+  lang: en
+  length: medium
+  text: The middle row.
+- platform: substack
+  lang: en
+  length: long
+  text: The long body.
+`,
+    });
+    const text = render(compile(load(dir), "substack", "en")).text;
+    expect(text).toContain("Bio (profile): Header bio.");
+    expect(text).toContain("About: The long body.");
+    expect(text).not.toContain("The middle row.");
+  });
 });

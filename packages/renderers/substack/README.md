@@ -44,8 +44,10 @@ Canonical: <newsletter.url>
   `compile()` already filtered by exact platform+lang (bio rows do not fall back
   to `en`). A lone `medium` row — legal, and the shape several fixtures use — is
   promoted to **Bio (profile)**; with `short`+`medium` (no `long`) the `medium`
-  row becomes **About**, so a declared body is never dropped and none is
-  duplicated.
+  row becomes **About**. When all three lengths exist, `medium` is the middle
+  variant and stays unpublished (the sheet has exactly two body fields). A
+  whitespace-only row is absent, so it neither shadows a real row nor satisfies
+  the empty guard.
 - **Publication** and **Short description** are RAW langMaps on the slice;
   they are resolved with core's `textOf(..., lang)` (#415), which owns the
   `es`→`en` fallback. The renderer never re-implements it. Only a

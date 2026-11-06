@@ -231,6 +231,30 @@ describe("pasco build substack — the paste sheet (issue #483)", () => {
     expect(check.data.factPresent.notRun).not.toContain("ghost");
   });
 
+  it("does not declare a socialHandle-only surface in check (#483, the escalated class)", () => {
+    // The ESCALATE(2) repro: a claimed `x` handle is a curated row, but x has no
+    // renderer and no bio, so `pasco build x` can never write an artifact. With a
+    // `platform: all` catalog row the old scope declared it and reported a
+    // permanent `notRun`.
+    const ws = mkdtempSync(join(tmpdir(), "pasco-substack-xhandle-scope-"));
+    created.push(ws);
+    mkdirSync(join(ws, "content"), { recursive: true });
+    writeFileSync(join(ws, "content", "identity.yaml"), "name: Elena Vasquez\n");
+    writeFileSync(
+      join(ws, "content", "socialHandles.yaml"),
+      "- platform: x\n  handle: elena\n  status: claimed\n",
+    );
+    writeFileSync(
+      join(ws, "content", "checks.yaml"),
+      "- platform: all\n  rule: fact-present\n  value: true\n",
+    );
+    const check = JSON.parse(run(["check", "--json", "--workspace", ws]).stdout) as {
+      data: { factPresent: { declared: string[]; notRun: string[] } };
+    };
+    expect(check.data.factPresent.declared).not.toContain("x");
+    expect(check.data.factPresent.notRun).not.toContain("x");
+  });
+
   it("records the manual deploy with the existing ledger shape", () => {
     const ws = fixtureWorkspace();
     expect(run(["build", "substack", "--workspace", ws]).code).toBe(0);

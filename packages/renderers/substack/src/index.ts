@@ -97,15 +97,19 @@ function linksOf(p: PlatformProfile): string | undefined {
  */
 export function render(p: PlatformProfile): RenderResult {
   const newsletter = p.newsletter?.platform === "substack" ? p.newsletter : undefined;
-  const shortBio = p.bios.find((bio) => bio.length === "short");
-  const mediumBio = p.bios.find((bio) => bio.length === "medium");
-  const longBio = p.bios.find((bio) => bio.length === "long");
+  // Selection reads the EMITTED text, not the row's presence: a schema-legal
+  // whitespace-only row is absent for this sheet, so it must not shadow a real
+  // `medium` row or satisfy the empty guard.
+  const bodies = p.bios.filter((bio) => bio.text.trim() !== "");
+  const shortBio = bodies.find((bio) => bio.length === "short");
+  const mediumBio = bodies.find((bio) => bio.length === "medium");
+  const longBio = bodies.find((bio) => bio.length === "long");
   // `short` is the profile-header field; a lone `medium` is promoted so no
   // declared text is lost. `long` (or, when there is no `long`, the `medium`
   // left over next to a `short`) is the About body.
   const profileBio = shortBio ?? (longBio === undefined ? mediumBio : undefined);
   const aboutBio = longBio ?? (shortBio !== undefined ? mediumBio : undefined);
-  const hasBio = (profileBio?.text.trim() ?? "") !== "" || (aboutBio?.text.trim() ?? "") !== "";
+  const hasBio = profileBio !== undefined || aboutBio !== undefined;
   if (!hasBio && newsletter === undefined) return { text: "" };
 
   const handle = handleOf(p);
