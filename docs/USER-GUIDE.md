@@ -204,7 +204,9 @@ workspace failure (or a data finding that blocks the command — `pasco edit` ex
 validation refuses the write, or the preview does not change the published
 artifact, `pasco audit` exits `1` on a `FAIL` finding, `pasco entity` exits `1`
 when the entity has no declared `@id`, `pasco export ai-policy` exits `1` on an
-unsourced or stale crawler list or a refused write, and `pasco cite-check` exits
+unsourced or stale crawler list, on a `--check --file <robots.txt>` whose
+agent↔group map disagrees with the registry (one finding per crawler) or whose file
+cannot be read, or on a refused write, and `pasco cite-check` exits
 `1` when the workspace or its input path cannot be read) · `2` usage error (for
 `pasco cite-check`, malformed NDJSON is `2` too — a silent skip would change the
 rate it exists to measure). `pasco status --help` covers the deploy
