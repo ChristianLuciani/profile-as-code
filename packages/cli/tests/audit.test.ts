@@ -128,12 +128,14 @@ interface Scope {
   declared: string[];
   checked: string[];
   notRun: string[];
+  notBuildable: string[];
 }
 
 interface FactPresent {
   declared: string[];
   checked: string[];
   notRun: string[];
+  notBuildable: string[];
   findings: Finding[];
 }
 
@@ -153,8 +155,14 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
     expect(code).toBe(0);
     const report = data as { schemaVersion: string; scope: Scope; findings: Finding[] };
     expect(Object.keys(report).sort()).toEqual(["findings", "schemaVersion", "scope"]);
-    expect(Object.keys(report.scope).sort()).toEqual(["catalog", "checked", "declared", "notRun"]);
-    expect(report.schemaVersion).toBe("1");
+    expect(Object.keys(report.scope).sort()).toEqual([
+      "catalog",
+      "checked",
+      "declared",
+      "notBuildable",
+      "notRun",
+    ]);
+    expect(report.schemaVersion).toBe("2");
     expect(report.schemaVersion).toBe(AUDIT_SCHEMA_VERSION);
     expect(report.findings).toHaveLength(1);
     const [finding] = report.findings;
@@ -453,6 +461,7 @@ describe("fact-present — the surface's facts vs the SSOT (issue #283)", () => 
       declared: ["github-readme"],
       checked: [],
       notRun: ["github-readme"],
+      notBuildable: [],
     });
     // The human output states it instead of looking like a clean audit.
     const humanRun = human(() => runAudit({ workspace: ws, pascorc: PASCO }));
@@ -469,7 +478,13 @@ describe("fact-present — the surface's facts vs the SSOT (issue #283)", () => 
         "- platform: linkedin\n  lang: en\n  length: short\n  text: Sovereign AI infrastructure.\n",
     });
     const bare = (audit(ws).data as { scope: Scope }).scope;
-    expect(bare).toEqual({ catalog: "shipped", declared: [], checked: [], notRun: [] });
+    expect(bare).toEqual({
+      catalog: "shipped",
+      declared: [],
+      checked: [],
+      notRun: [],
+      notBuildable: [],
+    });
 
     // The union: the workspace's OWN catalog can declare the premise for linkedin.
     writeFileSync(
@@ -481,6 +496,22 @@ describe("fact-present — the surface's facts vs the SSOT (issue #283)", () => 
     expect(declared.declared).toEqual(["linkedin"]);
     expect(declared.checked).toEqual([]);
     expect(declared.notRun).toEqual(["linkedin"]);
+    // A bio row makes it buildable: the artifact is missing, not impossible (#490).
+    expect(declared.notBuildable).toEqual([]);
+  });
+
+  it("distinguishes 'not built yet' from 'not buildable' (#490, audit v2)", () => {
+    // `github-org` on a person: the catalog declares the premise and the bio
+    // curates the surface, but this workspace never renders it — the build can
+    // never satisfy "run pasco build", so the reason must say so.
+    const ws = workspace({
+      "identity.yaml": "name: Elena Vasquez\n",
+      "bios.yaml": "- platform: github-org\n  lang: en\n  length: short\n  text: Org bio.\n",
+    });
+    const report = (audit(ws).data as { scope: Scope }).scope;
+    expect(report.declared).toContain("github-org");
+    expect(report.notRun).toContain("github-org");
+    expect(report.notBuildable).toContain("github-org");
   });
 
   it("names the reason the scope is empty and never suggests a step already done (#397)", () => {

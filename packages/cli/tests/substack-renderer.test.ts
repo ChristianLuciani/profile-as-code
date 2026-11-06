@@ -178,6 +178,60 @@ describe("pasco build substack — the paste sheet (issue #483)", () => {
     expect(artifact).not.toContain("About:");
   });
 
+  it("scopes check and audit to a newsletter-only artifact (#483)", () => {
+    // The sheet exists with a publication and no bio row: the newsletter block is
+    // a curated body, so `targetedSurfaces` must include its platform or check
+    // reports `declared: []` for a file `build` demonstrably wrote.
+    const ws = mkdtempSync(join(tmpdir(), "pasco-substack-newsletter-only-"));
+    created.push(ws);
+    mkdirSync(join(ws, "content"), { recursive: true });
+    writeFileSync(
+      join(ws, "content", "identity.yaml"),
+      "name: Elena Vasquez\nhandle: elenavasquez\n",
+    );
+    writeFileSync(
+      join(ws, "content", "newsletter.yaml"),
+      "platform: substack\nurl: https://elenavasquez.substack.com\nname:\n  en: Notes on Sovereign AI\n",
+    );
+    expect(run(["build", "substack", "--workspace", ws]).code).toBe(0);
+
+    const check = JSON.parse(run(["check", "--json", "--workspace", ws]).stdout) as {
+      data: { factPresent: { declared: string[]; checked: string[]; notBuildable: string[] } };
+    };
+    expect(check.data.factPresent.declared).toContain("substack");
+    expect(check.data.factPresent.checked).toContain("substack");
+    expect(check.data.factPresent.notBuildable).toEqual([]);
+
+    const audit = JSON.parse(run(["audit", "--json", "--workspace", ws]).stdout) as {
+      data: { scope: { declared: string[]; checked: string[]; notBuildable: string[] } };
+    };
+    expect(audit.data.scope.declared).toContain("substack");
+    expect(audit.data.scope.checked).toContain("substack");
+    expect(audit.data.scope.notBuildable).toEqual([]);
+  });
+
+  it("says 'not buildable' instead of offering a build that cannot help (#490)", () => {
+    // A substack headline with no bio and no newsletter: the surface is curated
+    // and the catalog declares the premise, but the renderer returns "" — the
+    // build can never produce the artifact, so "run pasco build" would be a lie.
+    const ws = mkdtempSync(join(tmpdir(), "pasco-substack-not-buildable-"));
+    created.push(ws);
+    mkdirSync(join(ws, "content"), { recursive: true });
+    writeFileSync(join(ws, "content", "identity.yaml"), "name: Elena Vasquez\n");
+    writeFileSync(
+      join(ws, "content", "headlines.yaml"),
+      "- platform: substack\n  lang: en\n  text: A headline with no body.\n",
+    );
+    const json = JSON.parse(run(["check", "substack", "--json", "--workspace", ws]).stdout) as {
+      data: { factPresent: { notRun: string[]; notBuildable: string[] } };
+    };
+    expect(json.data.factPresent.notRun).toContain("substack");
+    expect(json.data.factPresent.notBuildable).toContain("substack");
+    const human = run(["check", "substack", "--workspace", ws]);
+    expect(human.stdout).toContain("not buildable: substack");
+    expect(human.stdout).not.toContain("not run: substack — no artifact on disk");
+  });
+
   it("records the manual deploy with the existing ledger shape", () => {
     const ws = fixtureWorkspace();
     expect(run(["build", "substack", "--workspace", ws]).code).toBe(0);

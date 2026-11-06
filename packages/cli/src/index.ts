@@ -469,10 +469,12 @@ measured/attested row with no pointer is unsourced-claim, SPEC §23.3) and
 fact-present (the built surface's facts vs the SSOT render, symmetric; it runs
 only where the catalog declares it).
 Touches no network, and no finding derives from content/deployments.yaml.
---json emits { schemaVersion: "1", scope: { catalog, declared, checked, notRun },
+--json emits { schemaVersion: "2", scope: { catalog, declared, checked, notRun, notBuildable },
 findings: [ { class, severity, path, detail } ] }. scope is the artifact side:
 catalog = shipped | not-shipped (a package without its skills tree cannot declare
-anything, and says so); declared = targeted surfaces whose catalog
+anything, and says so); notBuildable = the notRun subset the build can never
+produce (no body or renderer), so "run pasco build" would be false; declared =
+targeted surfaces whose catalog
 declares fact-present (workspace checks + the shipped skills checks.yaml),
 checked = declared surfaces compared, notRun = declared but no artifact —
 declared: [] or checked: [] means nothing was measured, never "clean". path is a factRef (row id in place
