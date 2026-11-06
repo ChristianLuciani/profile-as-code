@@ -30,15 +30,12 @@
  *
  * Declared v1 limits (stated, never silently absent):
  *   - the scope is the surfaces the profile TARGETS (bios · headlines · active ·
- *     keywords.seo · socialHandles · newsletter, #483) **that also DECLARE the
- *     premise** in their catalog (workspace `content/checks.yaml` ∪ the shipped
+ *     keywords.seo · socialHandles) **that also DECLARE the premise** in their
+ *     catalog (workspace `content/checks.yaml` ∪ the shipped
  *     `skills/<platform>/checks.yaml`) — the rule never runs a premise nobody
- *     declared (#283/F6). "Targeted" means BUILDABLE (#483): a surface enters the
- *     set only when a renderer, a bio row or an active variant gives
- *     `pasco build` a path to an artifact, so a curated handle/keyword/newsletter
- *     on a platform nothing can build is not a permanent `notRun`. A declared set
- *     that is empty is itself reported (`declared: []`), so "measured nothing" is
- *     never indistinguishable from "found nothing";
+ *     declared (#283/F6). A declared surface with no artifact is reported in
+ *     `notRun`; a declared set that is empty is itself reported (`declared: []`),
+ *     so "measured nothing" is never indistinguishable from "found nothing";
  *   - the engine-owned region only, via `projectArtifact` (§19.5) — chrome a user
  *     adds around it is outside the artifact and is not judged;
  *   - the artifact is compared at every contract lang (§11) and the render with the
@@ -57,7 +54,6 @@ import { relative } from "node:path";
 import { projectArtifact } from "@profile-as-code/artifact";
 import type { Lang, LoadedProfile, Platform } from "@profile-as-code/core";
 import { PLATFORMS } from "@profile-as-code/core";
-import { RENDERERS } from "./generated/renderers.gen.js";
 import {
   artifactPath,
   candidateLangs,
@@ -114,33 +110,14 @@ export interface FactPresentReport {
  * for. `pasco build` writes an artifact for exactly these (a platform with no row
  * has nothing to build), so deriving scope from them — instead of from the files
  * that already exist — is what makes "not built yet" expressible.
- *
- * "Targeted" means BUILDABLE (#483): a surface is in scope only when `pasco
- * build` has a path to an artifact for it. Three paths exist — a renderer owns
- * the platform, a bio row feeds the shared paste fallback, or an active variant
- * body is written verbatim. A socialHandle, a keyword row or a newsletter block
- * for a platform with none of those is a curation the engine cannot build, so
- * naming it would leave a permanent `notRun` whose advice ("run pasco build")
- * can never be satisfied. The predicate is shared by every leg so it cannot
- * drift leg by leg (the #483 escalation).
  */
-function buildsArtifact(profile: LoadedProfile, platform: string): boolean {
-  if (RENDERERS[platform] !== undefined) return true;
-  if ((profile.bios ?? []).some((bio) => bio.platform === platform)) return true;
-  return profile.active?.[platform] !== undefined;
-}
-
 export function targetedSurfaces(profile: LoadedProfile): string[] {
   const surfaces = new Set<string>();
-  const add = (platform: string) => {
-    if (buildsArtifact(profile, platform)) surfaces.add(platform);
-  };
-  for (const bio of profile.bios ?? []) add(bio.platform);
-  for (const headline of profile.headlines ?? []) add(headline.platform);
-  for (const key of Object.keys(profile.active ?? {})) add(key);
-  for (const key of Object.keys(profile.keywords?.seo ?? {})) add(key);
-  for (const handle of profile.socialHandles ?? []) add(handle.platform);
-  if (profile.newsletter !== undefined) add(profile.newsletter.platform);
+  for (const bio of profile.bios ?? []) surfaces.add(bio.platform);
+  for (const headline of profile.headlines ?? []) surfaces.add(headline.platform);
+  for (const key of Object.keys(profile.active ?? {})) surfaces.add(key);
+  for (const key of Object.keys(profile.keywords?.seo ?? {})) surfaces.add(key);
+  for (const handle of profile.socialHandles ?? []) surfaces.add(handle.platform);
   return [...surfaces]
     .filter((surface) => (PLATFORMS as readonly string[]).includes(surface))
     .sort();
