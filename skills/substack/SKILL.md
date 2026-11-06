@@ -3,9 +3,11 @@ name: substack-profile
 description: >
   Turns the SSOT facts into Substack's identity-bearing copy: the profile header
   (display name, bio, links) and the publication's textual identity (name, short
-  description, About page body, canonical URL) as one paste sheet. Substack is a
-  paste surface (D9) — no public body-write API — so the artifact `pasco build`
-  produces is what gets pasted, and this skill is the judgment layer. The post
+  description, About page body, canonical URL) as one paste sheet — the target
+  artifact of `pasco build substack` (#483 ships its renderer; until then the
+  build falls back to the `long` bio, see `playbook.md`). Substack is a paste
+  surface (D9) — no public body-write API — so that artifact is what gets pasted,
+  and this skill is the judgment layer. The post
   flow is a different file: `post.md` + `longform.yaml`, driven by `pasco post`.
 model: juicio (frontier) — the profile/publication copy is the judgment; the mechanical fields and the paste steps are not
 applies_to: substack
@@ -22,9 +24,10 @@ sources: skills/substack/research/SOTA-2026.md
 Turn the workspace's FACTS (SSOT) into the **two identity-bearing bodies**
 Substack publishes under one slug — the **profile** (display name, bio, links) and
 the **publication** (name, short description, About page) — as ONE paste sheet
-that agrees with every other surface. Substack is a **paste** platform (D9):
-there is no public body-write API (SOTA-2026 §5), so the artifact `pasco build`
-produces is what gets pasted. This file is the judgment and narrative layer
+(the target artifact; #483 ships the renderer, and until then `pasco build
+substack` writes only the `long` bio) that agrees with every other surface.
+Substack is a **paste** platform (D9): there is no public body-write API
+(SOTA-2026 §5), so the target artifact is what gets pasted. This file is the judgment and narrative layer
 (D4/D5); the post contract lives in `post.md` + `longform.yaml` and is operated
 by `pasco post` — never write post copy from here.
 
@@ -34,9 +37,9 @@ Substack is not one surface but three: **profile** (social identity),
 **publication** (site + newsletter) and **monetization** (subscriptions); a
 fourth layer, **distribution** (Notes, Chat, DMs, recommendations), is where the
 social graph lives and stays out of the identity body (D23). The engine's
-renderer contract is one artifact per platform, so the paste sheet covers the
-**identity-bearing bodies** (profile + publication) and leaves design, billing
-and analytics out (SOTA-2026 §8).
+renderer contract is one artifact per platform, so the target paste sheet
+(#483) covers the **identity-bearing bodies** (profile + publication) and leaves
+design, billing and analytics out (SOTA-2026 §8).
 
 ## Gold rule
 

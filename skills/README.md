@@ -104,10 +104,11 @@ task that saves to `profiles/<channel>/variants/<id>.md`. A post is never
 written by refine: the post path is `pasco post` with `posting.yaml` /
 `longform.yaml`, on every channel. That is why the old warning ("do not use
 refine on a post channel") is gone for `substack` — the slot it warned about was
-the post skill occupying the profile slot. For the remaining long-form channels
-the engine still cannot tell the two apart (their `SKILL.md` documents the post
-channel), so refine there resolves a file that was written for the post;
-separating those two shapes is an engine matter, not something a skill can fix.
+the post skill occupying the profile slot. For every other channel whose
+`SKILL.md` documents a post — the six remaining long-form channels and the short
+`linkedin` and `x` — the engine still cannot tell the two apart, so refine there
+resolves a file that was written for the post; separating those two shapes is an
+engine matter, not something a skill can fix.
 (`checks.yaml` is not the cause: `pasco check` reads that catalog and reports
 "no catalog" without failing when it is missing.)
 

@@ -6,9 +6,9 @@ Surface: the profile (`substack.com/@handle`) plus the publication site
 is manual; the ledger records it with `pasco status --mark`, and the caps are
 soft (see `checks.yaml`).
 
-Substack's UI paths drift: the ones below are the ones the dated sources name
-(`[OFICIAL]` help center where it exists, `[EXPERTO]` settings mirrors where the
-path is only known second-hand), and a path marked `[?]` is reopened at paste
+Substack's UI paths drift: each one below is transcribed from the dated sources
+where the source names it (`[OFICIAL]` help center, `[EXPERTO]` settings mirror),
+and a path the research does not transcribe is marked `[?]` and reopened at paste
 time rather than trusted.
 
 ## Pre-paste
@@ -36,32 +36,35 @@ publication copy is read inside it.
    website links (from `identity.links`), photo upload (the pointer in
    `identity.photo`; cropping is manual). The bio is plain text — the links field
    is where URLs live.
-2. **Publication name** (`Settings → Publication`, `[EXPERTO]`): `newsletter.name`
+2. **Publication name** (`Settings → Publication`, path `[?]` — the setting is
+   `[EXPERTO]` in SOTA-2026 §2.1): `newsletter.name`
    for the language. This is the site title, the email sender label and the
    archive title.
 3. **Short description** (`Settings → Publication Description`; older guides say
    `Settings → Basics`, path drifts `[?]`, `[EXPERTO]`): the `description` of
-   `newsletter`. One line, ~26 words is the editorial default, no documented cap.
-4. **About page** (`Settings → Website → About page`, `[OFICIAL]`): paste the
+   `newsletter`. One line, ~26 words is the editorial default (`[EXPERTO]`,
+   SOTA-2026 §1/§6, fetched 2026-11-05), no documented cap `[?]`.
+4. **About page** (`Settings → Website → About page`, path `[?]` — the page is
+   `[OFICIAL]` in SOTA-2026 §2.1, the path is not transcribed): paste the
    `long` bio as the body, then add the parts that are not SSOT facts but make
    the page usable — cadence (`newsletter.cadence`), what a subscriber gets, and
    the canonical URL. Testimonials, images, video, highlighted posts and offers
    are editorial assembly: they belong to the page, not to the SSOT (§8).
-5. **Hero text / tagline** (optional; `Settings → Website`, `[EXPERTO]`):
+5. **Hero text / tagline** (optional; `Settings → Website`, path `[?]`):
    `identity.tagline` is reusable here, but the hero is publication UI copy —
    do not paste it as a fact claim.
-6. **Welcome email** (`Settings → Emails → Welcome email`, `[EXPERTO]`): subject
+6. **Welcome email** (`Settings → Emails → Welcome email`, path `[?]`): subject
    and body. These are **not SSOT fields** — this is why the step is here. Keep
    the first email consistent with the About's one action (subscribe) and its
    canonical URL; do not introduce a fact the SSOT does not carry.
 7. **Privacy / training toggle** — two separate settings, both account-level
-   (`Settings → Privacy`, and the AI-training protection toggle described in the
+   (`Settings → Privacy`, path `[?]`, and the AI-training protection toggle described in the
    `[OFICIAL]` AI opt-out article, updated 2026-07-08): hide likes / hide Reads,
    private mode, and the robots-level request to third-party AI tools. The
    repo-wide stance is `ai.policy` in `platforms/registry.yaml`; this toggle is
    how the publication applies it. Record what you set — it is not derivable
    from the SSOT.
-8. **Subscribe footer / email from name** (`Settings → Emails`, `[EXPERTO]`):
+8. **Subscribe footer / email from name** (`Settings → Emails`, path `[?]`):
    sender name and footer copy; publication ops, not identity.
 
 ## Fields the renderer cannot paste (why they are steps, not data)

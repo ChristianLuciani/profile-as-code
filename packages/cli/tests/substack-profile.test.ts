@@ -137,6 +137,37 @@ describe("pasco refine substack — the profile/publication task (#482)", () => 
     expect(data.data.template).toContain("of the substack profile");
   });
 
+  it("carries the publication facts into the task — the publication half (#482)", () => {
+    // `substack` is one slug over PROFILE + PUBLICATION: a task that only names
+    // the bio leaves the agent to rediscover `content/newsletter.yaml`. The
+    // fixture is the minimal workspace plus a newsletter block; the task must
+    // print name/description/cadence/url, with the langMap resolved for `--lang`.
+    const dir = substackWorkspace("A profile bio for the header.", 180);
+    writeFileSync(
+      join(dir, "content", "newsletter.yaml"),
+      [
+        "platform: substack",
+        "url: https://example.substack.com",
+        "cadence: weekly",
+        "name:",
+        "  en: Example Weekly",
+        "  es: Ejemplo Semanal",
+        "description:",
+        "  en: Notes on shipping sovereign software.",
+        "  es: Notas sobre software soberano.",
+        "",
+      ].join("\n"),
+    );
+    const res = run(["refine", "substack", "--lang", "es", "--workspace", dir]);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain(
+      "newsletter: Ejemplo Semanal | Notas sobre software soberano. | weekly | https://example.substack.com",
+    );
+    // Absent newsletter is a declared gap, not an invented block.
+    const without = run(["refine", "substack", "--workspace", FIXTURE]);
+    expect(without.stdout).toContain("newsletter: —");
+  });
+
   it("keeps the post judgment and its refine note in post.md", () => {
     const post = readFileSync(join(SKILL_DIR, "post.md"), "utf8");
     // The post flow is still here (the criterion is "post.md conserves it").
