@@ -110,6 +110,11 @@ export interface FactPresentReport {
  * for. `pasco build` writes an artifact for exactly these (a platform with no row
  * has nothing to build), so deriving scope from them — instead of from the files
  * that already exist — is what makes "not built yet" expressible.
+ *
+ * #483: a `newsletter` block is a body of its own — the Substack sheet exists
+ * with a publication and no bio row — so its platform is a targeted surface too.
+ * Without it, `pasco check`/`pasco audit` would report `declared: []` for a
+ * workspace whose artifact `build` demonstrably wrote.
  */
 export function targetedSurfaces(profile: LoadedProfile): string[] {
   const surfaces = new Set<string>();
@@ -118,6 +123,7 @@ export function targetedSurfaces(profile: LoadedProfile): string[] {
   for (const key of Object.keys(profile.active ?? {})) surfaces.add(key);
   for (const key of Object.keys(profile.keywords?.seo ?? {})) surfaces.add(key);
   for (const handle of profile.socialHandles ?? []) surfaces.add(handle.platform);
+  if (profile.newsletter !== undefined) surfaces.add(profile.newsletter.platform);
   return [...surfaces]
     .filter((surface) => (PLATFORMS as readonly string[]).includes(surface))
     .sort();

@@ -79,23 +79,35 @@ function linksOf(p: PlatformProfile): string | undefined {
 /**
  * Render the paste sheet from the compile() slice.
  *
- * A workspace with no substack bio row AND no `newsletter` block yields `""`
- * (unbuild, §15.1) — the sheet would carry only the derived header, which is
- * not a deployable artifact. Either body alone is enough: a publication can
- * exist without a curated bio, and a profile without a publication is the
- * pre-#483 shape.
+ * Two guards keep the sheet honest about WHOSE it is:
+ *   - `compile()` passes `newsletter` through RAW into every platform slice and
+ *     the schema admits `ghost`, so only a `platform: substack` newsletter is
+ *     consumed; a Ghost publication must never render a Substack sheet.
+ *   - the body fields are the `short` (profile header) and `long` (About) bios.
+ *     A lone `medium` row is a declared text too, so it becomes the profile bio
+ *     instead of being dropped; a `long` row is not duplicated into the header.
+ *
+ * A workspace with no substack bio row AND no substack `newsletter` block yields
+ * `""` (unbuild, §15.1) — the sheet would carry only the header, which is not a
+ * deployable artifact.
  */
 export function render(p: PlatformProfile): RenderResult {
-  if (p.bios.length === 0 && p.newsletter === undefined) return { text: "" };
+  const newsletter = p.newsletter?.platform === "substack" ? p.newsletter : undefined;
+  const shortBio = p.bios.find((bio) => bio.length === "short");
+  const mediumBio = p.bios.find((bio) => bio.length === "medium");
+  const longBio = p.bios.find((bio) => bio.length === "long");
+  const profileBio = shortBio ?? (longBio === undefined ? mediumBio : undefined);
+  if (profileBio === undefined && longBio === undefined && newsletter === undefined) {
+    return { text: "" };
+  }
 
-  const newsletter = p.newsletter;
   const handle = handleOf(p);
   const lines = [
     `# Substack — ${p.identity.name} (${p.lang})`,
     field("Handle", handle === undefined ? undefined : `@${handle}`),
     field("Display name", p.identity.name),
-    field("Bio (profile)", p.bios.find((bio) => bio.length === "short")?.text),
-    field("About", p.bios.find((bio) => bio.length === "long")?.text),
+    field("Bio (profile)", profileBio?.text),
+    field("About", longBio?.text),
     field("Links", linksOf(p)),
     field("Publication", newsletter === undefined ? undefined : textOf(newsletter.name, p.lang)),
     field(

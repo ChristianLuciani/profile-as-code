@@ -178,4 +178,36 @@ links:
     expect(text).toContain("Canonical: https://elenavasquez.substack.com");
     expect(text).not.toContain("Bio (profile):");
   });
+
+  it("never renders another platform's newsletter as a Substack publication", () => {
+    // `compile()` passes `newsletter` raw into EVERY slice and the schema admits
+    // `ghost`: without the platform guard a Ghost-only workspace would receive a
+    // Substack sheet asserting a publication it does not host here.
+    const dir = workspace({
+      "identity.yaml": IDENTITY,
+      "newsletter.yaml": `platform: ghost
+url: https://notes.elena.dev
+name:
+  en: Notes on Sovereign AI
+`,
+    });
+    expect(render(compile(load(dir), "substack", "en")).text).toBe("");
+    // And the platform the row DOES belong to keeps its own slice.
+    expect(render(compile(load(dir), "ghost", "en")).text).not.toContain("# Substack");
+  });
+
+  it("promotes a lone medium bio instead of emitting a header-only sheet", () => {
+    // The sheet consumes `short`+`long`; a workspace that declared only a
+    // `medium` row (legal, and the pattern several fixtures use) must not lose
+    // it. Pre-#483 `pasteSource` published it (long>medium>short), so the
+    // renderer keeps that fact in the profile-header line and omits About.
+    const dir = workspace({
+      "identity.yaml": IDENTITY,
+      "bios.yaml": "- platform: substack\n  lang: en\n  length: medium\n  text: The medium bio.\n",
+    });
+    const text = render(compile(load(dir), "substack", "en")).text;
+    expect(text).toContain("Bio (profile): The medium bio.");
+    expect(text).not.toContain("About:");
+    expect(text).not.toBe("# Substack — Elena Vasquez (en)\nDisplay name: Elena Vasquez\n");
+  });
 });

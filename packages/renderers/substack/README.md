@@ -42,16 +42,20 @@ Canonical: <newsletter.url>
   back to `identity.handle`; the leading `@` is stripped and printed once.
 - **Bio (profile)** and **About** read the `short` and `long` rows that
   `compile()` already filtered by exact platform+lang (bio rows do not fall back
-  to `en`).
+  to `en`). A lone `medium` row — legal, and the shape several fixtures use — is
+  promoted to **Bio (profile)** so a declared text is never dropped.
 - **Publication** and **Short description** are RAW langMaps on the slice;
   they are resolved with core's `textOf(..., lang)` (#415), which owns the
-  `es`→`en` fallback. The renderer never re-implements it.
+  `es`→`en` fallback. The renderer never re-implements it. Only a
+  `platform: substack` newsletter is consumed: `compile()` passes the block into
+  every platform slice and the schema admits `ghost`, so a Ghost-only workspace
+  must not receive a Substack sheet.
 - **Links** are `identity.links[].url`, the one URL home (SPEC §15.4) — no
   duplicated or handle-derived URL.
 
-No substack bio row **and** no `newsletter` block → `""`; the build **unbuilds**
-that platform's output and leaves no artifact on disk (§15.1). Either body alone
-is enough to emit the sheet.
+No substack bio row **and** no substack `newsletter` block → `""`; the build
+**unbuilds** that platform's output and leaves no artifact on disk (§15.1).
+Either body alone is enough to emit the sheet.
 
 ## Deploy
 

@@ -143,6 +143,71 @@ describe("pasco build substack — the paste sheet (issue #483)", () => {
     expect(existsSync(join(ws, "profiles", "substack"))).toBe(false);
   });
 
+  it("never claims a newsletter that belongs to another platform", () => {
+    // `newsletter` is one raw block on the profile, admitted for any newsletter
+    // platform; only `platform: substack` may produce this sheet. A Ghost-only
+    // workspace built with no platform argument must not receive one.
+    const ws = mkdtempSync(join(tmpdir(), "pasco-substack-ghost-"));
+    created.push(ws);
+    mkdirSync(join(ws, "content"), { recursive: true });
+    writeFileSync(
+      join(ws, "content", "identity.yaml"),
+      "name: Elena Vasquez\nhandle: elenavasquez\n",
+    );
+    writeFileSync(
+      join(ws, "content", "newsletter.yaml"),
+      "platform: ghost\nurl: https://notes.elena.dev\nname:\n  en: Notes on Sovereign AI\n",
+    );
+    const r = run(["build", "--json", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    expect(existsSync(join(ws, "profiles", "substack", "README.md"))).toBe(false);
+  });
+
+  it("keeps a lone medium bio in the sheet instead of emitting a header-only file", () => {
+    // The sheet reads `short`+`long`; a `medium`-only workspace is legal and
+    // pre-#483 the paste source published it. The profile-header line carries it
+    // so a declared fact never disappears.
+    const ws = emptyWorkspace();
+    writeFileSync(
+      join(ws, "content", "bios.yaml"),
+      "- platform: substack\n  lang: en\n  length: medium\n  text: The medium bio.\n",
+    );
+    expect(run(["build", "substack", "--workspace", ws]).code).toBe(0);
+    const artifact = readFileSync(join(ws, "profiles", "substack", "README.md"), "utf8");
+    expect(artifact).toContain("Bio (profile): The medium bio.");
+    expect(artifact).not.toContain("About:");
+  });
+
+  it("scopes check and audit to a newsletter-only artifact (#483)", () => {
+    // The sheet exists with a publication and no bio row, so `targetedSurfaces`
+    // must include `newsletter.platform`; otherwise check/audit would report
+    // `declared: []` for a file `pasco build` demonstrably wrote.
+    const ws = mkdtempSync(join(tmpdir(), "pasco-substack-newsletter-only-"));
+    created.push(ws);
+    mkdirSync(join(ws, "content"), { recursive: true });
+    writeFileSync(
+      join(ws, "content", "identity.yaml"),
+      "name: Elena Vasquez\nhandle: elenavasquez\n",
+    );
+    writeFileSync(
+      join(ws, "content", "newsletter.yaml"),
+      "platform: substack\nurl: https://elenavasquez.substack.com\nname:\n  en: Notes on Sovereign AI\n",
+    );
+    expect(run(["build", "substack", "--workspace", ws]).code).toBe(0);
+
+    const check = JSON.parse(run(["check", "--json", "--workspace", ws]).stdout) as {
+      data: { factPresent: { declared: string[]; checked: string[] } };
+    };
+    expect(check.data.factPresent.declared).toContain("substack");
+    expect(check.data.factPresent.checked).toContain("substack");
+
+    const audit = JSON.parse(run(["audit", "--json", "--workspace", ws]).stdout) as {
+      data: { scope: { declared: string[]; checked: string[] } };
+    };
+    expect(audit.data.scope.declared).toContain("substack");
+    expect(audit.data.scope.checked).toContain("substack");
+  });
+
   it("records the manual deploy with the existing ledger shape", () => {
     const ws = fixtureWorkspace();
     expect(run(["build", "substack", "--workspace", ws]).code).toBe(0);
