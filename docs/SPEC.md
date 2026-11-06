@@ -474,9 +474,11 @@ nothing"); `declared` are the
 targeted surfaces whose catalog declares the `fact-present` premise, `checked` the
 declared surfaces whose built artifact was compared, `notRun` the declared ones with
 no artifact on disk or no renderer for the flavor, and `notBuildable` the subset of
-`notRun` for which the same resolver `build` uses produces no non-blank body at any
-contract lang (a curated handle or keyword with no bio, `github-org` on a person,
-a renderer that returns empty). `declared: []` means the premise
+`notRun` for which the same `renderArtifact` decision tree `build` executes
+produces `""` at every contract lang (a curated handle or keyword with no bio,
+`github-org` on a person, a renderer that returns empty). The emptiness rule is
+the build's own: `text === ""` unbuilds, so a schema-legal whitespace-only body
+writes bytes and is **buildable**, never `notBuildable`. `declared: []` means the premise
 is not declared anywhere (nothing to measure by contract); `checked: []` means a
 declared premise measured nothing. Either way **nothing was measured** — it is the
 field that makes an empty audit distinguishable from a clean one, and the human

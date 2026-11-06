@@ -288,6 +288,14 @@ describe("the README's frozen audit example tracks the engine version (#490)", (
       scope: Record<string, unknown>;
     };
     expect(example.schemaVersion).toBe(AUDIT_SCHEMA_VERSION);
-    expect(example.scope).toHaveProperty("notBuildable");
+    // Every bucket, not just the new one: a bucket dropped from the example would
+    // silently stop documenting a frozen field.
+    expect(Object.keys(example.scope).sort()).toEqual([
+      "catalog",
+      "checked",
+      "declared",
+      "notBuildable",
+      "notRun",
+    ]);
   });
 });
