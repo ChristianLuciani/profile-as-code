@@ -302,7 +302,14 @@ describe("the README's frozen audit example tracks the engine version (#490)", (
       .split("\n")
       .find((line) => line.trim().startsWith("pasco audit --json"));
     expect(guideLine, "the user guide must carry the audit cheatsheet line").toBeDefined();
-    for (const line of [readmeRow ?? "", guideLine ?? ""]) {
+    // SPEC §7.1 carries two enumerations of the same set (the command row and the
+    // frozen JSON example); both must be gated too, or a bucket added to the
+    // constant + README + guide leaves the contract stale with every gate green.
+    const specRow = SPEC.split("\n").find((line) => line.includes("`pasco audit [--json]`"));
+    expect(specRow, "SPEC §7.1 must carry the audit row").toBeDefined();
+    const specScope = /"scope": \{ "catalog"[\s\S]*?\}/.exec(SPEC)?.[0] ?? "";
+    expect(specScope, "SPEC §7.1 must carry the frozen scope example").not.toBe("");
+    for (const line of [readmeRow ?? "", guideLine ?? "", specRow ?? "", specScope]) {
       for (const key of AUDIT_SCOPE_KEYS) {
         expect(line, `the enumeration must name ${key}`).toContain(key);
       }
