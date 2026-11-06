@@ -3,10 +3,10 @@
   "schemaPath": "schema/profile.schema.json",
   "current": {
     "schemaVersion": "1.16",
-    "sha256": "d6b06b57f1106885ee0467d8aa8009e098b04fe0a5ffad34b97455bc4417fe2f",
-    "published": true,
-    "artifact": "https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.4.0/schema/profile.schema.json",
-    "note": "Published at v0.4.0 — the tag-pinned URL above identifies these bytes."
+    "sha256": "5b5915681e23258405df703d145b3a4ad80d826219b7f7152fd81c23eeba39e1",
+    "published": false,
+    "artifact": null,
+    "note": "The v0.4.0 tag publishes an earlier byte-image of schema v1.16, not these bytes, so there is no tag-pinned URL for this sha256: use the repository checkout at a commit whose schema/profile.schema.json hashes to it. The next release publishes it."
   },
   "released": {
     "tag": "v0.4.0",
