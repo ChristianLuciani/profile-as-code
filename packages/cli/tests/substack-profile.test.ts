@@ -14,7 +14,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -205,6 +205,51 @@ describe("pasco check substack — the profile bundle's premises (#482, #455)", 
     expect(human.code).toBe(0);
     expect(human.stdout).toContain("declared by the catalog: substack");
     expect(human.stdout).not.toContain("not declared by any catalog for this surface");
+  });
+
+  it("pins the pre-#483 fallback: the build writes only the long bio, so fact-present sees no gap", () => {
+    // The instrument ESCALATE(4) asked for: the claim "a sheet without the
+    // publication fields is NOT RUN" is false. `pasco build substack` has no
+    // renderer yet, so it falls back to the shared paste source (the `long` bio)
+    // and `fact-present` compares that artifact with the same fallback render:
+    // `checked` with 0 findings. When #483 lands, this test must be updated to
+    // assert the full sheet — that is the signal the gap closed.
+    const dir = substackWorkspace("Profile-header bio for the short row.", 180);
+    appendFileSync(
+      join(dir, "content", "bios.yaml"),
+      [
+        "- platform: substack",
+        "  lang: en",
+        "  length: long",
+        '  text: "The long About body the fallback paste source writes today."',
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(
+      join(dir, "content", "newsletter.yaml"),
+      [
+        "platform: substack",
+        "url: https://example.substack.com",
+        "cadence: weekly",
+        "name:",
+        "  en: Example Weekly",
+        "description:",
+        "  en: Notes on shipping sovereign software.",
+        "",
+      ].join("\n"),
+    );
+
+    const build = run(["build", "substack", "--workspace", dir]);
+    expect(build.code).toBe(0);
+    const artifact = readFileSync(join(dir, "profiles", "substack.md"), "utf8");
+    expect(artifact).toContain("The long About body");
+    expect(artifact).not.toContain("Example Weekly");
+
+    const res = run(["check", "substack", "--json", "--workspace", dir]);
+    const data = (JSON.parse(res.stdout) as { data: CheckPayload }).data;
+    expect(data.factPresent.checked).toContain("substack");
+    expect(data.factPresent.notRun).not.toContain("substack");
+    expect(data.factPresent.findings).toEqual([]);
   });
 
   it("measures the workspace's cap, not a shipped skill row (#455)", () => {

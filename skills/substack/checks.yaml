@@ -21,7 +21,7 @@
   platform: substack
   rule: fact-present
   value: true
-  note: "Once the renderer ships (#483), the paste sheet `pasco build substack` writes is compared with the current SSOT render in BOTH directions — a URL, date or number added or omitted, and a text difference with no token to explain it (WARN, D12; `pasco audit` grades the class). It will cover the identity bodies: profile header + publication copy (SOTA-2026 §7, §9). Today the build falls back to the `long` bio, so a sheet without the publication fields is NOT RUN, not a pass. `link-in-identity` is a separate premise."
+  note: "Once the renderer ships (#483), the paste sheet `pasco build substack` writes is compared with the current SSOT render in BOTH directions — a URL, date or number added or omitted, and a text difference with no token to explain it (WARN, D12; `pasco audit` grades the class). It will cover the identity bodies: profile header + publication copy (SOTA-2026 §7, §9). Today no renderer ships: the build falls back to the shared paste source and writes ONLY the `long` bio, so `fact-present` compares that fallback with the same fallback render and reports `checked` with no finding — it cannot see the publication fields that never entered the artifact (#483 closes that; the build→check test pins the current fallback). A surface with no artifact at all is NOT RUN, never a pass. `link-in-identity` is a separate premise."
 
 - id: s-links-identity
   platform: substack

@@ -217,7 +217,7 @@ export function runRefine(args: RefineArgs): number {
     `Research (dated sources): ${researchPath}`,
     `Variant id convention: ${variantPrefix}-${lang}-<n> (e.g. ${variantExamples}).`,
     ``,
-    `Facts (language-independent — MUST stay byte-identical across variants and platforms, except \`role\`: a langMap shown in ${lang}, falling back to en):`,
+    `Facts (language-independent — MUST stay byte-identical across variants and platforms, except \`role\` and \`newsletter.name\`/\`newsletter.description\`: langMaps shown in ${lang}, falling back to en):`,
     `  name: ${identity.name}`,
     `  location: ${identity.location ?? "—"}`,
     `  links: ${links || "—"}`,
