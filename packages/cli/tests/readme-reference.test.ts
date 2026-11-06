@@ -24,6 +24,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
+import { AUDIT_SCHEMA_VERSION } from "../src/commands/audit.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PKG_DIR = join(__dirname, "..");
@@ -270,5 +271,23 @@ describe("the cycle's reference (#389)", () => {
     const bare = limitOf(preview(workspaceWith("")));
     expect(bare.limit).toBeNull();
     expect(bare.over).toBe(false);
+  });
+});
+
+describe("the README's frozen audit example tracks the engine version (#490)", () => {
+  it("names the schemaVersion the engine emits and carries every scope bucket", () => {
+    // The example is a consumer contract: a reader who copies it must not refuse
+    // the version the CLI actually prints (the README says so two paragraphs later).
+    const blocks = [...README.matchAll(/```json\n([\s\S]*?)```/g)]
+      .map((match) => match[1] ?? "")
+      .filter((block) => block !== "");
+    const audit = blocks.find((block) => block.includes('"scope"') && block.includes('"findings"'));
+    expect(audit, "the README must carry the audit --json example").toBeDefined();
+    const example = JSON.parse(audit ?? "") as {
+      schemaVersion: string;
+      scope: Record<string, unknown>;
+    };
+    expect(example.schemaVersion).toBe(AUDIT_SCHEMA_VERSION);
+    expect(example.scope).toHaveProperty("notBuildable");
   });
 });

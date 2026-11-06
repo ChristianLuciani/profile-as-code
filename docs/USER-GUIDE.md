@@ -950,9 +950,11 @@ carries the claim. A
 finding about a built surface addresses the artifact instead
 (`profiles/github-readme/README.md`), because a fact the SSOT does not carry has
 no fact address by definition. `check --json` exposes the same rule under
-`data.factPresent` (`declared` / `checked` / `notRun` / `findings`). A declared
-surface with no artifact reads **not run**, and `declared: []` says the catalog
-declares no such premise — in both cases nothing was measured, never silently OK.
+`data.factPresent` (`declared` / `checked` / `notRun` / `notBuildable` /
+`findings`). A declared surface with no artifact reads **not run**; its
+`notBuildable` subset names the ones no body or renderer can ever produce, so the
+fix is adding content, not running the build. `declared: []` says the catalog
+declares no such premise — nothing was measured, never silently OK.
 `scope` in the audit payload carries the same lists plus `catalog` (`shipped` |
 `not-shipped` — a package without its skills tree says so instead of "nothing
 declared"), because an audit with an empty scope is not a clean audit.

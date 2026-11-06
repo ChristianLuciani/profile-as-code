@@ -173,8 +173,8 @@ pasco audit --json          # machine contract
 
 ```json
 {
-  "schemaVersion": "1",
-  "scope": { "catalog": "shipped", "declared": ["github-readme"], "checked": ["github-readme"], "notRun": [] },
+  "schemaVersion": "2",
+  "scope": { "catalog": "shipped", "declared": ["github-readme"], "checked": ["github-readme"], "notRun": [], "notBuildable": [] },
   "findings": [
     {
       "class": "dangling-ref",
@@ -191,7 +191,10 @@ pasco audit --json          # machine contract
 premise — a bundle state, not "nothing declared"); `declared` are the targeted
 surfaces whose catalog declares the `fact-present` premise, `checked` the
 declared ones whose built artifact was compared, `notRun` the declared ones with no
-artifact on disk or no renderer for the flavor. **`declared: []` means the premise
+artifact on disk or no renderer for the flavor, and `notBuildable` the `notRun`
+subset no body or renderer can ever produce (`github-org` on a person, a curated
+handle with no bio, a renderer that returns empty) — there the fix is content, not
+a build. **`declared: []` means the premise
 is not declared anywhere; `checked: []` means it measured nothing** — either way the
 audit says so instead of looking clean.
 

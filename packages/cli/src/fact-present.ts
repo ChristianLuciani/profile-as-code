@@ -30,12 +30,16 @@
  *
  * Declared v1 limits (stated, never silently absent):
  *   - the scope is the surfaces the profile TARGETS (bios · headlines · active ·
- *     keywords.seo · socialHandles) **that also DECLARE the premise** in their
- *     catalog (workspace `content/checks.yaml` ∪ the shipped
+ *     keywords.seo · socialHandles · newsletter, #483) **that also DECLARE the
+ *     premise** in their catalog (workspace `content/checks.yaml` ∪ the shipped
  *     `skills/<platform>/checks.yaml`) — the rule never runs a premise nobody
  *     declared (#283/F6). A declared surface with no artifact is reported in
- *     `notRun`; a declared set that is empty is itself reported (`declared: []`),
- *     so "measured nothing" is never indistinguishable from "found nothing";
+ *     `notRun`; its `notBuildable` subset names the ones `renderArtifact` cannot
+ *     produce at any contract lang (a curated row with no body, `github-org` on a
+ *     person, a renderer that returns empty), so the "run pasco build" advice is
+ *     not offered where it would be false (#490). A declared set that is empty is
+ *     itself reported (`declared: []`), so "measured nothing" is never
+ *     indistinguishable from "found nothing";
  *   - the engine-owned region only, via `projectArtifact` (§19.5) — chrome a user
  *     adds around it is outside the artifact and is not judged;
  *   - the artifact is compared at every contract lang (§11) and the render with the
@@ -327,13 +331,14 @@ export function factPresentFindings(args: {
     const built = existsSync(artifact) ? readFileSync(artifact, "utf8") : undefined;
     // A surface with no artifact — or one this workspace/flavor would never render
     // (`github-org` on a person) — did not run. Absence is not a pass. The render
-    // comes from the SAME resolver `build` uses (`createArtifactResolver`), so
-    // "buildable" is not a parallel predicate: no non-blank render at any contract
-    // lang means no build can ever produce this artifact (#490).
+    // comes from `renderArtifact` — the SAME decision tree `build` executes (the
+    // resolver delegates to it), so "buildable" is not a parallel predicate. The
+    // emptiness rule is build's own (`text === ""` unbuilds): a schema-legal
+    // whitespace bio writes bytes, so it is buildable (#490).
     const renders = langs
       .map((lang) => resolver.render(surface, lang))
       .filter((text): text is string => text !== undefined);
-    const buildable = renders.some((text) => text.trim() !== "");
+    const buildable = renders.some((text) => text !== "");
     if (built === undefined || !buildable) {
       notRun.push(surface);
       if (!buildable) notBuildable.push(surface);
