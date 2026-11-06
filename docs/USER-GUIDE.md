@@ -623,8 +623,8 @@ pasco diff [--json]                  # what changed since the last release tag
   later `en` build. That is right for GitHub (one README per repo); for the
   paste surfaces it means re-build before pasting the other language (#420).
 - Platforms with a **renderer** write deploy artifacts into your workspace:
-  `profiles/<platform>/README.md`. There are eight today (github-readme,
-  github-org for brand, and the six paste/monetization adapters).
+  `profiles/<platform>/README.md`. There are nine today (github-readme,
+  github-org for brand, and the seven paste/monetization adapters).
 - Renderer-less **manual surfaces with a bio row** write one file,
   `profiles/<platform>.md`, ready to paste (#239). A surface with only a
   headline still prints its slice in the terminal.

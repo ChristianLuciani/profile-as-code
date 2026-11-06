@@ -1,0 +1,9 @@
+platform: substack
+url: https://elenavasquez.substack.com
+cadence: weekly
+name:
+  en: Notes on Sovereign AI
+  es: Notas sobre IA soberana
+description:
+  en: Notes on sovereign AI, open education and generative-engine optimization.
+  es: Notas sobre IA soberana, educación abierta y optimización para motores generativos.

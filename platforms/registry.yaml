@@ -200,8 +200,14 @@ platforms:
     hosts: [substack.com]
     subdomain_hosts: [substack.com]
     handle_hosts: [substack.com]
-    renderer: false
-    sources: ["SPEC §6 (D16)"]
+    renderer: true
+    fixture: minimal-substack
+    sources:
+      [
+        "SPEC §6 (D16)",
+        "issue #483",
+        "[WEB] support.substack.com (via r.jina.ai), fetched 2026-11-05",
+      ]
   whop:
     status: member
     kind: profile
