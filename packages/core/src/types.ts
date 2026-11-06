@@ -349,7 +349,9 @@ export interface PlatformProfile {
   citationsGoal?: string;
   /** SEO set for this platform + GEO associations/claims. */
   keywords: { seo: string[]; geo: { associations?: string[]; claims?: string[] } };
-  /** Brand blocks (v1.1/§17) — pass through untouched, lang-filtered where textual. */
+  /** Handle, publication and press blocks (v1.1/§17) — pass through untouched,
+   *  lang-filtered where textual. `newsletter`/`podcast` are flavor-neutral
+   *  (#481); `socialHandles`/`press`/`brandAudiences` stay brand-facing. */
   socialHandles: SocialHandle[];
   newsletter?: Newsletter;
   podcast?: Podcast;
