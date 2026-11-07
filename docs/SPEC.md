@@ -30,9 +30,15 @@ it. The founding failure is upstream: facts accumulate faster than they are
 filed, and the CV is then reconstructed from memory. The engine therefore owes a
 **capture path** and a **retrieval**, never another renderer. D23 is not
 reopened: `release` remains the public fan-out over the record, and private
-scoped disclosure (`curate`) is a downstream act, not decided here.
+scoped disclosure (`curate`) is a downstream act, recorded separately as its own
+epic (#501), not decided here.
 `record-as-code` is the working name of this contract layer, not a product
 rename.
+
+Publication is **opt-in** (D27): an entry that carries `visibility` is `private`
+unless it declares `public`, so the public surfaces, the default export and a
+release see only the public projection. The record stays complete and private;
+publishing is a deliberate act.
 
 ## 2. Goals / Non-goals
 
@@ -138,6 +144,7 @@ rename.
 | D23 | **The unit of first class is the presence surface, not the profile** (issue #262, 2026-10-23; restated 2026-10-28 as option B): `surface.kind: profile \| repo-meta \| distribution` is an **additive** dimension on `platforms/registry.yaml` (absent = `profile`; the 49-slug profile enum is untouched), and `releases[]` is the **event** — `{id, version, date, summary, changedUnits[], surfaces[]}` — whose fan-out **reuses** the §19 ledger vocabulary (`in-sync`/`stale`/`never`), derived at read time and stored nowhere. `pasco presence` is the daily board; `pasco release plan` is the launch view (`--json`), ordering surfaces `repo-meta → profile → distribution` and emitting a per-kind factual spine; the announcement copy per channel lives in `skills/` (rule 7 + D9) | A published artifact could appear on **none** of its own operator's surfaces with no representation: no event, no distribution surfaces, no way to ask "which surfaces still owe this publication?". Alternatives: **keep the profile as the unit** (rejected — that question stays unanswerable and every non-rendered surface is unmodeled); **a second state model for releases** (rejected — staleness is already exact and release-tag-independent in §19); **`release` as a top-level command** (rejected by the operator on 2026-10-28: `presence` is the daily board, the plan hangs off it as a view) |
 | D24 | **The impact log is a root block and its status is DERIVED** (issue #446, 2026-11-02; direction blessed by the operator): root `achievements[]` (v1.16, §23) records what **changed** — `{id, statement{lang}, kind: metric\|milestone, metric?, refs[], source?, artifactId?, credentialId?, basis, date?, visibility}`. ONE root log, never per-row `outcomes[]`: `refs` (`block:id`) point at the units a result belongs to, so the same result is never duplicated across rows, and `metric` is structured (`value`/`target`/`baseline`/`unit`/`direction`) instead of prose. `basis` (`measured`\|`estimated`\|`reported`\|`attested`) is the honesty field, **not a gate** — `reported` is first class, because the log is useful before the proof exists; `visibility` is **required** so an internal outcome never becomes public by omission. The status (`planned`\|`measured`\|`achieved`\|`partial`) is derived at read time by one core function, never stored; a `target` without a `value` is a plan. `pasco achievements [--targets] [--json]` is the read-only log view | The contract modeled **what a person did** (`highlights`, free text: no value, unit, baseline, target or link) and **what can be proven** (`evidence[]`, project-scoped and requiring a `source`, so an internal outcome cannot be recorded at all), but not **what changed** — so the effect is not captured when it happens and cannot be reconstructed later; a CV from the workspace reads as a list of duties. Alternatives: **per-row `outcomes[]`** (rejected — duplicates one result across the rows it belongs to and leaves no single place to ask "what changed?"); **free text only** (rejected — no baseline/target, so no goal and no derivable status); **store the status** (rejected — it can silently disagree with the numbers it describes, against §20.1's derived-never-stored rule); **make `basis` a gate** (rejected — it would re-create the gap: an outcome with no public artifact becomes unreportable); **`confidence` instead of `basis`** (rejected — `basis` names HOW the number is known, not how sure the author feels) |
 | D25 | **The record is the asset; profiles are views** (issue #495, 2026-11-07; imports operator-ratified `bADR-014`, 2026-10-26): the typed SSOT (`content/*.yaml` under the schema) is the durable asset, and every profile, CV, page, bio or dossier is a projection. The engine owes a **capture path** (`pasco log`, #496) and a **retrieval** (`pasco achievements --since/--until`, #497); it never owes another renderer. `release` (D23) stays the public fan-out; private scoped disclosure (`curate`) is downstream of this frame and is not decided here. `record-as-code` names the contract layer, not a product rename | The founding failure is upstream: a fact accumulates faster than it is filed, and the CV is reconstructed from memory; D23 asks *"which surfaces does this publication still owe?"* but presumes the SSOT is already complete. Alternatives: **presence-first as the whole product** (the current frame — rejected because it presumes a complete SSOT and keeps every claim publication-shaped; D23 remains the public fan-out); **archive as a second truth** (rejected — the inbox is a buffer and the disclosure ledger is an audit record, neither is rendered); **rename the product now** (deferred — brand, npm and `TRADEMARK.md` cost; `bADR-014` §7) |
+| D27 | **Privacy by default: visibility is opt-in** (issues #494/#498/#501, 2026-11-07; operator verdict): every entry that carries `visibility` (`credentials`, `artifacts`, `achievements`, `projects`, `experience`) is **`private` when the field is absent**; `achievements` keeps the field required and `pasco log` writes `private`. `identity`, `bios` and `headlines` carry no field and remain public. `unlisted` stays an explicit state that no renderer emits. Publication is an explicit act: only `visibility: public` entries reach renderers, JSON-LD, `release`/presence and the **default export**. Existing workspaces migrate with `pasco migrate` (schema v2.0), which writes `visibility: public` on every existing entry to preserve today's output; new workspaces and new rows default private. `pasco export profile` defaults to the **public projection** (`--public` names it); `--all` returns the full SSOT. `completeness` reports workspace and public numbers; `geoCheck`/`driftCheck` read the public projection; `validate`/`audit` read the SSOT (`audit --public` for the publishable view). Private data reaches a specific surface (the CV first) only through `curate` (#501), never by flipping visibility | The current rule publishes by omission: absent visibility meant public (§18.5), so a user cannot register internal work without risking a renderer, and a forgotten field is a leak. Making private the default turns publication into a deliberate act and keeps the record usable as a private asset. The cost is a breaking schema major plus a migration; accepted because public-by-default is the leak the operator is closing. Alternatives: **keep absent=public** (rejected — the exact leak); **CLI-only default private** (rejected — hand-authored rows would still publish); **visibility required with no default** (rejected — every existing row fails until migrated and the value still has to be chosen; the migration is the explicit step); **a global `includePrivate` flag** (rejected — a bypass of per-entry visibility; scoped disclosure is `curate`) |
 
 > **Decision note — the release path (2026-10-24, issue #307).** The release path is the **tag
 > run** (guard → build/tests → cohort + CLI over OIDC → GitHub Release → pages deploy);
@@ -454,7 +461,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco entity [--json \| --jsonld [--out <file> [--force]] [--bare]] [--lang <l>]` | the **entity projection** for surfaces this engine does not render (issue #287): the schema.org entity assembled by `structuredData()` — `@id`, `sameAs`, type and fields — plus the readiness `gaps` (geoCheck codes, verbatim). `--json` emits `{ schemaVersion: "1", entity: { id, type, name, sameAs, email }, gaps: [{ code, detail }], jsonld: null, faqJsonLd }` — `faqJsonLd` is the assembler's `FAQPage` node, or `null` when `faq[]` is undeclared (#360); `--jsonld` emits the **same assembler output** the renderers embed as a paste-ready `<script type="application/ld+json">` block, plus the `FAQPage` block after it when the workspace declares `faq[]` (never an empty FAQPage, no invented `@id`, `faq[].source` as `acceptedAnswer.citation`); `--bare` = raw JSON (the entity object alone, or a JSON array of the emitted nodes in block order when the FAQPage is present); `--out <file>` writes the bytes atomically and refuses an existing file without `--force`. **Both modes resolve one `lang`** (`--lang`, else `.pascorc defaults.lang`) so a gap and the emitted field cannot disagree. **One assembler, no CLI-local builder**: the projection never invents `@id` and never re-derives the entity or the FAQPage (§15.4). Exit `1` when `@id` is absent (the entity has no declared home) or the `--out` write fails; `0` otherwise; `2` is usage. Offline and deterministic (D19). Contract: §7.2 |
 | `pasco export ai-policy [--out <dir> \| --check [--file <robots.txt>]] [--json] [--lang <l>]` | the §12 M9 stance as an artifact (issue #290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed `ai-retrieval` crawlers allowed, the listed `ai-training` crawlers disallowed; the file declares that an unlisted crawler is not restricted, each UA commented with its registry entry/operator/source/date), `llms.txt` (the workspace index, with a coverage assertion over every document it claims) and `AI-POLICY.md` (allowed · blocked · the explicit-list limit · who can change it · the date, quoting the M9 floor verbatim); `--check` exits `1` on an incomplete or unsourced entry, a duplicate token, an `as_of` that is malformed/future/older than 180 days, or a `policy.as_of` that is stale or predates its rows; `--check --file` verifies a **committed** `robots.txt` against the registry instead of the list (#477) — parsing it by group (RFC 9309 §2.2) and exiting `1` with one finding per fact (`missing` · `duplicate` · `wrong-group` · `wildcard` · `orphan-rule`), which catches the two lists swapped — a structurally valid file that states the opposite policy; that mode reads no workspace and no clock. `--out` refuses to write an unsourced or stale list. The crawler list is projected from `platforms/registry.yaml` (`ai:`) by `pnpm gen:platforms` — never a hardcoded UA list in the CLI. Offline; `--check` alone is the declared clock-reading path. Contract: §7.3 |
 | `pasco cite-check [<answers.ndjson>] [--json]` | the **citation matcher** over saved answers (issue #291): reads the runner's NDJSON (stdin when no path), matches the workspace's declared entity against each answer and emits, per answer and **never aggregated**, `{ cited, confidence, spans, reasons }`. Fixed ladder — `citation-url` (a citation on the entity's own page or its `sameAs`/claimed-handle set — host, and the declared path or a descendant) and `exact-name` (word-bounded, case- and accent-normalized) are **high**; `alias` (`identity.orgName`) and `handle` (a declared handle) are **medium**; `partial` (any contiguous multi-token prefix of the name, ≥ 2 tokens) is **low**, and `low` is never a citation downstream. The matcher **refuses to guess**: a one-word name hit whose sentence carries no declared disambiguator is ambiguous (`cited: false`, with the longer capitalised reading quoted as `competing:<phrase>`), a mention inside a contrast clause is not a citation, and a declared qualifier or an adjacent capital never disqualifies a hit by itself. Offline, no model, no clock (D19). Exit `0` on a successful read (a non-citation is data, not a failure) · `1` the workspace cannot load, or the input path cannot be read · `2` usage or **malformed NDJSON** (never a silent skip). Contract: §7.4 |
-| `pasco export profile [--json] [--now <iso8601>]` | the **normalized profile** for programmatic consumers (issue #348): `{ schemaVersion, engine, source: { commit, generatedAt }, profile }`, where `profile` is exactly what `core.load()` returns — **every root the workspace declares, plus every *list* root defaulted to `[]`; an optional *object* root (`newsletter`, `podcast`, `audiences`, `active`) appears only when declared** (no valid empty value exists — §7.5). `artifactRefs` stay ids a consumer joins to `profile.artifacts[]` (`load()` already refuses a dangling ref), `publications[].url` as declared, `deployments` included — never a CLI-local rebuild and never `compile(profile, platform)`'s platform slice (§15.4). `schemaVersion` (`"1"`) is the frozen payload version a consumer refuses if it does not know (§7.5); `source.commit` is the workspace git `HEAD` (`null` outside a git repository); **no clock is read** — `generatedAt` is `null` unless `--now` pins it verbatim after a real-calendar check, so two runs over one workspace are byte-identical. Exit `1` on a load/schema failure (D12) or a malformed `--now` · `2` usage. Contract: §7.5 |
+| `pasco export profile [--json] [--now <iso8601>] [--all\|--public]` | the **normalized profile** for programmatic consumers (issue #348): `{ schemaVersion, engine, source: { commit, generatedAt }, scope, profile }`. **Default: the public projection** (D27); `--public` names it, `--all` returns the full SSOT. In `--all`, `profile` is exactly what `core.load()` returns — **every root the workspace declares, plus every *list* root defaulted to `[]`; an optional *object* root (`newsletter`, `podcast`, `audiences`, `active`) appears only when declared** (no valid empty value exists — §7.5); in the public projection the same roots are present with visibility filtered (private/unlisted entries and their ledger records omitted). `artifactRefs` stay ids a consumer joins to `profile.artifacts[]` (`load()` already refuses a dangling ref), `publications[].url` as declared, `deployments` included in `--all`; the public projection carries only records for public units — never a CLI-local rebuild and never `compile(profile, platform)`'s platform slice (§15.4). `schemaVersion` (`"2"`) is the frozen payload version a consumer refuses if it does not know (§7.5); `scope` is `"public"` or `"all"`; `source.commit` is the workspace git `HEAD` (`null` outside a git repository); **no clock is read** — `generatedAt` is `null` unless `--now` pins it verbatim after a real-calendar check, so two runs over one workspace are byte-identical. Exit `1` on a load/schema failure (D12) or a malformed `--now` · `2` usage (including `--all` with `--public`). Contract: §7.5 |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22). **The read report also ends with the derived publication truth per surface (§20.1, #242): ledger · artifact-vs-SSOT · declared cap — computed on every read, stored nowhere** |
 | `pasco achievements [--targets] [--json]` | the **impact log** (D24, §23): one row per result with its DERIVED status (`planned` · `measured` · `achieved` · `partial`), the formatted metric (`72 h → 4 h`), the `basis` and the pointer, grouped by the first `ref`. `--targets` prints only the planned goals; `--json` emits `{ schemaVersion: "1", scope: { total, planned, measured, achieved, partial }, achievements: [{ …row, status }] }` with `scope` counting the rows the view returned, so an empty scope is "nothing declared here" rather than a fabricated zero. Read-only, offline; exit 0 unless the workspace fails to load |
@@ -1019,17 +1026,20 @@ pipeline and drifted from the contract — one read 9 of 14 roots (`education`,
 copy:
 
 ```bash
-pasco export profile --json          # the payload, inside the standard envelope
+pasco export profile --json          # the public projection (default), inside the envelope
+pasco export profile --public --json # the same projection, named explicitly
+pasco export profile --all --json    # the full SSOT (the pre-D27 payload)
 ```
 
-**`--json` (v1, frozen).** The usual CLI envelope carries this `data`:
+**`--json` (v2, frozen; D27).** The usual CLI envelope carries this `data`:
 
 ```json
 {
-  "schemaVersion": "1",
+  "schemaVersion": "2",
   "engine": { "name": "@profile-as-code/cli", "version": "<cli version>" },
   "source": { "commit": "…40-hex sha or null…", "generatedAt": null },
-  "profile": { "identity": {}, "…": "the normalized profile (see the promise below)" }
+  "scope": "public",
+  "profile": { "identity": {}, "…": "the public projection (--all: the full normalized profile)" }
 }
 ```
 
@@ -1055,9 +1065,24 @@ pasco export profile --json          # the payload, inside the standard envelope
   **calendar-strict**, because `Date.parse` normalizes an impossible date
   (`2026-02-31T00:00:00Z`, `T24:00:00Z`): those are refused, not blessed.
 
-**One assembler, never a CLI-local builder (§15.4).** `profile` is exactly the
-normalized object `core.load()` returns — schema-validated (D12), not filtered,
-re-derived or re-ordered by the CLI. **The precise promise** (this is the single
+**Default: the public projection (D27).** Without `--all`, `profile` is the
+public projection: every root that carries no visibility field (`identity`,
+`positioning`, `bios`/`headlines`, `faq`, `keywords`, `socialHandles`, `checks`, …)
+plus every entry whose `visibility` is `public`. `private`/`unlisted` entries,
+their references, and the `deployments`/`releases` records that address only them
+are omitted; a release whose changed set has no public unit is omitted, and a
+release's `changedUnits` is filtered to public units. The roots stay present; only
+the entries are filtered. `--public` names this projection explicitly (same bytes
+as the default); `--all` returns the full SSOT — the pre-D27 payload — for backup
+and consumers that apply their own filter. A consumer that emits publicly uses the
+default/`--public`, never `--all`. `scope` is `"public"` or `"all"` for both
+modes.
+
+**One assembler, never a CLI-local builder (§15.4).** In `--all`, `profile` is
+exactly the normalized object `core.load()` returns — schema-validated (D12), not
+filtered, re-derived or re-ordered by the CLI. In the default/`--public`, it is
+the same object with the D27 visibility filter applied by core, never rebuilt by
+the CLI. **The precise promise** (for `--all`; this is the single
 statement; every other surface repeats it): the object carries **every root the
 workspace declares, plus every *list* root defaulted to `[]`**; an optional
 **object** root (`newsletter`, `podcast`, `audiences`, `active`) appears **only
@@ -1085,11 +1110,14 @@ never the "compiled" one.
   emitted id resolves.
 - **`publications[].url` is emitted as declared** — never replaced by a DOI-derived
   link; both fields travel and the consumer chooses.
-- **`deployments` is included** (not declared out of scope): it is a schema root,
-  `load()` normalizes it, and a consumer that does not need the ledger ignores it.
-- **Visibility is not filtered.** The normalized profile is the SSOT, not a
-  rendered surface: `visibility` (§18.5) is a renderer-owned rule, and a consumer
-  that emits publicly applies it. This is the reason the command is not `build`.
+- **`deployments` is included in `--all`** (not declared out of scope): it is a
+  schema root, `load()` normalizes it, and a consumer that does not need the
+  ledger ignores it. The public projection carries only the records that address a
+  public unit.
+- **Visibility is filtered by default (D27).** The default/`--public` payload is
+  the public projection; `--all` is the SSOT and is not filtered. `visibility`
+  (§18.5) is the owner's per-entry rule; a consumer that emits publicly uses the
+  default, never `--all`.
 
 **Validator parity — `validate` and `build` resolve one schema (issue #348).**
 Both commands load through `core.load()`, so they resolve the same generated Zod
@@ -1109,14 +1137,15 @@ command's own schema-failure row (`kind: "schema"` + `violations`, e.g. a dangli
 and therefore the same promise.
 
 **Exit matrix.** `0` ok · `1` the workspace fails to load (schema/ledger/registry —
-D12) or `--now` is malformed · `2` usage (unknown `export` subcommand, or the
-`ai-policy`-only `--out`/`--check`/`--file`/`--force`/`--lang` flags). Human mode prints a
+D12) or `--now` is malformed · `2` usage (unknown `export` subcommand, `--all`
+with `--public`, or the `ai-policy`-only `--out`/`--check`/`--file`/`--force`/`--lang` flags). Human mode prints a
 summary of the same object; `--json` is the contract.
 
 **Not here.** The `.pascorc` engine-version gate and `pasco doctor` are §7.6; the
 publishable schema URL+hash for consumers without the engine is §7.7 — the
 `schemaVersion` string above gates THIS payload, and those two are separate
-contracts. No renderer, no visibility filtering, no platform slice, no writes.
+contracts. No renderer; visibility filtering is the default projection, not a
+renderer; no platform slice; no writes.
 
 ### 7.6 The engine gate and `pasco doctor` — a declared minimum engine (issue #348)
 
@@ -1301,7 +1330,7 @@ an immutable artifact identified by **URL + sha256**, recorded in
   duplicate composite keys) and the engine's behavior (`driftCheck`, `geoCheck`,
   `audit`, `completeness`, renderers) are outside the JSON Schema. It does not
   describe `.pascorc`/the engine gate (§7.6), the `export profile` envelope or
-  its `schemaVersion` (§7.5), or any visibility filtering. Consumers that need
+  its `schemaVersion` (§7.5), or the D27 public projection. Consumers that need
   those need the engine.
 - The reading page for consumers is [`docs/SCHEMA-CONTRACT.md`](SCHEMA-CONTRACT.md);
   the manifest is the machine-readable copy of the same facts.
@@ -1317,6 +1346,7 @@ the §19 ledger; neither writes, fetches or reads a clock.
 {
   "release": { "id": "v0-3-0", "version": "0.3.0", "date": "2026-10-28",
                "summary": "…", "changedUnits": ["identity"] },
+  "notPublishableUnits": [],
   "surfaces": [ { "order": 1, "surface": "github-repo-meta", "kind": "repo-meta",
                   "state": "never", "missingUnits": [], "unknownUnits": [] } ],
   "baseText": [ { "kind": "repo-meta", "text": "What shipped: v0.3.0 (…)" } ]
@@ -1332,6 +1362,10 @@ the §19 ledger; neither writes, fetches or reads a clock.
   fan-out and is listed in `missingUnits`. Either list non-empty makes the
   surface `never`, and the human plan names each cause as what it is — it never
   tells the operator to fix a row that is correct.
+- **D27 — private units are not publishable.** Both commands read the public
+  projection. A changed unit whose entry is `private`/`unlisted` is listed under
+  `notPublishableUnits` — never `never` (missing) and never `in-sync` — and a
+  release that changed only private units has no public fan-out.
 - **Order** is kind rank `repo-meta` → `profile` → `distribution`, then slug. The
   artifact's metadata precedes the identity bodies, which precede the
   announcements. Each row carries that position as a 1-based additive `order`
@@ -2246,6 +2280,9 @@ artifacts:
     visibility: public
 ```
 
+`visibility` is explicit in this example because D27 makes publication opt-in:
+an entry without the field is `private`; these sample rows are public on purpose.
+
 Cross-refs (additive, all optional): `evidenceItem` gains `credentialId`/`artifactId`;
 `publications[]` and `press[]` gain `artifactRefs: [id]` (v1.4); `projects[]` gains
 `artifactRefs: [id]` (v1.12, issue #333). Every site resolves against the same registry:
@@ -2275,12 +2312,30 @@ badges and structured data verbatim; the renderer never invents or reformats the
 
 ### 18.5 Visibility & privacy
 
-`visibility: public | unlisted | private` on both blocks. Renderers emit only `public`;
-`unlisted` is shared on request (client DMs), `private` never leaves the workspace.
-`pasco check` rule `no-private-in-public-output` fails the build on a leak — it covers
-every reference site (evidence claims, `publications[].artifactRefs`, `press[].artifactRefs`,
-and `projects[].artifactRefs` since v1.12), so adding a site cannot silently bypass it. Rationale:
-credentials carry PII (full legal name, IDs) — not every proof is for the open web.
+`visibility: public | unlisted | private` on every entry block that carries it
+(`credentials`, `artifacts`, `projects`, `experience`, `achievements`). **The
+default is `private` (D27; implementation tracked by #498 and follow-ups): an
+absent field on an entry is private, not public.** Renderers, JSON-LD and the default export emit only
+`public`; `unlisted` is an explicit state shared on request (no renderer emits
+it), and `private` never leaves the workspace. `identity`, `bios` and `headlines`
+carry no visibility field and remain public — a profile with no public entries
+publishes that text but no facts.
+
+`pasco check` rule `no-private-in-public-output` fails the build on a leak — it
+covers every reference site (evidence claims, `publications[].artifactRefs`,
+`press[].artifactRefs`, `projects[].artifactRefs`, and the `achievements[]`
+dedicated fields plus `refs[]`), so adding a site cannot silently bypass it. A
+public entry that points at a `private`/`unlisted` target is the same leak and
+fails. Rationale: credentials carry PII (full legal name, IDs) — not every proof is
+for the open web.
+
+**Migration (schema v2.0).** A workspace written under the old rule (`absent =
+public`) must run `pasco migrate` once: it writes `visibility: public` on every
+entry that lacks the field, preserving today's output, and is idempotent. New
+workspaces and new entries are private unless they declare `public`; `pasco
+doctor --contract-delta` reports any entry still missing the field. `unlisted` is
+not a publication state: it is never emitted, and manual sharing is `curate`
+(D27/#501), not a renderer.
 
 ### 18.6 Media transport (M8)
 
@@ -2735,6 +2790,16 @@ policy (config, workspace)   →  completeness(profile, policy) in core  →  ar
    attached to the slice. **No external badge service** — that would make the output
    non-deterministic/network-dependent and break byte-parity (D19/§15.1).
 
+**Workspace vs public completeness (D27).** `completeness()` returns two numbers:
+the **workspace** number (all entries; the existing `%`) and the **public** number
+(the D27 public projection). `pasco status --completeness` prints both; the
+rendered `Profile completeness` line — and any artifact a visitor can see — uses
+the **public** number. A workspace can be 90% complete and 0% public; the two
+numbers make the gap explicit. The workspace number keeps reading the unfiltered
+SSOT (§21.5); the public number reads the public projection, and both use the same
+policy and catalog. `deployment` counts ledger records for all units in the
+workspace number and only public units in the public number.
+
 **Never store the percentage** — it is derived and would drift; only the policy
 (target, weights, langs) is stored. The policy is parameterized:
 a user says "my target is the GitHub milestone set, not everything" by dropping an
@@ -2884,6 +2949,12 @@ A **view** is a shared mechanism, not a renderer: the same D22 selection serves 
 rendered profile, a CV and (later) a scoped disclosure; a renderer consumes the
 selected slice and never re-implements selection (D22, D25).
 
+Visibility is a **separate filter** (D27/§18.5), not a view rule: the public
+projection removes non-public entries before selection. A private entry omitted by
+visibility is not a `selection/omits-facts` warning — it is the owner's visibility
+policy — but `pasco status --selection` reports the public/private counts so the
+omission is visible.
+
 **Why selection is admissible.** Goal 2/3 and §15.4 constrain what a fact *says* when
 it appears, not that it must appear on every surface. A rendered profile is a
 **sub-conjunction** of the SSOT's facts, and removing a conjunct cannot introduce a
@@ -2999,8 +3070,10 @@ undeclared view.
 A view that omits one or more entries emits `selection/omits-facts` — a **warn**
 naming each omission and its reason — and `pasco status --selection` prints the full
 resolved report. Silent omission is the one failure mode this feature must not have:
-the default direction of a profile is *publish*, so anything that removes a fact owes
-the user a statement.
+a public surface's direction is to publish what the owner marked public, so anything
+the view removes owes the user a statement. Visibility is not a selection omission:
+a `private` entry is the owner's policy, reported as a count, never as
+`selection/omits-facts`.
 
 ### 21.5 Engine seam and checks
 
@@ -3013,10 +3086,12 @@ compiling unchanged.
 
 The split that keeps the feature honest:
 
-- **`structuredData` is built from the filtered profile** — the JSON-LD cannot claim
-  entities the render never shows.
-- **`completeness` is built from the unfiltered profile** — §20 scores the *workspace*,
-  not a view. Hiding half the SSOT must not lower the number.
+- **`structuredData` is built from the filtered profile** — selection + D27
+  visibility; the JSON-LD cannot claim entities the render never shows.
+- **`completeness` is built from the unfiltered profile for the workspace number**
+  — §20 scores the *workspace*, not a view. Hiding half the SSOT must not lower
+  that number. The **public** number is built from the public projection (D27) and
+  is the one a public artifact publishes.
 
 Codes follow the `<ns>/<slug>` convention of `drift/*`, `geo/*`, `check/*`:
 
@@ -3181,6 +3256,12 @@ fan-out. The state is derived per surface from `deployments` (the §19 ledger):
 Partial coverage is **never** `in-sync`: a release that changed two units and a
 surface that confirmed only one still owes the other, and the plan says so.
 
+**Private units are not publishable (D27).** A changed unit whose entry is
+`private`/`unlisted` is omitted from the fan-out and reported separately as
+`notPublishableUnits` — never as `never` (which means missing) and never as
+`in-sync`. `pasco presence` and `pasco release plan` read the public projection; a
+release that changed only private units has no public fan-out and says so.
+
 A surface the ledger cannot address (a `repo-meta`/`distribution` slug outside
 the platform enum) therefore reads `never` — the honest v1 answer: the plan names
 what must be touched, and extending the ledger's surface key to non-profile
@@ -3223,6 +3304,11 @@ internal outcome has no home).
 The block is the **typed log of the record** (D25): v1.16 ships the shape, the
 derived status and the read view; a capture path is D25's separate scope
 (#496/#497), not a second log and not a renderer.
+
+**D27:** `visibility` stays required in this block; `pasco log` writes `private`
+unless `--visibility public` is explicit. A private achievement is part of the
+record and visible to the local `pasco achievements` view, but never to renderers,
+JSON-LD or the default export.
 
 ### 23.1 The shape
 
@@ -3274,7 +3360,10 @@ useful before the proof exists, and a false claim of proof is worse than an
 honest account of one. `pasco audit` treats a **public** `measured`/`attested`
 row with no pointer (`source`/`artifactId`/`credentialId`) as `unsourced-claim`
 (WARN, the existing class); a public `reported`/`estimated` row is not a finding;
-a `private` row is outside the public audit surface.
+a `private` row is outside the public audit surface. With D27, `pasco audit`
+defaults to the SSOT (including private rows) for the local diagnostic, and
+`--public` restricts it to the publishable view; a private row is never a public
+finding.
 
 ### 23.4 Integrity (post-Zod, core — `load` fails)
 
