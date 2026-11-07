@@ -154,6 +154,26 @@ export const CONTRACT_HISTORY: readonly ContractMinor[] = [
     ],
     buys: "the career impact log (D24) — `pasco achievements` reads measured/planned results with a derived status, instead of free-text highlights",
   },
+  {
+    version: "2.0",
+    fields: [
+      "credentials[].visibility",
+      "artifacts[].visibility",
+      "projects[].visibility",
+      "experience[].visibility",
+    ],
+    notFields: [
+      "credentials",
+      "artifacts",
+      "projects",
+      "experience",
+      "achievements",
+      "identity",
+      "bios",
+      "headlines",
+    ],
+    buys: "privacy by default (D27) — `pasco migrate` makes existing rows explicit (`visibility: public`) and `pasco doctor --contract-delta` reports the rows still missing the field",
+  },
 ];
 
 /** The accepted floor grammar: exactly `MAJOR.MINOR`, digits only. */
@@ -207,6 +227,13 @@ export function contractDelta(floor: string, installed: string): ContractMinor[]
  *  `DoctorRequirementState` discipline: `absent` is a state, not a pass). */
 export type ContractFloorState = "delta" | "none" | "ahead" | "absent" | "INVALID";
 
+/** The workspace rows that predate schema v2.0's private default (D27, #498).
+ *  `doctor --contract-delta` reports them; `pasco migrate` writes them. */
+export interface VisibilityMigrationReport {
+  rows: { block: string; index: number; id?: string }[];
+  total: number;
+}
+
 /** `doctor --contract-delta`'s report block (additive to §7.6's `DoctorReport`). */
 export interface ContractDeltaReport {
   floor: string | null;
@@ -217,6 +244,10 @@ export interface ContractDeltaReport {
   /** Only when a `.pascorc` declares the floor: the file that produced it. */
   source?: string;
   rows: ContractDeltaRow[];
+  /** D27/#498: the rows still missing `visibility`. Present only when the
+   *  workspace LOADED — an invalid workspace cannot be measured, and `doctor`
+   *  never fabricates a zero. */
+  migration?: VisibilityMigrationReport;
 }
 
 export interface ContractFloor {

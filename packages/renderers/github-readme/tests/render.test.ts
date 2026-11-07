@@ -334,6 +334,7 @@ describe("renderer github-readme — media pipeline (M8, §18.6)", () => {
   title: Remote Gallery
   locator:
     url: https://vimeo.com/gallery
+  visibility: public
 `,
   };
 

@@ -1,0 +1,12 @@
+- id: msc
+  degree:
+    en: M.Sc. in Computer Science
+    es: M.Sc. en Ciencias de la Computación
+    fr: M.Sc. en informatique
+  field:
+    en: Machine learning
+    es: Aprendizaje automático
+    fr: Apprentissage automatique
+  institution: Universidad Central de Venezuela
+  start: 2015-09-01
+  end: 2017-07-01

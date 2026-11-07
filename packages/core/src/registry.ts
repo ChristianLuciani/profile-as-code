@@ -26,13 +26,13 @@ import type { EducationalOccupationalCredentialLd, LoadedProfile, Profile } from
 
 /**
  * The §18.5 visibility rule in ONE place: renderers and structured data emit
- * only `public`, and **absent = public** (the pre-registry profile was public
- * by design — absence must not hide silently). Every consumer of registry
- * visibility (geo JSON-LD, renderers, the leak check) calls this; no private
- * re-implementations of the default.
+ * only `public`, and **absent = private** (D27/schema v2.0 — publication is an
+ * explicit act; `pasco migrate` wrote `public` on the rows that predate it).
+ * Every consumer of visibility (geo JSON-LD, renderers, the leak check) calls
+ * this; no private re-implementations of the default.
  */
 export function isPublicEntry(entry: { visibility?: string }): boolean {
-  return (entry.visibility ?? "public") === "public";
+  return entry.visibility === "public";
 }
 
 /**
@@ -258,11 +258,16 @@ export function registryCheck(
   ): { blockPath: string; visibility: string; id: string } | undefined => {
     if (id === undefined) return undefined;
     const entry = list.find((e) => e.id === id);
-    // `entry.visibility === undefined` narrows only — the default-public DECISION
-    // stays in isPublicEntry (the one §18.5 rule); this line never decides.
-    if (entry === undefined || entry.visibility === undefined || isPublicEntry(entry))
-      return undefined;
-    return { blockPath: `${kind}[${list.indexOf(entry)}]`, visibility: entry.visibility, id };
+    // The default-private DECISION stays in isPublicEntry (the one §18.5 rule);
+    // this line only skips a non-public row that is already public-shaped.
+    if (entry === undefined || isPublicEntry(entry)) return undefined;
+    // An absent field is the v2.0 private default; report the EFFECTIVE value so
+    // the finding never prints "visibility undefined" (D27).
+    return {
+      blockPath: `${kind}[${list.indexOf(entry)}]`,
+      visibility: entry.visibility ?? "private",
+      id,
+    };
   };
 
   const flagLeak = (

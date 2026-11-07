@@ -26,7 +26,13 @@
  * requirement is unmet or malformed) · `2` usage (dispatcher).
  */
 
-import { LoadError, load, SchemaValidationError } from "@profile-as-code/core";
+import {
+  LoadError,
+  type LoadedProfile,
+  load,
+  missingVisibility,
+  SchemaValidationError,
+} from "@profile-as-code/core";
 import type { ContractDeltaReport } from "../contract-history.js";
 import { evaluateContractDelta } from "../contract-history.js";
 import type { EngineConfigSource, EngineRequirement } from "../engine-gate.js";
@@ -92,10 +98,10 @@ export interface DoctorArgs {
 function loadWorkspace(workspace: string): {
   valid: boolean;
   error?: DoctorReport["workspace"]["error"];
+  profile?: LoadedProfile;
 } {
   try {
-    load(workspace);
-    return { valid: true };
+    return { valid: true, profile: load(workspace) };
   } catch (err) {
     if (err instanceof SchemaValidationError) {
       return {
@@ -172,6 +178,25 @@ function describe(reportData: DoctorReport): string {
  * told about, then the fields and what they buy. Branches on the SAME `state`
  * the JSON reports — the two surfaces cannot drift apart.
  */
+function describeMigration(delta: ContractDeltaReport): string[] {
+  if (delta.migration === undefined) {
+    return ["migration — not measured (the workspace does not load)"];
+  }
+  const { rows, total } = delta.migration;
+  if (total === 0) {
+    return [
+      "migration — every credentials/artifacts/projects/experience row declares visibility (schema v2.0)",
+    ];
+  }
+  const shown = rows
+    .slice(0, 20)
+    .map((row) => `${row.block}[${row.index}]${row.id === undefined ? "" : ` (${row.id})`}`);
+  const more = total > shown.length ? `, +${total - shown.length} more` : "";
+  return [
+    `migration — ${total} row(s) still lack visibility (schema v2.0 default is private); run \`pasco migrate\` once: ${shown.join(", ")}${more}`,
+  ];
+}
+
 function describeContractDelta(delta: ContractDeltaReport): string[] {
   const from = delta.source === undefined ? "" : ` (declared in ${delta.source})`;
   switch (delta.state) {
@@ -211,7 +236,12 @@ export function runDoctor(args: DoctorArgs): number {
   const workspace = loadWorkspace(args.workspace);
   const requirement = requirementOf(args.engineSources, args.engineVersion);
   const contractDelta = args.contractDelta
-    ? evaluateContractDelta(args.engineSources, args.schemaVersion)
+    ? (() => {
+        const report = evaluateContractDelta(args.engineSources, args.schemaVersion);
+        if (workspace.profile === undefined) return report;
+        const rows = missingVisibility(workspace.profile);
+        return { ...report, migration: { rows, total: rows.length } };
+      })()
     : undefined;
   const data: DoctorReport = {
     engine: { name: DOCTOR_ENGINE, version: args.engineVersion },
@@ -232,6 +262,7 @@ export function runDoctor(args: DoctorArgs): number {
   line(describe(data));
   if (contractDelta !== undefined) {
     for (const deltaLine of describeContractDelta(contractDelta)) line(deltaLine);
+    for (const migrationLine of describeMigration(contractDelta)) line(migrationLine);
   }
   return healthy ? EXIT.OK : EXIT.FAIL;
 }

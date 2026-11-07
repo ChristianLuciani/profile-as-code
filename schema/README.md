@@ -10,18 +10,28 @@ A consumer that only validates a profile does not need the CLI. The released
 identity of this schema is **URL + sha256**, recorded in
 [`consumer-contract.json`](consumer-contract.json): the immutable copy at a
 published tag (tag-pinned raw URL) and the committed `current` bytes (sha256 +
-`$id` version). **The current v1.16 bytes are published at `v0.4.0`**
-(`current.published: true`, `artifact` = the tag-pinned URL); `released` names the
-same tag. The earlier artifact — schema **v1.15 at `v0.3.7`** — has no
-`achievements[]` and stays valid forever for a consumer that pins it.
+`$id` version). **The current v2.0 bytes are not published at a tag yet**
+(`current.published: false`, `artifact: null`; its `note` names the checkout);
+`released` names `v0.4.0` — the last published artifact, schema **v1.16**. The
+earlier artifact — schema **v1.15 at `v0.3.7`** — has no `achievements[]` and
+stays valid forever for a consumer that pins it.
 `node
 scripts/schema-contract/check.mjs --check` verifies both blocks offline; a schema
 edit that forgets the manifest fails CI. The reading guide — how to fetch/verify,
 and what structural validation does **not** cover — is
 [`docs/SCHEMA-CONTRACT.md`](../docs/SCHEMA-CONTRACT.md) (SPEC §7.7).
 
-> Status: **v1.16** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
+> Status: **v2.0** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
 > v1.x is **additive** (semver minor): every earlier workspace still validates unchanged.
+> v2.0 is a **major** because it changes a default: `visibility` on `credentials[]`,
+> `artifacts[]`, `projects[]` and `experience[]` is optional with **absent = `private`**
+> (D27, issue #498) — publication is an explicit act. A workspace written under the old
+> rule (`absent = public`) keeps its output by running `pasco migrate` once, which writes
+> `visibility: public` on every row that lacks the field (idempotent; comments and layout
+> preserved). `pasco doctor --contract-delta` reports the rows still missing it.
+> `achievements[]` keeps `visibility` **required**. `identity`, `bios` and `headlines`
+> carry no field and stay public.
+>
 > New in v1.16 (D24, issue #446): `achievements[]` — the career impact log. One root
 > block, never per-row `outcomes[]`: each row states a result (`statement`), classifies
 > it (`kind`: `metric` | `milestone`), carries the numeric shape (`metric`:

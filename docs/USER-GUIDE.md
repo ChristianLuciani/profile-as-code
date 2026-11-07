@@ -195,7 +195,7 @@ pasco --version   # what you installed — must match `npm view @profile-as-code
 pasco --help      # command list + exit-code contract
 ```
 
-`--help` prints `init`, `validate`, `doctor`, `build`, `preview`, `edit`, `diff`, `refine`,
+`--help` prints `init`, `validate`, `doctor`, `migrate`, `build`, `preview`, `edit`, `diff`, `refine`,
 `check`, `audit`, `discover`, `entity`, `cite-check`, `post`, `status`, `presence`,
 `release plan`, `achievements`, `export profile`, `export ai-policy` and
 `skills:export`, plus the exit-code contract: `0` ok · `1` schema or
@@ -372,6 +372,12 @@ same absence of automation and history unless your storage provides them.
   them — the answer to "so what can I adopt now?". A reader, not a gate: nothing
   refuses work because of it, and `doctor` reports an absent, malformed or
   ahead-of-engine floor as a state instead of guessing.
+- **Schema v2.0 migration (D27)**: a row that omits `visibility` is **private**
+  since v2.0. If your workspace predates that rule, run `pasco migrate` once —
+  it writes `visibility: public` on the existing `credentials`, `artifacts`,
+  `projects` and `experience` rows (comments and layout preserved; a second run
+  is a no-op), so your published output does not change. `pasco doctor
+  --contract-delta` reports the rows still missing the field.
 
 Workspace resolution order (D14): `--workspace <path>` flag → `.pascorc` →
 current directory. With `workspace: "."`, run `pasco` from the workspace root and

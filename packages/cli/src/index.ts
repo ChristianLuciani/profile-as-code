@@ -29,6 +29,7 @@ import { runAiPolicyCheck, runAiPolicyExport, runAiPolicyFileCheck } from "./com
 import { resolveNow, runExportProfile } from "./commands/export-profile.js";
 import { runInit } from "./commands/init.js";
 import { runLog } from "./commands/log.js";
+import { runMigrate } from "./commands/migrate.js";
 import { runPost } from "./commands/post.js";
 import { runPresence, runReleasePlan } from "./commands/presence.js";
 import { runPreview } from "./commands/preview.js";
@@ -83,6 +84,8 @@ Commands:
                                 .pascorc engine requirement (unmet ⇒ exit 1)
           [--contract-delta]    what the schema minors BETWEEN the workspace contract
                                 floor and the installed one added, and what it buys
+  migrate [--json]              [write] Schema v2.0 (D27): write \`visibility: public\` on rows that
+                                predate the private default; idempotent, comments and layout preserved
   build [platform] [--lang]     [write] Deterministic base texts per platform+lang
   preview [--out <dir>]         [read]  ONE self-contained HTML page of the rendered surfaces
           [--no-open] [--lang <l>]  (inline CSS, no JS, no external asset) written to
@@ -277,6 +280,18 @@ function parseCommandFlags(
 }
 
 const COMMAND_HELP: Record<string, string> = {
+  migrate: `pasco migrate [--workspace <path>] [--json]
+Schema v2.0 (D27, issue #498): since v2.0 an entry that omits visibility is
+PRIVATE. This command writes \`visibility: public\` on every credentials,
+artifacts, projects and experience row that lacks the field, so an existing
+workspace keeps publishing exactly what it published before. A row that already
+declares any visibility value is left alone, so a second run is a no-op.
+achievements keeps visibility REQUIRED (pasco log writes private) and is never
+touched. The write is a source splice: comments, alignment and every existing
+byte survive; the whole migrated content/ is validated by load() before the
+atomic replace. \`pasco doctor --contract-delta\` reports the rows still
+missing the field. Exit 0 migrated or already current - 1 a load/write failure
+(nothing written) - 2 usage.`,
   discover: `pasco discover <url>... [--json] [--allow-host <hosts>] [--observations <file>]
 Read public surfaces and build a PROVISIONAL profile so the audit's checks can
 run for a prospect who has no workspace. Every populated fact carries its
@@ -913,6 +928,19 @@ async function runMain(): Promise<number> {
         engineSources: readEnginePascorcSources(process.cwd(), flags.workspace, workspace),
         contractDelta: flags["contract-delta"] === true,
       });
+    }
+    case "migrate": {
+      const { flags, positionals } = parseCommandFlags(rest);
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.migrate}\n`);
+        return EXIT.OK;
+      }
+      if (positionals.length > 0) {
+        throw new UsageError("usage: pasco migrate [--workspace <path>] [--json]");
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      return runMigrate({ workspace });
     }
     case "build": {
       const { flags, positionals } = parseCommandFlags(rest, {

@@ -2,8 +2,8 @@
   "$comment": "The profile-contract distribution for consumers WITHOUT the engine (SPEC §7.7, issue #348). `current` is the schema committed on this branch; `published` says whether a tag carries exactly these bytes (`artifact` is the tag-pinned URL when it does; `null` plus a `note` naming the checkout when it does not). `released` is the immutable copy at a published git tag. Verified offline by `node scripts/schema-contract/check.mjs --check` (CI); a schema edit without regenerating this file fails. Do not hand-edit the hashes: regenerate with `--write` (docs/SCHEMA-CONTRACT.md).",
   "schemaPath": "schema/profile.schema.json",
   "current": {
-    "schemaVersion": "1.16",
-    "sha256": "5b5915681e23258405df703d145b3a4ad80d826219b7f7152fd81c23eeba39e1",
+    "schemaVersion": "2.0",
+    "sha256": "f82f5f88413495d335abfeb9acd3f2d880a1ca5a64b8b98fbec1136b8e900d26",
     "published": false,
     "artifact": null,
     "note": "The v0.4.0 tag publishes an earlier byte-image of schema v1.16, not these bytes, so there is no tag-pinned URL for this sha256: use the repository checkout at a commit whose schema/profile.schema.json hashes to it. The next release publishes it."

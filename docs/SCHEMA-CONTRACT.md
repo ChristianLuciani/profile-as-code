@@ -33,20 +33,28 @@ same bytes forever. The tag-pinned raw URL is the only published form: a
 floating ref (`main`) or any private path is refused by the gate and may not
 appear on this surface (AGENTS.md rule 9).
 
-## The current contract — v1.16, published
+## The current contract — v2.0, not yet published
 
-`main` carries schema **v1.16** (additive: `achievements[]`, D24) and the
-`v0.4.0` tag carries exactly these bytes, so `current` in
-`schema/consumer-contract.json` says `published: true` with the tag-pinned URL,
-and `released` names the same tag. The earlier artifact — **v1.15 at `v0.3.7`** —
-stays valid forever for a consumer that pins it and does not need
-`achievements[]`.
+`main` carries schema **v2.0** (D27, #498: `visibility` optional with absent =
+`private` on `credentials[]`, `artifacts[]`, `projects[]` and `experience[]`;
+`achievements[]` keeps it required). The `v0.4.0` tag still carries **v1.16**
+(the additive `achievements[]` release), so `current` in
+`schema/consumer-contract.json` says `published: false` with `artifact: null`
+and a note naming the checkout; `released` names `v0.4.0`. The earlier artifact —
+**v1.15 at `v0.3.7`** — stays valid forever for a consumer that pins it.
 
 | Field | Value |
 |---|---|
-| Schema version | `v1.16` |
-| sha256 | `d6b06b57f1106885ee0467d8aa8009e098b04fe0a5ffad34b97455bc4417fe2f` |
-| Published artifact | the tag-pinned `v0.4.0` URL above |
+| Schema version | `v2.0` |
+| sha256 | `f82f5f88413495d335abfeb9acd3f2d880a1ca5a64b8b98fbec1136b8e900d26` |
+| Published artifact | none yet — the next release publishes these bytes |
+
+A v1.x workspace still validates against v2.0 unchanged; the **default**
+changed, so its published output changes until it runs `pasco migrate` once.
+That command writes `visibility: public` on every `credentials`, `artifacts`,
+`projects` and `experience` row that lacks the field (comments and layout
+preserved; idempotent). `pasco doctor --contract-delta` reports the rows still
+missing it.
 
 A profile that declares no `achievements[]` validates identically against `v1.16`
 and `v0.3.7`; the block is additive by construction. `pasco log` writes one row
@@ -72,9 +80,10 @@ PY
 
 `profile.json` is the `profile` object of `pasco export profile --json` (SPEC
 §7.5) or any object in that shape. The printed `$id` names the contract version,
-not a byte-image: `…/v1.16/…` for the released `v0.4.0` artifact (above) and for
-a `main` checkout, which carries the same bytes; `…/v1.15/…` for the earlier
-`v0.3.7` artifact, which stays valid forever for a consumer that pins it. When the
+not a byte-image: `…/v2.0/…` for the current `main` checkout (above; the next
+release publishes these bytes), `…/v1.16/…` for the released `v0.4.0` artifact,
+and `…/v1.15/…` for the earlier `v0.3.7` artifact, which stays valid forever for
+a consumer that pins it. When the
 exact bytes matter, compare the sha256 in
 `schema/consumer-contract.json`; the `$id` alone does not pin them.
 A consumer that uses the CLI for the payload and a standalone validator for the
