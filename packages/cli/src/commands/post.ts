@@ -63,6 +63,20 @@ export const POST_OWNER =
 const LONGFORM_REQUIRED_FIELDS = ["title", "dek"] as const;
 /** Front-matter fields that travel into an API platform's settings. */
 const LONGFORM_SETTING_FIELDS = ["tags", "canonical", "publication", "list"] as const;
+/** The long-form access levels (#484). `access` is a generic field of the
+ *  long-form format: a channel opts in by declaring it in `fields.optional`;
+ *  the vocabulary and the default belong to the format, not to one channel. */
+const LONGFORM_ACCESS_LEVELS: readonly string[] = ["free", "free-subscribers", "paid", "founding"];
+const LONGFORM_ACCESS_DEFAULT = "free";
+
+/** Does this channel's contract declare the generic long-form `access` field? */
+function declaresAccess(rules: PostingRules): boolean {
+  return (rules.fields?.optional ?? []).includes("access");
+}
+
+function isAccessLevel(value: unknown): boolean {
+  return typeof value === "string" && LONGFORM_ACCESS_LEVELS.includes(value);
+}
 
 interface WordLimits {
   min?: number;
@@ -506,6 +520,14 @@ export function checkLongform(
     }
   }
 
+  if (declaresAccess(rules) && fields.access !== undefined && !isAccessLevel(fields.access)) {
+    findings.push({
+      code: "bad-access",
+      severity: "error",
+      message: `access "${fieldString(fields.access)}" is not a valid level for ${channel} — use ${LONGFORM_ACCESS_LEVELS.join(" | ")} (default: ${LONGFORM_ACCESS_DEFAULT})`,
+    });
+  }
+
   const words = countWords(front.body);
   const min = rules.limits?.words?.min;
   const max = rules.limits?.words?.max;
@@ -652,6 +674,11 @@ function buildLongformTask(args: {
     `  fields optional: ${optional}`,
     `  words: ${words}`,
     `  export: ${rules.export ?? "—"} (${rules.export === "paste" ? "paste surface — no body API" : "API platform — Postiz settings mapping"})`,
+    ...(declaresAccess(rules)
+      ? [
+          `  access: ${LONGFORM_ACCESS_LEVELS.join(" | ")} (default: ${LONGFORM_ACCESS_DEFAULT}; state it in the front matter only when it is not free)`,
+        ]
+      : []),
     `  maxChars: ${rules.limits?.maxChars ?? "—"}`,
     ...rulesSummary(rules),
     ``,
@@ -725,6 +752,7 @@ function buildPasteChecklist(args: {
   const fieldLines = declared
     .filter((name) => fields[name] !== undefined)
     .map((name) => `- ${name}: ${fieldString(fields[name])}`);
+  const access = fields.access === undefined ? undefined : fieldString(fields.access);
   return [
     `# Paste checklist — ${seedId} / ${channel}`,
     ``,
@@ -745,6 +773,9 @@ function buildPasteChecklist(args: {
     `- [ ] The body rendered with zero placeholders (search for "{{fact:").`,
     `- [ ] Every link (canonical included) is an SSOT URL.`,
     `- [ ] Tags/list match the front matter above.`,
+    ...(access === undefined
+      ? []
+      : [`- [ ] Access is set to "${access}" in the platform's audience selector.`]),
     ``,
   ].join("\n");
 }
@@ -889,6 +920,7 @@ function handleTask(args: PostArgs): number {
     skill: string | undefined;
     maxChars?: number;
     words?: WordLimits;
+    access?: { levels: string[]; default: string };
   }[] = [];
   for (const { channel, rules, skill } of channelRules) {
     const task =
@@ -916,12 +948,25 @@ function handleTask(args: PostArgs): number {
       skill,
       maxChars: rules.limits?.maxChars,
       ...(rules.limits?.words !== undefined ? { words: rules.limits.words } : {}),
+      ...(format === "longform" && declaresAccess(rules)
+        ? {
+            access: {
+              levels: [...LONGFORM_ACCESS_LEVELS],
+              default: LONGFORM_ACCESS_DEFAULT,
+            },
+          }
+        : {}),
     });
     line(`task: ${taskPath} (${format}${from !== undefined ? `, derivedFrom ${from}` : ""})`);
     line(`  skill: ${skill ?? "(missing)"}`);
     if (format === "longform") {
       line(`  words: ${rules.limits?.words?.min ?? "—"}–${rules.limits?.words?.max ?? "—"}`);
       line(`  export: ${rules.export ?? "—"}`);
+      if (declaresAccess(rules)) {
+        line(
+          `  access: ${LONGFORM_ACCESS_LEVELS.join(" | ")} (default: ${LONGFORM_ACCESS_DEFAULT})`,
+        );
+      }
     } else {
       line(`  maxChars: ${rules.limits?.maxChars ?? "—"}`);
     }

@@ -75,6 +75,7 @@ title: Repeatable work
 dek: What compounds, and why most of it is invisible
 tags: [craft, work]
 canonical: https://elenavasquez.substack.com
+access: paid
 ---
 The body in markdown…
 ```
@@ -86,7 +87,8 @@ The body in markdown…
 | `format: longform` | self-declares the file's shape (a `posting.yaml` must not) |
 | `export: api \| paste` | API channel (Postiz settings mapping) vs paste surface (checklist, no body API) |
 | `fields.required` | must include `title` and `dek`; a missing one fails `check` |
-| `fields.optional` | `preview`, `tags`, `canonical`, `publication`, `list` (images are **not** a v0 field — D17 `artifacts[].locator` owns pointers) |
+| `fields.optional` | `preview`, `tags`, `canonical`, `publication`, `list`, `access` (images are **not** a v0 field — D17 `artifacts[].locator` owns pointers) |
+| `access` (optional field) | the post's access level: `free` (default) · `free-subscribers` · `paid` · `founding`. It is generic to the long-form format — a channel opts in by listing it in `fields.optional` (Substack today); `check` reports `bad-access` outside the enum, and an explicit value is echoed in the task and the paste checklist. It is not an API payload field |
 | `limits.words` | editorial band (`min`/`max`), enforced by `check` |
 | `structure` · `sources` | judgment + evidence, same shape as `posting.yaml` |
 
@@ -96,7 +98,8 @@ surface, like Substack (#266). Images are out of scope in v0. `check` reports a
 front-matter field the channel does not declare (`unknown-field`, warn) instead
 of letting the export drop it silently; `title`, `tags`, `canonical`,
 `publication` and `list` are the fields an API channel maps into its Postiz
-settings.
+settings — `access` is deliberately not one of them: it belongs to the
+long-form contract, not to the Postiz payload.
 
 ## Commands
 
@@ -128,8 +131,9 @@ pasco post choose <seed-id> --channel linkedin --variant linkedin-1 \
 pasco post check <seed-id> --workspace <profile-data>
 #    short:    errors max-chars · url-not-in-ssot · dangling-ref
 #              warns  hashtags · unsourced-claim
-#    longform: errors missing-field (title/dek) · word-count · url-not-in-ssot
-#              (canonical included) · dangling-ref · front-matter
+#    longform: errors missing-field (title/dek) · bad-access (outside
+#              free/free-subscribers/paid/founding) · word-count ·
+#              url-not-in-ssot (canonical included) · dangling-ref · front-matter
 #              warns  unsourced-claim · unknown-field (not exported)
 #    both:     derivedFrom must resolve to a long-form parent (dangling-derived-from)
 

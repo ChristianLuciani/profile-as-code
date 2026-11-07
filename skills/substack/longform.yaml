@@ -20,6 +20,11 @@ fields:
     - tags
     - canonical
     - list
+    # The generic long-form access level (#484): the engine validates it
+    # against free | free-subscribers | paid | founding (default free) and
+    # echoes an explicit value into the task and the paste checklist. A channel
+    # opts in by listing it here; it never travels into an API Postiz payload.
+    - access
 limits:
   words:
     min: 600

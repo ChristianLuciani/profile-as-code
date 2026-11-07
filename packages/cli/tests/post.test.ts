@@ -660,3 +660,192 @@ describe("pasco post — long-form (#266)", () => {
     expect(notEssay.stderr).toContain("long-form");
   });
 });
+
+/* #484 — `access`, a generic long-form field each channel contract declares. */
+
+const ACCESS_LEVELS = ["free", "free-subscribers", "paid", "founding"];
+
+function findingsOf(stdout: string): { errors: number; codes: string[]; messages: string[] } {
+  const envelope = JSON.parse(stdout) as {
+    data: { errors: number; channels: { findings: { code: string; message: string }[] }[] };
+  };
+  const findings = envelope.data.channels.flatMap((channel) => channel.findings);
+  return {
+    errors: envelope.data.errors,
+    codes: findings.map((finding) => finding.code),
+    messages: findings.map((finding) => finding.message),
+  };
+}
+
+function substackTask(ws: string, id: string): void {
+  const task = run([
+    "post",
+    "task",
+    id,
+    "--format",
+    "longform",
+    "--channel",
+    "substack",
+    "--workspace",
+    ws,
+  ]);
+  expect(task.code, task.stderr).toBe(0);
+}
+
+describe("pasco post — long-form access (#484)", () => {
+  it("declares the access vocabulary in the task only for a channel that opts in", () => {
+    const ws = workspace();
+    longformSeed(ws, "essay-level-task");
+    const task = run([
+      "post",
+      "task",
+      "essay-level-task",
+      "--format",
+      "longform",
+      "--channel",
+      "substack,medium",
+      "--workspace",
+      ws,
+    ]);
+    expect(task.code, task.stderr).toBe(0);
+    expect(task.stdout).toContain("access: free | free-subscribers | paid | founding");
+
+    const substack = readFileSync(
+      join(ws, "posts", "essay-level-task", "substack", "task.md"),
+      "utf8",
+    );
+    expect(substack).toContain("access: free | free-subscribers | paid | founding");
+    expect(substack).toContain("# access: <optional>");
+
+    // medium's contract does not declare `access`: its task is untouched.
+    const medium = readFileSync(join(ws, "posts", "essay-level-task", "medium", "task.md"), "utf8");
+    expect(medium).not.toContain("access");
+  });
+
+  it("accepts every level and echoes an explicit level into the paste checklist", () => {
+    const ws = workspace();
+    longformSeed(ws, "essay-access-levels");
+    substackTask(ws, "essay-access-levels");
+    for (const level of ACCESS_LEVELS) {
+      variant(
+        ws,
+        "essay-access-levels",
+        "substack",
+        "substack-1",
+        frontMatter(
+          { title: "Repeatable work", dek: "What compounds.", access: level },
+          words(650),
+        ),
+      );
+      const check = run(["post", "check", "essay-access-levels", "--json", "--workspace", ws]);
+      expect(check.code, `${level}: ${check.stdout}${check.stderr}`).toBe(0);
+      const findings = findingsOf(check.stdout);
+      expect(findings.errors).toBe(0);
+      expect(findings.codes).not.toContain("bad-access");
+
+      const exported = run(["post", "export", "essay-access-levels", "--workspace", ws]);
+      expect(exported.code, exported.stderr).toBe(0);
+      const checklist = readFileSync(
+        join(ws, "posts", "essay-access-levels", "substack", "paste-checklist.md"),
+        "utf8",
+      );
+      expect(checklist).toContain(`- access: ${level}`);
+      expect(checklist).toContain(`- [ ] Access is set to "${level}"`);
+    }
+  });
+
+  it("reports bad-access for a value outside the enum or a non-string", () => {
+    const ws = workspace();
+    longformSeed(ws, "essay-access-bad");
+    substackTask(ws, "essay-access-bad");
+    variant(
+      ws,
+      "essay-access-bad",
+      "substack",
+      "substack-1",
+      frontMatter({ title: "Repeatable work", dek: "What compounds.", access: "foo" }, words(650)),
+    );
+    const bad = run(["post", "check", "essay-access-bad", "--json", "--workspace", ws]);
+    expect(bad.code).toBe(1);
+    const badFindings = findingsOf(bad.stdout);
+    expect(badFindings.codes).toContain("bad-access");
+    const message = badFindings.messages.find((text) => text.includes("access")) ?? "";
+    expect(message).toContain("free | free-subscribers | paid | founding");
+    expect(message).toContain("default: free");
+
+    // YAML turns an unquoted 3 into a number: still not a level.
+    writeFileSync(
+      join(ws, "posts", "essay-access-bad", "substack", "substack-1.md"),
+      `---\ntitle: Repeatable work\ndek: What compounds.\naccess: 3\n---\n${words(650)}\n`,
+    );
+    const numeric = run(["post", "check", "essay-access-bad", "--json", "--workspace", ws]);
+    expect(numeric.code).toBe(1);
+    expect(findingsOf(numeric.stdout).codes).toContain("bad-access");
+  });
+
+  it("treats a missing access as free: no finding and no new checklist line", () => {
+    const ws = workspace();
+    longformSeed(ws, "essay-no-level");
+    substackTask(ws, "essay-no-level");
+    variant(
+      ws,
+      "essay-no-level",
+      "substack",
+      "substack-1",
+      frontMatter({ title: "Repeatable work", dek: "What compounds." }, words(650)),
+    );
+    const check = run(["post", "check", "essay-no-level", "--json", "--workspace", ws]);
+    expect(check.code, check.stdout).toBe(0);
+    const findings = findingsOf(check.stdout);
+    expect(findings.errors).toBe(0);
+    expect(findings.codes).not.toContain("bad-access");
+
+    expect(run(["post", "export", "essay-no-level", "--workspace", ws]).code).toBe(0);
+    const checklist = readFileSync(
+      join(ws, "posts", "essay-no-level", "substack", "paste-checklist.md"),
+      "utf8",
+    );
+    expect(checklist).not.toContain("access");
+    expect(checklist).not.toContain("Access is set");
+  });
+
+  it("keeps access out of the Postiz payload for an API channel", () => {
+    const ws = workspace();
+    longformSeed(ws, "essay-access-api");
+    const task = run([
+      "post",
+      "task",
+      "essay-access-api",
+      "--format",
+      "longform",
+      "--channel",
+      "medium,substack",
+      "--workspace",
+      ws,
+    ]);
+    expect(task.code, task.stderr).toBe(0);
+    const fields = { title: "Repeatable work", dek: "What compounds.", access: "paid" };
+    variant(ws, "essay-access-api", "medium", "medium-1", frontMatter(fields, words(650)));
+    variant(ws, "essay-access-api", "substack", "substack-1", frontMatter(fields, words(650)));
+    writeFileSync(join(ws, "postiz.yaml"), "channels:\n  medium: md-access\n");
+
+    // medium does not declare `access`, so the field is merely not exported (warn).
+    const check = run(["post", "check", "essay-access-api", "--json", "--workspace", ws]);
+    expect(check.code, check.stdout).toBe(0);
+    expect(findingsOf(check.stdout).codes).toContain("unknown-field");
+
+    const exported = run(["post", "export", "essay-access-api", "--workspace", ws]);
+    expect(exported.code, exported.stderr).toBe(0);
+    const payload = JSON.parse(
+      readFileSync(join(ws, "posts", "essay-access-api", "postiz.json"), "utf8"),
+    ) as { posts: { settings: Record<string, unknown> }[] };
+    expect(payload.posts).toHaveLength(1);
+    expect(payload.posts[0]?.settings.access).toBeUndefined();
+
+    const checklist = readFileSync(
+      join(ws, "posts", "essay-access-api", "substack", "paste-checklist.md"),
+      "utf8",
+    );
+    expect(checklist).toContain(`- [ ] Access is set to "paid"`);
+  });
+});
