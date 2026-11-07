@@ -24,6 +24,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
+import { AUDIT_SCHEMA_VERSION, AUDIT_SCOPE_KEYS } from "../src/commands/audit.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PKG_DIR = join(__dirname, "..");
@@ -270,5 +271,48 @@ describe("the cycle's reference (#389)", () => {
     const bare = limitOf(preview(workspaceWith("")));
     expect(bare.limit).toBeNull();
     expect(bare.over).toBe(false);
+  });
+});
+
+describe("the README's frozen audit example tracks the engine version (#490)", () => {
+  it("names the schemaVersion the engine emits and carries every scope bucket", () => {
+    // The example is a consumer contract: a reader who copies it must not refuse
+    // the version the CLI actually prints (the README says so two paragraphs later).
+    const blocks = [...README.matchAll(/```json\n([\s\S]*?)```/g)]
+      .map((match) => match[1] ?? "")
+      .filter((block) => block !== "");
+    const audit = blocks.find((block) => block.includes('"scope"') && block.includes('"findings"'));
+    expect(audit, "the README must carry the audit --json example").toBeDefined();
+    const example = JSON.parse(audit ?? "") as {
+      schemaVersion: string;
+      scope: Record<string, unknown>;
+    };
+    expect(example.schemaVersion).toBe(AUDIT_SCHEMA_VERSION);
+    // Every bucket, not just the new one: a bucket dropped from the example would
+    // silently stop documenting a frozen field.
+    expect(Object.keys(example.scope)).toEqual([...AUDIT_SCOPE_KEYS]);
+
+    // The enumerations in prose must match the SAME source: the README's audit
+    // row and the user guide's command cheatsheet were the two that drifted
+    // (#489 review).
+    const readmeRow = README.split("\n").find((line) => line.includes("`pasco audit [--json]`"));
+    expect(readmeRow, "the README must carry the audit row").toBeDefined();
+    const userGuide = readFileSync(join(REPO_DIR, "docs", "USER-GUIDE.md"), "utf8");
+    const guideLine = userGuide
+      .split("\n")
+      .find((line) => line.trim().startsWith("pasco audit --json"));
+    expect(guideLine, "the user guide must carry the audit cheatsheet line").toBeDefined();
+    // SPEC §7.1 carries two enumerations of the same set (the command row and the
+    // frozen JSON example); both must be gated too, or a bucket added to the
+    // constant + README + guide leaves the contract stale with every gate green.
+    const specRow = SPEC.split("\n").find((line) => line.includes("`pasco audit [--json]`"));
+    expect(specRow, "SPEC §7.1 must carry the audit row").toBeDefined();
+    const specScope = /"scope": \{ "catalog"[\s\S]*?\}/.exec(SPEC)?.[0] ?? "";
+    expect(specScope, "SPEC §7.1 must carry the frozen scope example").not.toBe("");
+    for (const line of [readmeRow ?? "", guideLine ?? "", specRow ?? "", specScope]) {
+      for (const key of AUDIT_SCOPE_KEYS) {
+        expect(line, `the enumeration must name ${key}`).toContain(key);
+      }
+    }
   });
 });

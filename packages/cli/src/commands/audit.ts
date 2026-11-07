@@ -60,7 +60,17 @@ import { type Pascorc, sanitizeCompletenessPolicy } from "../workspace.js";
 
 /** The frozen contract version of the `--json` payload (SPEC §7.1). A consumer
  *  refuses a version it does not know instead of guessing at the shape. */
-export const AUDIT_SCHEMA_VERSION = "1";
+export const AUDIT_SCHEMA_VERSION = "2";
+
+/** The frozen `scope` key set, in contract order (#490). Docs and tests read this
+ *  instead of re-typing the list, so an enumeration cannot silently drop a bucket. */
+export const AUDIT_SCOPE_KEYS = [
+  "catalog",
+  "declared",
+  "checked",
+  "notRun",
+  "notBuildable",
+] as const;
 
 export type AuditClass = FactFindingClass;
 
@@ -89,6 +99,10 @@ export interface AuditScope {
   checked: string[];
   /** Declared surfaces with no artifact on disk or no renderer — NOT run. */
   notRun: string[];
+  /** Subset of `notRun` with no buildable body: the build can never satisfy the
+   *  "run pasco build" advice (no renderer output, no paste source, no variant
+   *  body). The fix is a body or a renderer, not a build (#483/#490, v2). */
+  notBuildable: string[];
 }
 
 export interface AuditReport {
@@ -338,6 +352,7 @@ export function runAudit(args: AuditArgs): number {
     declared: facts.declared,
     checked: facts.checked,
     notRun: facts.notRun,
+    notBuildable: facts.notBuildable,
   };
   const reportData: AuditReport = { schemaVersion: AUDIT_SCHEMA_VERSION, scope, findings };
 
@@ -350,14 +365,19 @@ export function runAudit(args: AuditArgs): number {
     scope.checked.length === 0
       ? "0 surfaces measured"
       : `${scope.checked.length} surface(s) compared (${scope.checked.join(", ")})`;
-  const missing = scope.notRun.length === 0 ? "" : ` · not run: ${scope.notRun.join(", ")}`;
+  const runnableNotRun = scope.notRun.filter((surface) => !scope.notBuildable.includes(surface));
+  const missing = runnableNotRun.length === 0 ? "" : ` · not run: ${runnableNotRun.join(", ")}`;
+  const notBuildable =
+    scope.notBuildable.length === 0
+      ? ""
+      : ` · not buildable: ${scope.notBuildable.join(", ")} (no body or renderer produces an artifact)`;
   const declared =
     scope.catalog === "not-shipped"
       ? " · skills tree NOT SHIPPED with this package (the catalog cannot declare the premise)"
       : scope.declared.length === 0
         ? " · premise not declared by any catalog"
         : "";
-  line(`  scope: ${compared}${missing}${declared}`);
+  line(`  scope: ${compared}${missing}${notBuildable}${declared}`);
   if (scope.checked.length === 0) {
     // #397: name the cause that ACTUALLY applies. The old line offered "run
     // pasco build" in every case — including the repro, where the artifact
@@ -370,11 +390,22 @@ export function runAudit(args: AuditArgs): number {
       line(
         "  an empty scope is not a clean audit — no check catalog declares the surface-facts rule for this workspace's surfaces (add a content/checks.yaml row to declare it)",
       );
+    } else if (runnableNotRun.length === 0 && scope.notBuildable.length > 0) {
+      // #490: distinguish "not built yet" (actionable) from "not buildable" (the
+      // build can never produce it). Offering "run pasco build" here was the lie.
+      line(
+        `  an empty scope is not a clean audit — no body or renderer produces an artifact for ${scope.notBuildable.join(", ")} (add a bio row or a renderer; building cannot satisfy it)`,
+      );
     } else {
-      const surfaces = scope.notRun.length > 0 ? ` for ${scope.notRun.join(", ")}` : "";
+      const surfaces = runnableNotRun.length > 0 ? ` for ${runnableNotRun.join(", ")}` : "";
       line(
         `  an empty scope is not a clean audit — no built artifact to compare${surfaces} (run pasco build; a flavor with no renderer cannot be compared)`,
       );
+      if (scope.notBuildable.length > 0) {
+        line(
+          `  also not buildable: ${scope.notBuildable.join(", ")} (no body or renderer produces an artifact)`,
+        );
+      }
     }
   }
   if (findings.length === 0) {

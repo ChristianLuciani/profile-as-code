@@ -14,11 +14,12 @@ time rather than trusted.
 ## Pre-paste
 
 1. `pasco validate` — exit 0 (schema + drift + geo).
-2. `pasco build substack --lang <lang>` — with no renderer yet (#483) this falls
-   back to the shared paste source and writes `profiles/substack.md` with the
-   `long` bio; the sheet in SOTA-2026 §9 is the target shape. Until #483 lands,
-   assemble the fields below from `content/` by hand and say so — never invent a
-   field the SSOT does not carry.
+2. `pasco build substack --lang <lang>` — writes the paste sheet to
+   `profiles/substack/README.md`: `Field: value` lines for the profile header,
+   the two bio lengths, the link set and the publication copy (SOTA-2026 §9).
+   A line whose fact the SSOT does not declare is omitted — never fill it by
+   hand; and a workspace with no substack bio and no `newsletter` block leaves
+   no artifact (unbuild).
 3. Check the canonical URL: `newsletter.url` must be the live publication URL.
    A custom domain is a separate, paid step (see _Fields the renderer cannot
    paste_) and it needs the URL declared in the SSOT **before** it is used.

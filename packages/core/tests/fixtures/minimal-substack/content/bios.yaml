@@ -1,0 +1,20 @@
+- platform: substack
+  lang: en
+  length: short
+  text: Sovereign AI infrastructure · open-source education · GEO for profiles.
+- platform: substack
+  lang: en
+  length: long
+  text: Elena Vasquez builds sovereign AI infrastructure. She leads the open-source
+    example-agentic-hub project, routes LLM traffic to local-first providers and
+    writes about generative-engine optimization for professional profiles.
+- platform: substack
+  lang: es
+  length: short
+  text: Infraestructura de IA soberana · educación abierta · GEO para perfiles.
+- platform: substack
+  lang: es
+  length: long
+  text: Elena Vasquez construye infraestructura de IA soberana. Lidera el proyecto
+    open-source example-agentic-hub, enruta tráfico de LLMs a proveedores local-first
+    y escribe sobre optimización para motores generativos aplicada a perfiles.
