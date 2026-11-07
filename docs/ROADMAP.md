@@ -18,6 +18,7 @@
 | **M7** evidence core | ✅ | **✅ cerrado** | schema v1.4 (`credentials[]`/`artifacts[]`), `registryCheck`, `hasCredential` en JSON-LD |
 | **M8** media pipeline | ✅ | **✅ contrato sí, deploy no** | `assets/` + `manifest.json` + `collectMedia` en core; los playbooks de deploy son M4 |
 | **M9** training-time corpus presence | ⏳ contrato sí, decisión **deferida** (Q10, post-M3) | **✗ no empezado** — piso ya definido: **privado-first** (bloquea crawlers de entrenamiento, sin licencia abierta) con opt-in explícito del dueño | `docs/research/03-training-time-visibility.md` (PR #135 + corrección de consentimiento, 2026-10-05); SPEC §12 M9 + §14 Q10 |
+| **M12** egress authorization (D28) | pendiente | **✗ no empezado** — D28 registrada; gate de egreso sin implementar | SPEC §12 M12; #503 (epic) |
 
 **Fuera de los milestones — lo que la serie `0.2.0` → `0.3.6` entrega (2026-10-09 → 2026-10-26; 0.3.6 en preparación):**
 
@@ -78,7 +79,7 @@ publicación de #242 en vez de una segunda tabla de caps.
 
 ### Ahora — seguridad (transversal)
 
-**Seguridad · Egreso autorizado (#503, D28)**
+**M12 · Egreso autorizado (#503, D28)**
 Publicar y exportar son **actos autorizados**, no ediciones de archivo. D27 (#502) dejó `private`
 como default y el export público; #503 agrega el gate de egreso: detectar `private → public` y
 `export --all` contra el ledger, exigir un **recibo firmado** sobre el manifiesto exacto (llave
