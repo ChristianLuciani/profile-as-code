@@ -103,6 +103,8 @@ describe("pasco achievements --json", () => {
       measured: 1,
       achieved: 1,
       partial: 0,
+      // ach-next-cohort declares no date: counted, never hidden (#497).
+      undated: 1,
     });
     const rows = envelope.data?.achievements ?? [];
     const byId = new Map(rows.map((row) => [row.id, row]));
@@ -126,6 +128,7 @@ describe("pasco achievements --json", () => {
       measured: 0,
       achieved: 0,
       partial: 0,
+      undated: 1,
     });
   });
 
@@ -138,7 +141,182 @@ describe("pasco achievements --json", () => {
       measured: 0,
       achieved: 0,
       partial: 0,
+      undated: 0,
     });
+  });
+});
+
+/**
+ * The retrieval by period (D25/S3, #497). The fixture is the same one the rest
+ * of the file uses: four rows, one of them (ach-next-cohort) date-less, one
+ * private (ach-reconcile-time, 2021-05-31) and one exactly on a boundary
+ * (ach-certified, 2022-03-01).
+ */
+describe("pasco achievements --since/--until (D25/S3)", () => {
+  it("filters by the fact date with BOTH boundaries inclusive", () => {
+    const exact = run([
+      "achievements",
+      "--since",
+      "2021-05-31",
+      "--until",
+      "2021-05-31",
+      "--json",
+      "--workspace",
+      ACHIEVEMENTS,
+    ]);
+    expect(exact.code).toBe(0);
+    expect(json(exact).data?.achievements.map((row) => row.id)).toEqual(["ach-reconcile-time"]);
+    expect(json(exact).data?.scope).toEqual({
+      total: 1,
+      planned: 0,
+      measured: 0,
+      achieved: 1,
+      partial: 0,
+      // The date-less planned goal is declared, not dropped.
+      undated: 1,
+    });
+  });
+
+  it("accepts a one-sided range (--since alone / --until alone)", () => {
+    const from = run([
+      "achievements",
+      "--since",
+      "2022-01-01",
+      "--json",
+      "--workspace",
+      ACHIEVEMENTS,
+    ]);
+    expect(from.code).toBe(0);
+    expect(
+      json(from)
+        .data?.achievements.map((row) => row.id)
+        .sort(),
+    ).toEqual(["ach-certified", "ach-tutors"]);
+    const until = run([
+      "achievements",
+      "--until",
+      "2021-12-31",
+      "--json",
+      "--workspace",
+      ACHIEVEMENTS,
+    ]);
+    expect(until.code).toBe(0);
+    expect(json(until).data?.achievements.map((row) => row.id)).toEqual(["ach-reconcile-time"]);
+  });
+
+  it("the goal view returns undated goals inside a range and declares them", () => {
+    const result = run([
+      "achievements",
+      "--targets",
+      "--since",
+      "2020-01-01",
+      "--until",
+      "2020-12-31",
+      "--json",
+      "--workspace",
+      ACHIEVEMENTS,
+    ]);
+    expect(result.code).toBe(0);
+    expect(json(result).data?.achievements.map((row) => row.id)).toEqual(["ach-next-cohort"]);
+    expect(json(result).data?.scope).toEqual({
+      total: 1,
+      planned: 1,
+      measured: 0,
+      achieved: 0,
+      partial: 0,
+      undated: 1,
+    });
+  });
+
+  it("never loses a date-less row in the log view: it is counted and said out loud", () => {
+    const result = run([
+      "achievements",
+      "--since",
+      "2020-01-01",
+      "--until",
+      "2020-12-31",
+      "--json",
+      "--workspace",
+      ACHIEVEMENTS,
+    ]);
+    expect(result.code).toBe(0);
+    expect(json(result).data?.achievements).toEqual([]);
+    expect(json(result).data?.scope.undated).toBe(1);
+
+    const human = run([
+      "achievements",
+      "--since",
+      "2020-01-01",
+      "--until",
+      "2020-12-31",
+      "--workspace",
+      ACHIEVEMENTS,
+    ]);
+    expect(human.code).toBe(0);
+    expect(human.stdout).toContain("1 row(s) declare no `date`");
+    expect(human.stdout).toContain("never hidden");
+  });
+
+  it("includes PRIVATE rows: retrieval is local, not the public projection (D27)", () => {
+    const view = run(["achievements", "--json", "--workspace", ACHIEVEMENTS]);
+    const row = json(view).data?.achievements.find((entry) => entry.id === "ach-reconcile-time");
+    expect(row).toBeDefined();
+    expect((row as { visibility?: string }).visibility).toBe("private");
+    const ranged = run([
+      "achievements",
+      "--since",
+      "2021-01-01",
+      "--until",
+      "2021-12-31",
+      "--json",
+      "--workspace",
+      ACHIEVEMENTS,
+    ]);
+    expect(ranged.code).toBe(0);
+    expect(json(ranged).data?.achievements.map((entry) => entry.id)).toEqual([
+      "ach-reconcile-time",
+    ]);
+  });
+
+  it("an invalid date or since > until is exit 2 (never an empty range)", () => {
+    const malformed = run([
+      "achievements",
+      "--since",
+      "2021-13-01",
+      "--json",
+      "--workspace",
+      ACHIEVEMENTS,
+    ]);
+    expect(malformed.code).toBe(2);
+    expect(json(malformed).error?.kind).toBe("usage");
+
+    const backwards = run([
+      "achievements",
+      "--since",
+      "2024-01-01",
+      "--until",
+      "2021-01-01",
+      "--workspace",
+      ACHIEVEMENTS,
+    ]);
+    expect(backwards.code).toBe(2);
+    expect(backwards.stderr).toContain("is after");
+  });
+
+  it('keeps schemaVersion "1": undated is an additive key, not a breaking bump', () => {
+    const result = run([
+      "achievements",
+      "--since",
+      "2020-01-01",
+      "--until",
+      "2026-12-31",
+      "--json",
+      "--workspace",
+      ACHIEVEMENTS,
+    ]);
+    expect(result.code).toBe(0);
+    expect(json(result).data?.schemaVersion).toBe("1");
+    expect(json(result).data?.scope.undated).toBeDefined();
   });
 });
 

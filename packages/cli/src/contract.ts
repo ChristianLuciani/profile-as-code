@@ -32,6 +32,29 @@ export function parseFlavor(value: string): Flavor {
   throw new UsageError(`unknown flavor "${value}" (allowed: ${FLAVORS.join(", ")})`);
 }
 
+/** `$defs/date` as the CLI accepts it on an ARGUMENT (`--date`, `--since`,
+ *  `--until`): `YYYY-MM-DD`, real calendar, no timezone. One home for the check
+ *  the capture path (#496) and the range (#497) share — a malformed bound is a
+ *  usage error (exit 2), never a silently empty set.
+ *
+ *  The schema also allows `--date`-less rows (undated), and D19 forbids reading
+ *  the clock, so the CLI never fills a missing date. */
+export function parseCalendarDate(value: string, flag: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (match === null) {
+    throw new UsageError(`${flag} must be a date in YYYY-MM-DD form (got "${value}")`);
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const daysInMonth = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (month < 1 || month > 12 || day < 1 || day > (daysInMonth[month - 1] ?? 0)) {
+    throw new UsageError(`${flag} is not a real calendar date (got "${value}")`);
+  }
+  return value;
+}
+
 /** The CLI's default variant count: 3. One home for the number the scaffolded
  *  `.pascorc` seeds (`init.ts`), the cookbook examples show (`--variants 3`) and
  *  the `.pascorc` fallback below rests on. SPEC §7 and the usage rows print

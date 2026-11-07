@@ -32,16 +32,39 @@ import {
   SchemaValidationError,
   textOf,
 } from "@profile-as-code/core";
+import { parseCalendarDate, UsageError } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
 
-/** The frozen contract version of the `--json` payload. */
+/** The frozen contract version of the `--json` payload. `scope.undated` (#497)
+ *  is ADDITIVE to v1: no field was removed or renamed, so a consumer of the
+ *  frozen shape keeps working (the acceptance of #497 forbids a breaking bump). */
 export const ACHIEVEMENTS_SCHEMA_VERSION = "1";
 
 export interface AchievementsArgs {
   workspace: string;
   /** Only the `planned` rows (the goal view). */
   targets?: boolean;
+  /** Inclusive lower bound on `date` (D25/S3). */
+  since?: string;
+  /** Inclusive upper bound on `date` (D25/S3). */
+  until?: string;
+}
+
+/** The scope of a view: the derived-status counters plus the date-less rows.
+ *  `undated` is not a status bucket — it is the honesty counter (#497): rows the
+ *  range could not place are declared, never dropped. */
+export interface AchievementsViewScope extends AchievementScope {
+  undated: number;
+}
+
+/** The rows a view returns and the date-less rows it considered. */
+export interface AchievementSelection {
+  rows: Achievement[];
+  /** Rows without `date` among the STATUS-filtered set, before the range. */
+  undated: number;
+  /** The range the view applied, or `null` when no bound was declared. */
+  range: { since?: string; until?: string } | null;
 }
 
 /** A row as the JSON view emits it: the declared fields plus the DERIVED status. */
@@ -49,8 +72,64 @@ export type AchievementView = Achievement & { status: AchievementStatus | null }
 
 export interface AchievementsPayload {
   schemaVersion: string;
-  scope: AchievementScope;
+  scope: AchievementsViewScope;
   achievements: AchievementView[];
+}
+
+/** Validate the declared bounds and refuse an impossible period (exit 2). */
+export function parseRange(
+  since?: string,
+  until?: string,
+): { since?: string; until?: string } | null {
+  if (since === undefined && until === undefined) return null;
+  const lower = since === undefined ? undefined : parseCalendarDate(since, "--since");
+  const upper = until === undefined ? undefined : parseCalendarDate(until, "--until");
+  if (lower !== undefined && upper !== undefined && lower > upper) {
+    throw new UsageError(`--since ${lower} is after --until ${upper} — the period would be empty`);
+  }
+  return {
+    ...(lower !== undefined ? { since: lower } : {}),
+    ...(upper !== undefined ? { until: upper } : {}),
+  };
+}
+
+/** A dated row is in range when it is not before `since` and not after `until`;
+ *  both boundaries are INCLUSIVE. A date-less row is never "in range". */
+export function inRange(row: Achievement, range: { since?: string; until?: string }): boolean {
+  if (row.date === undefined) return false;
+  if (range.since !== undefined && row.date < range.since) return false;
+  if (range.until !== undefined && row.date > range.until) return false;
+  return true;
+}
+
+/**
+ * The composition rule of #497 — **range first, status second**:
+ *
+ *   - the status filter (`--targets`) is applied first;
+ *   - with a range, a DATED row must fall in it;
+ *   - a DATE-LESS row is never silently dropped: in the goal view it is
+ *     returned (a goal is date-less by nature); in the log view it is withheld
+ *     from the range and counted in `undated`.
+ *
+ * Without a range, nothing is filtered by date and `undated` counts the rows
+ * the view returned.
+ */
+export function selectRows(
+  achievements: readonly Achievement[],
+  options: { targets?: boolean; since?: string; until?: string },
+): AchievementSelection {
+  const statusRows =
+    options.targets === true
+      ? achievements.filter((achievement) => achievementStatus(achievement) === "planned")
+      : [...achievements];
+  const undated = statusRows.filter((achievement) => achievement.date === undefined).length;
+  const range = parseRange(options.since, options.until);
+  if (range === null) return { rows: statusRows, undated, range: null };
+  const rows = statusRows.filter(
+    (achievement) =>
+      inRange(achievement, range) || (options.targets === true && achievement.date === undefined),
+  );
+  return { rows, undated, range };
 }
 
 /** The formatter of a metric (`72 h → 4 h`, `4 h (target 3 h)`, `36 tutors`).
@@ -148,26 +227,65 @@ export function targetRows(profile: LoadedProfile): Achievement[] {
   return profile.achievements.filter((a) => achievementStatus(a) === "planned");
 }
 
-export function achievementsPayload(achievements: readonly Achievement[]): AchievementsPayload {
+export function achievementsPayload(
+  achievements: readonly Achievement[],
+  undated = 0,
+): AchievementsPayload {
   return {
     schemaVersion: ACHIEVEMENTS_SCHEMA_VERSION,
     // `scope` counts the rows THIS view returned: an empty scope must read as
     // "nothing declared/measured here", never as a fabricated zero (§7.1 shape).
-    scope: achievementScope(achievements),
+    // `undated` is NOT a status bucket: it declares the date-less rows the range
+    // could not place (#497).
+    scope: { ...achievementScope(achievements), undated },
     achievements: achievements.map((a) => ({ ...a, status: achievementStatus(a) ?? null })),
   };
+}
+
+/** The human label of a range: both bounds, or the one bound declared. */
+export function rangeLabel(range: { since?: string; until?: string }): string {
+  if (range.since !== undefined && range.until !== undefined) {
+    return `${range.since} … ${range.until} (inclusive)`;
+  }
+  if (range.since !== undefined) return `from ${range.since} (inclusive)`;
+  return `until ${range.until} (inclusive)`;
 }
 
 export function runAchievements(args: AchievementsArgs): number {
   const loaded = loadOrReport("achievements", args.workspace);
   if ("fail" in loaded) return loaded.fail;
-  const rows = args.targets === true ? targetRows(loaded.profile) : loaded.profile.achievements;
+
+  let selection: AchievementSelection;
+  try {
+    selection = selectRows(loaded.profile.achievements, args);
+  } catch (err) {
+    if (err instanceof UsageError) {
+      return report("achievements", false, EXIT.USAGE, {
+        error: { kind: "usage", message: err.message },
+      });
+    }
+    throw err;
+  }
+  const { rows, undated, range } = selection;
 
   if (isJsonMode()) {
-    return report("achievements", true, EXIT.OK, { data: achievementsPayload(rows) });
+    return report("achievements", true, EXIT.OK, { data: achievementsPayload(rows, undated) });
   }
 
   if (rows.length === 0) {
+    if (range !== null && undated > 0) {
+      section(
+        args.targets === true
+          ? "Achievements — no planned targets"
+          : `Achievements — no dated row in ${rangeLabel(range)}`,
+      );
+      line(
+        args.targets === true
+          ? "No row declares a `target` without a `value` yet — the goal view is empty."
+          : `${undated} row(s) declare no \`date\` and are NOT placed in this range — undated is reported, never hidden.`,
+      );
+      return EXIT.OK;
+    }
     section(
       args.targets === true
         ? "Achievements — no planned targets"
@@ -182,11 +300,24 @@ export function runAchievements(args: AchievementsArgs): number {
   }
 
   const scope = achievementScope(rows);
+  const period =
+    range === null
+      ? ""
+      : args.targets === true
+        ? ` in ${rangeLabel(range)}${undated > 0 ? ` · ${undated} undated goal(s) included` : ""}`
+        : ` in ${rangeLabel(range)}${undated > 0 ? ` · ${undated} undated not placed` : ""}`;
+  const undatedNote = range === null && undated > 0 ? ` · undated ${undated}` : "";
   section(
     args.targets === true
-      ? `Achievements — ${scope.total} planned target(s)`
-      : `Achievements — ${scope.total} row(s) · planned ${scope.planned} · measured ${scope.measured} · achieved ${scope.achieved} · partial ${scope.partial}`,
+      ? `Achievements — ${scope.total} planned target(s)${period}`
+      : `Achievements — ${scope.total} row(s)${period} · planned ${scope.planned} · measured ${scope.measured} · achieved ${scope.achieved} · partial ${scope.partial}${undatedNote}`,
   );
+  if (range !== null && undated > 0 && args.targets !== true) {
+    line("");
+    line(
+      `${undated} row(s) declare no \`date\` and are NOT placed in this range — undated is reported, never hidden.`,
+    );
+  }
   for (const [group, groupRows] of groupByRef(rows)) {
     line("");
     line(group === "Unattached" ? "Unattached" : group);

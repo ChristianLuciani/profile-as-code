@@ -118,8 +118,12 @@ function sleep(ms: number): void {
  *  same file is otherwise last-writer-wins: the re-read guard only narrows the
  *  window to the check/rename gap (measured ms on a 2.7 MB workspace,
  *  review of #332 R1). An external editor is still caught by the re-read.
- *  A lock left by a crashed process is broken after 30 s. */
-function withWriteLock<T>(workspace: string, waitMs: number, run: () => T): T {
+ *  A lock left by a crashed process is broken after 30 s.
+ *
+ *  Exported for the capture path (#496): `pasco log` appends its row under the
+ *  SAME lock, so an edit and a log can never interleave a read/validate/rename
+ *  pair on `content/achievements.yaml` (one home for the workspace write mutex). */
+export function withWriteLock<T>(workspace: string, waitMs: number, run: () => T): T {
   const lockPath = join(workspace, "content", LOCK_NAME);
   const started = Date.now();
   for (;;) {
@@ -486,22 +490,40 @@ export function createRoot(args: CreateArgs, deps: WriteDeps = {}): CreateOutcom
   });
 }
 
-/** The shared validation gate: a temp copy of `content/` plus the seed, through
- *  the same `load()` the CLI uses. Never touches the workspace. */
-function validateSeed(args: CreateArgs, deps: WriteDeps): void {
+/** The shared validation gate: a temp copy of `content/` plus `text` written at
+ *  `file` (workspace-relative, e.g. `content/achievements.yaml`), through the
+ *  same `load()` the CLI uses. Never touches the workspace.
+ *
+ *  ONE home for "validate a content write before it reaches disk" — `--create`
+ *  (#435) and the capture path (#496) call it, so the two write mechanisms
+ *  cannot drift on what "valid" means. The file is written at the CALLER's exact
+ *  path (extension included): `load()` refuses two files claiming the same root,
+ *  so an existing `achievements.YAML` must be validated under that same name. */
+export function validateContentFile(
+  args: { workspace: string; file: string; text: string },
+  deps: WriteDeps = {},
+): void {
   const validate = deps.validate ?? ((workspace: string) => void load(workspace));
-  const tempWorkspace = mkdtempSync(join(tmpdir(), "pasco-edit-create-"));
+  const tempWorkspace = mkdtempSync(join(tmpdir(), "pasco-content-validate-"));
   try {
     cpSync(join(args.workspace, "content"), join(tempWorkspace, "content"), { recursive: true });
-    writeFileSync(join(tempWorkspace, "content", `${args.root}.yaml`), args.text, { mode: 0o600 });
+    writeFileSync(join(tempWorkspace, args.file), args.text, { mode: 0o600 });
     validate(tempWorkspace);
   } catch (err) {
     if (err instanceof LoadError) throw err;
     const code = (err as NodeJS.ErrnoException).code ?? "error";
     throw new LoadError(
-      `content/${args.root}.yaml: the seed could not be validated (${code}) — nothing was written`,
+      `${args.file}: the write could not be validated (${code}) — nothing was written`,
     );
   } finally {
     rmSync(tempWorkspace, { recursive: true, force: true });
   }
+}
+
+/** The seed's validation: the same gate, at `content/<root>.yaml`. */
+function validateSeed(args: CreateArgs, deps: WriteDeps): void {
+  validateContentFile(
+    { workspace: args.workspace, file: `content/${args.root}.yaml`, text: args.text },
+    deps,
+  );
 }

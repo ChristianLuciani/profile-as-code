@@ -11,6 +11,22 @@ minor versions may contain breaking contract changes.
 
 ### Added
 
+- **`pasco log` — the capture path of the impact log, and a retrieval by period
+  (#496/#497, D25/S2+S3, SPEC §23.5/§23.6)** — the typed record had a shape and a
+  read view but no way to fill it without opening the YAML. `pasco log` writes ONE
+  schema-valid `achievements[]` row (statement · kind · basis · optional metric,
+  refs, pointers · date · visibility) and prints its DERIVED status; `pasco
+  achievements --since/--until` answers *"what did I do this year?"* with inclusive
+  bounds. The D27 amendment is enforced, not written around: on a `metric` only
+  `--unit` is required (`--target` alone = a `planned` goal, `--value` alone = a
+  `measured` result), any metric flag on a `milestone` is exit 2, `--visibility`
+  defaults to `private`, and `--date` is optional with **no clock read** (absent =
+  `undated`, reported by the read view instead of hidden). A derived id collides as
+  exit 1 with nothing written; the write is atomic and byte-preserving
+  (temp copy → `load()` → rename under the shared `content/.pasco-edit.lock`),
+  so comments survive and an invalid input never reaches disk. The `--json` scope
+  gains the additive `undated` key under the same `schemaVersion: "1"`.
+
 - **the narrative skills that did not exist — `linkedin`, `x`, and one shared
   two-axis statement every platform skill cites (#462, part B)** — the two
   channels that shipped `post.md`/`posting.yaml` with no `SKILL.md` are exactly

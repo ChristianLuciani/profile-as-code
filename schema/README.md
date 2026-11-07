@@ -32,8 +32,11 @@ and what structural validation does **not** cover — is
 > (`planned` | `measured` | `achieved` | `partial`) is **derived** at read time by
 > `achievementStatus()`, never stored; a `target` without a `value` is a plan. Optional
 > and additive: a workspace without `achievements[]` validates and renders byte-identically.
-> `pasco achievements [--targets] [--json]` is the read-only view; a public
-> `measured`/`attested` row with no pointer is an `unsourced-claim` WARN in `pasco audit`.
+> `pasco log` is the capture path (writes one row, `visibility: private` by default,
+> no clock: an absent `--date` is `undated`), `pasco achievements [--targets]
+> [--since <date>] [--until <date>]` the read-only view (inclusive range; date-less
+> rows reported as `undated`, never dropped), and a public `measured`/`attested` row
+> with no pointer is an `unsourced-claim` WARN in `pasco audit`.
 >
 > New in v1.15 (D23, issue #262): `releases[]` — the release event (`id`, `version`,
 > `date`, `summary`, `changedUnits[]`, `surfaces[]`) that `pasco presence` and
