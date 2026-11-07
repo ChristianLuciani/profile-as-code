@@ -9,6 +9,10 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+_(nothing yet — the next cycle)_
+
+## [0.5.0] - 2026-11-07
+
 ### Added
 
 - **the narrative skills that did not exist — `linkedin`, `x`, and one shared
@@ -92,6 +96,16 @@ minor versions may contain breaking contract changes.
   platform skill (the engine models no composition, #476), and re-record with
   `refine --choose <id> --lang <l>` — cited from §21.3 rule 11 and §21.6, with an
   end-to-end test that runs it and asserts the other platform's choice survives.
+
+### Internal
+
+- **The core seam goes 0.1.3 → 0.1.4 (#458, #462)** — two additions to
+  `@profile-as-code/core`'s public surface: `orderedForSurface` (the one
+  precedence home for `selection.views.<v>.orderKeys`) and
+  `sameTextAcrossPlatforms` with its `TextFinding`/`TextKind` types (the
+  §21.8 advisory detector). The CLI bundles core and is unaffected; the
+  cohort step skips a version already live on the registry, so an unchanged
+  0.1.3 would leave the published core describing the previous tree.
 
 ## [0.4.0] - 2026-11-04
 
