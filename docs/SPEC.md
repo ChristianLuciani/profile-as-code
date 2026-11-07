@@ -23,6 +23,17 @@ an event with a changed set and a fan-out. Asking "which surfaces does this
 publication still owe, and in what order?" is the question the engine answers —
 not only "is my profile consistent?".
 
+**The record is the asset; profiles are views** (D25, §5; operator-ratified
+decision `bADR-014`, 2026-10-26). The typed SSOT (`content/*.yaml` under the
+schema) is the durable asset; every profile, CV, page or bio is a projection of
+it. The founding failure is upstream: facts accumulate faster than they are
+filed, and the CV is then reconstructed from memory. The engine therefore owes a
+**capture path** and a **retrieval**, never another renderer. D23 is not
+reopened: `release` remains the public fan-out over the record, and private
+scoped disclosure (`curate`) is a downstream act, not decided here.
+`record-as-code` is the working name of this contract layer, not a product
+rename.
+
 ## 2. Goals / Non-goals
 
 ### Goals
@@ -126,6 +137,7 @@ not only "is my profile consistent?".
 | D22 | **Fact selection is a workspace policy, and it is subset-only** (issue #235, 2026-10-19): a named **view** selects which SSOT entries a rendered profile emits — `.pascorc` → `selection.views` (`mode: all\|tags`, `tags`, `excludeTags`, `excludeKeys`, `orderKeys`); **exclusion always wins**; **no policy ⇒ byte-identical output**. A view **removes entries and never edits one**, so the GEO invariant (Goal 2/3, §15.4) is untouched: it constrains what a fact *says* when it appears, not that it appear everywhere, and `geo.ts:21` already scores absence as neutral. **Every view that omits entries WARNS** (operator's G1 amendment, §21.4) and `pasco status --selection` names each omission and its reason | Selection is the one per-surface adaptation the engine was missing beside `lang` (text) and `refine` (storytelling); §18.9 had already *declared* tag selection with no implementation. One identity, several faces — without duplicating facts. Alternatives: **per-entry `platforms[]` in the SSOT** (rejected — couples the platform-agnostic data to the platform enum, turns it into an N×M matrix, and forces every new platform to edit every entry); **renderer-side filtering** (rejected — every adapter re-implements it, and `check`/`status` would see a different slice than `build`, against the `markdown`/`paste`/`artifact` one-home rule); **overlay files** (rejected — a second source of truth for the same fact, so drift becomes "which overlay won?"); **a workspace per audience** (correct for *separate identities* — §18.9/D15 keeps that — wrong for subsets of one identity, where it recreates cross-repo drift) |
 | D23 | **The unit of first class is the presence surface, not the profile** (issue #262, 2026-10-23; restated 2026-10-28 as option B): `surface.kind: profile \| repo-meta \| distribution` is an **additive** dimension on `platforms/registry.yaml` (absent = `profile`; the 49-slug profile enum is untouched), and `releases[]` is the **event** — `{id, version, date, summary, changedUnits[], surfaces[]}` — whose fan-out **reuses** the §19 ledger vocabulary (`in-sync`/`stale`/`never`), derived at read time and stored nowhere. `pasco presence` is the daily board; `pasco release plan` is the launch view (`--json`), ordering surfaces `repo-meta → profile → distribution` and emitting a per-kind factual spine; the announcement copy per channel lives in `skills/` (rule 7 + D9) | A published artifact could appear on **none** of its own operator's surfaces with no representation: no event, no distribution surfaces, no way to ask "which surfaces still owe this publication?". Alternatives: **keep the profile as the unit** (rejected — that question stays unanswerable and every non-rendered surface is unmodeled); **a second state model for releases** (rejected — staleness is already exact and release-tag-independent in §19); **`release` as a top-level command** (rejected by the operator on 2026-10-28: `presence` is the daily board, the plan hangs off it as a view) |
 | D24 | **The impact log is a root block and its status is DERIVED** (issue #446, 2026-11-02; direction blessed by the operator): root `achievements[]` (v1.16, §23) records what **changed** — `{id, statement{lang}, kind: metric\|milestone, metric?, refs[], source?, artifactId?, credentialId?, basis, date?, visibility}`. ONE root log, never per-row `outcomes[]`: `refs` (`block:id`) point at the units a result belongs to, so the same result is never duplicated across rows, and `metric` is structured (`value`/`target`/`baseline`/`unit`/`direction`) instead of prose. `basis` (`measured`\|`estimated`\|`reported`\|`attested`) is the honesty field, **not a gate** — `reported` is first class, because the log is useful before the proof exists; `visibility` is **required** so an internal outcome never becomes public by omission. The status (`planned`\|`measured`\|`achieved`\|`partial`) is derived at read time by one core function, never stored; a `target` without a `value` is a plan. `pasco achievements [--targets] [--json]` is the read-only log view | The contract modeled **what a person did** (`highlights`, free text: no value, unit, baseline, target or link) and **what can be proven** (`evidence[]`, project-scoped and requiring a `source`, so an internal outcome cannot be recorded at all), but not **what changed** — so the effect is not captured when it happens and cannot be reconstructed later; a CV from the workspace reads as a list of duties. Alternatives: **per-row `outcomes[]`** (rejected — duplicates one result across the rows it belongs to and leaves no single place to ask "what changed?"); **free text only** (rejected — no baseline/target, so no goal and no derivable status); **store the status** (rejected — it can silently disagree with the numbers it describes, against §20.1's derived-never-stored rule); **make `basis` a gate** (rejected — it would re-create the gap: an outcome with no public artifact becomes unreportable); **`confidence` instead of `basis`** (rejected — `basis` names HOW the number is known, not how sure the author feels) |
+| D25 | **The record is the asset; profiles are views** (issue #495, 2026-11-07; imports operator-ratified `bADR-014`, 2026-10-26): the typed SSOT (`content/*.yaml` under the schema) is the durable asset, and every profile, CV, page, bio or dossier is a projection. The engine owes a **capture path** (`pasco log`, #496) and a **retrieval** (`pasco achievements --since/--until`, #497); it never owes another renderer. `release` (D23) stays the public fan-out; private scoped disclosure (`curate`) is downstream of this frame and is not decided here. `record-as-code` names the contract layer, not a product rename | The founding failure is upstream: a fact accumulates faster than it is filed, and the CV is reconstructed from memory; D23 asks *"which surfaces does this publication still owe?"* but presumes the SSOT is already complete. Alternatives: **presence-first as the whole product** (the current frame — rejected because it presumes a complete SSOT and keeps every claim publication-shaped; D23 remains the public fan-out); **archive as a second truth** (rejected — the inbox is a buffer and the disclosure ledger is an audit record, neither is rendered); **rename the product now** (deferred — brand, npm and `TRADEMARK.md` cost; `bADR-014` §7) |
 
 > **Decision note — the release path (2026-10-24, issue #307).** The release path is the **tag
 > run** (guard → build/tests → cohort + CLI over OIDC → GitHub Release → pages deploy);
@@ -2868,6 +2880,10 @@ constraint is the whole contract. What the three axes mean *in practice* — the
 facts/narrative split they all obey, and why a narrative is never propagated
 "for consistency" — is §21.8.
 
+A **view** is a shared mechanism, not a renderer: the same D22 selection serves a
+rendered profile, a CV and (later) a scoped disclosure; a renderer consumes the
+selected slice and never re-implements selection (D22, D25).
+
 **Why selection is admissible.** Goal 2/3 and §15.4 constrain what a fact *says* when
 it appears, not that it must appear on every surface. A rendered profile is a
 **sub-conjunction** of the SSOT's facts, and removing a conjunct cannot introduce a
@@ -3203,6 +3219,10 @@ before — *what changed?* — where `experience[].highlights` says what was don
 (free text: no value, unit, baseline, target or link) and `projects[].evidence[]`
 says what can be proven (project-scoped, and requiring a public `source`, so an
 internal outcome has no home).
+
+The block is the **typed log of the record** (D25): v1.16 ships the shape, the
+derived status and the read view; a capture path is D25's separate scope
+(#496/#497), not a second log and not a renderer.
 
 ### 23.1 The shape
 
