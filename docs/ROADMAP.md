@@ -1,7 +1,6 @@
 # Roadmap — de acá a lo planificado
 
-> **Generado** 2026-09-24 · **actualizado** 2026-10-26 (estado de publicación y la página
-> release-bound; prep de `v0.3.6`) desde el estado verificado del repo (no del declarado).
+> **Generado** 2026-09-24 · **actualizado** 2026-11-07 (D27 + seguridad de egreso #503) desde el estado verificado del repo (no del declarado).
 > Canónico del plan: `docs/SPEC.md` §12. Este documento agrega **qué está realmente hecho**
 > y **en qué orden conviene seguir**, con la evidencia de cada afirmación.
 > Regenerar/corregir cuando la evidencia cambie.
@@ -76,6 +75,20 @@ por superficie** derivado del ledger §19, **pre-flights el cap** con su fuente 
 del paste y **congela el contrato de agente** (`--json` + matriz de exit 0/1/2 + la receta
 "verify my edit", con el guard de variante #238). Los slices **consumen** los ejes de
 publicación de #242 en vez de una segunda tabla de caps.
+
+### Ahora — seguridad (transversal)
+
+**Seguridad · Egreso autorizado (#503, D28)**
+Publicar y exportar son **actos autorizados**, no ediciones de archivo. D27 (#502) dejó `private`
+como default y el export público; #503 agrega el gate de egreso: detectar `private → public` y
+`export --all` contra el ledger, exigir un **recibo firmado** sobre el manifiesto exacto (llave
+hardware/WebAuthn con presencia humana; 2FA como fallback), registrar la divulgación en un audit
+log y mantener al agente **read-only y sin llaves**. `--all` es break-glass, nunca el default.
+
+El **vault en reposo no se construye**: se recomienda/evalúa una capa OSS existente (p. ej.
+SOPS+age, git-crypt, Cryptomator) y se contribuye upstream solo si hay un gap real. `curate`
+(#501) sigue siendo el eje de *qué* se divulga; #503 decide *quién autoriza* publicarlo o
+exportarlo.
 
 ### Después — superficie por plataforma
 
