@@ -424,14 +424,43 @@ describe("pasco log — empty roots and the flow token", () => {
     ]);
   });
 
-  it("refuses a document-end marker instead of leaving the file unappendable", () => {
-    const dir = workspace({ "achievements.yaml": "null\n...\n" });
-    const file = join(dir, "content", "achievements.yaml");
-    const before = readFileSync(file, "utf8");
+  it("refuses a COLUMN-0 document-end marker (bare, commented or with a trailing line)", () => {
+    for (const text of ["null\n...\n", "null\n... # done\n", "null\n...\n# trailing\n"]) {
+      const dir = workspace({ "achievements.yaml": text });
+      const file = join(dir, "content", "achievements.yaml");
+      const before = readFileSync(file, "utf8");
+      const result = run([
+        ...BASE,
+        "--kind",
+        "milestone",
+        "--basis",
+        "reported",
+        "--workspace",
+        dir,
+      ]);
+      expect(result.code, JSON.stringify(text)).toBe(1);
+      expect(result.stderr).toContain("document-end marker");
+      expect(readFileSync(file, "utf8")).toBe(before);
+    }
+  });
+
+  it("does NOT mistake an INDENTED `...` (block-scalar content) for a marker", () => {
+    const dir = workspace({
+      "achievements.yaml": `- id: ach-old
+  statement:
+    en: |
+      line one
+      ...
+  kind: milestone
+  basis: reported
+  visibility: private
+`,
+    });
     const result = run([...BASE, "--kind", "milestone", "--basis", "reported", "--workspace", dir]);
-    expect(result.code).toBe(1);
-    expect(result.stderr).toContain("document-end marker");
-    expect(readFileSync(file, "utf8")).toBe(before);
+    expect(result.code).toBe(0);
+    const file = readFileSync(join(dir, "content", "achievements.yaml"), "utf8");
+    expect(file).toContain("      ...");
+    expect(file).toContain("Cut onboarding from 10 days to 3 days");
   });
 
   it("captures into a null-valued document (null · ~ · ---), which load() accepts as empty", () => {

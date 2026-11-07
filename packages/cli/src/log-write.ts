@@ -189,12 +189,14 @@ export function appendText(
       `${file}: invalid YAML — ${document.errors[0]?.message ?? "parse error"} (nothing was written)`,
     );
   }
-  // A document-end marker would make the NEXT capture refuse to append; refuse
-  // now instead of writing a row that leaves the file unappendable.
-  const lastLine = original.trimEnd().split("\n").at(-1) ?? "";
-  if (/^\s*\.\.\.\s*$/.test(lastLine)) {
+  // A document-end marker at COLUMN 0 (anywhere in the file) would make the next
+  // capture start a second document; refuse now instead of writing a row that
+  // leaves the file unappendable. The column-0 anchor is the point: the previous
+  // last-line test missed `... # done` / a trailing comment and falsely refused
+  // an INDENTED `...` that is block-scalar content, not a marker.
+  if (/^\.\.\.[ \t]*(?:#.*)?$/m.test(original)) {
     throw new WriteRefusedError(
-      `${file}: the file ends with a YAML document-end marker (...) — appending would start a second document (nothing was written); remove the marker and re-run`,
+      `${file}: the file contains a YAML document-end marker (...) at column 0 — appending would start a second document (nothing was written); remove the marker and re-run`,
     );
   }
   const contents = document.contents;

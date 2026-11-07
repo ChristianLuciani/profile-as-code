@@ -718,7 +718,8 @@ bytes (comments and layout survive; an empty []/null root is the only token
 replaced). --json emits the row with its derived status and the
 visibility actually written.
 Exit: 0 written · 1 load/integrity failure, collision, or a file the append
-cannot preserve · 2 usage or an invalid input. Offline, no clock, no LLM.`,
+cannot preserve (flow-style root, document-end marker) · 2 usage or an invalid
+input. Offline, no clock, no LLM.`,
 
   achievements: `pasco achievements [--targets] [--since <YYYY-MM-DD>] [--until <YYYY-MM-DD>] [--json] [--workspace <path>]
 The career impact log (D24, SPEC §23, issue #446): one row per RESULT — a metric
@@ -732,9 +733,9 @@ by their first ref; Unattached collects the rest.
 --since/--until filter the fact DATE with inclusive bounds (D25/S3, #497); each
 bound may be declared alone; the two filters are ANDed (status selects the set,
 undated is counted on it, then the range keeps the dated rows inside it). A row
-without a date is
-never dropped: scope.undated counts it — the log view withholds it from the range
-and says so, the goal view returns it (a goal is date-less by nature). Private
+without a date is never dropped: scope.undated counts it — the log view withholds
+it from the range and says so, the goal view returns it (a goal is date-less by
+nature). Private
 rows ARE part of this local retrieval (D27); the public projection is
 \`pasco export profile\`. An invalid date or since > until is exit 2.
 --json emits { schemaVersion: "1", scope, achievements: [...] } where each row
