@@ -635,6 +635,11 @@ Short rules ship for: linkedin, x
 Long-form rules ship for: devto, ghost, hashnode, listmonk, medium, substack, wordpress
 (long-form needs --format longform; short is the default. A channel in neither
 list has no post rule — the usage error names the rule file it wanted.)
+Long-form access (free|free-subscribers|paid|founding) is a generic field
+declared per channel in its longform.yaml: optional with default free, or
+required when the contract lists it in fields.required (then the task says so
+and a missing value is a check error). Only paste channels should declare it;
+task/check/export honour it, and an API Postiz payload never carries it.
   seed <id> --text <file> [--format short|longform]
                                    create posts/<id>/seed.md + post.yaml
   task <id> --channel <c1,c2> [--variants N] [--format short|longform]
@@ -647,8 +652,10 @@ list has no post rule — the usage error names the rule file it wanted.)
                                    record the chosen variant in post.yaml
   check <id>                       short: max-chars, URLs only from the SSOT,
                                    {{fact:...}} refs resolve, claims warn;
-                                   longform: title/dek, word count, SSOT URLs
-                                   (canonical included), refs, claims
+                                   longform: title/dek, access level
+                                   (free|free-subscribers|paid|founding),
+                                   word count, SSOT URLs (canonical included),
+                                   refs, claims
   export <id> [--target postiz] [--out <file>] [--type draft|schedule|now] [--date <iso>]
                                    API channels → Postiz POST /posts payload
                                    (integration IDs from postiz.yaml; REPLACE_ME

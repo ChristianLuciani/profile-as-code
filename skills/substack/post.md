@@ -102,6 +102,6 @@ Save each variant as YAML front matter + a markdown body at
 
 ```
 pasco post choose <seed> --channel substack --variant substack-1
-pasco post check <seed>     # missing-field · word-count · url-not-in-ssot · unknown-field
+pasco post check <seed>     # missing-field · word-count · url-not-in-ssot · unknown-field · bad-access
 pasco post export <seed>    # paste: writes posts/<seed>/substack/paste-checklist.md
 ```
