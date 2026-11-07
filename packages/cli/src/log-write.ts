@@ -38,7 +38,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { type Achievement, LoadError, load } from "@profile-as-code/core";
-import { isSeq, parseDocument, stringify } from "yaml";
+import { isScalar, isSeq, parseDocument, stringify } from "yaml";
 import {
   owningFile,
   StaleEditError,
@@ -167,12 +167,17 @@ function appendLocked(args: AppendArgs, deps: WriteDeps): AppendOutcome {
 
   const text = appendText(original, rowText, relative);
   validateContentFile({ workspace, file: relative, text }, deps);
-  replaceAtomically(filePath, original, text, relative);
+  replaceAtomically(filePath, original, text, relative, deps);
   return { file: relative, created: false, row };
 }
 
-/** The new file text: the original bytes plus the row block (or the empty flow
- *  sequence replaced by the block rows). */
+/** The new file text: the original bytes plus the row block.
+ *
+ *  A block-sequence root (the normal case) is a pure APPEND: every existing byte
+ *  survives. The ONLY replacement is an EMPTY root — `[]` (flow) or a null
+ *  document (`null`, `~`, `---`) — whose token must make room for the block rows;
+ *  a same-line comment is kept, moved onto its own line rather than glued to the
+ *  last new scalar. A non-empty flow root is refused. */
 export function appendText(
   original: string,
   rowText: string,
@@ -191,6 +196,18 @@ export function appendText(
     if (original.trim().length === 0) return `${FILE_HEADER}\n${rowText}`;
     return `${ensureNewline(original)}${rowText}`;
   }
+  if (isScalar(contents) && contents.value === null) {
+    // A null-valued document root (`null`, `~`, `---`) is empty to `load()`: it
+    // must be REPLACED (appending after `null` would be invalid YAML), under the
+    // same token-replacement rule as `[]`.
+    const range = contents.range;
+    if (range === null || range === undefined) {
+      throw new WriteRefusedError(
+        `${file}: the empty root has no source range — cannot append safely (nothing was written)`,
+      );
+    }
+    return replaceToken(original, range, rowText);
+  }
   if (!isSeq(contents)) {
     throw new WriteRefusedError(
       `${file}: the root is not a sequence — the capture path appends rows to a list (nothing was written)`,
@@ -208,14 +225,7 @@ export function appendText(
         `${file}: the empty root has no source range — cannot append safely (nothing was written)`,
       );
     }
-    // `range[0]..range[1]` covers `[]`; a trailing comment on the same line is
-    // moved onto its own line instead of being glued to the last new scalar.
-    const lineEnd = original.indexOf("\n", range[1]);
-    const rest = lineEnd === -1 ? original.slice(range[1]) : original.slice(range[1], lineEnd);
-    const afterLine = lineEnd === -1 ? "" : original.slice(lineEnd);
-    const comment = rest.trim();
-    const replacement = `${comment.startsWith("#") ? `  ${comment}\n` : ""}${rowText.trimEnd()}`;
-    return `${original.slice(0, range[0])}${replacement}${afterLine}`;
+    return replaceToken(original, range, rowText);
   }
   if (/^\s*\.\.\.\s*$/m.test(original.trimEnd().split("\n").at(-1) ?? "")) {
     throw new WriteRefusedError(
@@ -228,13 +238,34 @@ export function appendText(
   return `${withNewline.endsWith("\n\n") ? withNewline : `${withNewline}\n`}${rowText}`;
 }
 
+/** Replace the `[start, end]` token of an empty root with the block rows. A
+ *  trailing same-line comment is preserved on its own line. */
+function replaceToken(original: string, range: [number, number, number], rowText: string): string {
+  const lineEnd = original.indexOf("\n", range[1]);
+  const rest = lineEnd === -1 ? original.slice(range[1]) : original.slice(range[1], lineEnd);
+  const afterLine = lineEnd === -1 ? "" : original.slice(lineEnd);
+  const comment = rest.trim();
+  const head = original.slice(0, range[0]);
+  // `---\n` parses to a zero-width null scalar AFTER the marker: the row needs a
+  // line of its own, or the marker and the first item would be glued together.
+  const separator = head.length > 0 && !head.endsWith("\n") ? "\n" : "";
+  const replacement = `${comment.startsWith("#") ? `  ${comment}\n` : ""}${rowText.trimEnd()}`;
+  return `${head}${separator}${replacement}${afterLine}`;
+}
+
 function ensureNewline(text: string): string {
   return text.endsWith("\n") ? text : `${text}\n`;
 }
 
 /** Validate happened already; re-read, then replace at the REAL path (a
  *  symlinked content file keeps its link) preserving the mode. */
-function replaceAtomically(filePath: string, original: string, text: string, file: string): void {
+function replaceAtomically(
+  filePath: string,
+  original: string,
+  text: string,
+  file: string,
+  deps: WriteDeps,
+): void {
   let realPath: string;
   try {
     realPath = realpathSync(filePath);
@@ -266,6 +297,7 @@ function replaceAtomically(filePath: string, original: string, text: string, fil
   try {
     writeFileSync(tempFile, text, { mode });
     chmodSync(tempFile, mode);
+    deps.beforeRename?.(tempFile);
     renameSync(tempFile, realPath);
   } catch (err) {
     throw new LoadError(

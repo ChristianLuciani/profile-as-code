@@ -25,7 +25,12 @@
  */
 
 import type { Achievement, AchievementBasis, AchievementMetric } from "@profile-as-code/core";
-import { achievementStatus, LoadError, SchemaValidationError } from "@profile-as-code/core";
+import {
+  ACHIEVEMENT_REF_BLOCKS,
+  achievementStatus,
+  LoadError,
+  SchemaValidationError,
+} from "@profile-as-code/core";
 import { parseCalendarDate, UsageError } from "../contract.js";
 import { StaleEditError, WriteRefusedError } from "../edit-write.js";
 import { EXIT } from "../exit.js";
@@ -34,8 +39,10 @@ import { isJsonMode, line, report, section } from "../output.js";
 
 /** The `$defs/entryId` / `refs[]` id pattern — the contract's, not a new grammar. */
 const ENTRY_ID = /^[a-z0-9][a-z0-9._:-]*$/;
-const REF =
-  /^(experience|projects|publications|education|press|credentials|artifacts):[a-z0-9][a-z0-9._:-]*$/;
+/** The refs alternation is BUILT from the core list, never re-typed (the core
+ *  list is pinned to the schema): a block added to the contract cannot make the
+ *  capture path refuse a valid `--ref` (F6 of the #446 review, #496). */
+const REF = new RegExp(`^(${ACHIEVEMENT_REF_BLOCKS.join("|")}):[a-z0-9][a-z0-9._:-]*$`);
 const KINDS: readonly string[] = ["metric", "milestone"] as const;
 const BASES: readonly string[] = ["measured", "estimated", "reported", "attested"] as const;
 const DIRECTIONS: readonly string[] = ["increase", "decrease", "maintain"] as const;
@@ -148,7 +155,7 @@ export function buildAchievement(args: LogArgs): Achievement {
   for (const ref of refs) {
     if (!REF.test(ref)) {
       throw new UsageError(
-        `--ref "${ref}" must be "block:id" (allowed blocks: experience, projects, publications, education, press, credentials, artifacts)`,
+        `--ref "${ref}" must be "block:id" (allowed blocks: ${ACHIEVEMENT_REF_BLOCKS.join(", ")})`,
       );
     }
   }

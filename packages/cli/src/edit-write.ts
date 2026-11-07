@@ -103,6 +103,12 @@ export interface WriteDeps {
   /** How long to wait for a concurrent `pasco edit` lock before refusing.
    *  Production 2000 ms; tests shorten it. */
   lockWaitMs?: number;
+  /** Test seam for the capture path's atomic replace (#496): called after the
+   *  temp file is written and before the rename, so a test can pin the
+   *  temp→rename crash window (the temp is removed and the original bytes stay
+   *  untouched) without simulating a disk failure. Production leaves it
+   *  undefined. */
+  beforeRename?: (tempFile: string) => void;
 }
 
 /** The advisory lock's path — inside `content/`, dot-prefixed so `load()`'s

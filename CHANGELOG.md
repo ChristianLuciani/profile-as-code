@@ -26,10 +26,12 @@ _(nothing yet — the next cycle)_
   `measured` result), any metric flag on a `milestone` is exit 2, `--visibility`
   defaults to `private`, and `--date` is optional with **no clock read** (absent =
   `undated`, reported by the read view instead of hidden). A derived id collides as
-  exit 1 with nothing written; the write is atomic and byte-preserving
-  (temp copy → `load()` → rename under the shared `content/.pasco-edit.lock`),
-  so comments survive and an invalid input never reaches disk. The `--json` scope
-  gains the additive `undated` key under the same `schemaVersion: "1"`.
+  exit 1 with nothing written; the write is atomic (temp copy → `load()` → rename
+  under the shared `content/.pasco-edit.lock`), so an invalid input never reaches
+  disk, and appending to a block-sequence file preserves every existing byte
+  (comments survive; an empty `[]`/null root is the only token replaced). The
+  `--json` scope gains the additive `undated` key under the same
+  `schemaVersion: "1"`.
 
 - **the narrative skills that did not exist — `linkedin`, `x`, and one shared
   two-axis statement every platform skill cites (#462, part B)** — the two

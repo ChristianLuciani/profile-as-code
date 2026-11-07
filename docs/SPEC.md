@@ -466,7 +466,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22). **The read report also ends with the derived publication truth per surface (§20.1, #242): ledger · artifact-vs-SSOT · declared cap — computed on every read, stored nowhere** |
 | `pasco log --statement <text> --kind metric\|milestone --basis <basis> [flags]` | the **capture path** of the impact log (D25/S2, §23.6, #496): writes ONE schema-valid row to `content/achievements.yaml` and prints its derived status. `--basis` required (`measured` \| `estimated` \| `reported` \| `attested`); `--visibility` defaults to `private` (D27) and is printed; on `metric` only `--unit` is required — `--target` alone is a `planned` goal and `--value` alone a `measured` result, with `--baseline`/`--direction` optional; any metric flag on a `milestone` is exit 2; `--date` is optional and absent means the row is `undated` (no clock is read, D19), a malformed date is exit 2; `--ref` is repeatable; `--id` is optional and otherwise derived deterministically from the statement + date, a collision is exit 1 with nothing written. The write is atomic (temp copy → the same `load()` gate → rename under `content/.pasco-edit.lock`), a missing file is created with a header, and appending preserves every existing byte (comments/layout). `--json` emits the standard envelope with `{ file, created, row, id, visibility }`. Exit `0` written · `1` load/integrity failure, collision or a flow-style file that cannot be appended · `2` usage or an invalid input. Offline, no clock, no LLM. Contract: §23.6 |
-| `pasco achievements [--targets] [--since <date>] [--until <date>] [--json]` | the **impact log** (D24, §23): one row per result with its DERIVED status (`planned` · `measured` · `achieved` · `partial`), the formatted metric (`72 h → 4 h`), the `basis` and the pointer, grouped by the first `ref`. `--targets` prints only the planned goals. `--since`/`--until` (D25/S3, #497) filter `date` with inclusive boundaries, each bound optional; range first, status second; an invalid date or `since > until` is exit 2. A date-less row is never lost: `scope.undated` counts it — not returned by a range in the log view (and the text says so), returned under `--targets` (a goal is date-less by nature). Private rows are part of this local retrieval (D27). `--json` emits `{ schemaVersion: "1", scope: { total, planned, measured, achieved, partial, undated }, achievements: [{ …row, status }] }` with `scope` counting the rows the view returned, so an empty scope is "nothing declared here" rather than a fabricated zero. Read-only, offline; exit 0 unless the workspace fails to load |
+| `pasco achievements [--targets] [--since <date>] [--until <date>] [--json]` | the **impact log** (D24, §23): one row per result with its DERIVED status (`planned` · `measured` · `achieved` · `partial`), the formatted metric (`72 h → 4 h`), the `basis` and the pointer, grouped by the first `ref`. `--targets` prints only the planned goals. `--since`/`--until` (D25/S3, #497) filter `date` with inclusive boundaries, each bound optional; the two filters are ANDed (status selects the set, `undated` is counted on it, then the range keeps the dated rows inside it); an invalid date or `since > until` is exit 2. A date-less row is never lost: `scope.undated` counts it — not returned by a range in the log view (and the text says so), returned under `--targets` (a goal is date-less by nature). Private rows are part of this local retrieval (D27). `--json` emits `{ schemaVersion: "1", scope: { total, planned, measured, achieved, partial, undated }, achievements: [{ …row, status }] }` with `scope` counting the rows the view returned, so an empty scope is "nothing declared here" rather than a fabricated zero. Read-only, offline; exit `0` on a successful read · `1` the workspace fails to load · `2` an invalid range |
 | `pasco skills:export <dir> [--force] \| --list` | copy the skill channels **this package ships** into a directory the user names; `--force` overlays an existing non-empty directory (nothing is deleted), `--list` shows the channels. The two modes are **separate invocations**: a destination and `--list` are mutually exclusive, and passing both is usage (exit `2`), never a silently ignored argument. No per-agent destination is invented. Skill lookup reads only the package's own `skills/`, an explicit `PASCO_SKILLS_DIR`, or the marked workspace checkout (developers) — #253/#254 |
 | `pasco serve` | run the **minimal reference adapter** (D20) — exposes `Core` over a **local HTTP contract** so any consumer (UI, editor, script, service) drives the engine without re-implementing it. Minimal **by construction**; a deployment that needs more ships its own server against the same contract |
 
@@ -3392,10 +3392,14 @@ formatted metric, the `basis` and the pointer. `--targets` prints only `planned`
 rows (the goal view).
 
 `--since`/`--until` filter `achievements[].date` with **both boundaries
-inclusive**; each bound may be declared alone (a one-sided open range). The
-composition is **range first, status second**: a row must satisfy the date range
-AND, when declared, `--targets`. An invalid `$defs/date`, an impossible calendar
-date or `since > until` is exit 2 — never a silently empty range.
+inclusive**; each bound may be declared alone (a one-sided open range). The two
+filters are ANDed: `--targets` selects the planned rows and `scope.undated` is
+counted on that status-filtered set (a date-less row is a goal only if it is
+planned), then the range keeps the dated rows inside it — plus, in the goal view
+only, the date-less goals. A range that matches nothing is NOT an empty log: the
+text prints the range and the count and never the add-file hint. An invalid
+`$defs/date`, an impossible calendar date or `since > until` is exit 2 — never a
+silently empty range.
 
 A row **without `date` is never lost** (D19: no wall clock, §23.6): `scope.undated`
 counts the rows without a date in the status-filtered set. In the log view a
@@ -3410,8 +3414,8 @@ partial, undated }, achievements: [{ …row, status }] }`, where each row carrie
 its derived `status` (`null` for a milestone) and `scope` counts the rows the view
 returned — the `pasco audit` shape discipline: "nothing measured" must be
 distinguishable from "clean". `undated` is an **additive** key of v1: no field was
-removed or renamed, so a consumer of the frozen shape keeps working. Exit 0 unless
-the workspace fails to load.
+removed or renamed, so a consumer of the frozen shape keeps working. Exit `0` on a
+successful read · `1` the workspace fails to load · `2` an invalid range.
 
 ### 23.6 The capture path
 
@@ -3439,11 +3443,14 @@ The write is atomic: the new text goes into a temp copy of `content/`, the same
 `load()` (schema + ledger + registry integrity) validates it, and only then is the
 real file replaced by an atomic rename under the `content/.pasco-edit.lock` that
 `pasco edit` uses. An invalid input never reaches disk. Appending to an existing
-`achievements.yaml` **preserves every existing byte** — comments and layout
-survive by construction — and a missing file is created with a header (the
-`--create` pattern of #435, never invented facts). A non-empty flow-style root
-(`[ { … } ]`) is refused with exit 1: the capture path appends block rows and
-never re-serializes a document.
+`achievements.yaml` **preserves every existing byte when the root is a block
+sequence** — comments and layout survive by construction; a missing file is
+created with a header (the `--create` pattern of #435, never invented facts). The
+ONLY replacement is an EMPTY root — the flow
+token `[]` or a null-valued document (`null`, `~`, `---`) — whose token must make
+room for the block rows; a same-line comment there is kept on its own line. A
+non-empty flow-style root (`[ { … } ]`) is refused with exit 1: the capture path
+appends block rows and never re-serializes a document.
 
 ### 23.7 Non-goals (v1.16)
 

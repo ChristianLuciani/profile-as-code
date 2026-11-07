@@ -408,6 +408,43 @@ describe("pasco log — the written row", () => {
   });
 });
 
+describe("pasco log — empty roots and the flow token", () => {
+  it("replaces an empty flow root [] and keeps its same-line comment", () => {
+    const dir = workspace({ "achievements.yaml": "[] # my empty log\n" });
+    const result = run([...BASE, "--kind", "milestone", "--basis", "reported", "--workspace", dir]);
+    expect(result.code).toBe(0);
+    const file = readFileSync(join(dir, "content", "achievements.yaml"), "utf8");
+    expect(file).toContain("# my empty log");
+    expect(file).not.toContain("[]");
+    expect(file).toContain("Cut onboarding from 10 days to 3 days");
+    const view = run(["achievements", "--json", "--workspace", dir]);
+    expect(view.code).toBe(0);
+    expect(json(view).data?.achievements?.map((entry) => entry.id)).toEqual([
+      "ach-cut-onboarding-from-10-days-to-3-days-undated",
+    ]);
+  });
+
+  it("captures into a null-valued document (null · ~ · ---), which load() accepts as empty", () => {
+    for (const text of ["null\n", "~\n", "---\n"]) {
+      const dir = workspace({ "achievements.yaml": text });
+      const result = run([
+        ...BASE,
+        "--kind",
+        "milestone",
+        "--basis",
+        "reported",
+        "--workspace",
+        dir,
+      ]);
+      expect(result.code, `root ${JSON.stringify(text)}`).toBe(0);
+      const file = readFileSync(join(dir, "content", "achievements.yaml"), "utf8");
+      expect(file).toContain("Cut onboarding from 10 days to 3 days");
+      const view = run(["achievements", "--json", "--workspace", dir]);
+      expect(view.code).toBe(0);
+    }
+  });
+});
+
 describe("pasco log — id derivation", () => {
   it("is deterministic and case/diacritic normalizing", () => {
     expect(deriveAchievementId("Redujo la conciliación de efectivo", "2021-05-31")).toBe(
@@ -427,7 +464,7 @@ describe("pasco log — id derivation", () => {
 });
 
 describe("pasco log — atomicity", () => {
-  it("an invalid resulting workspace leaves the original bytes and no temp file", () => {
+  it("a VALIDATION failure leaves the original bytes and no temp/lock file", () => {
     const dir = workspace({
       "achievements.yaml": `- id: ach-old
   statement: { en: Old }
@@ -461,5 +498,47 @@ describe("pasco log — atomicity", () => {
     expect(readdirSync(join(dir, "content")).filter((name) => name.startsWith(".pasco-"))).toEqual(
       [],
     );
+  });
+
+  it("a failure in the TEMP→RENAME window removes the temp and keeps the original", () => {
+    const dir = workspace({
+      "achievements.yaml": `- id: ach-old
+  statement: { en: Old }
+  kind: milestone
+  basis: reported
+  visibility: private
+`,
+    });
+    const file = join(dir, "content", "achievements.yaml");
+    const before = readFileSync(file, "utf8");
+    let tempSeen = "";
+    expect(() =>
+      appendAchievement(
+        {
+          workspace: dir,
+          row: {
+            id: "ach-new",
+            statement: { en: "New" },
+            kind: "milestone",
+            basis: "reported",
+            visibility: "private",
+          } as never,
+        },
+        {
+          // The seam runs AFTER the temp file is written and BEFORE the rename.
+          beforeRename: (tempFile) => {
+            tempSeen = tempFile;
+            expect(existsSync(tempFile)).toBe(true);
+            throw new LoadError("forced rename failure");
+          },
+        },
+      ),
+    ).toThrow(LoadError);
+    expect(tempSeen).not.toBe("");
+    expect(existsSync(tempSeen)).toBe(false);
+    expect(readFileSync(file, "utf8")).toBe(before);
+    expect(
+      readdirSync(join(dir, "content")).filter((name) => name.startsWith(".pasco-log-")),
+    ).toEqual([]);
   });
 });

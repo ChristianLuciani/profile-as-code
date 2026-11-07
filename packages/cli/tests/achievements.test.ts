@@ -320,6 +320,65 @@ describe("pasco achievements --since/--until (D25/S3)", () => {
   });
 });
 
+/**
+ * F1 of the fresh review: a declared range that matches NOTHING is not an empty
+ * log — the text must print the range and the count, and never the add-file hint.
+ */
+describe("pasco achievements — a range that matches nothing (F1)", () => {
+  it("log view: prints 0 of N in the range, never 'the log is empty'", () => {
+    const dir = workspace({
+      "achievements.yaml": `- id: ach-old
+  statement: { en: Old result }
+  kind: milestone
+  basis: reported
+  date: 2024-01-01
+  visibility: private
+`,
+    });
+    const result = run([
+      "achievements",
+      "--since",
+      "2020-01-01",
+      "--until",
+      "2020-12-31",
+      "--workspace",
+      dir,
+    ]);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain("0 of 1 row(s) in 2020-01-01 … 2020-12-31 (inclusive)");
+    expect(result.stdout).not.toContain("the log is empty");
+    expect(result.stdout).not.toContain("Add content/achievements.yaml");
+  });
+
+  it("goal view: prints 0 of N planned in the range, never 'the goal view is empty'", () => {
+    const dir = workspace({
+      "achievements.yaml": `- id: ach-plan
+  statement: { en: A dated goal }
+  kind: metric
+  metric: { target: 10, unit: days }
+  basis: estimated
+  date: 2019-01-01
+  visibility: private
+`,
+    });
+    const result = run(["achievements", "--targets", "--since", "2020-01-01", "--workspace", dir]);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain("0 of 1 planned target(s) since 2020-01-01 (inclusive)");
+    expect(result.stdout).not.toContain("the goal view is empty");
+  });
+
+  it("a one-sided range prints its own preposition, never 'in since/from'", () => {
+    const since = run(["achievements", "--since", "2022-01-01", "--workspace", ACHIEVEMENTS]);
+    expect(since.code).toBe(0);
+    expect(since.stdout).toContain("row(s) since 2022-01-01 (inclusive)");
+    expect(since.stdout).not.toContain("in since");
+    const until = run(["achievements", "--until", "2021-12-31", "--workspace", ACHIEVEMENTS]);
+    expect(until.code).toBe(0);
+    expect(until.stdout).toContain("row(s) through 2021-12-31 (inclusive)");
+    expect(until.stdout).not.toContain("in until");
+  });
+});
+
 describe("pasco achievements — human view", () => {
   it("groups by the first ref, prints status · metric · basis · pointer", () => {
     const result = run(["achievements", "--workspace", ACHIEVEMENTS]);

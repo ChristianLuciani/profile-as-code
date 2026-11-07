@@ -58,9 +58,11 @@ export interface AchievementsViewScope extends AchievementScope {
   undated: number;
 }
 
-/** The rows a view returns and the date-less rows it considered. */
+/** The rows a view returns and the rows/date-less rows it considered. */
 export interface AchievementSelection {
   rows: Achievement[];
+  /** Rows in the STATUS-filtered set, before the range (#497). */
+  considered: number;
   /** Rows without `date` among the STATUS-filtered set, before the range. */
   undated: number;
   /** The range the view applied, or `null` when no bound was declared. */
@@ -103,13 +105,16 @@ export function inRange(row: Achievement, range: { since?: string; until?: strin
 }
 
 /**
- * The composition rule of #497 — **range first, status second**:
+ * The composition rule of #497. The two filters are ANDed, and the counter has
+ * ONE defined basis:
  *
- *   - the status filter (`--targets`) is applied first;
- *   - with a range, a DATED row must fall in it;
- *   - a DATE-LESS row is never silently dropped: in the goal view it is
- *     returned (a goal is date-less by nature); in the log view it is withheld
- *     from the range and counted in `undated`.
+ *   - the status filter (`--targets` → `planned`) produces the considered set
+ *     and `undated` is counted ON that set (a date-less row is a goal only if
+ *     it is planned);
+ *   - a declared range then keeps only the DATED rows inside it — plus, in the
+ *     goal view only, the date-less goals (a goal is date-less by nature);
+ *   - in the log view a date-less row is withheld from the range and declared
+ *     in `undated`, never dropped.
  *
  * Without a range, nothing is filtered by date and `undated` counts the rows
  * the view returned.
@@ -122,14 +127,15 @@ export function selectRows(
     options.targets === true
       ? achievements.filter((achievement) => achievementStatus(achievement) === "planned")
       : [...achievements];
+  const considered = statusRows.length;
   const undated = statusRows.filter((achievement) => achievement.date === undefined).length;
   const range = parseRange(options.since, options.until);
-  if (range === null) return { rows: statusRows, undated, range: null };
+  if (range === null) return { rows: statusRows, considered, undated, range: null };
   const rows = statusRows.filter(
     (achievement) =>
       inRange(achievement, range) || (options.targets === true && achievement.date === undefined),
   );
-  return { rows, undated, range };
+  return { rows, considered, undated, range };
 }
 
 /** The formatter of a metric (`72 h → 4 h`, `4 h (target 3 h)`, `36 tutors`).
@@ -242,13 +248,14 @@ export function achievementsPayload(
   };
 }
 
-/** The human label of a range: both bounds, or the one bound declared. */
+/** The human label of a range, WITH its preposition — callers never prepend one
+ *  (`in from 2010-01-01` was the defect): both bounds, or the one declared. */
 export function rangeLabel(range: { since?: string; until?: string }): string {
   if (range.since !== undefined && range.until !== undefined) {
-    return `${range.since} … ${range.until} (inclusive)`;
+    return `in ${range.since} … ${range.until} (inclusive)`;
   }
-  if (range.since !== undefined) return `from ${range.since} (inclusive)`;
-  return `until ${range.until} (inclusive)`;
+  if (range.since !== undefined) return `since ${range.since} (inclusive)`;
+  return `through ${range.until} (inclusive)`;
 }
 
 export function runAchievements(args: AchievementsArgs): number {
@@ -266,24 +273,31 @@ export function runAchievements(args: AchievementsArgs): number {
     }
     throw err;
   }
-  const { rows, undated, range } = selection;
+  const { rows, considered, undated, range } = selection;
 
   if (isJsonMode()) {
     return report("achievements", true, EXIT.OK, { data: achievementsPayload(rows, undated) });
   }
 
   if (rows.length === 0) {
-    if (range !== null && undated > 0) {
+    if (range !== null) {
+      // A declared range that matches nothing is NOT an empty log: #497 requires
+      // the range and the count, and the add-file hint would be false.
       section(
         args.targets === true
-          ? "Achievements — no planned targets"
-          : `Achievements — no dated row in ${rangeLabel(range)}`,
+          ? `Achievements — 0 of ${considered} planned target(s) ${rangeLabel(range)}`
+          : `Achievements — 0 of ${considered} row(s) ${rangeLabel(range)}`,
       );
       line(
         args.targets === true
-          ? "No row declares a `target` without a `value` yet — the goal view is empty."
-          : `${undated} row(s) declare no \`date\` and are NOT placed in this range — undated is reported, never hidden.`,
+          ? `No planned goal falls ${rangeLabel(range)}.`
+          : `No dated row falls ${rangeLabel(range)}.`,
       );
+      if (undated > 0) {
+        line(
+          `${undated} row(s) declare no \`date\` and are NOT placed in this range — undated is reported, never hidden.`,
+        );
+      }
       return EXIT.OK;
     }
     section(
@@ -304,8 +318,8 @@ export function runAchievements(args: AchievementsArgs): number {
     range === null
       ? ""
       : args.targets === true
-        ? ` in ${rangeLabel(range)}${undated > 0 ? ` · ${undated} undated goal(s) included` : ""}`
-        : ` in ${rangeLabel(range)}${undated > 0 ? ` · ${undated} undated not placed` : ""}`;
+        ? ` ${rangeLabel(range)}${undated > 0 ? ` · ${undated} undated goal(s) included` : ""}`
+        : ` ${rangeLabel(range)}${undated > 0 ? ` · ${undated} undated not placed` : ""}`;
   const undatedNote = range === null && undated > 0 ? ` · undated ${undated}` : "";
   section(
     args.targets === true
