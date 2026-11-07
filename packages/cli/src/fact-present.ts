@@ -81,9 +81,11 @@ export type FactPresentCode =
   | "fact-present/number-missing-from-surface"
   | "fact-present/text-not-in-ssot";
 
-/** The report's key set, in contract order (#489 review). The USER-GUIDE enumeration,
- *  the runtime payload and the tests read this instead of re-typing the list, so a
- *  key cannot be dropped from the docs while the engine still emits it. */
+/** The report's key set, in contract order (#489 review). The USER-GUIDE
+ *  enumeration and the tests assert against this list, so a key cannot be dropped
+ *  from the docs while the engine still emits it — and a key added to the payload
+ *  without the guide fails the same test. The runtime object below is the other
+ *  side of that assertion, not a reader of this constant. */
 export const FACT_PRESENT_KEYS = [
   "catalog",
   "declared",

@@ -955,8 +955,8 @@ no fact address by definition. `check --json` exposes the same rule under
 run**; its `notBuildable` subset names the ones no body or renderer can ever
 produce, so the fix is adding content, not running the build. `declared: []` says
 the catalog declares no such premise — nothing was measured, never silently OK.
-`scope` in the audit payload carries the same five lists (without the `findings`
-array), including `catalog` (`shipped` | `not-shipped` — a package without its
+`scope` in the audit payload carries the same keys (all but `findings`),
+including `catalog` (`shipped` | `not-shipped` — a package without its
 skills tree says so instead of "nothing declared"), because an audit with an
 empty scope is not a clean audit.
 

@@ -31,14 +31,13 @@ describe("factPresent key set — one source, gated on both sides (#489 review)"
     expect(Object.keys(data.factPresent)).toEqual([...FACT_PRESENT_KEYS]);
   });
 
-  it("the USER-GUIDE enumeration names every key", () => {
-    // The enumeration wraps across lines; flatten first, then read the sentence.
-    const flat = USER_GUIDE.replace(/\s+/g, " ");
-    const at = flat.indexOf("data.factPresent");
-    expect(at, "the guide must document data.factPresent").toBeGreaterThan(-1);
-    const sentence = flat.slice(at, at + 260);
-    for (const key of FACT_PRESENT_KEYS) {
-      expect(sentence, `the enumeration must name ${key}`).toContain(`\`${key}\``);
-    }
+  it("the USER-GUIDE enumeration is exactly the key set", () => {
+    // Parse the parenthesized enumeration itself, not a window of prose: the next
+    // sentence names `notBuildable` again, and a window would keep that key green
+    // after it was dropped from the list (#499 review).
+    const match = /`data\.factPresent`\s*\(([^)]*)\)/.exec(USER_GUIDE);
+    expect(match, "the guide must document data.factPresent with its key list").not.toBeNull();
+    const enumerated = [...(match?.[1] ?? "").matchAll(/`([a-zA-Z]+)`/g)].map((entry) => entry[1]);
+    expect(enumerated).toEqual([...FACT_PRESENT_KEYS]);
   });
 });
