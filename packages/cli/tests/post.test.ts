@@ -710,6 +710,9 @@ describe("pasco post — long-form access (#484)", () => {
     ]);
     expect(task.code, task.stderr).toBe(0);
     expect(task.stdout).toContain("access: free | free-subscribers | paid | founding");
+    // The stdout summary distinguishes the optional branch; the required branch
+    // has its own assertion in the required-contract test (#484 review).
+    expect(task.stdout).toContain("(default: free)");
 
     const substack = readFileSync(
       join(ws, "posts", "essay-level-task", "substack", "task.md"),
@@ -890,6 +893,8 @@ describe("pasco post — long-form access (#484)", () => {
       env,
     );
     expect(task.code, task.stderr).toBe(0);
+    expect(task.stdout).toContain("(required)");
+    expect(task.stdout).not.toContain("(default: free)");
     const taskMd = readFileSync(
       join(ws, "posts", "essay-required-access", "ghost", "task.md"),
       "utf8",

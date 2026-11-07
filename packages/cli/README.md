@@ -150,7 +150,9 @@ The partial commands are explicit, and each one says what still owns the rest:
 - **`post`** — the post experiment (#264/#265, long-form #266): a CLI
   subcommand family over the `posts/` store; it never calls an LLM, emits the
   agent task, records the choice, checks limits/URLs/refs (plus title/dek, the
-  word band and the optional `access` level for long-form) and exports a Postiz
+  word band and the `access` level for long-form — optional with default
+  `free`, or required when the channel's contract says so, paste channels only)
+  and exports a Postiz
   draft for API channels or a paste checklist for Substack/Ghost. A seed is
   `format: short | longform`; a short child derived from an essay records
   `derivedFrom: <essay-id>`. It reads
