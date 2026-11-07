@@ -809,6 +809,46 @@ describe("pasco post — long-form access (#484)", () => {
     expect(checklist).not.toContain("Access is set");
   });
 
+  it("does not add an Access step for a channel that does not declare the field", () => {
+    // The opt-in must gate EVERY surface: `ghost` does not declare `access`, so a
+    // variant that carries it gets `unknown-field` and its checklist must not
+    // claim an Access step the Fields section does not list (#484 review).
+    const ws = workspace();
+    longformSeed(ws, "essay-ghost-level");
+    const task = run([
+      "post",
+      "task",
+      "essay-ghost-level",
+      "--format",
+      "longform",
+      "--channel",
+      "ghost",
+      "--workspace",
+      ws,
+    ]);
+    expect(task.code, task.stderr).toBe(0);
+    variant(
+      ws,
+      "essay-ghost-level",
+      "ghost",
+      "ghost-1",
+      frontMatter({ title: "Repeatable work", dek: "What compounds.", access: "paid" }, words(650)),
+    );
+    const check = run(["post", "check", "essay-ghost-level", "--json", "--workspace", ws]);
+    expect(check.code, check.stdout).toBe(0);
+    const findings = findingsOf(check.stdout);
+    expect(findings.codes).toContain("unknown-field");
+    expect(findings.codes).not.toContain("bad-access");
+
+    expect(run(["post", "export", "essay-ghost-level", "--workspace", ws]).code).toBe(0);
+    const checklist = readFileSync(
+      join(ws, "posts", "essay-ghost-level", "ghost", "paste-checklist.md"),
+      "utf8",
+    );
+    expect(checklist).not.toContain("- access:");
+    expect(checklist).not.toContain("Access is set");
+  });
+
   it("keeps access out of the Postiz payload for an API channel", () => {
     const ws = workspace();
     longformSeed(ws, "essay-access-api");

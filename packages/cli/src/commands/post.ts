@@ -71,7 +71,12 @@ const LONGFORM_ACCESS_DEFAULT = "free";
 
 /** Does this channel's contract declare the generic long-form `access` field? */
 function declaresAccess(rules: PostingRules): boolean {
-  return (rules.fields?.optional ?? []).includes("access");
+  // Required or optional: a channel that mandates the level still declares it,
+  // and the validation must run for it (#484 review).
+  return (
+    (rules.fields?.required ?? []).includes("access") ||
+    (rules.fields?.optional ?? []).includes("access")
+  );
 }
 
 function isAccessLevel(value: unknown): boolean {
@@ -752,7 +757,11 @@ function buildPasteChecklist(args: {
   const fieldLines = declared
     .filter((name) => fields[name] !== undefined)
     .map((name) => `- ${name}: ${fieldString(fields[name])}`);
-  const access = fields.access === undefined ? undefined : fieldString(fields.access);
+  // Opt-in matters here: a channel that does NOT declare `access` gets an
+  // `unknown-field` warn and must not receive an Access step in its checklist
+  // (the Fields section does not list it) — #484 review.
+  const access =
+    declaresAccess(rules) && fields.access !== undefined ? fieldString(fields.access) : undefined;
   return [
     `# Paste checklist — ${seedId} / ${channel}`,
     ``,
