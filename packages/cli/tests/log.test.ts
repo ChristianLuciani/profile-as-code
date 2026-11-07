@@ -424,6 +424,16 @@ describe("pasco log — empty roots and the flow token", () => {
     ]);
   });
 
+  it("refuses a document-end marker instead of leaving the file unappendable", () => {
+    const dir = workspace({ "achievements.yaml": "null\n...\n" });
+    const file = join(dir, "content", "achievements.yaml");
+    const before = readFileSync(file, "utf8");
+    const result = run([...BASE, "--kind", "milestone", "--basis", "reported", "--workspace", dir]);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("document-end marker");
+    expect(readFileSync(file, "utf8")).toBe(before);
+  });
+
   it("captures into a null-valued document (null · ~ · ---), which load() accepts as empty", () => {
     for (const text of ["null\n", "~\n", "---\n"]) {
       const dir = workspace({ "achievements.yaml": text });

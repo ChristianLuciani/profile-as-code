@@ -713,8 +713,9 @@ Any metric flag with --kind milestone is exit 2 (a point event has no progress).
 An id collision — declared or derived — is exit 1 with nothing written.
 The write is atomic: a temp copy of content/ goes through the same load() gate,
 then the file is replaced by rename under content/.pasco-edit.lock. A missing
-file is created with a header; an existing file keeps all its bytes (comments
-and layout survive). --json emits the row with its derived status and the
+file is created with a header; an existing block-sequence file keeps all its
+bytes (comments and layout survive; an empty []/null root is the only token
+replaced). --json emits the row with its derived status and the
 visibility actually written.
 Exit: 0 written · 1 load/integrity failure, collision, or a file the append
 cannot preserve · 2 usage or an invalid input. Offline, no clock, no LLM.`,
@@ -729,7 +730,9 @@ partial (both numbers, goal missed). A milestone has no status. Rows are grouped
 by their first ref; Unattached collects the rest.
 --targets prints only the planned rows (the goal view).
 --since/--until filter the fact DATE with inclusive bounds (D25/S3, #497); each
-bound may be declared alone; range first, status second. A row without a date is
+bound may be declared alone; the two filters are ANDed (status selects the set,
+undated is counted on it, then the range keeps the dated rows inside it). A row
+without a date is
 never dropped: scope.undated counts it — the log view withholds it from the range
 and says so, the goal view returns it (a goal is date-less by nature). Private
 rows ARE part of this local retrieval (D27); the public projection is

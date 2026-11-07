@@ -9,12 +9,6 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
-_(nothing yet — the next cycle)_
-
-## [0.5.0] - 2026-11-07
-
-### Added
-
 - **`pasco log` — the capture path of the impact log, and a retrieval by period
   (#496/#497, D25/S2+S3, SPEC §23.5/§23.6)** — the typed record had a shape and a
   read view but no way to fill it without opening the YAML. `pasco log` writes ONE
@@ -32,6 +26,10 @@ _(nothing yet — the next cycle)_
   (comments survive; an empty `[]`/null root is the only token replaced). The
   `--json` scope gains the additive `undated` key under the same
   `schemaVersion: "1"`.
+
+## [0.5.0] - 2026-11-07
+
+### Added
 
 - **the narrative skills that did not exist — `linkedin`, `x`, and one shared
   two-axis statement every platform skill cites (#462, part B)** — the two

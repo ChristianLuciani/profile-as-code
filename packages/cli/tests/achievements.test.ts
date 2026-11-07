@@ -367,6 +367,15 @@ describe("pasco achievements — a range that matches nothing (F1)", () => {
     expect(result.stdout).not.toContain("the goal view is empty");
   });
 
+  it("an EMPTY log with a declared range still says the log is empty (no '0 of 0')", () => {
+    const result = run(["achievements", "--since", "2020-01-01", "--workspace", MINIMAL]);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain("the log is empty");
+    expect(result.stdout).toContain("since 2020-01-01 (inclusive)");
+    expect(result.stdout).toContain("Add content/achievements.yaml");
+    expect(result.stdout).not.toContain("0 of 0");
+  });
+
   it("a one-sided range prints its own preposition, never 'in since/from'", () => {
     const since = run(["achievements", "--since", "2022-01-01", "--workspace", ACHIEVEMENTS]);
     expect(since.code).toBe(0);

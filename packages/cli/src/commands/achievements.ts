@@ -280,7 +280,7 @@ export function runAchievements(args: AchievementsArgs): number {
   }
 
   if (rows.length === 0) {
-    if (range !== null) {
+    if (range !== null && considered > 0) {
       // A declared range that matches nothing is NOT an empty log: #497 requires
       // the range and the count, and the add-file hint would be false.
       section(
@@ -300,10 +300,13 @@ export function runAchievements(args: AchievementsArgs): number {
       }
       return EXIT.OK;
     }
+    // Nothing was declared (or no goal exists): the empty message is the truth,
+    // and under `--targets` a declared range is still named so the filter is
+    // visible.
     section(
       args.targets === true
-        ? "Achievements — no planned targets"
-        : "Achievements — the log is empty",
+        ? `Achievements — no planned targets${range === null ? "" : ` ${rangeLabel(range)}`}`
+        : `Achievements — the log is empty${range === null ? "" : ` ${rangeLabel(range)}`}`,
     );
     line(
       args.targets === true
