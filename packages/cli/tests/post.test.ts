@@ -33,10 +33,11 @@ interface RunResult {
   stderr: string;
 }
 
-function run(args: string[]): RunResult {
+function run(args: string[], env: Record<string, string> = {}): RunResult {
   const result = spawnSync(process.execPath, [CLI, ...args], {
     encoding: "utf8",
     timeout: 20_000,
+    env: { ...process.env, ...env },
   });
   if (result.error !== undefined) throw result.error;
   return { code: result.status ?? -1, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
@@ -847,6 +848,86 @@ describe("pasco post — long-form access (#484)", () => {
     );
     expect(checklist).not.toContain("- access:");
     expect(checklist).not.toContain("Access is set");
+  });
+
+  it("states access as required when the channel contract mandates it", () => {
+    // The required branch is supported (validation runs), so the task guide must
+    // not tell the writer to omit the field (#484 review).
+    const skills = mkdtempSync(join(tmpdir(), "pasco-skills-required-"));
+    tempDirs.push(skills);
+    mkdirSync(join(skills, "ghost"), { recursive: true });
+    writeFileSync(
+      join(skills, "ghost", "longform.yaml"),
+      [
+        "platform: ghost",
+        "format: longform",
+        "export: paste",
+        "fields:",
+        "  required:",
+        "    - title",
+        "    - dek",
+        "    - access",
+        "  optional:",
+        "    - tags",
+        "",
+      ].join("\n"),
+    );
+    const env = { PASCO_SKILLS_DIR: skills };
+    const ws = workspace();
+    longformSeed(ws, "essay-required-access");
+    const task = run(
+      [
+        "post",
+        "task",
+        "essay-required-access",
+        "--format",
+        "longform",
+        "--channel",
+        "ghost",
+        "--workspace",
+        ws,
+      ],
+      env,
+    );
+    expect(task.code, task.stderr).toBe(0);
+    const taskMd = readFileSync(
+      join(ws, "posts", "essay-required-access", "ghost", "task.md"),
+      "utf8",
+    );
+    expect(taskMd).toContain("required: state it in the front matter");
+    expect(taskMd).not.toContain("only when it is not free");
+
+    // Omitting it is a missing-field for this contract.
+    variant(
+      ws,
+      "essay-required-access",
+      "ghost",
+      "ghost-1",
+      frontMatter({ title: "Repeatable work", dek: "What compounds." }, words(650)),
+    );
+    const missing = run(
+      ["post", "check", "essay-required-access", "--json", "--workspace", ws],
+      env,
+    );
+    expect(missing.code).toBe(1);
+    expect(findingsOf(missing.stdout).codes).toContain("missing-field");
+
+    // An invalid value is bad-access, and the message must not promise a default
+    // the contract does not have.
+    variant(
+      ws,
+      "essay-required-access",
+      "ghost",
+      "ghost-1",
+      frontMatter({ title: "Repeatable work", dek: "What compounds.", access: "foo" }, words(650)),
+    );
+    const bad = run(["post", "check", "essay-required-access", "--json", "--workspace", ws], env);
+    expect(bad.code).toBe(1);
+    const finding = findingsOf(bad.stdout);
+    expect(finding.codes).toContain("bad-access");
+    const message = finding.messages.find((text) => text.includes("access")) ?? "";
+    expect(message).toContain("free | free-subscribers | paid | founding");
+    expect(message).not.toContain("default:");
   });
 
   it("keeps access out of the Postiz payload for an API channel", () => {

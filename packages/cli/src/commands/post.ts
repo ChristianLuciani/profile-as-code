@@ -64,8 +64,9 @@ const LONGFORM_REQUIRED_FIELDS = ["title", "dek"] as const;
 /** Front-matter fields that travel into an API platform's settings. */
 const LONGFORM_SETTING_FIELDS = ["tags", "canonical", "publication", "list"] as const;
 /** The long-form access levels (#484). `access` is a generic field of the
- *  long-form format: a channel opts in by declaring it in `fields.optional`;
- *  the vocabulary and the default belong to the format, not to one channel. */
+ *  long-form format: a channel opts in by declaring it in `fields.optional` or
+ *  `fields.required`; the vocabulary and the default belong to the format, not
+ *  to one channel. */
 const LONGFORM_ACCESS_LEVELS: readonly string[] = ["free", "free-subscribers", "paid", "founding"];
 const LONGFORM_ACCESS_DEFAULT = "free";
 
@@ -81,6 +82,11 @@ function declaresAccess(rules: PostingRules): boolean {
 
 function isAccessLevel(value: unknown): boolean {
   return typeof value === "string" && LONGFORM_ACCESS_LEVELS.includes(value);
+}
+
+/** A channel that mandates the level has no "default" to fall back to. */
+function requiresAccess(rules: PostingRules): boolean {
+  return (rules.fields?.required ?? []).includes("access");
 }
 
 interface WordLimits {
@@ -529,7 +535,7 @@ export function checkLongform(
     findings.push({
       code: "bad-access",
       severity: "error",
-      message: `access "${fieldString(fields.access)}" is not a valid level for ${channel} — use ${LONGFORM_ACCESS_LEVELS.join(" | ")} (default: ${LONGFORM_ACCESS_DEFAULT})`,
+      message: `access "${fieldString(fields.access)}" is not a valid level for ${channel} — use ${LONGFORM_ACCESS_LEVELS.join(" | ")}${requiresAccess(rules) ? "" : ` (default: ${LONGFORM_ACCESS_DEFAULT})`}`,
     });
   }
 
@@ -681,7 +687,9 @@ function buildLongformTask(args: {
     `  export: ${rules.export ?? "—"} (${rules.export === "paste" ? "paste surface — no body API" : "API platform — Postiz settings mapping"})`,
     ...(declaresAccess(rules)
       ? [
-          `  access: ${LONGFORM_ACCESS_LEVELS.join(" | ")} (default: ${LONGFORM_ACCESS_DEFAULT}; state it in the front matter only when it is not free)`,
+          requiresAccess(rules)
+            ? `  access: ${LONGFORM_ACCESS_LEVELS.join(" | ")} (required: state it in the front matter; there is no default)`
+            : `  access: ${LONGFORM_ACCESS_LEVELS.join(" | ")} (default: ${LONGFORM_ACCESS_DEFAULT}; state it in the front matter only when it is not free)`,
         ]
       : []),
     `  maxChars: ${rules.limits?.maxChars ?? "—"}`,
@@ -973,7 +981,7 @@ function handleTask(args: PostArgs): number {
       line(`  export: ${rules.export ?? "—"}`);
       if (declaresAccess(rules)) {
         line(
-          `  access: ${LONGFORM_ACCESS_LEVELS.join(" | ")} (default: ${LONGFORM_ACCESS_DEFAULT})`,
+          `  access: ${LONGFORM_ACCESS_LEVELS.join(" | ")}${requiresAccess(rules) ? " (required)" : ` (default: ${LONGFORM_ACCESS_DEFAULT})`}`,
         );
       }
     } else {

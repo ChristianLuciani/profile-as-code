@@ -88,7 +88,7 @@ The body in markdown…
 | `export: api \| paste` | API channel (Postiz settings mapping) vs paste surface (checklist, no body API) |
 | `fields.required` | must include `title` and `dek`; a missing one fails `check` |
 | `fields.optional` | `preview`, `tags`, `canonical`, `publication`, `list`, `access` (images are **not** a v0 field — D17 `artifacts[].locator` owns pointers) |
-| `access` (optional field) | the post's access level: `free` (default) · `free-subscribers` · `paid` · `founding`. It is generic to the long-form format — a channel opts in by listing it in `fields.optional` or `fields.required` (Substack today); `check` reports `bad-access` for a value outside the enum or a non-string, the task states the vocabulary and the default, and an explicit value is echoed in the paste checklist. It is not an API payload field |
+| `access` (optional field) | the post's access level: `free` (default) · `free-subscribers` · `paid` · `founding`. It is generic to the long-form format — a channel opts in by listing it in `fields.optional` (Substack today) or `fields.required`, and only a **paste** channel should declare it: an API channel has no audience selector, so the value is validated but not exported. `check` reports `bad-access` for a value outside the enum or a non-string; the task states the vocabulary and either the default (optional) or that the field is required; an explicit value is echoed in the paste checklist. It is not an API payload field |
 | `limits.words` | editorial band (`min`/`max`), enforced by `check` |
 | `structure` · `sources` | judgment + evidence, same shape as `posting.yaml` |
 
