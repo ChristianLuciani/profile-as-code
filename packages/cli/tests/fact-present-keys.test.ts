@@ -1,8 +1,8 @@
 /**
- * `FACT_PRESENT_KEYS` is the single key-set source (#489 review): the runtime
- * `check --json` payload and the USER-GUIDE enumeration both read it, so a key
- * cannot vanish from the docs while the engine keeps emitting it — or be added
- * to the payload without the docs and this test picking it up.
+ * `FACT_PRESENT_KEYS` is the assertion canary (#489 review): the runtime
+ * `check --json` payload and the USER-GUIDE enumeration are asserted against it,
+ * so a key cannot vanish from the docs while the engine keeps emitting it — or be
+ * added to the payload without the docs and this test picking it up.
  *
  * Offline: dist CLI + a committed fixture.
  */
@@ -12,6 +12,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { AUDIT_SCOPE_KEYS } from "../src/commands/audit.js";
 import { FACT_PRESENT_KEYS } from "../src/fact-present.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -29,6 +30,13 @@ describe("factPresent key set — one source, gated on both sides (#489 review)"
     expect(res.status, res.stderr).toBe(0);
     const data = (JSON.parse(res.stdout ?? "") as { data: { factPresent: object } }).data;
     expect(Object.keys(data.factPresent)).toEqual([...FACT_PRESENT_KEYS]);
+  });
+
+  it("the audit scope is the report's key set without findings", () => {
+    // The guide's "same keys (all but findings)" sentence is a claim about the
+    // audit payload; tie it to the two constants so making it false fails here
+    // (#499 review).
+    expect([...AUDIT_SCOPE_KEYS]).toEqual(FACT_PRESENT_KEYS.filter((key) => key !== "findings"));
   });
 
   it("the USER-GUIDE enumeration is exactly the key set", () => {
