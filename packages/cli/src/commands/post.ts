@@ -937,7 +937,7 @@ function handleTask(args: PostArgs): number {
     skill: string | undefined;
     maxChars?: number;
     words?: WordLimits;
-    access?: { levels: string[]; default: string };
+    access?: { levels: string[]; default?: string; required?: boolean };
   }[] = [];
   for (const { channel, rules, skill } of channelRules) {
     const task =
@@ -967,10 +967,9 @@ function handleTask(args: PostArgs): number {
       ...(rules.limits?.words !== undefined ? { words: rules.limits.words } : {}),
       ...(format === "longform" && declaresAccess(rules)
         ? {
-            access: {
-              levels: [...LONGFORM_ACCESS_LEVELS],
-              default: LONGFORM_ACCESS_DEFAULT,
-            },
+            access: requiresAccess(rules)
+              ? { levels: [...LONGFORM_ACCESS_LEVELS], required: true }
+              : { levels: [...LONGFORM_ACCESS_LEVELS], default: LONGFORM_ACCESS_DEFAULT },
           }
         : {}),
     });

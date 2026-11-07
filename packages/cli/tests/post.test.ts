@@ -713,6 +713,27 @@ describe("pasco post — long-form access (#484)", () => {
     // The stdout summary distinguishes the optional branch; the required branch
     // has its own assertion in the required-contract test (#484 review).
     expect(task.stdout).toContain("(default: free)");
+    const optionalJson = run([
+      "post",
+      "task",
+      "essay-level-task",
+      "--format",
+      "longform",
+      "--channel",
+      "substack,medium",
+      "--workspace",
+      ws,
+      "--json",
+    ]);
+    expect(optionalJson.code, optionalJson.stderr).toBe(0);
+    const optionalEnvelope = JSON.parse(optionalJson.stdout) as {
+      data: { channels: { channel: string; access?: Record<string, unknown> }[] };
+    };
+    const substackAccess = optionalEnvelope.data.channels.find(
+      (entry) => entry.channel === "substack",
+    )?.access;
+    expect(substackAccess).toMatchObject({ default: "free" });
+    expect(substackAccess).not.toHaveProperty("required");
 
     const substack = readFileSync(
       join(ws, "posts", "essay-level-task", "substack", "task.md"),
@@ -895,6 +916,30 @@ describe("pasco post — long-form access (#484)", () => {
     expect(task.code, task.stderr).toBe(0);
     expect(task.stdout).toContain("(required)");
     expect(task.stdout).not.toContain("(default: free)");
+    const requiredJson = run(
+      [
+        "post",
+        "task",
+        "essay-required-access",
+        "--format",
+        "longform",
+        "--channel",
+        "ghost",
+        "--workspace",
+        ws,
+        "--json",
+      ],
+      env,
+    );
+    expect(requiredJson.code, requiredJson.stderr).toBe(0);
+    const requiredEnvelope = JSON.parse(requiredJson.stdout) as {
+      data: { channels: { channel: string; access?: Record<string, unknown> }[] };
+    };
+    const ghostAccess = requiredEnvelope.data.channels.find(
+      (entry) => entry.channel === "ghost",
+    )?.access;
+    expect(ghostAccess).toMatchObject({ required: true });
+    expect(ghostAccess).not.toHaveProperty("default");
     const taskMd = readFileSync(
       join(ws, "posts", "essay-required-access", "ghost", "task.md"),
       "utf8",
