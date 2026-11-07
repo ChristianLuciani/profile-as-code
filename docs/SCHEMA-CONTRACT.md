@@ -49,8 +49,10 @@ stays valid forever for a consumer that pins it and does not need
 | Published artifact | the tag-pinned `v0.4.0` URL above |
 
 A profile that declares no `achievements[]` validates identically against `v1.16`
-and `v0.3.7`; the block is additive by construction, and `pasco achievements`
-reads it without writing anything.
+and `v0.3.7`; the block is additive by construction. `pasco log` writes one row
+(`visibility: private` by default; no clock, so an absent `--date` is `undated`)
+and `pasco achievements` reads the log — with `--since`/`--until` when a period is
+wanted — without writing anything.
 
 ## Validating a profile
 

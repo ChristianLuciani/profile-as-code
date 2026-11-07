@@ -28,6 +28,7 @@ import { runEntity } from "./commands/entity.js";
 import { runAiPolicyCheck, runAiPolicyExport, runAiPolicyFileCheck } from "./commands/export.js";
 import { resolveNow, runExportProfile } from "./commands/export-profile.js";
 import { runInit } from "./commands/init.js";
+import { runLog } from "./commands/log.js";
 import { runPost } from "./commands/post.js";
 import { runPresence, runReleasePlan } from "./commands/presence.js";
 import { runPreview } from "./commands/preview.js";
@@ -137,10 +138,16 @@ Commands:
   release plan [id] [--json]    [read]  One release's ordered fan-out (repo-meta → profile →
                                 distribution), each surface's state and the per-kind
                                 factual spine; the copy lives in the shipped skills
+  log --statement <text>        [write] Capture ONE achievement (D25/§23.6): --kind and --basis
+      --kind metric|milestone            are required; --visibility defaults to private (D27); on
+      --basis <basis>                    a metric only --unit is required (target-only = a planned
+                                         goal, value-only = a measurement); --date is optional and
+                                         absent means undated (no clock is read)
   achievements [--targets]      [read]  The career impact log (D24/§23): every row's DERIVED
-          [--json]              status (planned · measured · achieved · partial), the
-                                formatted metric and how the result is known (basis);
-                                --targets prints only the planned goals
+          [--since <date>]        status (planned · measured · achieved · partial), the
+          [--until <date>]        formatted metric and how the result is known (basis);
+          [--json]                --targets prints only the planned goals; --since/--until
+                                  filter date with inclusive bounds and declare undated rows
   export ai-policy              [write] Write the AI-policy artifacts (SPEC §7.3, M9): robots.txt
           [--out <dir> | --check] (two named groups — listed retrieval crawlers allowed, listed
           [--lang <l>]           training crawlers disallowed, no wildcard) + llms.txt (the
@@ -169,8 +176,11 @@ command (edit: the address is not one row or the edit does not change the
 published artifact; audit: at least one FAIL finding; entity: no canonical @id;
 export ai-policy: an unsourced or stale UA list, a robots.txt whose agent↔group
 map disagrees with the registry (--file), or a refused write;
-cite-check: the input file cannot be read) · 2 usage error (cite-check: malformed
-NDJSON, never a silent skip). Drift warnings exit 0 (D12: facts warn, schema fails).
+cite-check: the input file cannot be read; log: an id collision, an integrity
+failure, or a file the append cannot preserve) · 2 usage error (cite-check:
+malformed NDJSON, never a silent skip; log/achievements: an invalid input or a
+range whose since is after its until). Drift warnings exit 0 (D12: facts warn,
+schema fails).
 
 pasco is free (MIT). Consider a tip ;)
   https://ko-fi.com/christianluciani · https://github.com/sponsors/ChristianLuciani
@@ -217,11 +227,28 @@ interface FlagOptions {
   "no-open"?: boolean;
   "allow-host"?: string;
   observations?: string;
+  // `pasco log` (#496) — the capture path's flags.
+  statement?: string;
+  kind?: string;
+  basis?: string;
+  unit?: string;
+  value?: string;
+  baseline?: string;
+  direction?: string;
+  ref?: string | string[];
+  source?: string;
+  artifactId?: string;
+  credentialId?: string;
+  visibility?: string;
+  id?: string;
+  // `pasco achievements --since/--until` (#497).
+  since?: string;
+  until?: string;
 }
 
 function parseCommandFlags(
   args: string[],
-  extra: Record<string, { type: "string" | "boolean" }> = {},
+  extra: Record<string, { type: "string" | "boolean"; multiple?: boolean }> = {},
 ): {
   flags: FlagOptions;
   positionals: string[];
@@ -666,7 +693,35 @@ task/check/export honour it, and an API Postiz payload never carries it.
                                    unverifiable, url: null; no URL-recording
                                    command yet)
   list                             list seeds, formats, derivedFrom and chosen variants`,
-  achievements: `pasco achievements [--targets] [--json] [--workspace <path>]
+  log: `pasco log --statement <text> --kind metric|milestone --basis <basis> [flags] [--workspace <path>]
+Capture ONE row of the impact log (D25, SPEC §23.6, issue #496) into
+content/achievements.yaml, validating before anything reaches disk.
+  --statement <text>     required, one line (becomes statement.en)
+  --kind <kind>          required: metric | milestone
+  --basis <basis>        required: measured | estimated | reported | attested
+  --unit <unit>          required for kind: metric — the ONLY required metric field
+  --value/--target/--baseline <number>   optional: target-only = a planned goal,
+                         value-only = a measurement, both = achieved/partial
+  --direction <d>        increase | decrease | maintain (absent = increase)
+  --date <YYYY-MM-DD>    optional; NO clock is read — absent means the row is undated
+  --ref <block:id>       repeatable; the units the result belongs to
+  --source <url>         optional http(s) pointer
+  --artifactId/--credentialId <id>       optional pointers, resolved by load()
+  --visibility <v>       public | unlisted | private (default: private — D27)
+  --id <id>              optional; otherwise deterministic from statement + date
+Any metric flag with --kind milestone is exit 2 (a point event has no progress).
+An id collision — declared or derived — is exit 1 with nothing written.
+The write is atomic: a temp copy of content/ goes through the same load() gate,
+then the file is replaced by rename under content/.pasco-edit.lock. A missing
+file is created with a header; an existing block-sequence file keeps all its
+bytes (comments and layout survive; an empty []/null root is the only token
+replaced). --json emits the row with its derived status and the
+visibility actually written.
+Exit: 0 written · 1 load/integrity failure, collision, or a file the append
+cannot preserve (flow-style root, document-end marker) · 2 usage or an invalid
+input. Offline, no clock, no LLM.`,
+
+  achievements: `pasco achievements [--targets] [--since <YYYY-MM-DD>] [--until <YYYY-MM-DD>] [--json] [--workspace <path>]
 The career impact log (D24, SPEC §23, issue #446): one row per RESULT — a metric
 or a milestone — with the units it belongs to (refs), how the result is known
 (basis: measured | estimated | reported | attested) and its required visibility.
@@ -675,12 +730,20 @@ value) · measured (a value with no goal) · achieved (the direction is met) ·
 partial (both numbers, goal missed). A milestone has no status. Rows are grouped
 by their first ref; Unattached collects the rest.
 --targets prints only the planned rows (the goal view).
+--since/--until filter the fact DATE with inclusive bounds (D25/S3, #497); each
+bound may be declared alone; the two filters are ANDed (status selects the set,
+undated is counted on it, then the range keeps the dated rows inside it). A row
+without a date is never dropped: scope.undated counts it — the log view withholds
+it from the range and says so, the goal view returns it (a goal is date-less by
+nature). Private
+rows ARE part of this local retrieval (D27); the public projection is
+\`pasco export profile\`. An invalid date or since > until is exit 2.
 --json emits { schemaVersion: "1", scope, achievements: [...] } where each row
 carries its derived status (null for a milestone) and scope counts the rows this
-view returned — an empty scope reads as "nothing declared here", never as a
-fabricated zero.
+view returned plus the additive undated counter — an empty scope reads as
+"nothing declared here", never as a fabricated zero.
 Exit: 0 a successful read · 1 the workspace does not load (a dangling refs[]
-entry fails load, the same class as a dangling artifactRefs).`,
+entry fails load, the same class as a dangling artifactRefs) · 2 an invalid range.`,
 
   status: `pasco status [platform] [--mark <ledgerKey> <platform>] [--at <iso8601>] [--verify] [--write-checklist] [--completeness] [--json] [--workspace <path>]
 Per-entry deploy-status report (D18, §19): ledger key · origin (template/user) ·
@@ -1237,22 +1300,78 @@ async function runMain(): Promise<number> {
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       return runReleasePlan({ workspace, releaseArg: positionals[1] });
     }
+    case "log": {
+      const { flags, positionals } = parseCommandFlags(rest, {
+        statement: { type: "string" },
+        kind: { type: "string" },
+        basis: { type: "string" },
+        unit: { type: "string" },
+        value: { type: "string" },
+        target: { type: "string" },
+        baseline: { type: "string" },
+        direction: { type: "string" },
+        date: { type: "string" },
+        ref: { type: "string", multiple: true },
+        source: { type: "string" },
+        artifactId: { type: "string" },
+        credentialId: { type: "string" },
+        visibility: { type: "string" },
+        id: { type: "string" },
+      });
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.log}\n`);
+        return EXIT.OK;
+      }
+      if (positionals.length > 0) {
+        throw new UsageError(
+          "usage: pasco log --statement <text> --kind metric|milestone --basis <basis> [flags]",
+        );
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      const refs =
+        flags.ref === undefined ? [] : Array.isArray(flags.ref) ? flags.ref : [flags.ref];
+      return runLog({
+        workspace,
+        statement: flags.statement,
+        kind: flags.kind,
+        basis: flags.basis,
+        unit: flags.unit,
+        value: flags.value,
+        target: flags.target,
+        baseline: flags.baseline,
+        direction: flags.direction,
+        date: flags.date,
+        refs,
+        source: flags.source,
+        artifactId: flags.artifactId,
+        credentialId: flags.credentialId,
+        visibility: flags.visibility,
+        id: flags.id,
+      });
+    }
     case "achievements": {
       const { flags, positionals } = parseCommandFlags(rest, {
         targets: { type: "boolean" },
+        since: { type: "string" },
+        until: { type: "string" },
       });
       if (flags.help === true) {
         process.stdout.write(`${COMMAND_HELP.achievements}\n`);
         return EXIT.OK;
       }
       if (positionals.length > 0) {
-        throw new UsageError("usage: pasco achievements [--targets] [--json] [--workspace <path>]");
+        throw new UsageError(
+          "usage: pasco achievements [--targets] [--since <YYYY-MM-DD>] [--until <YYYY-MM-DD>] [--json] [--workspace <path>]",
+        );
       }
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       return runAchievements({
         workspace,
         ...(flags.targets === true ? { targets: true } : {}),
+        ...(flags.since !== undefined ? { since: flags.since } : {}),
+        ...(flags.until !== undefined ? { until: flags.until } : {}),
       });
     }
     case "status": {

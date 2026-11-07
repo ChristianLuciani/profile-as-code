@@ -9,7 +9,23 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
-_(nothing yet — the next cycle)_
+- **`pasco log` — the capture path of the impact log, and a retrieval by period
+  (#496/#497, D25/S2+S3, SPEC §23.5/§23.6)** — the typed record had a shape and a
+  read view but no way to fill it without opening the YAML. `pasco log` writes ONE
+  schema-valid `achievements[]` row (statement · kind · basis · optional metric,
+  refs, pointers · date · visibility) and prints its DERIVED status; `pasco
+  achievements --since/--until` answers *"what did I do this year?"* with inclusive
+  bounds. The D27 amendment is enforced, not written around: on a `metric` only
+  `--unit` is required (`--target` alone = a `planned` goal, `--value` alone = a
+  `measured` result), any metric flag on a `milestone` is exit 2, `--visibility`
+  defaults to `private`, and `--date` is optional with **no clock read** (absent =
+  `undated`, reported by the read view instead of hidden). A derived id collides as
+  exit 1 with nothing written; the write is atomic (temp copy → `load()` → rename
+  under the shared `content/.pasco-edit.lock`), so an invalid input never reaches
+  disk, and appending to a block-sequence file preserves every existing byte
+  (comments survive; an empty `[]`/null root is the only token replaced). The
+  `--json` scope gains the additive `undated` key under the same
+  `schemaVersion: "1"`.
 
 ## [0.5.0] - 2026-11-07
 
