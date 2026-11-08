@@ -28,6 +28,13 @@
  * platforms and the text kind. Identical text across surfaces is the signature
  * of a narrative copied "for consistency", not an adaptation; it is a heuristic,
  * so it never fails the command and never blocks a build.
+ *
+ * `check/link-platform-icon` (#511): icon COVERAGE of the declared identity
+ * links. Badge/link icon metadata has one home — the `icon:` block of a
+ * `platforms/registry.yaml` row, projected as `PLATFORM_ICONS` — so a surface no
+ * longer keeps a table of its own and a platform without metadata draws no badge.
+ * The finding names that platform and its link path; it is a warn because the
+ * link itself still renders as text.
  */
 
 import type { LoadedProfile, Platform } from "@profile-as-code/core";
@@ -35,6 +42,7 @@ import {
   collectMedia,
   driftCheck,
   LoadError,
+  linkIconFindings,
   load,
   registryCheck,
   SchemaValidationError,
@@ -50,7 +58,7 @@ import { isJsonMode, line, report, section } from "../output.js";
 import type { Pascorc } from "../workspace.js";
 
 export const CHECK_OWNER =
-  "M6: handle-matrix rules (brand, offline) executed; M7 (D17/§18.8): registry checks (credential-expiry, no-private-in-public-output) executed; M8 (§18.6): media-transport rules executed; limits: max-chars/min-chars over existing rows executed (offline); fact-present (#283): the built surface's fact tokens vs the SSOT render executed (offline); text/same-across-platforms (#462, SPEC §21.8): the advisory narrative rule executed (warn-only); remaining catalog ships with M3/M4 (SPEC §7)";
+  "M6: handle-matrix rules (brand, offline) executed; M7 (D17/§18.8): registry checks (credential-expiry, no-private-in-public-output) executed; M8 (§18.6): media-transport rules executed; limits: max-chars/min-chars over existing rows executed (offline); fact-present (#283): the built surface's fact tokens vs the SSOT render executed (offline); text/same-across-platforms (#462, SPEC §21.8): the advisory narrative rule executed (warn-only); link icons (#511): icon coverage of identity.links against the platform registry executed (warn-only); remaining catalog ships with M3/M4 (SPEC §7)";
 
 /** Handle drift codes the offline handle-matrix execution reports. */
 const HANDLE_CODES = new Set([
@@ -85,6 +93,8 @@ export interface CheckReport {
     factPresent: boolean;
     /** SPEC §21.8 (#462): the advisory narrative rule — always executed. */
     sameText: boolean;
+    /** #511: the icon-coverage rule — always executed, WARN-only. */
+    linkIcons: boolean;
   };
   checks: LoadedProfile["checks"];
   handleMatrix: {
@@ -101,6 +111,8 @@ export interface CheckReport {
   factPresent: ReturnType<typeof factPresentFindings>;
   /** SPEC §21.8 (#462) — ADVISORY, warn-only: the same text on two platforms. */
   sameText: ReturnType<typeof sameTextAcrossPlatforms>;
+  /** #511 — WARN-only: a link platform with no icon metadata draws no badge. */
+  linkIcons: ReturnType<typeof linkIconFindings>;
   ownedBy: string;
   /** `false` when a §18.5 leak error must fail the command. */
   ok: boolean;
@@ -158,6 +170,11 @@ export function buildCheckReport(args: {
     pascorc: args.pascorc,
     checks: profile.checks,
   });
+  // #511: icon coverage. The icon table is engine data (projected from the
+  // platform registry), so this rule needs no workspace and no network — it
+  // names the platforms a declared link references without one. WARN because
+  // the link still renders; the badge is what is missing.
+  const linkIcons = linkIconFindings(profile);
 
   return {
     workspace,
@@ -173,6 +190,7 @@ export function buildCheckReport(args: {
       limits: true,
       factPresent: true,
       sameText: true,
+      linkIcons: true,
     },
     checks,
     handleMatrix,
@@ -182,6 +200,7 @@ export function buildCheckReport(args: {
     limits,
     factPresent: facts,
     sameText,
+    linkIcons,
     ownedBy: CHECK_OWNER,
     ok: [...registry, ...media].every((f) => f.severity !== "error"),
   };
@@ -215,7 +234,16 @@ export function runCheck(args: CheckArgs): number {
     ...(platform === undefined ? {} : { platform }),
     pascorc: args.pascorc,
   });
-  const { checks, handleIssues, registry, media, limits, factPresent: facts, sameText } = report_;
+  const {
+    checks,
+    handleIssues,
+    registry,
+    media,
+    limits,
+    factPresent: facts,
+    sameText,
+    linkIcons,
+  } = report_;
 
   if (isJsonMode()) {
     return report("check", report_.ok, report_.ok ? EXIT.OK : EXIT.FAIL, {
@@ -232,6 +260,7 @@ export function runCheck(args: CheckArgs): number {
         limits: report_.limits,
         factPresent: report_.factPresent,
         sameText: report_.sameText,
+        linkIcons: report_.linkIcons,
         ownedBy: report_.ownedBy,
       },
     });
@@ -249,6 +278,16 @@ export function runCheck(args: CheckArgs): number {
     line(
       `  ${registry.filter((f) => f.severity === "error").length} leak error(s) — FAIL (public output renders only public entries)`,
     );
+  }
+
+  // #511: presentation coverage — a link platform with no icon metadata draws no
+  // badge. WARN by contract (the link still renders), so it never fails the run.
+  section(`link icons (identity.links, #511): ${linkIcons.length} platform(s) with no icon`);
+  for (const finding of linkIcons) {
+    line(`  warn: [${finding.code}] ${finding.message} (${finding.path})`);
+  }
+  if (linkIcons.length === 0) {
+    line("  check/link-platform-icon: OK (every declared link platform has icon metadata)");
   }
 
   section(

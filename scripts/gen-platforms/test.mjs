@@ -272,6 +272,83 @@ try {
     );
   }
 
+  // ── icon metadata (#511) ──────────────────────────────────────────────────
+  {
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: {
+          ...BASE_PLATFORMS.alpha,
+          icon: { slug: "alphamark", color: "A6CE39", label: "Alpha" },
+        },
+        gofundme: BACKLOG({ icon: { slug: "gofundme", color: "00B964", label: "GoFundMe" } }),
+      },
+    });
+    const res = run(root);
+    check("a tree with icon metadata generates", res.code === 0, res.out.trim());
+    const module = readFileSync(join(root, OUT_REL), "utf8");
+    check(
+      "projects PLATFORM_ICONS from the rows — member AND backlog (#511)",
+      module.includes('alpha: { slug: "alphamark", color: "A6CE39", label: "Alpha" },') &&
+        module.includes('gofundme: { slug: "gofundme", color: "00B964", label: "GoFundMe" },'),
+      module,
+    );
+  }
+  {
+    // A `#` would ship a broken shield: the badge URL interpolates the value.
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: {
+          ...BASE_PLATFORMS.alpha,
+          icon: { slug: "alpha", color: "#A6CE39", label: "Alpha" },
+        },
+      },
+    });
+    const res = run(root);
+    check(
+      "an icon color with '#' refuses",
+      res.code === 1 && res.out.includes("icon.color must be a 6-digit hex WITHOUT '#'"),
+      res.out.trim(),
+    );
+  }
+  {
+    // A URL is not a Simple Icons identifier — the registry stores a token.
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: {
+          ...BASE_PLATFORMS.alpha,
+          icon: { slug: "https://example.com/a.svg", color: "A6CE39", label: "Alpha" },
+        },
+      },
+    });
+    const res = run(root);
+    check(
+      "an icon slug that is a URL refuses",
+      res.code === 1 && res.out.includes("icon.slug must be ONE Simple Icons identifier"),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: { ...BASE_PLATFORMS.alpha, icon: { slug: "alpha", color: "A6CE39", label: " " } },
+      },
+    });
+    const res = run(root);
+    check(
+      "an empty icon label refuses",
+      res.code === 1 && res.out.includes("icon.label must be a non-empty string"),
+      res.out.trim(),
+    );
+  }
+
   // ── surface kind (D23, #262) ──────────────────────────────────────────────
   {
     const root = tree({

@@ -29,6 +29,7 @@ import {
   completenessLine,
   isPublicEntry,
   orderedForSurface,
+  PLATFORM_ICONS,
 } from "@profile-as-code/core";
 import { mdHref, mdText } from "@profile-as-code/markdown";
 
@@ -98,17 +99,14 @@ function artifactLine(
   return `- **${a.title}** (${a.kind})${link}${license}${desc !== undefined ? ` — ${desc}` : ""}`;
 }
 
-/** Deterministic badge map: platform → shield.io style + display name. */
-const BADGE: Record<string, { color: string; logo: string; label: string }> = {
-  github: { color: "181717", logo: "github", label: "GitHub" },
-  linkedin: { color: "0A66C2", logo: "linkedin", label: "LinkedIn" },
-  x: { color: "000000", logo: "X", label: "X" },
-  orcid: { color: "A6CE39", logo: "orcid", label: "ORCID" },
-  substack: { color: "FF6719", logo: "substack", label: "Substack" },
-  researchgate: { color: "00CCBB", logo: "researchgate", label: "ResearchGate" },
-  scholar: { color: "4285F4", logo: "googlescholar", label: "Scholar" },
-  website: { color: "111111", logo: "github", label: "Website" },
-};
+/**
+ * No badge map lives here (#511): the icon metadata — Simple Icons slug, brand
+ * color and the label the badge prints — is the `icon:` block of the platform
+ * registry entry, projected into `PLATFORM_ICONS` by `pnpm gen:platforms`. The
+ * lookup below is the platform SLUG space, so a `platform` this surface does not
+ * know is not a fallback table's business: it renders no badge, and
+ * `pasco check` names it (`check/link-platform-icon`).
+ */
 
 function hostname(url: string): string {
   try {
@@ -226,11 +224,11 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   for (const l of p.identity.links ?? []) {
     if (l.platform === undefined) continue;
     if (seenBadge.has(l.platform)) continue;
-    const b = BADGE[l.platform];
+    const b = PLATFORM_ICONS[l.platform];
     if (b === undefined) continue;
     seenBadge.add(l.platform);
     badges.push(
-      `[![${b.label}](https://img.shields.io/badge/${b.label}-${hostname(l.url)}-${b.color}?style=flat&logo=${b.logo}&logoColor=white)](${mdHref(l.url)})`,
+      `[![${b.label}](https://img.shields.io/badge/${b.label}-${hostname(l.url)}-${b.color}?style=flat&logo=${b.slug}&logoColor=white)](${mdHref(l.url)})`,
     );
   }
   if (badges.length > 0) out.push("", badges.join(" "));

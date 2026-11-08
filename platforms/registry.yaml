@@ -53,6 +53,15 @@
 #                    [member only]. `false` is the explicit "not implemented yet"
 #                    the reverse assert requires — never a silent gap.
 #   fixture          optional test workspace under packages/core/tests/fixtures/
+#   icon             optional PRESENTATION metadata, `{ slug, color, label }`:
+#                    `slug` = the Simple Icons identifier a badge draws,
+#                    `color` = the brand hex WITHOUT `#`, `label` = the text the
+#                    surface prints next to it. Declarative only — the engine
+#                    ships no binary asset and vendors no SVG (#511). It exists
+#                    so `identity.links[].platform` resolves against ONE key
+#                    space: the registry's. `pasco check` warns
+#                    (`check/link-platform-icon`) when a link names a platform
+#                    that has no icon here.
 #   note             optional short annotation rendered into the SPEC family table
 #   sources          REQUIRED — where the facts were verified (evidence rule)
 version: 1
@@ -81,6 +90,9 @@ families:
   job-boards:
     display: Recruiting surfaces
     purpose: "recruiter-facing CV surfaces — the buyer is a recruiter and the native content is the structured CV the SSOT already models (`experience[]` / `education[]` / `skills[]`); GEO hook = name-reputation in search results only"
+  identity:
+    display: Identity link targets
+    purpose: "an identity profile that lives on another site and has NO renderable body in this engine — declared so `identity.links[].platform` is the registry's key space, not a second vocabulary (#511)"
 
 # All 49 enum members with status: member, then the declared backlog with status:
 # backlog. Member order is deliberate and IS the SPEC family-table order:
@@ -202,6 +214,7 @@ platforms:
     handle_hosts: [substack.com]
     renderer: true
     fixture: minimal-substack
+    icon: { slug: substack, color: "FF6719", label: Substack }
     sources:
       [
         "SPEC §6 (D16)",
@@ -250,6 +263,7 @@ platforms:
     handle_hosts: []
     renderer: true
     fixture: minimal
+    icon: { slug: github, color: "181717", label: GitHub }
     sources: ["SPEC §6 (D16)"]
   linkedin:
     status: member
@@ -261,6 +275,7 @@ platforms:
     subdomain_hosts: []
     handle_hosts: []
     renderer: false
+    icon: { slug: linkedin, color: "0A66C2", label: LinkedIn }
     sources: ["SPEC §6 (D16)", "README (deploy: no API)"]
   x:
     status: member
@@ -272,6 +287,7 @@ platforms:
     subdomain_hosts: []
     handle_hosts: [x.com, twitter.com]
     renderer: false
+    icon: { slug: X, color: "000000", label: X }
     sources: ["SPEC §6 (D16)"]
   researchgate:
     status: member
@@ -283,6 +299,7 @@ platforms:
     subdomain_hosts: []
     handle_hosts: []
     renderer: false
+    icon: { slug: researchgate, color: "00CCBB", label: ResearchGate }
     sources: ["SPEC §6 (D16)"]
   github-org:
     status: member
@@ -808,6 +825,48 @@ platforms:
     family: presence-distribution
     note: "curated-list inclusion (awesome-*) — a distribution surface with its own contribution rules"
     sources: ["[OFICIAL] github.com/sindresorhus/awesome, read 2026-10-29"]
+
+  # ── identity link targets (#511 — NOT enum entries: the identity body lives on
+  #    another site and this engine renders no profile for it). They are rows so
+  #    `identity.links[].platform` has ONE key space; the icon block is why they
+  #    are here — the github-readme badge set carried them by hand before. The
+  #    icon values are the ones that table shipped (a MOVE, pinned byte-for-byte
+  #    by the renderer golden test), never a fresh visual claim.
+  #
+  #    `github` is the LINK TARGET (the person's profile page), distinct from the
+  #    `github-readme` member whose body this engine renders, and from
+  #    `github-org`/`github-repo-meta`. Backlog rows carry no `hosts`, so the
+  #    drift host maps stay exactly as they were.
+  github:
+    status: backlog
+    kind: profile
+    family: identity
+    note: "the GitHub profile the link points at — this row is the LINK TARGET, not the member whose body the engine renders"
+    icon: { slug: github, color: "181717", label: GitHub }
+    sources: ["[MI] moved from the github-readme BADGE table, #511"]
+  orcid:
+    status: backlog
+    kind: profile
+    family: identity
+    note: "the ORCID researcher profile — an identity link, never a rendered body"
+    icon: { slug: orcid, color: "A6CE39", label: ORCID }
+    sources: ["[MI] moved from the github-readme BADGE table, #511"]
+  scholar:
+    status: backlog
+    kind: profile
+    family: identity
+    note: "Google Scholar citations profile — an identity link, never a rendered body"
+    icon: { slug: googlescholar, color: "4285F4", label: Scholar }
+    sources: ["[MI] moved from the github-readme BADGE table, #511"]
+  # The personal site keeps the mark the README has always drawn for it (the
+  # GitHub glyph, #511): changing it is a layout decision, not this issue's.
+  website:
+    status: backlog
+    kind: profile
+    family: identity
+    note: "the profile owner's own site (the CV) — `slug: github` is the mark the README already drew for this link"
+    icon: { slug: github, color: "111111", label: Website }
+    sources: ["[MI] moved from the github-readme BADGE table, #511"]
 
 # ── ai — the AI crawler policy (M9 floor, issue #290) ────────────────────────
 #

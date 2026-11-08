@@ -347,6 +347,7 @@ research notes ([MI] issue #138, 2026-10-05).
 | `presence-repo` | Repository presence surfaces | the metadata of the code artifact itself — repo description/topics/social preview, release notes, the npm package page and the project site (D23) | — (no enum entries) | `github-repo-meta` (repo description, topics and social preview — the GitHub artifact's own metadata), `release-notes` (the GitHub Release body for a tag — the canonical record of what shipped), `npm` (the published package page (README + package.json derived) — not a profile body), `site` (the project page under site/ (generated at deploy, #277) — HTML, never an enum slug) |
 | `presence-distribution` | Presence distribution channels | where a release is announced, not where an identity body lives (D23) — the copy per channel lives in skills/, never in the engine | — (no enum entries) | `hacker-news` (Show HN / launch thread — one announcement per release, judged by the community), `reddit-post` (subreddit post (r/opensource, niche subs) — distinct from the reddit PROFILE slug), `x-post` (launch thread/post — distinct from the x PROFILE slug), `linkedin-post` (feed post — distinct from the linkedin PROFILE slug), `devto-post` (cross-posted article — distinct from the devto PROFILE slug), `awesome-lists` (curated-list inclusion (awesome-*) — a distribution surface with its own contribution rules) |
 | `job-boards` | Recruiting surfaces | recruiter-facing CV surfaces — the buyer is a recruiter and the native content is the structured CV the SSOT already models (`experience[]` / `education[]` / `skills[]`); GEO hook = name-reputation in search results only | — (no enum entries) | `infojobs` (Spain + LatAm), `computrabajo` (Ecuador-founded + LatAm-wide — `[MI] — verify` the whole descriptor; in-session corroboration inconclusive, PR #140 review F1), `indeed` (aggregator) |
+| `identity` | Identity link targets | an identity profile that lives on another site and has NO renderable body in this engine — declared so `identity.links[].platform` is the registry's key space, not a second vocabulary (#511) | — (no enum entries) | `github` (the GitHub profile the link points at — this row is the LINK TARGET, not the member whose body the engine renders), `orcid` (the ORCID researcher profile — an identity link, never a rendered body), `scholar` (Google Scholar citations profile — an identity link, never a rendered body), `website` (the profile owner's own site (the CV) — `slug: github` is the mark the README already drew for this link) |
 <!-- /gen -->
 
 Boundary notes (issue #138):
@@ -361,6 +362,18 @@ Boundary notes (issue #138):
   `github-org` (portfolio/README surfaces) and `researchgate` (partially academic /
   publishing) belong to no family; `substack` keeps its v1.8 `creator-monetization`
   membership while its publishing aspect remains un-declared.
+
+**Platform icon metadata (presentation, #511):** a registry row may declare
+`icon: { slug, color, label }` — the Simple Icons identifier the badge draws, the brand hex
+without `#`, and the text the surface prints. It is **presentation metadata, not an asset**:
+the engine vendors no SVG, ships no icon binary and never fetches one; a consumer (each
+renderer, and a view living outside this repo such as the CV) resolves
+`identity.links[].platform` → this block. `pnpm gen:platforms` projects it as
+`PLATFORM_ICONS`, and the badge surfaces read that projection instead of keeping a table of
+their own. A link platform with no icon is a `check/link-platform-icon` **warn** in
+`pasco check`: the link still renders as text, so the gap is reported and never fatal. The
+`identity` family above is that key space — an identity profile on another site with no
+renderable body here.
 
 Single-source discipline is enforced, not trusted:
 `check.platform` MUST equal `["all", ...platform]` (schema-check self-test) and core
