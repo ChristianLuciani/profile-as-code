@@ -6,7 +6,9 @@
   org: Example Corp
   start: 2024-03-01
   end: present
+  visibility: public
 - role: Data Analyst
   org: Plain String Ltd
   start: 2020-01-01
   end: 2024-02-29
+  visibility: public

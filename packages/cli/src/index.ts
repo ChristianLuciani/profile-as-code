@@ -29,6 +29,7 @@ import { runAiPolicyCheck, runAiPolicyExport, runAiPolicyFileCheck } from "./com
 import { resolveNow, runExportProfile } from "./commands/export-profile.js";
 import { runInit } from "./commands/init.js";
 import { runLog } from "./commands/log.js";
+import { runMigrate } from "./commands/migrate.js";
 import { runPost } from "./commands/post.js";
 import { runPresence, runReleasePlan } from "./commands/presence.js";
 import { runPreview } from "./commands/preview.js";
@@ -44,6 +45,7 @@ import {
   parseLang,
   UsageError,
 } from "./contract.js";
+import { evaluateContractFloor } from "./contract-history.js";
 import { parseCreateRoot, SEEDABLE_ROOTS, type SeedableRoot } from "./edit-seed.js";
 import type { EngineConfigSource } from "./engine-gate.js";
 import { engineGateError, evaluateEngineRequirements } from "./engine-gate.js";
@@ -82,7 +84,10 @@ Commands:
                                 and whether the workspace loads; also reports the
                                 .pascorc engine requirement (unmet ⇒ exit 1)
           [--contract-delta]    what the schema minors BETWEEN the workspace contract
-                                floor and the installed one added, and what it buys
+                                floor and the installed one added, what it buys, and
+                                the rows still missing visibility (migration)
+  migrate [--json]              [write] Schema v2.0 (D27): write \`visibility: public\` on rows that
+                                predate the private default; idempotent, comments and layout preserved
   build [platform] [--lang]     [write] Deterministic base texts per platform+lang
   preview [--out <dir>]         [read]  ONE self-contained HTML page of the rendered surfaces
           [--no-open] [--lang <l>]  (inline CSS, no JS, no external asset) written to
@@ -277,6 +282,21 @@ function parseCommandFlags(
 }
 
 const COMMAND_HELP: Record<string, string> = {
+  migrate: `pasco migrate [--workspace <path>] [--json]
+Schema v2.0 (D27, issue #498): since v2.0 an entry that omits visibility is
+PRIVATE. This command writes \`visibility: public\` on every credentials,
+artifacts, projects and experience row that lacks the field, so an existing
+workspace keeps publishing exactly what it published before. A row that already
+declares any visibility value is left alone, so a second run is a no-op.
+achievements keeps visibility REQUIRED (pasco log writes private) and is never
+touched. The write is a source splice: comments, alignment and every existing
+byte survive; the whole migrated content/ is validated by load() before the
+atomic replace. On success with rows migrated it also writes contract "2.0"
+into the workspace .pascorc (creating it if absent), so new rows stay private.
+\`pasco doctor --contract-delta\` reports the rows still missing the field.
+Exit 0 migrated or already current - 1 a load/write failure, or a
+>=2.0/INVALID contract floor while rows would be rewritten (nothing written)
+- 2 usage.`,
   discover: `pasco discover <url>... [--json] [--allow-host <hosts>] [--observations <file>]
 Read public surfaces and build a PROVISIONAL profile so the audit's checks can
 run for a prospect who has no workspace. Every populated fact carries its
@@ -341,12 +361,16 @@ reports the same truth the gate enforces; it does not replace the gate.
 contract floor the workspace was written against ("contract": "1.16", written at
 birth by pasco init) is diffed against the contract this build validates, and
 every minor in between is printed with the fields it added and the surface that
-reads them. --json carries the rows under "contractDelta". The floor declares
-and is never enforced, so the flag does not change the exit code: a missing floor
-prints "no delta" with the remedy, an equal floor prints "no delta (workspace
-floor = installed contract)", and a malformed one prints "contract floor INVALID"
-without claiming a pass — it names the version the workspace was written
-against, never the installed one (declaring that would answer "no delta").`,
+reads them. --json carries the rows under "contractDelta". The floor is a
+reader, not an enforcement gate: validate/build/preview/export never refuse work
+because of it. The one exception is \`pasco migrate\`, which refuses to rewrite an
+absent \`visibility\` when the floor is >=2.0 or INVALID (intentional private /
+unclassifiable). When the workspace loads, --contract-delta ALSO carries the
+"migration" block: the rows still missing visibility, or why none are due. The
+flag does not change doctor's exit code: a missing floor prints "no delta" with
+the remedy, an equal floor prints "no delta (workspace floor = installed
+contract)", and a malformed one prints "contract floor INVALID" without claiming
+a pass.`,
   preview: `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso8601>] [--json] [--workspace <path>]
 Render every surface ONCE into a single self-contained HTML file (SPEC §7.9, #282):
 inline CSS, no <script>, no external asset, no HTTP server. Open it with a
@@ -914,6 +938,23 @@ async function runMain(): Promise<number> {
         contractDelta: flags["contract-delta"] === true,
       });
     }
+    case "migrate": {
+      const { flags, positionals } = parseCommandFlags(rest);
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.migrate}\n`);
+        return EXIT.OK;
+      }
+      if (positionals.length > 0) {
+        throw new UsageError("usage: pasco migrate [--workspace <path>] [--json]");
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      const engineSources = readEnginePascorcSources(process.cwd(), flags.workspace, workspace);
+      return runMigrate({
+        workspace,
+        contractFloor: evaluateContractFloor(engineSources, "highest"),
+      });
+    }
     case "build": {
       const { flags, positionals } = parseCommandFlags(rest, {
         lang: { type: "string" },
@@ -937,6 +978,7 @@ async function runMain(): Promise<number> {
         viewArg: flags.view,
         langArg: flags.lang,
         pascorc,
+        contractFloor: evaluateContractFloor(engineSources, "highest"),
       });
     }
     case "preview": {
@@ -973,6 +1015,7 @@ async function runMain(): Promise<number> {
       return runPreview({
         workspace,
         pascorc,
+        contractFloor: evaluateContractFloor(engineSources, "highest"),
         outArg: flags.out,
         noOpen: flags["no-open"] === true,
         langArg: flags.lang,

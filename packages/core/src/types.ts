@@ -335,7 +335,7 @@ export interface PlatformProfile {
   lang: Lang;
   /** Workspace flavor (D15) — renderers branch on person vs brand surfaces. */
   flavor: Flavor;
-  /** Facts — passed through untouched from the profile. */
+  /** Facts — passed through from the profile (visibility-filtered per D27 in compile). */
   identity: Identity;
   experience: ExperienceItem[];
   projects: Project[];

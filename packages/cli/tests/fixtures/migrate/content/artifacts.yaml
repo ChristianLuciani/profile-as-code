@@ -1,0 +1,15 @@
+# Artifacts: works/media. The locator is the pointer, never a copy (D14).
+- id: hub-source
+  kind: code
+  title: example-agentic-hub source
+  description:
+    en: The reference implementation of the sovereign hub.
+  locator:
+    url: https://github.com/elenavasquez/example-agentic-hub
+
+- id: internal-dataset
+  kind: dataset
+  title: Internal dataset
+  locator:
+    path: media/datasets/internal.csv
+  visibility: private

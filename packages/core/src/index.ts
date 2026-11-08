@@ -226,3 +226,9 @@ export type {
   StructuredDataReadiness,
 } from "./types.js";
 export { LANGS, PLATFORMS, textOf } from "./types.js";
+export type { MissingVisibilityRow, VisibilityBlock } from "./visibility.js";
+export {
+  missingVisibility,
+  needsVisibilityMigration,
+  VISIBILITY_BLOCKS,
+} from "./visibility.js";

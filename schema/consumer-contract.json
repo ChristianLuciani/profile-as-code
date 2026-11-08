@@ -2,16 +2,16 @@
   "$comment": "The profile-contract distribution for consumers WITHOUT the engine (SPEC §7.7, issue #348). `current` is the schema committed on this branch; `published` says whether a tag carries exactly these bytes (`artifact` is the tag-pinned URL when it does; `null` plus a `note` naming the checkout when it does not). `released` is the immutable copy at a published git tag. Verified offline by `node scripts/schema-contract/check.mjs --check` (CI); a schema edit without regenerating this file fails. Do not hand-edit the hashes: regenerate with `--write` (docs/SCHEMA-CONTRACT.md).",
   "schemaPath": "schema/profile.schema.json",
   "current": {
-    "schemaVersion": "1.16",
-    "sha256": "4b88fef2b34996ced964f15c13c7c6d63210dbe18badae4f2f76972e79714f22",
+    "schemaVersion": "2.0",
+    "sha256": "9fb2d6e41c2b3461ea6eb876595372e552db92dd13e10cf45057e071e92af72b",
     "published": false,
     "artifact": null,
-    "note": "The v0.4.0 tag publishes an earlier byte-image of schema v1.16, not these bytes, so there is no tag-pinned URL for this sha256: use the repository checkout at a commit whose schema/profile.schema.json hashes to it. The next release publishes it."
+    "note": "The v0.5.0 tag publishes an earlier byte-image of schema v1.16, not these bytes, so there is no tag-pinned URL for this sha256: use the repository checkout at a commit whose schema/profile.schema.json hashes to it. The next release publishes it."
   },
   "released": {
-    "tag": "v0.4.0",
-    "url": "https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.4.0/schema/profile.schema.json",
+    "tag": "v0.5.0",
+    "url": "https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.5.0/schema/profile.schema.json",
     "schemaVersion": "1.16",
-    "sha256": "d6b06b57f1106885ee0467d8aa8009e098b04fe0a5ffad34b97455bc4417fe2f"
+    "sha256": "5b5915681e23258405df703d145b3a4ad80d826219b7f7152fd81c23eeba39e1"
   }
 }

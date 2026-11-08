@@ -1,0 +1,19 @@
+{
+  "identity": { "name": "V2 Visibility Example" },
+  "experience": [
+    { "id": "current", "role": "Engineer", "org": "Example", "start": "2024-01-01", "visibility": "public" },
+    { "id": "absent", "role": "Advisor", "org": "Example", "start": "2023-01-01" }
+  ],
+  "projects": [
+    { "id": "published", "name": "Public project", "visibility": "public" },
+    { "id": "internal", "name": "Internal project", "visibility": "private" },
+    { "id": "defaulted", "name": "Defaulted project" }
+  ],
+  "credentials": [
+    { "id": "cert", "kind": "certificate", "title": "Cert", "issuer": "Issuer" },
+    { "id": "hidden", "kind": "award", "title": "Hidden", "issuer": "Issuer", "visibility": "unlisted" }
+  ],
+  "artifacts": [
+    { "id": "code", "kind": "code", "title": "Code", "locator": { "url": "https://example.com/code" } }
+  ]
+}

@@ -26,13 +26,13 @@ import type { EducationalOccupationalCredentialLd, LoadedProfile, Profile } from
 
 /**
  * The §18.5 visibility rule in ONE place: renderers and structured data emit
- * only `public`, and **absent = public** (the pre-registry profile was public
- * by design — absence must not hide silently). Every consumer of registry
- * visibility (geo JSON-LD, renderers, the leak check) calls this; no private
- * re-implementations of the default.
+ * only `public`, and **absent = private** (D27/schema v2.0 — publication is an
+ * explicit act; `pasco migrate` wrote `public` on the rows that predate it).
+ * Every consumer of visibility (geo JSON-LD, renderers, the leak check) calls
+ * this; no private re-implementations of the default.
  */
 export function isPublicEntry(entry: { visibility?: string }): boolean {
-  return (entry.visibility ?? "public") === "public";
+  return entry.visibility === "public";
 }
 
 /**
@@ -258,11 +258,16 @@ export function registryCheck(
   ): { blockPath: string; visibility: string; id: string } | undefined => {
     if (id === undefined) return undefined;
     const entry = list.find((e) => e.id === id);
-    // `entry.visibility === undefined` narrows only — the default-public DECISION
-    // stays in isPublicEntry (the one §18.5 rule); this line never decides.
-    if (entry === undefined || entry.visibility === undefined || isPublicEntry(entry))
-      return undefined;
-    return { blockPath: `${kind}[${list.indexOf(entry)}]`, visibility: entry.visibility, id };
+    // The default-private DECISION stays in isPublicEntry (the one §18.5 rule);
+    // this line only skips a non-public row that is already public-shaped.
+    if (entry === undefined || isPublicEntry(entry)) return undefined;
+    // An absent field is the v2.0 private default; report the EFFECTIVE value so
+    // the finding never prints "visibility undefined" (D27).
+    return {
+      blockPath: `${kind}[${list.indexOf(entry)}]`,
+      visibility: entry.visibility ?? "private",
+      id,
+    };
   };
 
   const flagLeak = (
@@ -274,12 +279,16 @@ export function registryCheck(
     findings.push({
       code: "check/private-in-public-output",
       severity: "error",
-      message: `${where} references registry entry "${leak.id}" with visibility "${leak.visibility}" — public output renders only public entries (§18.5); make it public or drop the reference`,
+      message: `${where} references registry entry "${leak.id}" with visibility "${leak.visibility}" — public output renders only public entries (§18.5); if this workspace predates schema v2.0 run \`pasco migrate\` once, otherwise make it public or drop the reference`,
       path: refPath,
     });
   };
 
   for (const [pIndex, project] of (profile.projects ?? []).entries()) {
+    // D27: a private project is not a public surface — its references to private
+    // registry rows are legitimate internal work, not a leak. Only a project that
+    // itself renders can leak what it points at.
+    if (!isPublicEntry(project)) continue;
     for (const [eIndex, evidence] of (project.evidence ?? []).entries()) {
       flagLeak(
         nonPublic(evidence.credentialId, "credentials", credentials),

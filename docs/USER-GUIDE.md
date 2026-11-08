@@ -195,7 +195,7 @@ pasco --version   # what you installed — must match `npm view @profile-as-code
 pasco --help      # command list + exit-code contract
 ```
 
-`--help` prints `init`, `validate`, `doctor`, `build`, `preview`, `edit`, `diff`, `refine`,
+`--help` prints `init`, `validate`, `doctor`, `migrate`, `build`, `preview`, `edit`, `diff`, `refine`,
 `check`, `audit`, `discover`, `entity`, `cite-check`, `post`, `status`, `presence`,
 `release plan`, `achievements`, `export profile`, `export ai-policy` and
 `skills:export`, plus the exit-code contract: `0` ok · `1` schema or
@@ -369,9 +369,24 @@ same absence of automation and history unless your storage provides them.
   `pasco init` from the contract the installed engine validates. It is the floor
   `pasco doctor --contract-delta` diffs against: after an upgrade that command
   prints every minor in between, the fields each added and the surface that reads
-  them — the answer to "so what can I adopt now?". A reader, not a gate: nothing
-  refuses work because of it, and `doctor` reports an absent, malformed or
-  ahead-of-engine floor as a state instead of guessing.
+  them — the answer to "so what can I adopt now?". `build`/`preview` read it
+  only to emit the migration notice (never to refuse); `validate` and
+  `export profile` never read it. The one enforcement point is `pasco migrate`:
+  a `>= 2.0` or malformed floor refuses to rewrite an absent `visibility` (the
+  intentional private default), while an absent or `< 2.0` floor is legacy and
+  migration is allowed. `doctor` reports an absent, malformed or ahead-of-engine
+  floor as a state instead of guessing.
+- **Schema v2.0 migration (D27)**: a row that omits `visibility` is **private**
+  since v2.0. If your workspace predates that rule, run `pasco migrate` once —
+  it writes `visibility: public` on the existing `credentials`, `artifacts`,
+  `projects` and `experience` rows (comments and layout preserved; a second run
+  is a no-op), so your published output does not change. On success it also
+  writes `contract: "2.0"` into the workspace `.pascorc` (creating it if absent),
+  so new rows stay private. Run it only on a legacy workspace: a `.pascorc` floor
+  `>= 2.0` (or an invalid floor) makes `pasco migrate` refuse, because those rows
+  are intentionally private — set `visibility: public` explicitly on the ones you
+  want to publish. `pasco doctor --contract-delta` reports the rows still missing
+  the field.
 
 Workspace resolution order (D14): `--workspace <path>` flag → `.pascorc` →
 current directory. With `workspace: "."`, run `pasco` from the workspace root and

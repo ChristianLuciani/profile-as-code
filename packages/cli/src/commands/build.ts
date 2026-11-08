@@ -18,6 +18,7 @@ import {
   LoadError,
   load,
   mediaManifest,
+  needsVisibilityMigration,
   PLATFORMS,
   SchemaValidationError,
 } from "@profile-as-code/core";
@@ -28,9 +29,10 @@ import {
   selectionFindings,
 } from "../artifact-render.js";
 import { parseLang, parsePlatform } from "../contract.js";
+import { type ContractFloor, contractFloorAgeOf, migrationNotice } from "../contract-history.js";
 import { EXIT } from "../exit.js";
 import { RENDERERS } from "../generated/renderers.gen.js";
-import { isJsonMode, line, report, section } from "../output.js";
+import { isJsonMode, line, report, section, warn } from "../output.js";
 import { artifactPath } from "../publication.js";
 import type { Pascorc } from "../workspace.js";
 import { ConfigError, defaultsLang, sanitizeSelectionPolicy } from "../workspace.js";
@@ -50,6 +52,8 @@ export interface BuildArgs {
   viewArg?: string;
   langArg?: string;
   pascorc: Pascorc;
+  /** The effective contract floor (every consulted `.pascorc`; the STRICTEST wins for the migration policy). */
+  contractFloor?: ContractFloor;
 }
 
 export function runBuild(args: BuildArgs): number {
@@ -70,6 +74,17 @@ export function runBuild(args: BuildArgs): number {
       return report("build", false, EXIT.FAIL, { error: { kind: "load", message: err.message } });
     }
     throw err;
+  }
+
+  // D27/schema v2.0: an absent `visibility` is PRIVATE. Only a DECLARED pre-v2.0
+  // contract floor means the absence is legacy; in a v2.0 workspace it is the
+  // intentional private default, and telling the user to migrate would publish
+  // rows they deliberately hid.
+  const notices: string[] = [];
+  const floorAge = contractFloorAgeOf(args.contractFloor ?? { declared: null });
+  if (needsVisibilityMigration(profile)) {
+    const notice = migrationNotice(floorAge);
+    if (notice !== undefined) notices.push(notice);
   }
 
   // D22/§21: resolve the VIEW before anything else — its rule may carry the
@@ -274,6 +289,7 @@ export function runBuild(args: BuildArgs): number {
         written,
         skipped,
         warnings,
+        ...(notices.length > 0 ? { notices } : {}),
         media: bundle.findings,
         selection: selFindings,
       },
@@ -318,6 +334,7 @@ export function runBuild(args: BuildArgs): number {
     section(`variant warnings (${warnings.length})`);
     for (const w of warnings) line(`  [${w.platform}] ${w.reason}`);
   }
+  for (const notice of notices) warn(notice);
   if (bundle.findings.length > 0) {
     section(`media pipeline (M8/§18.6): ${bundle.findings.length} finding(s)`);
     for (const f of bundle.findings) line(`  ${f.severity}: [${f.code}] ${f.message} (${f.path})`);

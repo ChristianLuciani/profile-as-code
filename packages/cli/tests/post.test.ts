@@ -84,6 +84,25 @@ function variant(ws: string, id: string, channel: string, name: string, text: st
 }
 
 describe("pasco post (week-1 MVP)", () => {
+  it("does not leak private projects/experience into the task bundle", () => {
+    const ws = workspace();
+    seed(ws, "private-1");
+    writeFileSync(
+      join(ws, "content", "projects.yaml"),
+      "- id: secret-project\n  name: Project Nightfall\n  links:\n    - https://example.com/nightfall\n",
+    );
+    writeFileSync(
+      join(ws, "content", "experience.yaml"),
+      "- id: internal-role\n  role: Secret Role\n  org: Secret Org\n  start: 2020-01-01\n",
+    );
+    const task = run(["post", "task", "private-1", "--channel", "linkedin", "--workspace", ws]);
+    expect(task.code, task.stderr).toBe(0);
+    const body = readFileSync(join(ws, "posts", "private-1", "linkedin", "task.md"), "utf8");
+    expect(body).not.toContain("Project Nightfall");
+    expect(body).not.toContain("Secret Role");
+    expect(body).not.toContain("Secret Org");
+  });
+
   it("seeds, emits tasks, chooses, checks and exports a Postiz draft", () => {
     const ws = workspace();
     seed(ws, "s1");

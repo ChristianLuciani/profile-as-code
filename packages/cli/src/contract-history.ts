@@ -154,6 +154,21 @@ export const CONTRACT_HISTORY: readonly ContractMinor[] = [
     ],
     buys: "the career impact log (D24) — `pasco achievements` reads measured/planned results with a derived status, instead of free-text highlights",
   },
+  {
+    version: "2.0",
+    fields: ["projects[].visibility", "experience[].visibility"],
+    notFields: [
+      "credentials",
+      "artifacts",
+      "projects",
+      "experience",
+      "achievements",
+      "identity",
+      "bios",
+      "headlines",
+    ],
+    buys: "privacy by default (D27) — `pasco migrate` makes existing rows explicit (`visibility: public`) and `pasco doctor --contract-delta` reports the rows still missing the field",
+  },
 ];
 
 /** The accepted floor grammar: exactly `MAJOR.MINOR`, digits only. */
@@ -174,6 +189,39 @@ export function compareContractVersions(a: string, b: string): number | null {
   const right = parseContractVersion(b);
   if (left === null || right === null) return null;
   return left.major * 1000 + left.minor - (right.major * 1000 + right.minor);
+}
+
+/** The age of the declared contract floor, relative to schema v2.0. The floor
+ *  shipped in 0.5.0 (#439), so an ABSENT floor is the pre-floor/legacy
+ *  population, not a v2.0 workspace: it gets the migration notice (with the
+ *  "declare 2.0 if this is intentional" caveat). `unknown` is a malformed floor
+ *  — fix it before deciding; never silently treat it as legacy or current. */
+export type ContractFloorAge = "legacy" | "current" | "unknown";
+
+export function contractFloorAge(floor: string | null | undefined): ContractFloorAge {
+  if (floor === undefined || floor === null) return "legacy";
+  const compared = compareContractVersions(floor, "2.0");
+  if (compared === null) return "unknown";
+  return compared < 0 ? "legacy" : "current";
+}
+
+/** The age of a RESOLVED floor — `problem` is the INVALID state, never
+ *  confounded with an absent declaration. */
+export function contractFloorAgeOf(floor: ContractFloor): ContractFloorAge {
+  if (floor.problem !== undefined) return "unknown";
+  return contractFloorAge(floor.declared);
+}
+
+/** The D27 migration notice for a floor age — ONE string for every emitter
+ *  (build and preview), so the policy cannot drift between surfaces. `current`
+ *  has no notice: an absent visibility there is the intentional private
+ *  default. */
+export function migrationNotice(age: ContractFloorAge): string | undefined {
+  if (age === "current") return undefined;
+  if (age === "legacy") {
+    return 'schema v2.0: this workspace\'s contract floor predates v2.0 (or is undeclared) and some rows omit `visibility`; run `pasco migrate` once to keep their published output (D27/#498). If this is a v2.0 workspace, declare `"contract": "2.0"` in .pascorc and leave those rows private.';
+  }
+  return "schema v2.0: the .pascorc contract floor is INVALID; fix it before deciding how to migrate — rows without `visibility` are private (D27/#498)";
 }
 
 /** One row as `--json` publishes it — the `notFields` escape is editorial
@@ -207,6 +255,17 @@ export function contractDelta(floor: string, installed: string): ContractMinor[]
  *  `DoctorRequirementState` discipline: `absent` is a state, not a pass). */
 export type ContractFloorState = "delta" | "none" | "ahead" | "absent" | "INVALID";
 
+/** The workspace rows that predate schema v2.0's private default (D27, #498).
+ *  `doctor --contract-delta` reports them; `pasco migrate` writes them. */
+export interface VisibilityMigrationReport {
+  rows: { block: string; index: number; id?: string }[];
+  total: number;
+  /** Present when the contract floor makes the rows NOT actionable: a v2.0
+   *  workspace uses absent visibility as the intentional private default, and a
+   *  floor-less workspace cannot be assumed pre-v2.0. */
+  note?: string;
+}
+
 /** `doctor --contract-delta`'s report block (additive to §7.6's `DoctorReport`). */
 export interface ContractDeltaReport {
   floor: string | null;
@@ -217,6 +276,10 @@ export interface ContractDeltaReport {
   /** Only when a `.pascorc` declares the floor: the file that produced it. */
   source?: string;
   rows: ContractDeltaRow[];
+  /** D27/#498: the rows still missing `visibility`. Present only when the
+   *  workspace LOADED — an invalid workspace cannot be measured, and `doctor`
+   *  never fabricates a zero. */
+  migration?: VisibilityMigrationReport;
 }
 
 export interface ContractFloor {
@@ -227,13 +290,17 @@ export interface ContractFloor {
 
 /**
  * Resolve `.pascorc.contract` across every config the workspace resolution
- * consulted. A malformed declaration WINS (it is refused, never coerced) —
- * otherwise the LOWEST floor wins: the delta is the question "what did I miss",
- * so the most inclusive answer is the honest one, and the opposite of the
- * engine gate's "strictest wins" for the same reason.
+ * consulted. A malformed declaration WINS (it is refused, never coerced).
+ * `pick` selects the declared end: LOWEST (default) answers the delta's "what
+ * did I miss", the most inclusive reading; HIGHEST answers the migration
+ * notice/refusal, mirroring the engine gate's "strictest wins" — an explicit
+ * v2.0 floor anywhere must never be outvoted by a legacy parent pointer.
  */
-export function evaluateContractFloor(sources: readonly EngineConfigSource[]): ContractFloor {
-  let lowest: { value: string; source?: string } | null = null;
+export function evaluateContractFloor(
+  sources: readonly EngineConfigSource[],
+  pick: "lowest" | "highest" = "lowest",
+): ContractFloor {
+  let selected: { value: string; source?: string } | null = null;
   for (const source of sources) {
     const declared = source.pascorc.contract;
     if (declared === undefined) continue;
@@ -245,17 +312,18 @@ export function evaluateContractFloor(sources: readonly EngineConfigSource[]): C
       };
     }
     const normalized = `${parseContractVersion(declared)?.major}.${parseContractVersion(declared)?.minor}`;
-    if (lowest === null || (compareContractVersions(normalized, lowest.value) ?? 0) < 0) {
-      lowest = {
+    const compared = selected === null ? null : compareContractVersions(normalized, selected.value);
+    if (selected === null || (pick === "lowest" ? (compared ?? 0) < 0 : (compared ?? 0) > 0)) {
+      selected = {
         value: normalized,
         ...(source.pascorcPath === undefined ? {} : { source: source.pascorcPath }),
       };
     }
   }
-  if (lowest === null) return { declared: null };
+  if (selected === null) return { declared: null };
   return {
-    declared: lowest.value,
-    ...(lowest.source === undefined ? {} : { source: lowest.source }),
+    declared: selected.value,
+    ...(selected.source === undefined ? {} : { source: selected.source }),
   };
 }
 

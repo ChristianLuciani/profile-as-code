@@ -10,18 +10,28 @@ A consumer that only validates a profile does not need the CLI. The released
 identity of this schema is **URL + sha256**, recorded in
 [`consumer-contract.json`](consumer-contract.json): the immutable copy at a
 published tag (tag-pinned raw URL) and the committed `current` bytes (sha256 +
-`$id` version). **The current v1.16 bytes are published at `v0.4.0`**
-(`current.published: true`, `artifact` = the tag-pinned URL); `released` names the
-same tag. The earlier artifact — schema **v1.15 at `v0.3.7`** — has no
-`achievements[]` and stays valid forever for a consumer that pins it.
+`$id` version). **The current v2.0 bytes are not published at a tag yet**
+(`current.published: false`, `artifact: null`; its `note` names the checkout);
+`released` names `v0.5.0` — the last published artifact, schema **v1.16**. The
+earlier artifact — schema **v1.15 at `v0.3.7`** — has no `achievements[]` and
+stays valid forever for a consumer that pins it.
 `node
 scripts/schema-contract/check.mjs --check` verifies both blocks offline; a schema
 edit that forgets the manifest fails CI. The reading guide — how to fetch/verify,
 and what structural validation does **not** cover — is
 [`docs/SCHEMA-CONTRACT.md`](../docs/SCHEMA-CONTRACT.md) (SPEC §7.7).
 
-> Status: **v1.16** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
+> Status: **v2.0** · The schema implements §6 of `docs/SPEC.md` as an executable contract.
 > v1.x is **additive** (semver minor): every earlier workspace still validates unchanged.
+> v2.0 is a **major** because it changes a default: `visibility` on `credentials[]`,
+> `artifacts[]`, `projects[]` and `experience[]` is optional with **absent = `private`**
+> (D27, issue #498) — publication is an explicit act. A workspace written under the old
+> rule (`absent = public`) keeps its output by running `pasco migrate` once, which writes
+> `visibility: public` on every row that lacks the field (idempotent; comments and layout
+> preserved). `pasco doctor --contract-delta` reports the rows still missing it.
+> `achievements[]` keeps `visibility` **required**. `identity`, `bios` and `headlines`
+> carry no field and stay public.
+>
 > New in v1.16 (D24, issue #446): `achievements[]` — the career impact log. One root
 > block, never per-row `outcomes[]`: each row states a result (`statement`), classifies
 > it (`kind`: `metric` | `milestone`), carries the numeric shape (`metric`:
@@ -110,17 +120,17 @@ validates the result against this schema. File → root property mapping:
 | `bios.yaml` | `bios[]` | Generated + curated; variant chosen lives here |
 | `headlines.yaml` | `headlines[]` | Per platform+lang |
 | `skills.yaml` | `skills[]` | With `geoKeywords` + `platformWeights` |
-| `experience.yaml` | `experience[]` | start/end as facts (dates are language-independent); v1.1: role langMap, highlights string[] — org stays invariant string (proper noun) |
+| `experience.yaml` | `experience[]` | start/end as facts (dates are language-independent); v1.1: role langMap, highlights string[] — org stays invariant string (proper noun); v2.0 (D27): optional `visibility` (absent = private) |
 | `education.yaml` | `education[]` | v1.1: formal education (degree/institution/start/end/note) |
 | `languages.yaml` | `languages[]` | v1.1: spoken languages (code + level) |
-| `projects.yaml` | `projects[]` | With `evidence[]` (verifiable claims); v1.12 (issue #333): `artifactRefs[]` names the work behind the row — publication truth is derived from `artifacts[]` (§15.3), never stored |
+| `projects.yaml` | `projects[]` | With `evidence[]` (verifiable claims); v1.12 (issue #333): `artifactRefs[]` names the work behind the row — publication truth is derived from `artifacts[]` (§15.3), never stored; v2.0 (D27): optional `visibility` (absent = private) |
 | `publications.yaml` | `publications[]` | DOI/ORCID resolvable → GEO citability; v1.14 (issue #349): optional `kind` (`journal-article` \| `preprint` \| `conference-abstract`) classifies the output — `peerReviewed` is derived from `kind == journal-article`, never stored |
 | `keywords.yaml` | `keywords` | SEO per platform + GEO associations/claims |
 | `checks.yaml` | `checks[]` | User-level rules; unioned with skill `checks.yaml` |
 | `active.yaml` | `active` | Which variant is LIVE per platform (D11) |
 | `deployments.yaml` | `deployments` | v1.3 (D18): per-entry deploy ledger — ledgerKey → surface → `{deployedAt, contentHash, source}`. Key space: root block names (`identity`/`positioning`/`keywords`) or `block:key` composites (`bios:…`, `headlines:…`, `skills:…`, `socialHandles:…`, `experience:<id>`…). Only `pasco` mutates it (`--mark` / deploy commands, D14) |
-| `credentials.yaml` | `credentials[]` | v1.4 (D17): third-party attestations (certificate/title/award/patent) — issuer, verifyUrl, issued/expires, visibility (§18). Naming discipline: never called evidence (§18.1) |
-| `artifacts.yaml` | `artifacts[]` | v1.4 (D17): works/media (portfolio/gallery/showreel/dataset/document/code) — `locator: {url \| path}` (capability matrix §18.3), checksum, license, tags, visibility |
+| `credentials.yaml` | `credentials[]` | v1.4 (D17): third-party attestations (certificate/title/award/patent) — issuer, verifyUrl, issued/expires, `visibility` (§18; v2.0: optional, absent = private). Naming discipline: never called evidence (§18.1) |
+| `artifacts.yaml` | `artifacts[]` | v1.4 (D17): works/media (portfolio/gallery/showreel/dataset/document/code) — `locator: {url \| path}` (capability matrix §18.3), checksum, license, tags, `visibility` (v2.0: optional, absent = private) |
 | `faq.yaml` | `faq[]` | v1.10 (issue #288): the citable answer surface — 3–20 fact pairs (`id` §19.2 shape; `q` ≤ 90 per value + unique per workspace, core-check in geoCheck v2 #289; `a` ≤ 320; optional http(s) `source` = an answer with no pointer is a claim). Projected as a `FAQPage` JSON-LD node (#316) **only** when `faq[]` is present — never an empty one |
 | `releases.yaml` | `releases[]` | v1.15 (D23, #262): the release events — `{id, version, date, summary?, changedUnits[], surfaces[]}`. `changedUnits` are §19.2 ledger keys, `surfaces` are `platforms/registry.yaml` slugs of any RELEASE `kind` (profile · repo-meta · distribution) — an `identity` row is refused as a release surface. The fan-out state is DERIVED from the ledger at read time; a workspace without `releases[]` validates unchanged |
 | `achievements.yaml` | `achievements[]` | v1.16 (D24, #446): the impact log — `{id, statement{lang}, kind: metric\|milestone, metric?, refs[], source?, artifactId?, credentialId?, basis, date?, visibility}`. `refs` are `block:id` (`experience`/`projects`/`publications`/`education`/`press`/`credentials`/`artifacts`) and a dangling one fails `load`; `basis` declares how the number is known; `visibility` is required. The status is DERIVED (`achievementStatus()`), never stored |

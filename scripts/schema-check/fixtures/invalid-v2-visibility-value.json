@@ -1,0 +1,6 @@
+{
+  "identity": { "name": "Bad Visibility Example" },
+  "projects": [
+    { "id": "bad", "name": "Bad project", "visibility": "published" }
+  ]
+}

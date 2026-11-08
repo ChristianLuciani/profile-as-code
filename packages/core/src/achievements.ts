@@ -164,6 +164,8 @@ export function checkAchievementIntegrity(profile: Profile): RegistryIssue[] {
   const ids = declaredIds(profile);
   const credentials = profile.credentials ?? [];
   const artifacts = profile.artifacts ?? [];
+  const projects = profile.projects ?? [];
+  const experience = profile.experience ?? [];
 
   const seen = new Map<string, number>();
   for (const [index, achievement] of achievements.entries()) {
@@ -225,7 +227,7 @@ export function checkAchievementIntegrity(profile: Profile): RegistryIssue[] {
         issues.push(
           issue(
             `achievements[${index}].credentialId`,
-            `a public achievement attests credential "${credential.id}" with visibility "${credential.visibility}" — public output renders only public entries (§18.5); make it public, or make the achievement non-public`,
+            `a public achievement attests credential "${credential.id}" with visibility "${credential.visibility ?? "private"}" — public output renders only public entries (§18.5); if this workspace predates schema v2.0 run \`pasco migrate\` once, otherwise make it public or make the achievement non-public`,
           ),
         );
       }
@@ -244,7 +246,7 @@ export function checkAchievementIntegrity(profile: Profile): RegistryIssue[] {
         issues.push(
           issue(
             `achievements[${index}].artifactId`,
-            `a public achievement points at artifact "${artifact.id}" with visibility "${artifact.visibility}" — public output renders only public entries (§18.5); make it public, or make the achievement non-public`,
+            `a public achievement points at artifact "${artifact.id}" with visibility "${artifact.visibility ?? "private"}" — public output renders only public entries (§18.5); if this workspace predates schema v2.0 run \`pasco migrate\` once, otherwise make it public or make the achievement non-public`,
           ),
         );
       }
@@ -262,12 +264,16 @@ export function checkAchievementIntegrity(profile: Profile): RegistryIssue[] {
             ? credentials.find((c) => c.id === id)
             : block === "artifacts"
               ? artifacts.find((a) => a.id === id)
-              : undefined;
+              : block === "projects"
+                ? projects.find((p) => p.id === id)
+                : block === "experience"
+                  ? experience.find((e) => e.id === id)
+                  : undefined;
         if (target !== undefined && !isPublicEntry(target)) {
           issues.push(
             issue(
               `achievements[${index}].refs[${refIndex}]`,
-              `a public achievement references ${block}[].id "${id}" with visibility "${target.visibility}" — public output renders only public entries (§18.5)`,
+              `a public achievement references ${block}[].id "${id}" with visibility "${target.visibility ?? "private"}" — public output renders only public entries (§18.5); if this workspace predates schema v2.0 run \`pasco migrate\` once`,
             ),
           );
         }
