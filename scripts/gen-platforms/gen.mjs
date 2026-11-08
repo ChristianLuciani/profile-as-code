@@ -57,8 +57,10 @@ const SKILLS_REL = "skills";
 const DEPLOY_KINDS = ["git", "api", "manual"];
 const STATUSES = ["member", "backlog"];
 const ORIGINS = ["postiz", "extra"];
-/** Simple Icons identifier (a badge `logo=` value; shields.io matches it
- *  case-insensitively, `X` ships as `x`) — one token, never a URL (#511). */
+/** Simple Icons identifier (a badge `logo=` value). `X` keeps the retired
+ *  table's spelling because the golden test pins the bytes; a NEW row should
+ *  use the spelling Simple Icons publishes, lowercase — this module makes no
+ *  claim about how the badge service matches case (#511). */
 const ICON_SLUG = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 /** Brand color as a 6-digit hex WITHOUT the `#` — the registry stores the value
  *  the badge URL interpolates, so a `#` would ship a broken shield (#511). */

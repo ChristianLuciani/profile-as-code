@@ -996,7 +996,7 @@
           "type": "array",
           "items": { "type": "string", "minLength": 1 },
           "minItems": 1,
-          "description": "The presence surfaces this release must reach, as platforms/registry.yaml slugs of any `kind` (profile · repo-meta · distribution). Order here is declaration order; `pasco release plan` sorts by kind (repo-meta → profile → distribution), then slug."
+          "description": "The presence surfaces this release must reach, as platforms/registry.yaml slugs of any RELEASE `kind` (profile · repo-meta · distribution). An `identity` row is a link target with no renderable body: it is a registry kind, never a release surface, and `pasco release plan` refuses it. Order here is declaration order; `pasco release plan` sorts by kind (repo-meta → profile → distribution), then slug."
         }
       },
       "description": "v1.15 (D23, #262): one release event. `changedUnits[]` + `surfaces[]` are the fan-out; the state per surface is DERIVED from the §19 ledger, never stored here."

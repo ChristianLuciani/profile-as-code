@@ -176,6 +176,20 @@ describe("renderer github-readme — icon metadata comes from the platform regis
     }
   });
 
+  it("escapes a hyphen in the badge MESSAGE — a host is not a safe segment either", () => {
+    // `-` separates shields' segments and `_` is a space, so a literal hyphen in
+    // the host used to cut the badge's message (review F3 of #512, other segment).
+    const { slice, cleanup } = sliceOf({
+      "identity.yaml":
+        "name: Elena Vasquez\nlinks:\n  - platform: substack\n    url: https://my-site.substack.com\n",
+    });
+    try {
+      expect(render(slice).text).toContain("badge/Substack-my--site.substack.com-FF6719");
+    } finally {
+      cleanup();
+    }
+  });
+
   it("canary: a platform with no icon metadata draws NO badge and keeps the link", () => {
     const { slice, cleanup } = sliceOf({
       "identity.yaml":

@@ -116,6 +116,19 @@ function hostname(url: string): string {
   }
 }
 
+/**
+ * shields' static-badge grammar applies to the MESSAGE segment too, not just the
+ * label: `-` separates segments, a literal `-` is `--`, and `_` renders as a
+ * space (so a literal `_` is `__`). A hostname can legally contain a hyphen
+ * (`my-site.example.com`), and passing it raw produced a badge whose message was
+ * cut at the hyphen (review F3 of #512 — same class as the label, other
+ * segment). No current fixture host carries one, so the golden bytes are
+ * unchanged; the escape is what keeps that from being luck.
+ */
+function shieldSegment(text: string): string {
+  return text.replace(/-/g, "--").replace(/_/g, "__").replace(/ /g, "_");
+}
+
 function hostnamePath(url: string): string {
   try {
     const u = new URL(url);
@@ -234,7 +247,7 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     // `gen:platforms` already refuses anything but one badge token; this is the
     // second line, not the first.
     badges.push(
-      `[![${mdText(b.label)}](https://img.shields.io/badge/${encodeURIComponent(b.label)}-${hostname(l.url)}-${b.color}?style=flat&logo=${b.slug}&logoColor=white)](${mdHref(l.url)})`,
+      `[![${mdText(b.label)}](https://img.shields.io/badge/${encodeURIComponent(b.label)}-${shieldSegment(hostname(l.url))}-${b.color}?style=flat&logo=${b.slug}&logoColor=white)](${mdHref(l.url)})`,
     );
   }
   if (badges.length > 0) out.push("", badges.join(" "));
