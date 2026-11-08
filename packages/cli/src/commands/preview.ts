@@ -54,7 +54,7 @@ import {
 } from "../artifact-render.js";
 import { catalogSource } from "../check-catalog.js";
 import { parseLang } from "../contract.js";
-import { contractFloorAge } from "../contract-history.js";
+import { type ContractFloor, contractFloorAgeOf } from "../contract-history.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import type { PreviewAsset, PreviewSection } from "../preview/document.js";
@@ -69,6 +69,8 @@ import { resolveNow } from "./export-profile.js";
 export interface PreviewArgs {
   workspace: string;
   pascorc: Pascorc;
+  /** The effective contract floor (every consulted `.pascorc`, lowest wins). */
+  contractFloor?: ContractFloor;
   /** `--out <dir>` — write `<dir>/index.html`, never open anything (transport B). */
   outArg?: string;
   /** `--no-open` — write, do not open (the default opens transport A). */
@@ -292,7 +294,7 @@ export function runPreview(args: PreviewArgs): number {
   const bundle = collectMedia(profile, args.workspace);
   const inlined = inlineAssets(bundle.assets);
   const warnings: string[] = [];
-  const floorAge = contractFloorAge(args.pascorc.contract);
+  const floorAge = contractFloorAgeOf(args.contractFloor ?? { declared: null });
   if (floorAge !== "current" && needsVisibilityMigration(profile)) {
     warnings.push(
       floorAge === "legacy"

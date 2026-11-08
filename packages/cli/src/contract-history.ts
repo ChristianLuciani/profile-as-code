@@ -156,12 +156,7 @@ export const CONTRACT_HISTORY: readonly ContractMinor[] = [
   },
   {
     version: "2.0",
-    fields: [
-      "credentials[].visibility",
-      "artifacts[].visibility",
-      "projects[].visibility",
-      "experience[].visibility",
-    ],
+    fields: ["projects[].visibility", "experience[].visibility"],
     notFields: [
       "credentials",
       "artifacts",
@@ -208,6 +203,13 @@ export function contractFloorAge(floor: string | null | undefined): ContractFloo
   const compared = compareContractVersions(floor, "2.0");
   if (compared === null) return "unknown";
   return compared < 0 ? "legacy" : "current";
+}
+
+/** The age of a RESOLVED floor — `problem` is the INVALID state, never
+ *  confounded with an absent declaration. */
+export function contractFloorAgeOf(floor: ContractFloor): ContractFloorAge {
+  if (floor.problem !== undefined) return "unknown";
+  return contractFloorAge(floor.declared);
 }
 
 /** One row as `--json` publishes it — the `notFields` escape is editorial

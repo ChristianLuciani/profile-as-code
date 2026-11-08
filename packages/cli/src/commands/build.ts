@@ -29,7 +29,7 @@ import {
   selectionFindings,
 } from "../artifact-render.js";
 import { parseLang, parsePlatform } from "../contract.js";
-import { contractFloorAge } from "../contract-history.js";
+import { type ContractFloor, contractFloorAgeOf } from "../contract-history.js";
 import { EXIT } from "../exit.js";
 import { RENDERERS } from "../generated/renderers.gen.js";
 import { isJsonMode, line, report, section, warn } from "../output.js";
@@ -52,6 +52,8 @@ export interface BuildArgs {
   viewArg?: string;
   langArg?: string;
   pascorc: Pascorc;
+  /** The effective contract floor (every consulted `.pascorc`, lowest wins). */
+  contractFloor?: ContractFloor;
 }
 
 export function runBuild(args: BuildArgs): number {
@@ -79,7 +81,7 @@ export function runBuild(args: BuildArgs): number {
   // intentional private default, and telling the user to migrate would publish
   // rows they deliberately hid.
   const notices: string[] = [];
-  const floorAge = contractFloorAge(args.pascorc.contract);
+  const floorAge = contractFloorAgeOf(args.contractFloor ?? { declared: null });
   if (floorAge !== "current" && needsVisibilityMigration(profile)) {
     notices.push(
       floorAge === "legacy"

@@ -40,11 +40,10 @@ import {
   VISIBILITY_BLOCKS,
 } from "@profile-as-code/core";
 import { isMap, isSeq, parseDocument } from "yaml";
-import { contractFloorAge } from "../contract-history.js";
+import { type ContractFloor, contractFloorAgeOf } from "../contract-history.js";
 import { owningFile, StaleEditError, WriteRefusedError, withWriteLock } from "../edit-write.js";
 import { EXIT } from "../exit.js";
 import { line, report } from "../output.js";
-import { readWorkspacePascorc } from "../workspace.js";
 
 /** One row insertion located in the ORIGINAL text. */
 interface Insertion {
@@ -221,6 +220,9 @@ export interface MigrateDeps {
    *  over a temp copy of `content/` with every planned file applied. */
   validate?: (workspace: string) => void;
   lockWaitMs?: number;
+  /** The effective contract floor. Re-checked INSIDE the write lock: a row that
+   *  appears while the command waits is classified under the same floor. */
+  contractFloor?: ContractFloor;
 }
 
 /** The per-block source files that still carry pre-v2.0 rows. */
@@ -263,6 +265,17 @@ export function migrateVisibility(workspace: string, deps: MigrateDeps = {}): Mi
   return withWriteLock(workspace, deps.lockWaitMs ?? 2_000, () => {
     const edits = planVisibilityMigration(workspace);
     if (edits.length === 0) return { files: [], rows: 0 };
+
+    // Re-evaluate the floor INSIDE the lock, after planning: a row created while
+    // the command waited must not be published in a v2.0/INVALID workspace.
+    const age = contractFloorAgeOf(deps.contractFloor ?? { declared: null });
+    if (age !== "legacy") {
+      throw new WriteRefusedError(
+        age === "current"
+          ? `workspace declares contract ${deps.contractFloor?.declared}; since v2.0 an omitted visibility is the intentional private default — set visibility: public explicitly on the rows you want to publish (nothing was written)`
+          : `workspace declares an INVALID contract floor ${JSON.stringify(deps.contractFloor)}; fix .pascorc before migrating — nothing was written`,
+      );
+    }
 
     for (const edit of edits) {
       if (edit.original !== readFileSync(join(workspace, edit.file), "utf8")) {
@@ -332,32 +345,15 @@ export function migrateVisibility(workspace: string, deps: MigrateDeps = {}): Mi
 
 export interface MigrateArgs {
   workspace: string;
+  /** The effective contract floor (every consulted `.pascorc`, lowest wins). */
+  contractFloor?: ContractFloor;
 }
 
 export function runMigrate(args: MigrateArgs): number {
   try {
-    const floor = readWorkspacePascorc(args.workspace).contract;
-    // A v2.0 workspace uses an omitted `visibility` as the intentional private
-    // default. Running the migration there would PUBLISH rows the user hid, so
-    // refuse while there is something to rewrite; the explicit `visibility:
-    // public` flag is the user's act, not a migration side effect. A malformed
-    // floor is refused for the same reason: it cannot be classified as legacy.
-    const age = contractFloorAge(floor);
-    if (age === "current" || age === "unknown") {
-      const pending = planVisibilityMigration(args.workspace);
-      if (pending.length > 0) {
-        return report("migrate", false, EXIT.FAIL, {
-          error: {
-            kind: "refused",
-            message:
-              age === "current"
-                ? `workspace declares contract ${floor}; since v2.0 an omitted visibility is the intentional private default — set visibility: public explicitly on the rows you want to publish (nothing was written)`
-                : `workspace declares an INVALID contract floor ${JSON.stringify(floor)}; fix .pascorc before migrating — nothing was written`,
-          },
-        });
-      }
-    }
-    const outcome = migrateVisibility(args.workspace);
+    const outcome = migrateVisibility(args.workspace, {
+      contractFloor: args.contractFloor,
+    });
     // Validate even when there was nothing to migrate: a workspace that fails
     // `load()` is never "already current" (exit 1, the documented matrix). On a
     // pre-v2.0 workspace this runs AFTER the splice, so the visibility leak the

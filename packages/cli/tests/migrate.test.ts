@@ -29,6 +29,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hashUnit, load, trackableUnits } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
+import { migrateVisibility } from "../src/commands/migrate.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI = join(__dirname, "..", "dist", "index.js");
@@ -251,6 +252,15 @@ describe("pasco migrate (D27, schema v2.0)", () => {
     // In v2.0 an omitted visibility is the intentional private default: the
     // notice would tell the user to publish hidden rows (F1 of the round-3 pass).
     expect(v2Build.stderr).not.toContain("pasco migrate");
+  });
+
+  it("re-checks the floor INSIDE the locked migration (no TOCTOU window)", () => {
+    const ws = workspace();
+    // The floor check lives in migrateVisibility, under the lock: a row that
+    // appears while the command waits is still classified under the same floor.
+    expect(() =>
+      migrateVisibility(ws, { contractFloor: { declared: "2.0" }, lockWaitMs: 50 }),
+    ).toThrow(/intentional private default/);
   });
 
   it("refuses to publish a v2.0 workspace's intentional private rows", () => {

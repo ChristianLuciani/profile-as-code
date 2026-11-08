@@ -45,6 +45,7 @@ import {
   parseLang,
   UsageError,
 } from "./contract.js";
+import { evaluateContractFloor } from "./contract-history.js";
 import { parseCreateRoot, SEEDABLE_ROOTS, type SeedableRoot } from "./edit-seed.js";
 import type { EngineConfigSource } from "./engine-gate.js";
 import { engineGateError, evaluateEngineRequirements } from "./engine-gate.js";
@@ -940,7 +941,11 @@ async function runMain(): Promise<number> {
       }
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
-      return runMigrate({ workspace });
+      const engineSources = readEnginePascorcSources(process.cwd(), flags.workspace, workspace);
+      return runMigrate({
+        workspace,
+        contractFloor: evaluateContractFloor(engineSources),
+      });
     }
     case "build": {
       const { flags, positionals } = parseCommandFlags(rest, {
@@ -965,6 +970,7 @@ async function runMain(): Promise<number> {
         viewArg: flags.view,
         langArg: flags.lang,
         pascorc,
+        contractFloor: evaluateContractFloor(engineSources),
       });
     }
     case "preview": {
@@ -1001,6 +1007,7 @@ async function runMain(): Promise<number> {
       return runPreview({
         workspace,
         pascorc,
+        contractFloor: evaluateContractFloor(engineSources),
         outArg: flags.out,
         noOpen: flags["no-open"] === true,
         langArg: flags.lang,

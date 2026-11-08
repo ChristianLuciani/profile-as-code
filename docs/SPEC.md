@@ -1197,15 +1197,18 @@ the workspace requires; `validate`, `build`, `export profile` and `preview` chec
   read it; `build`/`preview` read it only to decide whether an absent
   `visibility` is legacy (a NOTICE, never a refusal); `pasco migrate` refuses to
   rewrite an absent field when the floor is `>= 2.0` or malformed. A contract
-  floor ahead of the installed engine still does not refuse work — it is
-  reported. The floor policy is the SAME on every surface (D27/S4a):
+  floor ahead of the installed engine does not refuse work **for being ahead** —
+  the migration policy below is independent of the installed engine. The floor
+  policy is the SAME on every surface (D27/S4a); the notice/refusal applies only
+  when rows lack `visibility` (with no pending rows, `build` and `migrate` are
+  no-ops):
 
   | `.pascorc` contract | `build`/`preview` | `pasco migrate` | `doctor --contract-delta` |
   |---|---|---|---|
-  | absent (pre-0.5.0) | notice + "declare 2.0 if intentional" | allowed (legacy) | rows + caveat |
-  | `< 2.0` | notice | allowed | rows + notice |
+  | absent (pre-0.5.0) | notice when rows lack it + "declare 2.0 if intentional" | allowed (legacy) | rows + caveat |
+  | `< 2.0` | notice when rows lack it | allowed | rows + notice |
   | `>= 2.0` | no notice | refuses while rows would be rewritten | "no migration is due" |
-  | `INVALID` | fix-floor notice | refuses | floor INVALID; rows not measured |
+  | `INVALID` | fix-floor notice when rows lack it | refuses while rows would be rewritten | floor INVALID; rows not measured |
 - **Accepted syntax: exactly `MAJOR.MINOR.PATCH`** — three dot-separated ASCII
   decimal components, no `v` prefix, no range operator (`^`, `~`, `>=`), no
   `*`, no pre-release/build suffix. This is the whole grammar, deliberately: the
