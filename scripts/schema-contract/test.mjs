@@ -120,6 +120,11 @@ refusesPure(
   "declares no sha256 row",
 );
 refusesPure(
+  "refuses a current section with no Schema version row (same class as the hash row)",
+  { doc: `${CURRENT_H}\n\n| sha256 | \`${sha256(CURRENT)}\` |\n` },
+  'declares no "Schema version" row',
+);
+refusesPure(
   "does not borrow a LATER section's hash row",
   {
     doc: [
