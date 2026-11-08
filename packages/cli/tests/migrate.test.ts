@@ -19,7 +19,7 @@ import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { load, trackableUnits } from "@profile-as-code/core";
+import { hashUnit, load, trackableUnits } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -112,27 +112,37 @@ describe("pasco migrate (D27, schema v2.0)", () => {
     expect(readdirSync(join(ws, "content"))).not.toContain("achievements.yaml");
   });
 
-  it("keeps §19 deploy hashes in-sync — visibility is a publication gate, not content", () => {
+  it("keeps deployed §19 hashes in-sync across the migration (public == the old absent state)", () => {
     const ws = workspace();
-    const units = (): Map<string, string> =>
-      new Map(trackableUnits(load(ws)).map((unit) => [unit.key, unit.hash]));
-    const before = units();
-    // A real pre-migration ledger: the hashes the deployed rows had WITHOUT the
-    // explicit field. Writing them back lets `pasco status` judge the migrated
-    // workspace, not just the hash function (F3 of the PR #509 review).
+    // The stored hash a pre-D27 deployment had: the row WITHOUT the field. The
+    // migration writes `visibility: public`, which must normalize to that same
+    // hash — otherwise every deployed project/experience flips stale (F3 of the
+    // PR #509 review).
+    const legacyHash = (key: string): string => {
+      const [block, id] = key.split(":") as ["projects" | "experience", string];
+      const row = (load(ws)[block] ?? []).find((entry) => entry.id === id);
+      if (row === undefined) throw new Error(`missing ${key}`);
+      const { visibility: _visibility, ...rest } = row as Record<string, unknown> & {
+        visibility?: string;
+      };
+      return hashUnit(rest);
+    };
+    const baseline = {
+      "projects:sovereign-hub": legacyHash("projects:sovereign-hub"),
+      "experience:nimbus": legacyHash("experience:nimbus"),
+    };
     const record = (hash: string): string =>
       `  github-readme:\n    deployedAt: "2025-01-15T09:30:00Z"\n    contentHash: ${hash}\n    source: git\n`;
     writeFileSync(
       join(ws, "content", "deployments.yaml"),
-      `projects:sovereign-hub:\n${record(before.get("projects:sovereign-hub") ?? "")}` +
-        `experience:nimbus:\n${record(before.get("experience:nimbus") ?? "")}`,
+      `projects:sovereign-hub:\n${record(baseline["projects:sovereign-hub"])}` +
+        `experience:nimbus:\n${record(baseline["experience:nimbus"])}`,
     );
 
     expect(migrate(ws).code).toBe(0);
-    const after = units();
-    expect(after.get("projects:sovereign-hub")).toBe(before.get("projects:sovereign-hub"));
-    expect(after.get("experience:nimbus")).toBe(before.get("experience:nimbus"));
-    expect(after.get("experience:dataforge")).toBe(before.get("experience:dataforge"));
+    const after = new Map(trackableUnits(load(ws)).map((unit) => [unit.key, unit.hash]));
+    expect(after.get("projects:sovereign-hub")).toBe(baseline["projects:sovereign-hub"]);
+    expect(after.get("experience:nimbus")).toBe(baseline["experience:nimbus"]);
 
     const status = run(["status", "--workspace", ws, "--json"]);
     expect(status.code, status.stderr).toBe(0);
@@ -143,6 +153,22 @@ describe("pasco migrate (D27, schema v2.0)", () => {
       "in-sync",
     );
     expect(data.data.units.find((unit) => unit.key === "experience:nimbus")?.state).toBe("in-sync");
+  });
+
+  it("an unpublish transition changes the hash (private is not public)", () => {
+    const ws = workspace();
+    expect(migrate(ws).code).toBe(0);
+    const before = new Map(trackableUnits(load(ws)).map((unit) => [unit.key, unit.hash]));
+    const file = join(ws, "content", "experience.yaml");
+    writeFileSync(
+      file,
+      readFileSync(file, "utf8").replace(
+        "  visibility: public\n- id: dataforge",
+        "  visibility: private\n- id: dataforge",
+      ),
+    );
+    const after = new Map(trackableUnits(load(ws)).map((unit) => [unit.key, unit.hash]));
+    expect(after.get("experience:nimbus")).not.toBe(before.get("experience:nimbus"));
   });
 
   it("preserves CRLF line endings (no mixed EOL after the splice)", () => {

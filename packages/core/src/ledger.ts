@@ -21,13 +21,8 @@ import { createHash } from "node:crypto";
 import type { LoadedProfile, Profile } from "./types.js";
 import { PLATFORMS, textOf } from "./types.js";
 
-/** Ledger metadata is provenance/identity/publication state, not content —
- *  stripped before hashing. `visibility` is the D27 publication gate: it decides
- *  WHETHER a unit is publishable, not WHAT it says, so `pasco migrate` writing
- *  `visibility: public` on a pre-v2.0 row must not flip a deployed row `stale`.
- *  The publishable-vs-not dimension is S4b's `notPublishableUnits`, not the
- *  content hash. */
-const LEDGER_META = new Set(["id", "origin", "visibility"]);
+/** Ledger metadata is provenance/identity, not content — stripped before hashing. */
+const LEDGER_META = new Set(["id", "origin"]);
 
 /** Canonical serialization: recursively sorted keys → stable across insertion order,
  *  YAML formatting and locale. This is what `contentHash` is computed over. */
@@ -46,13 +41,27 @@ export function canonicalJson(value: unknown): string {
   return JSON.stringify(sort(value));
 }
 
-/** SHA-256 (hex) of the canonical serialization of a unit, sans ledger metadata. */
-export function hashUnit(unit: unknown): string {
+/** SHA-256 (hex) of the canonical serialization of a unit, sans ledger metadata.
+ *
+ *  `visibility` is the D27 publication gate on the row blocks that carry it
+ *  (projects/experience). It is hashed by its EFFECTIVE state, normalizing the
+ *  two ends that must agree:
+ *    - explicit `public` is dropped: it is the state `pasco migrate` wrote onto
+ *      pre-v2.0 rows, so a migrated row keeps the hash it had when the field did
+ *      not exist (deployed rows stay `in-sync`);
+ *    - absent is effective `private`, so a private row hashes differently from a
+ *      public one and an unpublish transition still flips `stale`.
+ *  Blocks without visibility (`identity`, bios, …) are untouched. */
+export function hashUnit(unit: unknown, options: { visibility?: boolean } = {}): string {
   const stripped: Record<string, unknown> = {};
   if (unit !== null && typeof unit === "object" && !Array.isArray(unit)) {
     for (const [key, value] of Object.entries(unit as Record<string, unknown>)) {
       if (!LEDGER_META.has(key)) stripped[key] = value;
     }
+  }
+  if (options.visibility === true) {
+    if (!("visibility" in stripped)) stripped.visibility = "private";
+    else if (stripped.visibility === "public") delete stripped.visibility;
   }
   return createHash("sha256").update(canonicalJson(stripped)).digest("hex");
 }
@@ -403,8 +412,16 @@ export function trackableUnits(profile: LoadedProfile): TrackableUnit[] {
     label: string,
     unit: unknown,
     origin: Origin = "user",
+    visibilityBlock = false,
   ) => {
-    units.push({ key, kind, block, label, origin, hash: hashUnit(unit) });
+    units.push({
+      key,
+      kind,
+      block,
+      label,
+      origin,
+      hash: hashUnit(unit, { visibility: visibilityBlock }),
+    });
   };
 
   // Root scalar blocks — the block itself is the unit (only when present).
@@ -445,7 +462,15 @@ export function trackableUnits(profile: LoadedProfile): TrackableUnit[] {
       const row = raw as Record<string, unknown>;
       if (typeof row.id !== "string" || row.id === "") continue;
       const origin: Origin = row.origin === "template" ? "template" : "user";
-      push(`${block}:${row.id}`, "row", block, ROW_CONFIG[block].label(row), row, origin);
+      push(
+        `${block}:${row.id}`,
+        "row",
+        block,
+        ROW_CONFIG[block].label(row),
+        row,
+        origin,
+        block === "projects" || block === "experience",
+      );
     }
   }
   return units;
