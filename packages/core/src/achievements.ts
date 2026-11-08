@@ -164,6 +164,8 @@ export function checkAchievementIntegrity(profile: Profile): RegistryIssue[] {
   const ids = declaredIds(profile);
   const credentials = profile.credentials ?? [];
   const artifacts = profile.artifacts ?? [];
+  const projects = profile.projects ?? [];
+  const experience = profile.experience ?? [];
 
   const seen = new Map<string, number>();
   for (const [index, achievement] of achievements.entries()) {
@@ -262,7 +264,11 @@ export function checkAchievementIntegrity(profile: Profile): RegistryIssue[] {
             ? credentials.find((c) => c.id === id)
             : block === "artifacts"
               ? artifacts.find((a) => a.id === id)
-              : undefined;
+              : block === "projects"
+                ? projects.find((p) => p.id === id)
+                : block === "experience"
+                  ? experience.find((e) => e.id === id)
+                  : undefined;
         if (target !== undefined && !isPublicEntry(target)) {
           issues.push(
             issue(

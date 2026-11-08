@@ -29,7 +29,7 @@ import {
   selectionFindings,
 } from "../artifact-render.js";
 import { parseLang, parsePlatform } from "../contract.js";
-import { type ContractFloor, contractFloorAgeOf } from "../contract-history.js";
+import { type ContractFloor, contractFloorAgeOf, migrationNotice } from "../contract-history.js";
 import { EXIT } from "../exit.js";
 import { RENDERERS } from "../generated/renderers.gen.js";
 import { isJsonMode, line, report, section, warn } from "../output.js";
@@ -82,12 +82,9 @@ export function runBuild(args: BuildArgs): number {
   // rows they deliberately hid.
   const notices: string[] = [];
   const floorAge = contractFloorAgeOf(args.contractFloor ?? { declared: null });
-  if (floorAge !== "current" && needsVisibilityMigration(profile)) {
-    notices.push(
-      floorAge === "legacy"
-        ? 'schema v2.0: this workspace\'s contract floor predates v2.0 (or is undeclared) and some rows omit `visibility`; run `pasco migrate` once to keep their published output (D27/#498). If this is a v2.0 workspace, declare `"contract": "2.0"` in .pascorc and leave those rows private.'
-        : "schema v2.0: the .pascorc contract floor is INVALID; fix it before deciding how to migrate — rows without `visibility` are private (D27/#498)",
-    );
+  if (needsVisibilityMigration(profile)) {
+    const notice = migrationNotice(floorAge);
+    if (notice !== undefined) notices.push(notice);
   }
 
   // D22/§21: resolve the VIEW before anything else — its rule may carry the

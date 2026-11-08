@@ -17,18 +17,18 @@ The immutable copy at a published release tag:
 
 | Field | Value |
 |---|---|
-| Tag | `v0.4.0` (2026-11-04) |
-| URL | `https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.4.0/schema/profile.schema.json` |
+| Tag | `v0.5.0` (2026-11-07) |
+| URL | `https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.5.0/schema/profile.schema.json` |
 | Schema version | `v1.16` (the schema's own `$id`) |
-| sha256 | `d6b06b57f1106885ee0467d8aa8009e098b04fe0a5ffad34b97455bc4417fe2f` |
+| sha256 | `5b5915681e23258405df703d145b3a4ad80d826219b7f7152fd81c23eeba39e1` |
 
 ```sh
-curl -sSfL https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.4.0/schema/profile.schema.json \
+curl -sSfL https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.5.0/schema/profile.schema.json \
   -o profile.schema.json
 sha256sum profile.schema.json          # Linux; macOS: shasum -a 256 profile.schema.json
 ```
 
-A tag is immutable, so a consumer that pins `v0.4.0` and checks the hash gets the
+A tag is immutable, so a consumer that pins `v0.5.0` and checks the hash gets the
 same bytes forever. The tag-pinned raw URL is the only published form: a
 floating ref (`main`) or any private path is refused by the gate and may not
 appear on this surface (AGENTS.md rule 9).
@@ -37,10 +37,10 @@ appear on this surface (AGENTS.md rule 9).
 
 `main` carries schema **v2.0** (D27, #498: `visibility` optional with absent =
 `private` on `credentials[]`, `artifacts[]`, `projects[]` and `experience[]`;
-`achievements[]` keeps it required). The `v0.4.0` tag still carries **v1.16**
+`achievements[]` keeps it required). The `v0.5.0` tag still carries **v1.16**
 (the additive `achievements[]` release), so `current` in
 `schema/consumer-contract.json` says `published: false` with `artifact: null`
-and a note naming the checkout; `released` names `v0.4.0`. The earlier artifact —
+and a note naming the checkout; `released` names `v0.5.0`. The earlier artifact —
 **v1.15 at `v0.3.7`** — stays valid forever for a consumer that pins it.
 
 | Field | Value |
@@ -81,7 +81,7 @@ PY
 `profile.json` is the `profile` object of `pasco export profile --json` (SPEC
 §7.5) or any object in that shape. The printed `$id` names the contract version,
 not a byte-image: `…/v2.0/…` for the current `main` checkout (above; the next
-release publishes these bytes), `…/v1.16/…` for the released `v0.4.0` artifact,
+release publishes these bytes), `…/v1.16/…` for the released `v0.5.0` artifact,
 and `…/v1.15/…` for the earlier `v0.3.7` artifact, which stays valid forever for
 a consumer that pins it. When the
 exact bytes matter, compare the sha256 in

@@ -54,7 +54,7 @@ import {
 } from "../artifact-render.js";
 import { catalogSource } from "../check-catalog.js";
 import { parseLang } from "../contract.js";
-import { type ContractFloor, contractFloorAgeOf } from "../contract-history.js";
+import { type ContractFloor, contractFloorAgeOf, migrationNotice } from "../contract-history.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import type { PreviewAsset, PreviewSection } from "../preview/document.js";
@@ -295,12 +295,9 @@ export function runPreview(args: PreviewArgs): number {
   const inlined = inlineAssets(bundle.assets);
   const warnings: string[] = [];
   const floorAge = contractFloorAgeOf(args.contractFloor ?? { declared: null });
-  if (floorAge !== "current" && needsVisibilityMigration(profile)) {
-    warnings.push(
-      floorAge === "legacy"
-        ? 'schema v2.0: this workspace\'s contract floor predates v2.0 (or is undeclared) and some rows omit `visibility`; run `pasco migrate` once to keep their published output (D27/#498). If this is a v2.0 workspace, declare `"contract": "2.0"` in .pascorc and leave those rows private.'
-        : "schema v2.0: the .pascorc contract floor is INVALID; fix it before deciding how to migrate — rows without `visibility` are private (D27/#498)",
-    );
+  if (needsVisibilityMigration(profile)) {
+    const notice = migrationNotice(floorAge);
+    if (notice !== undefined) warnings.push(notice);
   }
 
   const surfaces: PreviewSection[] = [];

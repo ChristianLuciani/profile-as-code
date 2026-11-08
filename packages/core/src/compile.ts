@@ -13,7 +13,12 @@
 import { type CompletenessPolicy, completeness } from "./completeness.js";
 import { normalizeProfile } from "./load.js";
 import { isPublicEntry } from "./registry.js";
-import { type SelectionPolicy, selectFacts } from "./selection.js";
+import {
+  SELECTION_BLOCKS,
+  type SelectionPolicy,
+  type SelectionReport,
+  selectFacts,
+} from "./selection.js";
 import { structuredData } from "./structured-data.js";
 import type { Lang, Platform, PlatformProfile, Profile } from "./types.js";
 import { PLATFORMS } from "./types.js";
@@ -109,21 +114,35 @@ export function compile(
   //     WORKSPACE, not a view (hiding half the SSOT must not lower the number).
   // D27 (§18.5): visibility is the ONE exception to "facts pass through" — a
   // private/unlisted row never reaches a renderer or the JSON-LD assembled below.
-  // It is applied BEFORE selection, so the selection report counts what the
-  // artifact actually emits. Completeness still reads the UNFILTERED profile
-  // (it scores the workspace, not a view).
-  const visible = {
-    ...profile,
-    experience: (profile.experience ?? []).filter(isPublicEntry),
-    projects: (profile.projects ?? []).filter(isPublicEntry),
-    credentials: (profile.credentials ?? []).filter(isPublicEntry),
-    artifacts: (profile.artifacts ?? []).filter(isPublicEntry),
-  };
+  // Selection runs on the UNFILTERED profile so a view's `excludeKeys` can still
+  // name a row that is now private (the pre-v2.0 hiding workaround); visibility
+  // is applied to the SELECTED profile and the `selected` counts are recomputed
+  // on what the artifact actually emits. Completeness reads the UNFILTERED
+  // profile (it scores the workspace, not a view).
   const selection =
     policy?.selection === undefined
       ? undefined
-      : selectFacts(visible, policy.view ?? platform, platform, lang, policy.selection);
-  const facts = selection?.profile ?? visible;
+      : selectFacts(profile, policy.view ?? platform, platform, lang, policy.selection);
+  const selectedProfile = selection?.profile ?? profile;
+  const facts = {
+    ...selectedProfile,
+    experience: (selectedProfile.experience ?? []).filter(isPublicEntry),
+    projects: (selectedProfile.projects ?? []).filter(isPublicEntry),
+    credentials: (selectedProfile.credentials ?? []).filter(isPublicEntry),
+    artifacts: (selectedProfile.artifacts ?? []).filter(isPublicEntry),
+  };
+  const report =
+    selection === undefined
+      ? undefined
+      : {
+          ...selection.report,
+          selected: Object.fromEntries(
+            SELECTION_BLOCKS.map((block) => {
+              const rows = (facts as unknown as Record<string, unknown>)[block];
+              return [block, Array.isArray(rows) ? rows.length : 0];
+            }),
+          ) as SelectionReport["selected"],
+        };
 
   return {
     platform,
@@ -164,7 +183,7 @@ export function compile(
     // passes it, so the artifact and `pasco status --completeness` agree
     // (review of #205, finding 3); omitted ⇒ the shipped default.
     completeness: completeness(normalizeProfile(profile), policy),
-    ...(selection === undefined ? {} : { selection: selection.report }),
+    ...(report === undefined ? {} : { selection: report }),
     fallbacks,
   };
 }

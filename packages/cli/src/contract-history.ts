@@ -212,6 +212,18 @@ export function contractFloorAgeOf(floor: ContractFloor): ContractFloorAge {
   return contractFloorAge(floor.declared);
 }
 
+/** The D27 migration notice for a floor age — ONE string for every emitter
+ *  (build and preview), so the policy cannot drift between surfaces. `current`
+ *  has no notice: an absent visibility there is the intentional private
+ *  default. */
+export function migrationNotice(age: ContractFloorAge): string | undefined {
+  if (age === "current") return undefined;
+  if (age === "legacy") {
+    return 'schema v2.0: this workspace\'s contract floor predates v2.0 (or is undeclared) and some rows omit `visibility`; run `pasco migrate` once to keep their published output (D27/#498). If this is a v2.0 workspace, declare `"contract": "2.0"` in .pascorc and leave those rows private.';
+  }
+  return "schema v2.0: the .pascorc contract floor is INVALID; fix it before deciding how to migrate — rows without `visibility` are private (D27/#498)";
+}
+
 /** One row as `--json` publishes it — the `notFields` escape is editorial
  *  bookkeeping for the freshness pin, never part of the delta a consumer reads
  *  (fresh pass 2, F8: the documented shape is `{ version, fields, buys }`). */

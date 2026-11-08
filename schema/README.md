@@ -12,7 +12,7 @@ identity of this schema is **URL + sha256**, recorded in
 published tag (tag-pinned raw URL) and the committed `current` bytes (sha256 +
 `$id` version). **The current v2.0 bytes are not published at a tag yet**
 (`current.published: false`, `artifact: null`; its `note` names the checkout);
-`released` names `v0.4.0` — the last published artifact, schema **v1.16**. The
+`released` names `v0.5.0` — the last published artifact, schema **v1.16**. The
 earlier artifact — schema **v1.15 at `v0.3.7`** — has no `achievements[]` and
 stays valid forever for a consumer that pins it.
 `node

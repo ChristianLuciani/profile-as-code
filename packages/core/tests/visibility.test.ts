@@ -148,6 +148,21 @@ describe("D27 — private rows never reach a compiled renderer slice", () => {
 });
 
 describe("D27 — selection sees only the rows the artifact can emit", () => {
+  it("lets a view exclude a row that visibility now hides (the excludeKey still resolves)", () => {
+    const dir = workspace({
+      "identity.yaml": "name: Example\n",
+      "projects.yaml":
+        "- id: secret\n  name: Secret\n" + "- id: pub\n  name: Public\n  visibility: public\n",
+    });
+    const slice = compile(load(dir), "github-readme", "en", {
+      selection: {
+        views: { "github-readme": { excludeKeys: ["projects:secret"] } },
+      },
+    });
+    expect(slice.projects.map((project) => project.id)).toEqual(["pub"]);
+    expect(slice.selection?.selected.projects).toBe(1);
+  });
+
   it("does not count a private row in the SelectionReport", () => {
     const dir = workspace({
       "identity.yaml": "name: Example\n",
@@ -164,6 +179,26 @@ describe("D27 — selection sees only the rows the artifact can emit", () => {
 });
 
 describe("D27 — the achievements leak gate names the effective value + remedy", () => {
+  it("covers refs[] to private projects and experience too", () => {
+    const dir = workspace({
+      "identity.yaml": "name: Example\n",
+      "projects.yaml": "- id: secret-proj\n  name: Secret project\n",
+      "experience.yaml": "- id: secret-exp\n  role: Engineer\n  org: Secret\n  start: 2024-01-01\n",
+      "achievements.yaml":
+        "- id: ach\n  statement:\n    en: Shipped it\n  kind: milestone\n  basis: reported\n  visibility: public\n  refs:\n    - projects:secret-proj\n    - experience:secret-exp\n",
+    });
+    try {
+      load(dir);
+      throw new Error("load should have failed");
+    } catch (err) {
+      expect(err).toBeInstanceOf(SchemaValidationError);
+      const messages = (err as SchemaValidationError).issues.map((issue) => issue.message);
+      expect(messages.join("\n")).toContain('visibility "private"');
+      expect(messages.join("\n")).toContain("projects");
+      expect(messages.join("\n")).toContain("experience");
+    }
+  });
+
   it("reports `private` (never `undefined`) and points at pasco migrate", () => {
     const dir = workspace({
       "identity.yaml": "name: Example\n",

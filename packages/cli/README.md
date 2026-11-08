@@ -479,8 +479,8 @@ released schema is published as a tag-pinned URL + sha256 in
 Current `main` carries **schema v2.0** (D27: `visibility` optional with absent =
 `private`); it is **not published yet**, so the consumer contract's `current`
 block is `published: false` and names the checkout. The last published artifact
-is **v1.16 at tag `v0.4.0`** (`released` carries the tag-pinned URL and sha256:
-`https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.4.0/schema/profile.schema.json`).
+is **v1.16 at tag `v0.5.0`** (`released` carries the tag-pinned URL and sha256:
+`https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/v0.5.0/schema/profile.schema.json`).
 A consumer that needs `achievements[]` pins that tag; one that does not can keep
 pinning `v0.3.7` unchanged. The reading guide is
 [the schema contract reading guide](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SCHEMA-CONTRACT.md) —
