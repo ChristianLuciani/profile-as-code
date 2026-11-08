@@ -49,12 +49,15 @@ and a note naming the checkout; `released` names `v0.5.0`. The earlier artifact 
 | sha256 | `81f02683d09686f73bec7d16222eca5f5a49363e67215c3407eef0617fcb6f53` |
 | Published artifact | none yet — the next release publishes these bytes |
 
-A v1.x workspace still validates against v2.0 unchanged; the **default**
-changed, so its published output changes until it runs `pasco migrate` once.
-That command writes `visibility: public` on every `credentials`, `artifacts`,
-`projects` and `experience` row that lacks the field (comments and layout
-preserved; idempotent). `pasco doctor --contract-delta` reports the rows still
-missing it.
+A v1.x workspace still validates against v2.0 unchanged **unless** a public
+achievement references an unmigrated `projects`/`experience` row: absent
+visibility is private under v2.0, so that cross-reference is the §18.5 leak and
+`load()` fails (build/validate/doctor exit 1; the error names `pasco migrate`).
+The **default** also changed, so published output changes until the workspace
+runs `pasco migrate` once. That command writes `visibility: public` on every
+`credentials`, `artifacts`, `projects` and `experience` row that lacks the field
+(comments and layout preserved; idempotent). `pasco doctor --contract-delta`
+reports the rows still missing it.
 
 A profile that declares no `achievements[]` validates identically against `v1.16`
 and `v0.3.7`; the block is additive by construction. `pasco log` writes one row

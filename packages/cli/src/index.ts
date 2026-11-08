@@ -950,7 +950,7 @@ async function runMain(): Promise<number> {
       const engineSources = readEnginePascorcSources(process.cwd(), flags.workspace, workspace);
       return runMigrate({
         workspace,
-        contractFloor: evaluateContractFloor(engineSources),
+        contractFloor: evaluateContractFloor(engineSources, "highest"),
       });
     }
     case "build": {
@@ -976,7 +976,7 @@ async function runMain(): Promise<number> {
         viewArg: flags.view,
         langArg: flags.lang,
         pascorc,
-        contractFloor: evaluateContractFloor(engineSources),
+        contractFloor: evaluateContractFloor(engineSources, "highest"),
       });
     }
     case "preview": {
@@ -1013,7 +1013,7 @@ async function runMain(): Promise<number> {
       return runPreview({
         workspace,
         pascorc,
-        contractFloor: evaluateContractFloor(engineSources),
+        contractFloor: evaluateContractFloor(engineSources, "highest"),
         outArg: flags.out,
         noOpen: flags["no-open"] === true,
         langArg: flags.lang,

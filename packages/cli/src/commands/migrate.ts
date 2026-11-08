@@ -36,6 +36,7 @@ import {
   LoadError,
   load,
   missingVisibility,
+  PROFILE_SCHEMA_VERSION,
   SchemaValidationError,
   VISIBILITY_BLOCKS,
 } from "@profile-as-code/core";
@@ -372,7 +373,12 @@ export function runMigrate(args: MigrateArgs): number {
         "no migration needed — every credentials/artifacts/projects/experience row declares visibility",
       );
       return report("migrate", true, EXIT.OK, {
-        data: { schemaVersion: "2.0", migrated: [], rows: 0, missing: pending },
+        data: {
+          schemaVersion: PROFILE_SCHEMA_VERSION,
+          migrated: [],
+          rows: 0,
+          missing: pending,
+        },
       });
     }
     for (const file of outcome.files) line(`migrated ${file.rows} row(s) — ${file.file}`);
@@ -380,7 +386,12 @@ export function runMigrate(args: MigrateArgs): number {
       `schema v2.0: ${outcome.rows} row(s) now declare \`visibility: public\`; new rows default private (D27). Re-run is a no-op.`,
     );
     return report("migrate", true, EXIT.OK, {
-      data: { schemaVersion: "2.0", migrated: outcome.files, rows: outcome.rows, missing: pending },
+      data: {
+        schemaVersion: PROFILE_SCHEMA_VERSION,
+        migrated: outcome.files,
+        rows: outcome.rows,
+        missing: pending,
+      },
     });
   } catch (err) {
     if (err instanceof StaleEditError || err instanceof WriteRefusedError) {

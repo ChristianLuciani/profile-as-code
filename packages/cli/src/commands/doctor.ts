@@ -34,7 +34,11 @@ import {
   SchemaValidationError,
 } from "@profile-as-code/core";
 import type { ContractDeltaReport } from "../contract-history.js";
-import { contractFloorAge, evaluateContractDelta } from "../contract-history.js";
+import {
+  contractFloorAgeOf,
+  evaluateContractDelta,
+  evaluateContractFloor,
+} from "../contract-history.js";
 import type { EngineConfigSource, EngineRequirement } from "../engine-gate.js";
 import {
   ENGINE_UPGRADE_COMMAND,
@@ -242,14 +246,18 @@ export function runDoctor(args: DoctorArgs): number {
     ? (() => {
         const report = evaluateContractDelta(args.engineSources, args.schemaVersion);
         if (workspace.profile === undefined) return report;
-        const age = contractFloorAge(report.floor);
+        // The DELTA uses the lowest floor ("what did I miss"); the migration
+        // policy uses the STRICTEST declared floor, so a v2.0 workspace is never
+        // outvoted by a legacy parent pointer (the engine gate's rule).
+        const strictest = evaluateContractFloor(args.engineSources, "highest");
+        const age = contractFloorAgeOf(strictest);
         if (age === "unknown" || report.state === "INVALID") {
           return {
             ...report,
             migration: {
               rows: [],
               total: 0,
-              note: "contract floor INVALID — fix .pascorc before deciding; rows without visibility are private (D27) and were not measured",
+              note: `contract floor INVALID (${strictest.problem ?? "malformed"}) — fix .pascorc before deciding; rows without visibility are private (D27) and were not measured`,
             },
           };
         }
@@ -260,7 +268,7 @@ export function runDoctor(args: DoctorArgs): number {
             migration: {
               rows,
               total: rows.length,
-              ...(report.floor === null
+              ...(strictest.declared === null
                 ? {
                     note: "no contract floor declared — treated as pre-v2.0; if this is a v2.0 workspace, declare contract 2.0 and leave the rows private",
                   }
@@ -273,7 +281,7 @@ export function runDoctor(args: DoctorArgs): number {
           migration: {
             rows: [],
             total: 0,
-            note: `contract floor ${report.floor} >= 2.0 — absent visibility is the intentional private default, no migration is due`,
+            note: `contract floor ${strictest.declared} >= 2.0 — absent visibility is the intentional private default, no migration is due`,
           },
         };
       })()

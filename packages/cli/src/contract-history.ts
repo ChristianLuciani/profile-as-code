@@ -290,13 +290,17 @@ export interface ContractFloor {
 
 /**
  * Resolve `.pascorc.contract` across every config the workspace resolution
- * consulted. A malformed declaration WINS (it is refused, never coerced) —
- * otherwise the LOWEST floor wins: the delta is the question "what did I miss",
- * so the most inclusive answer is the honest one, and the opposite of the
- * engine gate's "strictest wins" for the same reason.
+ * consulted. A malformed declaration WINS (it is refused, never coerced).
+ * `pick` selects the declared end: LOWEST (default) answers the delta's "what
+ * did I miss", the most inclusive reading; HIGHEST answers the migration
+ * notice/refusal, mirroring the engine gate's "strictest wins" — an explicit
+ * v2.0 floor anywhere must never be outvoted by a legacy parent pointer.
  */
-export function evaluateContractFloor(sources: readonly EngineConfigSource[]): ContractFloor {
-  let lowest: { value: string; source?: string } | null = null;
+export function evaluateContractFloor(
+  sources: readonly EngineConfigSource[],
+  pick: "lowest" | "highest" = "lowest",
+): ContractFloor {
+  let selected: { value: string; source?: string } | null = null;
   for (const source of sources) {
     const declared = source.pascorc.contract;
     if (declared === undefined) continue;
@@ -308,17 +312,18 @@ export function evaluateContractFloor(sources: readonly EngineConfigSource[]): C
       };
     }
     const normalized = `${parseContractVersion(declared)?.major}.${parseContractVersion(declared)?.minor}`;
-    if (lowest === null || (compareContractVersions(normalized, lowest.value) ?? 0) < 0) {
-      lowest = {
+    const compared = selected === null ? null : compareContractVersions(normalized, selected.value);
+    if (selected === null || (pick === "lowest" ? (compared ?? 0) < 0 : (compared ?? 0) > 0)) {
+      selected = {
         value: normalized,
         ...(source.pascorcPath === undefined ? {} : { source: source.pascorcPath }),
       };
     }
   }
-  if (lowest === null) return { declared: null };
+  if (selected === null) return { declared: null };
   return {
-    declared: lowest.value,
-    ...(lowest.source === undefined ? {} : { source: lowest.source }),
+    declared: selected.value,
+    ...(selected.source === undefined ? {} : { source: selected.source }),
   };
 }
 

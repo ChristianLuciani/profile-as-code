@@ -1287,7 +1287,9 @@ engine 0.3.6 · schema v1.15 · workspace /path/to/workspace (valid) · requires
   omission is never silent, not that a label is honest. The floor is read from **every** consulted
   `.pascorc` with the **lowest** declaration winning (the delta answers "what did
   I miss", so the most inclusive reading is the honest one — the mirror of the
-  engine gate's strictest-wins). Five states are printed and carried:
+  engine gate's strictest-wins). The **migration notice/refusal is the opposite**:
+  it uses the **strictest** declaration, so an explicit `>= 2.0` anywhere is never
+  outvoted by a legacy parent pointer. Five states are printed and carried:
   `delta` · `none` (`no delta (workspace floor = installed contract)`) ·
   `absent` (with the remedy: add `"contract"` naming the version the workspace
   was written against — never the installed one, which would answer "no delta";

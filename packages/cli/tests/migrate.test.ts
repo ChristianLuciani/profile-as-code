@@ -29,7 +29,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { hashUnit, load, trackableUnits } from "@profile-as-code/core";
+import { hashUnit, load, PROFILE_SCHEMA_VERSION, trackableUnits } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
 import { migrateVisibility } from "../src/commands/migrate.js";
 
@@ -319,7 +319,7 @@ describe("pasco migrate (D27, schema v2.0)", () => {
     };
     expect(envelope.command).toBe("migrate");
     expect(envelope.ok).toBe(true);
-    expect(envelope.data.schemaVersion).toBe("2.0");
+    expect(envelope.data.schemaVersion).toBe(PROFILE_SCHEMA_VERSION);
     expect(envelope.data.rows).toBe(6);
     expect(envelope.data.missing).toEqual([]);
     expect(envelope.data.migrated).toContainEqual({ file: "content/experience.yaml", rows: 2 });
@@ -404,6 +404,35 @@ describe("pasco doctor --contract-delta reports unmigrated rows (D27)", () => {
     const withoutFlag = run(["doctor", "--workspace", ws, "--json"]);
     const plain = JSON.parse(withoutFlag.stdout) as { data: Record<string, unknown> };
     expect(plain.data.contractDelta).toBeUndefined();
+  });
+});
+
+describe("the strictest declared floor governs the refusal (D27/S4a)", () => {
+  it("a legacy parent pointer cannot outvote the workspace's 2.0 floor", () => {
+    const root = mkdtempSync(join(tmpdir(), "pasco-migrate-dual-"));
+    const ws = join(root, "ws");
+    cpSync(FIXTURE, ws, { recursive: true });
+    writeFileSync(join(ws, ".pascorc"), `${JSON.stringify({ workspace: ".", contract: "2.0" })}\n`);
+    writeFileSync(
+      join(root, ".pascorc"),
+      `${JSON.stringify({ workspace: "ws", contract: "1.16" })}\n`,
+    );
+    const credentials = join(ws, "content", "credentials.yaml");
+    const before = readFileSync(credentials, "utf8");
+
+    const migrated = run(["migrate"], root);
+    expect(migrated.code).toBe(1);
+    expect(migrated.stderr).toContain("intentional private default");
+    expect(readFileSync(credentials, "utf8")).toBe(before);
+
+    const built = run(["build", "github-readme", "--json"], root);
+    expect(built.code, built.stderr).toBe(0);
+    const buildData = JSON.parse(built.stdout) as { data: { notices?: string[] } };
+    expect(buildData.data.notices ?? []).toEqual([]);
+
+    const doctor = run(["doctor", "--contract-delta"], root);
+    expect(doctor.code).toBe(0);
+    expect(doctor.stdout).toContain("no migration is due");
   });
 });
 
