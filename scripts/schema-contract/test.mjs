@@ -108,6 +108,31 @@ refusesPure(
   check("accepts a docs table that matches the bytes", errors.length === 0, errors.join(" | "));
 }
 refusesPure(
+  "refuses a docs version that disagrees with the schema",
+  {
+    doc: `## The current contract\n\n| Schema version | \`v1.13\` |\n| sha256 | \`${sha256(CURRENT)}\` |\n`,
+  },
+  "publishes schema version v1.13",
+);
+{
+  // The section ends at the next `## ` heading: a later table's hash row must not
+  // be read as the current one (nit 3 of the #511 merge pass).
+  const { errors } = runPure({
+    doc: [
+      "## The current contract",
+      "",
+      "| Schema version | `v1.14` |",
+      `| sha256 | \`${sha256(CURRENT)}\` |`,
+      "",
+      "## Another section",
+      "",
+      `| sha256 | \`${"0".repeat(64)}\` |`,
+      "",
+    ].join("\n"),
+  });
+  check("ignores a hash row in a later section", errors.length === 0, errors.join(" | "));
+}
+refusesPure(
   "refuses a current-schema version drift",
   { schema: schema("1.15") },
   "does not match the schema $id",

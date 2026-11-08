@@ -133,6 +133,9 @@ function checkVersionAndHash(fail, label, value, expectedVersion, expectedHash) 
  * @param {string}  input.releasedSchema    the schema text at `released.tag`
  * @param {boolean} input.tagReachable      the tag is an ancestor of HEAD
  * @param {string|null} input.newestTag     the newest reachable `v*` tag, if any
+ * @param {string}  [input.doc]             docs/SCHEMA-CONTRACT.md, when present —
+ *                                          the human surface that repeats the
+ *                                          CURRENT version/hash by hand
  * @returns {{errors: string[], warnings: string[]}}
  */
 export function checkContract({ contract, schema, releasedSchema, tagReachable, newestTag, doc }) {
@@ -148,11 +151,21 @@ export function checkContract({ contract, schema, releasedSchema, tagReachable, 
     // Scope to the CURRENT section: the doc also records the RELEASED artifact,
     // whose version/hash are historical facts about a tag and must not follow the
     // working tree (the released table is checked against the tag, below it).
-    const currentSection = doc.split(/^## The current contract/m)[1] ?? "";
+    // `## The current contract` … the next `## ` heading (NOT to EOF): a later
+    // section's table must never be read as this one.
+    const afterHeading = doc.split(/^## The current contract\s*$/m)[1] ?? "";
+    const currentSection = afterHeading.split(/^## /m)[0] ?? "";
     if (currentSection === "") {
       warnings.push(
         `${DOC_REL} has no "The current contract" section — the duplicated surface cannot be verified`,
       );
+    }
+    let schemaVersion = null;
+    try {
+      schemaVersion = schemaVersionOf(schema);
+    } catch (error) {
+      // The schema itself is unreadable: say it where the other errors go.
+      fail(`cannot read the schema version for the docs check: ${error.message}`);
     }
     const hashRow = /\|\s*sha256\s*\|\s*`([0-9a-f]{64})`/.exec(currentSection);
     if (currentSection !== "" && hashRow === null) {
@@ -165,9 +178,9 @@ export function checkContract({ contract, schema, releasedSchema, tagReachable, 
       );
     }
     const versionRow = /\|\s*Schema version\s*\|\s*`v([0-9.]+)`/.exec(currentSection);
-    if (versionRow !== null && versionRow[1] !== schemaVersionOf(schema)) {
+    if (versionRow !== null && schemaVersion !== null && versionRow[1] !== schemaVersion) {
       fail(
-        `${DOC_REL} publishes schema version v${versionRow[1]} but the schema is v${schemaVersionOf(schema)}`,
+        `${DOC_REL} publishes schema version v${versionRow[1]} but the schema is v${schemaVersion}`,
       );
     }
   }
