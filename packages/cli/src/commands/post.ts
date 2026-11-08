@@ -21,7 +21,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { LoadedProfile, Platform } from "@profile-as-code/core";
-import { LoadError, load, SchemaValidationError } from "@profile-as-code/core";
+import { isPublicEntry, LoadError, load, SchemaValidationError } from "@profile-as-code/core";
 import { parseDocument } from "yaml";
 import { isQuantitativeClaim } from "../claims.js";
 import {
@@ -273,6 +273,7 @@ export function renderFacts(
   text: string,
   profile: LoadedProfile,
 ): { text: string; dangling: string[] } {
+  profile = publicFacts(profile);
   const dangling: string[] = [];
   const rendered = text.replace(/\{\{fact:([^}]+)\}\}/g, (_whole, pointer: string) => {
     const value = resolveFact(profile, pointer.trim());
@@ -285,7 +286,20 @@ export function renderFacts(
   return { text: rendered, dangling };
 }
 
+/** D27: the post task/check bundle is a public-facing surface — only the
+ *  public rows of the four visibility blocks reach it. */
+function publicFacts(profile: LoadedProfile): LoadedProfile {
+  return {
+    ...profile,
+    projects: profile.projects.filter(isPublicEntry),
+    experience: profile.experience.filter(isPublicEntry),
+    credentials: (profile.credentials ?? []).filter(isPublicEntry),
+    artifacts: (profile.artifacts ?? []).filter(isPublicEntry),
+  };
+}
+
 function allowedUrls(profile: LoadedProfile): Set<string> {
+  profile = publicFacts(profile);
   const urls = new Set<string>();
   const add = (value: string | undefined): void => {
     if (value !== undefined && value !== "") urls.add(value);
@@ -300,6 +314,7 @@ function allowedUrls(profile: LoadedProfile): Set<string> {
 }
 
 function factLines(profile: LoadedProfile): string[] {
+  profile = publicFacts(profile);
   const lines: string[] = [];
   lines.push(`identity.name = ${profile.identity.name}`);
   if (profile.identity.location !== undefined) {

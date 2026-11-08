@@ -319,6 +319,34 @@ describe("pasco migrate (D27, schema v2.0)", () => {
     expect(load(ws).experience.every((row) => row.visibility === "public")).toBe(true);
   });
 
+  it("bumps the floor so a second run cannot publish a newly created private row", () => {
+    const ws = workspace();
+    writeFileSync(
+      join(ws, ".pascorc"),
+      `${JSON.stringify({ workspace: ".", contract: "1.16" })}\n`,
+    );
+    expect(migrate(ws).code).toBe(0);
+    const floor = JSON.parse(readFileSync(join(ws, ".pascorc"), "utf8")) as { contract?: string };
+    expect(floor.contract).toBe("2.0");
+
+    // Create a NEW row under the v2.0 default (omitted = private).
+    const projects = join(ws, "content", "projects.yaml");
+    writeFileSync(
+      projects,
+      `${readFileSync(projects, "utf8")}- id: new-secret\n  name: New Secret\n`,
+    );
+
+    const built = run(["build", "github-readme", "--json", "--workspace", ws]);
+    expect(built.code, built.stderr).toBe(0);
+    const buildData = JSON.parse(built.stdout) as { data: { notices?: string[] } };
+    expect(buildData.data.notices ?? []).toEqual([]);
+
+    const second = migrate(ws);
+    expect(second.code).toBe(1);
+    expect(second.stderr).toContain("intentional private default");
+    expect(readFileSync(projects, "utf8")).toContain("name: New Secret");
+  });
+
   it("warns on build only when the DECLARED floor predates v2.0", () => {
     const legacy = workspace();
     writeFileSync(
@@ -421,9 +449,12 @@ describe("pasco doctor --contract-delta reports unmigrated rows (D27)", () => {
     expect(migrate(ws).code).toBe(0);
     const after = run(["doctor", "--workspace", ws, "--contract-delta"]);
     expect(after.code).toBe(0);
-    expect(after.stdout).toContain(
-      "migration — every credentials/artifacts/projects/experience row declares visibility",
-    );
+    // A real migration also bumps the `.pascorc` floor to 2.0, so the delta's
+    // migration block now says no migration is due (rather than a row count).
+    expect(
+      JSON.parse(readFileSync(join(ws, ".pascorc"), "utf8")) as { contract?: string },
+    ).toMatchObject({ contract: "2.0" });
+    expect(after.stdout).toContain("no migration is due");
   });
 
   it("does not advise migration for a v2.0 contract floor", () => {

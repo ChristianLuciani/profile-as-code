@@ -3,22 +3,34 @@
  * never regress to the retired "declares and is never enforced" phrasing: this
  * PR makes `pasco migrate` refuse a >=2.0/INVALID floor, so the old sentence is
  * false on a published surface (the class-3 recurrence the fresh passes kept
- * finding). This is the gate that closes the class, not another local edit.
+ * finding). This gate scans the docs corpus and the CLI sources, not a
+ * hand-picked list, so a new surface cannot restate the claim silently.
  */
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
+function walk(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    return entry.isDirectory() ? walk(path) : [path];
+  });
+}
+
 const SURFACES = [
-  "docs/SPEC.md",
-  "docs/USER-GUIDE.md",
-  "packages/cli/src/index.ts",
-  "packages/cli/src/commands/doctor.ts",
-  "packages/cli/src/workspace.ts",
-] as const;
+  ...walk(join(ROOT, "docs"))
+    .filter((file) => file.endsWith(".md") && !file.includes("/research/"))
+    .map((file) => relative(ROOT, file)),
+  ...walk(join(ROOT, "packages/cli/src"))
+    .filter((file) => file.endsWith(".ts") && !file.includes("/generated/"))
+    .map((file) => relative(ROOT, file)),
+  "README.md",
+  "packages/cli/README.md",
+  "schema/README.md",
+];
 
 describe("the contract-floor policy has no 'never enforced' surface", () => {
   for (const file of SURFACES) {

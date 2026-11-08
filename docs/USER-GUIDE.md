@@ -380,11 +380,13 @@ same absence of automation and history unless your storage provides them.
   since v2.0. If your workspace predates that rule, run `pasco migrate` once —
   it writes `visibility: public` on the existing `credentials`, `artifacts`,
   `projects` and `experience` rows (comments and layout preserved; a second run
-  is a no-op), so your published output does not change. Run it only on a legacy
-  workspace: a `.pascorc` floor `>= 2.0` (or an invalid floor) makes `pasco
-  migrate` refuse, because those rows are intentionally private — set
-  `visibility: public` explicitly on the ones you want to publish. `pasco
-  doctor --contract-delta` reports the rows still missing the field.
+  is a no-op), so your published output does not change. On success it also
+  writes `contract: "2.0"` into the workspace `.pascorc` (creating it if absent),
+  so new rows stay private. Run it only on a legacy workspace: a `.pascorc` floor
+  `>= 2.0` (or an invalid floor) makes `pasco migrate` refuse, because those rows
+  are intentionally private — set `visibility: public` explicitly on the ones you
+  want to publish. `pasco doctor --contract-delta` reports the rows still missing
+  the field.
 
 Workspace resolution order (D14): `--workspace <path>` flag → `.pascorc` →
 current directory. With `workspace: "."`, run `pasco` from the workspace root and

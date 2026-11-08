@@ -22,6 +22,7 @@
 import {
   chmodSync,
   cpSync,
+  existsSync,
   mkdtempSync,
   readFileSync,
   realpathSync,
@@ -380,8 +381,50 @@ export interface MigrateArgs {
   contractFloor?: ContractFloor;
 }
 
+/** Read and validate the workspace `.pascorc` BEFORE any content write, so the
+ *  post-migration floor update cannot fail after rows were already rewritten. */
+function assertFloorWritable(workspace: string): void {
+  const path = join(workspace, ".pascorc");
+  if (!existsSync(path)) return;
+  const raw = readFileSync(path, "utf8");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new LoadError(
+      `${path}: .pascorc is not valid JSON — fix it and set "contract": "2.0" before migrating (nothing was written)`,
+    );
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new LoadError(
+      `${path}: .pascorc must be a JSON object — fix it and set "contract": "2.0" before migrating (nothing was written)`,
+    );
+  }
+}
+
+/** After a real migration, write the v2.0 floor into the workspace `.pascorc`
+ *  (creating it when absent). Without this the workspace keeps a <2.0 floor, so
+ *  build/preview/doctor keep advising `pasco migrate` and a second run would
+ *  publish rows the user created under the new private default. D27/S4a. */
+function bumpContractFloor(workspace: string): void {
+  const path = join(workspace, ".pascorc");
+  const data: Record<string, unknown> = (() => {
+    if (!existsSync(path)) return { workspace: "." };
+    const parsed = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    return parsed;
+  })();
+  data.contract = "2.0";
+  const text = `${JSON.stringify(data, null, 2)}\n`;
+  const mode = existsSync(path) ? statSync(path).mode & 0o777 : 0o644;
+  const temp = join(workspace, `.pascorc.migrate-${process.pid}.tmp`);
+  writeFileSync(temp, text, { mode });
+  chmodSync(temp, mode);
+  renameSync(temp, path);
+}
+
 export function runMigrate(args: MigrateArgs): number {
   try {
+    assertFloorWritable(args.workspace);
     const outcome = migrateVisibility(args.workspace, {
       contractFloor: args.contractFloor,
     });
@@ -390,6 +433,9 @@ export function runMigrate(args: MigrateArgs): number {
     // pre-v2.0 workspace this runs AFTER the splice, so the visibility leak the
     // old default caused is resolved before the gate is judged.
     const pending = missingVisibility(load(args.workspace));
+    // A real migration moves the workspace to v2.0; otherwise the old floor
+    // keeps advising migrate and a second run could republish new private rows.
+    if (outcome.rows > 0) bumpContractFloor(args.workspace);
     if (outcome.rows === 0) {
       line(
         "no migration needed — every credentials/artifacts/projects/experience row declares visibility",
