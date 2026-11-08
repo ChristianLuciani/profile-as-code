@@ -249,7 +249,15 @@ function validateMigration(
   const temp = mkdtempSync(join(tmpdir(), "pasco-migrate-"));
   try {
     cpSync(join(workspace, "content"), join(temp, "content"), { recursive: true });
-    for (const edit of edits) writeFileSync(join(temp, edit.file), edit.text, { mode: 0o600 });
+    for (const edit of edits) {
+      const copy = join(temp, edit.file);
+      // `cpSync` preserves a symlink; writing through it would mutate the REAL
+      // workspace file during validation (before the atomic replace) and a
+      // failed validation would claim "nothing written" while already having
+      // written. Remove the copied link first — the sibling writer's guard.
+      rmSync(copy, { force: true });
+      writeFileSync(copy, edit.text, { mode: 0o600 });
+    }
     validate(temp);
   } catch (err) {
     if (err instanceof LoadError || err instanceof SchemaValidationError) throw err;

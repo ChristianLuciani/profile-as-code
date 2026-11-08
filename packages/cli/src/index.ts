@@ -291,8 +291,9 @@ achievements keeps visibility REQUIRED (pasco log writes private) and is never
 touched. The write is a source splice: comments, alignment and every existing
 byte survive; the whole migrated content/ is validated by load() before the
 atomic replace. \`pasco doctor --contract-delta\` reports the rows still
-missing the field. Exit 0 migrated or already current - 1 a load/write failure
-(nothing written) - 2 usage.`,
+missing the field. Exit 0 migrated or already current - 1 a load/write failure,
+or a >=2.0/INVALID contract floor while rows would be rewritten (nothing
+written) - 2 usage.`,
   discover: `pasco discover <url>... [--json] [--allow-host <hosts>] [--observations <file>]
 Read public surfaces and build a PROVISIONAL profile so the audit's checks can
 run for a prospect who has no workspace. Every populated fact carries its

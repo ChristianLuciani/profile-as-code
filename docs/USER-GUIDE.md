@@ -369,15 +369,22 @@ same absence of automation and history unless your storage provides them.
   `pasco init` from the contract the installed engine validates. It is the floor
   `pasco doctor --contract-delta` diffs against: after an upgrade that command
   prints every minor in between, the fields each added and the surface that reads
-  them — the answer to "so what can I adopt now?". A reader, not a gate: nothing
-  refuses work because of it, and `doctor` reports an absent, malformed or
-  ahead-of-engine floor as a state instead of guessing.
+  them — the answer to "so what can I adopt now?". A reader for
+  `validate`/`build`/`preview`/`export profile` — none of them refuses work
+  because of it — but `pasco migrate` uses the same floor to protect intent: a
+  `>= 2.0` or malformed floor refuses to rewrite an absent `visibility` (the
+  intentional private default), while an absent or `< 2.0` floor is legacy and
+  migration is allowed. `doctor` reports an absent, malformed or ahead-of-engine
+  floor as a state instead of guessing.
 - **Schema v2.0 migration (D27)**: a row that omits `visibility` is **private**
   since v2.0. If your workspace predates that rule, run `pasco migrate` once —
   it writes `visibility: public` on the existing `credentials`, `artifacts`,
   `projects` and `experience` rows (comments and layout preserved; a second run
-  is a no-op), so your published output does not change. `pasco doctor
-  --contract-delta` reports the rows still missing the field.
+  is a no-op), so your published output does not change. Run it only on a legacy
+  workspace: a `.pascorc` floor `>= 2.0` (or an invalid floor) makes `pasco
+  migrate` refuse, because those rows are intentionally private — set
+  `visibility: public` explicitly on the ones you want to publish. `pasco
+  doctor --contract-delta` reports the rows still missing the field.
 
 Workspace resolution order (D14): `--workspace <path>` flag → `.pascorc` →
 current directory. With `workspace: "."`, run `pasco` from the workspace root and

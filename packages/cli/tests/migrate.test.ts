@@ -17,11 +17,13 @@
 import { spawnSync } from "node:child_process";
 import {
   cpSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -115,10 +117,13 @@ describe("pasco migrate (D27, schema v2.0)", () => {
 
   it("does not touch achievements (its visibility is required, not migrated)", () => {
     const ws = workspace();
+    const achievements = join(ws, "content", "achievements.yaml");
+    const row =
+      "- id: ach\n  statement:\n    en: Shipped it\n  kind: milestone\n  basis: reported\n  visibility: private\n";
+    writeFileSync(achievements, row);
+    const before = readFileSync(achievements, "utf8");
     expect(migrate(ws).code).toBe(0);
-    // The fixture ships no achievements file; the assertion is that migrate
-    // creates none (it only edits the four migration blocks).
-    expect(readdirSync(join(ws, "content"))).not.toContain("achievements.yaml");
+    expect(readFileSync(achievements, "utf8")).toBe(before);
   });
 
   it("keeps deployed §19 hashes in-sync across the migration (public == the old absent state)", () => {
@@ -232,6 +237,31 @@ describe("pasco migrate (D27, schema v2.0)", () => {
     expect(res.code).toBe(1);
     expect(res.stderr).toContain("pasco migrate:");
     expect(res.stdout).not.toContain("no migration needed");
+  });
+
+  it("never writes through a content symlink when validation fails", () => {
+    const ws = workspace();
+    const target = join(ws, "real-projects.yaml");
+    const link = join(ws, "content", "projects.yaml");
+    const invalid = "- id: needs\n  name: Needs\n- id: broken\n  visibility: public\n";
+    writeFileSync(target, invalid);
+    rmSync(link);
+    symlinkSync(target, link);
+    const res = migrate(ws);
+    expect(res.code).toBe(1);
+    expect(readFileSync(target, "utf8")).toBe(invalid);
+  });
+
+  it("preserves a content symlink on success and updates its target atomically", () => {
+    const ws = workspace();
+    const target = join(ws, "real-projects.yaml");
+    const link = join(ws, "content", "projects.yaml");
+    writeFileSync(target, "- id: needs\n  name: Needs\n");
+    rmSync(link);
+    symlinkSync(target, link);
+    expect(migrate(ws).code).toBe(0);
+    expect(lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(readFileSync(target, "utf8")).toContain("visibility: public");
   });
 
   it("warns on build only when the DECLARED floor predates v2.0", () => {
