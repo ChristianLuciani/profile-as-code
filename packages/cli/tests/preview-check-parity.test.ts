@@ -11,12 +11,13 @@
  * and require each one on the page. A rule added to the builder and forgotten
  * here fails as soon as it produces a finding — no per-rule list to maintain.
  *
- * DECLARED LIMIT: a rule that produces NOTHING for this workspace is not
- * exercised (media, text limits and fact-present have no trigger here), so its
- * wiring is not asserted by this file. Triggering all seven needs a workspace
- * with an expired credential, a broken media file, an over-cap text, a built
- * artifact and a duplicated narrative — that is the next step if the list is
- * ever refactored again.
+ * DECLARED LIMIT (measured, not guessed): this workspace triggers 2 of the 7
+ * report arrays (`handleIssues`, `linkIcons`); `registry`, `media`, `limits`,
+ * `factPresent` and `sameText` produce nothing here, so their wiring is NOT
+ * asserted — a rule dropped from `preview.ts` that also produces no finding
+ * would pass this file. Closing that needs one workspace per rule: an expired
+ * credential, a broken media file, an over-cap text, a built artifact and a
+ * duplicated narrative.
  */
 
 import { spawnSync } from "node:child_process";
