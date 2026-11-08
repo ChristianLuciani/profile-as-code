@@ -866,7 +866,7 @@
     "visibility": {
       "type": "string",
       "enum": ["public", "unlisted", "private"],
-      "description": "D17/§18.5, D27: first-class visibility. Renderers and the JSON-LD they embed emit only `public`; `unlisted` is shared on request (client DMs) and no renderer emits it; `private` never leaves the workspace through a rendered surface. Absent = `private` (D27, schema v2.0): publication is an explicit act. `pasco migrate` wrote `visibility: public` on pre-v2.0 rows to preserve their output. `pasco export profile` currently emits the full normalized profile; the public projection and its export flags are S4b."
+      "description": "D17/§18.5, D27: first-class visibility. Renderers and the JSON-LD they embed emit only `public`; `unlisted` is shared on request (client DMs) and no renderer emits it; `private` never leaves the workspace through a rendered surface. The field is optional on `credentials`, `artifacts`, `projects` and `experience`, and absent = `private` (D27, schema v2.0): publication is an explicit act. `achievements` requires the field and `pasco migrate` never writes it; on the four optional blocks, migrate wrote `visibility: public` on pre-v2.0 rows to preserve their output. `pasco export profile` currently emits the full normalized profile; the public projection and its export flags are S4b."
     },
 
     "credential": {

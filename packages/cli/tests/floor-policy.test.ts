@@ -26,6 +26,9 @@ describe("the contract-floor policy has no 'never enforced' surface", () => {
       const source = readFileSync(join(ROOT, file), "utf8");
       expect(source).not.toMatch(/never enforced/i);
       expect(source).not.toMatch(/do(?:es)? not read it/i);
+      // `validate`/`export profile` never read the floor; only build/preview
+      // (notice) and migrate (refusal) do.
+      expect(source).not.toMatch(/reader for [^.\n]*validate/i);
     });
   }
 

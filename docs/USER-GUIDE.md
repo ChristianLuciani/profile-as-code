@@ -369,10 +369,10 @@ same absence of automation and history unless your storage provides them.
   `pasco init` from the contract the installed engine validates. It is the floor
   `pasco doctor --contract-delta` diffs against: after an upgrade that command
   prints every minor in between, the fields each added and the surface that reads
-  them — the answer to "so what can I adopt now?". A reader for
-  `validate`/`build`/`preview`/`export profile` — none of them refuses work
-  because of it — but `pasco migrate` uses the same floor to protect intent: a
-  `>= 2.0` or malformed floor refuses to rewrite an absent `visibility` (the
+  them — the answer to "so what can I adopt now?". `build`/`preview` read it
+  only to emit the migration notice (never to refuse); `validate` and
+  `export profile` never read it. The one enforcement point is `pasco migrate`:
+  a `>= 2.0` or malformed floor refuses to rewrite an absent `visibility` (the
   intentional private default), while an absent or `< 2.0` floor is legacy and
   migration is allowed. `doctor` reports an absent, malformed or ahead-of-engine
   floor as a state instead of guessing.

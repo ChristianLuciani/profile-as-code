@@ -46,13 +46,15 @@ and a note naming the checkout; `released` names `v0.5.0`. The earlier artifact 
 | Field | Value |
 |---|---|
 | Schema version | `v2.0` |
-| sha256 | `81f02683d09686f73bec7d16222eca5f5a49363e67215c3407eef0617fcb6f53` |
+| sha256 | `02f77890b7290d7b09b6a38fc569060b8db24e2a0853d52338ea3ab75cd32aef` |
 | Published artifact | none yet — the next release publishes these bytes |
 
 A v1.x workspace still validates against v2.0 unchanged **unless** a public
-achievement references an unmigrated `projects`/`experience` row: absent
-visibility is private under v2.0, so that cross-reference is the §18.5 leak and
-`load()` fails (build/validate/doctor exit 1; the error names `pasco migrate`).
+achievement references an unmigrated row in any of the four visibility blocks
+(`credentialId`, `artifactId` or `refs` to `credentials`/`artifacts`/`projects`/
+`experience`): absent visibility is private under v2.0, so that cross-reference
+is the §18.5 leak and `load()` fails (build/validate/doctor exit 1; the error
+names `pasco migrate`).
 The **default** also changed, so published output changes until the workspace
 runs `pasco migrate` once. That command writes `visibility: public` on every
 `credentials`, `artifacts`, `projects` and `experience` row that lacks the field

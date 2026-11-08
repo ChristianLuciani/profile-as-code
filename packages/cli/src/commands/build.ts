@@ -52,7 +52,7 @@ export interface BuildArgs {
   viewArg?: string;
   langArg?: string;
   pascorc: Pascorc;
-  /** The effective contract floor (every consulted `.pascorc`, lowest wins). */
+  /** The effective contract floor (every consulted `.pascorc`; the STRICTEST wins for the migration policy). */
   contractFloor?: ContractFloor;
 }
 
