@@ -17,9 +17,11 @@
  * each ADD, and which surface reads it. The table it reads is a projection of
  * the schema's own `description` narration (`../contract-history.ts`), pinned by
  * `consumer-contract.test.ts`, so a schema bump that forgets it fails `pnpm test`.
- * The floor DECLARES and is never enforced (v1): `validate`/`build` do not read
- * it, so `doctor` reports its state without inventing a verdict the gate does not
- * back — the exit matrix below is unchanged by the flag.
+ * The floor is a reader for the delta; the one migration policy that consumes it
+ * is reachable from `build`/`preview` (a notice) and `pasco migrate` (a refusal
+ * for a >=2.0/INVALID floor while rows would be rewritten). `doctor` reports its
+ * state without inventing a verdict the gate does not back — its own exit matrix
+ * is unchanged by the flag.
  *
  * Exit matrix (the repo's): `0` healthy (workspace loads and any declared engine
  * requirement is met) · `1` unhealthy (the workspace fails to load, the engine

@@ -305,7 +305,15 @@ describe("pasco migrate (D27, schema v2.0)", () => {
       file,
       "- &role\n  role: Engineer\n  org: Example\n  start: 2020-01-01\n- *role\n",
     );
-    expect(migrate(ws).code).toBe(0);
+    const res = run(["migrate", "--workspace", ws, "--json"]);
+    expect(res.code, res.stderr).toBe(0);
+    const data = JSON.parse(res.stdout) as {
+      data: { migrated: { file: string; rows: number }[] };
+    };
+    // Two effective rows become public through ONE insertion on the anchor.
+    expect(data.data.migrated.find((file) => file.file === "content/experience.yaml")?.rows).toBe(
+      2,
+    );
     const migrated = readFileSync(file, "utf8");
     expect(migrated.match(/visibility: public/g)?.length ?? 0).toBe(1);
     expect(load(ws).experience.every((row) => row.visibility === "public")).toBe(true);

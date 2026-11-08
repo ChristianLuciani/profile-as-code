@@ -175,10 +175,13 @@ export function planVisibilityFile(
   }
   const insertions: Insertion[] = [];
   const seen = new Set<unknown>();
+  let missingRows = 0;
   for (const [row, item] of root.items.entries()) {
     // `load()` parses with aliases resolved; a `- *anchor` row is a valid map
     // there, so migrate resolves it too. The insertion goes to the ANCHOR map,
-    // and `seen` prevents a second one for an alias of the same node.
+    // and `seen` prevents a second one for an alias of the same node. `rows`
+    // counts effective ROWS, so an alias row counts even when it shares the
+    // anchor's single insertion.
     const node = isAlias(item) ? item.resolve(document) : item;
     if (node === undefined) {
       throw new LoadError(
@@ -186,6 +189,7 @@ export function planVisibilityFile(
       );
     }
     if (isMap(node)) {
+      if (!node.has("visibility")) missingRows += 1;
       if (seen.has(node)) continue;
       seen.add(node);
     }
@@ -221,7 +225,7 @@ export function planVisibilityFile(
       );
     }
   }
-  return { file, block, original, text, rows: insertions.length };
+  return { file, block, original, text, rows: missingRows };
 }
 
 export interface MigrateOutcome {

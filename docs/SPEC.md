@@ -1301,10 +1301,12 @@ engine 0.3.6 · schema v1.15 · workspace /path/to/workspace (valid) · requires
   source?, rows: [{ version, fields, buys }] }`. When the workspace **loads**,
   the block also carries `migration: { rows: [{ block, index, id? }], total }`
   — the schema v2.0 rows still missing `visibility` (D27, #498), which
-  `pasco migrate` resolves. An invalid workspace omits `migration` (the report
-  never fabricates a zero). The flag does **not** change the
-  exit matrix below: the contract floor declares and is never enforced, so
-  `doctor` does not invent a verdict the gate does not back.
+  `pasco migrate` resolves, or a `note` when the floor makes them intentionally
+  private/INVALID. An invalid workspace omits `migration` (the report never
+  fabricates a zero). The flag does **not** change **doctor's** exit matrix: the
+  floor is a reader for the delta, and its one enforcement point (`pasco migrate`
+  refuses a `>= 2.0`/INVALID floor while rows would be rewritten) belongs to that
+  command, so doctor does not invent a verdict the gate does not back.
 - **Exit matrix:** `0` healthy (workspace loads and any declared requirement is
   met) · `1` unhealthy (workspace fails to load, requirement unmet or malformed)
   · `2` usage. `doctor` **reports** the three facts but does not replace the
@@ -1944,8 +1946,9 @@ interface Renderer {
 ```
 
 `render()` is a **pure function**: no network, no AI, no randomness. It consumes the
-`PlatformProfile` slice produced by `compile()` (SPEC §7) — facts pass through untouched, texts
-are the platform+lang slice.
+`PlatformProfile` slice produced by `compile()` (SPEC §7) — facts pass through untouched
+**except the four visibility-bearing blocks** (`experience`, `projects`, `credentials`,
+`artifacts`, filtered by `isPublicEntry()` per D27); texts are the platform+lang slice.
 
 **The `assets?: string[]` slot (M8/D19).** The renderer declares the deploy-relative asset
 targets its text references (`assets/<id>/<basename>` — `artifactAssetTarget`, the single
