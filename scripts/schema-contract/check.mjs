@@ -152,12 +152,18 @@ export function checkContract({ contract, schema, releasedSchema, tagReachable, 
     // whose version/hash are historical facts about a tag and must not follow the
     // working tree (the released table is checked against the tag, below it).
     // `## The current contract` … the next `## ` heading (NOT to EOF): a later
-    // section's table must never be read as this one.
-    const afterHeading = doc.split(/^## The current contract\s*$/m)[1] ?? "";
-    const currentSection = afterHeading.split(/^## /m)[0] ?? "";
-    if (currentSection === "") {
-      warnings.push(
-        `${DOC_REL} has no "The current contract" section — the duplicated surface cannot be verified`,
+    // section's table must never be read as this one. The heading carries a
+    // SUFFIX in the real doc ("— v2.0, not yet published"), so it matches by
+    // prefix — an exact-line anchor turned this gate into a silent pass (micro
+    // pass of #511, blocker).
+    const heading = /^## The current contract\b.*$/m.exec(doc);
+    const rest = heading === null ? null : doc.slice(heading.index + heading[0].length);
+    const currentSection = rest === null ? "" : (rest.split(/^## /m)[0] ?? "");
+    if (heading === null) {
+      // A doc that exists to publish the hash but no longer has the section is a
+      // gate hole, not a note: it is the drift this check was added for.
+      fail(
+        `${DOC_REL} has no "## The current contract" section — the duplicated surface cannot be verified (restore the heading or delete the doc)`,
       );
     }
     let schemaVersion = null;
@@ -168,10 +174,9 @@ export function checkContract({ contract, schema, releasedSchema, tagReachable, 
       fail(`cannot read the schema version for the docs check: ${error.message}`);
     }
     const hashRow = /\|\s*sha256\s*\|\s*`([0-9a-f]{64})`/.exec(currentSection);
-    if (currentSection !== "" && hashRow === null) {
-      warnings.push(
-        `${DOC_REL} declares no sha256 row — the duplicated surface cannot be verified`,
-      );
+    if (heading !== null && hashRow === null) {
+      // Silence here would let a deleted row disable the gate.
+      fail(`${DOC_REL} declares no sha256 row — the duplicated surface cannot be verified`);
     } else if (hashRow !== null && hashRow[1] !== sha256(schema)) {
       fail(
         `${DOC_REL} publishes sha256 ${hashRow[1]} but the schema bytes hash to ${sha256(schema)} — the doc and the manifest must name the same bytes`,
