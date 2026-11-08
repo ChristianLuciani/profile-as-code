@@ -227,8 +227,14 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
     const b = PLATFORM_ICONS[l.platform];
     if (b === undefined) continue;
     seenBadge.add(l.platform);
+    // The label comes from the registry now, so it is escaped where it LANDS and
+    // not trusted for being ours: `mdText` in the alt text (the #76 rule every
+    // other label in this file follows) and percent-encoded in the shields path,
+    // where a stray space would split the badge (fresh review F3, #511).
+    // `gen:platforms` already refuses anything but one badge token; this is the
+    // second line, not the first.
     badges.push(
-      `[![${b.label}](https://img.shields.io/badge/${b.label}-${hostname(l.url)}-${b.color}?style=flat&logo=${b.slug}&logoColor=white)](${mdHref(l.url)})`,
+      `[![${mdText(b.label)}](https://img.shields.io/badge/${encodeURIComponent(b.label)}-${hostname(l.url)}-${b.color}?style=flat&logo=${b.slug}&logoColor=white)](${mdHref(l.url)})`,
     );
   }
   if (badges.length > 0) out.push("", badges.join(" "));

@@ -710,6 +710,19 @@ judgment call the engine cannot make. `pasco check --json` exposes it as
 exempt. `pasco refine` names the same rule in its task template, pointing at the
 target platform's skill for its reader and angle.
 
+### A link with no badge (`pasco check`, #511)
+
+A badge is drawn for a link whose `platform` has icon metadata in the engine's platform
+registry — today `github`, `linkedin`, `x`, `substack`, `orcid`, `scholar`, `website` and
+`researchgate`. The icon — the Simple Icons
+mark, the brand color and the badge's label — is **engine data**, declared on the
+platform's registry row, so it is not yours to set in the workspace (and no binary asset
+is downloaded or shipped). `pasco check` reports `check/link-platform-icon` for a link
+`platform` it cannot draw, as a **warn** naming the platform and the link: the badge is
+skipped, the link still renders as text, and nothing fails. `pasco check --json` exposes
+it as `data.linkIcons`; if the platform is missing from the list above, that is an engine
+gap, not a workspace fix.
+
 ---
 
 ## 6. Add entries & update content

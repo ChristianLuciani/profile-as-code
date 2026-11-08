@@ -348,6 +348,10 @@ export function runPreview(args: PreviewArgs): number {
     // SPEC §21.8 (#462): the advisory narrative rule is part of the report
     // `pasco check` prints, so the page cannot silently drop it (fresh pass F3).
     ...checks.sameText,
+    // #511: the icon-coverage rule is part of that same report — the reason this
+    // list is spelled out at all is that "one builder, two commands" fails the
+    // moment a rule is added here and forgotten (fresh review of #512, F4).
+    ...checks.linkIcons,
   ].map((finding) => ({
     severity: finding.severity,
     code: finding.code,

@@ -42,7 +42,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse as parseYaml } from "yaml";
-import { collectRenderers, SURFACE_KINDS } from "../renderer-map/gen.mjs";
+import { collectRenderers, REGISTRY_KINDS, SURFACE_KINDS } from "../renderer-map/gen.mjs";
 
 /** Configuration/shape error: the gate cannot verify what it was asked to verify. */
 class GateError extends Error {}
@@ -63,6 +63,10 @@ const ICON_SLUG = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 /** Brand color as a 6-digit hex WITHOUT the `#` — the registry stores the value
  *  the badge URL interpolates, so a `#` would ship a broken shield (#511). */
 const ICON_COLOR = /^[0-9A-Fa-f]{6}$/;
+/** The badge LABEL becomes a path segment of the shields URL and the Markdown
+ *  alt text, so it stays one short token — a space would split the badge and a
+ *  bracket would break the link (review F3, #511). */
+const ICON_LABEL = /^[A-Za-z0-9][A-Za-z0-9._&+-]{0,23}$/;
 const AI_OUT_REL = path.join("packages", "core", "src", "generated", "ai-policy.gen.ts");
 const SPEC_MARKER = "gen:platform-families";
 const SPEC_AI_MARKER = "gen:ai-policy";
@@ -204,9 +208,12 @@ async function loadRegistry(root) {
           `${REGISTRY_REL}: "${slug}".icon.color must be a 6-digit hex WITHOUT '#' — the badge URL interpolates it verbatim`,
         );
       }
-      if (typeof icon.label !== "string" || icon.label.trim() === "") {
+      // The label is interpolated into the shields PATH, so "non-empty" is not
+      // enough (review F3): a space splits the badge segments and `]`/`(` break
+      // the Markdown around it. One short token is what a shield renders anyway.
+      if (typeof icon.label !== "string" || !ICON_LABEL.test(icon.label)) {
         throw new GateError(
-          `${REGISTRY_REL}: "${slug}".icon.label must be a non-empty string (the text the surface prints)`,
+          `${REGISTRY_REL}: "${slug}".icon.label must be ONE badge token (letters, digits, dot, underscore, dash, plus, ampersand; no spaces) — it is interpolated into the shields path`,
         );
       }
     }
@@ -216,9 +223,9 @@ async function loadRegistry(root) {
       if (typeof entry.family !== "string" || entry.family.length === 0) {
         throw new GateError(`${REGISTRY_REL}: backlog "${slug}" must declare a family`);
       }
-      if (entry.kind !== undefined && !SURFACE_KINDS.includes(entry.kind)) {
+      if (entry.kind !== undefined && !REGISTRY_KINDS.includes(entry.kind)) {
         throw new GateError(
-          `${REGISTRY_REL}: "${slug}".kind must be one of ${SURFACE_KINDS.join(" | ")} (D23)`,
+          `${REGISTRY_REL}: "${slug}".kind must be one of ${REGISTRY_KINDS.join(" | ")} (D23)`,
         );
       }
       continue;
@@ -227,9 +234,9 @@ async function loadRegistry(root) {
     // claim that a profile renderer emits repo metadata — the exact confusion
     // this axis exists to end.
     const kind = entry.kind ?? "profile";
-    if (!SURFACE_KINDS.includes(kind)) {
+    if (!REGISTRY_KINDS.includes(kind)) {
       throw new GateError(
-        `${REGISTRY_REL}: "${slug}".kind must be one of ${SURFACE_KINDS.join(" | ")} (D23)`,
+        `${REGISTRY_REL}: "${slug}".kind must be one of ${REGISTRY_KINDS.join(" | ")} (D23)`,
       );
     }
     if (kind !== "profile") {
@@ -630,7 +637,7 @@ ${hosts}
  * \`PLATFORM_SLUGS\` stays the profile contract; this map is the axis a release
  * plan orders by, never a second enum.
  */
-export type SurfaceKind = "profile" | "repo-meta" | "distribution";
+export type SurfaceKind = "profile" | "repo-meta" | "distribution" | "identity";
 export const PLATFORM_KINDS: Readonly<Record<string, SurfaceKind>> = {
 ${kinds}
 };

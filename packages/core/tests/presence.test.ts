@@ -147,6 +147,18 @@ describe("releasePlan — the ordered fan-out", () => {
     expect(() => presenceBoard(profile)).toThrow(/is not declared in platforms\/registry.yaml/);
   });
 
+  it("refuses an identity link target as a release surface (#511)", () => {
+    // `github` IS a registry row now — kind: identity — so "not declared" is no
+    // longer the message. It is still an error: a link target has no body to
+    // fan out, and accepting it would have made the `github`/`github-readme`
+    // typo pass silently (fresh review of #512, F2).
+    const profile = load(RELEASES);
+    profile.releases[0]!.surfaces.push("github");
+    expect(() => releasePlan(profile)).toThrow(PresenceError);
+    expect(() => releasePlan(profile)).toThrow(/identity link target/);
+    expect(() => presenceBoard(profile)).toThrow(/identity link target/);
+  });
+
   it("is deterministic: two reads produce identical bytes", () => {
     const profile = load(RELEASES);
     expect(JSON.stringify(releasePlan(profile))).toBe(JSON.stringify(releasePlan(profile)));

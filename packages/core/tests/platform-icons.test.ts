@@ -22,6 +22,30 @@ describe("PLATFORM_ICONS — the registry projection (#511)", () => {
     expect(PLATFORM_ICONS.website).toEqual({ slug: "github", color: "111111", label: "Website" });
   });
 
+  it("pins every moved value, including the three the README golden does not exercise", () => {
+    // The golden fixture links only github/linkedin/x/orcid/substack; these three
+    // moved too, so a wrong hex or slug in their rows would have passed every
+    // gate (fresh review of #512, F7). Values verified against the Simple Icons
+    // data cited in each row's `sources`.
+    expect(PLATFORM_ICONS.researchgate).toEqual({
+      slug: "researchgate",
+      color: "00CCBB",
+      label: "ResearchGate",
+    });
+    expect(PLATFORM_ICONS.scholar).toEqual({
+      slug: "googlescholar",
+      color: "4285F4",
+      label: "Scholar",
+    });
+    expect(PLATFORM_ICONS.orcid).toEqual({ slug: "orcid", color: "A6CE39", label: "ORCID" });
+    expect(PLATFORM_ICONS.linkedin).toEqual({
+      slug: "linkedin",
+      color: "0A66C2",
+      label: "LinkedIn",
+    });
+    expect(PLATFORM_ICONS.x).toEqual({ slug: "X", color: "000000", label: "X" });
+  });
+
   it("never carries a '#' in a color (the badge URL interpolates the value)", () => {
     for (const [platform, icon] of Object.entries(PLATFORM_ICONS)) {
       expect(icon.color, platform).toMatch(/^[0-9A-Fa-f]{6}$/);

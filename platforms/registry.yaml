@@ -27,14 +27,18 @@
 #                    `backlog` = declared but NOT an enum entry (verify the
 #                    official eligibility page before any claim). Backlog entries
 #                    carry only family + kind + note + sources.
-#   kind             profile | repo-meta | distribution (D23, #262) — the
-#                    presence axis, additive. `profile` (absent = profile) is the
-#                    identity body rendered per platform; `repo-meta` is metadata
-#                    of the code artifact (repo description/topics, release notes,
-#                    npm page, site); `distribution` is where a release is
-#                    announced. A backlog entry may carry any kind; an enum
-#                    `member` must be `profile` (the enum IS the profile bodies).
-#                    A renderer's `pasco.surface` must agree (gen-platforms gate).
+#   kind             profile | repo-meta | distribution | identity (D23, #262;
+#                    `identity` #511) — the presence axis, additive. `profile`
+#                    (absent = profile) is the identity body rendered per
+#                    platform; `repo-meta` is metadata of the code artifact (repo
+#                    description/topics, release notes, npm page, site);
+#                    `distribution` is where a release is announced; `identity`
+#                    is a link target with NO renderable body here (an ORCID
+#                    profile, the owner's site) — REGISTRY-ONLY: it is never a
+#                    release surface and no renderer may declare it. A backlog
+#                    entry may carry any kind; an enum `member` must be `profile`
+#                    (the enum IS the profile bodies). A renderer's
+#                    `pasco.surface` must agree (gen-platforms gate).
 #   family           optional family id (see `families:`); absent = un-bucketed
 #   origin           postiz | extra — Postiz parity vs operator extra (D16)
 #                    [member only]
@@ -55,13 +59,15 @@
 #   fixture          optional test workspace under packages/core/tests/fixtures/
 #   icon             optional PRESENTATION metadata, `{ slug, color, label }`:
 #                    `slug` = the Simple Icons identifier a badge draws,
-#                    `color` = the brand hex WITHOUT `#`, `label` = the text the
-#                    surface prints next to it. Declarative only — the engine
+#                    `color` = the brand hex WITHOUT `#`, `label` = the SHORT
+#                    badge token the surface prints (one word: a space would
+#                    segment the shields path). Declarative only — the engine
 #                    ships no binary asset and vendors no SVG (#511). It exists
 #                    so `identity.links[].platform` resolves against ONE key
 #                    space: the registry's. `pasco check` warns
 #                    (`check/link-platform-icon`) when a link names a platform
-#                    that has no icon here.
+#                    that has no icon here. The row's `sources` must carry the
+#                    evidence for the hex, not just the platform's existence.
 #   note             optional short annotation rendered into the SPEC family table
 #   sources          REQUIRED — where the facts were verified (evidence rule)
 version: 1
@@ -220,6 +226,7 @@ platforms:
         "SPEC §6 (D16)",
         "issue #483",
         "[WEB] support.substack.com (via r.jina.ai), fetched 2026-11-05",
+        "[WEB] simple-icons data (title=Substack, hex=FF6719, data/simple-icons.json), fetched 2026-11-07",
       ]
   whop:
     status: member
@@ -264,7 +271,11 @@ platforms:
     renderer: true
     fixture: minimal
     icon: { slug: github, color: "181717", label: GitHub }
-    sources: ["SPEC §6 (D16)"]
+    sources:
+      [
+        "SPEC §6 (D16)",
+        "[WEB] simple-icons data (title=GitHub, hex=181717, data/simple-icons.json), fetched 2026-11-07",
+      ]
   linkedin:
     status: member
     kind: profile
@@ -276,7 +287,12 @@ platforms:
     handle_hosts: []
     renderer: false
     icon: { slug: linkedin, color: "0A66C2", label: LinkedIn }
-    sources: ["SPEC §6 (D16)", "README (deploy: no API)"]
+    sources:
+      [
+        "SPEC §6 (D16)",
+        "README (deploy: no API)",
+        "[WEB] simple-icons data (title=LinkedIn, hex=0A66C2, data/simple-icons.json), fetched 2026-11-07",
+      ]
   x:
     status: member
     kind: profile
@@ -288,7 +304,11 @@ platforms:
     handle_hosts: [x.com, twitter.com]
     renderer: false
     icon: { slug: X, color: "000000", label: X }
-    sources: ["SPEC §6 (D16)"]
+    sources:
+      [
+        "SPEC §6 (D16)",
+        "[WEB] simple-icons data (title=X, hex=000000, data/simple-icons.json), fetched 2026-11-07",
+      ]
   researchgate:
     status: member
     kind: profile
@@ -300,7 +320,11 @@ platforms:
     handle_hosts: []
     renderer: false
     icon: { slug: researchgate, color: "00CCBB", label: ResearchGate }
-    sources: ["SPEC §6 (D16)"]
+    sources:
+      [
+        "SPEC §6 (D16)",
+        "[WEB] simple-icons data (title=ResearchGate, hex=00CCBB, data/simple-icons.json), fetched 2026-11-07",
+      ]
   github-org:
     status: member
     kind: profile
@@ -837,36 +861,57 @@ platforms:
   #    `github-readme` member whose body this engine renders, and from
   #    `github-org`/`github-repo-meta`. Backlog rows carry no `hosts`, so the
   #    drift host maps stay exactly as they were.
+  #
+  #    `kind: identity` is the axis these rows needed (#511 review F2): reusing
+  #    `profile` ("the identity body rendered per platform") for a row that has
+  #    no body let a `github`/`github-readme` typo through the release-plan guard.
+  #    `identity` is REGISTRY-ONLY: a renderer cannot declare it as its
+  #    `pasco.surface`, and `releasePlan`/`presence` refuse it as a surface.
+  #    Every icon value below is the moved one, now with the Simple Icons
+  #    evidence that carries it — except `website`, whose color is not a brand
+  #    hex at all (the retired table drew the GitHub mark for it).
   github:
     status: backlog
-    kind: profile
+    kind: identity
     family: identity
     note: "the GitHub profile the link points at — this row is the LINK TARGET, not the member whose body the engine renders"
     icon: { slug: github, color: "181717", label: GitHub }
-    sources: ["[MI] moved from the github-readme BADGE table, #511"]
+    sources:
+      [
+        "[WEB] simple-icons data (title=GitHub, hex=181717, data/simple-icons.json), fetched 2026-11-07",
+      ]
   orcid:
     status: backlog
-    kind: profile
+    kind: identity
     family: identity
     note: "the ORCID researcher profile — an identity link, never a rendered body"
     icon: { slug: orcid, color: "A6CE39", label: ORCID }
-    sources: ["[MI] moved from the github-readme BADGE table, #511"]
+    sources:
+      [
+        "[WEB] simple-icons data (title=ORCID, hex=A6CE39, data/simple-icons.json), fetched 2026-11-07",
+      ]
   scholar:
     status: backlog
-    kind: profile
+    kind: identity
     family: identity
     note: "Google Scholar citations profile — an identity link, never a rendered body"
     icon: { slug: googlescholar, color: "4285F4", label: Scholar }
-    sources: ["[MI] moved from the github-readme BADGE table, #511"]
+    sources:
+      [
+        "[WEB] simple-icons data (title=Google Scholar, hex=4285F4, data/simple-icons.json), fetched 2026-11-07",
+      ]
   # The personal site keeps the mark the README has always drawn for it (the
   # GitHub glyph, #511): changing it is a layout decision, not this issue's.
   website:
     status: backlog
-    kind: profile
+    kind: identity
     family: identity
     note: "the profile owner's own site (the CV) — `slug: github` is the mark the README already drew for this link"
     icon: { slug: github, color: "111111", label: Website }
-    sources: ["[MI] moved from the github-readme BADGE table, #511"]
+    sources:
+      [
+        "[MI] the color is 111111, NOT a Simple Icons brand hex — the retired github-readme BADGE table drew the GitHub mark for this link and the byte-parity requirement keeps it (#511)",
+      ]
 
 # ── ai — the AI crawler policy (M9 floor, issue #290) ────────────────────────
 #

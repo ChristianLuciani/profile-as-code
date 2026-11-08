@@ -344,7 +344,76 @@ try {
     const res = run(root);
     check(
       "an empty icon label refuses",
-      res.code === 1 && res.out.includes("icon.label must be a non-empty string"),
+      res.code === 1 && res.out.includes("icon.label must be ONE badge token"),
+      res.out.trim(),
+    );
+  }
+
+  {
+    // The label is a shields path segment, so a space is not harmless (review F3).
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: {
+          ...BASE_PLATFORMS.alpha,
+          icon: { slug: "alpha", color: "A6CE39", label: "Google Scholar" },
+        },
+      },
+    });
+    const res = run(root);
+    check(
+      "a label with a space refuses (it would segment the shields path)",
+      res.code === 1 && res.out.includes("icon.label must be ONE badge token"),
+      res.out.trim(),
+    );
+  }
+  {
+    // #511: `identity` is a REGISTRY kind — declarable on a backlog row so
+    // `identity.links[].platform` resolves, and projected as such.
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        orcid: BACKLOG({ kind: "identity", family: "creator-monetization" }),
+      },
+    });
+    const res = run(root);
+    check("a backlog row may declare kind: identity (#511)", res.code === 0, res.out.trim());
+    const module = readFileSync(join(root, OUT_REL), "utf8");
+    check(
+      "projects kind: identity into PLATFORM_KINDS (#511)",
+      module.includes('orcid: "identity",'),
+      module,
+    );
+  }
+  {
+    // An enum member is a profile BODY: identity exists precisely because these
+    // rows have none.
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: { ...BASE_PLATFORMS.alpha, kind: "identity" },
+      },
+    });
+    const res = run(root);
+    check(
+      "a member with kind: identity refuses (the enum is the profile bodies)",
+      res.code === 1 && res.out.includes('member "alpha" declares kind "identity"'),
+      res.out.trim(),
+    );
+  }
+  {
+    // A renderer may not claim the registry-only kind as its surface (#511).
+    const root = tree({
+      ...BASE_TREE,
+      renderers: [{ ...ALPHA_RENDERER, surface: "identity" }],
+    });
+    const res = run(root);
+    check(
+      "a renderer manifest with pasco.surface: identity refuses",
+      res.code === 1 && res.out.includes("pasco.surface must be one of"),
       res.out.trim(),
     );
   }
@@ -366,7 +435,9 @@ try {
       "projects the backlog kinds into PLATFORM_KINDS",
       module.includes('npm: "repo-meta",') &&
         module.includes('hn: "distribution",') &&
-        module.includes('export type SurfaceKind = "profile" | "repo-meta" | "distribution";'),
+        module.includes(
+          'export type SurfaceKind = "profile" | "repo-meta" | "distribution" | "identity";',
+        ),
       module,
     );
     check(

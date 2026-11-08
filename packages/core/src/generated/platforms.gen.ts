@@ -128,7 +128,7 @@ export const PLATFORM_HOSTS: readonly string[] = [
  * `PLATFORM_SLUGS` stays the profile contract; this map is the axis a release
  * plan orders by, never a second enum.
  */
-export type SurfaceKind = "profile" | "repo-meta" | "distribution";
+export type SurfaceKind = "profile" | "repo-meta" | "distribution" | "identity";
 export const PLATFORM_KINDS: Readonly<Record<string, SurfaceKind>> = {
   patreon: "profile",
   kofi: "profile",
@@ -196,10 +196,10 @@ export const PLATFORM_KINDS: Readonly<Record<string, SurfaceKind>> = {
   "linkedin-post": "distribution",
   "devto-post": "distribution",
   "awesome-lists": "distribution",
-  github: "profile",
-  orcid: "profile",
-  scholar: "profile",
-  website: "profile",
+  github: "identity",
+  orcid: "identity",
+  scholar: "identity",
+  website: "identity",
 };
 
 /**
