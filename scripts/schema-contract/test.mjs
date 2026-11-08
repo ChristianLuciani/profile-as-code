@@ -111,7 +111,7 @@ refusesPure(
 );
 refusesPure(
   "refuses a doc with no current-contract section (a gate hole, not a note)",
-  { doc: "## Something else\n\n| sha256 | \`" + "0".repeat(64) + "\` |\n" },
+  { doc: `## Something else\n\n| sha256 | \`${"0".repeat(64)}\` |\n` },
   'has no "## The current contract" section',
 );
 refusesPure(

@@ -186,7 +186,9 @@ export function checkContract({ contract, schema, releasedSchema, tagReachable, 
     if (heading !== null && versionRow === null) {
       // Same silent-pass class as a deleted hash row, one row over (pass 11 nit):
       // removing the version line must not leave the table half-gated.
-      fail(`${DOC_REL} declares no "Schema version" row — the duplicated surface cannot be verified`);
+      fail(
+        `${DOC_REL} declares no "Schema version" row — the duplicated surface cannot be verified`,
+      );
     } else if (versionRow !== null && schemaVersion !== null && versionRow[1] !== schemaVersion) {
       fail(
         `${DOC_REL} publishes schema version v${versionRow[1]} but the schema is v${schemaVersion}`,
