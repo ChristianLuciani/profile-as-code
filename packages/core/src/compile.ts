@@ -1,10 +1,12 @@
 /**
  * compile(profile, platform, lang) — the language-aware slice a renderer consumes
- * (SPEC §7). Facts (identity, experience, projects, publications, skills) pass
- * through UNTOUCHED — they are language-independent and identical on every
- * platform (that is what makes them GEO-citable). Only text (bios, headlines,
- * statement, audiences, citationsGoal) is filtered by platform+lang, falling back
- * to `en` when the requested lang is absent (EN is always required by the schema).
+ * (SPEC §7). Facts (identity, publications, skills, ...) pass through UNTOUCHED
+ * — they are language-independent and identical on every platform (that is what
+ * makes them GEO-citable). The ONE exception is visibility (D27): experience,
+ * projects, credentials and artifacts are filtered by `isPublicEntry()` before
+ * the slice. Text (bios, headlines, statement, audiences, citationsGoal) is
+ * filtered by platform+lang, falling back to `en` when the requested lang is
+ * absent (EN is always required by the schema).
  *
  * The platform set is the single `PLATFORMS` const from types.js (generated from
  * the schema enum) — never duplicated here.
@@ -12,7 +14,13 @@
 
 import { type CompletenessPolicy, completeness } from "./completeness.js";
 import { normalizeProfile } from "./load.js";
-import { type SelectionPolicy, selectFacts } from "./selection.js";
+import { isPublicEntry } from "./registry.js";
+import {
+  SELECTION_BLOCKS,
+  type SelectionPolicy,
+  type SelectionReport,
+  selectFacts,
+} from "./selection.js";
 import { structuredData } from "./structured-data.js";
 import type { Lang, Platform, PlatformProfile, Profile } from "./types.js";
 import { PLATFORMS } from "./types.js";
@@ -106,11 +114,54 @@ export function compile(
   //     claim entities the render never shows;
   //   - completeness stays on the UNFILTERED profile, because §20 scores the
   //     WORKSPACE, not a view (hiding half the SSOT must not lower the number).
+  // D27 (§18.5): visibility is the ONE exception to "facts pass through" — a
+  // private/unlisted row never reaches a renderer or the JSON-LD assembled below.
+  // Selection runs on the UNFILTERED profile so a view's `excludeKeys` can still
+  // name a row that is now private (the pre-v2.0 hiding workaround); visibility
+  // is applied to the SELECTED profile and the `selected` counts are recomputed
+  // on what the artifact actually emits. Completeness reads the UNFILTERED
+  // profile (it scores the workspace, not a view).
   const selection =
     policy?.selection === undefined
       ? undefined
       : selectFacts(profile, policy.view ?? platform, platform, lang, policy.selection);
-  const facts = selection?.profile ?? profile;
+  const selectedProfile = selection?.profile ?? profile;
+  const facts = {
+    ...selectedProfile,
+    experience: (selectedProfile.experience ?? []).filter(isPublicEntry),
+    projects: (selectedProfile.projects ?? []).filter(isPublicEntry),
+    credentials: (selectedProfile.credentials ?? []).filter(isPublicEntry),
+    artifacts: (selectedProfile.artifacts ?? []).filter(isPublicEntry),
+  };
+  const countRows = (source: unknown): number =>
+    SELECTION_BLOCKS.reduce((total, block) => {
+      const rows = (source as Record<string, unknown>)[block];
+      return total + (Array.isArray(rows) ? rows.length : 0);
+    }, 0);
+  const report =
+    selection === undefined
+      ? undefined
+      : {
+          ...selection.report,
+          selected: Object.fromEntries(
+            SELECTION_BLOCKS.map((block) => {
+              const rows = (facts as unknown as Record<string, unknown>)[block];
+              return [block, Array.isArray(rows) ? rows.length : 0];
+            }),
+          ) as SelectionReport["selected"],
+        };
+  if (report !== undefined && countRows(selectedProfile) > 0 && countRows(facts) === 0) {
+    // The view selected rows, but visibility (D27) left nothing to emit: the
+    // same "empty surface" warning the selection itself would have emitted.
+    report.findings = [
+      ...report.findings,
+      {
+        code: "selection/empty-facts",
+        severity: "warn",
+        message: `view "${report.view}" selects ZERO entries after visibility filtering — every selected row is private/unlisted (D27)`,
+      } as SelectionReport["findings"][number],
+    ];
+  }
 
   return {
     platform,
@@ -138,7 +189,7 @@ export function compile(
       geo: profile.keywords?.geo ?? {},
     },
     checks: platformChecks,
-    // Evidence registry (v1.4/D17, §18) — facts, pass through untouched.
+    // Evidence registry (v1.4/D17, §18) — the public rows of the filtered slice.
     credentials: facts.credentials ?? [],
     artifacts: facts.artifacts ?? [],
     ...(profile.active?.[platform] ? { active: profile.active[platform] } : {}),
@@ -151,7 +202,7 @@ export function compile(
     // passes it, so the artifact and `pasco status --completeness` agree
     // (review of #205, finding 3); omitted ⇒ the shipped default.
     completeness: completeness(normalizeProfile(profile), policy),
-    ...(selection === undefined ? {} : { selection: selection.report }),
+    ...(report === undefined ? {} : { selection: report }),
     fallbacks,
   };
 }

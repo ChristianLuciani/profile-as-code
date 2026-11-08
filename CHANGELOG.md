@@ -9,6 +9,23 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+- **Schema v2.0 — privacy by default, and `pasco migrate` (#498, D27/S4a)** —
+  since v2.0 an entry that omits `visibility` is **private**, not public. The
+  four migration blocks (`credentials`, `artifacts`, `projects`, `experience`)
+  accept the optional field; `achievements` keeps it required, so an internal
+  outcome can never publish by omission. An existing workspace keeps publishing
+  exactly what it published before by running `pasco migrate` once: the command
+  writes `visibility: public` on every row that lacks the field (a row that
+  declares any value is untouched, so a second run is a no-op), splices the line
+  into the original text so comments and layout survive, validates the whole
+  migrated `content/` through the same `load()` gate and replaces each file
+  atomically under the shared lock. `pasco doctor --contract-delta` now also
+  reports the rows still missing the field (`migration` in the JSON block), and
+  a golden test pins that a migrated workspace renders byte-identically to the
+  pre-D27 output. `pasco log` already wrote `private`; `unlisted` remains an
+  explicit state no renderer emits. Public projection, export v2, dual
+  completeness, the deployments/releases projection and the remaining surface work are S4b/S4c; the `compile()`/`currentRole` visibility filters ARE in this slice because absent=private would otherwise leak.
+
 - **`pasco log` — the capture path of the impact log, and a retrieval by period
   (#496/#497, D25/S2+S3, SPEC §23.5/§23.6)** — the typed record had a shape and a
   read view but no way to fill it without opening the YAML. `pasco log` writes ONE

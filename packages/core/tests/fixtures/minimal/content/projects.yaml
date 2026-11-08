@@ -12,6 +12,7 @@
         en: Serves 100k+ requests/month across 12 deployments.
       source: https://doi.org/10.5555/sovereign-hub
       verified: 2025-01-10
+  visibility: public
 - name: open-education-platform
   status: maintained
   description:
@@ -21,3 +22,4 @@
   keywords:
     - open-source education
     - OER
+  visibility: public

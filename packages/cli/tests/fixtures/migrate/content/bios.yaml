@@ -1,0 +1,16 @@
+- platform: github-readme
+  lang: en
+  length: long
+  text: Elena Vasquez builds sovereign AI infrastructure and writes about generative-engine optimization.
+- platform: linkedin
+  lang: en
+  length: medium
+  text: Senior AI engineer designing local-first LLM infrastructure used by 12+ deployments.
+- platform: linkedin
+  lang: es
+  length: medium
+  text: Ingeniera senior de IA diseñando infraestructura local-first para LLMs.
+- platform: x
+  lang: en
+  length: short
+  text: Building sovereign AI infra. Open education. GEO for profiles.

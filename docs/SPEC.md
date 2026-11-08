@@ -373,11 +373,11 @@ positioning:   { statement: {lang}, audiences: {lang: angle}, geo: { semanticAss
 bios:          [ { platform, lang, length: short|medium|long, text } ]   # generated + curated
 headlines:     [ { platform, lang, text } ]                   # per-platform, per-lang
 skills:        [ { name, level, keywords[], geoKeywords[], platformWeights{} } ]
-experience:    [ { id?, origin?, role, org, start, end, highlights{lang} } ]   # id/origin — D18 §19
-projects:      [ { id?, origin?, name, status, description{lang}, links, keywords{}, evidence[], artifactRefs[]? } ]   # artifactRefs — v1.12, #333
+experience:    [ { id?, origin?, role, org, start, end, highlights{lang}, visibility? } ]   # id/origin — D18 §19; visibility — v2.0, D27 (absent = private)
+projects:      [ { id?, origin?, name, status, description{lang}, links, keywords{}, evidence[], artifactRefs[]?, visibility? } ]   # artifactRefs — v1.12, #333; visibility — v2.0, D27 (absent = private)
 publications:  [ { id?, origin?, title, venue, year, kind?, doi, orcidId, artifactRefs[]? } ]   # kind — v1.14, #349
-credentials:   [ { id, kind, title, issuer, credentialId?, verifyUrl, issued, expires?, visibility } ]
-artifacts:     [ { id, kind, title, description{lang}?, locator, checksum?, license?, tags[], visibility } ]
+credentials:   [ { id, kind, title, issuer, credentialId?, verifyUrl, issued, expires?, visibility? } ]   # visibility — v2.0, D27 (absent = private)
+artifacts:     [ { id, kind, title, description{lang}?, locator, checksum?, license?, tags[], visibility? } ]   # visibility — v2.0, D27 (absent = private)
 keywords:      { seo: { platform: [] }, geo: { associations: [], claims: [] } }
 checks:        [ { platform, rule, value, surface? } ]         # declarative; surface = headline|bio|both (#240)
 active:        { platform: { lang, variantId, chosenAt } }    # which variant is live
@@ -460,6 +460,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco init` | scaffold a profile-data workspace from the template |
 | `pasco validate` | schema (fail) + drift/geo checks (facts warn). Text mode renders one line per GEO code that scored 0, prefixed by its severity tier — `warn: [code] …` is a warning, `info: [geo/freshness]`-style lines are NOTES, never warnings (v1.10 tiers, #322); a code that scored above 0 renders no finding line, and `absent` tier = `warn`. A code with nothing to measure renders one `n/a: [code] …` line instead (§8/#399): it is not a finding — its `score` is not consumed by the overall, so it is neither a warning nor a note. A section in which no code can contribute weight prints `n/a` instead of `0/100`. `--json` carries every check (with its `severity` and `detail`, plus `applicable: false` on an N/A code or section) — a check whose detail holds an anomaly note (future-dated freshness) is always fully visible there. The human report prints the index's basis before the number — `basis: heuristic index over the declared fields (geo-heuristic-v2) — not a measurement of citations` (#433) — and `--json` carries `geo.basis` plus `geo.measured: false` on the report, so no consumer can quote the number as measured citability (§8) |
 | `pasco doctor [--json]` | the **engine · schema · workspace** reading on ONE line (issue #348): the installed CLI version, the profile-contract version this build validates (derived from the schema `$id` by `pnpm gen:zod`, never a literal), the resolved workspace path and whether it loads, plus the `.pascorc` engine requirement, whose state is named in one token: `absent` (nothing was declared — not a pass, even though a requirement-less workspace stays healthy) · `met` · `NOT MET` with the upgrade command · `INVALID` with the syntax problem. Chosen over overloading `--version` because `--version` describes the binary and must work with no workspace, while `doctor` describes the pair. `--json` emits `{ engine: { name, version }, schema: { version }, workspace: { path, valid, error? }, requirement: { declared, met, state, problem?, source? } }` in the standard envelope, `state` being `absent` | `met` | `NOT MET` | `INVALID`. Exit `0` healthy · `1` unhealthy (workspace fails to load, requirement unmet or malformed) · `2` usage. Offline, no clock, no writes. `--contract-delta` (#439) adds the minors between the workspace's declared `contract` floor and the installed contract, each with the fields it added and the surface that reads them (`--json` → `data.contractDelta`, present only with the flag); it reports and never changes the exit code. Contract: §7.6 |
+| `pasco migrate [--json]` | the **schema v2.0 visibility migration** (D27, issue #498): writes `visibility: public` on every `credentials`, `artifacts`, `projects` and `experience` row that lacks the field, so a workspace written under the pre-v2.0 `absent = public` rule keeps its published output. A row that already declares any value is untouched ⇒ idempotent. The write is a **CST insertion** (never a re-serialization): comments, alignment and every existing byte survive; the whole migrated `content/` goes through the same `load()` gate before the atomic replace under `content/.pasco-edit.lock`. `achievements` keeps its required field and is never touched. On success with rows migrated it also writes `contract: "2.0"` into the workspace `.pascorc` (creating it if absent), so new rows stay private and a second run cannot republish them. `--json` emits `{ schemaVersion, migrated: [{ file, rows }], rows, missing: [{ block, index, id? }] }`, where `missing` is the post-run residual (empty on success). Exit `0` migrated or already current · `1` load/write failure, or a `>= 2.0`/INVALID contract floor while rows would be rewritten (nothing written) · `2` usage. Contract: §7.6/§18.5 |
 | `pasco build [platform] [--view <name>] [--lang]` | render deterministic base texts. **The artifact source is resolved in ONE fixed order** (`renderArtifact`): an active variant body (#238, written verbatim as the platform artifact) → the platform renderer from the generated renderer map → the shared paste source (#239, a manual-paste surface writes `profiles/<platform>.md`). First match wins; `preview` and `edit --check` read the same tree. `--view` resolves a declared view's platform/lang + fact selection (D22, §21) |
 | `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso8601>] [--json]` | the **local view** of the data without publishing it (issue #282): **one** self-contained HTML file — inline CSS, no `<script>`, no external asset, no HTTP server — whose sections are the surfaces `pasco build` would write (`#github-readme`, `#linkedin`, …), each with the check state, plus every surface this language does **not** publish (named with its reason, never dropped). Default `<workspace>/.pasco/preview/index.html`, then opened in the browser; `--out <dir>` writes `<dir>/index.html` and opens **nothing** (the CI-artifact transport, uploaded by the workspace template's opt-in workflow). The text is `renderArtifact`'s — the same active-variant → renderer → paste-source tree `build` writes, selection gate included — and the check state is the same report `pasco check` prints: no second renderer, no second rule engine. A **privacy gate** refuses the write (exit 1) on an absolute machine path, a credential shape, an external asset, active content, or a source outside the workspace (evidence-root media is never inlined; a remote image becomes a note, not a fetch). `--now` pins the freshness stamp — the document is the one declared clock read, and pinning it makes two runs byte-identical. Contract: §7.9 |
 | `pasco refine [platform] [--lang] [--variants N]` | AI variants — **agent-driven, model-agnostic**; user picks; commit active |
@@ -1191,11 +1192,23 @@ the workspace requires; `validate`, `build`, `export profile` and `preview` chec
   also writes `"contract": "<MAJOR.MINOR>"` from the schema `$id` this build
   validates (e.g. `"1.16"`). It is the floor `doctor --contract-delta` diffs
   against after an upgrade; absent means the floor is **unknown**, which doctor
-  reports as `absent` rather than as "nothing changed". **A reader, not a gate
-  (v1):** `validate`, `build`, `preview` and `export profile` never read it, so a
-  contract floor ahead of the installed engine does not refuse work — it is
-  reported. Declaring it enforced is a future additive change, not a
-  reinterpretation of this one.
+  reports as `absent` rather than as "nothing changed". **A reader for the
+  migration, not an enforcement gate:** `validate` and `export profile` never
+  read it; `build`/`preview` read it only to decide whether an absent
+  `visibility` is legacy (a NOTICE, never a refusal); `pasco migrate` refuses to
+  rewrite an absent field when the floor is `>= 2.0` or malformed. A contract
+  floor ahead of the installed engine does not refuse work **for being ahead** —
+  the migration policy below is independent of the installed engine. The floor
+  policy is the SAME on every surface (D27/S4a); the notice/refusal applies only
+  when rows lack `visibility` (with no pending rows, `build` and `migrate` are
+  no-ops):
+
+  | `.pascorc` contract | `build`/`preview` | `pasco migrate` | `doctor --contract-delta` |
+  |---|---|---|---|
+  | absent (pre-0.5.0) | notice when rows lack it + "declare 2.0 if intentional" | allowed (legacy) | rows + caveat |
+  | `< 2.0` | notice when rows lack it | allowed | rows + notice |
+  | `>= 2.0` | no notice | refuses while rows would be rewritten | "no migration is due" |
+  | `INVALID` | fix-floor notice when rows lack it | refuses while rows would be rewritten | floor INVALID; rows not measured |
 - **Accepted syntax: exactly `MAJOR.MINOR.PATCH`** — three dot-separated ASCII
   decimal components, no `v` prefix, no range operator (`^`, `~`, `>=`), no
   `*`, no pre-release/build suffix. This is the whole grammar, deliberately: the
@@ -1253,7 +1266,9 @@ engine 0.3.6 · schema v1.15 · workspace /path/to/workspace (valid) · requires
   is `absent` | `met` | `NOT MET` | `INVALID`, `source` names the `.pascorc`
   that produced the effective (strictest) declaration, and `error` is present
   only when the workspace cannot load. `contractDelta` is added **only** with
-  `--contract-delta`, so the shape above stays frozen for every other consumer.
+  `--contract-delta`, so the shape above stays frozen for every other consumer;
+  its `migration` block (schema v2.0, D27/#498) is present only when the
+  workspace loaded.
 - **`--contract-delta` (#439)** answers the question the one line raises: after
   an upgrade the workspace learns **which versions** it is between, never **which
   fields** it could adopt. The flag prints, under the line, one entry per
@@ -1272,7 +1287,9 @@ engine 0.3.6 · schema v1.15 · workspace /path/to/workspace (valid) · requires
   omission is never silent, not that a label is honest. The floor is read from **every** consulted
   `.pascorc` with the **lowest** declaration winning (the delta answers "what did
   I miss", so the most inclusive reading is the honest one — the mirror of the
-  engine gate's strictest-wins). Five states are printed and carried:
+  engine gate's strictest-wins). The **migration notice/refusal is the opposite**:
+  it uses the **strictest** declaration, so an explicit `>= 2.0` anywhere is never
+  outvoted by a legacy parent pointer. Five states are printed and carried:
   `delta` · `none` (`no delta (workspace floor = installed contract)`) ·
   `absent` (with the remedy: add `"contract"` naming the version the workspace
   was written against — never the installed one, which would answer "no delta";
@@ -1281,9 +1298,15 @@ engine 0.3.6 · schema v1.15 · workspace /path/to/workspace (valid) · requires
   `INVALID` (the grammar, never coerced) · `ahead` (the workspace declares a
   newer contract than this engine validates — reported, not enforced).
   `--json` adds `data.contractDelta = { floor, installed, state, problem?,
-  source?, rows: [{ version, fields, buys }] }`. The flag does **not** change the
-  exit matrix below: the contract floor declares and is never enforced, so
-  `doctor` does not invent a verdict the gate does not back.
+  source?, rows: [{ version, fields, buys }] }`. When the workspace **loads**,
+  the block also carries `migration: { rows: [{ block, index, id? }], total }`
+  — the schema v2.0 rows still missing `visibility` (D27, #498), which
+  `pasco migrate` resolves, or a `note` when the floor makes them intentionally
+  private/INVALID. An invalid workspace omits `migration` (the report never
+  fabricates a zero). The flag does **not** change **doctor's** exit matrix: the
+  floor is a reader for the delta, and its one enforcement point (`pasco migrate`
+  refuses a `>= 2.0`/INVALID floor while rows would be rewritten) belongs to that
+  command, so doctor does not invent a verdict the gate does not back.
 - **Exit matrix:** `0` healthy (workspace loads and any declared requirement is
   met) · `1` unhealthy (workspace fails to load, requirement unmet or malformed)
   · `2` usage. `doctor` **reports** the three facts but does not replace the
@@ -1300,8 +1323,8 @@ an immutable artifact identified by **URL + sha256**, recorded in
 
 | | Artifact | Identity |
 |---|---|---|
-| **Released** | `schema/profile.schema.json` at a published release tag | tag-pinned raw URL + sha256 + `$id` version (today `v0.4.0`, schema v1.16) |
-| **Current** | the committed `schema/profile.schema.json` on this branch | `$id` version + sha256, plus its own publication truth (`published` + `artifact`) — **not necessarily the tagged bytes** (today v1.16, `published: true`: the `v0.4.0` tag carries exactly these bytes) |
+| **Released** | `schema/profile.schema.json` at a published release tag | tag-pinned raw URL + sha256 + `$id` version (today `v0.5.0`, schema v1.16) |
+| **Current** | the committed `schema/profile.schema.json` on this branch | `$id` version + sha256, plus its own publication truth (`published` + `artifact`) — **not necessarily the tagged bytes** (today v2.0, `published: false`: the next release publishes it; `v0.5.0` carries v1.16) |
 
 - **Tag-pinned, public repo only.** The released URL is exactly
   `https://raw.githubusercontent.com/ChristianLuciani/profile-as-code/<tag>/schema/profile.schema.json`.
@@ -1313,9 +1336,11 @@ an immutable artifact identified by **URL + sha256**, recorded in
   `published` is `false`, `artifact` MUST be `null` and the `note` MUST say where
   the bytes can be obtained (a repository checkout, not a URL). The manifest
   cannot claim a joinable artifact it does not have, and every shipped surface
-  repeats that exact state. **The released v0.4.0 artifact is schema v1.16**, so
+  repeats that exact state. **The released v0.5.0 artifact is schema v1.16**, so
   `achievements[]`, `publication.kind` and `releases[]` all validate against the
-  tag-pinned copy: nothing in the current contract still requires a checkout.
+  tag-pinned copy. Current `main` carries schema v2.0 (D27), which is not
+  published yet: a consumer that needs it uses the checkout until the next
+  release, and a v1.x workspace stays valid against both.
   Earlier artifacts stay correct forever for a consumer that pins them (`v0.3.7`
   is schema v1.15; `v0.3.6` is v1.13). The reading guide says so where it
   tells a consumer how to validate.
@@ -1921,8 +1946,9 @@ interface Renderer {
 ```
 
 `render()` is a **pure function**: no network, no AI, no randomness. It consumes the
-`PlatformProfile` slice produced by `compile()` (SPEC §7) — facts pass through untouched, texts
-are the platform+lang slice.
+`PlatformProfile` slice produced by `compile()` (SPEC §7) — facts pass through untouched
+**except the four visibility-bearing blocks** (`experience`, `projects`, `credentials`,
+`artifacts`, filtered by `isPublicEntry()` per D27); texts are the platform+lang slice.
 
 **The `assets?: string[]` slot (M8/D19).** The renderer declares the deploy-relative asset
 targets its text references (`assets/<id>/<basename>` — `artifactAssetTarget`, the single
@@ -2344,7 +2370,10 @@ for the open web.
 public`) must run `pasco migrate` once: it writes `visibility: public` on every
 entry that lacks the field, preserving today's output, and is idempotent. New
 workspaces and new entries are private unless they declare `public`; `pasco
-doctor --contract-delta` reports any entry still missing the field. `unlisted` is
+doctor --contract-delta` reports any entry still missing the field, and the
+`.pascorc` floor decides the advice (§7.6): an absent or `< 2.0` floor is
+legacy, while a `>= 2.0` floor means the absent field is the intentional private
+default and `pasco migrate` refuses to rewrite it. `unlisted` is
 not a publication state: it is never emitted, and manual sharing is `curate`
 (D27/#501), not a renderer.
 
@@ -2480,6 +2509,10 @@ deployments:
   unit — YAML formatting and comments don't affect it, so cosmetic edits never go stale.
   Ledger metadata (`id`, `origin`) is **stripped before hashing**: it is provenance/identity,
   not content — adding an `id` to an already-deployed entry must not flip it `stale`.
+  Since v2.0, `visibility` on `experience`/`projects` is hashed by its **effective**
+  state: an explicit `public` normalizes to the pre-v2.0 hash (so `pasco migrate`
+  keeps a deployed row `in-sync`), while absent means `private` and hashes
+  differently (an unpublish transition flips `stale`).
   Staleness is therefore **exact and release-tag-independent**: `stale` iff current hash ≠
   recorded hash, with no intersection with `pasco diff` (the diff delta is file- and
   release-tag-scoped; gating staleness on it would hide true staleness whenever release

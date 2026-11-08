@@ -15,6 +15,38 @@ import { describe, expect, it } from "vitest";
 import { render } from "../src/index.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/** These fixtures predate D27: they describe PUBLIC rows. Schema v2.0 makes an
+ *  absent `visibility` private, so the test's YAML states the publication
+ *  explicitly instead of relying on the old absent=public default. */
+function withLegacyVisibility(name: string, body: string): string {
+  if (!/^(projects|experience)\.ya?ml$/i.test(name)) return body;
+  const lines = body.split("\n");
+  const out: string[] = [];
+  let row: string[] = [];
+  const flush = (): void => {
+    if (row.length === 0) return;
+    let end = row.length;
+    while (end > 0 && row[end - 1]?.trim() === "") end -= 1;
+    const head = row.slice(0, end);
+    const tail = row.slice(end);
+    if (!head.some((line) => line.trimStart().startsWith("visibility:"))) {
+      head.push("  visibility: public");
+    }
+    out.push(...head, ...tail);
+    row = [];
+  };
+  for (const line of lines) {
+    if (line.startsWith("- ")) {
+      flush();
+      row.push(line);
+    } else {
+      row.push(line);
+    }
+  }
+  flush();
+  return out.join("\n");
+}
 const MINIMAL = join(__dirname, "..", "..", "..", "core", "tests", "fixtures", "minimal");
 
 const EXPECTED = `# Elena Vasquez
@@ -147,7 +179,7 @@ describe("renderer github-readme — contact email (v1.5, issue #71)", () => {
     const dir = mkdtempSync(join(tmpdir(), "pasco-render-email-"));
     mkdirSync(join(dir, "content"), { recursive: true });
     for (const [name, body] of Object.entries(files))
-      writeFileSync(join(dir, "content", name), body, "utf8");
+      writeFileSync(join(dir, "content", name), withLegacyVisibility(name, body), "utf8");
     try {
       const profile = load(dir);
       return {
@@ -206,7 +238,7 @@ describe("renderer github-readme — evidence registry (v1.4/D17/§18)", () => {
     const dir = mkdtempSync(join(tmpdir(), "pasco-render-"));
     mkdirSync(join(dir, "content"), { recursive: true });
     for (const [name, body] of Object.entries(files))
-      writeFileSync(join(dir, "content", name), body, "utf8");
+      writeFileSync(join(dir, "content", name), withLegacyVisibility(name, body), "utf8");
     try {
       const profile = load(dir);
       return {
@@ -308,7 +340,7 @@ describe("renderer github-readme — media pipeline (M8, §18.6)", () => {
     const dir = mkdtempSync(join(tmpdir(), "pasco-media-render-"));
     mkdirSync(join(dir, "content"), { recursive: true });
     for (const [name, body] of Object.entries(files))
-      writeFileSync(join(dir, "content", name), body, "utf8");
+      writeFileSync(join(dir, "content", name), withLegacyVisibility(name, body), "utf8");
     try {
       return {
         slice: compile(load(dir), "github-readme", "en"),
@@ -334,6 +366,7 @@ describe("renderer github-readme — media pipeline (M8, §18.6)", () => {
   title: Remote Gallery
   locator:
     url: https://vimeo.com/gallery
+  visibility: public
 `,
   };
 
@@ -426,7 +459,7 @@ describe("renderer github-readme — CommonMark-safe destinations (issue #73)", 
     const dir = mkdtempSync(join(tmpdir(), "pasco-render-mdhref-"));
     mkdirSync(join(dir, "content"), { recursive: true });
     for (const [name, body] of Object.entries(files))
-      writeFileSync(join(dir, "content", name), body, "utf8");
+      writeFileSync(join(dir, "content", name), withLegacyVisibility(name, body), "utf8");
     try {
       return {
         slice: compile(load(dir), "github-readme", "en"),
@@ -636,7 +669,7 @@ describe("renderer github-readme — CommonMark-safe link TEXT (issue #76)", () 
     const dir = mkdtempSync(join(tmpdir(), "pasco-render-mdtext-"));
     mkdirSync(join(dir, "content"), { recursive: true });
     for (const [name, body] of Object.entries(files))
-      writeFileSync(join(dir, "content", name), body, "utf8");
+      writeFileSync(join(dir, "content", name), withLegacyVisibility(name, body), "utf8");
     try {
       return {
         slice: compile(load(dir), "github-readme", "en"),
@@ -738,7 +771,7 @@ describe('renderer github-readme — optional fields never interpolate "undefine
     const dir = mkdtempSync(join(tmpdir(), "pasco-render-optional-"));
     mkdirSync(join(dir, "content"), { recursive: true });
     for (const [name, body] of Object.entries(files))
-      writeFileSync(join(dir, "content", name), body, "utf8");
+      writeFileSync(join(dir, "content", name), withLegacyVisibility(name, body), "utf8");
     try {
       return {
         slice: compile(load(dir), "github-readme", "en"),
@@ -832,7 +865,7 @@ describe("renderer github-readme — empty keyword items never create a weight m
     const dir = mkdtempSync(join(tmpdir(), "pasco-render-keywords-"));
     mkdirSync(join(dir, "content"), { recursive: true });
     for (const [name, body] of Object.entries(files))
-      writeFileSync(join(dir, "content", name), body, "utf8");
+      writeFileSync(join(dir, "content", name), withLegacyVisibility(name, body), "utf8");
     try {
       return {
         slice: compile(load(dir), "github-readme", "en"),
@@ -871,7 +904,7 @@ describe("renderer github-readme — featured ordering is status-led (issue #257
     const dir = mkdtempSync(join(tmpdir(), "pasco-render-status-"));
     mkdirSync(join(dir, "content"), { recursive: true });
     for (const [name, body] of Object.entries(files))
-      writeFileSync(join(dir, "content", name), body, "utf8");
+      writeFileSync(join(dir, "content", name), withLegacyVisibility(name, body), "utf8");
     try {
       return {
         slice: compile(load(dir), "github-readme", "en"),
@@ -1029,7 +1062,11 @@ describe("renderer github-readme — per-view orderKeys (#458)", () => {
     mkdirSync(join(dir, "content"), { recursive: true });
     writeFileSync(join(dir, "content", "identity.yaml"), "name: Elena Vasquez\n", "utf8");
     writeFileSync(join(dir, "content", "skills.yaml"), "- name: X\n", "utf8");
-    writeFileSync(join(dir, "content", "projects.yaml"), projects, "utf8");
+    writeFileSync(
+      join(dir, "content", "projects.yaml"),
+      withLegacyVisibility("projects.yaml", projects),
+      "utf8",
+    );
     try {
       const slice = compile(
         load(dir),

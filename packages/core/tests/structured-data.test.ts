@@ -235,3 +235,44 @@ definition:
     );
   });
 });
+
+describe("structuredData — D27 visibility (schema v2.0)", () => {
+  it("jobTitle/worksFor come from a PUBLIC experience only (entity --jsonld bypasses compile)", () => {
+    const profile = load(
+      workspace({
+        "identity.yaml": PERSON,
+        "experience.yaml": `- role: CEO of Secret Corp
+  org: Secret Holdings
+  start: 2025-01-01
+  end: present
+- role: Public Engineer
+  org: Open Labs
+  start: 2020-01-01
+  end: present
+  visibility: public
+`,
+      }),
+    );
+    const sd = structuredData(profile, "en");
+    expect(sd.fields.jobTitle).toBe("Public Engineer");
+    expect(sd.fields.worksFor).toBe("Open Labs");
+    expect(JSON.stringify(sd.jsonLd)).not.toContain("Secret");
+  });
+
+  it("emits no role at all when every experience row is private", () => {
+    const profile = load(
+      workspace({
+        "identity.yaml": PERSON,
+        "experience.yaml": `- role: CEO of Secret Corp
+  org: Secret Holdings
+  start: 2025-01-01
+  end: present
+`,
+      }),
+    );
+    const sd = structuredData(profile, "en");
+    expect(sd.fields.jobTitle).toBeUndefined();
+    expect(sd.fields.worksFor).toBeUndefined();
+    expect(JSON.stringify(sd.jsonLd)).not.toContain("Secret");
+  });
+});

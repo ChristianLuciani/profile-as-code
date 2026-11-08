@@ -42,6 +42,7 @@ import {
   collectMedia,
   LoadError,
   load,
+  needsVisibilityMigration,
   PLATFORMS,
   SchemaValidationError,
 } from "@profile-as-code/core";
@@ -53,6 +54,7 @@ import {
 } from "../artifact-render.js";
 import { catalogSource } from "../check-catalog.js";
 import { parseLang } from "../contract.js";
+import { type ContractFloor, contractFloorAgeOf, migrationNotice } from "../contract-history.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import type { PreviewAsset, PreviewSection } from "../preview/document.js";
@@ -67,6 +69,8 @@ import { resolveNow } from "./export-profile.js";
 export interface PreviewArgs {
   workspace: string;
   pascorc: Pascorc;
+  /** The effective contract floor (every consulted `.pascorc`; the STRICTEST wins for the migration policy). */
+  contractFloor?: ContractFloor;
   /** `--out <dir>` — write `<dir>/index.html`, never open anything (transport B). */
   outArg?: string;
   /** `--no-open` — write, do not open (the default opens transport A). */
@@ -290,6 +294,11 @@ export function runPreview(args: PreviewArgs): number {
   const bundle = collectMedia(profile, args.workspace);
   const inlined = inlineAssets(bundle.assets);
   const warnings: string[] = [];
+  const floorAge = contractFloorAgeOf(args.contractFloor ?? { declared: null });
+  if (needsVisibilityMigration(profile)) {
+    const notice = migrationNotice(floorAge);
+    if (notice !== undefined) warnings.push(notice);
+  }
 
   const surfaces: PreviewSection[] = [];
   for (const slice of slices) {

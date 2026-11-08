@@ -27,7 +27,7 @@
  */
 
 import { byteOrder } from "./byte-order.js";
-import { credentialLdEntries } from "./registry.js";
+import { credentialLdEntries, isPublicEntry } from "./registry.js";
 import type {
   EducationalOccupationalCredentialLd,
   Identity,
@@ -109,9 +109,11 @@ export function sameAsUrls(profile: Profile): string[] {
     .filter((url, index, all) => all.indexOf(url) === index);
 }
 
-/** The most recent role — the one a schema.org Person would call jobTitle/worksFor. */
+/** The most recent role — the one a schema.org Person would call jobTitle/worksFor.
+ *  Only PUBLIC roles: `pasco entity --jsonld` calls structuredData() directly, so
+ *  the filter cannot live only in compile() (D27/schema v2.0). */
 function currentRole(profile: Profile): { jobTitle?: string; worksFor?: string } {
-  const items = [...(profile.experience ?? [])];
+  const items = (profile.experience ?? []).filter(isPublicEntry);
   // Most recent first; the tie order is byte-order, not ICU (D19, #305) —
   // dates are digits, so the visible order is also locale-stable.
   const byStart = (a: (typeof items)[number], b: (typeof items)[number]) =>

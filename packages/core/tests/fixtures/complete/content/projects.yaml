@@ -14,6 +14,7 @@
         es: Sirve más de 100k peticiones al mes en 12 despliegues.
         fr: Sert plus de 100k requêtes par mois sur 12 déploiements.
       source: https://doi.org/10.5555/sovereign-hub
+  visibility: public
 - id: oer-platform
   name: open-education-platform
   status: maintained
@@ -29,3 +30,4 @@
         es: Adoptada por 40 universidades.
         fr: Adoptée par 40 universités.
       source: https://example.com/oer-proof
+  visibility: public

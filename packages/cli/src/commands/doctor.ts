@@ -17,18 +17,30 @@
  * each ADD, and which surface reads it. The table it reads is a projection of
  * the schema's own `description` narration (`../contract-history.ts`), pinned by
  * `consumer-contract.test.ts`, so a schema bump that forgets it fails `pnpm test`.
- * The floor DECLARES and is never enforced (v1): `validate`/`build` do not read
- * it, so `doctor` reports its state without inventing a verdict the gate does not
- * back — the exit matrix below is unchanged by the flag.
+ * The floor is a reader for the delta; the one migration policy that consumes it
+ * is reachable from `build`/`preview` (a notice) and `pasco migrate` (a refusal
+ * for a >=2.0/INVALID floor while rows would be rewritten). `doctor` reports its
+ * state without inventing a verdict the gate does not back — its own exit matrix
+ * is unchanged by the flag.
  *
  * Exit matrix (the repo's): `0` healthy (workspace loads and any declared engine
  * requirement is met) · `1` unhealthy (the workspace fails to load, the engine
  * requirement is unmet or malformed) · `2` usage (dispatcher).
  */
 
-import { LoadError, load, SchemaValidationError } from "@profile-as-code/core";
+import {
+  LoadError,
+  type LoadedProfile,
+  load,
+  missingVisibility,
+  SchemaValidationError,
+} from "@profile-as-code/core";
 import type { ContractDeltaReport } from "../contract-history.js";
-import { evaluateContractDelta } from "../contract-history.js";
+import {
+  contractFloorAgeOf,
+  evaluateContractDelta,
+  evaluateContractFloor,
+} from "../contract-history.js";
 import type { EngineConfigSource, EngineRequirement } from "../engine-gate.js";
 import {
   ENGINE_UPGRADE_COMMAND,
@@ -92,10 +104,10 @@ export interface DoctorArgs {
 function loadWorkspace(workspace: string): {
   valid: boolean;
   error?: DoctorReport["workspace"]["error"];
+  profile?: LoadedProfile;
 } {
   try {
-    load(workspace);
-    return { valid: true };
+    return { valid: true, profile: load(workspace) };
   } catch (err) {
     if (err instanceof SchemaValidationError) {
       return {
@@ -172,6 +184,28 @@ function describe(reportData: DoctorReport): string {
  * told about, then the fields and what they buy. Branches on the SAME `state`
  * the JSON reports — the two surfaces cannot drift apart.
  */
+function describeMigration(delta: ContractDeltaReport): string[] {
+  if (delta.migration === undefined) {
+    return ["migration — not measured (the workspace does not load)"];
+  }
+  const { rows, total, note } = delta.migration;
+  if (total === 0 && note !== undefined) return [`migration — ${note}`];
+  if (total === 0) {
+    return [
+      "migration — every credentials/artifacts/projects/experience row declares visibility (schema v2.0)",
+    ];
+  }
+  const shown = rows
+    .slice(0, 20)
+    .map((row) => `${row.block}[${row.index}]${row.id === undefined ? "" : ` (${row.id})`}`);
+  const more = total > shown.length ? `, +${total - shown.length} more` : "";
+  const lines = [
+    `migration — ${total} row(s) still lack visibility (schema v2.0 default is private); run \`pasco migrate\` once: ${shown.join(", ")}${more}`,
+  ];
+  if (note !== undefined) lines.push(`  ${note}`);
+  return lines;
+}
+
 function describeContractDelta(delta: ContractDeltaReport): string[] {
   const from = delta.source === undefined ? "" : ` (declared in ${delta.source})`;
   switch (delta.state) {
@@ -211,7 +245,48 @@ export function runDoctor(args: DoctorArgs): number {
   const workspace = loadWorkspace(args.workspace);
   const requirement = requirementOf(args.engineSources, args.engineVersion);
   const contractDelta = args.contractDelta
-    ? evaluateContractDelta(args.engineSources, args.schemaVersion)
+    ? (() => {
+        const report = evaluateContractDelta(args.engineSources, args.schemaVersion);
+        if (workspace.profile === undefined) return report;
+        // The DELTA uses the lowest floor ("what did I miss"); the migration
+        // policy uses the STRICTEST declared floor, so a v2.0 workspace is never
+        // outvoted by a legacy parent pointer (the engine gate's rule).
+        const strictest = evaluateContractFloor(args.engineSources, "highest");
+        const age = contractFloorAgeOf(strictest);
+        if (age === "unknown" || report.state === "INVALID") {
+          return {
+            ...report,
+            migration: {
+              rows: [],
+              total: 0,
+              note: `contract floor INVALID (${strictest.problem ?? "malformed"}) — fix .pascorc before deciding; rows without visibility are private (D27) and were not measured`,
+            },
+          };
+        }
+        const rows = missingVisibility(workspace.profile);
+        if (age === "legacy") {
+          return {
+            ...report,
+            migration: {
+              rows,
+              total: rows.length,
+              ...(strictest.declared === null
+                ? {
+                    note: "no contract floor declared — treated as pre-v2.0; if this is a v2.0 workspace, declare contract 2.0 and leave the rows private",
+                  }
+                : {}),
+            },
+          };
+        }
+        return {
+          ...report,
+          migration: {
+            rows: [],
+            total: 0,
+            note: `contract floor ${strictest.declared} >= 2.0 — absent visibility is the intentional private default, no migration is due`,
+          },
+        };
+      })()
     : undefined;
   const data: DoctorReport = {
     engine: { name: DOCTOR_ENGINE, version: args.engineVersion },
@@ -232,6 +307,7 @@ export function runDoctor(args: DoctorArgs): number {
   line(describe(data));
   if (contractDelta !== undefined) {
     for (const deltaLine of describeContractDelta(contractDelta)) line(deltaLine);
+    for (const migrationLine of describeMigration(contractDelta)) line(migrationLine);
   }
   return healthy ? EXIT.OK : EXIT.FAIL;
 }
