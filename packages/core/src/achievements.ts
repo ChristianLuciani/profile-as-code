@@ -225,7 +225,7 @@ export function checkAchievementIntegrity(profile: Profile): RegistryIssue[] {
         issues.push(
           issue(
             `achievements[${index}].credentialId`,
-            `a public achievement attests credential "${credential.id}" with visibility "${credential.visibility}" — public output renders only public entries (§18.5); make it public, or make the achievement non-public`,
+            `a public achievement attests credential "${credential.id}" with visibility "${credential.visibility ?? "private"}" — public output renders only public entries (§18.5); if this workspace predates schema v2.0 run \`pasco migrate\` once, otherwise make it public or make the achievement non-public`,
           ),
         );
       }
@@ -244,7 +244,7 @@ export function checkAchievementIntegrity(profile: Profile): RegistryIssue[] {
         issues.push(
           issue(
             `achievements[${index}].artifactId`,
-            `a public achievement points at artifact "${artifact.id}" with visibility "${artifact.visibility}" — public output renders only public entries (§18.5); make it public, or make the achievement non-public`,
+            `a public achievement points at artifact "${artifact.id}" with visibility "${artifact.visibility ?? "private"}" — public output renders only public entries (§18.5); if this workspace predates schema v2.0 run \`pasco migrate\` once, otherwise make it public or make the achievement non-public`,
           ),
         );
       }
@@ -267,7 +267,7 @@ export function checkAchievementIntegrity(profile: Profile): RegistryIssue[] {
           issues.push(
             issue(
               `achievements[${index}].refs[${refIndex}]`,
-              `a public achievement references ${block}[].id "${id}" with visibility "${target.visibility}" — public output renders only public entries (§18.5)`,
+              `a public achievement references ${block}[].id "${id}" with visibility "${target.visibility ?? "private"}" — public output renders only public entries (§18.5); if this workspace predates schema v2.0 run \`pasco migrate\` once`,
             ),
           );
         }

@@ -34,7 +34,7 @@ import {
   SchemaValidationError,
 } from "@profile-as-code/core";
 import type { ContractDeltaReport } from "../contract-history.js";
-import { evaluateContractDelta } from "../contract-history.js";
+import { evaluateContractDelta, isPreV2Floor } from "../contract-history.js";
 import type { EngineConfigSource, EngineRequirement } from "../engine-gate.js";
 import {
   ENGINE_UPGRADE_COMMAND,
@@ -182,7 +182,8 @@ function describeMigration(delta: ContractDeltaReport): string[] {
   if (delta.migration === undefined) {
     return ["migration — not measured (the workspace does not load)"];
   }
-  const { rows, total } = delta.migration;
+  const { rows, total, note } = delta.migration;
+  if (note !== undefined) return [`migration — ${note}`];
   if (total === 0) {
     return [
       "migration — every credentials/artifacts/projects/experience row declares visibility (schema v2.0)",
@@ -238,9 +239,22 @@ export function runDoctor(args: DoctorArgs): number {
   const contractDelta = args.contractDelta
     ? (() => {
         const report = evaluateContractDelta(args.engineSources, args.schemaVersion);
-        if (workspace.profile === undefined) return report;
+        if (workspace.profile === undefined || report.state === "INVALID") return report;
         const rows = missingVisibility(workspace.profile);
-        return { ...report, migration: { rows, total: rows.length } };
+        if (isPreV2Floor(report.floor)) {
+          return { ...report, migration: { rows, total: rows.length } };
+        }
+        return {
+          ...report,
+          migration: {
+            rows: [],
+            total: 0,
+            note:
+              report.floor === null
+                ? "no contract floor declared — in v2.0 an omitted visibility is private; if this workspace predates v2.0, declare its contract floor and run `pasco migrate` deliberately"
+                : `contract floor ${report.floor} >= 2.0 — absent visibility is the intentional private default, no migration is due`,
+          },
+        };
       })()
     : undefined;
   const data: DoctorReport = {

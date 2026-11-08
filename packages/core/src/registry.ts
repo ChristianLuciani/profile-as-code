@@ -279,7 +279,7 @@ export function registryCheck(
     findings.push({
       code: "check/private-in-public-output",
       severity: "error",
-      message: `${where} references registry entry "${leak.id}" with visibility "${leak.visibility}" — public output renders only public entries (§18.5); make it public or drop the reference`,
+      message: `${where} references registry entry "${leak.id}" with visibility "${leak.visibility}" — public output renders only public entries (§18.5); if this workspace predates schema v2.0 run \`pasco migrate\` once, otherwise make it public or drop the reference`,
       path: refPath,
     });
   };

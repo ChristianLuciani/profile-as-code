@@ -40,9 +40,11 @@ import {
   VISIBILITY_BLOCKS,
 } from "@profile-as-code/core";
 import { isMap, isSeq, parseDocument } from "yaml";
+import { isPreV2Floor } from "../contract-history.js";
 import { owningFile, StaleEditError, WriteRefusedError, withWriteLock } from "../edit-write.js";
 import { EXIT } from "../exit.js";
 import { line, report } from "../output.js";
+import { readWorkspacePascorc } from "../workspace.js";
 
 /** One row insertion located in the ORIGINAL text. */
 interface Insertion {
@@ -110,23 +112,17 @@ function insertionFor(
     );
   }
   if (map.flow === true) {
-    // Flow row (`- { id: x, … }`): insert before the closing brace.
-    let close = range[1] - 1;
-    while (close > range[0] && text[close] !== "}") close -= 1;
-    if (text[close] !== "}") {
-      throw new LoadError(
-        `${file}: row ${row} is a flow mapping with no closing brace — cannot migrate it (nothing was written)`,
-      );
+    // Flow row (`- { id: x, … }`): insert AFTER the last VALUE, never at the
+    // closing brace. A trailing `# comment` before `}` then follows the inserted
+    // entry instead of swallowing it, and the existing comma (if any) stays
+    // valid after it.
+    const last = map.items[map.items.length - 1];
+    const lastRange = rangeOf(last?.value) ?? rangeOf(last?.key);
+    if (lastRange === null) {
+      // Empty flow map: right after the opening brace.
+      return { at: range[0] + 1, text: "visibility: public", row };
     }
-    const rawBody = text.slice(range[0], close);
-    const body = rawBody.trimEnd();
-    const separator = body.endsWith("{") ? "" : body.endsWith(",") ? " " : ", ";
-    // Insert BEFORE the trailing whitespace so the result never reads `, }`.
-    return {
-      at: close - (rawBody.length - body.length),
-      text: `${separator}visibility: public`,
-      row,
-    };
+    return { at: lastRange[1], text: ", visibility: public", row };
   }
   const last = map.items[map.items.length - 1];
   const lastRange = rangeOf(last?.value) ?? rangeOf(last?.key);
@@ -337,6 +333,22 @@ export interface MigrateArgs {
 
 export function runMigrate(args: MigrateArgs): number {
   try {
+    const floor = readWorkspacePascorc(args.workspace).contract;
+    // A v2.0 workspace uses an omitted `visibility` as the intentional private
+    // default. Running the migration there would PUBLISH rows the user hid, so
+    // refuse while there is something to rewrite; the explicit `visibility:
+    // public` flag is the user's act, not a migration side effect.
+    if (floor !== undefined && !isPreV2Floor(floor)) {
+      const pending = planVisibilityMigration(args.workspace);
+      if (pending.length > 0) {
+        return report("migrate", false, EXIT.FAIL, {
+          error: {
+            kind: "refused",
+            message: `workspace declares contract ${floor}; since v2.0 an omitted visibility is the intentional private default — set visibility: public explicitly on the rows you want to publish (nothing was written)`,
+          },
+        });
+      }
+    }
     const outcome = migrateVisibility(args.workspace);
     // Validate even when there was nothing to migrate: a workspace that fails
     // `load()` is never "already current" (exit 1, the documented matrix). On a

@@ -42,6 +42,7 @@ import {
   collectMedia,
   LoadError,
   load,
+  needsVisibilityMigration,
   PLATFORMS,
   SchemaValidationError,
 } from "@profile-as-code/core";
@@ -53,6 +54,7 @@ import {
 } from "../artifact-render.js";
 import { catalogSource } from "../check-catalog.js";
 import { parseLang } from "../contract.js";
+import { isPreV2Floor } from "../contract-history.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import type { PreviewAsset, PreviewSection } from "../preview/document.js";
@@ -290,6 +292,11 @@ export function runPreview(args: PreviewArgs): number {
   const bundle = collectMedia(profile, args.workspace);
   const inlined = inlineAssets(bundle.assets);
   const warnings: string[] = [];
+  if (isPreV2Floor(args.pascorc.contract) && needsVisibilityMigration(profile)) {
+    warnings.push(
+      "schema v2.0: this workspace's contract floor predates v2.0 and some rows omit `visibility`; run `pasco migrate` once to keep their published output (D27/#498)",
+    );
+  }
 
   const surfaces: PreviewSection[] = [];
   for (const slice of slices) {

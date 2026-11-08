@@ -190,6 +190,15 @@ describe("pasco migrate (D27, schema v2.0)", () => {
     expect(migrated.split("\r\n").join("")).not.toContain("\n");
   });
 
+  it("migrates a multi-line flow row whose last value carries an inline comment", () => {
+    const ws = workspace();
+    const file = join(ws, "content", "projects.yaml");
+    writeFileSync(file, "- { id: flow,\n    name: Flow # inline comment\n  }\n");
+    expect(migrate(ws).code).toBe(0);
+    const migrated = readFileSync(file, "utf8");
+    expect(migrated).toContain("name: Flow, visibility: public # inline comment");
+  });
+
   it("migrates a flow row without a space before the comma", () => {
     const ws = workspace();
     const file = join(ws, "content", "projects.yaml");
@@ -214,12 +223,34 @@ describe("pasco migrate (D27, schema v2.0)", () => {
     expect(res.stdout).not.toContain("no migration needed");
   });
 
-  it("warns on build when the workspace still has pre-v2.0 rows", () => {
-    const ws = workspace();
-    const built = run(["build", "github-readme", "--workspace", ws]);
+  it("warns on build only when the DECLARED floor predates v2.0", () => {
+    const legacy = workspace();
+    writeFileSync(
+      join(legacy, ".pascorc"),
+      `${JSON.stringify({ workspace: ".", contract: "1.16" })}\n`,
+    );
+    const built = run(["build", "github-readme", "--workspace", legacy]);
     expect(built.code, built.stderr).toBe(0);
     expect(built.stderr).toContain("pasco migrate");
     expect(built.stderr).toContain("schema v2.0");
+
+    const v2 = workspace();
+    writeFileSync(join(v2, ".pascorc"), `${JSON.stringify({ workspace: ".", contract: "2.0" })}\n`);
+    const v2Build = run(["build", "github-readme", "--workspace", v2]);
+    expect(v2Build.code, v2Build.stderr).toBe(0);
+    // In v2.0 an omitted visibility is the intentional private default: the
+    // notice would tell the user to publish hidden rows (F1 of the round-3 pass).
+    expect(v2Build.stderr).not.toContain("pasco migrate");
+  });
+
+  it("refuses to publish a v2.0 workspace's intentional private rows", () => {
+    const ws = workspace();
+    writeFileSync(join(ws, ".pascorc"), `${JSON.stringify({ workspace: ".", contract: "2.0" })}\n`);
+    const before = readFileSync(join(ws, "content", "credentials.yaml"), "utf8");
+    const res = migrate(ws);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain("intentional private default");
+    expect(readFileSync(join(ws, "content", "credentials.yaml"), "utf8")).toBe(before);
   });
 
   it("reports its work in the standard envelope", () => {
@@ -272,6 +303,10 @@ describe("pasco migrate (D27, schema v2.0)", () => {
 describe("pasco doctor --contract-delta reports unmigrated rows (D27)", () => {
   it("names every row that still lacks visibility, then reports zero after migrate", () => {
     const ws = workspace();
+    writeFileSync(
+      join(ws, ".pascorc"),
+      `${JSON.stringify({ workspace: ".", contract: "1.16" })}\n`,
+    );
     const before = run(["doctor", "--workspace", ws, "--contract-delta"]);
     expect(before.code).toBe(0);
     expect(before.stdout).toContain("migration — 6 row(s) still lack visibility");
@@ -286,8 +321,21 @@ describe("pasco doctor --contract-delta reports unmigrated rows (D27)", () => {
     );
   });
 
+  it("does not advise migration for a v2.0 contract floor", () => {
+    const ws = workspace();
+    writeFileSync(join(ws, ".pascorc"), `${JSON.stringify({ workspace: ".", contract: "2.0" })}\n`);
+    const res = run(["doctor", "--workspace", ws, "--contract-delta"]);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain("contract floor 2.0");
+    expect(res.stdout).not.toContain("run `pasco migrate` once:");
+  });
+
   it("carries the migration block in --json only with --contract-delta", () => {
     const ws = workspace();
+    writeFileSync(
+      join(ws, ".pascorc"),
+      `${JSON.stringify({ workspace: ".", contract: "1.16" })}\n`,
+    );
     const withFlag = run(["doctor", "--workspace", ws, "--contract-delta", "--json"]);
     const envelope = JSON.parse(withFlag.stdout) as {
       data: {

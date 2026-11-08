@@ -29,6 +29,7 @@ import {
   selectionFindings,
 } from "../artifact-render.js";
 import { parseLang, parsePlatform } from "../contract.js";
+import { isPreV2Floor } from "../contract-history.js";
 import { EXIT } from "../exit.js";
 import { RENDERERS } from "../generated/renderers.gen.js";
 import { isJsonMode, line, report, section, warn } from "../output.js";
@@ -73,12 +74,14 @@ export function runBuild(args: BuildArgs): number {
     throw err;
   }
 
-  // D27/schema v2.0: an absent `visibility` is PRIVATE, so a pre-v2.0 workspace
-  // that has not run `pasco migrate` would silently lose projects/credentials/
-  // artifacts from every renderer. Say it before writing anything.
-  if (needsVisibilityMigration(profile)) {
-    warn(
-      "schema v2.0: rows without `visibility` are private; run `pasco migrate` once to keep their published output (D27/#498)",
+  // D27/schema v2.0: an absent `visibility` is PRIVATE. Only a DECLARED pre-v2.0
+  // contract floor means the absence is legacy; in a v2.0 workspace it is the
+  // intentional private default, and telling the user to migrate would publish
+  // rows they deliberately hid.
+  const notices: string[] = [];
+  if (isPreV2Floor(args.pascorc.contract) && needsVisibilityMigration(profile)) {
+    notices.push(
+      "schema v2.0: this workspace's contract floor predates v2.0 and some rows omit `visibility`; run `pasco migrate` once to keep their published output (D27/#498)",
     );
   }
 
@@ -284,6 +287,7 @@ export function runBuild(args: BuildArgs): number {
         written,
         skipped,
         warnings,
+        ...(notices.length > 0 ? { notices } : {}),
         media: bundle.findings,
         selection: selFindings,
       },
@@ -328,6 +332,7 @@ export function runBuild(args: BuildArgs): number {
     section(`variant warnings (${warnings.length})`);
     for (const w of warnings) line(`  [${w.platform}] ${w.reason}`);
   }
+  for (const notice of notices) warn(notice);
   if (bundle.findings.length > 0) {
     section(`media pipeline (M8/§18.6): ${bundle.findings.length} finding(s)`);
     for (const f of bundle.findings) line(`  ${f.severity}: [${f.code}] ${f.message} (${f.path})`);

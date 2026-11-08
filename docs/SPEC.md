@@ -376,8 +376,8 @@ skills:        [ { name, level, keywords[], geoKeywords[], platformWeights{} } ]
 experience:    [ { id?, origin?, role, org, start, end, highlights{lang}, visibility? } ]   # id/origin — D18 §19; visibility — v2.0, D27 (absent = private)
 projects:      [ { id?, origin?, name, status, description{lang}, links, keywords{}, evidence[], artifactRefs[]?, visibility? } ]   # artifactRefs — v1.12, #333; visibility — v2.0, D27 (absent = private)
 publications:  [ { id?, origin?, title, venue, year, kind?, doi, orcidId, artifactRefs[]? } ]   # kind — v1.14, #349
-credentials:   [ { id, kind, title, issuer, credentialId?, verifyUrl, issued, expires?, visibility } ]
-artifacts:     [ { id, kind, title, description{lang}?, locator, checksum?, license?, tags[], visibility } ]
+credentials:   [ { id, kind, title, issuer, credentialId?, verifyUrl, issued, expires?, visibility? } ]   # visibility — v2.0, D27 (absent = private)
+artifacts:     [ { id, kind, title, description{lang}?, locator, checksum?, license?, tags[], visibility? } ]   # visibility — v2.0, D27 (absent = private)
 keywords:      { seo: { platform: [] }, geo: { associations: [], claims: [] } }
 checks:        [ { platform, rule, value, surface? } ]         # declarative; surface = headline|bio|both (#240)
 active:        { platform: { lang, variantId, chosenAt } }    # which variant is live
@@ -2489,6 +2489,10 @@ deployments:
   unit — YAML formatting and comments don't affect it, so cosmetic edits never go stale.
   Ledger metadata (`id`, `origin`) is **stripped before hashing**: it is provenance/identity,
   not content — adding an `id` to an already-deployed entry must not flip it `stale`.
+  Since v2.0, `visibility` on `experience`/`projects` is hashed by its **effective**
+  state: an explicit `public` normalizes to the pre-v2.0 hash (so `pasco migrate`
+  keeps a deployed row `in-sync`), while absent means `private` and hashes
+  differently (an unpublish transition flips `stale`).
   Staleness is therefore **exact and release-tag-independent**: `stale` iff current hash ≠
   recorded hash, with no intersection with `pasco diff` (the diff delta is file- and
   release-tag-scoped; gating staleness on it would hide true staleness whenever release

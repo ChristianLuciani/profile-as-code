@@ -196,6 +196,16 @@ export function compareContractVersions(a: string, b: string): number | null {
   return left.major * 1000 + left.minor - (right.major * 1000 + right.minor);
 }
 
+/** True only when a DECLARED contract floor predates schema v2.0. An absent or
+ *  malformed floor is not "pre-v2.0": the migration advice must never be emitted
+ *  for a v2.0 workspace, where omitting `visibility` is the intentional private
+ *  default (D27). */
+export function isPreV2Floor(floor: string | null | undefined): boolean {
+  if (floor === undefined || floor === null) return false;
+  const compared = compareContractVersions(floor, "2.0");
+  return compared !== null && compared < 0;
+}
+
 /** One row as `--json` publishes it — the `notFields` escape is editorial
  *  bookkeeping for the freshness pin, never part of the delta a consumer reads
  *  (fresh pass 2, F8: the documented shape is `{ version, fields, buys }`). */
@@ -232,6 +242,10 @@ export type ContractFloorState = "delta" | "none" | "ahead" | "absent" | "INVALI
 export interface VisibilityMigrationReport {
   rows: { block: string; index: number; id?: string }[];
   total: number;
+  /** Present when the contract floor makes the rows NOT actionable: a v2.0
+   *  workspace uses absent visibility as the intentional private default, and a
+   *  floor-less workspace cannot be assumed pre-v2.0. */
+  note?: string;
 }
 
 /** `doctor --contract-delta`'s report block (additive to §7.6's `DoctorReport`). */

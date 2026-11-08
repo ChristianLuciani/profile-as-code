@@ -18,6 +18,7 @@ import {
   missingVisibility,
   needsVisibilityMigration,
   registryCheck,
+  SchemaValidationError,
 } from "../src/index.js";
 import type { Profile } from "../src/types.js";
 
@@ -159,6 +160,28 @@ describe("D27 — selection sees only the rows the artifact can emit", () => {
     });
     expect(slice.projects.map((project) => project.id)).toEqual(["pub-proj"]);
     expect(slice.selection?.selected.projects).toBe(1);
+  });
+});
+
+describe("D27 — the achievements leak gate names the effective value + remedy", () => {
+  it("reports `private` (never `undefined`) and points at pasco migrate", () => {
+    const dir = workspace({
+      "identity.yaml": "name: Example\n",
+      "credentials.yaml":
+        "- id: private-cred\n  kind: award\n  title: Internal award\n  issuer: Example\n",
+      "achievements.yaml":
+        "- id: ach\n  statement:\n    en: Shipped it\n  kind: milestone\n  basis: reported\n  visibility: public\n  credentialId: private-cred\n",
+    });
+    try {
+      load(dir);
+      throw new Error("load should have failed");
+    } catch (err) {
+      expect(err).toBeInstanceOf(SchemaValidationError);
+      const message = (err as SchemaValidationError).issues[0]?.message ?? "";
+      expect(message).toContain('visibility "private"');
+      expect(message).not.toContain('visibility "undefined"');
+      expect(message).toContain("pasco migrate");
+    }
   });
 });
 
