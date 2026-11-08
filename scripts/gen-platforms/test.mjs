@@ -272,6 +272,198 @@ try {
     );
   }
 
+  // ── icon metadata (#511) ──────────────────────────────────────────────────
+  {
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: {
+          ...BASE_PLATFORMS.alpha,
+          icon: { slug: "alphamark", color: "A6CE39", label: "Alpha" },
+        },
+        gofundme: BACKLOG({ icon: { slug: "gofundme", color: "00B964", label: "GoFundMe" } }),
+      },
+    });
+    const res = run(root);
+    check("a tree with icon metadata generates", res.code === 0, res.out.trim());
+    const module = readFileSync(join(root, OUT_REL), "utf8");
+    check(
+      "projects PLATFORM_ICONS from the rows — member AND backlog (#511)",
+      module.includes('alpha: { slug: "alphamark", color: "A6CE39", label: "Alpha" },') &&
+        module.includes('gofundme: { slug: "gofundme", color: "00B964", label: "GoFundMe" },'),
+      module,
+    );
+  }
+  {
+    // A `#` would ship a broken shield: the badge URL interpolates the value.
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: {
+          ...BASE_PLATFORMS.alpha,
+          icon: { slug: "alpha", color: "#A6CE39", label: "Alpha" },
+        },
+      },
+    });
+    const res = run(root);
+    check(
+      "an icon color with '#' refuses",
+      res.code === 1 && res.out.includes("icon.color must be a 6-digit hex WITHOUT '#'"),
+      res.out.trim(),
+    );
+  }
+  {
+    // A URL is not a Simple Icons identifier — the registry stores a token.
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: {
+          ...BASE_PLATFORMS.alpha,
+          icon: { slug: "https://example.com/a.svg", color: "A6CE39", label: "Alpha" },
+        },
+      },
+    });
+    const res = run(root);
+    check(
+      "an icon slug that is a URL refuses",
+      res.code === 1 && res.out.includes("icon.slug must be ONE badge logo identifier"),
+      res.out.trim(),
+    );
+  }
+  {
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: { ...BASE_PLATFORMS.alpha, icon: { slug: "alpha", color: "A6CE39", label: " " } },
+      },
+    });
+    const res = run(root);
+    check(
+      "an empty icon label refuses",
+      res.code === 1 && res.out.includes("icon.label must be ONE badge token"),
+      res.out.trim(),
+    );
+  }
+
+  {
+    // The label is a shields path segment, so a space is not harmless (review F3).
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: {
+          ...BASE_PLATFORMS.alpha,
+          icon: { slug: "alpha", color: "A6CE39", label: "Google Scholar" },
+        },
+      },
+    });
+    const res = run(root);
+    check(
+      "a label with a space refuses (it would segment the shields path)",
+      res.code === 1 && res.out.includes("icon.label must be ONE badge token"),
+      res.out.trim(),
+    );
+  }
+  for (const bad of ["Google-Scholar", "Google_Scholar"]) {
+    // shields reads `-` as the segment separator/escape and `_` as a space, and
+    // `encodeURIComponent` leaves both alone — so the gate must refuse them
+    // (round-2 review F2 of #512).
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: {
+          ...BASE_PLATFORMS.alpha,
+          icon: { slug: "alpha", color: "A6CE39", label: bad },
+        },
+      },
+    });
+    const res = run(root);
+    check(
+      `a label with ${JSON.stringify(bad)} refuses (shields markup character)`,
+      res.code === 1 && res.out.includes("icon.label must be ONE badge token"),
+      res.out.trim(),
+    );
+  }
+  {
+    // #511 pass-3 F5: an icon source that names a hex must name the ROW's hex.
+    // The gate cannot fetch, so it cannot prove a citation is real; it can refuse
+    // a citation that contradicts the value it sits next to.
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: {
+          ...BASE_PLATFORMS.alpha,
+          icon: { slug: "alpha", color: "A6CE39", label: "Alpha" },
+          sources: [
+            ...BASE_PLATFORMS.alpha.sources,
+            "[WEB] simple-icons data (title=Alpha, hex=00FF00, data/simple-icons.json), fetched 2026-11-07",
+          ],
+        },
+      },
+    });
+    const res = run(root);
+    check(
+      "a simple-icons citation with a different hex refuses",
+      res.code === 1 && res.out.includes("cites simple-icons hex 00FF00"),
+      res.out.trim(),
+    );
+  }
+  {
+    // #511: `identity` is a REGISTRY kind — declarable on a backlog row so
+    // `identity.links[].platform` resolves, and projected as such.
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        orcid: BACKLOG({ kind: "identity", family: "creator-monetization" }),
+      },
+    });
+    const res = run(root);
+    check("a backlog row may declare kind: identity (#511)", res.code === 0, res.out.trim());
+    const module = readFileSync(join(root, OUT_REL), "utf8");
+    check(
+      "projects kind: identity into PLATFORM_KINDS (#511)",
+      module.includes('orcid: "identity",'),
+      module,
+    );
+  }
+  {
+    // An enum member is a profile BODY: identity exists precisely because these
+    // rows have none.
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: { ...BASE_PLATFORMS.alpha, kind: "identity" },
+      },
+    });
+    const res = run(root);
+    check(
+      "a member with kind: identity refuses (the enum is the profile bodies)",
+      res.code === 1 && res.out.includes('member "alpha" declares kind "identity"'),
+      res.out.trim(),
+    );
+  }
+  {
+    // A renderer may not claim the registry-only kind as its surface (#511).
+    const root = tree({
+      ...BASE_TREE,
+      renderers: [{ ...ALPHA_RENDERER, surface: "identity" }],
+    });
+    const res = run(root);
+    check(
+      "a renderer manifest with pasco.surface: identity refuses",
+      res.code === 1 && res.out.includes("pasco.surface must be one of"),
+      res.out.trim(),
+    );
+  }
+
   // ── surface kind (D23, #262) ──────────────────────────────────────────────
   {
     const root = tree({
@@ -289,7 +481,9 @@ try {
       "projects the backlog kinds into PLATFORM_KINDS",
       module.includes('npm: "repo-meta",') &&
         module.includes('hn: "distribution",') &&
-        module.includes('export type SurfaceKind = "profile" | "repo-meta" | "distribution";'),
+        module.includes(
+          'export type SurfaceKind = "profile" | "repo-meta" | "distribution" | "identity";',
+        ),
       module,
     );
     check(

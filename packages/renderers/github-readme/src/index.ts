@@ -29,6 +29,7 @@ import {
   completenessLine,
   isPublicEntry,
   orderedForSurface,
+  PLATFORM_ICONS,
 } from "@profile-as-code/core";
 import { mdHref, mdText } from "@profile-as-code/markdown";
 
@@ -98,17 +99,15 @@ function artifactLine(
   return `- **${a.title}** (${a.kind})${link}${license}${desc !== undefined ? ` — ${desc}` : ""}`;
 }
 
-/** Deterministic badge map: platform → shield.io style + display name. */
-const BADGE: Record<string, { color: string; logo: string; label: string }> = {
-  github: { color: "181717", logo: "github", label: "GitHub" },
-  linkedin: { color: "0A66C2", logo: "linkedin", label: "LinkedIn" },
-  x: { color: "000000", logo: "X", label: "X" },
-  orcid: { color: "A6CE39", logo: "orcid", label: "ORCID" },
-  substack: { color: "FF6719", logo: "substack", label: "Substack" },
-  researchgate: { color: "00CCBB", logo: "researchgate", label: "ResearchGate" },
-  scholar: { color: "4285F4", logo: "googlescholar", label: "Scholar" },
-  website: { color: "111111", logo: "github", label: "Website" },
-};
+/**
+ * No badge map lives here (#511): the icon metadata — the badge service's `logo`
+ * identifier (usually a Simple Icons name, not always), the brand color and the
+ * label the badge prints — is the `icon:` block of the platform
+ * registry entry, projected into `PLATFORM_ICONS` by `pnpm gen:platforms`. The
+ * lookup below is the platform SLUG space, so a `platform` this surface does not
+ * know is not a fallback table's business: it renders no badge, and
+ * `pasco check` names it (`check/link-platform-icon`).
+ */
 
 function hostname(url: string): string {
   try {
@@ -116,6 +115,21 @@ function hostname(url: string): string {
   } catch {
     return url;
   }
+}
+
+/**
+ * shields' static-badge grammar applies to the MESSAGE segment too, not just the
+ * label: `-` separates segments (a literal one is `--`), `_` renders as a SPACE
+ * (a literal one is `__`) and a space must be `_`. A host can carry a hyphen
+ * (`my-site.example.com`) and, because `new URL` tolerates it, an underscore
+ * (`my_site.example.com`); the `catch` fallback can carry anything at all.
+ * Passing these raw cut or rewrote the badge's message (pass-1 review F3 of
+ * #512; pass-4 nit 1 found the `_` branch had been dropped on a false "LDH"
+ * premise). No fixture host carries either, so the golden bytes are unchanged.
+ * Order matters: escape `-` and `_`, then turn spaces into `_`.
+ */
+function shieldSegment(text: string): string {
+  return text.replace(/-/g, "--").replace(/_/g, "__").replace(/ /g, "_");
 }
 
 function hostnamePath(url: string): string {
@@ -226,11 +240,17 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   for (const l of p.identity.links ?? []) {
     if (l.platform === undefined) continue;
     if (seenBadge.has(l.platform)) continue;
-    const b = BADGE[l.platform];
+    const b = PLATFORM_ICONS[l.platform];
     if (b === undefined) continue;
     seenBadge.add(l.platform);
+    // The label comes from the registry now, so it is escaped where it LANDS and
+    // not trusted for being ours: `mdText` in the alt text (the #76 rule every
+    // other label in this file follows) and percent-encoded in the shields path,
+    // where a stray space would split the badge (fresh review F3, #511).
+    // `gen:platforms` already refuses anything but one badge token; this is the
+    // second line, not the first.
     badges.push(
-      `[![${b.label}](https://img.shields.io/badge/${b.label}-${hostname(l.url)}-${b.color}?style=flat&logo=${b.logo}&logoColor=white)](${mdHref(l.url)})`,
+      `[![${mdText(b.label)}](https://img.shields.io/badge/${encodeURIComponent(b.label)}-${shieldSegment(hostname(l.url))}-${b.color}?style=flat&logo=${b.slug}&logoColor=white)](${mdHref(l.url)})`,
     );
   }
   if (badges.length > 0) out.push("", badges.join(" "));

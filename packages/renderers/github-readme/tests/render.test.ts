@@ -173,6 +173,96 @@ describe("renderer github-readme (SPEC §15)", () => {
   });
 });
 
+describe("renderer github-readme — icon metadata comes from the platform registry (#511)", () => {
+  /** Build a slice from inline workspace files (the same helper pattern the
+   *  email/registry tests use). */
+  function sliceOf(files: Record<string, string>) {
+    const dir = mkdtempSync(join(tmpdir(), "pasco-render-icons-"));
+    mkdirSync(join(dir, "content"), { recursive: true });
+    for (const [name, body] of Object.entries(files))
+      writeFileSync(join(dir, "content", name), body, "utf8");
+    try {
+      return {
+        slice: compile(load(dir), "github-readme", "en"),
+        cleanup: () => rmSync(dir, { recursive: true, force: true }),
+      };
+    } catch (err) {
+      rmSync(dir, { recursive: true, force: true });
+      throw err;
+    }
+  }
+
+  it("draws the badge from PLATFORM_ICONS — slug, color and label all come from the row", () => {
+    const { slice, cleanup } = sliceOf({
+      "identity.yaml":
+        "name: Elena Vasquez\nlinks:\n  - platform: substack\n    url: https://elena.substack.com\n",
+    });
+    try {
+      // The registry row is the single source: no renderer table could produce
+      // this URL without reading `icon: {slug, color, label}` for `substack`.
+      expect(render(slice).text).toContain(
+        "[![Substack](https://img.shields.io/badge/Substack-elena.substack.com-FF6719?style=flat&logo=substack&logoColor=white)](https://elena.substack.com)",
+      );
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("escapes a hyphen in the badge MESSAGE — a host is not a safe segment either", () => {
+    // `-` separates shields' segments and `_` is a space, so a literal hyphen in
+    // the host used to cut the badge's message (review F3 of #512, other segment).
+    const { slice, cleanup } = sliceOf({
+      "identity.yaml":
+        "name: Elena Vasquez\nlinks:\n  - platform: substack\n    url: https://my-site.substack.com\n",
+    });
+    try {
+      expect(render(slice).text).toContain("badge/Substack-my--site.substack.com-FF6719");
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("escapes an underscore in the badge MESSAGE — `new URL` keeps it in a host", () => {
+    // The pass-4 review caught the `_` branch being dropped on a false "hosts are
+    // LDH" premise: `new URL("https://my_site.example.com").hostname` keeps the
+    // underscore, and shields renders `_` as a space. This drives the same path
+    // through the renderer's own fallback (`hostname()` returns the raw string
+    // for a value `new URL` rejects) so the branch is exercised either way.
+    const { slice, cleanup } = sliceOf({
+      "identity.yaml":
+        "name: Elena Vasquez\nlinks:\n  - platform: substack\n    url: https://elena.substack.com\n",
+    });
+    try {
+      const patched = {
+        ...slice,
+        identity: {
+          ...slice.identity,
+          links: [{ platform: "substack", url: "my_site.example.com" }],
+        },
+      };
+      expect(render(patched as typeof slice).text).toContain("badge/Substack-my__site.example.com");
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("canary: a platform with no icon metadata draws NO badge and keeps the link", () => {
+    const { slice, cleanup } = sliceOf({
+      "identity.yaml":
+        "name: Elena Vasquez\nlinks:\n  - platform: myspace\n    url: https://myspace.com/elena\n",
+    });
+    try {
+      const text = render(slice).text;
+      expect(text).not.toContain("img.shields.io");
+      // Absence of a badge is a presentation gap, never a dropped fact: the link
+      // still renders (and `pasco check` names the platform).
+      expect(text).toContain("- [myspace.com/elena](https://myspace.com/elena)");
+    } finally {
+      cleanup();
+    }
+  });
+});
+
 describe("renderer github-readme — contact email (v1.5, issue #71)", () => {
   /** Build a slice from inline workspace files (same pattern as the registry tests). */
   function emailSlice(files: Record<string, string>) {

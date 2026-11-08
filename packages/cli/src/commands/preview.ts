@@ -350,6 +350,10 @@ export function runPreview(args: PreviewArgs): number {
     today: generatedAt.slice(0, 10),
   });
   const checkFindings = [
+    // The handle-matrix findings are part of the report too: `pasco check`
+    // prints them as "handle warning(s)", so a brand workspace's unlinked handle
+    // must not read as `0 warning(s)` on this page (pass-3 review of #512, F1).
+    ...checks.handleIssues,
     ...checks.registry,
     ...checks.media,
     ...checks.limits,
@@ -357,6 +361,10 @@ export function runPreview(args: PreviewArgs): number {
     // SPEC §21.8 (#462): the advisory narrative rule is part of the report
     // `pasco check` prints, so the page cannot silently drop it (fresh pass F3).
     ...checks.sameText,
+    // #511: the icon-coverage rule is part of that same report — the reason this
+    // list is spelled out at all is that "one builder, two commands" fails the
+    // moment a rule is added here and forgotten (fresh review of #512, F4).
+    ...checks.linkIcons,
   ].map((finding) => ({
     severity: finding.severity,
     code: finding.code,

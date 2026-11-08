@@ -44,8 +44,16 @@ export type Release = NonNullable<LoadedProfile["releases"]>[number];
 /** The state a surface carries for a release — the §19 ledger vocabulary. */
 export type PresenceState = "in-sync" | "stale" | "never";
 
+/**
+ * The kinds a RELEASE can address (#511): `identity` is a registry kind, not a
+ * release one — a link target has no body to render, so a release row naming it
+ * is a mistake, not a fan-out step. Excluding it here makes that a type error
+ * rather than a runtime surprise, and `kindOf` refuses it with a reason.
+ */
+export type ReleaseSurfaceKind = Exclude<SurfaceKind, "identity">;
+
 /** Fan-out order: the artifact's metadata → the identity bodies → the announcements. */
-const KIND_RANK: Readonly<Record<SurfaceKind, number>> = {
+const KIND_RANK: Readonly<Record<ReleaseSurfaceKind, number>> = {
   "repo-meta": 0,
   profile: 1,
   distribution: 2,
@@ -54,7 +62,7 @@ const KIND_RANK: Readonly<Record<SurfaceKind, number>> = {
 /** The per-kind editorial frame of the base text. The COPY per channel lives in
  *  `skills/` (D23 item 4 / rule 7); this is only the factual spine a skill starts
  *  from, derived from the release row and nothing else. */
-const BASE_FRAME: Readonly<Record<SurfaceKind, string>> = {
+const BASE_FRAME: Readonly<Record<ReleaseSurfaceKind, string>> = {
   "repo-meta": "What shipped",
   profile: "Now on the profile",
   distribution: "Announcement",
@@ -70,7 +78,7 @@ export class PresenceError extends Error {
 
 export interface ReleaseSurface {
   surface: string;
-  kind: SurfaceKind;
+  kind: ReleaseSurfaceKind;
   state: PresenceState;
   /** changedUnits this surface still owes: the key IS an SSOT unit, but the
    *  ledger has no record of it on THIS surface yet. Any entry here means the
@@ -92,7 +100,7 @@ export interface ReleasePlanSurface extends ReleaseSurface {
 }
 
 export interface BaseText {
-  kind: SurfaceKind;
+  kind: ReleaseSurfaceKind;
   /** The factual spine: `"<frame>: v<version> (<date>) — <summary.en | id>"`. */
   text: string;
 }
@@ -134,11 +142,21 @@ function newestFirst(a: Release, b: Release): number {
   return byText(b.id, a.id);
 }
 
-function kindOf(surface: string): SurfaceKind {
+function kindOf(surface: string): ReleaseSurfaceKind {
   const kind = PLATFORM_KINDS[surface];
   if (kind === undefined) {
     throw new PresenceError(
       `surface "${surface}" is not declared in platforms/registry.yaml — fix the release row (a typo must not silently build a plan)`,
+    );
+  }
+  // #511: `identity` rows exist so `identity.links[].platform` resolves against
+  // the registry — they are link targets, not fan-out surfaces. Refusing them
+  // here is what keeps the typo guard real: a `github` (instead of
+  // `github-readme`) in a release row is still an error, now named for what it
+  // is rather than accepted as a profile surface.
+  if (kind === "identity") {
+    throw new PresenceError(
+      `surface "${surface}" is an identity link target (kind: identity) — it has no renderable body, so a release cannot address it; did you mean the platform whose body the engine renders?`,
     );
   }
   return kind;
@@ -259,7 +277,7 @@ export function releasePlan(profile: LoadedProfile, id?: string): ReleasePlan {
     .sort(compareSurfaces)
     .map((row, index) => ({ order: index + 1, ...row }));
   const summary = release.summary?.en ?? release.id;
-  const kinds: SurfaceKind[] = [];
+  const kinds: ReleaseSurfaceKind[] = [];
   for (const row of surfaces) if (!kinds.includes(row.kind)) kinds.push(row.kind);
   const baseText = kinds.map((kind) => ({
     kind,
