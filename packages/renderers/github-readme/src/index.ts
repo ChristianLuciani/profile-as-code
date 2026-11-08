@@ -100,8 +100,9 @@ function artifactLine(
 }
 
 /**
- * No badge map lives here (#511): the icon metadata — Simple Icons slug, brand
- * color and the label the badge prints — is the `icon:` block of the platform
+ * No badge map lives here (#511): the icon metadata — the badge service's `logo`
+ * identifier (usually a Simple Icons name, not always), the brand color and the
+ * label the badge prints — is the `icon:` block of the platform
  * registry entry, projected into `PLATFORM_ICONS` by `pnpm gen:platforms`. The
  * lookup below is the platform SLUG space, so a `platform` this surface does not
  * know is not a fallback table's business: it renders no badge, and
@@ -118,16 +119,17 @@ function hostname(url: string): string {
 
 /**
  * shields' static-badge grammar applies to the MESSAGE segment too, not just the
- * label: `-` separates segments, so a literal `-` is `--`. A hostname can
- * legally contain a hyphen (`my-site.example.com`) and passing it raw cut the
- * badge's message there (pass-1 review F3 of #512 — same class as the label, the
- * other segment). Only `-` can occur: the input is `hostname()`, and a host is
- * LDH (letters, digits, hyphen, dot) — `_` and space are impossible, so they are
- * NOT escaped here rather than escaping branches no input can reach (pass-3 F6).
- * No fixture host carries a hyphen, so the golden bytes are unchanged.
+ * label: `-` separates segments (a literal one is `--`), `_` renders as a SPACE
+ * (a literal one is `__`) and a space must be `_`. A host can carry a hyphen
+ * (`my-site.example.com`) and, because `new URL` tolerates it, an underscore
+ * (`my_site.example.com`); the `catch` fallback can carry anything at all.
+ * Passing these raw cut or rewrote the badge's message (pass-1 review F3 of
+ * #512; pass-4 nit 1 found the `_` branch had been dropped on a false "LDH"
+ * premise). No fixture host carries either, so the golden bytes are unchanged.
+ * Order matters: escape `-` and `_`, then turn spaces into `_`.
  */
 function shieldSegment(text: string): string {
-  return text.replace(/-/g, "--");
+  return text.replace(/-/g, "--").replace(/_/g, "__").replace(/ /g, "_");
 }
 
 function hostnamePath(url: string): string {

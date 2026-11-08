@@ -541,7 +541,7 @@ It exits `1` with one finding per fact (`missing` · `duplicate` · `wrong-group
 ### M17 — `presence` and `release plan`
 
 `presence` needs `content/releases.yaml`; `release plan` exits `1` without it. A release row is
-`{id, version, date, surfaces[], changedUnits[]}`; surfaces are registry slugs of any kind, and the
+`{id, version, date, surfaces[], changedUnits[]}`; surfaces are registry slugs of any RELEASE kind (an `identity` row is refused — it has no body to fan out), and the
 state is derived from `deployments[key][surface]` vs the unit hash.
 
 ```sh

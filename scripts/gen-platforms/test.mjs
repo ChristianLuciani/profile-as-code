@@ -329,7 +329,7 @@ try {
     const res = run(root);
     check(
       "an icon slug that is a URL refuses",
-      res.code === 1 && res.out.includes("icon.slug must be ONE Simple Icons identifier"),
+      res.code === 1 && res.out.includes("icon.slug must be ONE badge logo identifier"),
       res.out.trim(),
     );
   }

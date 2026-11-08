@@ -190,6 +190,30 @@ describe("renderer github-readme — icon metadata comes from the platform regis
     }
   });
 
+  it("escapes an underscore in the badge MESSAGE — `new URL` keeps it in a host", () => {
+    // The pass-4 review caught the `_` branch being dropped on a false "hosts are
+    // LDH" premise: `new URL("https://my_site.example.com").hostname` keeps the
+    // underscore, and shields renders `_` as a space. This drives the same path
+    // through the renderer's own fallback (`hostname()` returns the raw string
+    // for a value `new URL` rejects) so the branch is exercised either way.
+    const { slice, cleanup } = sliceOf({
+      "identity.yaml":
+        "name: Elena Vasquez\nlinks:\n  - platform: substack\n    url: https://elena.substack.com\n",
+    });
+    try {
+      const patched = {
+        ...slice,
+        identity: {
+          ...slice.identity,
+          links: [{ platform: "substack", url: "my_site.example.com" }],
+        },
+      };
+      expect(render(patched as typeof slice).text).toContain("badge/Substack-my__site.example.com");
+    } finally {
+      cleanup();
+    }
+  });
+
   it("canary: a platform with no icon metadata draws NO badge and keeps the link", () => {
     const { slice, cleanup } = sliceOf({
       "identity.yaml":

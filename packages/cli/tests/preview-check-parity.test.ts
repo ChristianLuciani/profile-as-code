@@ -1,15 +1,22 @@
 /**
  * `pasco preview` carries the SAME check report `pasco check` prints (SPEC §7:
  * "the check state is the same report `pasco check` prints" — one builder, two
- * commands). Twice now a rule was added to the builder and dropped by the page's
- * own list of findings: `text/same-across-platforms` (#462) and
- * `check/link-platform-icon` (#511). The third pass of the #511 review found the
- * oldest instance — the handle-matrix findings never reached the page at all, so
- * a brand workspace with an unlinked handle read `0 warning(s)`.
+ * commands). Three times a rule has been dropped by the page's own list of
+ * findings: `text/same-across-platforms` (#462), `check/link-platform-icon`
+ * (#511) and — found on the third #511 pass — the handle matrix, which never
+ * reached the page at all.
  *
- * This file pins PARITY, not a rule: every finding the builder produces for a
- * workspace must be visible on the page. It is written per rule because the page
- * takes a flat list; a future rule that forgets the list fails here.
+ * The assertion is therefore GENERIC: run `pasco check --json` on a workspace
+ * that triggers several rules, collect every finding code the report carries,
+ * and require each one on the page. A rule added to the builder and forgotten
+ * here fails as soon as it produces a finding — no per-rule list to maintain.
+ *
+ * DECLARED LIMIT: a rule that produces NOTHING for this workspace is not
+ * exercised (media, text limits and fact-present have no trigger here), so its
+ * wiring is not asserted by this file. Triggering all seven needs a workspace
+ * with an expired credential, a broken media file, an over-cap text, a built
+ * artifact and a duplicated narrative — that is the next step if the list is
+ * ever refactored again.
  */
 
 import { spawnSync } from "node:child_process";
@@ -61,29 +68,41 @@ afterAll(() => {
   for (const dir of created) rmSync(dir, { recursive: true, force: true });
 });
 
+interface CheckEnvelope {
+  data: {
+    handleIssues: { code: string; severity: string }[];
+    registry: { code: string }[];
+    media: { code: string }[];
+    limits: { code: string }[];
+    factPresent: { findings: { code: string }[] };
+    sameText: { code: string }[];
+    linkIcons: { code: string }[];
+  };
+}
+
 describe("pasco preview — same check report as `pasco check`", () => {
-  it("carries the handle-matrix finding the CLI reports", () => {
+  it("carries every finding code the check report produces", () => {
     const ws = workspace();
     const checked = run(["check", "--json", "--workspace", ws]);
     expect(checked.code).toBe(0);
-    const data = JSON.parse(checked.stdout) as {
-      data: { handleIssues: { code: string }[] };
-    };
-    expect(data.data.handleIssues.length).toBeGreaterThan(0);
-    const code = data.data.handleIssues[0]!.code;
+    const { data } = JSON.parse(checked.stdout) as CheckEnvelope;
+    const codes = [
+      ...data.handleIssues,
+      ...data.registry,
+      ...data.media,
+      ...data.limits,
+      ...(data.factPresent?.findings ?? []),
+      ...data.sameText,
+      ...data.linkIcons,
+    ].map((finding) => finding.code);
 
-    const out = mkdtempSync(join(tmpdir(), "pasco-preview-parity-out-"));
-    created.push(out);
-    const preview = run(["preview", "--out", out, "--no-open", "--workspace", ws]);
-    expect(preview.code).toBe(0);
-    expect(readFileSync(join(out, "index.html"), "utf8")).toContain(code);
-  });
+    // Two rules minimum, so "nothing to check" cannot pass as parity.
+    expect(new Set(codes).size).toBeGreaterThanOrEqual(2);
 
-  it("carries the icon-coverage finding in the same page", () => {
-    const ws = workspace();
     const out = mkdtempSync(join(tmpdir(), "pasco-preview-parity-out-"));
     created.push(out);
     expect(run(["preview", "--out", out, "--no-open", "--workspace", ws]).code).toBe(0);
-    expect(readFileSync(join(out, "index.html"), "utf8")).toContain("check/link-platform-icon");
+    const page = readFileSync(join(out, "index.html"), "utf8");
+    for (const code of new Set(codes)) expect(page, code).toContain(code);
   });
 });

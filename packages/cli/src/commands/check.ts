@@ -383,7 +383,7 @@ export function runCheck(args: CheckArgs): number {
   }
 
   line(
-    "pasco check: the offline rules above ran — evidence registry, media transport, text limits, the advisory narrative rule (text/same-across-platforms), surface facts, and (for brand) the handle matrix.",
+    "pasco check: the offline rules above ran — evidence registry, media transport, text limits, the advisory narrative rule (text/same-across-platforms), link icons (check/link-platform-icon), surface facts, and (for brand) the handle matrix.",
   );
   // Name the SOURCE, never the file: `load()` merges content/*.y(a)ml by root
   // property and reports no source, so `content/checks.yaml` was a claim the

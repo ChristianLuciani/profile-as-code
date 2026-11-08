@@ -25,8 +25,10 @@ describe("PLATFORM_ICONS — the registry projection (#511)", () => {
   it("pins every moved value, including the three the README golden does not exercise", () => {
     // The golden fixture links only github/linkedin/x/orcid/substack; these three
     // moved too, so a wrong hex or slug in their rows would have passed every
-    // gate (fresh review of #512, F7). Values verified against the Simple Icons
-    // data cited in each row's `sources`.
+    // gate (fresh review of #512, F7). `researchgate`/`scholar` are pinned to the
+    // Simple Icons data their rows cite; `orcid` too. `linkedin` and `website` are
+    // [MI] rows — Simple Icons ships no LinkedIn entry — so for those the pin is
+    // byte-parity with the retired table, not a source claim.
     expect(PLATFORM_ICONS.researchgate).toEqual({
       slug: "researchgate",
       color: "00CCBB",

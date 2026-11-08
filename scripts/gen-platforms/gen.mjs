@@ -57,7 +57,8 @@ const SKILLS_REL = "skills";
 const DEPLOY_KINDS = ["git", "api", "manual"];
 const STATUSES = ["member", "backlog"];
 const ORIGINS = ["postiz", "extra"];
-/** Simple Icons identifier (a badge `logo=` value). `X` keeps the retired
+/** A badge `logo=` identifier (usually a Simple Icons name — `linkedin` has no
+ *  Simple Icons entry, so "usually" is the honest word). `X` keeps the retired
  *  table's spelling because the golden test pins the bytes; a NEW row should
  *  use the spelling Simple Icons publishes, lowercase — this module makes no
  *  claim about how the badge service matches case (#511). */
@@ -204,7 +205,7 @@ async function loadRegistry(root) {
       }
       if (typeof icon.slug !== "string" || !ICON_SLUG.test(icon.slug)) {
         throw new GateError(
-          `${REGISTRY_REL}: "${slug}".icon.slug must be ONE Simple Icons identifier (letters, digits, dot, underscore, dash) — never a URL or a file path`,
+          `${REGISTRY_REL}: "${slug}".icon.slug must be ONE badge logo identifier (letters, digits, dot, underscore, dash) — never a URL or a file path`,
         );
       }
       if (typeof icon.color !== "string" || !ICON_COLOR.test(icon.color)) {
