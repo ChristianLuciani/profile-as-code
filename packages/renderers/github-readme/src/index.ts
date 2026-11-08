@@ -118,15 +118,16 @@ function hostname(url: string): string {
 
 /**
  * shields' static-badge grammar applies to the MESSAGE segment too, not just the
- * label: `-` separates segments, a literal `-` is `--`, and `_` renders as a
- * space (so a literal `_` is `__`). A hostname can legally contain a hyphen
- * (`my-site.example.com`), and passing it raw produced a badge whose message was
- * cut at the hyphen (review F3 of #512 — same class as the label, other
- * segment). No current fixture host carries one, so the golden bytes are
- * unchanged; the escape is what keeps that from being luck.
+ * label: `-` separates segments, so a literal `-` is `--`. A hostname can
+ * legally contain a hyphen (`my-site.example.com`) and passing it raw cut the
+ * badge's message there (pass-1 review F3 of #512 — same class as the label, the
+ * other segment). Only `-` can occur: the input is `hostname()`, and a host is
+ * LDH (letters, digits, hyphen, dot) — `_` and space are impossible, so they are
+ * NOT escaped here rather than escaping branches no input can reach (pass-3 F6).
+ * No fixture host carries a hyphen, so the golden bytes are unchanged.
  */
 function shieldSegment(text: string): string {
-  return text.replace(/-/g, "--").replace(/_/g, "__").replace(/ /g, "_");
+  return text.replace(/-/g, "--");
 }
 
 function hostnamePath(url: string): string {

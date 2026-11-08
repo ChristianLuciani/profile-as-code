@@ -59,7 +59,10 @@
 #                    the reverse assert requires — never a silent gap.
 #   fixture          optional test workspace under packages/core/tests/fixtures/
 #   icon             optional PRESENTATION metadata, `{ slug, color, label }`:
-#                    `slug` = the Simple Icons identifier a badge draws,
+#                    `slug` = the badge service's `logo` identifier (usually
+#                    the Simple Icons name; `linkedin` has none — Simple
+#                    Icons ships no LinkedIn entry — so that badge draws no
+#                    mark, and the row says so),
 #                    `color` = the brand hex WITHOUT `#`, `label` = the SHORT
 #                    badge token the surface prints (letters/digits/dot only:
 #                    shields reads a space, `-` and `_` as markup — separator,

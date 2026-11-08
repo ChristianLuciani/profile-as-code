@@ -390,6 +390,31 @@ try {
     );
   }
   {
+    // #511 pass-3 F5: an icon source that names a hex must name the ROW's hex.
+    // The gate cannot fetch, so it cannot prove a citation is real; it can refuse
+    // a citation that contradicts the value it sits next to.
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: {
+          ...BASE_PLATFORMS.alpha,
+          icon: { slug: "alpha", color: "A6CE39", label: "Alpha" },
+          sources: [
+            ...BASE_PLATFORMS.alpha.sources,
+            "[WEB] simple-icons data (title=Alpha, hex=00FF00, data/simple-icons.json), fetched 2026-11-07",
+          ],
+        },
+      },
+    });
+    const res = run(root);
+    check(
+      "a simple-icons citation with a different hex refuses",
+      res.code === 1 && res.out.includes("cites simple-icons hex 00FF00"),
+      res.out.trim(),
+    );
+  }
+  {
     // #511: `identity` is a REGISTRY kind — declarable on a backlog row so
     // `identity.links[].platform` resolves, and projected as such.
     const root = tree({

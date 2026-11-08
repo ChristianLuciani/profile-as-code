@@ -365,8 +365,9 @@ Boundary notes (issue #138):
   membership while its publishing aspect remains un-declared.
 
 **Platform icon metadata (presentation, #511):** a registry row may declare
-`icon: { slug, color, label }` — the Simple Icons identifier the badge draws, the brand hex
-without `#`, and the text the surface prints. It is **presentation metadata, not an asset**:
+`icon: { slug, color, label }` — the badge service's `logo` identifier (normally the Simple
+Icons name, but not always: Simple Icons ships no LinkedIn entry, so that badge draws no mark
+and the row declares it), the brand hex without `#`, and the text the surface prints. It is **presentation metadata, not an asset**:
 the engine vendors no SVG, ships no icon binary and never fetches one; a consumer (each
 renderer, and a view living outside this repo such as the CV) resolves
 `identity.links[].platform` → this block. `pnpm gen:platforms` projects it as

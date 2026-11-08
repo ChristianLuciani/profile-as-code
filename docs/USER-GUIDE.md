@@ -714,8 +714,8 @@ target platform's skill for its reader and angle.
 
 A badge is drawn for a link whose `platform` has icon metadata in the engine's platform
 registry — today `github`, `linkedin`, `x`, `substack`, `orcid`, `scholar`, `website` and
-`researchgate`. The icon — the Simple Icons
-mark, the brand color and the badge's label — is **engine data**, declared on the
+`researchgate`. The icon — the badge's `logo`
+identifier (usually a Simple Icons name), the brand color and the badge's label — is **engine data**, declared on the
 platform's registry row, so it is not yours to set in the workspace (and no binary asset
 is downloaded or shipped). `pasco check` reports `check/link-platform-icon` for a link
 `platform` it cannot draw, as a **warn** naming the platform and the link: the badge is

@@ -655,7 +655,8 @@ handle matrix (`claimed`/`pending`, `handle-claimed`/`handle-consistent`). The s
 it binds the renderer surfaces (`bios`, `headlines`, `socialHandles`, the `checks` catalog) and the
 `deployments` ledger keys, **not** `identity.links[]`: a link's `platform` is a free-form badge label
 (`type: string` — `website`, `orcid`, `scholar`), so uncommenting the example still validates. The
-`github-readme` badge table carries a `website` entry, so such a link still renders a badge.
+`website` row of `platforms/registry.yaml` carries icon metadata (#511), so such a link still
+renders a badge — the badge set lives in the registry, not in a renderer's table.
 
 ### M23 — `--workspace` and resolution from outside
 

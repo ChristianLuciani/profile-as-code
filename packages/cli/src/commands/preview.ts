@@ -341,6 +341,10 @@ export function runPreview(args: PreviewArgs): number {
     today: generatedAt.slice(0, 10),
   });
   const checkFindings = [
+    // The handle-matrix findings are part of the report too: `pasco check`
+    // prints them as "handle warning(s)", so a brand workspace's unlinked handle
+    // must not read as `0 warning(s)` on this page (pass-3 review of #512, F1).
+    ...checks.handleIssues,
     ...checks.registry,
     ...checks.media,
     ...checks.limits,

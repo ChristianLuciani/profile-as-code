@@ -204,9 +204,11 @@ export const PLATFORM_KINDS: Readonly<Record<string, SurfaceKind>> = {
 
 /**
  * Badge/link icon metadata (#511), keyed by the SAME platform slug space — so
- * `identity.links[].platform` resolves here. `slug` is a Simple Icons
- * identifier, `color` a 6-digit brand hex without `#`, `label` the text the
- * surface prints. Declarative only: the engine ships no SVG and no binary asset.
+ * `identity.links[].platform` resolves here. `slug` is the badge service's
+ * `logo` identifier — normally a Simple Icons name, but NOT always (Simple
+ * Icons ships no LinkedIn entry, so that badge draws no mark and its row says
+ * so) — `color` a 6-digit brand hex without `#`, `label` the text the surface
+ * prints. Declarative only: the engine ships no SVG and no binary asset.
  * An absent key means "no icon declared"; `pasco check` warns
  * (`check/link-platform-icon`) instead of failing.
  */
