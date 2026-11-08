@@ -26,7 +26,8 @@
 #   status           member | backlog (REQUIRED). `member` = a real enum entry;
 #                    `backlog` = declared but NOT an enum entry (verify the
 #                    official eligibility page before any claim). Backlog entries
-#                    carry only family + kind + note + sources.
+#                    carry family + kind + note + sources (and `icon` when the
+#                    surface is badgeable — the `identity` rows do, #511).
 #   kind             profile | repo-meta | distribution | identity (D23, #262;
 #                    `identity` #511) — the presence axis, additive. `profile`
 #                    (absent = profile) is the identity body rendered per
@@ -60,8 +61,10 @@
 #   icon             optional PRESENTATION metadata, `{ slug, color, label }`:
 #                    `slug` = the Simple Icons identifier a badge draws,
 #                    `color` = the brand hex WITHOUT `#`, `label` = the SHORT
-#                    badge token the surface prints (one word: a space would
-#                    segment the shields path). Declarative only — the engine
+#                    badge token the surface prints (letters/digits/dot only:
+#                    shields reads a space, `-` and `_` as markup — separator,
+#                    escape and space — so any of them breaks the path).
+#                    Declarative only — the engine
 #                    ships no binary asset and vendors no SVG (#511). It exists
 #                    so `identity.links[].platform` resolves against ONE key
 #                    space: the registry's. `pasco check` warns
@@ -287,11 +290,16 @@ platforms:
     handle_hosts: []
     renderer: false
     icon: { slug: linkedin, color: "0A66C2", label: LinkedIn }
+    # NOT a Simple Icons entry: that file ships no LinkedIn mark (3467 icons,
+    # no title match and `0A66C2` appears nowhere — checked 2026-11-07), so this
+    # hex is CARRIED from the retired badge table, not re-verified. Consequently
+    # shields draws this badge with no logo (`logo=linkedin`) — the same
+    # behaviour the retired table produced, unchanged by #511.
     sources:
       [
         "SPEC §6 (D16)",
         "README (deploy: no API)",
-        "[WEB] simple-icons data (title=LinkedIn, hex=0A66C2, data/simple-icons.json), fetched 2026-11-07",
+        "[MI] hex 0A66C2 carried from the retired github-readme BADGE table (#511) — Simple Icons ships no LinkedIn entry, so there is no [WEB] source to cite",
       ]
   x:
     status: member

@@ -368,6 +368,27 @@ try {
       res.out.trim(),
     );
   }
+  for (const bad of ["Google-Scholar", "Google_Scholar"]) {
+    // shields reads `-` as the segment separator/escape and `_` as a space, and
+    // `encodeURIComponent` leaves both alone — so the gate must refuse them
+    // (round-2 review F2 of #512).
+    const root = tree({
+      ...BASE_TREE,
+      platforms: {
+        ...BASE_PLATFORMS,
+        alpha: {
+          ...BASE_PLATFORMS.alpha,
+          icon: { slug: "alpha", color: "A6CE39", label: bad },
+        },
+      },
+    });
+    const res = run(root);
+    check(
+      `a label with ${JSON.stringify(bad)} refuses (shields markup character)`,
+      res.code === 1 && res.out.includes("icon.label must be ONE badge token"),
+      res.out.trim(),
+    );
+  }
   {
     // #511: `identity` is a REGISTRY kind — declarable on a backlog row so
     // `identity.links[].platform` resolves, and projected as such.

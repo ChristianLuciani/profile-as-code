@@ -10,7 +10,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -73,6 +73,18 @@ describe("pasco check — check/link-platform-icon (#511)", () => {
     const human = run(["check", "--workspace", ws]);
     expect(human.stdout).toContain("link icons (identity.links, #511)");
     expect(human.stdout).toContain("[check/link-platform-icon]");
+  });
+
+  it("reaches `pasco preview` too — one builder, two commands", () => {
+    // The preview page embeds the same check report (check.ts: "One builder, two
+    // commands"); a rule added to the builder and forgotten here is exactly the
+    // silent drop the sameText comment warns about (round-1 review F4 of #512).
+    const ws = workspace("  - platform: myspace\n    url: https://myspace.com/elena\n");
+    const out = mkdtempSync(join(tmpdir(), "pasco-preview-icons-"));
+    created.push(out);
+    const res = run(["preview", "--out", out, "--no-open", "--workspace", ws]);
+    expect(res.code).toBe(0);
+    expect(readFileSync(join(out, "index.html"), "utf8")).toContain("check/link-platform-icon");
   });
 
   it("stays quiet for the platforms the registry declares", () => {

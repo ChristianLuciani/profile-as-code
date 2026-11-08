@@ -42,7 +42,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse as parseYaml } from "yaml";
-import { collectRenderers, REGISTRY_KINDS, SURFACE_KINDS } from "../renderer-map/gen.mjs";
+import { collectRenderers, REGISTRY_KINDS } from "../renderer-map/gen.mjs";
 
 /** Configuration/shape error: the gate cannot verify what it was asked to verify. */
 class GateError extends Error {}
@@ -64,9 +64,11 @@ const ICON_SLUG = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
  *  the badge URL interpolates, so a `#` would ship a broken shield (#511). */
 const ICON_COLOR = /^[0-9A-Fa-f]{6}$/;
 /** The badge LABEL becomes a path segment of the shields URL and the Markdown
- *  alt text, so it stays one short token — a space would split the badge and a
- *  bracket would break the link (review F3, #511). */
-const ICON_LABEL = /^[A-Za-z0-9][A-Za-z0-9._&+-]{0,23}$/;
+ *  alt text. Letters, digits and dots only: shields reads a SPACE as a space,
+ *  `-` as the segment separator/escape and `_` as a space too, so any of them
+ *  changes the rendered badge or 404s it — and `encodeURIComponent` leaves all
+ *  three untouched (round-2 review F2 of #512). One short token, nothing else. */
+const ICON_LABEL = /^[A-Za-z0-9.]{1,24}$/;
 const AI_OUT_REL = path.join("packages", "core", "src", "generated", "ai-policy.gen.ts");
 const SPEC_MARKER = "gen:platform-families";
 const SPEC_AI_MARKER = "gen:ai-policy";
@@ -213,7 +215,7 @@ async function loadRegistry(root) {
       // the Markdown around it. One short token is what a shield renders anyway.
       if (typeof icon.label !== "string" || !ICON_LABEL.test(icon.label)) {
         throw new GateError(
-          `${REGISTRY_REL}: "${slug}".icon.label must be ONE badge token (letters, digits, dot, underscore, dash, plus, ampersand; no spaces) — it is interpolated into the shields path`,
+          `${REGISTRY_REL}: "${slug}".icon.label must be ONE badge token (letters, digits and dots only) — shields reads space, '-' and '_' as markup, so any of them breaks the path`,
         );
       }
     }
