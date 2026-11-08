@@ -63,6 +63,11 @@ const ROOT = ROOT_ARG === undefined ? path.resolve(HERE, "..", "..") : path.reso
 export const PUBLIC_REPO = "ChristianLuciani/profile-as-code";
 export const SCHEMA_REL = "schema/profile.schema.json";
 export const CONTRACT_REL = "schema/consumer-contract.json";
+/** The human surface that DUPLICATES `current`'s version and hash. A duplicated
+ *  number with no gate is the drift this file exists to end (merge pass of #511:
+ *  a schema edit moved the hash and the doc kept the old one, published to the
+ *  site). Checked when present; its absence is reported, never assumed. */
+export const DOC_REL = "docs/SCHEMA-CONTRACT.md";
 
 /** Shape errors mean the gate cannot verify what it was asked to verify. */
 export class GateError extends Error {}
@@ -130,13 +135,41 @@ function checkVersionAndHash(fail, label, value, expectedVersion, expectedHash) 
  * @param {string|null} input.newestTag     the newest reachable `v*` tag, if any
  * @returns {{errors: string[], warnings: string[]}}
  */
-export function checkContract({ contract, schema, releasedSchema, tagReachable, newestTag }) {
+export function checkContract({ contract, schema, releasedSchema, tagReachable, newestTag, doc }) {
   const errors = [];
   const warnings = [];
   const fail = (message) => errors.push(message);
 
   if (typeof contract !== "object" || contract === null || Array.isArray(contract)) {
     return { errors: ["schema/consumer-contract.json must be a JSON object"], warnings };
+  }
+  // The docs table repeats `current` by hand — gate it against the bytes (#511).
+  if (typeof doc === "string" && doc.length > 0) {
+    // Scope to the CURRENT section: the doc also records the RELEASED artifact,
+    // whose version/hash are historical facts about a tag and must not follow the
+    // working tree (the released table is checked against the tag, below it).
+    const currentSection = doc.split(/^## The current contract/m)[1] ?? "";
+    if (currentSection === "") {
+      warnings.push(
+        `${DOC_REL} has no "The current contract" section — the duplicated surface cannot be verified`,
+      );
+    }
+    const hashRow = /\|\s*sha256\s*\|\s*`([0-9a-f]{64})`/.exec(currentSection);
+    if (currentSection !== "" && hashRow === null) {
+      warnings.push(
+        `${DOC_REL} declares no sha256 row — the duplicated surface cannot be verified`,
+      );
+    } else if (hashRow !== null && hashRow[1] !== sha256(schema)) {
+      fail(
+        `${DOC_REL} publishes sha256 ${hashRow[1]} but the schema bytes hash to ${sha256(schema)} — the doc and the manifest must name the same bytes`,
+      );
+    }
+    const versionRow = /\|\s*Schema version\s*\|\s*`v([0-9.]+)`/.exec(currentSection);
+    if (versionRow !== null && versionRow[1] !== schemaVersionOf(schema)) {
+      fail(
+        `${DOC_REL} publishes schema version v${versionRow[1]} but the schema is v${schemaVersionOf(schema)}`,
+      );
+    }
   }
   if (contract.schemaPath !== SCHEMA_REL) {
     fail(`schemaPath must be "${SCHEMA_REL}" (got ${JSON.stringify(contract.schemaPath)})`);
@@ -287,6 +320,12 @@ function newestTag() {
 function main() {
   const contract = JSON.parse(readFileSync(path.join(ROOT, CONTRACT_REL), "utf8"));
   const schema = readFileSync(path.join(ROOT, SCHEMA_REL), "utf8");
+  let doc = "";
+  try {
+    doc = readFileSync(path.join(ROOT, DOC_REL), "utf8");
+  } catch {
+    // No doc surface in a synthetic tree: the hash-row check simply does not run.
+  }
   const tag = typeof contract?.released?.tag === "string" ? contract.released.tag : "";
 
   let releasedSchema = "";
@@ -308,6 +347,7 @@ function main() {
     releasedSchema: tagReachable ? releasedSchema : "",
     tagReachable,
     newestTag: newestTag(),
+    doc,
   });
   if (!tagExists) errors.unshift(`released.tag ${tag} does not exist in this clone`);
 

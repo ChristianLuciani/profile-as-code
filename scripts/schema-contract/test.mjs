@@ -80,6 +80,7 @@ function runPure(over = {}) {
     releasedSchema: over.releasedSchema ?? RELEASED,
     tagReachable: over.tagReachable ?? true,
     newestTag: over.newestTag === undefined ? "v0.3.6" : over.newestTag,
+    doc: over.doc ?? "",
   });
 }
 
@@ -95,6 +96,17 @@ function refusesPure(name, over, needle) {
 }
 
 refusesPure("refuses a current-schema hash drift", { schema: `${CURRENT} ` }, "sha256");
+refusesPure(
+  "refuses a docs hash that disagrees with the bytes",
+  { doc: `## The current contract\n\n| sha256 | \`${"0".repeat(64)}\` |\n` },
+  "must name the same bytes",
+);
+{
+  const { errors } = runPure({
+    doc: `## The current contract\n\n| Schema version | \`v1.14\` |\n| sha256 | \`${sha256(CURRENT)}\` |\n`,
+  });
+  check("accepts a docs table that matches the bytes", errors.length === 0, errors.join(" | "));
+}
 refusesPure(
   "refuses a current-schema version drift",
   { schema: schema("1.15") },
