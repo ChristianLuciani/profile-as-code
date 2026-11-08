@@ -87,6 +87,7 @@ function secondArtifact(id: string, overrides: Record<string, string> = {}): str
 function projectWithEvidence(credentialId?: string, artifactId?: string): string {
   return `- name: Demo
   status: active
+  visibility: public
   evidence:
     - claim:
         en: I hold the cert and shipped the reel.
@@ -343,6 +344,7 @@ describe("registryCheck (§18.8, offline/deterministic)", () => {
         "artifacts.yaml": `${ARTIFACT}${secondArtifact("work-unlisted", { visibility: "unlisted" })}`,
         "projects.yaml": `- name: Demo
   status: active
+  visibility: public
   artifactRefs: [work-unlisted]
 `,
       }),

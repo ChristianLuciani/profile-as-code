@@ -19,6 +19,7 @@ import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { load, trackableUnits } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -109,6 +110,60 @@ describe("pasco migrate (D27, schema v2.0)", () => {
     // The fixture ships no achievements file; the assertion is that migrate
     // creates none (it only edits the four migration blocks).
     expect(readdirSync(join(ws, "content"))).not.toContain("achievements.yaml");
+  });
+
+  it("keeps §19 deploy hashes in-sync — visibility is a publication gate, not content", () => {
+    const ws = workspace();
+    const units = (): Map<string, string> =>
+      new Map(trackableUnits(load(ws)).map((unit) => [unit.key, unit.hash]));
+    const before = units();
+    // A real pre-migration ledger: the hashes the deployed rows had WITHOUT the
+    // explicit field. Writing them back lets `pasco status` judge the migrated
+    // workspace, not just the hash function (F3 of the PR #509 review).
+    const record = (hash: string): string =>
+      `  github-readme:\n    deployedAt: "2025-01-15T09:30:00Z"\n    contentHash: ${hash}\n    source: git\n`;
+    writeFileSync(
+      join(ws, "content", "deployments.yaml"),
+      `projects:sovereign-hub:\n${record(before.get("projects:sovereign-hub") ?? "")}` +
+        `experience:nimbus:\n${record(before.get("experience:nimbus") ?? "")}`,
+    );
+
+    expect(migrate(ws).code).toBe(0);
+    const after = units();
+    expect(after.get("projects:sovereign-hub")).toBe(before.get("projects:sovereign-hub"));
+    expect(after.get("experience:nimbus")).toBe(before.get("experience:nimbus"));
+    expect(after.get("experience:dataforge")).toBe(before.get("experience:dataforge"));
+
+    const status = run(["status", "--workspace", ws, "--json"]);
+    expect(status.code, status.stderr).toBe(0);
+    const data = JSON.parse(status.stdout) as {
+      data: { units: { key: string; state: string }[] };
+    };
+    expect(data.data.units.find((unit) => unit.key === "projects:sovereign-hub")?.state).toBe(
+      "in-sync",
+    );
+    expect(data.data.units.find((unit) => unit.key === "experience:nimbus")?.state).toBe("in-sync");
+  });
+
+  it("preserves CRLF line endings (no mixed EOL after the splice)", () => {
+    const ws = workspace();
+    const file = join(ws, "content", "experience.yaml");
+    writeFileSync(file, readFileSync(file, "utf8").replace(/\n/g, "\r\n"));
+    expect(migrate(ws).code).toBe(0);
+    const migrated = readFileSync(file, "utf8");
+    expect(migrated).toContain("  visibility: public\r\n");
+    // Remove the CRLF pairs: any remaining LF would be a mixed line ending.
+    expect(migrated.split("\r\n").join("")).not.toContain("\n");
+  });
+
+  it("migrates a flow row without a space before the comma", () => {
+    const ws = workspace();
+    const file = join(ws, "content", "projects.yaml");
+    writeFileSync(file, "- { id: flow, name: Flow }\n");
+    expect(migrate(ws).code).toBe(0);
+    const migrated = readFileSync(file, "utf8");
+    expect(migrated).toContain("{ id: flow, name: Flow, visibility: public }");
+    expect(migrated).not.toContain(" , visibility");
   });
 
   it("reports its work in the standard envelope", () => {

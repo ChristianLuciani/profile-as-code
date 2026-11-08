@@ -46,7 +46,7 @@ and a note naming the checkout; `released` names `v0.4.0`. The earlier artifact 
 | Field | Value |
 |---|---|
 | Schema version | `v2.0` |
-| sha256 | `f82f5f88413495d335abfeb9acd3f2d880a1ca5a64b8b98fbec1136b8e900d26` |
+| sha256 | `8f2371b15a64ea80d656a03ef97aa0a54ef016ed0119211bb0cad8124428972a` |
 | Published artifact | none yet — the next release publishes these bytes |
 
 A v1.x workspace still validates against v2.0 unchanged; the **default**

@@ -20,17 +20,47 @@ function workspace(): Profile {
   return {
     identity: { name: "Test Person" },
     experience: [
-      { id: "acme-2019", title: "Engineer", company: "Acme", start: "2019-01" },
-      { id: "film-2021", title: "Director", company: "Studio", start: "2021-01" },
+      {
+        id: "acme-2019",
+        title: "Engineer",
+        company: "Acme",
+        start: "2019-01",
+        visibility: "public",
+      },
+      {
+        id: "film-2021",
+        title: "Director",
+        company: "Studio",
+        start: "2021-01",
+        visibility: "public",
+      },
     ],
     projects: [
-      { id: "p-ai", name: "AI thing", description: { en: "an AI project" } },
-      { id: "p-film", name: "Film thing", description: { en: "a film project" } },
+      {
+        id: "p-ai",
+        name: "AI thing",
+        description: { en: "an AI project" },
+        visibility: "public",
+      },
+      {
+        id: "p-film",
+        name: "Film thing",
+        description: { en: "a film project" },
+        visibility: "public",
+      },
     ],
     publications: [{ id: "pub-1", title: "A paper", venue: "Journal", year: 2020 }],
     education: [{ id: "edu-1", institution: "Uni", degree: "BSc", year: 2018 }],
     press: [{ id: "press-1", title: "Coverage", outlet: "Paper" }],
-    credentials: [{ id: "cred-1", kind: "certificate", title: "Cert", issuer: "Issuer" }],
+    credentials: [
+      {
+        id: "cred-1",
+        kind: "certificate",
+        title: "Cert",
+        issuer: "Issuer",
+        visibility: "public",
+      },
+    ],
     artifacts: [
       {
         id: "a-film",
@@ -38,6 +68,7 @@ function workspace(): Profile {
         title: "Short film",
         locator: { url: "https://x.test/f" },
         tags: ["film"],
+        visibility: "public",
       },
       {
         id: "a-ai",
@@ -45,12 +76,14 @@ function workspace(): Profile {
         title: "AI repo",
         locator: { url: "https://x.test/ai" },
         tags: ["ai"],
+        visibility: "public",
       },
       {
         id: "a-untagged",
         kind: "document",
         title: "Untagged doc",
         locator: { url: "https://x.test/u" },
+        visibility: "public",
       },
     ],
     skills: [{ name: "TypeScript" }, { name: "Direction" }],
@@ -68,6 +101,7 @@ function artifactsOnly(): Profile {
         title: "Short film",
         locator: { url: "https://x.test/f" },
         tags: ["film"],
+        visibility: "public",
       },
       {
         id: "a-ai",
@@ -75,6 +109,7 @@ function artifactsOnly(): Profile {
         title: "AI repo",
         locator: { url: "https://x.test/ai" },
         tags: ["ai"],
+        visibility: "public",
       },
     ],
   } as unknown as Profile;

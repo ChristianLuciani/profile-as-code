@@ -118,9 +118,15 @@ function insertionFor(
         `${file}: row ${row} is a flow mapping with no closing brace — cannot migrate it (nothing was written)`,
       );
     }
-    const body = text.slice(range[0], close).trimEnd();
+    const rawBody = text.slice(range[0], close);
+    const body = rawBody.trimEnd();
     const separator = body.endsWith("{") ? "" : body.endsWith(",") ? " " : ", ";
-    return { at: close, text: `${separator}visibility: public`, row };
+    // Insert BEFORE the trailing whitespace so the result never reads `, }`.
+    return {
+      at: close - (rawBody.length - body.length),
+      text: `${separator}visibility: public`,
+      row,
+    };
   }
   const last = map.items[map.items.length - 1];
   const lastRange = rangeOf(last?.value) ?? rangeOf(last?.key);
@@ -133,11 +139,19 @@ function insertionFor(
   // the value's own line break may sit at `range[1] - 1` (a block sequence
   // ending in a newline). Start one byte back so the insertion lands at the
   // real end of the row's line, never after the NEXT row's first key.
-  let at = text.indexOf("\n", Math.max(0, lastRange[1] - 1));
-  if (at === -1) at = text.length;
-  // Keep a CRLF newline outside the inserted text.
-  if (at > 0 && text[at - 1] === "\r") at -= 1;
-  return { at, text: `\n${blockIndent(text, map)}visibility: public`, row };
+  const newline = text.indexOf("\n", Math.max(0, lastRange[1] - 1));
+  const indent = blockIndent(text, map);
+  if (newline === -1) {
+    // No final newline: append the row's new key with the file's own EOL when
+    // one exists on the previous line (CRLF), else LF.
+    const eol = text.endsWith("\r") ? "\r\n" : "\n";
+    return { at: text.length, text: `${eol}${indent}visibility: public`, row };
+  }
+  // Same EOL as the line being extended: a CRLF file stays CRLF.
+  if (newline > 0 && text[newline - 1] === "\r") {
+    return { at: newline - 1, text: `\r\n${indent}visibility: public`, row };
+  }
+  return { at: newline, text: `\n${indent}visibility: public`, row };
 }
 
 /** Plan the insertion for one content file. Returns `undefined` when every row

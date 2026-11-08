@@ -21,8 +21,13 @@ import { createHash } from "node:crypto";
 import type { LoadedProfile, Profile } from "./types.js";
 import { PLATFORMS, textOf } from "./types.js";
 
-/** Ledger metadata is provenance/identity, not content — stripped before hashing. */
-const LEDGER_META = new Set(["id", "origin"]);
+/** Ledger metadata is provenance/identity/publication state, not content —
+ *  stripped before hashing. `visibility` is the D27 publication gate: it decides
+ *  WHETHER a unit is publishable, not WHAT it says, so `pasco migrate` writing
+ *  `visibility: public` on a pre-v2.0 row must not flip a deployed row `stale`.
+ *  The publishable-vs-not dimension is S4b's `notPublishableUnits`, not the
+ *  content hash. */
+const LEDGER_META = new Set(["id", "origin", "visibility"]);
 
 /** Canonical serialization: recursively sorted keys → stable across insertion order,
  *  YAML formatting and locale. This is what `contentHash` is computed over. */

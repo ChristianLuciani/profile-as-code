@@ -7,8 +7,18 @@
  * `pasco migrate`; `missingVisibility` is the list that drives both the
  * migration and `pasco doctor --contract-delta`.
  */
-import { describe, expect, it } from "vitest";
-import { isPublicEntry, missingVisibility, needsVisibilityMigration } from "../src/index.js";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  compile,
+  isPublicEntry,
+  load,
+  missingVisibility,
+  needsVisibilityMigration,
+  registryCheck,
+} from "../src/index.js";
 import type { Profile } from "../src/types.js";
 
 function profile(overrides: Partial<Profile>): Profile {
@@ -102,5 +112,71 @@ describe("missingVisibility — the rows `pasco migrate` must make explicit", ()
       ],
     });
     expect(missingVisibility(withAchievements)).toEqual([]);
+  });
+});
+
+const tempDirs: string[] = [];
+function workspace(files: Record<string, string>): string {
+  const dir = mkdtempSync(join(tmpdir(), "pasco-visibility-"));
+  tempDirs.push(dir);
+  mkdirSync(join(dir, "content"));
+  for (const [name, text] of Object.entries(files)) {
+    writeFileSync(join(dir, "content", name), text);
+  }
+  return dir;
+}
+afterEach(() => {
+  for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
+
+describe("D27 — private rows never reach a compiled renderer slice", () => {
+  it("compile() filters projects and experience by visibility", () => {
+    const dir = workspace({
+      "identity.yaml": "name: Example\n",
+      "experience.yaml":
+        "- id: pub-exp\n  role: Engineer\n  org: A\n  start: 2024-01-01\n  visibility: public\n" +
+        "- id: priv-exp\n  role: Advisor\n  org: B\n  start: 2023-01-01\n",
+      "projects.yaml":
+        "- id: pub-proj\n  name: Public\n  visibility: public\n" +
+        "- id: priv-proj\n  name: Private\n",
+    });
+    const slice = compile(load(dir), "github-readme", "en");
+    expect(slice.experience.map((entry) => entry.id)).toEqual(["pub-exp"]);
+    expect(slice.projects.map((project) => project.id)).toEqual(["pub-proj"]);
+  });
+});
+
+describe("D27 — the leak check follows the PROJECT's own visibility", () => {
+  const registry = {
+    "identity.yaml": "name: Example\n",
+    "credentials.yaml":
+      "- id: private-cred\n  kind: award\n  title: Internal award\n  issuer: Example\n  visibility: private\n",
+    "artifacts.yaml":
+      "- id: private-art\n  kind: code\n  title: Internal code\n  locator:\n    url: https://example.com/code\n  visibility: private\n",
+  };
+
+  it("does not flag a private project that references private registry rows", () => {
+    const dir = workspace({
+      ...registry,
+      "projects.yaml":
+        "- id: internal\n  name: Internal project\n  visibility: private\n  artifactRefs:\n    - private-art\n  evidence:\n    - claim:\n        en: Internal proof\n      source: https://example.com/proof\n      artifactId: private-art\n",
+    });
+    const findings = registryCheck(load(dir)).filter(
+      (finding) => finding.code === "check/private-in-public-output",
+    );
+    expect(findings).toEqual([]);
+  });
+
+  it("still flags a PUBLIC project that references private registry rows", () => {
+    const dir = workspace({
+      ...registry,
+      "projects.yaml":
+        "- id: public\n  name: Public project\n  visibility: public\n  artifactRefs:\n    - private-art\n",
+    });
+    const findings = registryCheck(load(dir)).filter(
+      (finding) => finding.code === "check/private-in-public-output",
+    );
+    expect(findings.length).toBeGreaterThan(0);
+    expect(findings[0]?.path).toContain("projects[0].artifactRefs");
   });
 });

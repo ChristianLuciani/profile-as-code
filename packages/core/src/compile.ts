@@ -12,6 +12,7 @@
 
 import { type CompletenessPolicy, completeness } from "./completeness.js";
 import { normalizeProfile } from "./load.js";
+import { isPublicEntry } from "./registry.js";
 import { type SelectionPolicy, selectFacts } from "./selection.js";
 import { structuredData } from "./structured-data.js";
 import type { Lang, Platform, PlatformProfile, Profile } from "./types.js";
@@ -111,6 +112,16 @@ export function compile(
       ? undefined
       : selectFacts(profile, policy.view ?? platform, platform, lang, policy.selection);
   const facts = selection?.profile ?? profile;
+  // D27 (§18.5): visibility is the ONE exception to "facts pass through" — a
+  // private/unlisted row never reaches a renderer or the JSON-LD assembled below.
+  // Completeness still reads the UNFILTERED profile (it scores the workspace).
+  const renderable = {
+    ...facts,
+    experience: (facts.experience ?? []).filter(isPublicEntry),
+    projects: (facts.projects ?? []).filter(isPublicEntry),
+    credentials: (facts.credentials ?? []).filter(isPublicEntry),
+    artifacts: (facts.artifacts ?? []).filter(isPublicEntry),
+  };
 
   return {
     platform,
@@ -118,8 +129,8 @@ export function compile(
     flavor: profile.flavor ?? "person",
     // facts — untouched
     identity: facts.identity,
-    experience: facts.experience ?? [],
-    projects: facts.projects ?? [],
+    experience: renderable.experience,
+    projects: renderable.projects,
     publications: facts.publications ?? [],
     skills: facts.skills ?? [],
     socialHandles: profile.socialHandles ?? [],
@@ -138,13 +149,13 @@ export function compile(
       geo: profile.keywords?.geo ?? {},
     },
     checks: platformChecks,
-    // Evidence registry (v1.4/D17, §18) — facts, pass through untouched.
-    credentials: facts.credentials ?? [],
-    artifacts: facts.artifacts ?? [],
+    // Evidence registry (v1.4/D17, §18) — the public rows of the filtered slice.
+    credentials: renderable.credentials,
+    artifacts: renderable.artifacts,
     ...(profile.active?.[platform] ? { active: profile.active[platform] } : {}),
     // v1.6 (#103): entity structured-data identity — assembled ONCE here, so no
     // renderer re-derives `@id`/`sameAs` (SPEC §15.4, the §18.9 precedent).
-    structuredData: structuredData(facts, lang),
+    structuredData: structuredData(renderable, lang),
     // Issue #102: the completeness report travels WITH the slice (like
     // structuredData) so a renderer emits the number verbatim and never
     // recomputes it. `policy` is the workspace's `.pascorc` policy when the CLI

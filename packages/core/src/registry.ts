@@ -285,6 +285,10 @@ export function registryCheck(
   };
 
   for (const [pIndex, project] of (profile.projects ?? []).entries()) {
+    // D27: a private project is not a public surface — its references to private
+    // registry rows are legitimate internal work, not a leak. Only a project that
+    // itself renders can leak what it points at.
+    if (!isPublicEntry(project)) continue;
     for (const [eIndex, evidence] of (project.evidence ?? []).entries()) {
       flagLeak(
         nonPublic(evidence.credentialId, "credentials", credentials),

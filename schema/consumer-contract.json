@@ -3,7 +3,7 @@
   "schemaPath": "schema/profile.schema.json",
   "current": {
     "schemaVersion": "2.0",
-    "sha256": "f82f5f88413495d335abfeb9acd3f2d880a1ca5a64b8b98fbec1136b8e900d26",
+    "sha256": "8f2371b15a64ea80d656a03ef97aa0a54ef016ed0119211bb0cad8124428972a",
     "published": false,
     "artifact": null,
     "note": "The v0.4.0 tag publishes an earlier byte-image of schema v1.16, not these bytes, so there is no tag-pinned URL for this sha256: use the repository checkout at a commit whose schema/profile.schema.json hashes to it. The next release publishes it."
