@@ -40,7 +40,7 @@ import {
   SchemaValidationError,
   VISIBILITY_BLOCKS,
 } from "@profile-as-code/core";
-import { isMap, isSeq, parseDocument } from "yaml";
+import { isAlias, isMap, isSeq, parseDocument } from "yaml";
 import { type ContractFloor, contractFloorAgeOf } from "../contract-history.js";
 import { owningFile, StaleEditError, WriteRefusedError, withWriteLock } from "../edit-write.js";
 import { EXIT } from "../exit.js";
@@ -174,8 +174,22 @@ export function planVisibilityFile(
     );
   }
   const insertions: Insertion[] = [];
+  const seen = new Set<unknown>();
   for (const [row, item] of root.items.entries()) {
-    const insertion = insertionFor(original, item, row, file);
+    // `load()` parses with aliases resolved; a `- *anchor` row is a valid map
+    // there, so migrate resolves it too. The insertion goes to the ANCHOR map,
+    // and `seen` prevents a second one for an alias of the same node.
+    const node = isAlias(item) ? item.resolve(document) : item;
+    if (node === undefined) {
+      throw new LoadError(
+        `${file}: row ${row} is an unresolved YAML alias — cannot migrate it (nothing was written)`,
+      );
+    }
+    if (isMap(node)) {
+      if (seen.has(node)) continue;
+      seen.add(node);
+    }
+    const insertion = insertionFor(original, node, row, file);
     if (insertion !== undefined) insertions.push(insertion);
   }
   if (insertions.length === 0) return undefined;
@@ -200,7 +214,8 @@ export function planVisibilityFile(
     );
   }
   for (const [row, item] of reparsed.contents.items.entries()) {
-    if (!isMap(item) || !item.has("visibility")) {
+    const node = isAlias(item) ? item.resolve(reparsed) : item;
+    if (!isMap(node) || !node.has("visibility")) {
       throw new WriteRefusedError(
         `${file}: row ${row} still lacks visibility after the splice — nothing was written`,
       );
@@ -249,7 +264,10 @@ function validateMigration(
   const validate = deps.validate ?? ((path: string) => void load(path));
   const temp = mkdtempSync(join(tmpdir(), "pasco-migrate-"));
   try {
-    cpSync(join(workspace, "content"), join(temp, "content"), { recursive: true });
+    cpSync(join(workspace, "content"), join(temp, "content"), {
+      recursive: true,
+      dereference: true,
+    });
     for (const edit of edits) {
       const copy = join(temp, edit.file);
       // `cpSync` preserves a symlink; writing through it would mutate the REAL

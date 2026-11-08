@@ -133,6 +133,11 @@ export function compile(
     credentials: (selectedProfile.credentials ?? []).filter(isPublicEntry),
     artifacts: (selectedProfile.artifacts ?? []).filter(isPublicEntry),
   };
+  const countRows = (source: unknown): number =>
+    SELECTION_BLOCKS.reduce((total, block) => {
+      const rows = (source as Record<string, unknown>)[block];
+      return total + (Array.isArray(rows) ? rows.length : 0);
+    }, 0);
   const report =
     selection === undefined
       ? undefined
@@ -145,6 +150,18 @@ export function compile(
             }),
           ) as SelectionReport["selected"],
         };
+  if (report !== undefined && countRows(selectedProfile) > 0 && countRows(facts) === 0) {
+    // The view selected rows, but visibility (D27) left nothing to emit: the
+    // same "empty surface" warning the selection itself would have emitted.
+    report.findings = [
+      ...report.findings,
+      {
+        code: "selection/empty-facts",
+        severity: "warn",
+        message: `view "${report.view}" selects ZERO entries after visibility filtering — every selected row is private/unlisted (D27)`,
+      } as SelectionReport["findings"][number],
+    ];
+  }
 
   return {
     platform,

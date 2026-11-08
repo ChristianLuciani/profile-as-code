@@ -163,6 +163,21 @@ describe("D27 — selection sees only the rows the artifact can emit", () => {
     expect(slice.selection?.selected.projects).toBe(1);
   });
 
+  it("warns when visibility empties a view that selected rows", () => {
+    const dir = workspace({
+      "identity.yaml": "name: Example\n",
+      "projects.yaml": "- id: secret\n  name: Secret\n",
+    });
+    const slice = compile(load(dir), "github-readme", "en", {
+      selection: { views: { "github-readme": { mode: "all" } } },
+    });
+    expect(slice.projects).toEqual([]);
+    expect(slice.selection?.selected.projects).toBe(0);
+    expect(
+      slice.selection?.findings.some((finding) => finding.code === "selection/empty-facts"),
+    ).toBe(true);
+  });
+
   it("does not count a private row in the SelectionReport", () => {
     const dir = workspace({
       "identity.yaml": "name: Example\n",

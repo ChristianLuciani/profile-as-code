@@ -22,6 +22,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -262,6 +263,52 @@ describe("pasco migrate (D27, schema v2.0)", () => {
     expect(migrate(ws).code).toBe(0);
     expect(lstatSync(link).isSymbolicLink()).toBe(true);
     expect(readFileSync(target, "utf8")).toContain("visibility: public");
+  });
+
+  it("never writes through a content DIRECTORY symlink when validation fails", () => {
+    const ws = workspace();
+    const real = join(ws, "real-content");
+    renameSync(join(ws, "content"), real);
+    symlinkSync(real, join(ws, "content"));
+    const target = join(real, "credentials.yaml");
+    const invalid = readFileSync(target, "utf8").replace("  issuer: Amazon Web Services\n", "");
+    writeFileSync(target, invalid);
+    const res = migrate(ws);
+    expect(res.code).toBe(1);
+    expect(readFileSync(target, "utf8")).toBe(invalid);
+  });
+
+  it("preserves a content DIRECTORY symlink on success", () => {
+    const ws = workspace();
+    const real = join(ws, "real-content");
+    renameSync(join(ws, "content"), real);
+    symlinkSync(real, join(ws, "content"));
+    expect(migrate(ws).code).toBe(0);
+    expect(lstatSync(join(ws, "content")).isSymbolicLink()).toBe(true);
+    expect(readFileSync(join(real, "credentials.yaml"), "utf8")).toContain("visibility: public");
+  });
+
+  it("is a no-op for an already-public aliased row", () => {
+    const ws = workspace();
+    const file = join(ws, "content", "experience.yaml");
+    const alias =
+      "- &role\n  role: Engineer\n  org: Example\n  start: 2020-01-01\n  visibility: public\n- *role\n";
+    writeFileSync(file, alias);
+    expect(migrate(ws).code).toBe(0);
+    expect(readFileSync(file, "utf8")).toBe(alias);
+  });
+
+  it("resolves an alias whose anchor still needs visibility", () => {
+    const ws = workspace();
+    const file = join(ws, "content", "experience.yaml");
+    writeFileSync(
+      file,
+      "- &role\n  role: Engineer\n  org: Example\n  start: 2020-01-01\n- *role\n",
+    );
+    expect(migrate(ws).code).toBe(0);
+    const migrated = readFileSync(file, "utf8");
+    expect(migrated.match(/visibility: public/g)?.length ?? 0).toBe(1);
+    expect(load(ws).experience.every((row) => row.visibility === "public")).toBe(true);
   });
 
   it("warns on build only when the DECLARED floor predates v2.0", () => {
