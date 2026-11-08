@@ -146,6 +146,22 @@ describe("D27 — private rows never reach a compiled renderer slice", () => {
   });
 });
 
+describe("D27 — selection sees only the rows the artifact can emit", () => {
+  it("does not count a private row in the SelectionReport", () => {
+    const dir = workspace({
+      "identity.yaml": "name: Example\n",
+      "projects.yaml":
+        "- id: pub-proj\n  name: Public\n  visibility: public\n" +
+        "- id: priv-proj\n  name: Private\n",
+    });
+    const slice = compile(load(dir), "github-readme", "en", {
+      selection: { views: { "github-readme": { mode: "all" } } },
+    });
+    expect(slice.projects.map((project) => project.id)).toEqual(["pub-proj"]);
+    expect(slice.selection?.selected.projects).toBe(1);
+  });
+});
+
 describe("D27 — the leak check follows the PROJECT's own visibility", () => {
   const registry = {
     "identity.yaml": "name: Example\n",

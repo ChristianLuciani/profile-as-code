@@ -338,13 +338,11 @@ export interface MigrateArgs {
 export function runMigrate(args: MigrateArgs): number {
   try {
     const outcome = migrateVisibility(args.workspace);
-    const pending = (() => {
-      try {
-        return missingVisibility(load(args.workspace));
-      } catch {
-        return [];
-      }
-    })();
+    // Validate even when there was nothing to migrate: a workspace that fails
+    // `load()` is never "already current" (exit 1, the documented matrix). On a
+    // pre-v2.0 workspace this runs AFTER the splice, so the visibility leak the
+    // old default caused is resolved before the gate is judged.
+    const pending = missingVisibility(load(args.workspace));
     if (outcome.rows === 0) {
       line(
         "no migration needed — every credentials/artifacts/projects/experience row declares visibility",

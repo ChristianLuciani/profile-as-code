@@ -120,10 +120,10 @@ validates the result against this schema. File → root property mapping:
 | `bios.yaml` | `bios[]` | Generated + curated; variant chosen lives here |
 | `headlines.yaml` | `headlines[]` | Per platform+lang |
 | `skills.yaml` | `skills[]` | With `geoKeywords` + `platformWeights` |
-| `experience.yaml` | `experience[]` | start/end as facts (dates are language-independent); v1.1: role langMap, highlights string[] — org stays invariant string (proper noun) |
+| `experience.yaml` | `experience[]` | start/end as facts (dates are language-independent); v1.1: role langMap, highlights string[] — org stays invariant string (proper noun); v2.0 (D27): optional `visibility` (absent = private) |
 | `education.yaml` | `education[]` | v1.1: formal education (degree/institution/start/end/note) |
 | `languages.yaml` | `languages[]` | v1.1: spoken languages (code + level) |
-| `projects.yaml` | `projects[]` | With `evidence[]` (verifiable claims); v1.12 (issue #333): `artifactRefs[]` names the work behind the row — publication truth is derived from `artifacts[]` (§15.3), never stored |
+| `projects.yaml` | `projects[]` | With `evidence[]` (verifiable claims); v1.12 (issue #333): `artifactRefs[]` names the work behind the row — publication truth is derived from `artifacts[]` (§15.3), never stored; v2.0 (D27): optional `visibility` (absent = private) |
 | `publications.yaml` | `publications[]` | DOI/ORCID resolvable → GEO citability; v1.14 (issue #349): optional `kind` (`journal-article` \| `preprint` \| `conference-abstract`) classifies the output — `peerReviewed` is derived from `kind == journal-article`, never stored |
 | `keywords.yaml` | `keywords` | SEO per platform + GEO associations/claims |
 | `checks.yaml` | `checks[]` | User-level rules; unioned with skill `checks.yaml` |

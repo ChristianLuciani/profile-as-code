@@ -373,8 +373,8 @@ positioning:   { statement: {lang}, audiences: {lang: angle}, geo: { semanticAss
 bios:          [ { platform, lang, length: short|medium|long, text } ]   # generated + curated
 headlines:     [ { platform, lang, text } ]                   # per-platform, per-lang
 skills:        [ { name, level, keywords[], geoKeywords[], platformWeights{} } ]
-experience:    [ { id?, origin?, role, org, start, end, highlights{lang} } ]   # id/origin — D18 §19
-projects:      [ { id?, origin?, name, status, description{lang}, links, keywords{}, evidence[], artifactRefs[]? } ]   # artifactRefs — v1.12, #333
+experience:    [ { id?, origin?, role, org, start, end, highlights{lang}, visibility? } ]   # id/origin — D18 §19; visibility — v2.0, D27 (absent = private)
+projects:      [ { id?, origin?, name, status, description{lang}, links, keywords{}, evidence[], artifactRefs[]?, visibility? } ]   # artifactRefs — v1.12, #333; visibility — v2.0, D27 (absent = private)
 publications:  [ { id?, origin?, title, venue, year, kind?, doi, orcidId, artifactRefs[]? } ]   # kind — v1.14, #349
 credentials:   [ { id, kind, title, issuer, credentialId?, verifyUrl, issued, expires?, visibility } ]
 artifacts:     [ { id, kind, title, description{lang}?, locator, checksum?, license?, tags[], visibility } ]

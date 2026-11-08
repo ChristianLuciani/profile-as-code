@@ -18,6 +18,7 @@ import {
   LoadError,
   load,
   mediaManifest,
+  needsVisibilityMigration,
   PLATFORMS,
   SchemaValidationError,
 } from "@profile-as-code/core";
@@ -30,7 +31,7 @@ import {
 import { parseLang, parsePlatform } from "../contract.js";
 import { EXIT } from "../exit.js";
 import { RENDERERS } from "../generated/renderers.gen.js";
-import { isJsonMode, line, report, section } from "../output.js";
+import { isJsonMode, line, report, section, warn } from "../output.js";
 import { artifactPath } from "../publication.js";
 import type { Pascorc } from "../workspace.js";
 import { ConfigError, defaultsLang, sanitizeSelectionPolicy } from "../workspace.js";
@@ -70,6 +71,15 @@ export function runBuild(args: BuildArgs): number {
       return report("build", false, EXIT.FAIL, { error: { kind: "load", message: err.message } });
     }
     throw err;
+  }
+
+  // D27/schema v2.0: an absent `visibility` is PRIVATE, so a pre-v2.0 workspace
+  // that has not run `pasco migrate` would silently lose projects/credentials/
+  // artifacts from every renderer. Say it before writing anything.
+  if (needsVisibilityMigration(profile)) {
+    warn(
+      "schema v2.0: rows without `visibility` are private; run `pasco migrate` once to keep their published output (D27/#498)",
+    );
   }
 
   // D22/§21: resolve the VIEW before anything else — its rule may carry the

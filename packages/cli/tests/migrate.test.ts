@@ -15,7 +15,15 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -190,6 +198,28 @@ describe("pasco migrate (D27, schema v2.0)", () => {
     const migrated = readFileSync(file, "utf8");
     expect(migrated).toContain("{ id: flow, name: Flow, visibility: public }");
     expect(migrated).not.toContain(" , visibility");
+  });
+
+  it("still fails on a workspace that does not load when there is nothing to migrate", () => {
+    const ws = workspace();
+    rmSync(join(ws, "content"), { recursive: true, force: true });
+    mkdirSync(join(ws, "content"));
+    writeFileSync(join(ws, "content", "identity.yaml"), "name: Example\n");
+    // Explicit public, so there is NO missing row; the missing `name` makes the
+    // schema fail. "no migration needed" must never hide an invalid workspace.
+    writeFileSync(join(ws, "content", "projects.yaml"), "- id: broken\n  visibility: public\n");
+    const res = migrate(ws);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain("pasco migrate:");
+    expect(res.stdout).not.toContain("no migration needed");
+  });
+
+  it("warns on build when the workspace still has pre-v2.0 rows", () => {
+    const ws = workspace();
+    const built = run(["build", "github-readme", "--workspace", ws]);
+    expect(built.code, built.stderr).toBe(0);
+    expect(built.stderr).toContain("pasco migrate");
+    expect(built.stderr).toContain("schema v2.0");
   });
 
   it("reports its work in the standard envelope", () => {
