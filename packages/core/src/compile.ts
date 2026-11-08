@@ -1,10 +1,12 @@
 /**
  * compile(profile, platform, lang) — the language-aware slice a renderer consumes
- * (SPEC §7). Facts (identity, experience, projects, publications, skills) pass
- * through UNTOUCHED — they are language-independent and identical on every
- * platform (that is what makes them GEO-citable). Only text (bios, headlines,
- * statement, audiences, citationsGoal) is filtered by platform+lang, falling back
- * to `en` when the requested lang is absent (EN is always required by the schema).
+ * (SPEC §7). Facts (identity, publications, skills, ...) pass through UNTOUCHED
+ * — they are language-independent and identical on every platform (that is what
+ * makes them GEO-citable). The ONE exception is visibility (D27): experience,
+ * projects, credentials and artifacts are filtered by `isPublicEntry()` before
+ * the slice. Text (bios, headlines, statement, audiences, citationsGoal) is
+ * filtered by platform+lang, falling back to `en` when the requested lang is
+ * absent (EN is always required by the schema).
  *
  * The platform set is the single `PLATFORMS` const from types.js (generated from
  * the schema enum) — never duplicated here.

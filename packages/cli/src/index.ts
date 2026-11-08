@@ -84,7 +84,8 @@ Commands:
                                 and whether the workspace loads; also reports the
                                 .pascorc engine requirement (unmet ⇒ exit 1)
           [--contract-delta]    what the schema minors BETWEEN the workspace contract
-                                floor and the installed one added, and what it buys
+                                floor and the installed one added, what it buys, and
+                                the rows still missing visibility (migration)
   migrate [--json]              [write] Schema v2.0 (D27): write \`visibility: public\` on rows that
                                 predate the private default; idempotent, comments and layout preserved
   build [platform] [--lang]     [write] Deterministic base texts per platform+lang
@@ -358,12 +359,16 @@ reports the same truth the gate enforces; it does not replace the gate.
 contract floor the workspace was written against ("contract": "1.16", written at
 birth by pasco init) is diffed against the contract this build validates, and
 every minor in between is printed with the fields it added and the surface that
-reads them. --json carries the rows under "contractDelta". The floor declares
-and is never enforced, so the flag does not change the exit code: a missing floor
-prints "no delta" with the remedy, an equal floor prints "no delta (workspace
-floor = installed contract)", and a malformed one prints "contract floor INVALID"
-without claiming a pass — it names the version the workspace was written
-against, never the installed one (declaring that would answer "no delta").`,
+reads them. --json carries the rows under "contractDelta". The floor is a
+reader, not an enforcement gate: validate/build/preview/export never refuse work
+because of it. The one exception is \`pasco migrate\`, which refuses to rewrite an
+absent \`visibility\` when the floor is >=2.0 or INVALID (intentional private /
+unclassifiable). When the workspace loads, --contract-delta ALSO carries the
+"migration" block: the rows still missing visibility, or why none are due. The
+flag does not change doctor's exit code: a missing floor prints "no delta" with
+the remedy, an equal floor prints "no delta (workspace floor = installed
+contract)", and a malformed one prints "contract floor INVALID" without claiming
+a pass.`,
   preview: `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso8601>] [--json] [--workspace <path>]
 Render every surface ONCE into a single self-contained HTML file (SPEC §7.9, #282):
 inline CSS, no <script>, no external asset, no HTTP server. Open it with a

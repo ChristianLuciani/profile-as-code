@@ -81,8 +81,10 @@ export interface Pascorc {
    * written at BIRTH by `pasco init` as `MAJOR.MINOR` (e.g. `"1.16"`) from the
    * schema `$id` this build validates. `pasco doctor --contract-delta` diffs the
    * installed contract against THIS floor; absent means the floor is unknown,
-   * which `doctor` reports as `absent` — never as "nothing changed". A reader,
-   * not a gate (v1): `validate`/`build` do not enforce it.
+   * which `doctor` reports as `absent` — never as "nothing changed". A reader for
+   * `validate`/`build`/`preview`/`export profile`; the one exception is
+   * `pasco migrate`, which refuses to rewrite an absent `visibility` when the
+   * floor is `>= 2.0` or malformed (SPEC §7.6).
    */
   contract?: string;
   defaults?: PascorcDefaults;
