@@ -40,7 +40,7 @@ import {
   VISIBILITY_BLOCKS,
 } from "@profile-as-code/core";
 import { isMap, isSeq, parseDocument } from "yaml";
-import { isPreV2Floor } from "../contract-history.js";
+import { contractFloorAge } from "../contract-history.js";
 import { owningFile, StaleEditError, WriteRefusedError, withWriteLock } from "../edit-write.js";
 import { EXIT } from "../exit.js";
 import { line, report } from "../output.js";
@@ -138,9 +138,12 @@ function insertionFor(
   const newline = text.indexOf("\n", Math.max(0, lastRange[1] - 1));
   const indent = blockIndent(text, map);
   if (newline === -1) {
-    // No final newline: append the row's new key with the file's own EOL when
-    // one exists on the previous line (CRLF), else LF.
-    const eol = text.endsWith("\r") ? "\r\n" : "\n";
+    // No final newline: derive the file's convention from the newlines it DOES
+    // have, never from the last byte (a CRLF file without a final newline ends
+    // with the value, not with `\r`).
+    const crlf = (text.match(/\r\n/g) ?? []).length;
+    const lf = (text.match(/\n/g) ?? []).length - crlf;
+    const eol = crlf > 0 && crlf >= lf ? "\r\n" : "\n";
     return { at: text.length, text: `${eol}${indent}visibility: public`, row };
   }
   // Same EOL as the line being extended: a CRLF file stays CRLF.
@@ -337,14 +340,19 @@ export function runMigrate(args: MigrateArgs): number {
     // A v2.0 workspace uses an omitted `visibility` as the intentional private
     // default. Running the migration there would PUBLISH rows the user hid, so
     // refuse while there is something to rewrite; the explicit `visibility:
-    // public` flag is the user's act, not a migration side effect.
-    if (floor !== undefined && !isPreV2Floor(floor)) {
+    // public` flag is the user's act, not a migration side effect. A malformed
+    // floor is refused for the same reason: it cannot be classified as legacy.
+    const age = contractFloorAge(floor);
+    if (age === "current" || age === "unknown") {
       const pending = planVisibilityMigration(args.workspace);
       if (pending.length > 0) {
         return report("migrate", false, EXIT.FAIL, {
           error: {
             kind: "refused",
-            message: `workspace declares contract ${floor}; since v2.0 an omitted visibility is the intentional private default — set visibility: public explicitly on the rows you want to publish (nothing was written)`,
+            message:
+              age === "current"
+                ? `workspace declares contract ${floor}; since v2.0 an omitted visibility is the intentional private default — set visibility: public explicitly on the rows you want to publish (nothing was written)`
+                : `workspace declares an INVALID contract floor ${JSON.stringify(floor)}; fix .pascorc before migrating — nothing was written`,
           },
         });
       }

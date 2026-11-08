@@ -196,14 +196,18 @@ export function compareContractVersions(a: string, b: string): number | null {
   return left.major * 1000 + left.minor - (right.major * 1000 + right.minor);
 }
 
-/** True only when a DECLARED contract floor predates schema v2.0. An absent or
- *  malformed floor is not "pre-v2.0": the migration advice must never be emitted
- *  for a v2.0 workspace, where omitting `visibility` is the intentional private
- *  default (D27). */
-export function isPreV2Floor(floor: string | null | undefined): boolean {
-  if (floor === undefined || floor === null) return false;
+/** The age of the declared contract floor, relative to schema v2.0. The floor
+ *  shipped in 0.5.0 (#439), so an ABSENT floor is the pre-floor/legacy
+ *  population, not a v2.0 workspace: it gets the migration notice (with the
+ *  "declare 2.0 if this is intentional" caveat). `unknown` is a malformed floor
+ *  — fix it before deciding; never silently treat it as legacy or current. */
+export type ContractFloorAge = "legacy" | "current" | "unknown";
+
+export function contractFloorAge(floor: string | null | undefined): ContractFloorAge {
+  if (floor === undefined || floor === null) return "legacy";
   const compared = compareContractVersions(floor, "2.0");
-  return compared !== null && compared < 0;
+  if (compared === null) return "unknown";
+  return compared < 0 ? "legacy" : "current";
 }
 
 /** One row as `--json` publishes it — the `notFields` escape is editorial

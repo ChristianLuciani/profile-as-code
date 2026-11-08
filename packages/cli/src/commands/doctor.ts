@@ -34,7 +34,7 @@ import {
   SchemaValidationError,
 } from "@profile-as-code/core";
 import type { ContractDeltaReport } from "../contract-history.js";
-import { evaluateContractDelta, isPreV2Floor } from "../contract-history.js";
+import { contractFloorAge, evaluateContractDelta } from "../contract-history.js";
 import type { EngineConfigSource, EngineRequirement } from "../engine-gate.js";
 import {
   ENGINE_UPGRADE_COMMAND,
@@ -183,7 +183,7 @@ function describeMigration(delta: ContractDeltaReport): string[] {
     return ["migration — not measured (the workspace does not load)"];
   }
   const { rows, total, note } = delta.migration;
-  if (note !== undefined) return [`migration — ${note}`];
+  if (total === 0 && note !== undefined) return [`migration — ${note}`];
   if (total === 0) {
     return [
       "migration — every credentials/artifacts/projects/experience row declares visibility (schema v2.0)",
@@ -193,9 +193,11 @@ function describeMigration(delta: ContractDeltaReport): string[] {
     .slice(0, 20)
     .map((row) => `${row.block}[${row.index}]${row.id === undefined ? "" : ` (${row.id})`}`);
   const more = total > shown.length ? `, +${total - shown.length} more` : "";
-  return [
+  const lines = [
     `migration — ${total} row(s) still lack visibility (schema v2.0 default is private); run \`pasco migrate\` once: ${shown.join(", ")}${more}`,
   ];
+  if (note !== undefined) lines.push(`  ${note}`);
+  return lines;
 }
 
 function describeContractDelta(delta: ContractDeltaReport): string[] {
@@ -239,20 +241,39 @@ export function runDoctor(args: DoctorArgs): number {
   const contractDelta = args.contractDelta
     ? (() => {
         const report = evaluateContractDelta(args.engineSources, args.schemaVersion);
-        if (workspace.profile === undefined || report.state === "INVALID") return report;
+        if (workspace.profile === undefined) return report;
+        const age = contractFloorAge(report.floor);
+        if (age === "unknown" || report.state === "INVALID") {
+          return {
+            ...report,
+            migration: {
+              rows: [],
+              total: 0,
+              note: "contract floor INVALID — fix .pascorc before deciding; rows without visibility are private (D27) and were not measured",
+            },
+          };
+        }
         const rows = missingVisibility(workspace.profile);
-        if (isPreV2Floor(report.floor)) {
-          return { ...report, migration: { rows, total: rows.length } };
+        if (age === "legacy") {
+          return {
+            ...report,
+            migration: {
+              rows,
+              total: rows.length,
+              ...(report.floor === null
+                ? {
+                    note: "no contract floor declared — treated as pre-v2.0; if this is a v2.0 workspace, declare contract 2.0 and leave the rows private",
+                  }
+                : {}),
+            },
+          };
         }
         return {
           ...report,
           migration: {
             rows: [],
             total: 0,
-            note:
-              report.floor === null
-                ? "no contract floor declared — in v2.0 an omitted visibility is private; if this workspace predates v2.0, declare its contract floor and run `pasco migrate` deliberately"
-                : `contract floor ${report.floor} >= 2.0 — absent visibility is the intentional private default, no migration is due`,
+            note: `contract floor ${report.floor} >= 2.0 — absent visibility is the intentional private default, no migration is due`,
           },
         };
       })()

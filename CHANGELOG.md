@@ -24,7 +24,7 @@ minor versions may contain breaking contract changes.
   a golden test pins that a migrated workspace renders byte-identically to the
   pre-D27 output. `pasco log` already wrote `private`; `unlisted` remains an
   explicit state no renderer emits. Public projection, export v2, dual
-  completeness and the renderer filters are S4b/S4c, not this slice.
+  completeness, the deployments/releases projection and the remaining surface work are S4b/S4c; the `compile()`/`currentRole` visibility filters ARE in this slice because absent=private would otherwise leak.
 
 - **`pasco log` — the capture path of the impact log, and a retrieval by period
   (#496/#497, D25/S2+S3, SPEC §23.5/§23.6)** — the typed record had a shape and a

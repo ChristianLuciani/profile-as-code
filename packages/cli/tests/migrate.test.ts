@@ -190,6 +190,16 @@ describe("pasco migrate (D27, schema v2.0)", () => {
     expect(migrated.split("\r\n").join("")).not.toContain("\n");
   });
 
+  it("preserves CRLF in a file without a final newline", () => {
+    const ws = workspace();
+    const file = join(ws, "content", "experience.yaml");
+    const crlf = readFileSync(file, "utf8").replace(/\n/g, "\r\n").replace(/\r\n$/, "");
+    writeFileSync(file, crlf);
+    expect(migrate(ws).code).toBe(0);
+    const migrated = readFileSync(file, "utf8");
+    expect(migrated.split("\r\n").join("")).not.toContain("\n");
+  });
+
   it("migrates a multi-line flow row whose last value carries an inline comment", () => {
     const ws = workspace();
     const file = join(ws, "content", "projects.yaml");
@@ -355,4 +365,61 @@ describe("pasco doctor --contract-delta reports unmigrated rows (D27)", () => {
     const plain = JSON.parse(withoutFlag.stdout) as { data: Record<string, unknown> };
     expect(plain.data.contractDelta).toBeUndefined();
   });
+});
+
+describe("the contract-floor policy table (D27/S4a)", () => {
+  const cases = [
+    { name: "absent", floor: undefined, kind: "legacy" as const },
+    { name: "INVALID", floor: "latest", kind: "unknown" as const },
+    { name: "< 2.0", floor: "1.16", kind: "legacy" as const },
+    { name: "== 2.0", floor: "2.0", kind: "current" as const },
+    { name: "> 2.0", floor: "3.0", kind: "current" as const },
+  ];
+
+  for (const testCase of cases) {
+    it(`floor ${testCase.name}: build/preview/doctor/migrate agree`, () => {
+      const ws = workspace();
+      if (testCase.floor !== undefined) {
+        writeFileSync(
+          join(ws, ".pascorc"),
+          `${JSON.stringify({ workspace: ".", contract: testCase.floor })}\n`,
+        );
+      }
+
+      const build = run(["build", "github-readme", "--workspace", ws, "--json"]);
+      expect(build.code, build.stderr).toBe(0);
+      const buildData = JSON.parse(build.stdout) as { data: { notices?: string[] } };
+      const notices = buildData.data.notices ?? [];
+
+      const out = mkdtempSync(join(tmpdir(), "pasco-migrate-preview-"));
+      const preview = run(["preview", "--workspace", ws, "--no-open", "--out", out, "--json"]);
+      expect(preview.code, preview.stderr).toBe(0);
+      const previewData = JSON.parse(preview.stdout) as { data: { warnings: string[] } };
+
+      const doctor = run(["doctor", "--workspace", ws, "--contract-delta"]);
+      expect(doctor.code).toBe(0);
+
+      const migrated = migrate(ws);
+
+      if (testCase.kind === "legacy") {
+        expect(notices.join("\n")).toContain("pasco migrate");
+        expect(previewData.data.warnings.join("\n")).toContain("pasco migrate");
+        expect(doctor.stdout).toContain("run `pasco migrate` once");
+        expect(migrated.code, migrated.stderr).toBe(0);
+      } else if (testCase.kind === "unknown") {
+        expect(notices.join("\n")).toContain("INVALID");
+        expect(notices.join("\n")).not.toContain("run `pasco migrate` once");
+        expect(previewData.data.warnings.join("\n")).toContain("INVALID");
+        expect(doctor.stdout).toContain("contract floor INVALID");
+        expect(migrated.code).toBe(1);
+        expect(migrated.stderr).toContain("INVALID");
+      } else {
+        expect(notices).toEqual([]);
+        expect(previewData.data.warnings).toEqual([]);
+        expect(doctor.stdout).toContain("no migration is due");
+        expect(migrated.code).toBe(1);
+        expect(migrated.stderr).toContain("intentional private default");
+      }
+    });
+  }
 });

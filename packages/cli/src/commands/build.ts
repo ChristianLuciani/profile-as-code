@@ -29,7 +29,7 @@ import {
   selectionFindings,
 } from "../artifact-render.js";
 import { parseLang, parsePlatform } from "../contract.js";
-import { isPreV2Floor } from "../contract-history.js";
+import { contractFloorAge } from "../contract-history.js";
 import { EXIT } from "../exit.js";
 import { RENDERERS } from "../generated/renderers.gen.js";
 import { isJsonMode, line, report, section, warn } from "../output.js";
@@ -79,9 +79,12 @@ export function runBuild(args: BuildArgs): number {
   // intentional private default, and telling the user to migrate would publish
   // rows they deliberately hid.
   const notices: string[] = [];
-  if (isPreV2Floor(args.pascorc.contract) && needsVisibilityMigration(profile)) {
+  const floorAge = contractFloorAge(args.pascorc.contract);
+  if (floorAge !== "current" && needsVisibilityMigration(profile)) {
     notices.push(
-      "schema v2.0: this workspace's contract floor predates v2.0 and some rows omit `visibility`; run `pasco migrate` once to keep their published output (D27/#498)",
+      floorAge === "legacy"
+        ? 'schema v2.0: this workspace\'s contract floor predates v2.0 (or is undeclared) and some rows omit `visibility`; run `pasco migrate` once to keep their published output (D27/#498). If this is a v2.0 workspace, declare `"contract": "2.0"` in .pascorc and leave those rows private.'
+        : "schema v2.0: the .pascorc contract floor is INVALID; fix it before deciding how to migrate — rows without `visibility` are private (D27/#498)",
     );
   }
 

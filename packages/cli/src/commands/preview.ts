@@ -54,7 +54,7 @@ import {
 } from "../artifact-render.js";
 import { catalogSource } from "../check-catalog.js";
 import { parseLang } from "../contract.js";
-import { isPreV2Floor } from "../contract-history.js";
+import { contractFloorAge } from "../contract-history.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
 import type { PreviewAsset, PreviewSection } from "../preview/document.js";
@@ -292,9 +292,12 @@ export function runPreview(args: PreviewArgs): number {
   const bundle = collectMedia(profile, args.workspace);
   const inlined = inlineAssets(bundle.assets);
   const warnings: string[] = [];
-  if (isPreV2Floor(args.pascorc.contract) && needsVisibilityMigration(profile)) {
+  const floorAge = contractFloorAge(args.pascorc.contract);
+  if (floorAge !== "current" && needsVisibilityMigration(profile)) {
     warnings.push(
-      "schema v2.0: this workspace's contract floor predates v2.0 and some rows omit `visibility`; run `pasco migrate` once to keep their published output (D27/#498)",
+      floorAge === "legacy"
+        ? 'schema v2.0: this workspace\'s contract floor predates v2.0 (or is undeclared) and some rows omit `visibility`; run `pasco migrate` once to keep their published output (D27/#498). If this is a v2.0 workspace, declare `"contract": "2.0"` in .pascorc and leave those rows private.'
+        : "schema v2.0: the .pascorc contract floor is INVALID; fix it before deciding how to migrate — rows without `visibility` are private (D27/#498)",
     );
   }
 

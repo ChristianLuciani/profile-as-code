@@ -1192,11 +1192,20 @@ the workspace requires; `validate`, `build`, `export profile` and `preview` chec
   also writes `"contract": "<MAJOR.MINOR>"` from the schema `$id` this build
   validates (e.g. `"1.16"`). It is the floor `doctor --contract-delta` diffs
   against after an upgrade; absent means the floor is **unknown**, which doctor
-  reports as `absent` rather than as "nothing changed". **A reader, not a gate
-  (v1):** `validate`, `build`, `preview` and `export profile` never read it, so a
-  contract floor ahead of the installed engine does not refuse work — it is
-  reported. Declaring it enforced is a future additive change, not a
-  reinterpretation of this one.
+  reports as `absent` rather than as "nothing changed". **A reader for the
+  migration, not an enforcement gate:** `validate` and `export profile` never
+  read it; `build`/`preview` read it only to decide whether an absent
+  `visibility` is legacy (a NOTICE, never a refusal); `pasco migrate` refuses to
+  rewrite an absent field when the floor is `>= 2.0` or malformed. A contract
+  floor ahead of the installed engine still does not refuse work — it is
+  reported. The floor policy is the SAME on every surface (D27/S4a):
+
+  | `.pascorc` contract | `build`/`preview` | `pasco migrate` | `doctor --contract-delta` |
+  |---|---|---|---|
+  | absent (pre-0.5.0) | notice + "declare 2.0 if intentional" | allowed (legacy) | rows + caveat |
+  | `< 2.0` | notice | allowed | rows + notice |
+  | `>= 2.0` | no notice | refuses while rows would be rewritten | "no migration is due" |
+  | `INVALID` | fix-floor notice | refuses | floor INVALID; rows not measured |
 - **Accepted syntax: exactly `MAJOR.MINOR.PATCH`** — three dot-separated ASCII
   decimal components, no `v` prefix, no range operator (`^`, `~`, `>=`), no
   `*`, no pre-release/build suffix. This is the whole grammar, deliberately: the
@@ -2353,7 +2362,10 @@ for the open web.
 public`) must run `pasco migrate` once: it writes `visibility: public` on every
 entry that lacks the field, preserving today's output, and is idempotent. New
 workspaces and new entries are private unless they declare `public`; `pasco
-doctor --contract-delta` reports any entry still missing the field. `unlisted` is
+doctor --contract-delta` reports any entry still missing the field, and the
+`.pascorc` floor decides the advice (§7.6): an absent or `< 2.0` floor is
+legacy, while a `>= 2.0` floor means the absent field is the intentional private
+default and `pasco migrate` refuses to rewrite it. `unlisted` is
 not a publication state: it is never emitted, and manual sharing is `curate`
 (D27/#501), not a renderer.
 
