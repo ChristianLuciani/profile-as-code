@@ -174,11 +174,13 @@ module split exists to prevent.
 ```sh
 pasco audit                 # human list, one block per finding
 pasco audit --json          # machine contract
+pasco audit --public        # the publishable view (D27): private rows are not findings
 ```
 
 ```json
 {
   "schemaVersion": "2",
+  "view": "all",
   "scope": { "catalog": "shipped", "declared": ["github-readme"], "checked": ["github-readme"], "notRun": [], "notBuildable": [] },
   "findings": [
     {
@@ -190,6 +192,10 @@ pasco audit --json          # machine contract
   ]
 }
 ```
+
+`view` is the visibility scope (D27): `all` is the default (the SSOT — a private
+row is part of the local diagnostic), `public` (`--public`) computes every rule
+over the public projection, so a private row cannot become a public finding.
 
 `scope` is the artifact side (the SSOT-side rules always run): `catalog` is
 `shipped` | `not-shipped` (a package without its skills tree cannot declare the
