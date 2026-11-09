@@ -8,10 +8,18 @@
 - id: secret-art
   kind: code
   title: PRIVATE-ART-TITLE
-  # A URL cannot carry a text marker: `private-work` is part of the scan set.
+  # A URL cannot carry a text marker, so each one is its own scan token
+  # (`private-work` / `unlisted-work` / `absent-work`).
   locator:
     url: https://example.com/private-work
   visibility: private
+
+- id: unlisted-art
+  kind: code
+  title: UNLISTED-ART-TITLE
+  locator:
+    url: https://example.com/unlisted-work
+  visibility: unlisted
 
 - id: absent-art
   kind: code

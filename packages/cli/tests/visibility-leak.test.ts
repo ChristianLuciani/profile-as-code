@@ -5,11 +5,14 @@
  * The rule this file enforces is SPEC §18.5 under the v2.0 default: only
  * `visibility: public` leaves the workspace, and an ABSENT field is private. The
  * fixture (`packages/core/tests/fixtures/leak-matrix/`) declares a `public` row
- * plus every way a row can be NON-public — `private`, `unlisted`, and the
- * omitted field — per visibility-carrying block (`credentials`, `artifacts`,
- * `projects`, `experience`, `achievements`), plus a ledger record and a release
- * event addressed to a private unit. `MARKERS` below is the scan set; see its
- * comment for why three classes of string are needed.
+ * plus every non-public state the schema can represent for the block —
+ * `private`, `unlisted`, and the omitted field that v2.0 makes private;
+ * `achievements` REQUIRES the field, so its matrix stops at `private`/`unlisted`
+ * — across `credentials`, `artifacts`, `projects`, `experience` and
+ * `achievements`, plus a ledger record and a release event addressed to a
+ * private unit. `MARKERS` below is the scan set; see its comment for why three
+ * classes of string are needed, and the matrix case at the end for the check
+ * that keeps this paragraph honest (the fixture, not the prose, is the claim).
  *
  * Why per SURFACE instead of per function: the filter has one home (`compile()`
  * for a renderer slice, `structuredData()` for the JSON-LD, `publicProjection()`
@@ -55,8 +58,9 @@ const FIXTURE = join(__dirname, "..", "..", "core", "tests", "fixtures", "leak-m
  *      practice, the §19 ledger key `projects:secret-proj`, which names the unit
  *      without carrying its text (the vector the `deployments` fixture calls
  *      out);
- *   3. the two values with no room for a prefix: the private artifact's locator
- *      URL (`private-work`) and the private-only release id (`v-private-only`).
+ *   3. the values with no room for a prefix: each non-public artifact's locator
+ *      URL (`private-work` / `unlisted-work` / `absent-work`) and the
+ *      private-only release id (`v-private-only`).
  */
 const MARKERS = [
   "PRIVATE-",
@@ -66,6 +70,8 @@ const MARKERS = [
   "unlisted-",
   "absent-",
   "private-work",
+  "unlisted-work",
+  "absent-work",
   "v-private-only",
 ] as const;
 
@@ -203,6 +209,8 @@ describe("D27 leak — the export surface", () => {
       "secret-exp",
       "projects:secret-proj",
       "example.com/private-work",
+      "example.com/unlisted-work",
+      "example.com/absent-work",
       "v-private-only",
     ]) {
       expect(allRun.stdout, `fixture control: ${marker} missing from --all`).toContain(marker);
@@ -261,10 +269,13 @@ describe("D27 leak — the `pasco post` fact pointers", () => {
       "projects[3].name",
       "experience[1].role",
       "experience[2].role",
+      "experience[3].role",
       "credentials[1].title",
       "credentials[2].title",
+      "credentials[3].title",
       "artifacts[1].title",
       "artifacts[2].title",
+      "artifacts[3].title",
       // A langMap pointer must address the language: `resolveFact` returns a
       // string, never an object.
       "achievements[1].statement.en",
@@ -278,5 +289,48 @@ describe("D27 leak — the `pasco post` fact pointers", () => {
     // Control: the public rows DO resolve.
     expect(renderFacts("{{fact:projects[0].name}}", profile).text).toBe("PUBLIC-PROJ-NAME");
     expect(renderFacts("{{fact:achievements[0].statement.en}}", profile).text).toBe("PUBLIC-ACH");
+  });
+});
+
+describe("D27 leak — the fixture matrix (the claim this file's header makes)", () => {
+  // The check that closes the class this file got wrong twice: the header says
+  // "a `public` row plus every non-public state the schema can represent, per
+  // block". Deriving the matrix from `load()` makes the claim EXECUTABLE — a
+  // missing cell fails here instead of silently narrowing the sweep, and a
+  // per-class representative in the `--all` control can no longer hide it.
+  const STATES = [
+    { name: "private", visibility: "private" },
+    { name: "unlisted", visibility: "unlisted" },
+    { name: "absent (v2.0 default)", visibility: undefined },
+  ] as const;
+  // `achievements` REQUIRES the field (v1.16/D24): an absent row is INVALID
+  // there, not a missing cell — assert that the other way.
+  const ABSENT_IS_INVALID = new Set(["achievements"]);
+
+  it("covers every block × representable state, plus the public row", () => {
+    const rows = load(FIXTURE) as unknown as Record<string, { visibility?: string }[] | undefined>;
+    const gaps: string[] = [];
+    for (const block of [
+      "credentials",
+      "artifacts",
+      "projects",
+      "experience",
+      "achievements",
+    ] as const) {
+      const blockRows = rows[block] ?? [];
+      if (!blockRows.some((row) => row.visibility === "public")) gaps.push(`${block} × public`);
+      for (const state of STATES) {
+        if (state.visibility === undefined && ABSENT_IS_INVALID.has(block)) {
+          if (blockRows.some((row) => row.visibility === undefined)) {
+            gaps.push(`${block} × absent (the schema requires the field)`);
+          }
+          continue;
+        }
+        if (!blockRows.some((row) => row.visibility === state.visibility)) {
+          gaps.push(`${block} × ${state.name}`);
+        }
+      }
+    }
+    expect(gaps, "the leak matrix is missing a block × state cell").toEqual([]);
   });
 });

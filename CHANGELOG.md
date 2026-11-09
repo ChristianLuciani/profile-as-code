@@ -18,11 +18,14 @@ minor versions may contain breaking contract changes.
   path, so the one unfiltered visibility block stayed readable. The leak matrix
   ships as `packages/cli/tests/visibility-leak.test.ts` over the committed
   `packages/core/tests/fixtures/leak-matrix/` workspace: a `public` row plus
-  every non-public state (`private`, `unlisted`, and the omitted field that v2.0
-  makes private) per visibility block, each non-public unit carrying a marker
-  from a declared scan set (its text, its id, the private unit's `deployments`
-  key and the two values with no room for a prefix — the artifact URL and the
-  release id), scanned across all nine renderers, `structuredData()`
+  every non-public state the schema can represent for the block (`private`,
+  `unlisted`, and the omitted field that v2.0 makes private — `achievements`
+  requires the field, so it stops at `private`/`unlisted`), each non-public unit
+  carrying a marker from a declared scan set (its text, its id, the private
+  unit's `deployments` key, each non-public artifact URL and the release id), and
+  a matrix case that DERIVES that block × state coverage from the fixture so the
+  prose cannot outrun it. The scan runs across all nine renderers,
+  `structuredData()`
   (`jobTitle`/`worksFor`/`hasCredential`), `pasco entity` (`--jsonld` and
   `--json`), `pasco export profile` (the default is clean and `--all` is the
   positive control that proves the markers exist), the public projection (its
