@@ -75,14 +75,19 @@ export function notPublishableKeys(profile: LoadedProfile): Set<string> {
 
 /**
  * The D27 PUBLIC PROJECTION (SPEC §7.5): the loaded profile with every
- * non-public entry removed from the five blocks that carry visibility, and the
- * ledger/release records that address those units dropped with them.
+ * non-public entry removed from the five blocks that carry visibility, the
+ * ledger/release records that address those units dropped with them, and the
+ * inbound pointers to a removed unit stripped from the rows that survive.
  *
- * What it is NOT: a re-derivation. Every surviving row is the SAME object
- * `load()` returned (same values, same order); only the invisible ones are
- * removed, so a consumer never sees a different fact, only a smaller set. The
- * roots stay present (a list root that empties is `[]`, not absent), and the
- * blocks without a visibility field are passed through untouched — `identity`,
+ * What it is NOT: a re-derivation. Every surviving row carries the SAME values
+ * `load()` returned (nothing is recomputed); the only edits are removals — the
+ * invisible rows, the records addressed to them, and a pointer (`artifactRefs`,
+ * `evidence[].credentialId`/`artifactId`) whose target is gone. A consumer never
+ * sees a different fact, only a smaller set with no dangling join: `load()`
+ * refuses a dangling ref in the SSOT, and the projection must keep that property
+ * or the default export would hand out ids a reader cannot resolve. The roots
+ * stay present (a list root that empties is `[]`, not absent), and the blocks
+ * without a visibility field are passed through untouched — `identity`,
  * `bios`/`headlines`, `publications`, `press`, `education`, `skills`, `faq` and
  * the rest are public by contract (§18.5).
  *
@@ -90,13 +95,15 @@ export function notPublishableKeys(profile: LoadedProfile): Set<string> {
  * unit leaks the unit's existence (and its name). It is dropped. `releases[]`
  * follows the same rule: `changedUnits` is filtered to the publishable keys, and
  * a release that changed only non-public units is omitted — its fan-out is not
- * public, so it has no public row. `active` (variant choices, keyed by ledger
- * address) is filtered the same way, because a choice for a private unit is a
- * reference to it.
+ * public, so it has no public row. `active` needs no filter: it is keyed by
+ * PLATFORM and chooses among `bios`/`headlines` variants, blocks that carry no
+ * visibility field (§18.5).
  *
- * The leak rule (`pasco check`'s `no-private-in-public-output`) is the gate that
- * a public row may not POINT at a private target; this projection is not a
- * second copy of it. It is also not a renderer: no text is produced here.
+ * The leak rule (`pasco check`'s `no-private-in-public-output`) is what blocks a
+ * PUBLIC row pointing at a private target at build time. This projection is not
+ * a second copy of that gate: it is the view the gate's verdict produces, so a
+ * workspace that has not run `check` still gets a self-consistent payload. It is
+ * also not a renderer: no text is produced here.
  */
 export function publicProjection(profile: LoadedProfile): LoadedProfile {
   const privateKeys = notPublishableKeys(profile);
@@ -118,24 +125,54 @@ export function publicProjection(profile: LoadedProfile): LoadedProfile {
     return [{ ...release, changedUnits: publishable }];
   });
 
-  // Variant choices are addressed by ledger key (§19.2): a choice for a private
-  // unit is a reference to it.
-  const active = profile.active === undefined ? undefined : { ...profile.active };
-  if (active !== undefined) {
-    for (const key of Object.keys(active)) {
-      if (privateKeys.has(key)) delete active[key];
+  // Inbound pointers: a surviving row may reference a registry row the
+  // projection just removed. Keeping the id would hand a consumer a join it
+  // cannot resolve (§7.5's "every emitted id resolves"); the POINTER is dropped,
+  // never the row, so the claim and its text stay published.
+  const publicArtifacts = (profile.artifacts ?? []).filter(isPublicEntry);
+  const publicCredentials = (profile.credentials ?? []).filter(isPublicEntry);
+  const artifactIds = new Set(publicArtifacts.map((artifact) => artifact.id));
+  const credentialIds = new Set(publicCredentials.map((credential) => credential.id));
+  const keepArtifactRefs = (refs: readonly string[] | undefined): string[] | undefined =>
+    refs === undefined ? undefined : refs.filter((id) => artifactIds.has(id));
+
+  const projects = (profile.projects ?? []).filter(isPublicEntry).map((project) => {
+    const row = { ...project };
+    if (project.artifactRefs !== undefined)
+      row.artifactRefs = keepArtifactRefs(project.artifactRefs);
+    if (project.evidence !== undefined) {
+      row.evidence = project.evidence.map((evidence) => {
+        const claim = { ...evidence };
+        if (claim.credentialId !== undefined && !credentialIds.has(claim.credentialId)) {
+          delete claim.credentialId;
+        }
+        if (claim.artifactId !== undefined && !artifactIds.has(claim.artifactId)) {
+          delete claim.artifactId;
+        }
+        return claim;
+      });
     }
-  }
+    return row;
+  });
+  const publications = (profile.publications ?? []).map((publication) => {
+    if (publication.artifactRefs === undefined) return publication;
+    return { ...publication, artifactRefs: keepArtifactRefs(publication.artifactRefs) };
+  });
+  const press = (profile.press ?? []).map((mention) => {
+    if (mention.artifactRefs === undefined) return mention;
+    return { ...mention, artifactRefs: keepArtifactRefs(mention.artifactRefs) };
+  });
 
   return {
     ...profile,
-    credentials: (profile.credentials ?? []).filter(isPublicEntry),
-    artifacts: (profile.artifacts ?? []).filter(isPublicEntry),
-    projects: (profile.projects ?? []).filter(isPublicEntry),
+    credentials: publicCredentials,
+    artifacts: publicArtifacts,
+    projects,
     experience: (profile.experience ?? []).filter(isPublicEntry),
     achievements: (profile.achievements ?? []).filter(isPublicEntry),
+    publications,
+    press,
     deployments,
     releases,
-    ...(active === undefined ? {} : { active }),
   };
 }

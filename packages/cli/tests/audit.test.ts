@@ -811,4 +811,20 @@ describe("D27 — `audit --public` reads the publishable view (SPEC §7.1/§23.3
     expect(report.schemaVersion).toBe(AUDIT_SCHEMA_VERSION);
     expect(Object.keys(report.scope).sort()).toEqual([...AUDIT_SCOPE_KEYS].sort());
   });
+
+  it("--public keeps the SSOT index when addressing a public row (F4: a fix plan must resolve)", () => {
+    const ws = workspace({
+      "identity.yaml": "name: Example\n",
+      "achievements.yaml":
+        "- id: secret\n  statement:\n    en: Internal result\n  kind: milestone\n  basis: measured\n  visibility: private\n" +
+        "- id: pub\n  statement:\n    en: Public result\n  kind: milestone\n  basis: measured\n  visibility: public\n",
+    });
+    // The projection keeps only the second row, but the finding must point at
+    // `achievements[1]` — the workspace address a repair can act on.
+    const { code, data } = auditPublic(ws);
+    expect(code).toBe(0);
+    const findings = (data as { findings: Finding[] }).findings;
+    const unsourced = findings.find((item) => item.class === "unsourced-claim");
+    expect(unsourced?.path).toBe("achievements[1]");
+  });
 });

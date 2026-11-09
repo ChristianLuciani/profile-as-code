@@ -104,10 +104,13 @@ check is the intended split: the CLI produces, the schema verifies.
   `completeness`, renderers and deploy state are behavior, not schema.
 - **`.pascorc` and the engine gate** (SPEC §7.6): a workspace's required engine
   version is a CLI concern and is not part of the profile object.
-- **The `export profile` envelope** (SPEC §7.5): `schemaVersion: "1"`, `engine`
-  and `source` are the payload contract around `profile`, not profile fields.
-- **Visibility filtering** (SPEC §18.5): renderer-owned; the normalized profile
-  is the SSOT, not a public surface.
+- **The `export profile` envelope** (SPEC §7.5): `schemaVersion: "2"`, `engine`,
+  `source` and `scope` are the payload contract around `profile`, not profile
+  fields.
+- **Visibility filtering** (SPEC §18.5): the default `profile` in that envelope is
+  the D27 public projection (`scope: "public"`); `--all` carries the SSOT. Which
+  row a renderer emits is engine behavior, but the projection is part of the
+  payload contract, not a schema field.
 
 ## How the pin stays honest (offline)
 

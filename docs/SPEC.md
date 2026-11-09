@@ -1101,8 +1101,10 @@ pasco export profile --all --json    # the full SSOT (the pre-D27 payload)
 public projection: every root that carries no visibility field (`identity`,
 `positioning`, `bios`/`headlines`, `faq`, `keywords`, `socialHandles`, `checks`, …)
 plus every entry whose `visibility` is `public`. `private`/`unlisted` entries,
-their references, and the `deployments`/`releases` records that address only them
-are omitted; a release whose changed set has no public unit is omitted, and a
+their references (a surviving row's `artifactRefs` and
+`evidence[].credentialId`/`artifactId` pointing at a removed entry are dropped,
+so every emitted id still resolves), and the `deployments`/`releases` records that
+address only them are omitted; a release whose changed set has no public unit is omitted, and a
 release's `changedUnits` is filtered to public units. The roots stay present; only
 the entries are filtered. `--public` names this projection explicitly (same bytes
 as the default); `--all` returns the full SSOT — the pre-D27 payload — for backup

@@ -15,7 +15,8 @@ minor versions may contain breaking contract changes.
   `credentials`, `artifacts`, `projects`, `experience` and `achievements`, and with
   them the `deployments`/`releases` records that address only those units (their
   `changedUnits` is filtered; a release that changed only non-public units is
-  omitted) and the `active` variant choices. `pasco export profile` defaults to
+  omitted) and the inbound pointers (`artifactRefs`, `evidence[].credentialId`/
+  `artifactId`) whose target is gone, so the payload carries no dangling join. `pasco export profile` defaults to
   that projection and emits `{ schemaVersion: "2", scope, … }`; `--public` names
   the default (same bytes), `--all` returns the pre-D27 SSOT, and asking for both
   is usage (exit 2). `completeness()` returns the workspace number plus `public`

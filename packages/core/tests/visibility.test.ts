@@ -310,9 +310,6 @@ const PROJECTION_FILES: Record<string, string> = {
     "- id: v-priv-only\n  version: 1.0.0\n  date: 2026-01-01\n  changedUnits: [projects:secret-proj]\n  surfaces: [github-readme]\n" +
     "- id: v-mixed\n  version: 1.1.0\n  date: 2026-01-02\n  changedUnits: [projects:pub-proj, projects:secret-proj]\n  surfaces: [github-readme]\n" +
     "- id: v-identity\n  version: 1.2.0\n  date: 2026-01-03\n  changedUnits: [identity]\n  surfaces: [github-readme]\n",
-  "active.yaml":
-    'projects:pub-proj:\n  lang: en\n  variantId: v1\n  chosenAt: "2026-01-01T00:00:00Z"\n' +
-    'projects:secret-proj:\n  lang: en\n  variantId: v2\n  chosenAt: "2026-01-01T00:00:00Z"\n',
 };
 
 describe("D27 — publicProjection(): the projection is the ONE filter (SPEC §7.5)", () => {
@@ -356,10 +353,36 @@ describe("D27 — publicProjection(): the projection is the ONE filter (SPEC §7
     expect(projected.releases[1]?.changedUnits).toEqual(["identity"]);
   });
 
-  it("filters variant choices keyed by a non-publishable unit", () => {
-    const profile = load(workspace(PROJECTION_FILES));
+  it("drops an inbound pointer to a removed registry row (no dangling join)", () => {
+    const dir = workspace({
+      "identity.yaml": "name: Example\n",
+      "credentials.yaml":
+        "- id: pub-cred\n  kind: certificate\n  title: Public cert\n  issuer: Example\n  visibility: public\n" +
+        "- id: secret-cred\n  kind: award\n  title: Internal award\n  issuer: Example\n",
+      "artifacts.yaml":
+        "- id: pub-art\n  kind: code\n  title: Public code\n  locator:\n    url: https://example.com/pub\n  visibility: public\n" +
+        "- id: secret-art\n  kind: code\n  title: Internal code\n  locator:\n    url: https://example.com/priv\n",
+      "projects.yaml":
+        "- id: pub-proj\n  name: Public project\n  visibility: public\n  artifactRefs:\n    - pub-art\n    - secret-art\n" +
+        "  evidence:\n    - claim:\n        en: Public proof\n      source: https://example.com/proof\n      credentialId: secret-cred\n      artifactId: secret-art\n",
+      "publications.yaml":
+        "- title: Public paper\n  venue: Venue\n  year: 2024\n  artifactRefs:\n    - secret-art\n",
+      "press.yaml":
+        "- outlet: Outlet\n  title:\n    en: Public mention\n  url: https://example.com/press\n  date: 2024-01-01\n  artifactRefs:\n    - secret-art\n",
+    });
+    const profile = load(dir);
     const projected = publicProjection(profile);
-    expect(Object.keys(projected.active ?? {})).toEqual(["projects:pub-proj"]);
+    expect(projected.artifacts.map((row) => row.id)).toEqual(["pub-art"]);
+    expect(projected.projects[0]?.artifactRefs).toEqual(["pub-art"]);
+    const evidence = projected.projects[0]?.evidence?.[0];
+    // The CLAIM survives; only the pointers to a hidden row are dropped.
+    expect(evidence?.claim.en).toBe("Public proof");
+    expect(evidence?.credentialId).toBeUndefined();
+    expect(evidence?.artifactId).toBeUndefined();
+    expect(projected.publications[0]?.artifactRefs).toEqual([]);
+    expect(projected.press[0]?.artifactRefs).toEqual([]);
+    // The SSOT keeps the declared pointers: the projection is a reading.
+    expect(profile.projects[0]?.artifactRefs).toEqual(["pub-art", "secret-art"]);
   });
 
   it("keeps the roots present: a filtered list is [], never absent", () => {

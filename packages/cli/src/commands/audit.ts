@@ -46,6 +46,7 @@ import type { LoadedProfile } from "@profile-as-code/core";
 import {
   completeness,
   geoCheck,
+  isPublicEntry,
   LoadError,
   load,
   publicProjection,
@@ -199,8 +200,19 @@ export function finding(cls: AuditClass, path: string, detail: string): AuditFin
   return { class: cls, severity: AUDIT_SEVERITY[cls], path, detail };
 }
 
-/** Every SSOT-side finding: drift, project evidence, faq claims. */
-function ssotFindings(profile: LoadedProfile, pascorc: Pascorc): AuditFinding[] {
+/** Every SSOT-side finding: drift, project evidence, faq claims.
+ *
+ *  `rows` lets `--public` keep the SSOT as the ADDRESSING base: the rules run over
+ *  the full profile, skip the rows the view cannot publish, and therefore report
+ *  the workspace index (`achievements[1]`, `projects[2]`) a fix plan can resolve.
+ *  Addressing the projection instead would shift every index and send a repair to
+ *  the wrong row (review F4). `geoProfile` is the view `geoCheck` reads, so the
+ *  citability premise is still measured over the public projection. */
+function ssotFindings(
+  profile: LoadedProfile,
+  pascorc: Pascorc,
+  rows: { publicOnly: boolean; geoProfile: LoadedProfile },
+): AuditFinding[] {
   const findings: AuditFinding[] = [];
 
   // The completeness `evidence` item is the premise of the claim rule: when the
@@ -211,6 +223,9 @@ function ssotFindings(profile: LoadedProfile, pascorc: Pascorc): AuditFinding[] 
   const measuresEvidence = report.items.some((item) => item.id === "evidence");
   if (measuresEvidence) {
     for (const [index, project] of (profile.projects ?? []).entries()) {
+      // D27/`--public`: a private project is not a public surface, so its claim
+      // is not a public finding — and the INDEX stays the workspace's.
+      if (rows.publicOnly && !isPublicEntry(project)) continue;
       const claims = [project.name, ...Object.values(project.description ?? {})];
       if (!claims.some(isQuantitativeClaim)) continue;
       const sourced = (project.evidence ?? []).some((evidence) => evidence.source.trim() !== "");
@@ -260,7 +275,7 @@ function ssotFindings(profile: LoadedProfile, pascorc: Pascorc): AuditFinding[] 
   // `geo/faq-coverage` owns the premise (≥3 rows, duplicate `q`, a row without
   // `source`) — the audit only reports the deficient ROWS that are class-mappable
   // (a number with no source). No threshold is re-derived here.
-  const faqDeficient = geoCheck(profile).checks.some(
+  const faqDeficient = geoCheck(rows.geoProfile).checks.some(
     (check) => check.code === "geo/faq-coverage" && check.score === 0,
   );
   if (faqDeficient) {
@@ -357,7 +372,9 @@ export function runAudit(args: AuditArgs): number {
   });
   const findings = ordered([
     ...drift,
-    ...ssotFindings(profile, args.pascorc),
+    // The claim rules keep the SSOT as their addressing base and skip what the
+    // view cannot publish (review F4); `geoCheck` reads the view itself.
+    ...ssotFindings(loaded, args.pascorc, { publicOnly: view === "public", geoProfile: profile }),
     ...facts.findings.map((item) =>
       finding(item.class, item.path, `${item.code} — ${item.message}`),
     ),
