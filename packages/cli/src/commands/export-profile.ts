@@ -166,7 +166,8 @@ export function profileExport(
 
 export interface ExportProfileArgs {
   workspace: string;
-  /** `--now <iso8601>`: the caller-pinned timestamp; absent reads no clock. */
+  /** `--now <iso8601>`: the caller-pinned timestamp; absent pins nothing (no clock
+   *  enters the payload — the audit timestamp is the one clock read, §7.11). */
   nowArg?: string;
   /** `--all`: the full SSOT. Absent (and `--public`) ⇒ the D27 public projection. */
   all?: boolean;

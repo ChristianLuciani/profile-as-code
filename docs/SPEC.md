@@ -1694,6 +1694,10 @@ confirming. An **unreadable** baseline is a third privileged reason
 compare must not publish as if it had — the whole manifest has to be authorized
 (or the file repaired) instead of the check being skipped.
 
+`--confirm` is read ONLY when the run is privileged: on an unprivileged run it is
+ignored (a digest copied from a previous run must not block an egress that needs
+no authorization), and the line records `method: "none"`.
+
 **Where the receipt lives.** Text mode prints it. `build --json` carries it
 (additive `egress`: scope, units, digest, reasons, baseline, audit). The
 `export profile` success payload is the frozen v2 contract and gains no `egress`
