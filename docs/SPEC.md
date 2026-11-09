@@ -1694,6 +1694,14 @@ confirming. An **unreadable** baseline is a third privileged reason
 compare must not publish as if it had — the whole manifest has to be authorized
 (or the file repaired) instead of the check being skipped.
 
+**Where the receipt lives.** Text mode prints it. `build --json` carries it
+(additive `egress`: scope, units, digest, reasons, baseline, audit). The
+`export profile` success payload is the frozen v2 contract and gains no `egress`
+block — on the confirmed unreadable-baseline path that fact lives in the audit
+line (`baseline: "unreadable"`) and in the refusal payload, not in the success
+JSON. Declared, not silent: the asymmetry is between a frozen consumer payload
+and an operational receipt, and the log owns the durable record either way.
+
 **The audit log.** Every authorized egress — privileged or not — appends ONE line
 to `.pasco/egress/audit.log`: `{ version, at, operation, scope, digest, units,
 keyId, method, reasons, baseline }`. It is JSONL opened with `O_APPEND` (an
@@ -1727,7 +1735,8 @@ records `baseline: "unreadable"`. An **id-less** row is addressed by its SSOT
 index, which is only as stable as the block's order: inserting or removing a row
 before it renames its key (a false positive — a prompt), but a delete followed by
 an insert at the same position reuses the key, and that flip is NOT detected (a
-stable `id` removes the class; §19.2 already treats such a row as untrackable).
+stable `id` removes the class; §19.2 reports such a row as untracked, with the
+same advice — give it an `id`).
 `.pasco/` is local state under the workspace (the same home as `preview`'s
 document, §7.9); it is never rendered, and a workspace that does not ignore it
 sees it as untracked state. The log is local, not tamper-evident. S503b closes all

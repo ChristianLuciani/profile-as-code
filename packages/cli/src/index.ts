@@ -680,8 +680,10 @@ The normalized profile for programmatic consumers (SPEC §7.5, #348; v2/D27 by
                 that apply their own filter. Mutually exclusive with --public.
   --now <iso>   pin source.generatedAt to this ISO 8601 date-time, verbatim, after a
                 real-calendar check (2026-02-31 and T24:00:00 are refused). Without
-                it the command reads NO clock: generatedAt is null, so two runs over
-                one workspace produce byte-identical output.
+                it no clock enters the PAYLOAD: generatedAt is null, so two runs
+                over one workspace produce byte-identical output. The one clock read
+                on this path is the egress audit timestamp (below), written to
+                .pasco/egress/ and never into the payload.
   --confirm <sha256:…>
                 the D28 egress receipt (SPEC §7.11). --all is privileged on every
                 run and a private -> public transition is privileged whenever the

@@ -304,7 +304,7 @@ export function authorizeEgress(req: EgressRequest): EgressAuthorized | EgressRe
       reasons,
       transitions,
       message: `the egress was recorded (${EGRESS_AUDIT_REL}) but the baseline could not move (${EGRESS_BASELINE_REL}) — ${(err as Error).message}`,
-      hint: `nothing was written to the workspace; the audit line is the authorization. Repair or remove ${EGRESS_BASELINE_REL}, then retry — the next run re-detects instead of assuming this baseline`,
+      hint: `the audit line is the only byte written and it records the authorization; the payload was NOT emitted. Repair ${EGRESS_BASELINE_REL} (restore the last egress record — deleting it loses the comparison, not the authorization) and retry`,
       violations,
     };
   }
