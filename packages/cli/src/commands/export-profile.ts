@@ -1,22 +1,31 @@
 /**
- * `pasco export profile [--json] [--now <iso8601>]` — the normalized profile for
- * programmatic consumers (SPEC §7.5, issue #348).
+ * `pasco export profile [--json] [--now <iso8601>] [--public | --all]` — the
+ * normalized profile for programmatic consumers (SPEC §7.5, issue #348; v2 and
+ * D27 by #498/S4b).
  *
  * The engine already exposes `build <platform>` (text slices per surface) and
  * `validate`, but no stable object a consumer can read without re-implementing
  * `load()` + `normalize()`. This command is that object:
  *
- *   { schemaVersion, engine, source: { commit, generatedAt }, profile }
+ *   { schemaVersion, engine, source: { commit, generatedAt }, scope, profile }
  *
- * **One assembler, no CLI-local builder** (§15.4). `profile` is exactly what
- * `core.load()` returns — schema-validated and normalized. The promise is
- * precise: **every root the workspace declares, plus every list root defaulted to
- * `[]`**; an optional OBJECT root (`newsletter`, `podcast`, `audiences`, `active`)
- * appears only when the workspace declares it, because there is no valid empty
- * value for it (`$defs` requires `platform`+`url`, `title`,
- * `lang`+`variantId`+`chosenAt`) and inventing `{}` would fail the contract
- * (D12). The command adds only the envelope around that object; it never
- * rebuilds, filters or re-derives a root. That is also why
+ * **Default: the PUBLIC projection (D27).** Without `--all`, `profile` is the
+ * object `core.publicProjection()` derives from the loaded SSOT: the same roots,
+ * with every `private`/`unlisted` entry removed and the ledger/release records
+ * that address those units dropped with them. `--public` names that projection
+ * explicitly (same bytes as the default); `--all` returns the full SSOT — the
+ * pre-D27 payload — for backup and consumers that apply their own filter. A
+ * consumer that emits publicly uses the default, never `--all`.
+ *
+ * **One assembler, no CLI-local builder** (§15.4). In `--all`, `profile` is
+ * exactly what `core.load()` returns — schema-validated and normalized. In the
+ * default/`--public`, it is the same object with the D27 filter applied by CORE,
+ * never rebuilt by the CLI. The promise is precise: **every root the workspace
+ * declares, plus every list root defaulted to `[]`**; an optional OBJECT root
+ * (`newsletter`, `podcast`, `audiences`, `active`) appears only when the
+ * workspace declares it, because there is no valid empty value for it (`$defs`
+ * requires `platform`+`url`, `title`, `lang`+`variantId`+`chosenAt`) and
+ * inventing `{}` would fail the contract (D12). That is also why
  * `compile(profile, platform)` is NOT reused: it is the per-platform slice
  * (`PlatformProfile`), a different object for a different job.
  *
@@ -34,17 +43,21 @@
 
 import { execFileSync } from "node:child_process";
 import type { LoadedProfile } from "@profile-as-code/core";
-import { LoadError, load, SchemaValidationError } from "@profile-as-code/core";
+import { LoadError, load, publicProjection, SchemaValidationError } from "@profile-as-code/core";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section } from "../output.js";
 
 /** The frozen contract version of the `export profile` payload (SPEC §7.5).
  *  A consumer refuses a version it does not know rather than guessing — the
- *  `schemaVersion` key §7.1/§7.2/§7.3 already use. */
-export const PROFILE_EXPORT_SCHEMA_VERSION = "1";
+ *  `schemaVersion` key §7.1/§7.2/§7.3 already use. v2 is D27: the default
+ *  payload is the public projection and `scope` names which view it is. */
+export const PROFILE_EXPORT_SCHEMA_VERSION = "2";
 
 /** The engine that produced the payload — the CLI package, not the workspace. */
 export const PROFILE_EXPORT_ENGINE = "@profile-as-code/cli";
+
+/** Which view `profile` is (SPEC §7.5, D27): the public projection or the SSOT. */
+export type ProfileExportScope = "public" | "all";
 
 /** Where the profile came from. Both values are facts about the run, never
  *  clock readings: `generatedAt` is `null` without an explicit `--now`. */
@@ -58,6 +71,8 @@ export interface ProfileExport {
   schemaVersion: typeof PROFILE_EXPORT_SCHEMA_VERSION;
   engine: { name: typeof PROFILE_EXPORT_ENGINE; version: string };
   source: ProfileSource;
+  /** `"public"` (default/`--public`) or `"all"` (`--all`) — the view of `profile`. */
+  scope: ProfileExportScope;
   profile: LoadedProfile;
 }
 
@@ -129,16 +144,20 @@ export function workspaceCommit(workspace: string): string | null {
 }
 
 /** Assemble the payload around the loaded profile. Pure: every input is passed
- *  in, so the bytes are a function of the workspace and the caller's flags. */
+ *  in, so the bytes are a function of the workspace and the caller's flags.
+ *  `scope` names the view `profile` already is (the caller resolves `--all`,
+ *  and the projection itself lives in CORE — §15.4). */
 export function profileExport(
   profile: LoadedProfile,
   source: ProfileSource,
   engineVersion: string,
+  scope: ProfileExportScope,
 ): ProfileExport {
   return {
     schemaVersion: PROFILE_EXPORT_SCHEMA_VERSION,
     engine: { name: PROFILE_EXPORT_ENGINE, version: engineVersion },
     source,
+    scope,
     profile,
   };
 }
@@ -147,6 +166,8 @@ export interface ExportProfileArgs {
   workspace: string;
   /** `--now <iso8601>`: the caller-pinned timestamp; absent reads no clock. */
   nowArg?: string;
+  /** `--all`: the full SSOT. Absent (and `--public`) ⇒ the D27 public projection. */
+  all?: boolean;
   /** The installed CLI version, resolved by the dispatcher from package.json. */
   engineVersion: string;
 }
@@ -193,10 +214,14 @@ export function runExportProfile(args: ExportProfileArgs): number {
     throw err;
   }
 
+  const scope: ProfileExportScope = args.all === true ? "all" : "public";
+  // §15.4: the projection is CORE's (`publicProjection`), not a CLI filter.
+  const view = scope === "all" ? profile : publicProjection(profile);
   const payload = profileExport(
-    profile,
+    view,
     { commit: workspaceCommit(args.workspace), generatedAt: now.generatedAt },
     args.engineVersion,
+    scope,
   );
 
   if (isJsonMode()) {
@@ -206,6 +231,9 @@ export function runExportProfile(args: ExportProfileArgs): number {
   section("normalized profile");
   line(`  schemaVersion: ${payload.schemaVersion}`);
   line(`  engine: ${payload.engine.name} ${payload.engine.version}`);
+  line(
+    `  scope: ${payload.scope}${payload.scope === "public" ? " (the D27 public projection; --all for the SSOT)" : " (the full SSOT; do not publish it as-is)"}`,
+  );
   line(
     `  source: commit ${payload.source.commit ?? "(not a git repository)"} · generatedAt ${
       payload.source.generatedAt ?? "(not read — pass --now <iso8601>)"

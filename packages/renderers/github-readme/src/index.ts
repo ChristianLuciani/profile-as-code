@@ -391,12 +391,15 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
 
   // 8. Completeness line (issue #102) — DERIVED, never stored, never re-derived
   // here: `compile()` attached the report to the slice and this renderer prints
-  // it verbatim (the §18.9/`structuredData` precedent). Emitted before the
-  // footer, in ASCII (`%`, `-`), so the output is byte-identical on every run
-  // and breaks no existing byte-parity assertion. A hand-built slice without
-  // `completeness` renders exactly as before — the seam degrades, never throws.
+  // it verbatim (the §18.9/`structuredData` precedent). D27/SPEC §20: a visitor
+  // sees the PUBLIC number (`report.public`) — the artifact is a published
+  // surface, so it may not claim completeness the publication view cannot show.
+  // Emitted before the footer, in ASCII (`%`, `-`), so the output is
+  // byte-identical on every run and breaks no existing byte-parity assertion. A
+  // hand-built slice without `completeness` renders exactly as before — the seam
+  // degrades, never throws.
   if (p.completeness !== undefined) {
-    out.push("", `Profile completeness: ${completenessLine(p.completeness)}`);
+    out.push("", `Profile completeness: ${completenessLine(p.completeness.public)}`);
   }
 
   // 9. Footer — deterministic marker + fact count (for diff/CI assertions, §15.3).

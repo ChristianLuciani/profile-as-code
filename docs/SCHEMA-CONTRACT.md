@@ -46,7 +46,7 @@ and a note naming the checkout; `released` names `v0.5.0`. The earlier artifact 
 | Field | Value |
 |---|---|
 | Schema version | `v2.0` |
-| sha256 | `9fb2d6e41c2b3461ea6eb876595372e552db92dd13e10cf45057e071e92af72b` |
+| sha256 | `1e43b98d773fc093b711b132fa0ca04fce6881d60029b29cefc541a92b7e0606` |
 | Published artifact | none yet — the next release publishes these bytes |
 
 A v1.x workspace still validates against v2.0 unchanged **unless** a public
@@ -104,10 +104,13 @@ check is the intended split: the CLI produces, the schema verifies.
   `completeness`, renderers and deploy state are behavior, not schema.
 - **`.pascorc` and the engine gate** (SPEC §7.6): a workspace's required engine
   version is a CLI concern and is not part of the profile object.
-- **The `export profile` envelope** (SPEC §7.5): `schemaVersion: "1"`, `engine`
-  and `source` are the payload contract around `profile`, not profile fields.
-- **Visibility filtering** (SPEC §18.5): renderer-owned; the normalized profile
-  is the SSOT, not a public surface.
+- **The `export profile` envelope** (SPEC §7.5): `schemaVersion: "2"`, `engine`,
+  `source` and `scope` are the payload contract around `profile`, not profile
+  fields.
+- **Visibility filtering** (SPEC §18.5): the default `profile` in that envelope is
+  the D27 public projection (`scope: "public"`); `--all` carries the SSOT. Which
+  row a renderer emits is engine behavior, but the projection is part of the
+  payload contract, not a schema field.
 
 ## How the pin stays honest (offline)
 

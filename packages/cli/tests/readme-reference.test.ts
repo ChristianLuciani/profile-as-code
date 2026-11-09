@@ -294,8 +294,10 @@ describe("the README's frozen audit example tracks the engine version (#490)", (
 
     // The enumerations in prose must match the SAME source: the README's audit
     // row and the user guide's command cheatsheet were the two that drifted
-    // (#489 review).
-    const readmeRow = README.split("\n").find((line) => line.includes("`pasco audit [--json]`"));
+    // (#489 review). The prefix (not the closing backtick) is matched so a later
+    // flag — `--public`, D27 — extends the row instead of silently hiding it.
+    const AUDIT_ROW = "`pasco audit [--json]";
+    const readmeRow = README.split("\n").find((line) => line.includes(AUDIT_ROW));
     expect(readmeRow, "the README must carry the audit row").toBeDefined();
     const userGuide = readFileSync(join(REPO_DIR, "docs", "USER-GUIDE.md"), "utf8");
     const guideLine = userGuide
@@ -305,7 +307,7 @@ describe("the README's frozen audit example tracks the engine version (#490)", (
     // SPEC §7.1 carries two enumerations of the same set (the command row and the
     // frozen JSON example); both must be gated too, or a bucket added to the
     // constant + README + guide leaves the contract stale with every gate green.
-    const specRow = SPEC.split("\n").find((line) => line.includes("`pasco audit [--json]`"));
+    const specRow = SPEC.split("\n").find((line) => line.includes(AUDIT_ROW));
     expect(specRow, "SPEC §7.1 must carry the audit row").toBeDefined();
     const specScope = /"scope": \{ "catalog"[\s\S]*?\}/.exec(SPEC)?.[0] ?? "";
     expect(specScope, "SPEC §7.1 must carry the frozen scope example").not.toBe("");

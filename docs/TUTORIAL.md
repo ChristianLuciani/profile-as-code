@@ -477,9 +477,11 @@ pasco export profile --json --now 2026-02-31T00:00:00Z; echo "exit=$?"
 ```
 
 Two runs are byte-identical; `generatedAt` is `null` unless `--now` pins it verbatim; the
-impossible date is a real-calendar failure (exit `1`), not a normalized `2026-03-03`. `profile` is
-`load()` normalized: every declared root plus `bios/…/faq/releases: []`; optional object roots
-(`positioning`, `active`) are absent when undeclared.
+impossible date is a real-calendar failure (exit `1`), not a normalized `2026-03-03`. The
+default `profile` is the D27 public projection (`scope: "public"`): `load()` normalized,
+with private/unlisted rows and the records that address them filtered out; `--all` returns
+the full SSOT. Either way it keeps every declared root plus `bios/…/faq/releases: []`;
+optional object roots (`positioning`, `active`) are absent when undeclared.
 
 ### M14 — `skills:export`: list, copy, overlay
 

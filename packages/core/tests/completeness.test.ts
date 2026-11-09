@@ -308,3 +308,64 @@ describe("completeness(profile, policy)", () => {
     expect(langCoverage?.score).toBe(1);
   });
 });
+
+describe("D27 — completeness reports BOTH numbers (SPEC §20)", () => {
+  const files: Record<string, string> = {
+    "identity.yaml": "name: Example\n",
+    "projects.yaml":
+      "- id: pub-proj\n  name: Public project\n  visibility: public\n  description:\n    en: A public result\n  evidence:\n    - claim:\n        en: Serves 10 users\n      source: https://example.com/s\n" +
+      "- id: secret-proj\n  name: Internal project\n  description:\n    en: An internal result\n",
+    "experience.yaml":
+      "- id: pub-exp\n  role: Engineer\n  org: A\n  start: 2024-01-01\n  visibility: public\n" +
+      "- id: secret-exp\n  role: Advisor\n  org: B\n  start: 2023-01-01\n",
+    "deployments.yaml":
+      'identity:\n  github-readme:\n    deployedAt: "2026-01-01T00:00:00Z"\n    contentHash: ' +
+      "a".repeat(64) +
+      "\n    source: git\n",
+  };
+
+  it("scores the workspace and the public projection with the SAME policy and catalog", () => {
+    const report = completeness(load(workspace(files)));
+    // The workspace number scores the record; the public one scores what a
+    // visitor can see. Both use the same ruler — only the rows differ.
+    expect(report.items.map((item) => item.id)).toEqual(report.public.items.map((item) => item.id));
+    expect(report.items.map((item) => item.weight)).toEqual(
+      report.public.items.map((item) => item.weight),
+    );
+    // The two numbers are independent readings of the same ruler: the public one
+    // is NOT derived from the workspace one (a private row can move either way),
+    // so the contract is that both are computed, not that one bounds the other.
+    expect(report.public.percent).not.toBe(report.percent);
+    const detail = (items: { id: string; detail: string }[], id: string) =>
+      items.find((item) => item.id === id)?.detail;
+    // The private project is measured in the workspace view and absent from the
+    // publication view — the walked rows differ, the policy does not.
+    expect(detail(report.items, "evidence")).toContain("1/2 projects");
+    expect(detail(report.public.items, "evidence")).toContain("1/1 projects");
+  });
+
+  it("counts all units in the workspace deployment item and only public ones in public", () => {
+    const report = completeness(load(workspace(files)));
+    const workspaceDeployment = report.items.find((item) => item.id === "deployment");
+    const publicDeployment = report.public.items.find((item) => item.id === "deployment");
+    // identity + pub-proj + secret-proj + pub-exp + secret-exp = 5 units; the
+    // public projection owns 3 of them. Only identity is deployed, so the
+    // private units are not owed in the public denominator.
+    expect(workspaceDeployment?.detail).toBe("1/5 units deployed");
+    expect(publicDeployment?.detail).toBe("1/3 units deployed");
+  });
+
+  it("public equals workspace when every scored row is public (no gap invented)", () => {
+    const report = completeness(
+      load(
+        workspace({
+          "identity.yaml": "name: Example\n",
+          "projects.yaml":
+            "- id: pub\n  name: Public\n  visibility: public\n  description:\n    en: d\n",
+        }),
+      ),
+    );
+    expect(report.public.percent).toBe(report.percent);
+    expect(report.public.items).toEqual(report.items);
+  });
+});

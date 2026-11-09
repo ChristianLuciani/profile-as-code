@@ -50,6 +50,7 @@ export type {
   CompletenessPolicy,
   CompletenessReport,
   CompletenessSignal,
+  CompletenessSummary,
 } from "./completeness.js";
 export {
   COMPLETENESS_CATALOG,
@@ -230,5 +231,7 @@ export type { MissingVisibilityRow, VisibilityBlock } from "./visibility.js";
 export {
   missingVisibility,
   needsVisibilityMigration,
+  notPublishableKeys,
+  publicProjection,
   VISIBILITY_BLOCKS,
 } from "./visibility.js";

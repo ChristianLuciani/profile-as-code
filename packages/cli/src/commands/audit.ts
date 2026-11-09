@@ -46,8 +46,10 @@ import type { LoadedProfile } from "@profile-as-code/core";
 import {
   completeness,
   geoCheck,
+  isPublicEntry,
   LoadError,
   load,
+  publicProjection,
   SchemaValidationError,
 } from "@profile-as-code/core";
 import { isQuantitativeClaim } from "../claims.js";
@@ -107,9 +109,15 @@ export interface AuditScope {
 
 export interface AuditReport {
   schemaVersion: typeof AUDIT_SCHEMA_VERSION;
+  /** D27: which view the findings were computed over. Additive in schema v2 —
+   *  `scope` above already names the CATALOG coverage, a different axis. */
+  view: AuditView;
   scope: AuditScope;
   findings: AuditFinding[];
 }
+
+/** D27/§7.1: the SSOT (default) or the publishable view (`--public`). */
+export type AuditView = "all" | "public";
 
 /** Severity is a property of the CLASS, fixed by the contract — never inherited
  *  from the severity the composing check happens to use (drift warns, the audit
@@ -188,12 +196,70 @@ export function factRef(profile: LoadedProfile, path: string): string {
   return `${block}[${id}]${rest}`;
 }
 
+/** The two blocks a drift path can carry that visibility can filter. */
+const DRIFT_VISIBILITY_PATH = /^(projects|experience)\[(\d+)\]/;
+
+function originalIndex<T extends { id?: string }>(
+  originalRows: readonly T[],
+  viewedRow: T,
+): number {
+  const byRef = originalRows.indexOf(viewedRow);
+  if (byRef >= 0) return byRef;
+  return viewedRow.id === undefined ? -1 : originalRows.findIndex((row) => row.id === viewedRow.id);
+}
+
+/**
+ * The audit computes drift over the VIEW (so a contradiction that only a
+ * private row creates is not a public finding), but a finding's `path` should
+ * address the WORKSPACE row a repair can resolve (review D1). The projection
+ * preserves row order and identity unless a pointer had to be stripped, so the
+ * original index is recovered by reference (then by id).
+ *
+ * Returns `undefined` when the row cannot be mapped (a stripped clone without an
+ * id): the caller then addresses the VIEW, never the SSOT — indexing the
+ * workspace with a view index could name a private row (review C1).
+ */
+function toWorkspaceAddress(
+  viewed: LoadedProfile,
+  loaded: LoadedProfile,
+  path: string,
+): string | undefined {
+  const match = DRIFT_VISIBILITY_PATH.exec(path);
+  if (match === null) return path;
+  const [, block, indexText] = match;
+  if (block === undefined || indexText === undefined) return path;
+  const index = Number(indexText);
+  let at = -1;
+  if (block === "projects") {
+    const row = viewed.projects[index];
+    if (row === undefined) return path;
+    at = originalIndex(loaded.projects, row);
+  } else if (block === "experience") {
+    const row = viewed.experience[index];
+    if (row === undefined) return path;
+    at = originalIndex(loaded.experience, row);
+  }
+  if (at < 0) return undefined;
+  return `${block}[${at}]${path.slice(match[0].length)}`;
+}
+
 export function finding(cls: AuditClass, path: string, detail: string): AuditFinding {
   return { class: cls, severity: AUDIT_SEVERITY[cls], path, detail };
 }
 
-/** Every SSOT-side finding: drift, project evidence, faq claims. */
-function ssotFindings(profile: LoadedProfile, pascorc: Pascorc): AuditFinding[] {
+/** Every SSOT-side finding: drift, project evidence, faq claims.
+ *
+ *  `rows` lets `--public` keep the SSOT as the ADDRESSING base: the rules run over
+ *  the full profile, skip the rows the view cannot publish, and therefore report
+ *  the workspace index (`achievements[1]`, `projects[2]`) a fix plan can resolve.
+ *  Addressing the projection instead would shift every index and send a repair to
+ *  the wrong row (review F4). `geoProfile` is the view `geoCheck` reads, so the
+ *  citability premise is still measured over the public projection. */
+function ssotFindings(
+  profile: LoadedProfile,
+  pascorc: Pascorc,
+  rows: { publicOnly: boolean; geoProfile: LoadedProfile },
+): AuditFinding[] {
   const findings: AuditFinding[] = [];
 
   // The completeness `evidence` item is the premise of the claim rule: when the
@@ -204,6 +270,9 @@ function ssotFindings(profile: LoadedProfile, pascorc: Pascorc): AuditFinding[] 
   const measuresEvidence = report.items.some((item) => item.id === "evidence");
   if (measuresEvidence) {
     for (const [index, project] of (profile.projects ?? []).entries()) {
+      // D27/`--public`: a private project is not a public surface, so its claim
+      // is not a public finding — and the INDEX stays the workspace's.
+      if (rows.publicOnly && !isPublicEntry(project)) continue;
       const claims = [project.name, ...Object.values(project.description ?? {})];
       if (!claims.some(isQuantitativeClaim)) continue;
       const sourced = (project.evidence ?? []).some((evidence) => evidence.source.trim() !== "");
@@ -253,7 +322,7 @@ function ssotFindings(profile: LoadedProfile, pascorc: Pascorc): AuditFinding[] 
   // `geo/faq-coverage` owns the premise (≥3 rows, duplicate `q`, a row without
   // `source`) — the audit only reports the deficient ROWS that are class-mappable
   // (a number with no source). No threshold is re-derived here.
-  const faqDeficient = geoCheck(profile).checks.some(
+  const faqDeficient = geoCheck(rows.geoProfile).checks.some(
     (check) => check.code === "geo/faq-coverage" && check.score === 0,
   );
   if (faqDeficient) {
@@ -301,12 +370,14 @@ export function ordered(findings: AuditFinding[]): AuditFinding[] {
 export interface AuditArgs {
   workspace: string;
   pascorc: Pascorc;
+  /** `--public` (D27): audit the publishable view instead of the SSOT. */
+  public?: boolean;
 }
 
 export function runAudit(args: AuditArgs): number {
-  let profile: LoadedProfile;
+  let loaded: LoadedProfile;
   try {
-    profile = load(args.workspace);
+    loaded = load(args.workspace);
   } catch (err) {
     if (err instanceof SchemaValidationError) {
       return report("audit", false, EXIT.FAIL, {
@@ -323,6 +394,15 @@ export function runAudit(args: AuditArgs): number {
     throw err;
   }
 
+  // D27 (SPEC §7.1/§23.3): the audit reads the SSOT by default — a private row
+  // is part of the local diagnostic — and `--public` restricts it to the
+  // publishable view. Every rule reads the projection, so nothing about a private
+  // row becomes a public finding; addresses are then translated back to the
+  // workspace (`toWorkspaceAddress`, `ssotFindings`' publicOnly) so a reported
+  // index resolves to the row a repair can act on (review F4/D1).
+  const view: AuditView = args.public === true ? "public" : "all";
+  const profile = view === "public" ? publicProjection(loaded) : loaded;
+
   const drift = reconciledDrift(args.workspace, profile).flatMap((issue) => {
     // An explicit `null` is "no class" (declared in §7.1); an unknown code falls
     // back to `contradiction` (visible) so a new drift code is never dropped.
@@ -330,7 +410,18 @@ export function runAudit(args: AuditArgs): number {
       ? DRIFT_CLASS[issue.code]
       : "contradiction";
     if (mapped === null || mapped === undefined) return [];
-    return [finding(mapped, factRef(profile, issue.path), `${issue.code} — ${issue.message}`)];
+    // `undefined` = the row could not be mapped back (a stripped clone without
+    // an id), so the address stays in the VIEW it came from — never the SSOT.
+    const workspacePath =
+      view === "public" ? toWorkspaceAddress(profile, loaded, issue.path) : issue.path;
+    const addressProfile = workspacePath === undefined ? profile : loaded;
+    return [
+      finding(
+        mapped,
+        factRef(addressProfile, workspacePath ?? issue.path),
+        `${issue.code} — ${issue.message}`,
+      ),
+    ];
   });
   const facts = factPresentFindings({
     workspace: args.workspace,
@@ -340,7 +431,9 @@ export function runAudit(args: AuditArgs): number {
   });
   const findings = ordered([
     ...drift,
-    ...ssotFindings(profile, args.pascorc),
+    // The claim rules keep the SSOT as their addressing base and skip what the
+    // view cannot publish (review F4); `geoCheck` reads the view itself.
+    ...ssotFindings(loaded, args.pascorc, { publicOnly: view === "public", geoProfile: profile }),
     ...facts.findings.map((item) =>
       finding(item.class, item.path, `${item.code} — ${item.message}`),
     ),
@@ -354,13 +447,15 @@ export function runAudit(args: AuditArgs): number {
     notRun: facts.notRun,
     notBuildable: facts.notBuildable,
   };
-  const reportData: AuditReport = { schemaVersion: AUDIT_SCHEMA_VERSION, scope, findings };
+  const reportData: AuditReport = { schemaVersion: AUDIT_SCHEMA_VERSION, view, scope, findings };
 
   if (isJsonMode()) {
     return report("audit", failures === 0, exitCode, { data: reportData });
   }
 
-  section("audit — findings only (no score, no prioritisation)");
+  section(
+    `audit — findings only (no score, no prioritisation)${view === "public" ? " · view: public (D27)" : ""}`,
+  );
   const compared =
     scope.checked.length === 0
       ? "0 surfaces measured"

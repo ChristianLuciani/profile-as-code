@@ -106,11 +106,11 @@ Canonical home: [SPEC §7](https://github.com/ChristianLuciani/profile-as-code/b
 | `pasco discover <url>... [--json] [--allow-host <hosts>] [--observations <file>]` | **Provisional profile** from public surfaces (#329, SPEC §7.10), for a prospect with no workspace: reads schema.org JSON-LD + links only (no prose mining), attaches per-fact provenance (`attested: false`) and lists `absent` fields; reports the audit's class names with discovery's own predicates (SPEC §7.10); closed host allowlist checked before any request (sequential, no retries, no credentials). `--observations` takes the rows a human read by hand (`surface`, `field` = `name`/`link`/`experience`, `value`, `url`, `retrieved_at`) for surfaces the machine cannot read (LinkedIn 999, no `Person` node): no request is made, the rows enter the same provisional profile/findings, and `--json` (payload **v2**: `via`, nullable `status`) marks each surface `via: fetch|manual`; a disagreement between two surfaces is a `contradiction` (two different names included). **Writes nothing** | ✅ v1 |
 | `pasco log --statement <text> --kind metric\|milestone --basis <basis> [flags]` | The **capture path** of the impact log (D25/S2, §23.6, #496): writes **one** schema-valid row to `content/achievements.yaml`. `--basis` required; `--visibility` defaults to **`private`** (D27) and is printed; on a `metric` only `--unit` is required (`--target` alone = a `planned` goal, `--value` alone = a `measured` result), and any metric flag on a `milestone` is exit 2; `--date` is optional and absent means **undated** (no clock is read), a malformed date is exit 2; `--ref` is repeatable. `--id` is optional and otherwise deterministic from the statement + date — a collision is exit 1 with nothing written. The write is atomic (temp copy → the same `load()` gate → rename under `content/.pasco-edit.lock`), creates a missing file with a header and preserves every byte of an existing block-sequence file (comments/layout; an empty `[]`/null root is the only token replaced). Exit 0 written · 1 load/integrity failure, collision, or an unappendable flow-style file · 2 usage | ✅ v1 |
 | `pasco achievements [--targets] [--since <date>] [--until <date>] [--json]` | The **career impact log** (D24/§23, #446): one row per result — `metric` (`value`/`target`/`baseline`/`unit`/`direction`) or `milestone` — with the units it belongs to (`refs`), how the result is known (`basis`) and its required `visibility`. The status is **DERIVED** at read time (`planned` · `measured` · `achieved` · `partial`), never stored; `--targets` prints only the planned goals. `--since`/`--until` (D25/S3, #497) filter the fact `date` with **inclusive** bounds (each optional); the two filters are ANDed (status selects the set, `undated` is counted on it, then the range keeps the dated rows inside it); an invalid date or `since > until` is exit 2. A date-less row is never lost: `scope.undated` counts it — withheld from the range in the log view (and said out loud), returned by `--targets` (a goal is date-less by nature). Private rows are part of this **local** retrieval (D27). `--json` emits `{ schemaVersion: "1", scope, achievements }` (`undated` is additive). Read-only | ✅ v1 |
-| `pasco audit [--json]` | Offline **diagnostic projection**, findings only (no score/prioritisation/branding, #283): three fixed classes — `dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN — exit 1 iff any FAIL; `--json` carries `{ schemaVersion: "2", scope: { catalog, declared, checked, notRun, notBuildable }, findings }` | ✅ v1 |
+| `pasco audit [--json] [--public]` | Offline **diagnostic projection**, findings only (no score/prioritisation/branding, #283): three fixed classes — `dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN — exit 1 iff any FAIL; `--json` carries `{ schemaVersion: "2", view, scope: { catalog, declared, checked, notRun, notBuildable }, findings }`. `view` is `"all"` (default, the SSOT) or `"public"` (`--public`, D27): the publishable projection, so a private row never becomes a public finding | ✅ v1 |
 | `pasco entity [--json \| --jsonld [--out <file>] [--bare]]` | The **entity projection** for surfaces the engine does not render (#287): `--json` is the frozen view — `entity { id, type, name, sameAs, email }`, the structured-data `gaps` (geoCheck codes verbatim), `jsonld: null` and `faqJsonLd` (the `FAQPage` node, `null` when the workspace declares no `faq[]`); `--jsonld` is the **same assembler output** the renderers embed, as paste-ready `<script type="application/ld+json">` blocks — the entity first, then the `FAQPage` when it exists (#360). Exit 1 when `@id` is absent (never invented) | ✅ v1 |
 | `pasco cite-check [<answers.ndjson>] [--json]` | The **citation matcher** over saved answer-engine answers (#291): reads the runner's NDJSON (stdin when no path), matches the workspace's declared entity and emits, **per answer and never aggregated**, `{ cited, confidence, spans, reasons }`. Ladder: `citation-url` (a citation on the entity's own page or its `sameAs` set — host, and the declared path or a descendant) and `exact-name` → **high**; `alias` (`identity.orgName`) and `handle` → **medium**; `partial` (any contiguous multi-token prefix, ≥ 2 tokens) → **low**, and low is never citable downstream. Refuses to guess: a one-word name with no declared disambiguator (`cited: false`, the longer capitalised reading named as `competing`), or a contrast mention, is not a citation; a declared qualifier or an adjacent capital never disqualifies a hit by itself | ✅ v1 |
 | `pasco export ai-policy [--out <dir> \| --check [--file <robots.txt>]] [--lang <l>]` | The M9 stance as an artifact (#290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed retrieval crawlers allowed, the listed training crawlers disallowed, each UA commented with its registry entry/operator/source/date; the file declares that a crawler it does not name is **not restricted**), `llms.txt` (the workspace index: name, definition, canonical identity, `faq[]`, `publications[]`, with a coverage assertion) and `AI-POLICY.md` (allowed · blocked · that same explicit-list limit · who can change it · the date, quoting the stance verbatim). `--check` exits 1 on an incomplete or unsourced entry, a duplicate token (case-insensitive), a malformed/future/`>180`-day `as_of`, or a `policy.as_of` that is stale or older than its newest row; `--check --file` verifies a committed `robots.txt` against the registry instead (RFC 9309 §2.2 parse, one finding per crawler that is absent, duplicated, or whose effective access to `/` contradicts its family — the swapped-lists case #477 — plus a `User-agent: *` group and a rule no group owns); `--out` refuses to write one. The UA list is projected from the platform registry — never hardcoded in the CLI | ✅ v1 |
-| `pasco export profile [--json] [--now <iso8601>]` | The **normalized profile** for programmatic consumers (#348): `{ schemaVersion, engine, source: { commit, generatedAt }, profile }` — `profile` is exactly what `core.load()` returns (**every root the workspace declares, plus every list root defaulted to `[]`**; an optional object root appears only when declared), never a platform slice (`compile()` makes that other object). `artifactRefs` ids resolve in `profile.artifacts[]`, `publications[].url` as declared, `deployments` included. No clock is read: `generatedAt` is `null` unless `--now` pins it, so two runs are byte-identical; `source.commit` is the workspace git HEAD (`null` outside a repo) | ✅ v1 |
+| `pasco export profile [--json] [--now <iso8601>] [--public \| --all]` | The **normalized profile** for programmatic consumers (#348, v2/D27 by #498): `{ schemaVersion: "2", engine, source: { commit, generatedAt }, scope, profile }`. **Default: the public projection** — every root the workspace declares (plus every list root defaulted to `[]`; an optional object root appears only when declared), with every `private`/`unlisted` entry removed from `credentials`/`artifacts`/`projects`/`experience`/`achievements` and the `deployments`/`releases` records that address only those units dropped. `--public` names it (same bytes); `--all` returns the full SSOT (the pre-D27 payload). `scope` is `"public"` or `"all"`. Never a platform slice (`compile()` makes that other object). No clock is read: `generatedAt` is `null` unless `--now` pins it, so two runs are byte-identical; `source.commit` is the workspace git HEAD (`null` outside a repo) | ✅ |
 | `pasco post <seed\|task\|choose\|check\|export\|import\|list>` | Post experiment (#264/#265, long-form #266): a seed at `posts/<seed>/` → task bundle → chosen variant → check → Postiz draft payload (API channels) or paste checklist (Substack/Ghost). Two seed formats (`short`/`longform`); a short child derived from an essay records `derivedFrom`. The CLI never calls an LLM | 🚧 experiment (not in the v1 contract; [the post experiment notes](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/post-mvp.md)) |
 | `pasco skills:export <dir> [--force] \| --list` | Copy the platform skills this package ships into a directory you name (`--list` shows them; no per-agent paths are invented — #254). A destination and `--list` are **separate invocations**: both together is usage (exit 2), never an ignored argument | ✅ |
 
@@ -174,11 +174,13 @@ module split exists to prevent.
 ```sh
 pasco audit                 # human list, one block per finding
 pasco audit --json          # machine contract
+pasco audit --public        # the publishable view (D27): private rows are not findings
 ```
 
 ```json
 {
   "schemaVersion": "2",
+  "view": "all",
   "scope": { "catalog": "shipped", "declared": ["github-readme"], "checked": ["github-readme"], "notRun": [], "notBuildable": [] },
   "findings": [
     {
@@ -190,6 +192,10 @@ pasco audit --json          # machine contract
   ]
 }
 ```
+
+`view` is the visibility scope (D27): `all` is the default (the SSOT — a private
+row is part of the local diagnostic), `public` (`--public`) computes every rule
+over the public projection, so a private row cannot become a public finding.
 
 `scope` is the artifact side (the SSOT-side rules always run): `catalog` is
 `shipped` | `not-shipped` (a package without its skills tree cannot declare the
@@ -438,36 +444,44 @@ mistaken for a langMap). `export profile` is that object, assembled by the same
 `load()` every other command uses:
 
 ```sh
-pasco export profile --json                                   # the payload
+pasco export profile --json                                   # the public projection (default, D27)
+pasco export profile --json --public                          # the same bytes, named
+pasco export profile --json --all                             # the full SSOT (backup / own filter)
 pasco export profile --json --now 2026-10-28T00:00:00Z | jq .  # pin the stamp
 ```
 
 ```json
 {
-  "schemaVersion": "1",
+  "schemaVersion": "2",
   "engine": { "name": "@profile-as-code/cli", "version": "<cli version>" },
   "source": { "commit": "<workspace HEAD or null>", "generatedAt": null },
-  "profile": { "identity": {}, "…": "the normalized profile (see below)" }
+  "scope": "public",
+  "profile": { "identity": {}, "…": "the public projection (--all: the full normalized profile)" }
 }
 ```
 
 - `schemaVersion` is the payload's frozen version — the same key §7.1/§7.2 use: a
   consumer **refuses a version it does not know** instead of guessing.
+- `scope` is `"public"` (default/`--public`) or `"all"` (`--all`); asking for both
+  is a usage error, never a silent winner.
 - `source.commit` is the workspace's git `HEAD` — the value a consumer pins for
   freshness — or `null` when the workspace is not inside a git repository.
 - `source.generatedAt` is **`null` unless you pass `--now <iso8601>`**, which is
   emitted verbatim after a real-calendar check. The command reads no clock, so two
   runs over one workspace are byte-identical (a malformed or impossible `--now` —
   `2026-02-31` — is exit `1`, never a silent "now").
-- `profile` is the normalized `load()` object: **every root the workspace declares,
-  plus every list root defaulted to `[]`**. An optional object root (`newsletter`,
+- `profile` is the normalized object: **every root the workspace declares, plus
+  every list root defaulted to `[]`**. An optional object root (`newsletter`,
   `podcast`, `audiences`, `active`) appears only when declared, because the
   contract has no valid empty value for it. `artifactRefs` stay ids and resolve
   against `profile.artifacts[]` (`load()` already refuses a dangling ref),
-  `publications[].url` is emitted as declared (never replaced by a DOI link), and
-  `deployments` is included. It is the SSOT — **not** a rendered surface, so
-  `visibility` is not filtered (renderers own §18.5) and there is no platform
-  slice (that is `pasco build`, via `compile()`).
+  `publications[].url` is emitted as declared (never replaced by a DOI link).
+- **The default is the public projection (D27).** `private`/`unlisted` entries are
+  removed from the five visibility blocks, and the `deployments`/`releases`
+  records that address only those units go with them. `--all` is the SSOT — the
+  pre-D27 payload — for backup and consumers that apply their own filter: a
+  program that emits publicly uses the default, never `--all`. There is no
+  platform slice (that is `pasco build`, via `compile()`).
 
 Exit `0` ok · `1` the workspace fails to load or `--now` is malformed · `2` usage
 (`--out`/`--check`/`--file`/`--force`/`--lang` belong to `export ai-policy`). The contract

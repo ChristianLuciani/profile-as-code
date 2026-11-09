@@ -1769,6 +1769,12 @@ describe("pasco status (D18 deploy ledger)", () => {
       total: number;
       target: string;
       items: { id: string; score: number }[];
+      public: {
+        percent: number;
+        satisfied: number;
+        total: number;
+        items: { id: string; score: number }[];
+      };
     };
     expect(data.mode).toBe("completeness");
     expect(data.percent).toBeGreaterThan(0);
@@ -1776,6 +1782,35 @@ describe("pasco status (D18 deploy ledger)", () => {
     expect(data.items.length).toBe(5);
     expect(data.total).toBe(data.items.length);
     expect(data.target).toBe("profile-complete"); // shipped default
+    // D27 (SPEC §20): the public number travels with the workspace number, same
+    // policy and catalog — a consumer never re-scores to print the public view.
+    expect(data.public.items.map((item) => item.id)).toEqual(data.items.map((item) => item.id));
+    expect(data.public.percent).toBeLessThanOrEqual(data.percent);
+  });
+
+  it("--completeness counts only public rows in the public number (D27)", () => {
+    const ws = mkws();
+    // The workspace's only project is PRIVATE (absent visibility = private): the
+    // record carries content, the publication view carries none.
+    writeFileSync(
+      join(ws, "content", "projects.yaml"),
+      "- id: secret\n  name: Internal project\n  description:\n    en: An internal result\n  evidence:\n    - claim:\n        en: Serves 10 users\n      source: https://example.com/s\n",
+      "utf8",
+    );
+    const res = run(["status", "--completeness", "--json", "--workspace", ws]);
+    expect(res.code).toBe(0);
+    const data = json(res.stdout).data as {
+      items: { id: string; score: number; detail: string }[];
+      public: { items: { id: string; score: number; detail: string }[] };
+    };
+    const workspaceEvidence = data.items.find((item) => item.id === "evidence");
+    const publicEvidence = data.public.items.find((item) => item.id === "evidence");
+    expect(workspaceEvidence?.score).toBeGreaterThan(0);
+    expect(publicEvidence?.score).toBe(0);
+    expect(publicEvidence?.detail).toContain("0/0 projects");
+    const human = run(["status", "--completeness", "--workspace", ws]);
+    expect(human.stdout).toContain("workspace:");
+    expect(human.stdout).toContain("public:");
   });
 
   it("--completeness honours the .pascorc policy (dropped item leaves the score)", () => {

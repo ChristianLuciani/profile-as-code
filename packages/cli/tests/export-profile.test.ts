@@ -38,6 +38,8 @@ const CLI = join(__dirname, "..", "dist", "index.js");
 const REPO_ROOT = join(__dirname, "..", "..", "..");
 const FIXTURE = join(__dirname, "fixtures", "export-profile");
 const GOLDEN = join(FIXTURE, "golden.json");
+/** The DEFAULT view (D27 public projection); `golden.json` is `--all`. */
+const GOLDEN_PUBLIC = join(FIXTURE, "golden-public.json");
 const SCHEMA = join(REPO_ROOT, "schema", "profile.schema.json");
 
 interface RunResult {
@@ -104,6 +106,7 @@ interface Payload {
   schemaVersion: string;
   engine: { name: string; version: string };
   source: { commit: string | null; generatedAt: string | null };
+  scope: "public" | "all";
   profile: Profile;
 }
 
@@ -123,7 +126,7 @@ function exportProfile(args: string[] = [], workspace = FIXTURE): Envelope {
 
 describe("pasco export profile — the payload", () => {
   it("emits the exact golden bytes (only the commit and the CLI version are substituted)", () => {
-    const res = run(["export", "profile", "--json", "--workspace", FIXTURE]);
+    const res = run(["export", "profile", "--json", "--all", "--workspace", FIXTURE]);
     expect(res.code).toBe(0);
     // The placeholders keep the golden stable across commits and releases while
     // still pinning every other byte, including key order and the 2-space indent.
@@ -131,6 +134,22 @@ describe("pasco export profile — the payload", () => {
       .replace("<commit>", fixtureCommit())
       .replace("<version>", cliVersion());
     expect(res.stdout).toBe(expected);
+  });
+
+  it("emits the exact PUBLIC golden bytes by default (D27, scope public)", () => {
+    const res = run(["export", "profile", "--json", "--workspace", FIXTURE]);
+    expect(res.code).toBe(0);
+    const expected = readFileSync(GOLDEN_PUBLIC, "utf8")
+      .replace("<commit>", fixtureCommit())
+      .replace("<version>", cliVersion());
+    expect(res.stdout).toBe(expected);
+  });
+
+  it("--public names the default: same bytes, not a second projection", () => {
+    const named = run(["export", "profile", "--json", "--public", "--workspace", FIXTURE]);
+    const byDefault = run(["export", "profile", "--json", "--workspace", FIXTURE]);
+    expect(named.code).toBe(0);
+    expect(named.stdout).toBe(byDefault.stdout);
   });
 
   it("is byte-identical across runs and reads no clock", () => {
@@ -152,15 +171,41 @@ describe("pasco export profile — the payload", () => {
     expect(withNow.data?.schemaVersion).toBe(withoutNow.data?.schemaVersion);
   });
 
-  it("carries the schemaVersion, the engine and the standard envelope", () => {
+  it("carries the schemaVersion, the engine, the scope and the standard envelope", () => {
     const envelope = exportProfile();
     expect(envelope.command).toBe("export profile");
     expect(envelope.ok).toBe(true);
     expect(envelope.exitCode).toBe(0);
-    expect(envelope.data?.schemaVersion).toBe("1");
+    expect(envelope.data?.schemaVersion).toBe("2");
+    expect(envelope.data?.scope).toBe("public");
     expect(envelope.data?.engine.name).toBe("@profile-as-code/cli");
     // The engine version is the manifest's, not a literal the payload invents.
     expect(envelope.data?.engine.version).toBe(cliVersion());
+    // --all is the other view, named as such (never an implicit second schema).
+    expect(exportProfile(["--all"]).data?.scope).toBe("all");
+  });
+
+  it("filters every visibility block by default and keeps the unfiltered SSOT in --all", () => {
+    const publicProfile = exportProfile().data?.profile;
+    const all = exportProfile(["--all"]).data?.profile;
+    if (publicProfile === undefined || all === undefined) throw new Error("no profile");
+    // The fixture declares projects/experience WITHOUT the field ⇒ private under
+    // v2.0; credentials/artifacts declare `public`. The default projection drops
+    // exactly the absent rows; --all keeps the record complete.
+    expect(all.projects).toHaveLength(2);
+    expect(all.experience).toHaveLength(2);
+    expect(publicProfile.projects).toEqual([]);
+    expect(publicProfile.experience).toEqual([]);
+    expect(publicProfile.credentials).toHaveLength(1);
+    expect(publicProfile.artifacts).toHaveLength(1);
+    // The ledger follows the entries: no record may address a dropped unit, or
+    // it would leak the unit's name through the deployment map.
+    const publicKeys = Object.keys(publicProfile.deployments as Record<string, unknown>);
+    expect(publicKeys.some((key) => key.startsWith("projects:"))).toBe(false);
+    expect(publicKeys.some((key) => key.startsWith("experience:"))).toBe(false);
+    expect(publicKeys).toContain("identity");
+    // The roots stay present (a filtered list is [], never absent).
+    for (const root of Object.keys(all)) expect(publicProfile).toHaveProperty(root);
   });
 
   it("carries every declared root and every list root, derived from the schema", () => {
@@ -181,7 +226,7 @@ describe("pasco export profile — the payload", () => {
     const defaultedNonList = new Set(["flavor", "deployments"]);
     const alwaysPresent = new Set([...listRoots, ...defaultedNonList]);
 
-    const profile = exportProfile().data?.profile;
+    const profile = exportProfile(["--all"]).data?.profile;
     if (profile === undefined) throw new Error("no profile in the envelope");
     const emitted = new Set(Object.keys(profile));
 
@@ -215,7 +260,7 @@ describe("pasco export profile — the payload", () => {
   });
 
   it("keeps artifactRefs as ids that resolve against profile.artifacts[]", () => {
-    const profile = exportProfile().data?.profile;
+    const profile = exportProfile(["--all"]).data?.profile;
     if (profile === undefined) throw new Error("no profile in the envelope");
     const artifactIds = new Set(profile.artifacts.map((artifact) => artifact.id));
     const refs = [
@@ -244,11 +289,12 @@ describe("pasco export profile — the payload", () => {
     expect(payload.data?.source.commit).toBeNull();
   });
 
-  it("prints a human summary without --json", () => {
+  it("prints a human summary without --json, naming the view", () => {
     const res = run(["export", "profile", "--workspace", FIXTURE]);
     expect(res.code).toBe(0);
     expect(res.stdout).toContain("normalized profile");
-    expect(res.stdout).toContain("schemaVersion: 1");
+    expect(res.stdout).toContain("schemaVersion: 2");
+    expect(res.stdout).toContain("scope: public");
     expect(res.stdout).toContain("use --json for the payload a consumer reads");
     // Human mode is not the contract: no JSON envelope on stdout.
     expect(() => JSON.parse(res.stdout)).toThrow();
@@ -320,6 +366,21 @@ describe("pasco export profile — the exit matrix", () => {
     for (const flag of [["--out", "dist"], ["--check"], ["--force"], ["--lang", "en"]]) {
       const res = run(["export", "profile", ...flag, "--workspace", FIXTURE]);
       expect(res.code, `${flag.join(" ")} should be a usage error`).toBe(2);
+    }
+  });
+
+  it("exits 2 when both views are named (--all with --public)", () => {
+    const both = run(["export", "profile", "--all", "--public", "--json", "--workspace", FIXTURE]);
+    expect(both.code).toBe(2);
+    // The refusal names the contradiction, not a silent winner.
+    expect(both.stderr).toContain("mutually exclusive");
+  });
+
+  it("exits 2 when a profile-only view flag reaches ai-policy (never an ignored argument)", () => {
+    for (const flag of ["--all", "--public"]) {
+      const res = run(["export", "ai-policy", flag, "--check", "--workspace", FIXTURE]);
+      expect(res.code, `${flag} on ai-policy should be usage`).toBe(2);
+      expect(res.stderr).toContain("only apply to export profile");
     }
   });
 });
