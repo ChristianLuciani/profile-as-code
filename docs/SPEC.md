@@ -1697,8 +1697,8 @@ compare must not publish as if it had — the whole manifest has to be authorize
 **Where the receipt lives.** Text mode prints it. `build --json` carries it
 (additive `egress`: scope, units, digest, reasons, baseline, audit). The
 `export profile` success payload is the frozen v2 contract and gains no `egress`
-block — on the confirmed unreadable-baseline path that fact lives in the audit
-line (`baseline: "unreadable"`) and in the refusal payload, not in the success
+block — a REFUSAL carries the fact in `data.egress`, and a CONFIRMED run carries
+it in the audit line (`baseline: "unreadable"`); neither reaches the success
 JSON. Declared, not silent: the asymmetry is between a frozen consumer payload
 and an operational receipt, and the log owns the durable record either way.
 

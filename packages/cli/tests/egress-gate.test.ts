@@ -25,6 +25,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -329,5 +330,10 @@ describe("state the gate cannot trust is never treated as clean", () => {
     // The authorization line IS there — the refusal says so instead of pretending
     // nothing happened, and the baseline stays where it was.
     expect(audit(ws).records).toHaveLength(2);
+    // The refusal also promises "no temporary file is left behind": enforce it,
+    // so the hint and the filesystem cannot drift apart again (review N1/F3a).
+    expect(
+      readdirSync(join(ws, ".pasco", "egress")).filter((name) => name.endsWith(".tmp")),
+    ).toEqual([]);
   });
 });

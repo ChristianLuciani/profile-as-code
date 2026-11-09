@@ -165,8 +165,10 @@ Commands:
           [--now <iso8601>]     #348): { schemaVersion, engine, source: { commit, generatedAt },
                                 profile } — every root the workspace declares, plus every list
                                 root defaulted to [], from the same load() the other commands
-                                use. No clock is read: generatedAt is null unless --now pins
-                                it. Offline; byte-identical across runs
+                                use. No clock enters the payload: generatedAt is null
+                                unless --now pins it (the egress audit timestamp goes to
+                                .pasco/egress/, never into the payload). Offline;
+                                byte-identical across runs
   skills:export <dir>           [write] Copy the skill channels this package ships into <dir>
           [--force] [--list]     (--force overlays; --list shows them); no harness paths
 

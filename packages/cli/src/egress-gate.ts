@@ -35,6 +35,7 @@ import {
   mkdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
@@ -123,13 +124,23 @@ export function readEgressBaseline(workspace: string): {
 }
 
 /** Write the baseline atomically: a temp file in the same directory, then a
- *  rename — a crash never leaves a half-written baseline to be misread. */
+ *  rename — a crash never leaves a half-written baseline to be misread.
+ *
+ *  A FAILED write removes its own temp file before rethrowing: the refusal for
+ *  `baseline-failed` promises "no temporary file is left behind", and a stranded
+ *  `baseline.json.<pid>.tmp` would also make the next run's directory look like
+ *  state the gate does not own. */
 export function writeEgressBaseline(workspace: string, baseline: EgressBaseline): string {
   const path = egressBaselinePath(workspace);
   mkdirSync(dirname(path), { recursive: true });
   const temp = `${path}.${process.pid}.tmp`;
-  writeFileSync(temp, `${JSON.stringify(baseline, null, 2)}\n`);
-  renameSync(temp, path);
+  try {
+    writeFileSync(temp, `${JSON.stringify(baseline, null, 2)}\n`);
+    renameSync(temp, path);
+  } catch (err) {
+    rmSync(temp, { force: true });
+    throw err;
+  }
   return path;
 }
 
@@ -304,7 +315,7 @@ export function authorizeEgress(req: EgressRequest): EgressAuthorized | EgressRe
       reasons,
       transitions,
       message: `the egress was recorded (${EGRESS_AUDIT_REL}) but the baseline could not move (${EGRESS_BASELINE_REL}) — ${(err as Error).message}`,
-      hint: `the audit line is the only byte written and it records the authorization; the payload was NOT emitted. Repair ${EGRESS_BASELINE_REL} (restore the last egress record — deleting it loses the comparison, not the authorization) and retry`,
+      hint: `the audit line records the authorization and it stays; the payload was NOT emitted and no temporary file is left behind. Restore ${EGRESS_BASELINE_REL} and retry — deleting it instead would turn the comparison OFF for the next run (the declared S503a limit, SPEC §7.11)`,
       violations,
     };
   }
