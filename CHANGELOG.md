@@ -44,6 +44,26 @@ minor versions may contain breaking contract changes.
   `--json` scope gains the additive `undated` key under the same
   `schemaVersion: "1"`.
 
+- **Platform icons have ONE home, and a coverage rule that names the gap (#511)**
+  — the badge table left `github-readme`: a platform's icon is now the
+  `icon: { slug, color, label }` block of its `platforms/registry.yaml` entry,
+  projected as `PLATFORM_ICONS` by `pnpm gen:platforms`, so a surface reads the
+  metadata instead of keeping a table of its own and the CV can resolve
+  `identity.links[].platform → { slug, color }`. The four link targets that had no
+  row (`github`, `orcid`, `scholar`, `website`) are `status: backlog` rows in a new
+  `identity` family with `kind: identity` — a registry-only kind that
+  `pasco release plan` and `pasco presence` refuse as a surface and no renderer
+  may declare. `pasco check` gains **`check/link-platform-icon`** (WARN,
+  `data.linkIcons`): a link platform with no icon draws no badge and is named,
+  never silent — the link still renders as text. The icon is presentation
+  metadata: no SVG, no binary asset, and the generator refuses a `simple-icons`
+  citation whose hex is not the row's own. Docs: SPEC §6/§7/§22.1, the registry
+  field contract, `schema/README.md`, the CLI README and the user guide. The
+  `schema-contract` gate also gained a check on the human surface: the sha256 and
+  version that `docs/SCHEMA-CONTRACT.md` repeats by hand must match the schema
+  bytes (scoped to the *current* table — the released one stays historical).
+  Out of scope and declared: `github-org` still keeps its curated badge table.
+
 ## [0.5.0] - 2026-11-07
 
 ### Added
