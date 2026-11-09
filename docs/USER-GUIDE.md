@@ -10,7 +10,7 @@ updated, and stay in sync as the engine evolves.
 > Audience: a **user** of the engine (not an engine contributor). Contributor
 > docs live in [CONTRIBUTING.md](../CONTRIBUTING.md); the product contract is
 > [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli@0.5.0`
-> — release `v0.4.0` (cut 2026-11-04; the npm publish of that release is the runbook's
+> — release `v0.5.0` (cut 2026-11-07; the npm publish of that release is the runbook's
 > irreversible step — `docs/ci-cd.md` §Releasing; #113, #207).
 > Keep that claim in its canonical form: the release barrier
 > (`scripts/site-check/version-check.mjs`) fails the publish when it disagrees

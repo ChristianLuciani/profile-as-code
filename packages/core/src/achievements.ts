@@ -273,7 +273,7 @@ export function checkAchievementIntegrity(profile: Profile): RegistryIssue[] {
           issues.push(
             issue(
               `achievements[${index}].refs[${refIndex}]`,
-              `a public achievement references ${block}[].id "${id}" with visibility "${target.visibility ?? "private"}" — public output renders only public entries (§18.5); if this workspace predates schema v2.0 run \`pasco migrate\` once`,
+              `a public achievement references ${block}[].id "${id}" with visibility "${target.visibility ?? "private"}" — public output renders only public entries (§18.5); if this workspace predates schema v2.0 run \`pasco migrate\` once, otherwise make it public or make the achievement non-public`,
             ),
           );
         }
