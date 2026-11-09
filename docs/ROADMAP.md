@@ -88,8 +88,10 @@ log y mantener al agente **read-only y sin llaves**. `--all` es break-glass, nun
 
 El **vault en reposo no se construye**: se recomienda/evalúa una capa OSS existente (p. ej.
 SOPS+age, git-crypt, Cryptomator) y se contribuye upstream solo si hay un gap real. `curate`
-(#501) sigue siendo el eje de *qué* se divulga; #503 decide *quién autoriza* publicarlo o
-exportarlo.
+(#501) sigue siendo el eje de *qué* se divulga y su contrato ya está ratificado (D29: un pack
+con nombre, con `expires`, aditivo —solo suma filas nombradas, nunca da vuelta una `visibility`—
+con el ledger en `content/curations.yaml` y sin lector propio); #503 decide *quién autoriza*
+publicarlo o exportarlo (D28). La implementación de cualquiera de los dos es su propio slice.
 
 ### Después — superficie por plataforma
 
