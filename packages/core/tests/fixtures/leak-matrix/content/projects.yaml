@@ -11,3 +11,13 @@
   description:
     en: PRIVATE-PROJ-DESCRIPTION
   visibility: private
+
+- id: unlisted-proj
+  name: UNLISTED-PROJ-NAME
+  status: active
+  visibility: unlisted
+
+- id: absent-proj
+  name: ABSENT-PROJ-NAME
+  status: active
+  # No `visibility`: the v2.0 default makes this row private.

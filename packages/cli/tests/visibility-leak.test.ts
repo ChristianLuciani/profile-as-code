@@ -1,14 +1,15 @@
 /**
- * The D27 LEAK SURFACES (issue #498, S4c) — one workspace, one marker, every
+ * The D27 LEAK SURFACES (issue #498, S4c) — one workspace, one scan set, every
  * public surface that must never carry a non-public row.
  *
  * The rule this file enforces is SPEC §18.5 under the v2.0 default: only
  * `visibility: public` leaves the workspace, and an ABSENT field is private. The
- * fixture (`packages/core/tests/fixtures/leak-matrix/`) declares one `public`
- * and one `private` row per visibility-carrying block — `credentials`,
- * `artifacts`, `projects`, `experience`, `achievements` — plus a ledger record
- * and a release event addressed to a private unit. Every private value carries
- * the `PRIVATE-` marker, so "does surface X leak?" is a scan, not a judgement.
+ * fixture (`packages/core/tests/fixtures/leak-matrix/`) declares a `public` row
+ * plus every way a row can be NON-public — `private`, `unlisted`, and the
+ * omitted field — per visibility-carrying block (`credentials`, `artifacts`,
+ * `projects`, `experience`, `achievements`), plus a ledger record and a release
+ * event addressed to a private unit. `MARKERS` below is the scan set; see its
+ * comment for why three classes of string are needed.
  *
  * Why per SURFACE instead of per function: the filter has one home (`compile()`
  * for a renderer slice, `structuredData()` for the JSON-LD, `publicProjection()`
@@ -45,8 +46,28 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI = join(__dirname, "..", "dist", "index.js");
 const FIXTURE = join(__dirname, "..", "..", "core", "tests", "fixtures", "leak-matrix");
 
-/** Every private value in the fixture starts with this prefix. */
-const MARKER = "PRIVATE-";
+/**
+ * The scan set — three classes, because a single prefix cannot cover every way
+ * a non-public unit names itself:
+ *   1. the TEXT of every explicitly non-public value (`PRIVATE-`, `UNLISTED-`)
+ *      and of the rows that omit the field (`ABSENT-`, the v2.0 default);
+ *   2. the row IDS of those rows (`secret-`, `unlisted-`, `absent-`) — plus, in
+ *      practice, the §19 ledger key `projects:secret-proj`, which names the unit
+ *      without carrying its text (the vector the `deployments` fixture calls
+ *      out);
+ *   3. the two values with no room for a prefix: the private artifact's locator
+ *      URL (`private-work`) and the private-only release id (`v-private-only`).
+ */
+const MARKERS = [
+  "PRIVATE-",
+  "UNLISTED-",
+  "ABSENT-",
+  "secret-",
+  "unlisted-",
+  "absent-",
+  "private-work",
+  "v-private-only",
+] as const;
 
 interface RunResult {
   code: number;
@@ -66,7 +87,7 @@ function run(args: string[]): RunResult {
 /** Assert a surface emitted no marked line — reporting the offending lines makes
  *  the failure name the leak instead of printing a 100 KB artifact diff. */
 function expectNoLeak(surface: string, text: string): void {
-  const hits = text.split("\n").filter((line) => line.includes(MARKER));
+  const hits = text.split("\n").filter((line) => MARKERS.some((marker) => line.includes(marker)));
   expect(hits, `${surface} emitted a non-public row (SPEC §18.5 / D27)`).toEqual([]);
 }
 
@@ -171,14 +192,18 @@ describe("D27 leak — the export surface", () => {
 
     const allRun = run(["export", "profile", "--all", "--json", "--workspace", FIXTURE]);
     expect(allRun.code, allRun.stderr).toBe(0);
-    // The marker EXISTS in the SSOT — a clean default is the filter, not a
-    // fixture that never had the value.
+    // The markers EXIST in the SSOT — a clean default is the filter, not a
+    // fixture that never had the value. One representative per marker CLASS:
+    // private text, unlisted text, the absent default, a non-public row id, the
+    // ledger key of a private unit, the URL with no prefix and the release id.
     for (const marker of [
       "PRIVATE-PROJ-NAME",
-      "PRIVATE-ROLE",
-      "PRIVATE-CRED-TITLE",
-      "PRIVATE-ART-TITLE",
-      "PRIVATE-ACH",
+      "UNLISTED-PROJ-NAME",
+      "ABSENT-PROJ-NAME",
+      "secret-exp",
+      "projects:secret-proj",
+      "example.com/private-work",
+      "v-private-only",
     ]) {
       expect(allRun.stdout, `fixture control: ${marker} missing from --all`).toContain(marker);
     }
@@ -187,6 +212,13 @@ describe("D27 leak — the export surface", () => {
   it("the projection drops the ledger record and the release event of a private unit", () => {
     const projected = publicProjection(load(FIXTURE));
     expectNoLeak("publicProjection()", JSON.stringify(projected));
+    // Every non-public state is dropped — private, unlisted and the absent
+    // default (v2.0) — in all five blocks, not only the two with ids.
+    expect(projected.credentials.map((row) => row.id)).toEqual(["pub-cred"]);
+    expect(projected.artifacts.map((row) => row.id)).toEqual(["pub-art"]);
+    expect(projected.projects.map((row) => row.id)).toEqual(["pub-proj"]);
+    expect(projected.experience.map((row) => row.id)).toEqual(["pub-exp"]);
+    expect(projected.achievements.map((row) => row.id)).toEqual(["pub-ach"]);
     expect(Object.keys(projected.deployments).sort()).toEqual(["identity", "projects:pub-proj"]);
     expect(projected.releases.map((release) => release.id)).toEqual(["v-mixed"]);
   });
@@ -202,8 +234,13 @@ describe("D27 leak — the preview and audit surfaces", () => {
 
   it("`pasco audit --public` reports no non-public row", () => {
     const res = run(["audit", "--public", "--json", "--workspace", FIXTURE]);
-    // Exit 1 = a FAIL finding: the report is still the surface under test.
-    expect([0, 1]).toContain(res.code);
+    // A FAIL finding is a legitimate exit 1; a load/schema error is NOT — parse
+    // the envelope so a broken fixture cannot keep this case green.
+    const parsed = JSON.parse(res.stdout) as { data?: { view?: string }; error?: unknown };
+    expect(parsed.error, `audit envelope carried an error: ${JSON.stringify(parsed.error)}`).toBe(
+      undefined,
+    );
+    expect(parsed.data?.view).toBe("public");
     expectNoLeak("pasco audit --public", res.stdout);
   });
 });
@@ -215,15 +252,23 @@ describe("D27 leak — the `pasco post` fact pointers", () => {
     // pointer is resolved — otherwise `{{fact:achievements[1].statement}}` reads
     // a private row straight out of the SSOT.
     const profile = load(FIXTURE);
+    // Indices are the WORKSPACE's (the pointer is written against the SSOT);
+    // `publicFacts()` filters first, so a pointer to a non-public row now
+    // dangles instead of resolving — see the SPEC §18.5 paragraph.
     const privateHits = [
       "projects[1].name",
+      "projects[2].name",
+      "projects[3].name",
       "experience[1].role",
-      "experience[1].org",
+      "experience[2].role",
       "credentials[1].title",
+      "credentials[2].title",
       "artifacts[1].title",
+      "artifacts[2].title",
       // A langMap pointer must address the language: `resolveFact` returns a
       // string, never an object.
       "achievements[1].statement.en",
+      "achievements[2].statement.en",
     ];
     for (const pointer of privateHits) {
       const { text, dangling } = renderFacts(`{{fact:${pointer}}}`, profile);

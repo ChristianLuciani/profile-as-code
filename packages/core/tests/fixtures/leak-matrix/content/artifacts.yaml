@@ -8,6 +8,14 @@
 - id: secret-art
   kind: code
   title: PRIVATE-ART-TITLE
+  # A URL cannot carry a text marker: `private-work` is part of the scan set.
   locator:
     url: https://example.com/private-work
   visibility: private
+
+- id: absent-art
+  kind: code
+  title: ABSENT-ART-TITLE
+  # No `visibility`: the v2.0 default makes this row private.
+  locator:
+    url: https://example.com/absent-work

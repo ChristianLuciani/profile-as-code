@@ -17,14 +17,19 @@ minor versions may contain breaking contract changes.
   `achievements[]` as well: its `{{fact:<pointer>}}` grammar walks the profile by
   path, so the one unfiltered visibility block stayed readable. The leak matrix
   ships as `packages/cli/tests/visibility-leak.test.ts` over the committed
-  `packages/core/tests/fixtures/leak-matrix/` workspace: one `public` and one
-  `private` row per visibility block, every private value prefixed `PRIVATE-`,
-  scanned across all nine renderers, `structuredData()` (`jobTitle`/`worksFor`/
-  `hasCredential`), `pasco entity` (`--jsonld` and `--json`), `pasco export
-  profile` (the default is clean and `--all` is the positive control that proves
-  the markers exist), the public projection (its dropped ledger record and
-  release event), `pasco preview`, `pasco audit --public` and the post fact
-  pointers.
+  `packages/core/tests/fixtures/leak-matrix/` workspace: a `public` row plus
+  every non-public state (`private`, `unlisted`, and the omitted field that v2.0
+  makes private) per visibility block, each non-public unit carrying a marker
+  from a declared scan set (its text, its id, the private unit's `deployments`
+  key and the two values with no room for a prefix — the artifact URL and the
+  release id), scanned across all nine renderers, `structuredData()`
+  (`jobTitle`/`worksFor`/`hasCredential`), `pasco entity` (`--jsonld` and
+  `--json`), `pasco export profile` (the default is clean and `--all` is the
+  positive control that proves the markers exist), the public projection (its
+  dropped ledger record and release event), `pasco preview`, `pasco audit
+  --public` and the post fact pointers. A filtered-index pointer now dangles
+  rather than resolving a non-public row; the `block[id]` form is the stable
+  selector (§18.5).
 
 - **D27 public projection — `export profile` v2, `audit --public`, dual
   completeness, `notPublishableUnits` (#498, D27/S4b)** — `core.publicProjection()`

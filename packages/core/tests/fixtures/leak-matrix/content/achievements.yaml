@@ -1,3 +1,5 @@
+# `achievements` requires the field (v1.16/D24), so this block can exercise
+# `private` and `unlisted` but never the absent default.
 - id: pub-ach
   statement:
     en: PUBLIC-ACH
@@ -11,3 +13,10 @@
   kind: milestone
   basis: reported
   visibility: private
+
+- id: unlisted-ach
+  statement:
+    en: UNLISTED-ACH
+  kind: milestone
+  basis: reported
+  visibility: unlisted

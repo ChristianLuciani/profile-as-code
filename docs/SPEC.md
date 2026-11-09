@@ -2418,12 +2418,19 @@ reads itself (`experience` → the `jobTitle`/`worksFor` pair of the one
 `export profile`, `audit --public` and dual completeness; and `pasco post`
 filters the five blocks before resolving a `{{fact:<pointer>}}`, whose grammar
 walks the profile by path and would otherwise read any block the filter missed.
+That pointer addresses the **filtered** array: removed rows are compacted, so an
+index written against the SSOT can address a different public row — or dangle —
+after a removal. The stable selector is the `block[id]` form (`resolveFact`
+resolves an id selector when the row declares one). The fixture's pointers are
+written against the WORKSPACE on purpose: the test asserts they stop resolving.
 `github-readme` re-guards `projects`/`credentials`/`artifacts` at the seam
 (§15.3). The proof is per SURFACE, not per helper:
 `packages/cli/tests/visibility-leak.test.ts` renders every platform, the JSON-LD,
 `entity`, `export profile` (default vs `--all` as the positive control), the
-projection, `preview`, `audit --public` and the post pointers over one fixture
-whose every private value carries a `PRIVATE-` marker
+projection, `preview`, `audit --public` and the post pointers over one fixture in
+which every non-public unit carries a marker from a declared scan set — the
+`PRIVATE-`/`UNLISTED-`/`ABSENT-` text, the row ids, the private unit's ledger key
+and the two values with no room for a prefix
 (`packages/core/tests/fixtures/leak-matrix/`).
 
 ### 18.6 Media transport (M8)

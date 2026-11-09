@@ -1,5 +1,7 @@
 # The private role is the MOST RECENT one on purpose: an unfiltered
 # `currentRole()` would pick it as jobTitle/worksFor (PRIVATE-ROLE/PRIVATE-ORG).
+# The absent row is the v2.0 default (private) — and it is also "present", so an
+# unfiltered `currentRole()` could pick it too (byte-order tie, then ABSENT-ORG).
 - id: pub-exp
   role: PUBLIC-ROLE
   org: Public Org
@@ -13,3 +15,9 @@
   start: 2025-01-01
   end: present
   visibility: private
+
+- id: absent-exp
+  role: ABSENT-ROLE
+  org: ABSENT-ORG
+  start: 2024-01-01
+  end: present

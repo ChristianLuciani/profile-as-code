@@ -290,7 +290,12 @@ export function renderFacts(
  *  public rows of the five visibility blocks reach it. `achievements` is here
  *  because the `{{fact:<pointer>}}` grammar is GENERIC: it walks the profile by
  *  path, so an unfiltered block stays readable (`{{fact:achievements[1]…}}`
- *  resolved a private row's statement straight out of the SSOT). */
+ *  resolved a private row's statement straight out of the SSOT).
+ *
+ *  A pointer then addresses the FILTERED array — from `factLines` on, indices
+ *  are the public rows', so an index written against the SSOT can address a
+ *  different row (or dangle) once a row is removed. The stable selector is the
+ *  `block[id]` form `resolveFact` already supports. */
 function publicFacts(profile: LoadedProfile): LoadedProfile {
   return {
     ...profile,
