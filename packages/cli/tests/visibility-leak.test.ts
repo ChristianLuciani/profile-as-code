@@ -286,6 +286,33 @@ describe("D27 leak — the `pasco post` fact pointers", () => {
       expectNoLeak(`pasco post {{fact:${pointer}}}`, text);
       expect(dangling, `${pointer} must not resolve`).toContain(pointer);
     }
+    // The post bundle reads the public PROJECTION, so the records that ADDRESS a
+    // unit are filtered with it — not only the five visibility blocks. This is
+    // the vector a partial filter left open: `{{fact:releases[0].id}}` resolved
+    // the private-only release and `{{fact:releases[1].changedUnits[1]}}` the
+    // private unit's §19 key.
+    for (const pointer of [
+      "releases[0].id",
+      "releases[0].changedUnits.0",
+      "releases[1].id",
+      "releases[1].changedUnits.1",
+    ]) {
+      expectNoLeak(
+        `pasco post {{fact:${pointer}}}`,
+        renderFacts(`{{fact:${pointer}}}`, profile).text,
+      );
+    }
+    // The private-only release is GONE from the view (the kept one moves to
+    // index 0 and its changed set keeps only the publishable unit)…
+    expect(renderFacts("{{fact:releases[0].id}}", profile).text).toBe("v-mixed");
+    expect(renderFacts("{{fact:releases[0].changedUnits.0}}", profile).text).toBe(
+      "projects:pub-proj",
+    );
+    // …so the workspace index 1 and the filtered-out changed unit dangle.
+    expect(renderFacts("{{fact:releases[1].id}}", profile).dangling).toContain("releases[1].id");
+    expect(renderFacts("{{fact:releases[1].changedUnits.1}}", profile).dangling).toContain(
+      "releases[1].changedUnits.1",
+    );
     // Control: the public rows DO resolve.
     expect(renderFacts("{{fact:projects[0].name}}", profile).text).toBe("PUBLIC-PROJ-NAME");
     expect(renderFacts("{{fact:achievements[0].statement.en}}", profile).text).toBe("PUBLIC-ACH");

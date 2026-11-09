@@ -2425,7 +2425,8 @@ resolves an id selector when the row declares one). The fixture's pointers are
 written against the WORKSPACE on purpose: the test asserts they stop resolving.
 `github-readme` re-guards `projects`/`credentials`/`artifacts` at the seam
 (§15.3). The proof is per SURFACE, not per helper:
-`packages/cli/tests/visibility-leak.test.ts` renders every platform, the JSON-LD,
+`packages/cli/tests/visibility-leak.test.ts` renders every registered renderer
+(nine, over the 49-platform set), the JSON-LD,
 `entity`, `export profile` (default vs `--all` as the positive control), the
 projection, `preview`, `audit --public` and the post pointers over one fixture in
 which every non-public unit carries a marker from a declared scan set — the
