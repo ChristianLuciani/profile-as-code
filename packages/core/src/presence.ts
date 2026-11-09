@@ -37,6 +37,7 @@
 import { PLATFORM_KINDS, type SurfaceKind } from "./generated/platforms.gen.js";
 import { trackableUnits } from "./ledger.js";
 import type { LoadedProfile } from "./types.js";
+import { notPublishableKeys } from "./visibility.js";
 
 /** A release row from the workspace (schema v1.15, D23). */
 export type Release = NonNullable<LoadedProfile["releases"]>[number];
@@ -111,8 +112,17 @@ export interface ReleasePlan {
     version: string;
     date: string;
     summary: string;
+    /** The PUBLIC changed set (D27): the keys this plan can fan out. The
+     *  non-publishable ones travel in `notPublishableUnits`, never here. */
     changedUnits: string[];
   };
+  /**
+   * D27/§7.8: changed units whose entry is `private`/`unlisted`. They are NOT
+   * `never` (that means missing) and NOT `in-sync`: they are simply not
+   * publishable, so they get no fan-out step. A release that changed only
+   * private units has no public fan-out (`surfaces: []`).
+   */
+  notPublishableUnits: string[];
   /** Ordered by kind (repo-meta → profile → distribution), then slug; each row
    *  carries its 1-based `order` (the human ORDER column, #421). */
   surfaces: ReleasePlanSurface[];
@@ -124,6 +134,10 @@ export interface PresenceRow extends ReleaseSurface {
   /** The newest release that declares this surface. */
   releaseId: string;
   version: string;
+  /** D27/§7.8: the non-publishable units of the release this row reads, so the
+   *  board can say "this surface owes nothing because the change is private"
+   *  without inventing a second state. */
+  notPublishableUnits: string[];
 }
 
 export interface PresenceBoard {
@@ -162,16 +176,17 @@ function kindOf(surface: string): ReleaseSurfaceKind {
   return kind;
 }
 
-/** The §19 ledger derivation for one `(release, surface)` pair. */
+/** The §19 ledger derivation for one `(release, surface)` pair, over the
+ *  PUBLISHABLE changed set (D27: a private unit has no fan-out step). */
 function surfaceState(
   profile: LoadedProfile,
-  release: Release,
+  changedUnits: readonly string[],
   surface: string,
   unitHashes: ReadonlyMap<string, string>,
 ): { state: PresenceState; missingUnits: string[]; unknownUnits: string[] } {
   const missingUnits: string[] = [];
   const unknownUnits: string[] = [];
-  const changed = release.changedUnits ?? [];
+  const changed = changedUnits;
   if (changed.length === 0) return { state: "never", missingUnits, unknownUnits };
   let stale = false;
   for (const key of changed) {
@@ -265,17 +280,27 @@ export function selectRelease(profile: LoadedProfile, id?: string): Release {
 export function releasePlan(profile: LoadedProfile, id?: string): ReleasePlan {
   const release = selectRelease(profile, id);
   const unitHashes = unitHashMap(profile);
-  const surfaces: ReleasePlanSurface[] = release.surfaces
-    .map((surface) => {
-      const kind = kindOf(surface);
-      return {
-        surface,
-        kind,
-        ...surfaceState(profile, release, surface, unitHashes),
-      };
-    })
-    .sort(compareSurfaces)
-    .map((row, index) => ({ order: index + 1, ...row }));
+  const privateKeys = notPublishableKeys(profile);
+  const declared = release.changedUnits ?? [];
+  const notPublishableUnits = declared.filter((key) => privateKeys.has(key));
+  const publishable = declared.filter((key) => !privateKeys.has(key));
+  // D27/§7.8: a release that changed only non-public units has NO public
+  // fan-out. `surfaces: []` says exactly that — it never turns them into
+  // `never` rows (which would ask the operator to fix a correct row).
+  const noPublicFanOut = declared.length > 0 && publishable.length === 0;
+  const surfaces: ReleasePlanSurface[] = noPublicFanOut
+    ? []
+    : release.surfaces
+        .map((surface) => {
+          const kind = kindOf(surface);
+          return {
+            surface,
+            kind,
+            ...surfaceState(profile, publishable, surface, unitHashes),
+          };
+        })
+        .sort(compareSurfaces)
+        .map((row, index) => ({ order: index + 1, ...row }));
   const summary = release.summary?.en ?? release.id;
   const kinds: ReleaseSurfaceKind[] = [];
   for (const row of surfaces) if (!kinds.includes(row.kind)) kinds.push(row.kind);
@@ -289,8 +314,9 @@ export function releasePlan(profile: LoadedProfile, id?: string): ReleasePlan {
       version: release.version,
       date: release.date,
       summary,
-      changedUnits: [...(release.changedUnits ?? [])],
+      changedUnits: publishable,
     },
+    notPublishableUnits,
     surfaces,
     baseText,
   };
@@ -301,32 +327,44 @@ export function releasePlan(profile: LoadedProfile, id?: string): ReleasePlan {
  * releases have addressed, at its NEWEST release, with the same ledger-derived
  * state. Deriving from the newest release keeps the board a reading of the
  * releases, never a second ledger.
+ *
+ * D27: it reads the public projection. A release that changed only private
+ * units has no public fan-out, so it is not a board row's newest release — the
+ * private units travel as `notPublishableUnits`, never as a `never` surface.
  */
 export function presenceBoard(profile: LoadedProfile): PresenceBoard {
   assertUniqueReleases(profile.releases);
-  const releases = [...profile.releases].sort(newestFirst);
+  const privateKeys = notPublishableKeys(profile);
+  const published = [...profile.releases].sort(newestFirst).filter((release) => {
+    const declared = release.changedUnits ?? [];
+    return declared.length === 0 || declared.some((key) => !privateKeys.has(key));
+  });
   const unitHashes = unitHashMap(profile);
   const seen = new Map<string, PresenceRow>();
-  for (const release of releases) {
+  for (const release of published) {
+    const declared = release.changedUnits ?? [];
+    const publishable = declared.filter((key) => !privateKeys.has(key));
+    const notPublishableUnits = declared.filter((key) => privateKeys.has(key));
     for (const surface of release.surfaces) {
       if (seen.has(surface)) continue;
       const kind = kindOf(surface);
-      const state = surfaceState(profile, release, surface, unitHashes);
+      const state = surfaceState(profile, publishable, surface, unitHashes);
       seen.set(surface, {
         surface,
         kind,
         ...state,
         releaseId: release.id,
         version: release.version,
+        notPublishableUnits,
       });
     }
   }
   const rows = [...seen.values()].sort(compareSurfaces);
   const counts: Record<PresenceState, number> = { "in-sync": 0, stale: 0, never: 0 };
   for (const row of rows) counts[row.state] += 1;
-  const latest = releases[0];
+  const latest = published[0];
   return {
-    releases: releases.length,
+    releases: published.length,
     latest:
       latest === undefined ? null : { id: latest.id, version: latest.version, date: latest.date },
     surfaces: rows,

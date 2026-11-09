@@ -652,9 +652,12 @@ pasco diff [--json]                  # what changed since the last release tag
   `<satisfied>/<total>` counts catalog items **fully satisfied** — an item's own
   score is 0..1, so partial credit shows only in the weighted `%`; `0/5` next to a
   non-zero percentage is therefore normal, not a contradiction. The line ships
-  **inside the artifact**, so readers of your GitHub profile see it.
-  `pasco status --completeness` expands the same number into the full checklist;
-  change the policy in `.pascorc` `completeness`, never the generated line.
+  **inside the artifact**, so readers of your GitHub profile see it — which is why
+  it prints the **public** number (D27): the completeness of what a visitor can
+  actually see, never of private rows they cannot.
+  `pasco status --completeness` prints both (workspace and public) and expands the
+  same items into the full checklist; change the policy in `.pascorc`
+  `completeness`, never the generated line.
   `pasco build` reporting `0 base texts` means no bios/headlines for that
   platform+lang, not that no artifact was produced: a renderer still writes one
   from the declared facts.
@@ -946,8 +949,14 @@ engine reports; the consumer ranks (that split is the contract, not a stage).
 
 ```sh
 pasco audit          # a human list, one block per finding
-pasco audit --json   # { schemaVersion: "2", scope: { catalog, declared, checked, notRun, notBuildable }, findings: [...] }
+pasco audit --json   # { schemaVersion: "2", view: "all" | "public", scope: { catalog, declared, checked, notRun, notBuildable }, findings: [...] }
+pasco audit --public # the publishable view: private rows can never raise a finding
 ```
+
+The default view is your SSOT — a private row is part of the local diagnostic.
+`--public` computes the same rules over the public projection (D27): a
+contradiction that only a private row raises disappears, because a visitor can
+never see it.
 
 | Class | What it means | Severity |
 |---|---|---|
@@ -1339,7 +1348,7 @@ pasco refine <platform> --choose <id>      # record chosen variant in content/ac
 pasco check [platform]                     # offline rules + checks catalog + fact-present (rest M4)
 pasco audit [--json]                       # findings only: dangling-ref · contradiction · unsourced-claim
 pasco entity [--json | --jsonld]           # schema.org entity view / paste-ready JSON-LD block (#287)
-pasco export profile --json [--now <iso>]  # the normalized profile object for scripts/sites (#348)
+pasco export profile --json [--now <iso>] [--public | --all]  # the profile object for scripts/sites (#348)
 pasco skills:export --list                 # platform skills shipped with this package
 pasco skills:export <dir> [--force]        # copy them; --force overlays a non-empty dir
 pasco --workspace <path> <cmd>             # target a workspace explicitly

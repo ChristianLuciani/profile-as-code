@@ -93,12 +93,14 @@ export function presencePayload(board: PresenceBoard): {
 export function releasePlanPayload(plan: ReleasePlan): {
   schemaVersion: string;
   release: ReleasePlan["release"];
+  notPublishableUnits: ReleasePlan["notPublishableUnits"];
   surfaces: ReleasePlan["surfaces"];
   baseText: ReleasePlan["baseText"];
 } {
   return {
     schemaVersion: PRESENCE_SCHEMA_VERSION,
     release: plan.release,
+    notPublishableUnits: plan.notPublishableUnits,
     surfaces: plan.surfaces,
     baseText: plan.baseText,
   };
@@ -128,6 +130,13 @@ export function runPresence(args: PresenceArgs): number {
     line(
       `${row.kind.padEnd(15)} ${row.surface.padEnd(21)} ${row.state.padEnd(9)} ${row.releaseId}`,
     );
+    // D27/§7.8: a private/unlisted changed unit is not publishable — never a
+    // `never` row (that would ask for a deploy that must not happen).
+    if (row.notPublishableUnits.length > 0) {
+      line(
+        `  ↳ not publishable (private/unlisted): ${row.notPublishableUnits.join(", ")} — no public fan-out`,
+      );
+    }
   }
   line("");
   line(
@@ -172,6 +181,16 @@ export function runReleasePlan(args: ReleasePlanArgs): number {
       );
     }
   });
+  // D27/§7.8: a third cause — the change is not publishable at all.
+  if (plan.notPublishableUnits.length > 0) {
+    line("");
+    line(
+      `not publishable (private/unlisted): ${plan.notPublishableUnits.join(", ")} — no public fan-out; these units are not a missing deploy`,
+    );
+  }
+  if (plan.surfaces.length === 0 && plan.notPublishableUnits.length > 0) {
+    line("this release changed only non-public units — it has no public fan-out");
+  }
   section("Base text (factual spine; the copy per kind lives in the shipped skills)");
   for (const kind of KIND_ORDER) {
     const text = plan.baseText.find((entry) => entry.kind === kind);

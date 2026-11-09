@@ -184,3 +184,72 @@ describe("pasco release plan", () => {
     }
   });
 });
+
+/** A copy of the releases fixture whose newest release also changed a PRIVATE
+ *  project (D27: absent visibility = private). */
+function workspaceWithPrivateUnit(changedUnits: string): string {
+  const dir = mkdtempSync(join(tmpdir(), "pasco-presence-private-"));
+  cpSync(RELEASES, dir, { recursive: true });
+  const projects = join(dir, "content", "projects.yaml");
+  writeFileSync(
+    projects,
+    `${readFileSync(projects, "utf8")}- id: secret-proj\n  name: Internal project\n`,
+  );
+  const releases = join(dir, "content", "releases.yaml");
+  writeFileSync(
+    releases,
+    readFileSync(releases, "utf8").replace(
+      "changedUnits: [identity]",
+      `changedUnits: [${changedUnits}]`,
+    ),
+  );
+  return dir;
+}
+
+describe("pasco release plan — D27 notPublishableUnits (§7.8)", () => {
+  it("lists a private changed unit apart from the public fan-out", () => {
+    const dir = workspaceWithPrivateUnit("identity, projects:secret-proj");
+    try {
+      const result = run(["release", "plan", "--json", "--workspace", dir]);
+      expect(result.code).toBe(0);
+      const data = json(result).data as {
+        release: { changedUnits: string[] };
+        notPublishableUnits: string[];
+        surfaces: { surface: string; missingUnits: string[] }[];
+      };
+      expect(data.notPublishableUnits).toEqual(["projects:secret-proj"]);
+      expect(data.release.changedUnits).toEqual(["identity"]);
+      // The private key is not an owed deploy on any surface.
+      for (const row of data.surfaces) {
+        expect(row.missingUnits).not.toContain("projects:secret-proj");
+      }
+      const human = run(["release", "plan", "--workspace", dir]);
+      expect(human.stdout).toContain("not publishable (private/unlisted): projects:secret-proj");
+      expect(human.stdout).not.toContain("is not an SSOT unit");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("a release that changed only a private unit has no public fan-out", () => {
+    const dir = workspaceWithPrivateUnit("projects:secret-proj");
+    try {
+      const result = run(["release", "plan", "--json", "--workspace", dir]);
+      expect(result.code).toBe(0);
+      const data = json(result).data as {
+        release: { changedUnits: string[] };
+        notPublishableUnits: string[];
+        surfaces: unknown[];
+        baseText: unknown[];
+      };
+      expect(data.release.changedUnits).toEqual([]);
+      expect(data.notPublishableUnits).toEqual(["projects:secret-proj"]);
+      expect(data.surfaces).toEqual([]);
+      expect(data.baseText).toEqual([]);
+      const human = run(["release", "plan", "--workspace", dir]);
+      expect(human.stdout).toContain("this release changed only non-public units");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

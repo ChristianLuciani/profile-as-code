@@ -14,7 +14,8 @@
  * "a row still missing visibility" means.
  */
 
-import type { Profile } from "./types.js";
+import { isPublicEntry } from "./registry.js";
+import type { Deployments, LoadedProfile, Profile } from "./types.js";
 
 /** The row blocks whose visibility is optional with absent = private (v2.0).
  *  `achievements` is deliberately absent: it keeps `visibility` REQUIRED (v1.16,
@@ -50,4 +51,91 @@ export function missingVisibility(profile: Pick<Profile, VisibilityBlock>): Miss
 /** True when the workspace still has pre-v2.0 rows (the migration is pending). */
 export function needsVisibilityMigration(profile: Pick<Profile, VisibilityBlock>): boolean {
   return missingVisibility(profile).length > 0;
+}
+
+/**
+ * The §19.2 ledger keys whose entry is NOT publishable (D27). Only the blocks
+ * that carry `visibility` can appear here: `identity`, `bios`, `headlines`,
+ * `skills`, `publications`, `education`, `press` and the handles carry no field
+ * and are publishable by contract. A row without an `id` is not a trackable
+ * unit, so it has no key to omit (§19.2: addressed ⇒ resolvable).
+ *
+ * One home, three readers: `publicProjection()` filters with it, and
+ * `releasePlan`/`presenceBoard` report it as `notPublishableUnits` (§7.8).
+ */
+export function notPublishableKeys(profile: LoadedProfile): Set<string> {
+  const keys = new Set<string>();
+  for (const block of VISIBILITY_BLOCKS) {
+    for (const row of profile[block] ?? []) {
+      if (row.id !== undefined && !isPublicEntry(row)) keys.add(`${block}:${row.id}`);
+    }
+  }
+  return keys;
+}
+
+/**
+ * The D27 PUBLIC PROJECTION (SPEC §7.5): the loaded profile with every
+ * non-public entry removed from the five blocks that carry visibility, and the
+ * ledger/release records that address those units dropped with them.
+ *
+ * What it is NOT: a re-derivation. Every surviving row is the SAME object
+ * `load()` returned (same values, same order); only the invisible ones are
+ * removed, so a consumer never sees a different fact, only a smaller set. The
+ * roots stay present (a list root that empties is `[]`, not absent), and the
+ * blocks without a visibility field are passed through untouched — `identity`,
+ * `bios`/`headlines`, `publications`, `press`, `education`, `skills`, `faq` and
+ * the rest are public by contract (§18.5).
+ *
+ * `deployments` is keyed by the §19 ledger address, so a record for a private
+ * unit leaks the unit's existence (and its name). It is dropped. `releases[]`
+ * follows the same rule: `changedUnits` is filtered to the publishable keys, and
+ * a release that changed only non-public units is omitted — its fan-out is not
+ * public, so it has no public row. `active` (variant choices, keyed by ledger
+ * address) is filtered the same way, because a choice for a private unit is a
+ * reference to it.
+ *
+ * The leak rule (`pasco check`'s `no-private-in-public-output`) is the gate that
+ * a public row may not POINT at a private target; this projection is not a
+ * second copy of it. It is also not a renderer: no text is produced here.
+ */
+export function publicProjection(profile: LoadedProfile): LoadedProfile {
+  const privateKeys = notPublishableKeys(profile);
+
+  // The ledger: keep only records whose addressed unit is publishable.
+  const deployments: Deployments = {};
+  for (const [key, surfaces] of Object.entries(profile.deployments ?? {})) {
+    if (privateKeys.has(key)) continue;
+    deployments[key] = surfaces;
+  }
+
+  // The release events: a release whose changed set is entirely non-public has
+  // no public fan-out (SPEC §7.8/§22.2), so it is not part of the projection.
+  const releases = profile.releases.flatMap((release) => {
+    const changed = release.changedUnits;
+    if (changed === undefined) return [release];
+    const publishable = changed.filter((key) => !privateKeys.has(key));
+    if (changed.length > 0 && publishable.length === 0) return [];
+    return [{ ...release, changedUnits: publishable }];
+  });
+
+  // Variant choices are addressed by ledger key (§19.2): a choice for a private
+  // unit is a reference to it.
+  const active = profile.active === undefined ? undefined : { ...profile.active };
+  if (active !== undefined) {
+    for (const key of Object.keys(active)) {
+      if (privateKeys.has(key)) delete active[key];
+    }
+  }
+
+  return {
+    ...profile,
+    credentials: (profile.credentials ?? []).filter(isPublicEntry),
+    artifacts: (profile.artifacts ?? []).filter(isPublicEntry),
+    projects: (profile.projects ?? []).filter(isPublicEntry),
+    experience: (profile.experience ?? []).filter(isPublicEntry),
+    achievements: (profile.achievements ?? []).filter(isPublicEntry),
+    deployments,
+    releases,
+    ...(active === undefined ? {} : { active }),
+  };
 }

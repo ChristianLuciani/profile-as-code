@@ -338,7 +338,9 @@ function checklistBody(
     "",
     // Issue #102: the completeness number rides the SAME generated view — it is
     // derived state (never stored) and the checklist is where the user looks.
-    `Profile completeness: ${completenessLine(completion)}`,
+    // D27/§20: BOTH numbers, labeled — the workspace number scores the record,
+    // the public one is what a published artifact may claim.
+    `Profile completeness: ${completenessLine(completion)} (workspace) · ${completenessLine(completion.public)} (public)`,
     // #242: the derived publication truth rides the SAME generated view — it is
     // coverage of publication, never a new score (SPEC §20).
     `Publication truth: ${publicationCoverageOrNone(publication)}`,
@@ -448,12 +450,22 @@ function runCompleteness(
         total: result.total,
         target: result.target,
         items: result.items,
+        // D27/§20: the public number travels with the workspace number, same
+        // policy and catalog, so a consumer can print either without re-scoring.
+        public: result.public,
         publication,
       },
     });
   }
   section(`profile completeness — ${completenessLine(result)} (target: ${result.target})`);
+  line(
+    `  workspace: ${completenessLine(result)} · public: ${completenessLine(result.public)} (D27: a public artifact publishes this one)`,
+  );
   for (const item of result.items) {
+    line(`  ${item.satisfied ? "[x]" : "[ ]"} ${item.label} — ${item.detail}`);
+  }
+  line(`  public view, item detail:`);
+  for (const item of result.public.items) {
     line(`  ${item.satisfied ? "[x]" : "[ ]"} ${item.label} — ${item.detail}`);
   }
   line(`  publication coverage — ${publicationCoverageOrNone(publication)}`);

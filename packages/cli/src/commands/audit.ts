@@ -48,6 +48,7 @@ import {
   geoCheck,
   LoadError,
   load,
+  publicProjection,
   SchemaValidationError,
 } from "@profile-as-code/core";
 import { isQuantitativeClaim } from "../claims.js";
@@ -107,9 +108,15 @@ export interface AuditScope {
 
 export interface AuditReport {
   schemaVersion: typeof AUDIT_SCHEMA_VERSION;
+  /** D27: which view the findings were computed over. Additive in schema v2 —
+   *  `scope` above already names the CATALOG coverage, a different axis. */
+  view: AuditView;
   scope: AuditScope;
   findings: AuditFinding[];
 }
+
+/** D27/§7.1: the SSOT (default) or the publishable view (`--public`). */
+export type AuditView = "all" | "public";
 
 /** Severity is a property of the CLASS, fixed by the contract — never inherited
  *  from the severity the composing check happens to use (drift warns, the audit
@@ -301,12 +308,14 @@ export function ordered(findings: AuditFinding[]): AuditFinding[] {
 export interface AuditArgs {
   workspace: string;
   pascorc: Pascorc;
+  /** `--public` (D27): audit the publishable view instead of the SSOT. */
+  public?: boolean;
 }
 
 export function runAudit(args: AuditArgs): number {
-  let profile: LoadedProfile;
+  let loaded: LoadedProfile;
   try {
-    profile = load(args.workspace);
+    loaded = load(args.workspace);
   } catch (err) {
     if (err instanceof SchemaValidationError) {
       return report("audit", false, EXIT.FAIL, {
@@ -322,6 +331,14 @@ export function runAudit(args: AuditArgs): number {
     }
     throw err;
   }
+
+  // D27 (SPEC §7.1/§23.3): the audit reads the SSOT by default — a private row
+  // is part of the local diagnostic — and `--public` restricts it to the
+  // publishable view. Projecting HERE is what makes `driftCheck` and `geoCheck`
+  // read the public projection: they compose by class over the same `profile`
+  // the audit hands them, so a private row can never become a public finding.
+  const view: AuditView = args.public === true ? "public" : "all";
+  const profile = view === "public" ? publicProjection(loaded) : loaded;
 
   const drift = reconciledDrift(args.workspace, profile).flatMap((issue) => {
     // An explicit `null` is "no class" (declared in §7.1); an unknown code falls
@@ -354,13 +371,15 @@ export function runAudit(args: AuditArgs): number {
     notRun: facts.notRun,
     notBuildable: facts.notBuildable,
   };
-  const reportData: AuditReport = { schemaVersion: AUDIT_SCHEMA_VERSION, scope, findings };
+  const reportData: AuditReport = { schemaVersion: AUDIT_SCHEMA_VERSION, view, scope, findings };
 
   if (isJsonMode()) {
     return report("audit", failures === 0, exitCode, { data: reportData });
   }
 
-  section("audit — findings only (no score, no prioritisation)");
+  section(
+    `audit — findings only (no score, no prioritisation)${view === "public" ? " · view: public (D27)" : ""}`,
+  );
   const compared =
     scope.checked.length === 0
       ? "0 surfaces measured"

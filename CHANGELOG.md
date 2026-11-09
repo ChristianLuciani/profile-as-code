@@ -9,6 +9,24 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+- **D27 public projection — `export profile` v2, `audit --public`, dual
+  completeness, `notPublishableUnits` (#498, D27/S4b)** — `core.publicProjection()`
+  is now the ONE visibility filter: it drops `private`/`unlisted` rows from
+  `credentials`, `artifacts`, `projects`, `experience` and `achievements`, and with
+  them the `deployments`/`releases` records that address only those units (their
+  `changedUnits` is filtered; a release that changed only non-public units is
+  omitted) and the `active` variant choices. `pasco export profile` defaults to
+  that projection and emits `{ schemaVersion: "2", scope, … }`; `--public` names
+  the default (same bytes), `--all` returns the pre-D27 SSOT, and asking for both
+  is usage (exit 2). `completeness()` returns the workspace number plus `public`
+  (same policy and catalog); `pasco status --completeness` prints both, and the
+  rendered `Profile completeness` line publishes the **public** one. `pasco audit
+  --public` computes drift and geo over the projection (additive `view: "all" |
+  "public"` in the payload), so a private row can never become a public finding,
+  and `release plan`/`presence` report `notPublishableUnits` instead of turning a
+  change that must not deploy into a `never` surface. Renderer visibility filters
+  and the per-surface leak tests remain S4c.
+
 - **Schema v2.0 — privacy by default, and `pasco migrate` (#498, D27/S4a)** —
   since v2.0 an entry that omits `visibility` is **private**, not public. The
   four migration blocks (`credentials`, `artifacts`, `projects`, `experience`)

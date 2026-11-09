@@ -21,6 +21,7 @@
 
 import { trackableUnits } from "./ledger.js";
 import type { LoadedProfile } from "./types.js";
+import { publicProjection } from "./visibility.js";
 
 /** One scored signal the engine can compute. */
 export type CompletenessSignal =
@@ -75,15 +76,29 @@ export interface CompletenessItemResult {
   detail: string;
 }
 
-export interface CompletenessReport {
+/** One scored view: the numbers a surface prints. The workspace and the public
+ *  projection are scored with the SAME policy and catalog (D27, SPEC §20), so
+ *  the two summaries are comparable by construction. */
+export interface CompletenessSummary {
   /** 0..100, weighted mean of the item scores (one decimal, byte-stable). */
   percent: number;
   /** Items with score 1 — the numerator of the `11/18` surface. */
   satisfied: number;
   /** Items considered by the policy (weight > 0). */
   total: number;
-  target: string;
   items: CompletenessItemResult[];
+}
+
+export interface CompletenessReport extends CompletenessSummary {
+  target: string;
+  /**
+   * The PUBLIC silhouette (D27, SPEC §20): the same items computed over the
+   * public projection. The top-level numbers stay the workspace's — §20 scores
+   * the record, and hiding half the SSOT must not lower that number — while
+   * this one is what a public artifact may publish. A workspace can be 90%
+   * complete and 0% public; the pair makes the gap explicit.
+   */
+  public: CompletenessSummary;
 }
 
 /** The shipped, documented default (overridable per workspace via `.pascorc`). */
@@ -333,16 +348,14 @@ function itemLabel(entry: CompletenessCatalogItem, langs: readonly string[]): st
 }
 
 /**
- * Compute the profile's completeness against a policy.
- *
- * @param profile a `load()`ed (normalized) profile — array blocks are defined.
- * @param policy  weights/target/langs; omitted ⇒ {@link DEFAULT_COMPLETENESS_POLICY}.
+ * One profile scored against a policy. Shared by both views: the workspace
+ * number and the public number must use the same policy and catalog, or the
+ * pair would be a comparison of two different rulers.
  */
-export function completeness(
+function scoreProfile(
   profile: LoadedProfile,
   policy: CompletenessPolicy = DEFAULT_COMPLETENESS_POLICY,
-): CompletenessReport {
-  const target = policy.target ?? DEFAULT_COMPLETENESS_POLICY.target ?? "";
+): CompletenessSummary {
   const langs = policy.langs ?? DEFAULT_COMPLETENESS_POLICY.langs ?? ["en"];
   const overrides = new Map((policy.items ?? []).map((i) => [i.id, i.weight]));
 
@@ -383,12 +396,33 @@ export function completeness(
     percent: Math.round(raw * 10) / 10,
     satisfied: items.filter((i) => i.satisfied).length,
     total: items.length,
-    target,
     items,
   };
 }
 
-/** `62.5% — 3/5` — the deterministic one-liner the CLI and the renderer share. */
-export function completenessLine(report: CompletenessReport): string {
+/**
+ * Compute the profile's completeness against a policy — BOTH numbers (D27,
+ * SPEC §20). The top-level numbers are the workspace's (the unfiltered SSOT);
+ * `public` is the same computation over {@link publicProjection}, and it is the
+ * one a public artifact publishes.
+ *
+ * @param profile a `load()`ed (normalized) profile — array blocks are defined.
+ * @param policy  weights/target/langs; omitted ⇒ {@link DEFAULT_COMPLETENESS_POLICY}.
+ */
+export function completeness(
+  profile: LoadedProfile,
+  policy: CompletenessPolicy = DEFAULT_COMPLETENESS_POLICY,
+): CompletenessReport {
+  const target = policy.target ?? DEFAULT_COMPLETENESS_POLICY.target ?? "";
+  return {
+    ...scoreProfile(profile, policy),
+    target,
+    public: scoreProfile(publicProjection(profile), policy),
+  };
+}
+
+/** `62.5% — 3/5` — the deterministic one-liner the CLI and the renderer share.
+ *  Takes a summary, so the same formatter prints either view (D27). */
+export function completenessLine(report: CompletenessSummary): string {
   return `${report.percent}% — ${report.satisfied}/${report.total}`;
 }

@@ -121,6 +121,10 @@ function check(workspacePath: string, platform?: string) {
   );
 }
 
+function auditPublic(workspacePath: string) {
+  return json(() => runAudit({ workspace: workspacePath, pascorc: PASCO, public: true }));
+}
+
 interface Finding {
   code?: string;
   class: string;
@@ -155,17 +159,24 @@ function tamper(ws: string, edit: (text: string) => string): void {
 }
 
 describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
-  it("emits findings only: the frozen schemaVersion, the scope, and no score anywhere", () => {
+  it("emits findings only: the frozen schemaVersion, the view, the scope, and no score anywhere", () => {
     const { code, data, out } = audit(join(FIXTURES, "unsourced-claim"));
     expect(code).toBe(0);
-    const report = data as { schemaVersion: string; scope: Scope; findings: Finding[] };
-    expect(Object.keys(report).sort()).toEqual(["findings", "schemaVersion", "scope"]);
+    const report = data as {
+      schemaVersion: string;
+      view: string;
+      scope: Scope;
+      findings: Finding[];
+    };
+    expect(Object.keys(report).sort()).toEqual(["findings", "schemaVersion", "scope", "view"]);
     // The runtime payload and the single key-set source must agree in both
     // directions: a bucket dropped from `AUDIT_SCOPE_KEYS` (and its docs) fails
     // here because the engine still emits it (#490 review).
     expect(Object.keys(report.scope).sort()).toEqual([...AUDIT_SCOPE_KEYS].sort());
     expect(report.schemaVersion).toBe("2");
     expect(report.schemaVersion).toBe(AUDIT_SCHEMA_VERSION);
+    // D27: the default view is the SSOT; --public names the other one.
+    expect(report.view).toBe("all");
     expect(report.findings).toHaveLength(1);
     const [finding] = report.findings;
     expect(Object.keys(finding ?? {}).sort()).toEqual(["class", "detail", "path", "severity"]);
@@ -755,5 +766,49 @@ describe("audit is a leaf — no command depends on it", () => {
       // The literal predicate lives only in claims.ts — no inline copy anywhere.
       expect(source).not.toContain("[%$]");
     }
+  });
+});
+
+describe("D27 — `audit --public` reads the publishable view (SPEC §7.1/§23.3)", () => {
+  /** One public and one private project with the SAME name: a contradiction in
+   *  the record, invisible in the public projection. */
+  function duplicateProjectWorkspace(): string {
+    return workspace({
+      "identity.yaml": "name: Example\n",
+      "projects.yaml":
+        "- id: pub\n  name: Duplicate\n  visibility: public\n" +
+        "- id: secret\n  name: Duplicate\n",
+    });
+  }
+
+  it("the default view reports a contradiction a private row raises", () => {
+    const { code, data } = audit(duplicateProjectWorkspace());
+    expect(code).toBe(1);
+    const report = data as { view: string; findings: Finding[] };
+    expect(report.view).toBe("all");
+    expect(report.findings.map((item) => item.class)).toContain("contradiction");
+    // The row declares an id, so the factRef addresses it by id (SPEC §7.1).
+    expect(report.findings.map((item) => item.path)).toContain("projects[pub]");
+  });
+
+  it("--public mirrors the public projection: the private row cannot raise a finding", () => {
+    const { code, data } = auditPublic(duplicateProjectWorkspace());
+    expect(code).toBe(0);
+    const report = data as { view: string; findings: Finding[] };
+    expect(report.view).toBe("public");
+    expect(report.findings.filter((item) => item.class === "contradiction")).toEqual([]);
+  });
+
+  it("--public is the same projection export uses: no score, same frozen shape", () => {
+    const { data } = auditPublic(duplicateProjectWorkspace());
+    const report = data as {
+      schemaVersion: string;
+      view: string;
+      scope: Scope;
+      findings: Finding[];
+    };
+    expect(Object.keys(report).sort()).toEqual(["findings", "schemaVersion", "scope", "view"]);
+    expect(report.schemaVersion).toBe(AUDIT_SCHEMA_VERSION);
+    expect(Object.keys(report.scope).sort()).toEqual([...AUDIT_SCOPE_KEYS].sort());
   });
 });

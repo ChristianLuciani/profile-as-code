@@ -114,6 +114,9 @@ export function compile(
   //     claim entities the render never shows;
   //   - completeness stays on the UNFILTERED profile, because §20 scores the
   //     WORKSPACE, not a view (hiding half the SSOT must not lower the number).
+  //     The report carries BOTH numbers (D27/S4b): `.percent` is the workspace
+  //     one, `.public` is the same policy over the public projection, and that is
+  //     the one a published artifact prints (the renderer reads it, §20).
   // D27 (§18.5): visibility is the ONE exception to "facts pass through" — a
   // private/unlisted row never reaches a renderer or the JSON-LD assembled below.
   // Selection runs on the UNFILTERED profile so a view's `excludeKeys` can still

@@ -3,7 +3,7 @@
   "ok": true,
   "exitCode": 0,
   "data": {
-    "schemaVersion": "1",
+    "schemaVersion": "2",
     "engine": {
       "name": "@profile-as-code/cli",
       "version": "<version>"
@@ -12,6 +12,7 @@
       "commit": "<commit>",
       "generatedAt": null
     },
+    "scope": "all",
     "profile": {
       "identity": {
         "name": "Elena Vasquez",

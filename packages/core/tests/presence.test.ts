@@ -198,3 +198,60 @@ describe("presenceBoard — the daily board", () => {
     expect(board.counts).toEqual({ "in-sync": 0, stale: 0, never: 0 });
   });
 });
+
+describe("D27 — release/presence read the public projection (notPublishableUnits)", () => {
+  /** The releases fixture plus one public and one private project unit. */
+  function withProjectUnits() {
+    const profile = load(RELEASES);
+    profile.projects = [
+      { id: "pub", name: "Public project", visibility: "public" },
+      { id: "secret", name: "Internal project" },
+    ];
+    return profile;
+  }
+
+  it("lists a private changed unit instead of turning the surface `never`", () => {
+    const profile = withProjectUnits();
+    profile.releases[0]!.changedUnits = ["projects:pub", "projects:secret"];
+    const plan = releasePlan(profile);
+    expect(plan.notPublishableUnits).toEqual(["projects:secret"]);
+    // The public changed set is what the fan-out reads: the private key is not
+    // an owed deploy (missing) and not a broken row (unknown).
+    expect(plan.release.changedUnits).toEqual(["projects:pub"]);
+    const readme = plan.surfaces.find((row) => row.surface === "github-readme");
+    expect(readme?.missingUnits).toEqual(["projects:pub"]);
+    expect(readme?.missingUnits).not.toContain("projects:secret");
+    expect(readme?.unknownUnits).toEqual([]);
+  });
+
+  it("a release that changed only private units has no public fan-out", () => {
+    const profile = withProjectUnits();
+    profile.releases[0]!.changedUnits = ["projects:secret"];
+    const plan = releasePlan(profile);
+    expect(plan.notPublishableUnits).toEqual(["projects:secret"]);
+    expect(plan.release.changedUnits).toEqual([]);
+    expect(plan.surfaces).toEqual([]);
+    expect(plan.baseText).toEqual([]);
+  });
+
+  it("the board reads the newest release that HAS a public fan-out", () => {
+    const profile = withProjectUnits();
+    // v0-3-0 (newest) changed only the private unit; v0-2-0 stays public.
+    profile.releases[0]!.changedUnits = ["projects:secret"];
+    const board = presenceBoard(profile);
+    expect(board.releases).toBe(1);
+    expect(board.latest?.id).toBe("v0-2-0");
+    const readme = board.surfaces.find((row) => row.surface === "github-readme");
+    expect(readme?.releaseId).toBe("v0-2-0");
+  });
+
+  it("a board row carries the non-publishable units of the release it reads", () => {
+    const profile = withProjectUnits();
+    profile.releases[0]!.changedUnits = ["identity", "projects:secret"];
+    const board = presenceBoard(profile);
+    const readme = board.surfaces.find((row) => row.surface === "github-readme");
+    expect(readme?.notPublishableUnits).toEqual(["projects:secret"]);
+    // identity keeps the row a real fan-out step (its record is in the fixture).
+    expect(readme?.state).toBe("in-sync");
+  });
+});

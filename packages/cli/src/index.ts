@@ -108,10 +108,11 @@ Commands:
                                 over headlines/bios (offline, #240) and fact-present
                                 (the built surface's facts vs the SSOT, #283);
                                 remaining rows M3/M4
-  audit [--json]                [check] Offline diagnostic projection: findings only (no score,
+  audit [--json] [--public]     [check] Offline diagnostic projection: findings only (no score,
                                 no prioritisation) in three fixed classes — dangling-ref,
                                 contradiction, unsourced-claim; stricter than
-                                validate/check on those classes; exit 1 iff any FAIL
+                                validate/check on those classes; exit 1 iff any FAIL;
+                                --public audits the D27 publishable view
   discover <url>... [--json]    [read]  Provisional profile from public surfaces: reads each
           [--observations <file>]
                                 surface's schema.org Person/Organization JSON-LD + links
@@ -229,6 +230,9 @@ interface FlagOptions {
   jsonld?: boolean;
   bare?: boolean;
   now?: string;
+  /** D27 (§7.5): `export profile` view selector + `audit --public`. */
+  all?: boolean;
+  public?: boolean;
   "no-open"?: boolean;
   "allow-host"?: string;
   observations?: string;
@@ -500,7 +504,7 @@ explains), else WARN (D12). A declared surface with no artifact reports the
 rule as not run, never OK; declared: [] says no catalog declares the premise.
 Remaining rows in content/checks.yaml ship with the skills checks.yaml union
 (M3) and the full pasco check (M4).`,
-  audit: `pasco audit [--json] [--workspace <path>]
+  audit: `pasco audit [--json] [--public] [--workspace <path>]
 The offline diagnostic projection over the identity (SPEC §7.1, issue #283):
 findings only — no score, no prioritisation, no branding (those belong to the
 consuming layer). Three fixed classes, each with a fixed severity:
@@ -513,6 +517,11 @@ in a FAIL class exits 1 here and 0 there (declared in SPEC §7.1). Two inputs ar
 declared no-class rules and are NOT findings: drift/url-not-in-identity (the
 URL resolves — canonicalization, which validate warns about) and geoCheck's
 coverage codes.
+D27: the default view is the SSOT — a private row is part of the LOCAL
+diagnostic. --public restricts the audit to the publishable view (the D27 public
+projection): driftCheck and geoCheck compose over that projection, so a private
+row never becomes a public finding and a finding that only a private row could
+raise disappears.
 Composes load (schema), driftCheck with validate's #238 variant-store
 reconciliation, geoCheck (the faq-coverage premise gate only), the
 completeness evidence premise, the achievements evidence posture (a public
@@ -520,8 +529,9 @@ measured/attested row with no pointer is unsourced-claim, SPEC §23.3) and
 fact-present (the built surface's facts vs the SSOT render, symmetric; it runs
 only where the catalog declares it).
 Touches no network, and no finding derives from content/deployments.yaml.
---json emits { schemaVersion: "2", scope: { catalog, declared, checked, notRun, notBuildable },
-findings: [ { class, severity, path, detail } ] }. scope is the artifact side:
+--json emits { schemaVersion: "2", view: "all" | "public", scope: { catalog, declared, checked, notRun, notBuildable },
+findings: [ { class, severity, path, detail } ] }. view names the visibility
+scope the findings were computed over; scope is the artifact side:
 catalog = shipped | not-shipped (a package without its skills tree cannot declare
 anything, and says so); notBuildable = the notRun subset the build can never
 produce (no body or renderer), so "run pasco build" would be false; declared =
@@ -597,7 +607,7 @@ Exit: 0 a successful read, whatever the matches (a non-citation is data) ·
 malformed NDJSON. Offline and deterministic: no network, no model, no clock.`,
   export: `pasco export ai-policy [--out <dir> | --check [--file <robots.txt>]] [--lang <l>]
                       [--json] [--workspace <path>]
-pasco export profile [--json] [--now <iso8601>] [--workspace <path>]
+pasco export profile [--json] [--now <iso8601>] [--public | --all] [--workspace <path>]
 
 --- export ai-policy -----------------------------------------------------------------
 The §12 M9 stance as an artifact. Two modes, deliberately separate (one
@@ -651,28 +661,36 @@ Offline; --out reads no clock and two runs produce byte-identical files, and
 --check --file reads no clock either.
 
 --- export profile ------------------------------------------------------------------
-The normalized profile for programmatic consumers (SPEC §7.5, #348). One payload,
-the same for a script, a site build or a service:
-  { schemaVersion, engine, source: { commit, generatedAt }, profile }
+The normalized profile for programmatic consumers (SPEC §7.5, #348; v2/D27 by
+#498). One payload, the same for a script, a site build or a service:
+  { schemaVersion, engine, source: { commit, generatedAt }, scope, profile }
   --json        emit the payload inside the standard envelope (command · ok ·
                 exitCode · data). Human mode prints a summary of the same object.
+  --public      the D27 public projection — the DEFAULT (same bytes when named).
+  --all         the full SSOT, the pre-D27 payload, for backup and consumers
+                that apply their own filter. Mutually exclusive with --public.
   --now <iso>   pin source.generatedAt to this ISO 8601 date-time, verbatim, after a
                 real-calendar check (2026-02-31 and T24:00:00 are refused). Without
                 it the command reads NO clock: generatedAt is null, so two runs over
                 one workspace produce byte-identical output.
-profile is exactly what core's load() returns — schema-validated and normalized:
-every root the workspace DECLARES, plus every LIST root defaulted to [] (never
-absent). An optional object root (newsletter, podcast, audiences, active) appears
-only when declared, because the contract has no valid empty value for it. It is
-NOT a platform slice: compile(profile, platform) produces that other object, and
-this command never calls it. artifactRefs stay ids (a consumer joins them to
-profile.artifacts[] by id; load() already refuses a dangling ref),
-publications[].url is exactly as declared, deployments is included. It is the
-SSOT, not a rendered surface: no visibility filtering (that is §18.5, owned by
-the renderers). source.commit is the workspace's git HEAD; null means the
-workspace is not inside a git repository.
+scope is "public" or "all" and names which view profile is. schemaVersion "2" is
+the frozen contract version: a consumer refuses a version it does not know.
+The default/--public profile is core's publicProjection(): every root the
+workspace DECLARES, plus every LIST root defaulted to [] (never absent), with
+every private/unlisted entry removed from credentials, artifacts, projects,
+experience and achievements, and deployments/releases records that address only
+those units dropped with them. --all returns exactly what load() returns —
+schema-validated and normalized, unfiltered. An optional object root (newsletter,
+podcast, audiences, active) appears only when declared, because the contract has
+no valid empty value for it. It is NOT a platform slice: compile(profile,
+platform) produces that other object, and this command never calls it.
+artifactRefs stay ids (a consumer joins them to profile.artifacts[] by id; load()
+already refuses a dangling ref), publications[].url is exactly as declared.
+source.commit is the workspace's git HEAD; null means the workspace is not inside
+a git repository.
 Exit: 0 ok · 1 the workspace fails to load (schema/ledger/registry — D12) or --now
-is malformed · 2 usage (unknown export subcommand, --out/--check/--force/--lang).
+is malformed · 2 usage (unknown export subcommand, --all with --public,
+--out/--check/--force/--lang).
 Offline and deterministic: no network, no clock unless --now pins one.`,
   "skills:export": `pasco skills:export <dir> [--force] [--json]
 pasco skills:export --list [--json]
@@ -1197,18 +1215,22 @@ async function runMain(): Promise<number> {
       });
     }
     case "audit": {
-      const { flags, positionals } = parseCommandFlags(rest);
+      const { flags, positionals } = parseCommandFlags(rest, { public: { type: "boolean" } });
       if (flags.help === true) {
         process.stdout.write(`${COMMAND_HELP.audit}\n`);
         return EXIT.OK;
       }
       if (positionals.length > 0) {
-        throw new UsageError("usage: pasco audit [--json] [--workspace <path>]");
+        throw new UsageError("usage: pasco audit [--json] [--public] [--workspace <path>]");
       }
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       const pascorc = readWorkspacePascorc(workspace);
-      return runAudit({ workspace, pascorc });
+      return runAudit({
+        workspace,
+        pascorc,
+        ...(flags.public === true ? { public: true } : {}),
+      });
     }
     case "cite-check": {
       const { flags, positionals } = parseCommandFlags(rest);
@@ -1487,6 +1509,8 @@ async function runMain(): Promise<number> {
         force: { type: "boolean" },
         lang: { type: "string" },
         now: { type: "string" },
+        all: { type: "boolean" },
+        public: { type: "boolean" },
       });
       if (flags.help === true) {
         process.stdout.write(`${COMMAND_HELP.export}\n`);
@@ -1495,7 +1519,7 @@ async function runMain(): Promise<number> {
       const subcommand = positionals[0];
       if (positionals.length !== 1 || (subcommand !== "ai-policy" && subcommand !== "profile")) {
         throw new UsageError(
-          "usage: pasco export <ai-policy | profile> — ai-policy: --out <dir> | --check [--file <robots.txt>]; profile: [--json] [--now <iso8601>]",
+          "usage: pasco export <ai-policy | profile> — ai-policy: --out <dir> | --check [--file <robots.txt>]; profile: [--json] [--now <iso8601>] [--public | --all]",
         );
       }
       // `export profile` is a read-only projection: the writer/verifier flags of
@@ -1510,7 +1534,14 @@ async function runMain(): Promise<number> {
           flags.lang !== undefined
         ) {
           throw new UsageError(
-            "usage: pasco export profile [--json] [--now <iso8601>] — --out/--check/--file/--force/--lang do not apply",
+            "usage: pasco export profile [--json] [--now <iso8601>] [--public | --all] — --out/--check/--file/--force/--lang do not apply",
+          );
+        }
+        // `--public` NAMES the default projection; `--all` is the other view.
+        // Asking for both is a contradiction, never a silent winner (§7.5).
+        if (flags.public === true && flags.all === true) {
+          throw new UsageError(
+            "usage: --public (the default projection) and --all (the full SSOT) are mutually exclusive",
           );
         }
         setJsonMode(flags.json === true);
@@ -1522,7 +1553,13 @@ async function runMain(): Promise<number> {
           workspace,
           engineVersion: VERSION,
           ...(flags.now !== undefined ? { nowArg: flags.now } : {}),
+          ...(flags.all === true ? { all: true } : {}),
         });
+      }
+      // The view flags are `export profile`'s only: ai-policy has no projection
+      // to name, so accepting them silently would be an ignored argument.
+      if (flags.all === true || flags.public === true) {
+        throw new UsageError("usage: --all/--public only apply to export profile");
       }
       if (flags.out === undefined && flags.check !== true) {
         throw new UsageError(

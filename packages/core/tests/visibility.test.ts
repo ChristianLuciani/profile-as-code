@@ -17,6 +17,8 @@ import {
   load,
   missingVisibility,
   needsVisibilityMigration,
+  notPublishableKeys,
+  publicProjection,
   registryCheck,
   SchemaValidationError,
 } from "../src/index.js";
@@ -267,5 +269,109 @@ describe("D27 — the leak check follows the PROJECT's own visibility", () => {
     );
     expect(findings.length).toBeGreaterThan(0);
     expect(findings[0]?.path).toContain("projects[0].artifactRefs");
+  });
+});
+
+/** A workspace that exercises every part of the projection: the five blocks that
+ *  carry visibility, the ledger records that address them, the release events and
+ *  the variant choices. */
+const PROJECTION_FILES: Record<string, string> = {
+  "identity.yaml":
+    "name: Example\nlinks:\n  - platform: github-readme\n    url: https://example.com\n",
+  "credentials.yaml":
+    "- id: pub-cred\n  kind: certificate\n  title: Public cert\n  issuer: Example\n  visibility: public\n" +
+    "- id: private-cred\n  kind: award\n  title: Internal award\n  issuer: Example\n",
+  "artifacts.yaml":
+    "- id: pub-art\n  kind: code\n  title: Public code\n  locator:\n    url: https://example.com/pub\n  visibility: public\n" +
+    "- id: private-art\n  kind: code\n  title: Internal code\n  locator:\n    url: https://example.com/priv\n",
+  "projects.yaml":
+    "- id: pub-proj\n  name: Public project\n  visibility: public\n" +
+    "- id: secret-proj\n  name: Secret project\n",
+  "experience.yaml":
+    "- id: pub-exp\n  role: Engineer\n  org: A\n  start: 2024-01-01\n  visibility: public\n" +
+    "- id: secret-exp\n  role: Advisor\n  org: B\n  start: 2023-01-01\n",
+  "achievements.yaml":
+    "- id: pub-ach\n  statement:\n    en: Shipped it\n  kind: milestone\n  basis: reported\n  visibility: public\n" +
+    "- id: secret-ach\n  statement:\n    en: Internal result\n  kind: milestone\n  basis: reported\n  visibility: private\n",
+  "deployments.yaml":
+    'identity:\n  github-readme:\n    deployedAt: "2026-01-01T00:00:00Z"\n    contentHash: ' +
+    "a".repeat(64) +
+    "\n    source: git\n" +
+    'projects:pub-proj:\n  github-readme:\n    deployedAt: "2026-01-01T00:00:00Z"\n    contentHash: ' +
+    "b".repeat(64) +
+    "\n    source: git\n" +
+    'projects:secret-proj:\n  github-readme:\n    deployedAt: "2026-01-01T00:00:00Z"\n    contentHash: ' +
+    "c".repeat(64) +
+    "\n    source: git\n" +
+    'experience:secret-exp:\n  github-readme:\n    deployedAt: "2026-01-01T00:00:00Z"\n    contentHash: ' +
+    "d".repeat(64) +
+    "\n    source: git\n",
+  "releases.yaml":
+    "- id: v-priv-only\n  version: 1.0.0\n  date: 2026-01-01\n  changedUnits: [projects:secret-proj]\n  surfaces: [github-readme]\n" +
+    "- id: v-mixed\n  version: 1.1.0\n  date: 2026-01-02\n  changedUnits: [projects:pub-proj, projects:secret-proj]\n  surfaces: [github-readme]\n" +
+    "- id: v-identity\n  version: 1.2.0\n  date: 2026-01-03\n  changedUnits: [identity]\n  surfaces: [github-readme]\n",
+  "active.yaml":
+    'projects:pub-proj:\n  lang: en\n  variantId: v1\n  chosenAt: "2026-01-01T00:00:00Z"\n' +
+    'projects:secret-proj:\n  lang: en\n  variantId: v2\n  chosenAt: "2026-01-01T00:00:00Z"\n',
+};
+
+describe("D27 — publicProjection(): the projection is the ONE filter (SPEC §7.5)", () => {
+  it("names the non-publishable ledger keys of the five visibility blocks", () => {
+    const profile = load(workspace(PROJECTION_FILES));
+    expect([...notPublishableKeys(profile)].sort()).toEqual([
+      "artifacts:private-art",
+      "credentials:private-cred",
+      "experience:secret-exp",
+      "projects:secret-proj",
+    ]);
+  });
+
+  it("drops private/unlisted entries from every visibility block, keeps public rows", () => {
+    const profile = load(workspace(PROJECTION_FILES));
+    const projected = publicProjection(profile);
+    expect(projected.credentials.map((row) => row.id)).toEqual(["pub-cred"]);
+    expect(projected.artifacts.map((row) => row.id)).toEqual(["pub-art"]);
+    expect(projected.projects.map((row) => row.id)).toEqual(["pub-proj"]);
+    expect(projected.experience.map((row) => row.id)).toEqual(["pub-exp"]);
+    expect(projected.achievements.map((row) => row.id)).toEqual(["pub-ach"]);
+    // Blocks without the field pass through untouched.
+    expect(projected.identity.name).toBe("Example");
+    expect(projected.identity.links).toEqual(profile.identity.links);
+  });
+
+  it("filters the ledger to the records that address a publishable unit", () => {
+    const profile = load(workspace(PROJECTION_FILES));
+    const projected = publicProjection(profile);
+    expect(Object.keys(projected.deployments).sort()).toEqual(["identity", "projects:pub-proj"]);
+    // The source profile is untouched: the projection is a reading, not a mutation.
+    expect(Object.keys(profile.deployments)).toContain("projects:secret-proj");
+    expect(profile.projects).toHaveLength(2);
+  });
+
+  it("filters release changedUnits and omits a release with no public unit", () => {
+    const profile = load(workspace(PROJECTION_FILES));
+    const projected = publicProjection(profile);
+    expect(projected.releases.map((release) => release.id)).toEqual(["v-mixed", "v-identity"]);
+    expect(projected.releases[0]?.changedUnits).toEqual(["projects:pub-proj"]);
+    expect(projected.releases[1]?.changedUnits).toEqual(["identity"]);
+  });
+
+  it("filters variant choices keyed by a non-publishable unit", () => {
+    const profile = load(workspace(PROJECTION_FILES));
+    const projected = publicProjection(profile);
+    expect(Object.keys(projected.active ?? {})).toEqual(["projects:pub-proj"]);
+  });
+
+  it("keeps the roots present: a filtered list is [], never absent", () => {
+    const dir = workspace({
+      "identity.yaml": "name: Example\n",
+      "projects.yaml": "- id: secret\n  name: Secret\n",
+    });
+    const projected = publicProjection(load(dir));
+    expect(projected.projects).toEqual([]);
+    expect(projected.experience).toEqual([]);
+    expect(projected.releases).toEqual([]);
+    expect(projected.deployments).toEqual({});
+    expect(projected.identity.name).toBe("Example");
   });
 });
