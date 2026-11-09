@@ -60,7 +60,7 @@ export {
 } from "./completeness.js";
 export { driftCheck } from "./drift.js";
 /**
- * D28 egress authorization (issue #503, slice S503a; SPEC §7.10): the manifest
+ * D28 egress authorization (issue #503, slice S503a; SPEC §7.11): the manifest
  * of what leaves, its digest, the private → public comparison against the last
  * recorded egress and the append-only audit record. Pure — the CLI owns the
  * `.pasco/egress/` writes.

@@ -34,9 +34,16 @@
  * stable `id` is addressed `block:id`; a row without one is addressed
  * `block[index]` at its SSOT position — never at its position in the filtered
  * projection, because filtering shifts those indices and every surviving row
- * would look new. The cost is declared: inserting/removing a row before an
- * id-less one renames the later keys, and a rename can only produce a FALSE
- * POSITIVE (a confirmation prompt), never a silent pass.
+ * would look new.
+ *
+ * The index address is a DECLARED limit, not a promise: it is only as stable as
+ * the block's order. Inserting or removing a row before an id-less one renames
+ * the later keys (a false POSITIVE — a confirmation prompt — which is safe), but a
+ * DELETE followed by an INSERT at the same position reuses the key, and the new
+ * row is then indistinguishable from a stable one: no transition is reported. A
+ * stable `id` removes that class entirely, which is why §19.2 already treats an
+ * id-less row as untrackable; the gate does the best it can with the address the
+ * SSOT gives it instead of inventing one.
  */
 
 import { createHash } from "node:crypto";
@@ -46,7 +53,8 @@ import type { LoadedProfile } from "./types.js";
 import { publicProjection, VISIBILITY_BLOCKS } from "./visibility.js";
 
 /** The manifest contract version. Bumped additively when the record shape grows
- *  (the receipt of S503b adds `keyId`; the reader refuses what it does not know). */
+ *  (S503b fills `keyId` with the signing key's id; the reader refuses a version
+ *  it does not know). */
 export const EGRESS_MANIFEST_VERSION = 1 as const;
 
 /** Which view leaves the workspace: the D27 public projection or the full SSOT. */
@@ -60,8 +68,10 @@ export type EgressScope = "public" | "all";
 export type EgressOperation = "build" | "export-profile";
 
 /** Why an egress is privileged. `--all` is a break-glass path (never the
- *  default); a private → public transition is the act D28 exists to authorize. */
-export type EgressReason = "private-to-public" | "full-export";
+ *  default); a private → public transition is the act D28 exists to authorize;
+ *  an unreadable baseline makes the transition check IMPOSSIBLE, so the whole
+ *  manifest has to be authorized instead of silently passing as clean. */
+export type EgressReason = "private-to-public" | "full-export" | "baseline-unreadable";
 
 /** The blocks whose rows are gated at egress. `VISIBILITY_BLOCKS` is the
  *  MIGRATION set (the four blocks whose field is optional with absent = private);
@@ -99,7 +109,9 @@ export interface EgressBaseline {
   version: typeof EGRESS_MANIFEST_VERSION;
   /** When the baseline was recorded (ISO 8601) — the audit record's timestamp. */
   at: string;
-  /** Digest of the PUBLIC manifest it recorded. */
+  /** Digest of the PUBLIC manifest it recorded. Validated on read (a malformed
+   *  value makes the file unreadable) and the anchor a future signed receipt can
+   *  name without re-deriving the payload. */
   digest: string;
   /** The keys of the units that were public at that egress. */
   publicUnits: string[];
@@ -191,6 +203,11 @@ export function egressBaselineOf(manifest: EgressManifest, at: string): EgressBa
  * S503a limit: a fresh workspace, a fresh clone or a deleted baseline has no
  * "before", and the first egress becomes the baseline. S503b's receipt closes
  * that hole by making the authorization itself the durable record.
+ *
+ * `null` also covers an UNREADABLE baseline, and the two are NOT the same fact:
+ * the caller is the one that knows which one it read, and it must not let the
+ * unreadable case borrow "nothing to compare" (the CLI makes it a privileged
+ * reason instead — SPEC §7.11).
  */
 export function newlyPublicUnits(
   manifest: EgressManifest,

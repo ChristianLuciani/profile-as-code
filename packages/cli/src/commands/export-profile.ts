@@ -29,10 +29,11 @@
  * `compile(profile, platform)` is NOT reused: it is the per-platform slice
  * (`PlatformProfile`), a different object for a different job.
  *
- * **Deterministic (SPEC §15.1 byte-parity, offline).** The command reads no
- * clock: `source.generatedAt` is `null` unless the caller pins it with
+ * **Deterministic (SPEC §15.1 byte-parity, offline).** No clock enters the
+ * payload: `source.generatedAt` is `null` unless the caller pins it with
  * `--now <iso8601>`, whose value is emitted verbatim (the caller owns the bytes)
- * only after a real-calendar check. `source.commit` is the workspace's git
+ * only after a real-calendar check. The one clock read on this path is the D28
+ * egress audit timestamp (§7.11), written to `.pasco/egress/` — never here. `source.commit` is the workspace's git
  * `HEAD` (`null` when the workspace is not inside a git repository or git is
  * unavailable) — a stored fact, not a runtime reading. Two runs over one
  * workspace produce identical bytes.

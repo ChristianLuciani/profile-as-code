@@ -712,7 +712,9 @@ Exit: 0 ok · 1 the workspace fails to load (schema/ledger/registry — D12), --
 is malformed, or the D28 egress gate refused the manifest (--all, or a private ->
 public transition, without the matching --confirm) · 2 usage (unknown export
 subcommand, --all with --public, --confirm on ai-policy, --out/--check/--force/--lang).
-Offline and deterministic: no network, no clock unless --now pins one.`,
+Offline and deterministic: no network, and no clock enters the payload (--now pins
+generatedAt; the egress audit timestamp of SPEC §7.11 goes to .pasco/egress/ and
+never into the payload).`,
   "skills:export": `pasco skills:export <dir> [--force] [--json]
 pasco skills:export --list [--json]
 Copies the skill channels this package ships (SPEC §16) into a directory you

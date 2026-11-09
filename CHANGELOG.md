@@ -13,7 +13,7 @@ minor versions may contain breaking contract changes.
   privileged acts (#503, D28/S503a)** — `pasco build` and `pasco export profile`
   now refuse (exit 1) a `--all` export and any unit that moved `private → public`
   since the last recorded egress: the command prints the `sha256` digest of the
-  exact manifest (and one line per disclosed unit) and writes nothing — no
+  exact manifest (and one line per transitioning unit) and writes nothing — no
   artifact, no payload, no audit line — so re-running is never a bypass.
   `--confirm <digest>` authorizes exactly that manifest, and the egress is
   appended to `.pasco/egress/audit.log` (operation · digest · `keyId: null` ·

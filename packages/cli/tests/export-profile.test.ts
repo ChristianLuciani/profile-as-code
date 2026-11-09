@@ -93,7 +93,7 @@ function cliVersion(): string {
 }
 
 /**
- * The D28 egress receipt a `--all` export must echo (SPEC §7.10, #503/S503a):
+ * The D28 egress receipt a `--all` export must echo (SPEC §7.11, #503/S503a):
  * `--all` is a break-glass path, so the command refuses without the digest of
  * the exact manifest. The digest is core's — the same contract the CLI computes.
  */
@@ -129,7 +129,7 @@ interface Envelope {
 }
 
 function exportProfile(args: string[] = [], workspace = FIXTURE): Envelope {
-  // `--all` is a privileged egress (D28, SPEC §7.10): these tests read the
+  // `--all` is a privileged egress (D28, SPEC §7.11): these tests read the
   // payload, so they echo the manifest digest the gate requires. The refused
   // path (no `--confirm`) is pinned in `egress-gate.test.ts`, not here.
   const effective =

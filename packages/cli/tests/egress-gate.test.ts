@@ -20,7 +20,15 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -245,5 +253,81 @@ describe("private → public — the transition gate on build", () => {
     const envelope = JSON.parse(r.stdout) as Envelope;
     expect(envelope.data?.egress?.reasons).toEqual([]);
     expect(audit(ws).records[0]?.baseline).toBe("absent");
+  });
+
+  it("the export path is gated too, not only build", () => {
+    const ws = workspace();
+    expect(run(["export", "profile", "--json", "--workspace", ws]).code).toBe(0);
+    flipFirstProjectPublic(ws);
+    const r = run(["export", "profile", "--json", "--workspace", ws]);
+    expect(r.code).toBe(1);
+    const envelope = JSON.parse(r.stdout) as Envelope;
+    expect(envelope.data?.egress?.reasons).toEqual(["private-to-public"]);
+    expect(envelope.data?.egress?.transitions).toEqual(["projects:sovereign-hub"]);
+    expect(audit(ws).records).toHaveLength(1); // the refusal recorded nothing
+  });
+});
+
+describe("state the gate cannot trust is never treated as clean", () => {
+  it("an unreadable baseline makes the run privileged instead of skipping the check", () => {
+    const ws = workspace();
+    expect(run(["export", "profile", "--json", "--workspace", ws]).code).toBe(0);
+    writeFileSync(join(ws, ".pasco", "egress", "baseline.json"), "{not json");
+    const digest = digestOf(ws, "public");
+
+    const refused = run(["export", "profile", "--json", "--workspace", ws]);
+    expect(refused.code).toBe(1);
+    const envelope = JSON.parse(refused.stdout) as Envelope;
+    expect(envelope.data?.egress?.code).toBe("confirmation-required");
+    expect(envelope.data?.egress?.reasons).toEqual(["baseline-unreadable"]);
+    expect(envelope.error?.violations?.map((violation) => violation.path)).toContain(
+      ".pasco/egress/baseline.json",
+    );
+
+    // Confirming the whole manifest is the only way through, and the line keeps
+    // saying the comparison could not run.
+    const confirmed = run(["export", "profile", "--json", "--confirm", digest, "--workspace", ws]);
+    expect(confirmed.code).toBe(0);
+    const records = audit(ws).records;
+    expect(records).toHaveLength(2);
+    expect(records[1]?.method).toBe("digest-confirm");
+    expect(records[1]?.reasons).toEqual(["baseline-unreadable"]);
+    expect(records[1]?.baseline).toBe("unreadable");
+  });
+
+  it("an unrecordable egress is refused, and the refusal says so", () => {
+    const ws = workspace();
+    // `.pasco/egress` is a FILE: the audit append cannot create the directory.
+    writeFileSync(join(ws, ".pasco"), "");
+    const r = run(["export", "profile", "--json", "--workspace", ws]);
+    expect(r.code).toBe(1);
+    const envelope = JSON.parse(r.stdout) as Envelope;
+    expect(envelope.data?.egress?.code).toBe("audit-failed");
+    expect(envelope.error?.message).toMatch(/could not be recorded/);
+    expect(existsSync(join(ws, "profiles"))).toBe(false);
+  });
+
+  it("a recorded authorization whose baseline cannot move is refused with its own code", () => {
+    const ws = workspace();
+    expect(run(["export", "profile", "--json", "--workspace", ws]).code).toBe(0);
+    // A directory where the baseline file should be: the atomic rename cannot land.
+    rmSync(join(ws, ".pasco", "egress", "baseline.json"), { force: true });
+    mkdirSync(join(ws, ".pasco", "egress", "baseline.json"));
+    const r = run([
+      "export",
+      "profile",
+      "--json",
+      "--confirm",
+      digestOf(ws, "public"),
+      "--workspace",
+      ws,
+    ]);
+    expect(r.code).toBe(1);
+    const envelope = JSON.parse(r.stdout) as Envelope;
+    expect(envelope.data?.egress?.code).toBe("baseline-failed");
+    expect(envelope.error?.message).toMatch(/recorded .* but the baseline could not move/);
+    // The authorization line IS there — the refusal says so instead of pretending
+    // nothing happened, and the baseline stays where it was.
+    expect(audit(ws).records).toHaveLength(2);
   });
 });

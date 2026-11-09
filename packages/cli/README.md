@@ -477,7 +477,8 @@ commit that moves no data keeps it valid.
 - `source.commit` is the workspace's git `HEAD` — the value a consumer pins for
   freshness — or `null` when the workspace is not inside a git repository.
 - `source.generatedAt` is **`null` unless you pass `--now <iso8601>`**, which is
-  emitted verbatim after a real-calendar check. The command reads no clock, so two
+  emitted verbatim after a real-calendar check. No clock enters the payload — the
+  egress audit timestamp (§7.11) goes to `.pasco/egress/`, never into it — so two
   runs over one workspace are byte-identical (a malformed or impossible `--now` —
   `2026-02-31` — is exit `1`, never a silent "now").
 - `profile` is the normalized object: **every root the workspace declares, plus

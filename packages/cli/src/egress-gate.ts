@@ -49,6 +49,7 @@ import type {
   LoadedProfile,
 } from "@profile-as-code/core";
 import {
+  EGRESS_MANIFEST_VERSION,
   egressAuditLine,
   egressAuditRecord,
   egressBaselineOf,
@@ -74,9 +75,13 @@ export function egressBaselinePath(workspace: string): string {
   return join(egressStateDir(workspace), "baseline.json");
 }
 
+/** The digest shape every manifest/baseline value must have. */
+const SHA256 = /^sha256:[0-9a-f]{64}$/;
+
 /** Read the recorded baseline. A missing file is `absent` (the first egress);
  *  an unreadable or foreign file is `unreadable` with the exact problem — never
- *  silently `absent`, because the two mean different things to the gate. */
+ *  silently `absent`, because the two mean different things to the gate (the
+ *  unreadable one makes the run privileged, §7.11). */
 export function readEgressBaseline(workspace: string): {
   baseline: EgressBaseline | null;
   state: EgressAuditRecord["baseline"];
@@ -87,20 +92,21 @@ export function readEgressBaseline(workspace: string): {
   try {
     const parsed = JSON.parse(readFileSync(path, "utf8")) as Partial<EgressBaseline>;
     if (
-      parsed.version !== 1 ||
+      parsed.version !== EGRESS_MANIFEST_VERSION ||
       typeof parsed.digest !== "string" ||
+      !SHA256.test(parsed.digest) ||
       !Array.isArray(parsed.publicUnits) ||
       !parsed.publicUnits.every((key) => typeof key === "string")
     ) {
       return {
         baseline: null,
         state: "unreadable",
-        problem: `${EGRESS_BASELINE_REL}: not an egress baseline (version 1 + digest + publicUnits)`,
+        problem: `${EGRESS_BASELINE_REL}: not an egress baseline (version ${EGRESS_MANIFEST_VERSION} + sha256 digest + publicUnits)`,
       };
     }
     return {
       baseline: {
-        version: 1,
+        version: EGRESS_MANIFEST_VERSION,
         at: typeof parsed.at === "string" ? parsed.at : "",
         digest: parsed.digest,
         publicUnits: parsed.publicUnits,
@@ -153,7 +159,7 @@ export interface EgressRequest {
 
 export interface EgressRefusal {
   ok: false;
-  code: "confirmation-required" | "confirm-mismatch" | "audit-failed";
+  code: "confirmation-required" | "confirm-mismatch" | "audit-failed" | "baseline-failed";
   manifest: EgressManifest;
   reasons: EgressReason[];
   transitions: EgressUnit[];
@@ -170,29 +176,36 @@ export interface EgressAuthorized {
   /** Where the line landed, relative to the workspace (`EGRESS_AUDIT_REL`). */
   auditRel: string;
   baseline: EgressAuditRecord["baseline"];
-  /** Declared, non-blocking facts (`baseline` unreadable) — printed as warnings. */
+  /** Declared, non-blocking facts — printed as warnings. */
   notices: string[];
 }
 
 function reasonViolation(reason: EgressReason, count: number): { path: string; message: string } {
-  return reason === "full-export"
-    ? {
-        path: "--all",
-        message: "the full SSOT leaves the workspace — private rows included",
-      }
-    : {
-        path: "private → public",
-        message: `${count} unit(s) are public now and were not public at the last recorded egress`,
-      };
+  if (reason === "full-export") {
+    return { path: "--all", message: "the full SSOT leaves the workspace — private rows included" };
+  }
+  if (reason === "baseline-unreadable") {
+    return {
+      path: EGRESS_BASELINE_REL,
+      message:
+        "the recorded baseline cannot be read, so the private → public check cannot run: authorize this whole manifest or repair the baseline",
+    };
+  }
+  return {
+    path: "private → public",
+    message: `${count} unit(s) are public now and were not public at the last recorded egress`,
+  };
 }
 
 function reasonText(reasons: readonly EgressReason[], count: number): string {
   return reasons
-    .map((reason) =>
-      reason === "full-export"
-        ? "`--all` is a break-glass export of the full SSOT"
-        : `${count} unit(s) moved private → public since the last recorded egress`,
-    )
+    .map((reason) => {
+      if (reason === "full-export") return "`--all` is a break-glass export of the full SSOT";
+      if (reason === "baseline-unreadable") {
+        return "the last recorded egress is unreadable, so nothing was compared";
+      }
+      return `${count} unit(s) moved private → public since the last recorded egress`;
+    })
     .join("; ");
 }
 
@@ -201,6 +214,10 @@ function reasonText(reasons: readonly EgressReason[], count: number): string {
  * require the operator's digest when the act is privileged, then record the
  * authorization. A refusal writes NOTHING: no audit line, no baseline move — so
  * the next attempt still sees the same transition (re-running is not a bypass).
+ *
+ * An UNREADABLE baseline is privileged too: the comparison cannot run, and a run
+ * that cannot compare must not publish as if it had. Confirming the manifest is
+ * the only way through (repairing the file is the other).
  */
 export function authorizeEgress(req: EgressRequest): EgressAuthorized | EgressRefusal {
   const publicManifest = egressManifest(req.profile, "public");
@@ -209,10 +226,12 @@ export function authorizeEgress(req: EgressRequest): EgressAuthorized | EgressRe
   const transitions = newlyPublicUnits(publicManifest, baseline);
   const reasons: EgressReason[] = [];
   if (req.scope === "all") reasons.push("full-export");
+  if (baselineState === "unreadable") reasons.push("baseline-unreadable");
   if (transitions.length > 0) reasons.push("private-to-public");
   const violations = reasons.map((reason) => reasonViolation(reason, transitions.length));
   // The transition list is the actionable half of the message: one line per
-  // unit, so the operator reads WHAT is about to be published, not a count.
+  // transitioning unit, so the operator reads WHAT is about to be published, not
+  // a count.
   for (const unit of transitions) {
     violations.push({
       path: unit.key,
@@ -255,9 +274,14 @@ export function authorizeEgress(req: EgressRequest): EgressAuthorized | EgressRe
     keyId: req.keyId ?? null,
     baseline: baselineState,
   });
+  // The two writes are separated on purpose: the audit line IS the
+  // authorization and the baseline is the comparison memory. If the append
+  // fails, nothing was recorded and the egress is refused. If it succeeds and
+  // the baseline cannot move, the line stays (it records the AUTHORIZATION, not
+  // the bytes) and the run is still refused: the next attempt re-detects instead
+  // of assuming a baseline that was never written.
   try {
     appendEgressAudit(req.workspace, record);
-    writeEgressBaseline(req.workspace, egressBaselineOf(publicManifest, req.at));
   } catch (err) {
     return {
       ok: false,
@@ -267,6 +291,20 @@ export function authorizeEgress(req: EgressRequest): EgressAuthorized | EgressRe
       transitions,
       message: `the egress could not be recorded (${EGRESS_AUDIT_REL}) — ${(err as Error).message}`,
       hint: "nothing was written: an egress the engine cannot record is not authorized. Fix the workspace permissions and retry",
+      violations,
+    };
+  }
+  try {
+    writeEgressBaseline(req.workspace, egressBaselineOf(publicManifest, req.at));
+  } catch (err) {
+    return {
+      ok: false,
+      code: "baseline-failed",
+      manifest,
+      reasons,
+      transitions,
+      message: `the egress was recorded (${EGRESS_AUDIT_REL}) but the baseline could not move (${EGRESS_BASELINE_REL}) — ${(err as Error).message}`,
+      hint: `nothing was written to the workspace; the audit line is the authorization. Repair or remove ${EGRESS_BASELINE_REL}, then retry — the next run re-detects instead of assuming this baseline`,
       violations,
     };
   }
@@ -282,7 +320,7 @@ export function authorizeEgress(req: EgressRequest): EgressAuthorized | EgressRe
       problem === undefined
         ? []
         : [
-            `egress baseline unreadable — ${problem}; the private → public check ran with no baseline`,
+            `egress baseline unreadable — ${problem}; the whole manifest was authorized instead of compared (the line records baseline: "unreadable")`,
           ],
   };
 }

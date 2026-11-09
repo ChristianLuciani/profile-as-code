@@ -142,6 +142,26 @@ describe("private → public — a transition against the recorded baseline", ()
     const all = egressManifest(fixture(), "all");
     expect(() => egressBaselineOf(all, "2026-11-09T00:00:00.000Z")).toThrow(/public manifest/);
   });
+
+  it("a delete + insert at the same id-less position is NOT detected (the declared limit)", () => {
+    // Pinned as a LIMIT, not a promise: the index address is only as stable as
+    // the block's order. An id-addressed row has no such hole — the public
+    // manifest keeps every id-addressed key of this fixture.
+    type Project = LoadedProfile["projects"][number];
+    const before = fixture();
+    before.projects = [{ name: "old-public", visibility: "public" } as Project];
+    const baseline = egressBaselineOf(egressManifest(before, "public"), "2026-11-09T00:00:00.000Z");
+
+    const after = fixture();
+    after.projects = [{ name: "new-public", visibility: "public" } as Project];
+    const manifest = egressManifest(after, "public");
+
+    // Same key, different row, different payload: the gate cannot tell, and it
+    // says so in SPEC §7.11 instead of claiming it never happens.
+    expect(manifest.units.map((unit) => unit.key)).toContain("projects[0]");
+    expect(newlyPublicUnits(manifest, baseline)).toEqual([]);
+    expect(manifest.digest).not.toBe(baseline.digest);
+  });
 });
 
 describe("the audit record — operation · digest · keyId · timestamp", () => {
