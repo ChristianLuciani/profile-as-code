@@ -31,6 +31,7 @@ import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync }
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { egressManifest, load } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -91,6 +92,15 @@ function cliVersion(): string {
   return pkg.version;
 }
 
+/**
+ * The D28 egress receipt a `--all` export must echo (SPEC §7.10, #503/S503a):
+ * `--all` is a break-glass path, so the command refuses without the digest of
+ * the exact manifest. The digest is core's — the same contract the CLI computes.
+ */
+function confirmAllDigest(workspace = FIXTURE): string {
+  return egressManifest(load(workspace), "all").digest;
+}
+
 interface SchemaRoots {
   properties: Record<string, { type?: string }>;
 }
@@ -119,14 +129,30 @@ interface Envelope {
 }
 
 function exportProfile(args: string[] = [], workspace = FIXTURE): Envelope {
-  const res = run(["export", "profile", "--json", "--workspace", workspace, ...args]);
+  // `--all` is a privileged egress (D28, SPEC §7.10): these tests read the
+  // payload, so they echo the manifest digest the gate requires. The refused
+  // path (no `--confirm`) is pinned in `egress-gate.test.ts`, not here.
+  const effective =
+    args.includes("--all") && !args.includes("--public")
+      ? [...args, "--confirm", confirmAllDigest(workspace)]
+      : args;
+  const res = run(["export", "profile", "--json", "--workspace", workspace, ...effective]);
   expect(res.code).toBe(0);
   return JSON.parse(res.stdout) as Envelope;
 }
 
 describe("pasco export profile — the payload", () => {
   it("emits the exact golden bytes (only the commit and the CLI version are substituted)", () => {
-    const res = run(["export", "profile", "--json", "--all", "--workspace", FIXTURE]);
+    const res = run([
+      "export",
+      "profile",
+      "--json",
+      "--all",
+      "--confirm",
+      confirmAllDigest(),
+      "--workspace",
+      FIXTURE,
+    ]);
     expect(res.code).toBe(0);
     // The placeholders keep the golden stable across commits and releases while
     // still pinning every other byte, including key order and the 2-space indent.

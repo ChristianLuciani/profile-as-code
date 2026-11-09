@@ -9,6 +9,23 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+- **Egress authorization, minimal gate — `private → public` and `--all` are
+  privileged acts (#503, D28/S503a)** — `pasco build` and `pasco export profile`
+  now refuse (exit 1) a `--all` export and any unit that moved `private → public`
+  since the last recorded egress: the command prints the `sha256` digest of the
+  exact manifest (and one line per disclosed unit) and writes nothing — no
+  artifact, no payload, no audit line — so re-running is never a bypass.
+  `--confirm <digest>` authorizes exactly that manifest, and the egress is
+  appended to `.pasco/egress/audit.log` (operation · digest · `keyId: null` ·
+  timestamp; JSONL opened `O_APPEND`, never rewritten, never rendered). The
+  comparison is a TRANSITION against `.pasco/egress/baseline.json`, not the §19
+  ledger: a private row was never deployed, so the ledger has no record of it and
+  cannot answer "what was public before". **No signatures yet** — the digest
+  proves the operator saw the manifest, not who they are, and an agent that can
+  write the workspace is not stopped (S503b: signed receipt, break-glass `--all`,
+  keyless agent). Core owns the contract (`egressManifest`, `newlyPublicUnits`,
+  `egressAuditRecord`, `parseEgressAudit`); the CLI owns the state. SPEC §7.11.
+
 - **D27 public projection — `export profile` v2, `audit --public`, dual
   completeness, `notPublishableUnits` (#498, D27/S4b)** — `core.publicProjection()`
   is now the ONE visibility filter: it drops `private`/`unlisted` rows from

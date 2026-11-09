@@ -233,6 +233,8 @@ interface FlagOptions {
   /** D27 (§7.5): `export profile` view selector + `audit --public`. */
   all?: boolean;
   public?: boolean;
+  /** D28/§7.11: the egress receipt — the operator's echo of the manifest digest. */
+  confirm?: string;
   "no-open"?: boolean;
   "allow-host"?: string;
   observations?: string;
@@ -390,7 +392,7 @@ prints. A privacy gate refuses the write (exit 1) when the document would carry
 an absolute machine path, a credential, an external asset, active content, or a
 source outside the workspace. Media outside the workspace (evidence-root bytes)
 is left out of the page and listed (never inlined); a remote image becomes a text note instead of a fetch.`,
-  build: `pasco build [platform] [--view <name>] [--lang <l>] [--json] [--workspace <path>]
+  build: `pasco build [platform] [--view <name>] [--lang <l>] [--confirm <sha256:…>] [--json] [--workspace <path>]
 Deterministic base texts per platform+lang (compile() slices). No platform =
 all platforms. lang defaults to .pascorc defaults.lang or 'en'.
 The artifact path carries no lang: one path per surface, so building another
@@ -400,7 +402,14 @@ A .pascorc "engine" requirement is enforced before any render (SPEC §7.6).
 --view resolves a declared view (D22/§21): its rule may carry the platform, the
 lang and the fact selection, so the surface shows a SUBSET of the SSOT. Every
 omission is reported as a warning; an addressed key that resolves to nothing is
-an error. No selection policy = byte-identical output.`,
+an error. No selection policy = byte-identical output.
+Egress (D28, SPEC §7.11): build writes the deploy artifacts, so a unit that
+moved PRIVATE -> PUBLIC since the last recorded egress is a privileged act. The
+command then refuses (exit 1), prints the manifest digest and writes nothing;
+re-run with --confirm <that digest> to authorize exactly that manifest. Every
+egress appends one line to .pasco/egress/audit.log (operation, digest, keyId
+null — no keys until S503b — and timestamp). Refusing is not a bypass: a
+refused run records nothing, so the next run detects the same transition.`,
   edit: `pasco edit <contract-path> [--set <text> [--check]] [--json] [--workspace <path>]
        pasco edit --list [<block>] [--json] [--workspace <path>]
        pasco edit --create <root> [--check] [--json] [--workspace <path>]
@@ -607,7 +616,7 @@ Exit: 0 a successful read, whatever the matches (a non-citation is data) ·
 malformed NDJSON. Offline and deterministic: no network, no model, no clock.`,
   export: `pasco export ai-policy [--out <dir> | --check [--file <robots.txt>]] [--lang <l>]
                       [--json] [--workspace <path>]
-pasco export profile [--json] [--now <iso8601>] [--public | --all] [--workspace <path>]
+pasco export profile [--json] [--now <iso8601>] [--public | --all] [--confirm <sha256:…>] [--workspace <path>]
 
 --- export ai-policy -----------------------------------------------------------------
 The §12 M9 stance as an artifact. Two modes, deliberately separate (one
@@ -673,6 +682,17 @@ The normalized profile for programmatic consumers (SPEC §7.5, #348; v2/D27 by
                 real-calendar check (2026-02-31 and T24:00:00 are refused). Without
                 it the command reads NO clock: generatedAt is null, so two runs over
                 one workspace produce byte-identical output.
+  --confirm <sha256:…>
+                the D28 egress receipt (SPEC §7.11). --all is privileged on every
+                run and a private -> public transition is privileged whenever the
+                last recorded egress did not see the unit as public: without the
+                matching digest the command refuses (exit 1), prints the manifest
+                digest and writes nothing. The digest covers the exact payload that
+                leaves (the public projection, or the SSOT for --all) — not the
+                run metadata, so a commit that moves nothing keeps it valid.
+                Every egress appends one line to .pasco/egress/audit.log
+                (operation, digest, keyId null until S503b, timestamp).
+
 scope is "public" or "all" and names which view profile is. schemaVersion "2" is
 the frozen contract version: a consumer refuses a version it does not know.
 The default/--public profile is core's publicProjection(): every root the
@@ -688,9 +708,10 @@ artifactRefs stay ids (a consumer joins them to profile.artifacts[] by id; load(
 already refuses a dangling ref), publications[].url is exactly as declared.
 source.commit is the workspace's git HEAD; null means the workspace is not inside
 a git repository.
-Exit: 0 ok · 1 the workspace fails to load (schema/ledger/registry — D12) or --now
-is malformed · 2 usage (unknown export subcommand, --all with --public,
---out/--check/--force/--lang).
+Exit: 0 ok · 1 the workspace fails to load (schema/ledger/registry — D12), --now
+is malformed, or the D28 egress gate refused the manifest (--all, or a private ->
+public transition, without the matching --confirm) · 2 usage (unknown export
+subcommand, --all with --public, --confirm on ai-policy, --out/--check/--force/--lang).
 Offline and deterministic: no network, no clock unless --now pins one.`,
   "skills:export": `pasco skills:export <dir> [--force] [--json]
 pasco skills:export --list [--json]
@@ -981,13 +1002,16 @@ async function runMain(): Promise<number> {
       const { flags, positionals } = parseCommandFlags(rest, {
         lang: { type: "string" },
         view: { type: "string" },
+        confirm: { type: "string" },
       });
       if (flags.help === true) {
         process.stdout.write(`${COMMAND_HELP.build}\n`);
         return EXIT.OK;
       }
       if (positionals.length > 1)
-        throw new UsageError("usage: pasco build [platform] [--view <name>] [--lang <l>] [--json]");
+        throw new UsageError(
+          "usage: pasco build [platform] [--view <name>] [--lang <l>] [--confirm <sha256:…>] [--json]",
+        );
       setJsonMode(flags.json === true);
       const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       const pascorc = readWorkspacePascorc(workspace);
@@ -1001,6 +1025,7 @@ async function runMain(): Promise<number> {
         langArg: flags.lang,
         pascorc,
         contractFloor: evaluateContractFloor(engineSources, "highest"),
+        ...(flags.confirm !== undefined ? { confirmArg: flags.confirm } : {}),
       });
     }
     case "preview": {
@@ -1515,6 +1540,7 @@ async function runMain(): Promise<number> {
         now: { type: "string" },
         all: { type: "boolean" },
         public: { type: "boolean" },
+        confirm: { type: "string" },
       });
       if (flags.help === true) {
         process.stdout.write(`${COMMAND_HELP.export}\n`);
@@ -1523,7 +1549,7 @@ async function runMain(): Promise<number> {
       const subcommand = positionals[0];
       if (positionals.length !== 1 || (subcommand !== "ai-policy" && subcommand !== "profile")) {
         throw new UsageError(
-          "usage: pasco export <ai-policy | profile> — ai-policy: --out <dir> | --check [--file <robots.txt>]; profile: [--json] [--now <iso8601>] [--public | --all]",
+          "usage: pasco export <ai-policy | profile> — ai-policy: --out <dir> | --check [--file <robots.txt>]; profile: [--json] [--now <iso8601>] [--public | --all] [--confirm <sha256:…>]",
         );
       }
       // `export profile` is a read-only projection: the writer/verifier flags of
@@ -1538,7 +1564,7 @@ async function runMain(): Promise<number> {
           flags.lang !== undefined
         ) {
           throw new UsageError(
-            "usage: pasco export profile [--json] [--now <iso8601>] [--public | --all] — --out/--check/--file/--force/--lang do not apply",
+            "usage: pasco export profile [--json] [--now <iso8601>] [--public | --all] [--confirm <sha256:…>] — --out/--check/--file/--force/--lang do not apply",
           );
         }
         // `--public` NAMES the default projection; `--all` is the other view.
@@ -1558,12 +1584,16 @@ async function runMain(): Promise<number> {
           engineVersion: VERSION,
           ...(flags.now !== undefined ? { nowArg: flags.now } : {}),
           ...(flags.all === true ? { all: true } : {}),
+          ...(flags.confirm !== undefined ? { confirmArg: flags.confirm } : {}),
         });
       }
       // The view flags are `export profile`'s only: ai-policy has no projection
       // to name, so accepting them silently would be an ignored argument.
       if (flags.all === true || flags.public === true) {
         throw new UsageError("usage: --all/--public only apply to export profile");
+      }
+      if (flags.confirm !== undefined) {
+        throw new UsageError("usage: --confirm only applies to export profile (D28 egress gate)");
       }
       if (flags.out === undefined && flags.check !== true) {
         throw new UsageError(

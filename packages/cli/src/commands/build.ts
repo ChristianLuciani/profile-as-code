@@ -30,6 +30,7 @@ import {
 } from "../artifact-render.js";
 import { parseLang, parsePlatform } from "../contract.js";
 import { type ContractFloor, contractFloorAgeOf, migrationNotice } from "../contract-history.js";
+import { authorizeEgress, egressReceipt, egressRefusalData } from "../egress-gate.js";
 import { EXIT } from "../exit.js";
 import { RENDERERS } from "../generated/renderers.gen.js";
 import { isJsonMode, line, report, section, warn } from "../output.js";
@@ -54,6 +55,10 @@ export interface BuildArgs {
   pascorc: Pascorc;
   /** The effective contract floor (every consulted `.pascorc`; the STRICTEST wins for the migration policy). */
   contractFloor?: ContractFloor;
+  /** `--confirm <digest>`: the operator's echo of the egress manifest (D28,
+   *  SPEC §7.11). Read only when the build is privileged — a plain build needs
+   *  no authorization and ignores a stale digest instead of refusing noise. */
+  confirmArg?: string;
 }
 
 export function runBuild(args: BuildArgs): number {
@@ -150,6 +155,33 @@ export function runBuild(args: BuildArgs): number {
       data: { selection: selFindings },
     });
   }
+
+  // ── D28 egress authorization (SPEC §7.11, #503/S503a) ─────────────────────
+  // `build` writes the deploy artifacts: it IS a publication surface. The gate
+  // runs before any render, so a refused build leaves `profiles/` untouched and
+  // adds no audit line — re-running re-detects the same transition (a refusal is
+  // not a bypass). An authorized run records the manifest and moves the baseline
+  // BEFORE writing: an egress the engine cannot record is not authorized.
+  const egress = authorizeEgress({
+    workspace: args.workspace,
+    profile,
+    operation: "build",
+    scope: "public",
+    at: new Date().toISOString(),
+    ...(args.confirmArg !== undefined ? { confirm: args.confirmArg } : {}),
+  });
+  if (!egress.ok) {
+    return report("build", false, EXIT.FAIL, {
+      error: {
+        kind: "egress",
+        message: egress.message,
+        violations: egress.violations,
+        hint: egress.hint,
+      },
+      data: egressRefusalData(egress),
+    });
+  }
+  notices.push(...egress.notices);
 
   // Renderer platforms: write the deploy artifact (SPEC §15.5 — profiles/ ARE the deploy artifacts).
   // github-org is a brand surface (D15/§17) — only rendered for brand workspaces.
@@ -292,6 +324,16 @@ export function runBuild(args: BuildArgs): number {
         ...(notices.length > 0 ? { notices } : {}),
         media: bundle.findings,
         selection: selFindings,
+        // D28: the receipt of the egress (SPEC §7.11) — the digest a consumer or
+        // a wrapper can reuse, and the audit line it was recorded on.
+        egress: {
+          scope: egress.manifest.scope,
+          units: egress.manifest.units.length,
+          digest: egress.manifest.digest,
+          reasons: egress.reasons,
+          baseline: egress.baseline,
+          audit: egress.auditRel,
+        },
       },
     });
   }
@@ -345,6 +387,10 @@ export function runBuild(args: BuildArgs): number {
     section(`fact selection (D22/§21): ${selFindings.length} finding(s)`);
     for (const f of selFindings) line(`  ${f.severity}: [${f.code}] [${f.platform}] ${f.message}`);
   }
+
+  // D28/§7.11: the receipt. Text mode prints it; `--json` carries the same facts
+  // in the payload instead (one surface, never a second summary).
+  line(egressReceipt(egress));
 
   return EXIT.OK;
 }

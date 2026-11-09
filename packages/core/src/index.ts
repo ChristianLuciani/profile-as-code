@@ -60,6 +60,33 @@ export {
 } from "./completeness.js";
 export { driftCheck } from "./drift.js";
 /**
+ * D28 egress authorization (issue #503, slice S503a; SPEC §7.10): the manifest
+ * of what leaves, its digest, the private → public comparison against the last
+ * recorded egress and the append-only audit record. Pure — the CLI owns the
+ * `.pasco/egress/` writes.
+ */
+export type {
+  EgressAuditRecord,
+  EgressBaseline,
+  EgressBlock,
+  EgressManifest,
+  EgressOperation,
+  EgressReason,
+  EgressScope,
+  EgressUnit,
+} from "./egress.js";
+export {
+  disclosureUnits,
+  EGRESS_BLOCKS,
+  EGRESS_MANIFEST_VERSION,
+  egressAuditLine,
+  egressAuditRecord,
+  egressBaselineOf,
+  egressManifest,
+  newlyPublicUnits,
+  parseEgressAudit,
+} from "./egress.js";
+/**
  * The AI crawler policy, projected from the `ai:` block of
  * `platforms/registry.yaml` (#290) — `pasco export ai-policy` renders it and
  * never keeps a UA list of its own.

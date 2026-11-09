@@ -57,6 +57,14 @@ docs/research/_drafts/
 # vitest JSON reporter output (generated; contains absolute paths)
 .vitest/
 
+# `pasco`'s local engine state, written inside the WORKSPACE it runs on:
+#   .pasco/preview/       the `pasco preview` document (§7.9)
+#   .pasco/egress/        the D28 egress audit log + baseline (SPEC §7.11), which
+#                         `build`/`export profile` append on every run
+# Never rendered and never a source: the fixtures this repo commits ARE
+# workspaces, so a local test run writes it there too.
+.pasco/
+
 # Site-root artifacts projected by scripts/site-docs/gen.mjs (issue #279):
 # generated at deploy, never committed — same rule as site/docs/.
 site/404.html

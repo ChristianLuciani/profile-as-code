@@ -44,8 +44,9 @@
 import { execFileSync } from "node:child_process";
 import type { LoadedProfile } from "@profile-as-code/core";
 import { LoadError, load, publicProjection, SchemaValidationError } from "@profile-as-code/core";
+import { authorizeEgress, egressReceipt, egressRefusalData } from "../egress-gate.js";
 import { EXIT } from "../exit.js";
-import { isJsonMode, line, report, section } from "../output.js";
+import { isJsonMode, line, report, section, warn } from "../output.js";
 
 /** The frozen contract version of the `export profile` payload (SPEC §7.5).
  *  A consumer refuses a version it does not know rather than guessing — the
@@ -170,6 +171,10 @@ export interface ExportProfileArgs {
   all?: boolean;
   /** The installed CLI version, resolved by the dispatcher from package.json. */
   engineVersion: string;
+  /** `--confirm <digest>`: the operator's echo of the egress manifest (D28,
+   *  SPEC §7.11). `--all` is privileged on every run; the public projection only
+   *  when a private → public transition is detected against the baseline. */
+  confirmArg?: string;
 }
 
 /** Human summary: the payload is the contract, this is the readable view. */
@@ -215,6 +220,31 @@ export function runExportProfile(args: ExportProfileArgs): number {
   }
 
   const scope: ProfileExportScope = args.all === true ? "all" : "public";
+  // ── D28 egress authorization (SPEC §7.11, #503/S503a) ─────────────────────
+  // The export is the egress: `--all` is a break-glass path and a private → public
+  // transition is the act D28 authorizes. The gate runs before the payload is
+  // assembled, and an authorized run records the manifest (and moves the
+  // baseline) before emitting — the audit line is never an afterthought.
+  const egress = authorizeEgress({
+    workspace: args.workspace,
+    profile,
+    operation: "export-profile",
+    scope,
+    at: new Date().toISOString(),
+    ...(args.confirmArg !== undefined ? { confirm: args.confirmArg } : {}),
+  });
+  if (!egress.ok) {
+    return report("export profile", false, EXIT.FAIL, {
+      error: {
+        kind: "egress",
+        message: egress.message,
+        violations: egress.violations,
+        hint: egress.hint,
+      },
+      data: egressRefusalData(egress),
+    });
+  }
+
   // §15.4: the projection is CORE's (`publicProjection`), not a CLI filter.
   const view = scope === "all" ? profile : publicProjection(profile);
   const payload = profileExport(
@@ -246,6 +276,10 @@ export function runExportProfile(args: ExportProfileArgs): number {
   }
   line("  (roots the workspace does not declare are absent; list roots default to [])");
   line("  (use --json for the payload a consumer reads)");
+  // D28/§7.11: the receipt of the egress (text mode only — the `--json` payload
+  // is the frozen v2 contract and gains nothing from a run receipt inside it).
+  line(`  ${egressReceipt(egress)}`);
+  for (const notice of egress.notices) warn(notice);
 
   return EXIT.OK;
 }
