@@ -76,6 +76,12 @@ const DEPLOY_SPECS = ["git", "api", "manual"];
  *  emits (`pasco.surface`); gen-platforms refuses a disagreement with the
  *  registry, so a repo-metadata emitter can never masquerade as kind: profile. */
 export const SURFACE_KINDS = ["profile", "repo-meta", "distribution"];
+/** The registry's kind axis is WIDER than what a renderer may emit (#511):
+ *  `identity` names a link target with no renderable body — a row declares it so
+ *  `identity.links[].platform` resolves, but no renderer can produce one and no
+ *  release plan can address it. Keeping it OUT of `SURFACE_KINDS` is what
+ *  preserves that: a manifest claiming `pasco.surface: identity` is refused. */
+export const REGISTRY_KINDS = [...SURFACE_KINDS, "identity"];
 
 const rel = (root, target) => path.relative(root, target) || ".";
 

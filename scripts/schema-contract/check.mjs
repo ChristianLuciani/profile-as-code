@@ -63,6 +63,11 @@ const ROOT = ROOT_ARG === undefined ? path.resolve(HERE, "..", "..") : path.reso
 export const PUBLIC_REPO = "ChristianLuciani/profile-as-code";
 export const SCHEMA_REL = "schema/profile.schema.json";
 export const CONTRACT_REL = "schema/consumer-contract.json";
+/** The human surface that DUPLICATES `current`'s version and hash. A duplicated
+ *  number with no gate is the drift this file exists to end (merge pass of #511:
+ *  a schema edit moved the hash and the doc kept the old one, published to the
+ *  site). Checked when present; its absence is reported, never assumed. */
+export const DOC_REL = "docs/SCHEMA-CONTRACT.md";
 
 /** Shape errors mean the gate cannot verify what it was asked to verify. */
 export class GateError extends Error {}
@@ -128,15 +133,67 @@ function checkVersionAndHash(fail, label, value, expectedVersion, expectedHash) 
  * @param {string}  input.releasedSchema    the schema text at `released.tag`
  * @param {boolean} input.tagReachable      the tag is an ancestor of HEAD
  * @param {string|null} input.newestTag     the newest reachable `v*` tag, if any
+ * @param {string}  [input.doc]             docs/SCHEMA-CONTRACT.md, when present —
+ *                                          the human surface that repeats the
+ *                                          CURRENT version/hash by hand
  * @returns {{errors: string[], warnings: string[]}}
  */
-export function checkContract({ contract, schema, releasedSchema, tagReachable, newestTag }) {
+export function checkContract({ contract, schema, releasedSchema, tagReachable, newestTag, doc }) {
   const errors = [];
   const warnings = [];
   const fail = (message) => errors.push(message);
 
   if (typeof contract !== "object" || contract === null || Array.isArray(contract)) {
     return { errors: ["schema/consumer-contract.json must be a JSON object"], warnings };
+  }
+  // The docs table repeats `current` by hand — gate it against the bytes (#511).
+  if (typeof doc === "string" && doc.length > 0) {
+    // Scope to the CURRENT section: the doc also records the RELEASED artifact,
+    // whose version/hash are historical facts about a tag and must not follow the
+    // working tree (the released table is checked against the tag, below it).
+    // `## The current contract` … the next `## ` heading (NOT to EOF): a later
+    // section's table must never be read as this one. The heading carries a
+    // SUFFIX in the real doc ("— v2.0, not yet published"), so it matches by
+    // prefix — an exact-line anchor turned this gate into a silent pass (micro
+    // pass of #511, blocker).
+    const heading = /^## The current contract\b.*$/m.exec(doc);
+    const rest = heading === null ? null : doc.slice(heading.index + heading[0].length);
+    const currentSection = rest === null ? "" : (rest.split(/^## /m)[0] ?? "");
+    if (heading === null) {
+      // A doc that exists to publish the hash but no longer has the section is a
+      // gate hole, not a note: it is the drift this check was added for.
+      fail(
+        `${DOC_REL} has no "## The current contract" section — the duplicated surface cannot be verified (restore the heading or delete the doc)`,
+      );
+    }
+    let schemaVersion = null;
+    try {
+      schemaVersion = schemaVersionOf(schema);
+    } catch (error) {
+      // The schema itself is unreadable: say it where the other errors go.
+      fail(`cannot read the schema version for the docs check: ${error.message}`);
+    }
+    const hashRow = /\|\s*sha256\s*\|\s*`([0-9a-f]{64})`/.exec(currentSection);
+    if (heading !== null && hashRow === null) {
+      // Silence here would let a deleted row disable the gate.
+      fail(`${DOC_REL} declares no sha256 row — the duplicated surface cannot be verified`);
+    } else if (hashRow !== null && hashRow[1] !== sha256(schema)) {
+      fail(
+        `${DOC_REL} publishes sha256 ${hashRow[1]} but the schema bytes hash to ${sha256(schema)} — the doc and the manifest must name the same bytes`,
+      );
+    }
+    const versionRow = /\|\s*Schema version\s*\|\s*`v([0-9.]+)`/.exec(currentSection);
+    if (heading !== null && versionRow === null) {
+      // Same silent-pass class as a deleted hash row, one row over (pass 11 nit):
+      // removing the version line must not leave the table half-gated.
+      fail(
+        `${DOC_REL} declares no "Schema version" row — the duplicated surface cannot be verified`,
+      );
+    } else if (versionRow !== null && schemaVersion !== null && versionRow[1] !== schemaVersion) {
+      fail(
+        `${DOC_REL} publishes schema version v${versionRow[1]} but the schema is v${schemaVersion}`,
+      );
+    }
   }
   if (contract.schemaPath !== SCHEMA_REL) {
     fail(`schemaPath must be "${SCHEMA_REL}" (got ${JSON.stringify(contract.schemaPath)})`);
@@ -287,6 +344,12 @@ function newestTag() {
 function main() {
   const contract = JSON.parse(readFileSync(path.join(ROOT, CONTRACT_REL), "utf8"));
   const schema = readFileSync(path.join(ROOT, SCHEMA_REL), "utf8");
+  let doc = "";
+  try {
+    doc = readFileSync(path.join(ROOT, DOC_REL), "utf8");
+  } catch {
+    // No doc surface in a synthetic tree: the hash-row check simply does not run.
+  }
   const tag = typeof contract?.released?.tag === "string" ? contract.released.tag : "";
 
   let releasedSchema = "";
@@ -308,6 +371,7 @@ function main() {
     releasedSchema: tagReachable ? releasedSchema : "",
     tagReachable,
     newestTag: newestTag(),
+    doc,
   });
   if (!tagExists) errors.unshift(`released.tag ${tag} does not exist in this clone`);
 

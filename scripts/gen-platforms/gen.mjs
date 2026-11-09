@@ -42,7 +42,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse as parseYaml } from "yaml";
-import { collectRenderers, SURFACE_KINDS } from "../renderer-map/gen.mjs";
+import { collectRenderers, REGISTRY_KINDS } from "../renderer-map/gen.mjs";
 
 /** Configuration/shape error: the gate cannot verify what it was asked to verify. */
 class GateError extends Error {}
@@ -57,6 +57,21 @@ const SKILLS_REL = "skills";
 const DEPLOY_KINDS = ["git", "api", "manual"];
 const STATUSES = ["member", "backlog"];
 const ORIGINS = ["postiz", "extra"];
+/** A badge `logo=` identifier (usually a Simple Icons name — `linkedin` has no
+ *  Simple Icons entry, so "usually" is the honest word). `X` keeps the retired
+ *  table's spelling because the golden test pins the bytes; a NEW row should
+ *  use the spelling Simple Icons publishes, lowercase — this module makes no
+ *  claim about how the badge service matches case (#511). */
+const ICON_SLUG = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+/** Brand color as a 6-digit hex WITHOUT the `#` — the registry stores the value
+ *  the badge URL interpolates, so a `#` would ship a broken shield (#511). */
+const ICON_COLOR = /^[0-9A-Fa-f]{6}$/;
+/** The badge LABEL becomes a path segment of the shields URL and the Markdown
+ *  alt text. Letters, digits and dots only: shields reads a SPACE as a space,
+ *  `-` as the segment separator/escape and `_` as a space too, so any of them
+ *  changes the rendered badge or 404s it — and `encodeURIComponent` leaves all
+ *  three untouched (round-2 review F2 of #512). One short token, nothing else. */
+const ICON_LABEL = /^[A-Za-z0-9.]{1,24}$/;
 const AI_OUT_REL = path.join("packages", "core", "src", "generated", "ai-policy.gen.ts");
 const SPEC_MARKER = "gen:platform-families";
 const SPEC_AI_MARKER = "gen:ai-policy";
@@ -178,15 +193,60 @@ async function loadRegistry(root) {
         `${REGISTRY_REL}: "${slug}".sources must be a non-empty array of strings (evidence rule)`,
       );
     }
+    // Presentation metadata (#511): a badge/link icon. BOTH statuses may carry
+    // it — an `identity` backlog row exists precisely so a link platform has a
+    // home for its icon without becoming an enum member.
+    if (entry.icon !== undefined) {
+      const icon = entry.icon;
+      if (icon === null || typeof icon !== "object" || Array.isArray(icon)) {
+        throw new GateError(
+          `${REGISTRY_REL}: "${slug}".icon must be a mapping { slug, color, label }`,
+        );
+      }
+      if (typeof icon.slug !== "string" || !ICON_SLUG.test(icon.slug)) {
+        throw new GateError(
+          `${REGISTRY_REL}: "${slug}".icon.slug must be ONE badge logo identifier (letters, digits, dot, underscore, dash) — never a URL or a file path`,
+        );
+      }
+      if (typeof icon.color !== "string" || !ICON_COLOR.test(icon.color)) {
+        throw new GateError(
+          `${REGISTRY_REL}: "${slug}".icon.color must be a 6-digit hex WITHOUT '#' — the badge URL interpolates it verbatim`,
+        );
+      }
+      // The label is interpolated into the shields PATH, so "non-empty" is not
+      // enough (review F3): a space splits the badge segments and `]`/`(` break
+      // the Markdown around it. One short token is what a shield renders anyway.
+      if (typeof icon.label !== "string" || !ICON_LABEL.test(icon.label)) {
+        throw new GateError(
+          `${REGISTRY_REL}: "${slug}".icon.label must be ONE badge token (letters, digits and dots only) — shields reads space, '-' and '_' as markup, so any of them breaks the path`,
+        );
+      }
+    }
+    // An icon source that NAMES a hex must name the row's hex (#511 pass 3, F5).
+    // The gate cannot fetch, so it cannot prove a citation is real — but it can
+    // refuse a citation that contradicts the value it sits next to.
+    if (entry.icon !== undefined) {
+      const ICON_EVIDENCE = /simple-icons data \(title=[^,]+, hex=([0-9A-Fa-f]{6})/g;
+      for (const source of entry.sources ?? []) {
+        if (typeof source !== "string") continue;
+        for (const match of source.matchAll(ICON_EVIDENCE)) {
+          if (match[1].toUpperCase() !== String(entry.icon.color).toUpperCase()) {
+            throw new GateError(
+              `${REGISTRY_REL}: "${slug}" cites simple-icons hex ${match[1]} but its icon.color is "${entry.icon.color}" — a source must carry the value it is cited for`,
+            );
+          }
+        }
+      }
+    }
     if (entry.status === "backlog") {
       // A backlog slug is NOT an enum entry: it carries only its family, its kind
       // and the sourced descriptor — no deploy/hosts/renderer until it is promoted.
       if (typeof entry.family !== "string" || entry.family.length === 0) {
         throw new GateError(`${REGISTRY_REL}: backlog "${slug}" must declare a family`);
       }
-      if (entry.kind !== undefined && !SURFACE_KINDS.includes(entry.kind)) {
+      if (entry.kind !== undefined && !REGISTRY_KINDS.includes(entry.kind)) {
         throw new GateError(
-          `${REGISTRY_REL}: "${slug}".kind must be one of ${SURFACE_KINDS.join(" | ")} (D23)`,
+          `${REGISTRY_REL}: "${slug}".kind must be one of ${REGISTRY_KINDS.join(" | ")} (D23)`,
         );
       }
       continue;
@@ -195,9 +255,9 @@ async function loadRegistry(root) {
     // claim that a profile renderer emits repo metadata — the exact confusion
     // this axis exists to end.
     const kind = entry.kind ?? "profile";
-    if (!SURFACE_KINDS.includes(kind)) {
+    if (!REGISTRY_KINDS.includes(kind)) {
       throw new GateError(
-        `${REGISTRY_REL}: "${slug}".kind must be one of ${SURFACE_KINDS.join(" | ")} (D23)`,
+        `${REGISTRY_REL}: "${slug}".kind must be one of ${REGISTRY_KINDS.join(" | ")} (D23)`,
       );
     }
     if (kind !== "profile") {
@@ -508,11 +568,25 @@ async function buildModel(root) {
     // No skills dir in a synthetic tree — the count is then 0, not a refusal.
   }
 
+  // Badge/link icons (#511): the ONE projection every surface reads instead of
+  // keeping its own table. Derived, not a second hand-authored map — a row with
+  // no `icon` simply has no entry, and the coverage rule names it.
+  const icons = {};
+  for (const [slug, entry] of Object.entries(platforms)) {
+    if (entry.icon === undefined) continue;
+    icons[slug] = {
+      slug: entry.icon.slug,
+      color: entry.icon.color,
+      label: entry.icon.label,
+    };
+  }
+
   return {
     enumPlatforms,
     ai: aiPolicy,
     families,
     platforms,
+    icons,
     memberSlugs,
     backlogSlugs,
     hosts: [...hosts].sort(),
@@ -550,6 +624,12 @@ export function renderPlatformsModule(model) {
   const paste = model.paste
     .map((c) => `  { platform: ${JSON.stringify(c.platform)}, host: ${JSON.stringify(c.host)} },`)
     .join("\n");
+  const icons = Object.entries(model.icons)
+    .map(
+      ([slug, icon]) =>
+        `  ${key(slug)}: { slug: ${JSON.stringify(icon.slug)}, color: ${JSON.stringify(icon.color)}, label: ${JSON.stringify(icon.label)} },`,
+    )
+    .join("\n");
   return `/**
  * GENERATED by scripts/gen-platforms/gen.mjs from platforms/registry.yaml — DO NOT EDIT BY HAND (#154).
  *
@@ -573,13 +653,33 @@ ${hosts}
 
 /**
  * D23 (issue #262): the surface KIND of every registry entry — the enum members
- * (always \`profile\`) plus the declared non-profile backlog (repo metadata and
- * distribution channels). \`PLATFORM_SLUGS\` stays the 49-slug profile contract;
- * this map is the axis a release plan orders by, never a second enum.
+ * (always \`profile\`) plus the declared backlog (repo metadata, distribution
+ * channels and the identity link targets this engine does not render, #511).
+ * \`PLATFORM_SLUGS\` stays the profile contract; this map is the axis a release
+ * plan orders by, never a second enum.
  */
-export type SurfaceKind = "profile" | "repo-meta" | "distribution";
+export type SurfaceKind = "profile" | "repo-meta" | "distribution" | "identity";
 export const PLATFORM_KINDS: Readonly<Record<string, SurfaceKind>> = {
 ${kinds}
+};
+
+/**
+ * Badge/link icon metadata (#511), keyed by the SAME platform slug space — so
+ * \`identity.links[].platform\` resolves here. \`slug\` is the badge service's
+ * \`logo\` identifier — normally a Simple Icons name, but NOT always (Simple
+ * Icons ships no LinkedIn entry, so that badge draws no mark and its row says
+ * so) — \`color\` a 6-digit brand hex without \`#\`, \`label\` the text the surface
+ * prints. Declarative only: the engine ships no SVG and no binary asset.
+ * An absent key means "no icon declared"; \`pasco check\` warns
+ * (\`check/link-platform-icon\`) instead of failing.
+ */
+export interface PlatformIcon {
+  readonly slug: string;
+  readonly color: string;
+  readonly label: string;
+}
+export const PLATFORM_ICONS: Readonly<Record<string, PlatformIcon>> = {
+${icons}
 };
 
 /** Platform → hosts whose SUBDOMAINS are profile surfaces (\`user.substack.com\`). */

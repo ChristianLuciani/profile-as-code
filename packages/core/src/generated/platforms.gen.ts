@@ -123,11 +123,12 @@ export const PLATFORM_HOSTS: readonly string[] = [
 
 /**
  * D23 (issue #262): the surface KIND of every registry entry — the enum members
- * (always `profile`) plus the declared non-profile backlog (repo metadata and
- * distribution channels). `PLATFORM_SLUGS` stays the 49-slug profile contract;
- * this map is the axis a release plan orders by, never a second enum.
+ * (always `profile`) plus the declared backlog (repo metadata, distribution
+ * channels and the identity link targets this engine does not render, #511).
+ * `PLATFORM_SLUGS` stays the profile contract; this map is the axis a release
+ * plan orders by, never a second enum.
  */
-export type SurfaceKind = "profile" | "repo-meta" | "distribution";
+export type SurfaceKind = "profile" | "repo-meta" | "distribution" | "identity";
 export const PLATFORM_KINDS: Readonly<Record<string, SurfaceKind>> = {
   patreon: "profile",
   kofi: "profile",
@@ -195,6 +196,37 @@ export const PLATFORM_KINDS: Readonly<Record<string, SurfaceKind>> = {
   "linkedin-post": "distribution",
   "devto-post": "distribution",
   "awesome-lists": "distribution",
+  github: "identity",
+  orcid: "identity",
+  scholar: "identity",
+  website: "identity",
+};
+
+/**
+ * Badge/link icon metadata (#511), keyed by the SAME platform slug space — so
+ * `identity.links[].platform` resolves here. `slug` is the badge service's
+ * `logo` identifier — normally a Simple Icons name, but NOT always (Simple
+ * Icons ships no LinkedIn entry, so that badge draws no mark and its row says
+ * so) — `color` a 6-digit brand hex without `#`, `label` the text the surface
+ * prints. Declarative only: the engine ships no SVG and no binary asset.
+ * An absent key means "no icon declared"; `pasco check` warns
+ * (`check/link-platform-icon`) instead of failing.
+ */
+export interface PlatformIcon {
+  readonly slug: string;
+  readonly color: string;
+  readonly label: string;
+}
+export const PLATFORM_ICONS: Readonly<Record<string, PlatformIcon>> = {
+  substack: { slug: "substack", color: "FF6719", label: "Substack" },
+  "github-readme": { slug: "github", color: "181717", label: "GitHub" },
+  linkedin: { slug: "linkedin", color: "0A66C2", label: "LinkedIn" },
+  x: { slug: "X", color: "000000", label: "X" },
+  researchgate: { slug: "researchgate", color: "00CCBB", label: "ResearchGate" },
+  github: { slug: "github", color: "181717", label: "GitHub" },
+  orcid: { slug: "orcid", color: "A6CE39", label: "ORCID" },
+  scholar: { slug: "googlescholar", color: "4285F4", label: "Scholar" },
+  website: { slug: "github", color: "111111", label: "Website" },
 };
 
 /** Platform → hosts whose SUBDOMAINS are profile surfaces (`user.substack.com`). */

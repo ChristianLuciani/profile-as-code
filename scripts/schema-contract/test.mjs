@@ -80,6 +80,7 @@ function runPure(over = {}) {
     releasedSchema: over.releasedSchema ?? RELEASED,
     tagReachable: over.tagReachable ?? true,
     newestTag: over.newestTag === undefined ? "v0.3.6" : over.newestTag,
+    doc: over.doc ?? "",
   });
 }
 
@@ -95,6 +96,78 @@ function refusesPure(name, over, needle) {
 }
 
 refusesPure("refuses a current-schema hash drift", { schema: `${CURRENT} ` }, "sha256");
+/** The REAL heading shape: a suffix after the title (micro pass of #511). */
+const CURRENT_H = "## The current contract — v2.0, not yet published";
+
+refusesPure(
+  "refuses a docs hash that disagrees with the bytes",
+  { doc: `${CURRENT_H}\n\n| sha256 | \`${"0".repeat(64)}\` |\n` },
+  "must name the same bytes",
+);
+refusesPure(
+  "refuses a docs version that disagrees with the schema",
+  { doc: `${CURRENT_H}\n\n| Schema version | \`v1.13\` |\n| sha256 | \`${sha256(CURRENT)}\` |\n` },
+  "publishes schema version v1.13",
+);
+refusesPure(
+  "refuses a doc with no current-contract section (a gate hole, not a note)",
+  { doc: `## Something else\n\n| sha256 | \`${"0".repeat(64)}\` |\n` },
+  'has no "## The current contract" section',
+);
+refusesPure(
+  "refuses a current section with no sha256 row (deleting the row must not disable the gate)",
+  { doc: `${CURRENT_H}\n\n| Schema version | \`v1.14\` |\n` },
+  "declares no sha256 row",
+);
+refusesPure(
+  "refuses a current section with no Schema version row (same class as the hash row)",
+  { doc: `${CURRENT_H}\n\n| sha256 | \`${sha256(CURRENT)}\` |\n` },
+  'declares no "Schema version" row',
+);
+refusesPure(
+  "does not borrow a LATER section's hash row",
+  {
+    doc: [
+      CURRENT_H,
+      "",
+      "| Schema version | `v1.14` |",
+      "",
+      "## Earlier artifacts",
+      "",
+      `| sha256 | \`${sha256(CURRENT)}\` |`,
+      "",
+    ].join("\n"),
+  },
+  "declares no sha256 row",
+);
+{
+  const { errors } = runPure({
+    schema: '{"$id": "not-a-versioned-id"}',
+    doc: `${CURRENT_H}\n\n| Schema version | \`v1.14\` |\n| sha256 | \`${sha256(CURRENT)}\` |\n`,
+  });
+  // A malformed `$id` must reach the error channel, never throw a stack trace.
+  check(
+    "a malformed schema is reported, not thrown",
+    errors.some((e) => e.includes("cannot read the schema version")),
+    errors.join(" | "),
+  );
+}
+{
+  const { errors } = runPure({
+    doc: [
+      CURRENT_H,
+      "",
+      "| Schema version | `v1.14` |",
+      `| sha256 | \`${sha256(CURRENT)}\` |`,
+      "",
+      "## Earlier artifacts",
+      "",
+      `| sha256 | \`${"0".repeat(64)}\` |`,
+      "",
+    ].join("\n"),
+  });
+  check("ignores a hash row in a later section", errors.length === 0, errors.join(" | "));
+}
 refusesPure(
   "refuses a current-schema version drift",
   { schema: schema("1.15") },
