@@ -9,6 +9,23 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+- **D27 leak surfaces — the renderer/JSON-LD guards and the per-surface leak
+  suite (#498, D27/S4c)** — `github-readme` re-applies `isPublicEntry()` to the
+  `projects` block it emits (credentials and artifacts already did), so a
+  hand-built `PlatformProfile` slice — a documented seam that accepts them —
+  cannot smuggle a private row past the renderer. `pasco post` now filters
+  `achievements[]` as well: its `{{fact:<pointer>}}` grammar walks the profile by
+  path, so the one unfiltered visibility block stayed readable. The leak matrix
+  ships as `packages/cli/tests/visibility-leak.test.ts` over the committed
+  `packages/core/tests/fixtures/leak-matrix/` workspace: one `public` and one
+  `private` row per visibility block, every private value prefixed `PRIVATE-`,
+  scanned across all nine renderers, `structuredData()` (`jobTitle`/`worksFor`/
+  `hasCredential`), `pasco entity` (`--jsonld` and `--json`), `pasco export
+  profile` (the default is clean and `--all` is the positive control that proves
+  the markers exist), the public projection (its dropped ledger record and
+  release event), `pasco preview`, `pasco audit --public` and the post fact
+  pointers.
+
 - **D27 public projection — `export profile` v2, `audit --public`, dual
   completeness, `notPublishableUnits` (#498, D27/S4b)** — `core.publicProjection()`
   is now the ONE visibility filter: it drops `private`/`unlisted` rows from

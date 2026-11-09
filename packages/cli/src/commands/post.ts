@@ -287,7 +287,10 @@ export function renderFacts(
 }
 
 /** D27: the post task/check bundle is a public-facing surface — only the
- *  public rows of the four visibility blocks reach it. */
+ *  public rows of the five visibility blocks reach it. `achievements` is here
+ *  because the `{{fact:<pointer>}}` grammar is GENERIC: it walks the profile by
+ *  path, so an unfiltered block stays readable (`{{fact:achievements[1]…}}`
+ *  resolved a private row's statement straight out of the SSOT). */
 function publicFacts(profile: LoadedProfile): LoadedProfile {
   return {
     ...profile,
@@ -295,6 +298,7 @@ function publicFacts(profile: LoadedProfile): LoadedProfile {
     experience: profile.experience.filter(isPublicEntry),
     credentials: (profile.credentials ?? []).filter(isPublicEntry),
     artifacts: (profile.artifacts ?? []).filter(isPublicEntry),
+    achievements: (profile.achievements ?? []).filter(isPublicEntry),
   };
 }
 

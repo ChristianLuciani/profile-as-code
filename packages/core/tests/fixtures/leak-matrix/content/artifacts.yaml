@@ -1,0 +1,13 @@
+- id: pub-art
+  kind: code
+  title: PUBLIC-ART-TITLE
+  locator:
+    url: https://example.com/public-work
+  visibility: public
+
+- id: secret-art
+  kind: code
+  title: PRIVATE-ART-TITLE
+  locator:
+    url: https://example.com/private-work
+  visibility: private

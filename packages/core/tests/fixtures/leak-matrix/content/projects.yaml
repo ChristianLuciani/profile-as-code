@@ -1,0 +1,13 @@
+- id: pub-proj
+  name: PUBLIC-PROJ-NAME
+  status: active
+  description:
+    en: A public project.
+  visibility: public
+
+- id: secret-proj
+  name: PRIVATE-PROJ-NAME
+  status: active
+  description:
+    en: PRIVATE-PROJ-DESCRIPTION
+  visibility: private

@@ -1976,6 +1976,10 @@ interface Renderer {
 `PlatformProfile` slice produced by `compile()` (SPEC §7) — facts pass through untouched
 **except the four visibility-bearing blocks** (`experience`, `projects`, `credentials`,
 `artifacts`, filtered by `isPublicEntry()` per D27); texts are the platform+lang slice.
+`PlatformProfile` accepts hand-built slices (its type doc declares the seam), so a
+renderer that emits one of those blocks re-applies `isPublicEntry()` where it emits —
+a second line, never a second rule: `github-readme` guards `projects`, `credentials`
+and `artifacts` (§18.5).
 
 **The `assets?: string[]` slot (M8/D19).** The renderer declares the deploy-relative asset
 targets its text references (`assets/<id>/<basename>` — `artifactAssetTarget`, the single
@@ -2403,6 +2407,24 @@ legacy, while a `>= 2.0` floor means the absent field is the intentional private
 default and `pasco migrate` refuses to rewrite it. `unlisted` is
 not a publication state: it is never emitted, and manual sharing is `curate`
 (D27/#501), not a renderer.
+
+**Where the filter lives (§498/S4c).** One rule, four call sites, because the
+consumers do not all pass through `compile()`: `compile()` drops the four
+visibility blocks before a renderer sees the slice (and re-counts a view's
+`selected` on what the artifact emits); `structuredData()` filters the blocks it
+reads itself (`experience` → the `jobTitle`/`worksFor` pair of the one
+`currentRole()` pick, `credentials` → `hasCredential`), because `pasco entity
+--jsonld` calls it directly; `publicProjection()` (§7.5) does the same for
+`export profile`, `audit --public` and dual completeness; and `pasco post`
+filters the five blocks before resolving a `{{fact:<pointer>}}`, whose grammar
+walks the profile by path and would otherwise read any block the filter missed.
+`github-readme` re-guards `projects`/`credentials`/`artifacts` at the seam
+(§15.3). The proof is per SURFACE, not per helper:
+`packages/cli/tests/visibility-leak.test.ts` renders every platform, the JSON-LD,
+`entity`, `export profile` (default vs `--all` as the positive control), the
+projection, `preview`, `audit --public` and the post pointers over one fixture
+whose every private value carries a `PRIVATE-` marker
+(`packages/core/tests/fixtures/leak-matrix/`).
 
 ### 18.6 Media transport (M8)
 

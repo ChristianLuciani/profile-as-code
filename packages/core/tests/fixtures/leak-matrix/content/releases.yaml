@@ -1,0 +1,13 @@
+# A release whose whole change is non-public has no public fan-out; the mixed
+# one keeps only its publishable unit (D27).
+- id: v-private-only
+  version: 1.0.0
+  date: 2026-01-01
+  changedUnits: [projects:secret-proj]
+  surfaces: [github-readme]
+
+- id: v-mixed
+  version: 1.1.0
+  date: 2026-01-02
+  changedUnits: [projects:pub-proj, projects:secret-proj]
+  surfaces: [github-readme]

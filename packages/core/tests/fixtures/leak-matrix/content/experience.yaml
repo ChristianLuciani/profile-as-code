@@ -1,0 +1,15 @@
+# The private role is the MOST RECENT one on purpose: an unfiltered
+# `currentRole()` would pick it as jobTitle/worksFor (PRIVATE-ROLE/PRIVATE-ORG).
+- id: pub-exp
+  role: PUBLIC-ROLE
+  org: Public Org
+  start: 2020-01-01
+  end: present
+  visibility: public
+
+- id: secret-exp
+  role: PRIVATE-ROLE
+  org: PRIVATE-ORG
+  start: 2025-01-01
+  end: present
+  visibility: private

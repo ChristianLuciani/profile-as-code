@@ -1,0 +1,13 @@
+- id: pub-ach
+  statement:
+    en: PUBLIC-ACH
+  kind: milestone
+  basis: reported
+  visibility: public
+
+- id: secret-ach
+  statement:
+    en: PRIVATE-ACH
+  kind: milestone
+  basis: reported
+  visibility: private
