@@ -724,7 +724,7 @@ pasco skills:export --list [--json]
 Copies the skill channels this package ships (SPEC §16) into a directory you
 name. --list shows them; an existing non-empty directory needs --force (files are
 overlaid, nothing is deleted). No harness-specific destination is invented.`,
-  post: `pasco post <seed|task|choose|check|export|import|list> [...] [--json] [--workspace <path>]
+  post: `pasco post <seed|task|choose|check|export|import|list> [...] [--json] [--confirm <sha256:…>] [--workspace <path>]
 MVP (week-1 experiment): a post is a PROJECTION of a seed, not an identity fact.
 Two seed formats (#266): short (distribution) and longform (the essay/newsletter).
 Short rules ship for: linkedin, x
@@ -753,9 +753,14 @@ task/check/export honour it, and an API Postiz payload never carries it.
                                    word count, SSOT URLs (canonical included),
                                    refs, claims
   export <id> [--target postiz] [--out <file>] [--type draft|schedule|now] [--date <iso>]
+              [--confirm <sha256:…>]
                                    API channels → Postiz POST /posts payload
                                    (integration IDs from postiz.yaml; REPLACE_ME
-                                   when missing); paste channels → paste-checklist.md
+                                   when missing); paste channels → paste-checklist.md.
+                                   This is an egress of the workspace facts (D28,
+                                   SPEC §7.11): a unit that moved private -> public
+                                   since the last recorded egress refuses (exit 1)
+                                   until re-run with the printed manifest digest.
   import <dir> --channel linkedin|x  import historical .md posts as seeds (a
                                    short-rule channel); each is recorded
                                    published by assumption (certification:
@@ -1340,10 +1345,17 @@ async function runMain(): Promise<number> {
         date: { type: "string" },
         format: { type: "string" },
         from: { type: "string" },
+        confirm: { type: "string" },
       });
       if (flags.help === true) {
         process.stdout.write(`${COMMAND_HELP.post}\n`);
         return EXIT.OK;
+      }
+      // `--confirm` is `post export`'s egress receipt (D28/§7.11): the other
+      // subcommands write nothing to a channel, so accepting it would be an
+      // ignored argument.
+      if (flags.confirm !== undefined && positionals[0] !== "export") {
+        throw new UsageError("usage: --confirm only applies to post export (D28 egress gate)");
       }
       if (positionals.length < 1 || positionals.length > 2) {
         throw new UsageError(
@@ -1367,6 +1379,7 @@ async function runMain(): Promise<number> {
         dateArg: flags.date,
         formatArg: flags.format,
         fromArg: flags.from,
+        ...(flags.confirm !== undefined ? { confirmArg: flags.confirm } : {}),
         pascorc,
       });
     }

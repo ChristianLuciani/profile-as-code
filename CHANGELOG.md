@@ -20,7 +20,10 @@ minor versions may contain breaking contract changes.
   timestamp; JSONL opened `O_APPEND`, never rewritten, never rendered). The
   comparison is a TRANSITION against `.pasco/egress/baseline.json`, not the §19
   ledger: a private row was never deployed, so the ledger has no record of it and
-  cannot answer "what was public before". **No signatures yet** — the digest
+  cannot answer "what was public before". `pasco post export` is gated too
+  (operation `post-export`) and every post surface now reads the D27 public
+  projection: a local four-block filter there let a `private` achievement reach
+  the exported Postiz payload — it now delegates to `publicProjection()`. **No signatures yet** — the digest
   proves the operator saw the manifest, not who they are, and an agent that can
   write the workspace is not stopped (S503b: signed receipt, break-glass `--all`,
   keyless agent). Core owns the contract (`egressManifest`, `newlyPublicUnits`,

@@ -466,7 +466,7 @@ address is usage (exit `2`). In the published **0.3.7** this walkthrough measure
 > `pasco edit --create faq` seeds `content/faq.yaml` — a separate operation that refuses an
 > existing root. The 0.3.7 transcript above is left as the dated record it is.
 
-### M13 — `export profile`: deterministic, no clock
+### M13 — `export profile`: deterministic, no clock in the payload
 
 ```sh
 pasco export profile --json > /tmp/p1.json

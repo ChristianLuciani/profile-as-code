@@ -1654,13 +1654,16 @@ the payload version moves when the shape does — applies to this envelope too.
 ### 7.11 Egress authorization — publishing and exporting are authorized acts (D28, issue #503)
 
 **S503a ships the gate without signatures.** D27 (§5) made `private` the default
-and the export public; this section is the authorization layer over the two
+and the export public; this section is the authorization layer over the three
 surfaces that produce published bytes: `pasco build` (the deploy artifacts,
-§15.5) and `pasco export profile` (§7.5). `pasco preview` is deliberately NOT
-gated — §7.9 defines it as the local view "without publishing it" and gives it
-its own privacy gate. `export ai-policy`, `skills:export` and `post export`
-carry registry/code/announcement data, not the profile's visibility-gated rows,
-and are out of scope (declared, not silent).
+§15.5), `pasco export profile` (§7.5) and `pasco post export` (the Postiz payload
+carrying the workspace's facts; review of this slice found it reading a four-block
+local filter and letting a `private` achievement reach the payload, so it now
+reads the same `publicProjection()` and goes through the same gate).
+`pasco preview` is deliberately NOT gated — §7.9 defines it as the local view
+"without publishing it" and gives it its own privacy gate. `export ai-policy` and
+`skills:export` carry registry/code data, not the profile's visibility-gated
+rows, and are out of scope (declared, not silent).
 
 **The manifest.** Core (`egressManifest`) derives, for the view that leaves:
 - `units` — every row of the five gated blocks (`credentials`, `artifacts`,
@@ -1709,8 +1712,8 @@ and an operational receipt, and the log owns the durable record either way.
 **The audit log.** Every authorized egress — privileged or not — appends ONE line
 to `.pasco/egress/audit.log`: `{ version, at, operation, scope, digest, units,
 keyId, method, reasons, baseline }`. It is JSONL opened with `O_APPEND` (an
-earlier line is never rewritten) and it is never rendered. `operation` is `build`
-or `export-profile`; `digest` is the confirmed manifest; **`keyId` is `null` and
+earlier line is never rewritten) and it is never rendered. `operation` is `build`,
+`export-profile` or `post-export`; `digest` is the confirmed manifest; **`keyId` is `null` and
 `method` is `digest-confirm` or `none`** — S503a has no key, and the record says
 so instead of fabricating an id. `baseline` states what the gate compared against
 (`recorded`, `absent`, `unreadable`). The line is written BEFORE the egress and a
@@ -1752,8 +1755,9 @@ new record.
 **Exit matrix.** `build`: `0` written · `1` a schema/load/selection failure, or
 the egress was refused (`error.kind: "egress"`) · `2` usage. `export profile`: `0`
 payload · `1` a load/`--now` failure or an egress refusal · `2` usage (including
-`--confirm` on `ai-policy`). Offline: no network, and the only clock read is the
-audit timestamp.
+`--confirm` on `ai-policy`). `post export`: the same refusal on exit `1`, and
+`--confirm` on any other `post` subcommand is usage (`2`). Offline: no network,
+and the only clock read is the audit timestamp.
 
 ## 8. GEO as a cross-cutting layer
 

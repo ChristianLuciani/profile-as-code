@@ -61,11 +61,12 @@ export const EGRESS_MANIFEST_VERSION = 1 as const;
 export type EgressScope = "public" | "all";
 
 /** The egress surfaces the gate covers in S503a. `build` writes the deploy
- *  artifacts and `export profile` hands the payload to a consumer; both are
- *  "publishing" in D28's sense. `preview` is deliberately NOT here — §7.9
- *  defines it as the local view "without publishing it" and gives it its own
- *  privacy gate. */
-export type EgressOperation = "build" | "export-profile";
+ *  artifacts, `export profile` hands the payload to a consumer and `post export`
+ *  materializes the announcement payload (Postiz) from the workspace facts; all
+ *  three are "publishing" in D28's sense. `preview` is deliberately NOT here —
+ *  §7.9 defines it as the local view "without publishing it" and gives it its
+ *  own privacy gate. */
+export type EgressOperation = "build" | "export-profile" | "post-export";
 
 /** Why an egress is privileged. `--all` is a break-glass path (never the
  *  default); a private → public transition is the act D28 exists to authorize;
@@ -280,7 +281,11 @@ export function parseEgressAudit(text: string): {
     const problems: string[] = [];
     if (record.version !== EGRESS_MANIFEST_VERSION) problems.push("version");
     if (typeof record.at !== "string") problems.push("at");
-    if (record.operation !== "build" && record.operation !== "export-profile") {
+    if (
+      record.operation !== "build" &&
+      record.operation !== "export-profile" &&
+      record.operation !== "post-export"
+    ) {
       problems.push("operation");
     }
     if (record.scope !== "public" && record.scope !== "all") problems.push("scope");
