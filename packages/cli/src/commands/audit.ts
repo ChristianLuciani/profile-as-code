@@ -210,12 +210,20 @@ function originalIndex<T extends { id?: string }>(
 
 /**
  * The audit computes drift over the VIEW (so a contradiction that only a
- * private row creates is not a public finding), but a finding's `path` must
+ * private row creates is not a public finding), but a finding's `path` should
  * address the WORKSPACE row a repair can resolve (review D1). The projection
  * preserves row order and identity unless a pointer had to be stripped, so the
  * original index is recovered by reference (then by id).
+ *
+ * Returns `undefined` when the row cannot be mapped (a stripped clone without an
+ * id): the caller then addresses the VIEW, never the SSOT — indexing the
+ * workspace with a view index could name a private row (review C1).
  */
-function toWorkspaceAddress(viewed: LoadedProfile, loaded: LoadedProfile, path: string): string {
+function toWorkspaceAddress(
+  viewed: LoadedProfile,
+  loaded: LoadedProfile,
+  path: string,
+): string | undefined {
   const match = DRIFT_VISIBILITY_PATH.exec(path);
   if (match === null) return path;
   const [, block, indexText] = match;
@@ -231,7 +239,7 @@ function toWorkspaceAddress(viewed: LoadedProfile, loaded: LoadedProfile, path: 
     if (row === undefined) return path;
     at = originalIndex(loaded.experience, row);
   }
-  if (at < 0) return path;
+  if (at < 0) return undefined;
   return `${block}[${at}]${path.slice(match[0].length)}`;
 }
 
@@ -402,8 +410,18 @@ export function runAudit(args: AuditArgs): number {
       ? DRIFT_CLASS[issue.code]
       : "contradiction";
     if (mapped === null || mapped === undefined) return [];
-    const path = view === "public" ? toWorkspaceAddress(profile, loaded, issue.path) : issue.path;
-    return [finding(mapped, factRef(loaded, path), `${issue.code} — ${issue.message}`)];
+    // `undefined` = the row could not be mapped back (a stripped clone without
+    // an id), so the address stays in the VIEW it came from — never the SSOT.
+    const workspacePath =
+      view === "public" ? toWorkspaceAddress(profile, loaded, issue.path) : issue.path;
+    const addressProfile = workspacePath === undefined ? profile : loaded;
+    return [
+      finding(
+        mapped,
+        factRef(addressProfile, workspacePath ?? issue.path),
+        `${issue.code} — ${issue.message}`,
+      ),
+    ];
   });
   const facts = factPresentFindings({
     workspace: args.workspace,

@@ -846,4 +846,26 @@ describe("D27 — `audit --public` reads the publishable view (SPEC §7.1/§23.3
     expect(paths).toContain("experience[1]");
     expect(paths).not.toContain("experience[0]");
   });
+
+  it("never indexes the SSOT with a view index when a stripped clone has no id (delta C1)", () => {
+    const ws = workspace({
+      "identity.yaml": "name: Example\n",
+      "artifacts.yaml":
+        "- id: secret-art\n  kind: code\n  title: Internal code\n  locator:\n    url: https://example.com/priv\n",
+      "projects.yaml":
+        // Index 0 is private; index 1 is a PUBLIC clone (its pointer is stripped,
+        // and it has no id, so it cannot be mapped by reference or id); index 2
+        // makes the duplicate-name contradiction real.
+        "- id: secret-proj\n  name: Other\n" +
+        "- name: Duplicate\n  visibility: public\n  artifactRefs:\n    - secret-art\n" +
+        "- name: Duplicate\n  visibility: public\n",
+    });
+    const { data } = auditPublic(ws);
+    const findings = (data as { findings: Finding[] }).findings;
+    const duplicate = findings.find((item) => item.path.startsWith("projects["));
+    // Unmappable → the address stays in the public VIEW (`projects[0]`), never
+    // the SSOT index — which would name the private row's id.
+    expect(duplicate?.path).toBe("projects[0]");
+    expect(findings.some((item) => item.path.includes("secret-proj"))).toBe(false);
+  });
 });
