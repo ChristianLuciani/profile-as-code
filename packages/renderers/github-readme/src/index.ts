@@ -265,8 +265,13 @@ export function render(p: PlatformProfile, opts: RenderOptions = {}): RenderResu
   //    #458: a view's `orderKeys` pins entries FIRST, in declared order; the
   //    rest keep this comparator. The precedence lives in core's
   //    `orderedForSurface` (one home), never re-implemented per adapter.
+  //    §18.5/D27: the block is re-guarded HERE, not only in `compile()`.
+  //    `PlatformProfile` is a documented seam that accepts hand-built slices
+  //    (see its type doc), so a caller that did not compile cannot hand this
+  //    renderer a private row — the same second line the evidence registry
+  //    below has always carried.
   const projects = orderedForSurface(
-    p.projects,
+    p.projects.filter(isPublicEntry),
     "projects",
     p.selection?.ordered?.projects,
     (a, b) =>

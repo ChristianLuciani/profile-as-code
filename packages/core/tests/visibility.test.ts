@@ -315,7 +315,11 @@ const PROJECTION_FILES: Record<string, string> = {
 describe("D27 — publicProjection(): the projection is the ONE filter (SPEC §7.5)", () => {
   it("names the non-publishable ledger keys of the five visibility blocks", () => {
     const profile = load(workspace(PROJECTION_FILES));
+    // `achievements` carries the field (required) but is never MIGRATED, so a
+    // key filter that read the migration set missed it — and a release with
+    // `changedUnits: [achievements:<private-id>]` survived the public view.
     expect([...notPublishableKeys(profile)].sort()).toEqual([
+      "achievements:secret-ach",
       "artifacts:private-art",
       "credentials:private-cred",
       "experience:secret-exp",

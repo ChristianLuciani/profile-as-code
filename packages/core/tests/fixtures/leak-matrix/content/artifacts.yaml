@@ -1,0 +1,29 @@
+- id: pub-art
+  kind: code
+  title: PUBLIC-ART-TITLE
+  locator:
+    url: https://example.com/public-work
+  visibility: public
+
+- id: secret-art
+  kind: code
+  title: PRIVATE-ART-TITLE
+  # A URL cannot carry a text marker, so each one is its own scan token
+  # (`private-work` / `unlisted-work` / `absent-work`).
+  locator:
+    url: https://example.com/private-work
+  visibility: private
+
+- id: unlisted-art
+  kind: code
+  title: UNLISTED-ART-TITLE
+  locator:
+    url: https://example.com/unlisted-work
+  visibility: unlisted
+
+- id: absent-art
+  kind: code
+  title: ABSENT-ART-TITLE
+  # No `visibility`: the v2.0 default makes this row private.
+  locator:
+    url: https://example.com/absent-work

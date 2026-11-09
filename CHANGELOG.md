@@ -9,6 +9,38 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+- **D27 leak surfaces — the renderer/JSON-LD guards and the per-surface leak
+  suite (#498, D27/S4c)** — `github-readme` re-applies `isPublicEntry()` to the
+  `projects` block it emits (credentials and artifacts already did), so a
+  hand-built `PlatformProfile` slice — a documented seam that accepts them —
+  cannot smuggle a private row past the renderer. `pasco post` reads the public
+  PROJECTION (`publicProjection()`) instead of a hand-rolled filter: its
+  `{{fact:<pointer>}}` grammar walks the profile by path, so the blocks a partial
+  filter forgot stayed readable (`achievements`, and the release events that
+  address them). `notPublishableKeys()` — the §19 address filter behind the
+  projection and the release/presence boards — now reads the FIVE blocks that
+  carry `visibility` (the four migration blocks plus `achievements`): a release
+  with `changedUnits: [achievements:<private-id>]` or a `deployments` record
+  keyed by one no longer survives the public view, which the previous filter
+  (reusing the MIGRATION set) let through. The leak matrix
+  ships as `packages/cli/tests/visibility-leak.test.ts` over the committed
+  `packages/core/tests/fixtures/leak-matrix/` workspace: a `public` row plus
+  every non-public state the schema can represent for the block (`private`,
+  `unlisted`, and the omitted field that v2.0 makes private — `achievements`
+  requires the field, so it stops at `private`/`unlisted`), each non-public unit
+  carrying a marker from a declared scan set (its text, its id, the private
+  unit's `deployments` key, each non-public artifact URL and the release id), and
+  a matrix case that DERIVES that block × state coverage from the fixture so the
+  prose cannot outrun it. The scan runs across all nine renderers,
+  `structuredData()`
+  (`jobTitle`/`worksFor`/`hasCredential`), `pasco entity` (`--jsonld` and
+  `--json`), `pasco export profile` (the default is clean and `--all` is the
+  positive control that proves the markers exist), the public projection (its
+  dropped ledger record and release event), `pasco preview`, `pasco audit
+  --public` and the post fact pointers. A filtered-index pointer now dangles
+  rather than resolving a non-public row; the `block[id]` form is the stable
+  selector (§18.5).
+
 - **D27 public projection — `export profile` v2, `audit --public`, dual
   completeness, `notPublishableUnits` (#498, D27/S4b)** — `core.publicProjection()`
   is now the ONE visibility filter: it drops `private`/`unlisted` rows from

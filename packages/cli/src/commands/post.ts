@@ -21,7 +21,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { LoadedProfile, Platform } from "@profile-as-code/core";
-import { isPublicEntry, LoadError, load, SchemaValidationError } from "@profile-as-code/core";
+import { LoadError, load, publicProjection, SchemaValidationError } from "@profile-as-code/core";
 import { parseDocument } from "yaml";
 import { isQuantitativeClaim } from "../claims.js";
 import {
@@ -286,16 +286,22 @@ export function renderFacts(
   return { text: rendered, dangling };
 }
 
-/** D27: the post task/check bundle is a public-facing surface — only the
- *  public rows of the four visibility blocks reach it. */
+/** D27: the post task/check bundle is a public-facing surface, so it reads the
+ *  SAME public projection every other egress reads — not a hand-rolled subset.
+ *  A partial filter here was a real leak: the `{{fact:<pointer>}}` grammar walks
+ *  the profile by path, so the blocks it forgot stayed readable
+ *  (`{{fact:achievements[1]…}}` and `{{fact:releases[0].id}}` both returned
+ *  non-public values), and `deployments` is keyed by the §19 address of the unit
+ *  it tracks. `publicProjection()` drops the five visibility blocks AND the
+ *  records/events that address them, and strips inbound pointers — one home,
+ *  the §7.5 view.
+ *
+ *  A pointer then addresses the FILTERED view — from `factLines` on, indices are
+ *  the public rows', so an index written against the SSOT can address a
+ *  different row (or dangle) once a row is removed. The stable selector is the
+ *  `block[id]` form `resolveFact` already supports. */
 function publicFacts(profile: LoadedProfile): LoadedProfile {
-  return {
-    ...profile,
-    projects: profile.projects.filter(isPublicEntry),
-    experience: profile.experience.filter(isPublicEntry),
-    credentials: (profile.credentials ?? []).filter(isPublicEntry),
-    artifacts: (profile.artifacts ?? []).filter(isPublicEntry),
-  };
+  return publicProjection(profile);
 }
 
 function allowedUrls(profile: LoadedProfile): Set<string> {
