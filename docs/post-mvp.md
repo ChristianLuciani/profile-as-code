@@ -176,7 +176,10 @@ Without it, the payload uses `REPLACE_ME` and the export warns.
   the seed. A derived short seed has no `seed.md`: the essay owns the text.
 - **Facts are cited, not copied**: `{{fact:identity.name}}`,
   `{{fact:projects[<id>].name}}`, `{{fact:publications[<id>].doi}}`. The export
-  renders them; a dangling pointer fails.
+  renders them; a dangling pointer fails. Pointers resolve against the D27
+  public projection, so an INDEX into a visibility-filtered block addresses the
+  projected array — prefer the `[<id>]` selector, which is stable across
+  visibility (a private row is never addressed by accident).
 - **URLs only from the SSOT**: `identity.links`, `projects[].links`,
   `publications[].url`, `credentials[].verifyUrl`, `artifacts[].locator.url`
   (long-form `canonical` included).

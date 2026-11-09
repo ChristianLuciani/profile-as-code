@@ -21,12 +21,14 @@
  * the command with the digest, or delete `.pasco/egress/`; the key does not live
  * in the agent's environment until S503b.
  *
- * **What the digest covers.** The exact payload that leaves — the public
- * projection for a public egress, the whole SSOT for `--all` — under the
- * manifest version and the scope. It deliberately EXCLUDES the run metadata
- * (`source.commit`, `generatedAt`): the authorization is over the disclosed
- * data, so a commit that moves nothing does not invalidate a digest the operator
- * just read.
+ * **What the digest covers.** The exact PROFILE VIEW that leaves — the public
+ * projection for a public egress, the whole SSOT for `--all` — under the manifest
+ * version and the scope. It deliberately EXCLUDES two things: the run metadata
+ * (`source.commit`, `generatedAt`), and a surface's own formatting/announcement
+ * bytes (a Postiz payload's text, `date` and integration ids; a rendered
+ * artifact's prose). The authorization is over the disclosed FACTS, so a commit
+ * that moves nothing — or a re-render of the same facts — does not invalidate a
+ * digest the operator just read.
  *
  * **Why the disclosure units are keyed on the SSOT.** They are the rows whose
  * visibility decides egress (the four migration blocks plus `achievements`, the
