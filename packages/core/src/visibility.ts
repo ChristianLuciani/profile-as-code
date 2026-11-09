@@ -137,6 +137,16 @@ export function publicProjection(profile: LoadedProfile): LoadedProfile {
     refs === undefined ? undefined : refs.filter((id) => artifactIds.has(id));
 
   const projects = (profile.projects ?? []).filter(isPublicEntry).map((project) => {
+    // Identity is preserved unless a pointer actually has to go: the audit maps a
+    // finding back to the workspace row by reference (then by id), so cloning
+    // every row would make an id-less row unaddressable (review D1).
+    const refsNeedStrip = project.artifactRefs?.some((id) => !artifactIds.has(id)) ?? false;
+    const evidenceNeedsStrip = (project.evidence ?? []).some(
+      (evidence) =>
+        (evidence.credentialId !== undefined && !credentialIds.has(evidence.credentialId)) ||
+        (evidence.artifactId !== undefined && !artifactIds.has(evidence.artifactId)),
+    );
+    if (!refsNeedStrip && !evidenceNeedsStrip) return project;
     const row = { ...project };
     if (project.artifactRefs !== undefined)
       row.artifactRefs = keepArtifactRefs(project.artifactRefs);
@@ -156,10 +166,12 @@ export function publicProjection(profile: LoadedProfile): LoadedProfile {
   });
   const publications = (profile.publications ?? []).map((publication) => {
     if (publication.artifactRefs === undefined) return publication;
+    if (publication.artifactRefs.every((id) => artifactIds.has(id))) return publication;
     return { ...publication, artifactRefs: keepArtifactRefs(publication.artifactRefs) };
   });
   const press = (profile.press ?? []).map((mention) => {
     if (mention.artifactRefs === undefined) return mention;
+    if (mention.artifactRefs.every((id) => artifactIds.has(id))) return mention;
     return { ...mention, artifactRefs: keepArtifactRefs(mention.artifactRefs) };
   });
 

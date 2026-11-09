@@ -1441,7 +1441,11 @@ the §19 ledger; neither writes, fetches or reads a clock.
   the daily board. It still refuses the same malformed/unknown-surface cases.
 
 `presence` lists one row per surface at the NEWEST release that declares it, with
-`{ kind, state, releaseId, version }` and the `in-sync`/`stale`/`never` counts.
+`{ kind, state, releaseId, version, notPublishableUnits }` and the
+`in-sync`/`stale`/`never` counts. D27: `notPublishableUnits` names the changed
+units of that release whose entry is private/unlisted — they are not `never`
+(missing) and not `in-sync`; a release that changed only those units is omitted
+from the board, because it has no public fan-out.
 
 ### 7.9 `pasco preview` — one file, two transports (issue #282)
 

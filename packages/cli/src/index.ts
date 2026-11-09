@@ -827,9 +827,10 @@ warnings carry their source). Derived, never stored: nothing here writes.
 The presence board (D23, SPEC §22, issue #262): every surface the workspace's
 releases have addressed, at its NEWEST release, with the ledger-derived state —
 in-sync / stale / never (§19 vocabulary, never a second state model). One row
-per surface: kind (repo-meta · profile · distribution), surface slug, state and
-the release that addressed it. Derived from releases[] + content/deployments.yaml
-and stored nowhere; offline and deterministic (D19).
+per surface: kind (repo-meta · profile · distribution), surface slug, state, the
+release that addressed it and its notPublishableUnits (D27: changed units whose
+entry is private/unlisted — never a never surface). Derived from releases[] +
+content/deployments.yaml and stored nowhere; offline and deterministic (D19).
 --json emits { schemaVersion: "1", releases, latest, counts, surfaces } inside
 the usual envelope.
 Exit: 0 a successful read (a workspace with no releases[] renders an EMPTY

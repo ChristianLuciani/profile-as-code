@@ -196,6 +196,45 @@ export function factRef(profile: LoadedProfile, path: string): string {
   return `${block}[${id}]${rest}`;
 }
 
+/** The two blocks a drift path can carry that visibility can filter. */
+const DRIFT_VISIBILITY_PATH = /^(projects|experience)\[(\d+)\]/;
+
+function originalIndex<T extends { id?: string }>(
+  originalRows: readonly T[],
+  viewedRow: T,
+): number {
+  const byRef = originalRows.indexOf(viewedRow);
+  if (byRef >= 0) return byRef;
+  return viewedRow.id === undefined ? -1 : originalRows.findIndex((row) => row.id === viewedRow.id);
+}
+
+/**
+ * The audit computes drift over the VIEW (so a contradiction that only a
+ * private row creates is not a public finding), but a finding's `path` must
+ * address the WORKSPACE row a repair can resolve (review D1). The projection
+ * preserves row order and identity unless a pointer had to be stripped, so the
+ * original index is recovered by reference (then by id).
+ */
+function toWorkspaceAddress(viewed: LoadedProfile, loaded: LoadedProfile, path: string): string {
+  const match = DRIFT_VISIBILITY_PATH.exec(path);
+  if (match === null) return path;
+  const [, block, indexText] = match;
+  if (block === undefined || indexText === undefined) return path;
+  const index = Number(indexText);
+  let at = -1;
+  if (block === "projects") {
+    const row = viewed.projects[index];
+    if (row === undefined) return path;
+    at = originalIndex(loaded.projects, row);
+  } else if (block === "experience") {
+    const row = viewed.experience[index];
+    if (row === undefined) return path;
+    at = originalIndex(loaded.experience, row);
+  }
+  if (at < 0) return path;
+  return `${block}[${at}]${path.slice(match[0].length)}`;
+}
+
 export function finding(cls: AuditClass, path: string, detail: string): AuditFinding {
   return { class: cls, severity: AUDIT_SEVERITY[cls], path, detail };
 }
@@ -349,9 +388,10 @@ export function runAudit(args: AuditArgs): number {
 
   // D27 (SPEC §7.1/§23.3): the audit reads the SSOT by default — a private row
   // is part of the local diagnostic — and `--public` restricts it to the
-  // publishable view. Projecting HERE is what makes `driftCheck` and `geoCheck`
-  // read the public projection: they compose by class over the same `profile`
-  // the audit hands them, so a private row can never become a public finding.
+  // publishable view. Every rule reads the projection, so nothing about a private
+  // row becomes a public finding; addresses are then translated back to the
+  // workspace (`toWorkspaceAddress`, `ssotFindings`' publicOnly) so a reported
+  // index resolves to the row a repair can act on (review F4/D1).
   const view: AuditView = args.public === true ? "public" : "all";
   const profile = view === "public" ? publicProjection(loaded) : loaded;
 
@@ -362,7 +402,8 @@ export function runAudit(args: AuditArgs): number {
       ? DRIFT_CLASS[issue.code]
       : "contradiction";
     if (mapped === null || mapped === undefined) return [];
-    return [finding(mapped, factRef(profile, issue.path), `${issue.code} — ${issue.message}`)];
+    const path = view === "public" ? toWorkspaceAddress(profile, loaded, issue.path) : issue.path;
+    return [finding(mapped, factRef(loaded, path), `${issue.code} — ${issue.message}`)];
   });
   const facts = factPresentFindings({
     workspace: args.workspace,

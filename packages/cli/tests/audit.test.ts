@@ -827,4 +827,23 @@ describe("D27 — `audit --public` reads the publishable view (SPEC §7.1/§23.3
     const unsourced = findings.find((item) => item.class === "unsourced-claim");
     expect(unsourced?.path).toBe("achievements[1]");
   });
+
+  it("--public keeps the SSOT index for a DRIFT finding too (delta review D1)", () => {
+    const ws = workspace({
+      "identity.yaml": "name: Example\n",
+      // No ids on purpose: the index is the only address. The first row is
+      // private (absent), the second public — the projection would shift it to 0.
+      "experience.yaml":
+        "- role: Engineer\n  org: A\n  start: 2024-01-01\n  end: 2020-01-01\n" +
+        "- role: Advisor\n  org: B\n  start: 2020-01-01\n  end: 2019-01-01\n  visibility: public\n",
+    });
+    const { data } = auditPublic(ws);
+    const paths = (data as { findings: Finding[] }).findings
+      .filter((item) => item.class === "contradiction")
+      .map((item) => item.path);
+    // The public row's inverted range is the only public finding, addressed at
+    // its WORKSPACE index; the private row's finding is not a public finding.
+    expect(paths).toContain("experience[1]");
+    expect(paths).not.toContain("experience[0]");
+  });
 });
