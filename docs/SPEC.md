@@ -1974,8 +1974,11 @@ interface Renderer {
 
 `render()` is a **pure function**: no network, no AI, no randomness. It consumes the
 `PlatformProfile` slice produced by `compile()` (SPEC §7) — facts pass through untouched
-**except the four visibility-bearing blocks** (`experience`, `projects`, `credentials`,
-`artifacts`, filtered by `isPublicEntry()` per D27); texts are the platform+lang slice.
+**except the four migration blocks the slice carries** (`experience`, `projects`,
+`credentials`, `artifacts`, filtered by `isPublicEntry()` per D27); texts are the
+platform+lang slice. `achievements` carries the field too (it is required there) but the
+slice does not expose it, so this paragraph never counts it — the five-block set is the
+§19 address filter's, not the renderer's (§18.5).
 `PlatformProfile` accepts hand-built slices (its type doc declares the seam), so a
 renderer that emits one of those blocks re-applies `isPublicEntry()` where it emits —
 a second line, never a second rule: `github-readme` guards `projects`, `credentials`
