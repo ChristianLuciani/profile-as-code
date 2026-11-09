@@ -19,8 +19,10 @@
  * **Order of the writes is the guarantee.** The record and the baseline are
  * written BEFORE the egress runs, and a write failure refuses the egress: an
  * operation that leaves the workspace is always on the record. The line states
- * the AUTHORIZATION of a manifest, not proof that the bytes were written — a
- * build that later fails on selection still leaves its authorized line.
+ * the AUTHORIZATION of a manifest, not proof that the bytes were written: a
+ * failure AFTER the gate (a `post export` whose fact ref dangles) leaves its
+ * line, a failure BEFORE it (build's fact selection) leaves none — the line is
+ * written at the authorization point.
  *
  * **S503a has no keys.** `--confirm <digest>` is the operator echoing the exact
  * manifest digest; the record carries `keyId: null` and

@@ -1728,8 +1728,10 @@ the BASELINE cannot move, the line stays — it records the authorization, not t
 bytes — and the run is still refused (`code: "baseline-failed"`), so the next
 attempt re-detects instead of assuming a baseline that was never written. The line
 states the AUTHORIZATION of a manifest, not proof that the
-bytes were written (a build that later fails on selection still leaves its
-authorized line). `at` is the gate's ONE clock read — it never enters a rendered
+bytes were written: a failure AFTER the gate (a `post export` whose fact ref
+dangles) leaves its authorized line, while a failure BEFORE it (build's fact
+selection, which returns before the gate) leaves none — the line is written at
+the authorization point, which is what it records. `at` is the gate's ONE clock read — it never enters a rendered
 artifact or the `export profile` payload, so §15.1 byte parity is untouched. The
 line carries no private row: `units` is a COUNT, `digest` is one-way, and nothing
 a secret could be read from. There is no rotation in S503a — the file grows by one
@@ -1763,7 +1765,7 @@ payload · `1` a load/`--now` failure or an egress refusal · `2` usage (includi
 `--confirm` on any other `post` subcommand is usage (`2`). Offline: no network.
 The GATE's only clock read is the audit timestamp (`at`); a surface may keep its
 own declared clock read, which the gate neither adds nor removes (`post export`'s
-`--date` defaults to now, §7.1's post notes; `preview`'s freshness stamp, §7.9).
+`--date` defaults to now — docs/post-mvp.md; `preview`'s freshness stamp, §7.9).
 
 ## 8. GEO as a cross-cutting layer
 

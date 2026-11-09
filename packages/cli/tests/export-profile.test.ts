@@ -27,7 +27,15 @@
  */
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,10 +45,19 @@ import { afterAll, describe, expect, it } from "vitest";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI = join(__dirname, "..", "dist", "index.js");
 const REPO_ROOT = join(__dirname, "..", "..", "..");
-const FIXTURE = join(__dirname, "fixtures", "export-profile");
-const GOLDEN = join(FIXTURE, "golden.json");
+/** The committed fixture is a SOURCE, never the workspace under test: the CLI
+ *  writes `.pasco/egress/` into whatever workspace it is given (D28, #503), so a
+ *  run against the committed tree would accumulate state there and race the
+ *  parallel workers that copy it. The copy lives INSIDE the repo so
+ *  `source.commit` still resolves to this repository's HEAD (the goldens pin it). */
+const FIXTURE_SRC = join(__dirname, "fixtures", "export-profile");
+const FIXTURE = join(REPO_ROOT, ".vitest", `export-profile-${process.pid}`);
+mkdirSync(join(REPO_ROOT, ".vitest"), { recursive: true });
+cpSync(FIXTURE_SRC, FIXTURE, { recursive: true });
+rmSync(join(FIXTURE, ".pasco"), { recursive: true, force: true });
+const GOLDEN = join(FIXTURE_SRC, "golden.json");
 /** The DEFAULT view (D27 public projection); `golden.json` is `--all`. */
-const GOLDEN_PUBLIC = join(FIXTURE, "golden-public.json");
+const GOLDEN_PUBLIC = join(FIXTURE_SRC, "golden-public.json");
 const SCHEMA = join(REPO_ROOT, "schema", "profile.schema.json");
 
 interface RunResult {
@@ -59,7 +76,7 @@ function run(args: string[], cwd?: string): RunResult {
   return { code: res.status ?? -1, stdout: res.stdout ?? "", stderr: res.stderr ?? "" };
 }
 
-const tempDirs: string[] = [];
+const tempDirs: string[] = [FIXTURE];
 function tempDir(): string {
   const dir = mkdtempSync(join(tmpdir(), "pasco-export-profile-"));
   tempDirs.push(dir);

@@ -457,8 +457,9 @@ disclose; the same rule gates `pasco build`. Re-running with
 `--confirm <that digest>` authorizes exactly that manifest, and the egress is
 appended to `.pasco/egress/audit.log` (operation · digest · `keyId: null` until
 S503b · timestamp). A refusal writes nothing and records nothing, so it is never
-a bypass. The digest covers the payload, not `source.commit`/`generatedAt`, so a
-commit that moves no data keeps it valid.
+a bypass. The digest covers the disclosed profile view (`{version, scope, profile}`),
+not the envelope (`schemaVersion`/`engine`/`source`), so a commit that moves no
+data keeps it valid.
 
 ```json
 {

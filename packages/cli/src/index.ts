@@ -73,7 +73,10 @@ The cycle:
   pasco validate          schema + drift + geo (warnings)
   pasco build [platform]  write the per-platform artifacts
 
-Each command's tag says where it sits in the cycle: [write] · [read] · [check].
+Each command's tag says where it sits in the cycle: [write] · [read] · [check]. The
+tag is about the RECORD, not the engine's local .pasco/ state: preview writes its
+page and export profile/build append the D28 egress audit line there, and both stay
+[read] because neither edits content/ or the rendered profiles/ output.
 The rules behind it (fact-present, build's order, char caps): README.md in the installed package.
 
 Commands:
@@ -178,8 +181,9 @@ Common flags (after the command):
   --help, -h          Command help
 
 Exit codes: 0 ok · 1 schema/workspace failure, a .pascorc engine requirement that
-the installed CLI does not meet (validate · build · export profile · preview), or a data
-finding that blocks the
+the installed CLI does not meet (validate · build · export profile · preview), an
+egress refusal (build · export profile · post export without the matching
+--confirm, D28/SPEC §7.11), or a data finding that blocks the
 command (edit: the address is not one row or the edit does not change the
 published artifact; audit: at least one FAIL finding; entity: no canonical @id;
 export ai-policy: an unsourced or stale UA list, a robots.txt whose agent↔group
@@ -691,9 +695,10 @@ The normalized profile for programmatic consumers (SPEC §7.5, #348; v2/D27 by
                 run and a private -> public transition is privileged whenever the
                 last recorded egress did not see the unit as public: without the
                 matching digest the command refuses (exit 1), prints the manifest
-                digest and writes nothing. The digest covers the exact payload that
-                leaves (the public projection, or the SSOT for --all) — not the
-                run metadata, so a commit that moves nothing keeps it valid.
+                digest and writes nothing. The digest covers the disclosed profile
+                view ({version, scope, profile} — the public projection, or the SSOT
+                for --all), not the envelope (schemaVersion/engine/source): a commit
+                that moves no data keeps it valid.
                 Every egress appends one line to .pasco/egress/audit.log
                 (operation, digest, keyId null until S503b, timestamp).
 
