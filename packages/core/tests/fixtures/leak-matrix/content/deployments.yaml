@@ -1,6 +1,9 @@
 # The §19 ledger: a record for a public unit and one for a private unit. The
 # private record's KEY is the leak vector — it names the unit — so the public
 # projection must drop it (S4b), and no public surface may re-derive it.
+# `achievements` is NOT a valid ledger key here (the §19 key space rejects
+# `achievements:<id>` at load), so the achievements vector lives in
+# `releases[].changedUnits` — a free string list — not in this map.
 identity:
   github-readme:
     deployedAt: "2026-01-01T00:00:00Z"

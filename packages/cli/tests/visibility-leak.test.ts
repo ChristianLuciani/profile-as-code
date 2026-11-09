@@ -212,6 +212,12 @@ describe("D27 leak — the export surface", () => {
       "example.com/unlisted-work",
       "example.com/absent-work",
       "v-private-only",
+      // `achievements` carries `visibility` but is NOT in the migration set: a
+      // key filter that reused that set kept `achievements:<id>` (the leak the
+      // fourth pass found). Both the ledger address and the release id prove the
+      // fixture carries them in the SSOT.
+      "achievements:secret-ach",
+      "v-ach-only",
     ]) {
       expect(allRun.stdout, `fixture control: ${marker} missing from --all`).toContain(marker);
     }
@@ -228,7 +234,11 @@ describe("D27 leak — the export surface", () => {
     expect(projected.experience.map((row) => row.id)).toEqual(["pub-exp"]);
     expect(projected.achievements.map((row) => row.id)).toEqual(["pub-ach"]);
     expect(Object.keys(projected.deployments).sort()).toEqual(["identity", "projects:pub-proj"]);
+    // Both of these address `achievements:secret-ach`, which the §19 key filter
+    // missed while it read the MIGRATION set instead of the visibility set.
+    expect(projected.deployments["achievements:secret-ach"]).toBeUndefined();
     expect(projected.releases.map((release) => release.id)).toEqual(["v-mixed"]);
+    expect(projected.releases.some((release) => release.id === "v-ach-only")).toBe(false);
   });
 });
 
@@ -359,5 +369,49 @@ describe("D27 leak — the fixture matrix (the claim this file's header makes)",
       }
     }
     expect(gaps, "the leak matrix is missing a block × state cell").toEqual([]);
+  });
+
+  it("every non-public row carries a scan token (a row without one is blind)", () => {
+    // The other half of the same class: the case above proves a CELL exists,
+    // this one proves the cell is VISIBLE to `expectNoLeak`. A non-public row
+    // added without a marker would pass every surface green while the sweep
+    // stayed blind to it — derived from the fixture, never asserted in prose.
+    const rows = load(FIXTURE) as unknown as Record<string, { visibility?: string }[] | undefined>;
+    const blind: string[] = [];
+    for (const block of [
+      "credentials",
+      "artifacts",
+      "projects",
+      "experience",
+      "achievements",
+    ] as const) {
+      for (const [index, row] of (rows[block] ?? []).entries()) {
+        if (row.visibility === "public") continue;
+        const text = JSON.stringify(row);
+        if (!MARKERS.some((marker) => text.includes(marker))) blind.push(`${block}[${index}]`);
+      }
+    }
+    expect(blind, "a non-public row carries no MARKERS token — the sweep cannot see it").toEqual(
+      [],
+    );
+  });
+});
+
+describe("D27 leak — the `block[id]` selector (the stable address)", () => {
+  it("keeps addressing the same public row across the filter", () => {
+    // SPEC §18.5 recommends `block[id]` because the index form shifts when a
+    // non-public row is removed. The mitigation has to be exercised, not only
+    // documented: `pub-exp` sits at workspace index 0 but `secret-exp` (index 1)
+    // and `absent-exp` (index 3) are gone from the view.
+    const profile = load(FIXTURE);
+    expect(renderFacts("{{fact:experience[pub-exp].org}}", profile).text).toBe("Public Org");
+    expect(renderFacts("{{fact:projects[pub-proj].name}}", profile).text).toBe("PUBLIC-PROJ-NAME");
+    // A non-public row's id never resolves, in either form.
+    expect(renderFacts("{{fact:projects[secret-proj].name}}", profile).dangling).toContain(
+      "projects[secret-proj].name",
+    );
+    expect(renderFacts("{{fact:experience[absent-exp].role}}", profile).dangling).toContain(
+      "experience[absent-exp].role",
+    );
   });
 });

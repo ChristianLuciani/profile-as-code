@@ -13,9 +13,16 @@ minor versions may contain breaking contract changes.
   suite (#498, D27/S4c)** — `github-readme` re-applies `isPublicEntry()` to the
   `projects` block it emits (credentials and artifacts already did), so a
   hand-built `PlatformProfile` slice — a documented seam that accepts them —
-  cannot smuggle a private row past the renderer. `pasco post` now filters
-  `achievements[]` as well: its `{{fact:<pointer>}}` grammar walks the profile by
-  path, so the one unfiltered visibility block stayed readable. The leak matrix
+  cannot smuggle a private row past the renderer. `pasco post` reads the public
+  PROJECTION (`publicProjection()`) instead of a hand-rolled filter: its
+  `{{fact:<pointer>}}` grammar walks the profile by path, so the blocks a partial
+  filter forgot stayed readable (`achievements`, and the release events that
+  address them). `notPublishableKeys()` — the §19 address filter behind the
+  projection and the release/presence boards — now reads the FIVE blocks that
+  carry `visibility` (the four migration blocks plus `achievements`): a release
+  with `changedUnits: [achievements:<private-id>]` or a `deployments` record
+  keyed by one no longer survives the public view, which the previous filter
+  (reusing the MIGRATION set) let through. The leak matrix
   ships as `packages/cli/tests/visibility-leak.test.ts` over the committed
   `packages/core/tests/fixtures/leak-matrix/` workspace: a `public` row plus
   every non-public state the schema can represent for the block (`private`,

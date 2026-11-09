@@ -2415,8 +2415,12 @@ visibility blocks before a renderer sees the slice (and re-counts a view's
 reads itself (`experience` → the `jobTitle`/`worksFor` pair of the one
 `currentRole()` pick, `credentials` → `hasCredential`), because `pasco entity
 --jsonld` calls it directly; `publicProjection()` (§7.5) does the same for
-`export profile`, `audit --public` and dual completeness; and `pasco post`
-filters the five blocks before resolving a `{{fact:<pointer>}}`, whose grammar
+`export profile`, `audit --public` and dual completeness — and its §19 address
+filter (`notPublishableKeys`) reads the FIVE blocks that carry the field, the
+four migration blocks **plus `achievements`**, so a `releases[]`/`deployments`
+record that addresses a private unit is dropped even though `achievements` is
+never migrated; and `pasco post` reads that same projection before resolving a
+`{{fact:<pointer>}}`, whose grammar
 walks the profile by path and would otherwise read any block the filter missed.
 That pointer addresses the **filtered** array: removed rows are compacted, so an
 index written against the SSOT can address a different public row — or dangle —

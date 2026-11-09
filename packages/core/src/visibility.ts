@@ -19,10 +19,21 @@ import type { Deployments, LoadedProfile, Profile } from "./types.js";
 
 /** The row blocks whose visibility is optional with absent = private (v2.0).
  *  `achievements` is deliberately absent: it keeps `visibility` REQUIRED (v1.16,
- *  `pasco log` writes `private`), so there is nothing to migrate there. */
+ *  `pasco log` writes `private`), so there is nothing to migrate there.
+ *  This is the MIGRATION set — not the set of blocks that carry the field (see
+ *  {@link PUBLISHABLE_BLOCKS}); conflating the two leaked a private
+ *  `achievements:` address through the public projection. */
 export const VISIBILITY_BLOCKS = ["credentials", "artifacts", "projects", "experience"] as const;
 
 export type VisibilityBlock = (typeof VISIBILITY_BLOCKS)[number];
+
+/** Every row block that carries `visibility` (§18.5) — the four migration
+ *  blocks plus `achievements`, whose field is required. The §19 address space a
+ *  record can name is the union, so `publicProjection()` and the release/presence
+ *  boards must filter over THIS set, never over the migration one. */
+export const PUBLISHABLE_BLOCKS = [...VISIBILITY_BLOCKS, "achievements"] as const;
+
+export type PublishableBlock = (typeof PUBLISHABLE_BLOCKS)[number];
 
 /** One row that predates schema v2.0: it has no explicit visibility and would
  *  become private if the engine read it (D27). */
@@ -55,18 +66,19 @@ export function needsVisibilityMigration(profile: Pick<Profile, VisibilityBlock>
 
 /**
  * The §19.2 ledger keys whose entry is NOT publishable (D27). Only the blocks
- * that carry `visibility` can appear here: `identity`, `bios`, `headlines`,
- * `skills`, `publications`, `education`, `press` and the handles carry no field
- * and are publishable by contract. A row without an `id` is not a trackable
- * unit, so it has no key to omit (§19.2: addressed ⇒ resolvable).
+ * that carry `visibility` can appear here — {@link PUBLISHABLE_BLOCKS}, i.e. the
+ * four migration blocks **plus `achievements`**: `identity`, `bios`,
+ * `headlines`, `skills`, `publications`, `education`, `press` and the handles
+ * carry no field and are publishable by contract. A row without an `id` is not a
+ * trackable unit, so it has no key to omit (§19.2: addressed ⇒ resolvable).
  *
  * One home, three readers: `publicProjection()` filters with it, and
  * `releasePlan`/`presenceBoard` report it as `notPublishableUnits` (§7.8).
  */
 export function notPublishableKeys(profile: LoadedProfile): Set<string> {
   const keys = new Set<string>();
-  for (const block of VISIBILITY_BLOCKS) {
-    for (const row of profile[block] ?? []) {
+  for (const block of PUBLISHABLE_BLOCKS) {
+    for (const row of (profile[block] ?? []) as { id?: string; visibility?: string }[]) {
       if (row.id !== undefined && !isPublicEntry(row)) keys.add(`${block}:${row.id}`);
     }
   }
