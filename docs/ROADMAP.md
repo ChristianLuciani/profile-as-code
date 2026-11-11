@@ -1,6 +1,6 @@
 # Roadmap — de acá a lo planificado
 
-> **Generado** 2026-09-24 · **actualizado** 2026-11-09 (M12/S503a: gate de egreso mínimo) desde el estado verificado del repo (no del declarado).
+> **Generado** 2026-09-24 · **actualizado** 2026-11-11 (triaje post-merge #517/#518: D28/S503a, D29, M12 y filas de ingestión) desde el estado verificado del repo (no del declarado).
 > Canónico del plan: `docs/SPEC.md` §12. Este documento agrega **qué está realmente hecho**
 > y **en qué orden conviene seguir**, con la evidencia de cada afirmación.
 > Regenerar/corregir cuando la evidencia cambie.
@@ -19,6 +19,7 @@
 | **M8** media pipeline | ✅ | **✅ contrato sí, deploy no** | `assets/` + `manifest.json` + `collectMedia` en core; los playbooks de deploy son M4 |
 | **M9** training-time corpus presence | ⏳ contrato sí, decisión **deferida** (Q10, post-M3) | **✗ no empezado** — piso ya definido: **privado-first** (bloquea crawlers de entrenamiento, sin licencia abierta) con opt-in explícito del dueño | `docs/research/03-training-time-visibility.md` (PR #135 + corrección de consentimiento, 2026-10-05); SPEC §12 M9 + §14 Q10 |
 | **M12** egress authorization (D28) | pendiente | **⚠️ parcial — S503a ✅ / S503b ✗** — gate mínimo: el manifest de lo que sale (digest `sha256`), detección `private → public` contra el último egreso registrado y de `--all`, `--confirm <digest>` o rechazo (exit 1, sin escribir), y audit log append-only en `.pasco/egress/audit.log` (`keyId: null` — **sin firmas todavía**). Falta S503b: recibo firmado (hardware key/WebAuthn), `--all` break-glass y agente read-only/keyless | `packages/core/src/egress.ts`, `packages/cli/src/egress-gate.ts`, `packages/{core,cli}/tests/egress*.test.ts`; contrato SPEC §7.11 |
+| **M13** `curate` — divulgación con alcance (D29) | ⏳ contrato ratificado (D29, §7.12) | **✗ contrato sí, código no** — contrato ratificado; sin implementación ni decisión de slice | SPEC §5 D29, §7.12; #501 |
 
 **Fuera de los milestones — lo que la serie `0.2.0` → `0.3.6` entrega (2026-10-09 → 2026-10-26; 0.3.6 en preparación):**
 
@@ -82,9 +83,12 @@ publicación de #242 en vez de una segunda tabla de caps.
 **M12 · Egreso autorizado (#503, D28)**
 Publicar y exportar son **actos autorizados**, no ediciones de archivo. D27 (#502) dejó `private`
 como default y el export público; #503 agrega el gate de egreso: detectar `private → public` y
-`export --all` contra el ledger, exigir un **recibo firmado** sobre el manifiesto exacto (llave
-hardware/WebAuthn con presencia humana; 2FA como fallback), registrar la divulgación en un audit
-log y mantener al agente **read-only y sin llaves**. `--all` es break-glass, nunca el default.
+`export --all` contra el último egreso registrado, exigir un **recibo** sobre el manifiesto exacto
+(hoy `--confirm <digest>`; **S503b**: firma con llave hardware/WebAuthn con presencia humana; 2FA
+como fallback), registrar la divulgación en un audit log y mantener al agente **read-only y sin
+llaves**. `--all` es break-glass, nunca el default. **S503a ya está en `main`** (§7.11); el
+registro de autorización todavía es falsificable y eso lo cierra **#520** (integridad del baseline
+y del audit log, on-ramps con `--confirm`).
 
 El **vault en reposo no se construye**: se recomienda/evalúa una capa OSS existente (p. ej.
 SOPS+age, git-crypt, Cryptomator) y se contribuye upstream solo si hay un gap real. `curate`
@@ -92,6 +96,11 @@ SOPS+age, git-crypt, Cryptomator) y se contribuye upstream solo si hay un gap re
 con nombre, con `expires`, aditivo —solo suma filas nombradas, nunca da vuelta una `visibility`—
 con el ledger en `content/curations.yaml` y sin lector propio); #503 decide *quién autoriza*
 publicarlo o exportarlo (D28). La implementación de cualquiera de los dos es su propio slice.
+
+**El ingreso de datos que hace útil D27/D29** — sin él el registro sigue publication-shaped:
+- **#508** `pasco migrate` general (clase A aditiva / clase B `--apply-rewrites`, nunca borra;
+  tabla pineada al schema). El `migrate` de v2.0 que D27 ya promete es su primera instancia.
+- **#478** el scaffold de `init` no distingue qué es artefacto de deploy en `profiles/`.
 
 ### Después — superficie por plataforma
 
@@ -123,6 +132,19 @@ checklist y la sección libre de `docs/STANDARDS.md` que siguen en presente con 
 vieja. Chico, docs-only; una sesión lo cierra.
 **8 · #175** — el estrato de respuesta externa se publica cuando existan 3 PRs externos
 (bloqueado por naturaleza — el trigger es el mundo, no el repo).
+
+### Ahora — correcciones abiertas (triaje 2026-11-11)
+
+- **#519** — el test de `cite-check` afirma «no `rate`» sobre un output que embebe el path del
+  checkout: falla en cualquier worktree cuyo nombre contenga `rate` (le costó un pase de
+  diagnóstico durante el merge de #518). Arreglo: acotar la aserción al reporte, no al path.
+- **#507** — `release:verify` hace UNA sonda por paquete y trata el 404 transitorio de npm
+  como `FAIL` mientras el registry procesa (medido en el corte de v0.5.0). Arreglo: deadline +
+  reintento + estado `processing`.
+- **#521** (PR abierto) — D29 cita mal `#520/#497` como el code path de `selection.views`;
+  corrige a los archivos reales.
+- **#493** — auditabilidad: el claim sin postura viaja al CV. Es del eje de **D26/D29** y su
+  fix de dato vive en el workspace del operador, no acá. Espera decisión A/B/C.
 
 ### Transversal — no milestone
 
