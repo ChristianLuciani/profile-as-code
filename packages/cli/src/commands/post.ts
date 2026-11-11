@@ -289,11 +289,20 @@ export function renderFacts(
   return { text: rendered, dangling };
 }
 
-/** D27: every post surface (task, check, export) is public-facing, so it reads
- *  the ONE public projection from core — the same filter `build`/`export profile`
- *  use. A local copy here filtered four of the five visibility blocks and let a
- *  `private` achievement reach the outbound Postiz payload (review of #503/S503a,
- *  F1); delegating removes the second rule instead of patching it. */
+/** D27: the post task/check bundle is a public-facing surface, so it reads the
+ *  SAME public projection every other egress reads — not a hand-rolled subset.
+ *  A partial filter here was a real leak: the `{{fact:<pointer>}}` grammar walks
+ *  the profile by path, so the blocks it forgot stayed readable
+ *  (`{{fact:achievements[1]…}}` and `{{fact:releases[0].id}}` both returned
+ *  non-public values), and `deployments` is keyed by the §19 address of the unit
+ *  it tracks. `publicProjection()` drops the five visibility blocks AND the
+ *  records/events that address them, and strips inbound pointers — one home,
+ *  the §7.5 view.
+ *
+ *  A pointer then addresses the FILTERED view — from `factLines` on, indices are
+ *  the public rows', so an index written against the SSOT can address a
+ *  different row (or dangle) once a row is removed. The stable selector is the
+ *  `block[id]` form `resolveFact` already supports. */
 function publicFacts(profile: LoadedProfile): LoadedProfile {
   return publicProjection(profile);
 }
