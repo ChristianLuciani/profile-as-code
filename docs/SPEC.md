@@ -31,7 +31,7 @@ filed, and the CV is then reconstructed from memory. The engine therefore owes a
 **capture path** and a **retrieval**, never another renderer. D23 is not
 reopened: `release` remains the public fan-out over the record, and private
 scoped disclosure (`curate`) is a downstream act, recorded separately as its own
-epic (#501), not decided here.
+epic (#501) and ratified there as **D29**; this row does not decide it.
 `record-as-code` is the working name of this contract layer, not a product
 rename.
 
@@ -155,6 +155,7 @@ publishing is a deliberate act.
 | D26 | **The CV is a view consumed outside this repo; the pipeline is a consumer, not a renderer** (issue #491, 2026-11-07; operator verdict in session `69e4f277-1172-4ce7-8a11-e8eafe04aded`): a CV/PDF artifact reads `pasco export profile --json` — the public projection by default (D27) — and lives outside this repo, pinned to the export's `source.commit`. The engine owes the **export contract** (#348), the contract gate `doctor` reports and the **honesty findings** (`audit`, `basis`, `visibility`) — never layout, pagination or an ATS check. `export` v2 (`schemaVersion "2"`, `scope`) is the contract a consumer pins, shipped by the #498 umbrella (S4b); private data reaches a specific surface (the CV first) only through `curate` (#501), never by flipping `visibility` (D27) | Why: JSON Resume/yamlresume already own CV→PDF (2026-08-07 prior-art: the gap was SSOT + multi-platform + GEO, not a renderer), and the external pipeline measured three drift classes the engine cannot see (#348) plus a false claim the gates let through (#493) — the defect is in the record, not the page. D25 makes the SSOT the asset and every profile a view; D26 names the one view that is consumed outside, so the engine owes the payload and its defensibility, never the document. Alternatives: **in-engine renderer** (rejected — owns pagination/fonts/DOCX for no contract gain); **delegate to yamlresume** (rejected — its schema has no `achievements`/`basis`/`visibility`, so delegating drops the honesty layer); **no declared surface** (rejected — the CV already exists as a real consumer and drifts unseen, so the engine would owe it no versioned payload) |
 | D27 | **Privacy by default: visibility is opt-in** (issues #494/#498/#501, 2026-11-07; operator verdict): every entry that carries `visibility` (`credentials`, `artifacts`, `achievements`, `projects`, `experience`) is **`private` when the field is absent**; `achievements` keeps the field required and `pasco log` writes `private`. `identity`, `bios` and `headlines` carry no field and remain public. `unlisted` stays an explicit state that no renderer emits. Publication is an explicit act: only `visibility: public` entries reach renderers, JSON-LD, `release`/presence and the **default export**. Existing workspaces migrate with `pasco migrate` (schema v2.0), which writes `visibility: public` on every existing entry to preserve today's output; new workspaces and new rows default private. `pasco export profile` defaults to the **public projection** (`--public` names it); `--all` returns the full SSOT. `completeness` reports workspace and public numbers; `geoCheck`/`driftCheck` read the public projection; `validate`/`audit` read the SSOT (`audit --public` for the publishable view). Private data reaches a specific surface (the CV first) only through `curate` (#501), never by flipping visibility | The current rule publishes by omission: absent visibility meant public (§18.5), so a user cannot register internal work without risking a renderer, and a forgotten field is a leak. Making private the default turns publication into a deliberate act and keeps the record usable as a private asset. The cost is a breaking schema major plus a migration; accepted because public-by-default is the leak the operator is closing. Alternatives: **keep absent=public** (rejected — the exact leak); **CLI-only default private** (rejected — hand-authored rows would still publish); **visibility required with no default** (rejected — every existing row fails until migrated and the value still has to be chosen; the migration is the explicit step); **a global `includePrivate` flag** (rejected — a bypass of per-entry visibility; scoped disclosure is `curate`) |
 | D28 | **Publishing and exporting are authorized acts, not file edits** (issue #503, 2026-11-07; operator verdict; implementation tracked by #503): a `private → public` transition and a full `--all` export are privileged operations; the engine must refuse them at egress without an explicit authorization receipt over the exact manifest. The receipt is verified offline (hardware key/WebAuthn with user presence; 2FA is a fallback), the operation is appended to an audit log, and an agent environment is read-only and keyless. D27 (#502) makes private the default and the export public; this row adds the authorization layer. `curate` (#501) decides *what* is disclosed; D28 decides *who authorizes* it. The vault at-rest is not an engine deliverable: recommend an existing OSS layer and contribute upstream only for a real gap | D27 reduces accidental publication but does not authorize it: a field edit or `--all` still publishes, and an agent with write access can execute it. A warning is not a control; a signed receipt over the exact diff is. The engine keeps the contract (detect, verify, refuse, log) and the wrapper holds keys/2FA/encryption, preserving D2/D14/D20. Alternatives: **warning only** (rejected — agents ignore or bypass it); **TOTP in the same environment** (rejected — relayable by the agent); **build a vault in-engine** (rejected — at-rest encryption is not egress control and key management is out of scope); **block only the edit** (rejected — hand edits and agent writes still reach publication; gate at egress). **Shipped so far (S503a, §7.11):** the gate over `build`/`export profile`/`post export` — the manifest digest, the private → public comparison against the last recorded egress, the `--confirm` refusal and the append-only `.pasco/egress/audit.log` with `keyId: null`; the signed receipt and the keyless agent are S503b |
+| D29 | **`curate` is scoped disclosure: a named, time-boxed bundle over the record** (issue #501, 2026-11-07; operator verdict — ratifies the contract; implementation is its own slice and this row alone changes no behavior): private data reaches a specific surface by an explicit grant, never by editing `visibility` (D27) and never by widening the public projection. A **curation** is `{id, surface, recipient: {label, token}, purpose, expires, view?, include: [<block>:<id>], created}` — `surface` is the consumer it is handed to (the CV first, D26), the optional `view` narrows it through the existing D22 selection (subset-only, never an edit), and `include` names individual `private`/`unlisted` rows by their stable `id`. There is deliberately **no `exclude` field**: narrowing is the `view`'s job (a view rule already carries `excludeKeys`/`excludeTags`, §21.2, applied to the rows the surface receives), so a curation-level deny would only restate it while inviting the reading that a grant can subtract a row. A curation is **additive and scoped**: it only ADDS rows the surface does not already receive, never removes or edits a row, and never flips an entry's `visibility`, so one grant cannot become the new default. Grants are **portable and irrevocable by construction**: a consumer keeps the bytes it was given (the export's `source.commit` pins them), so `expires` bounds *new* materializations and **not** the delivered artifact — said out loud, because an expiring grant that can be re-read is not a revocation, and this decision does not pretend to be one. The **ledger is data** (`content/curations.yaml`, the D18 pattern: diffable, `pasco`-owned, append-with-supersede, never rendered and never part of any projection, `export profile` included), holding an opaque `recipientToken` and nothing that identifies a person beyond the operator's own `label` — no email, no handle, no address (D27's privacy rule binds the ledger itself); revoking sets `revoked` and keeps the record. v1 is deliberately bare: `public` rows plus the explicitly curated ones, a `private` row never enters by default, and there is **no reader** — no hosted reading room, no auth server, no engine-served per-recipient URL | D26 gives the CV the export contract and D27 makes publication deliberate, but neither answers *"how does ONE private row reach ONE consumer without becoming public?"* — the only alternatives today are flipping `visibility` (the leak D27 closes) or `--all` (the full SSOT, gated by D28 for good reason). A granted, expiring, auditable bundle is the smallest answer that keeps the record private while letting a real consumer see it. Alternatives: **per-recipient profiles** (rejected — a second truth, and §9 already owns where data lives); **flip `visibility` for the handoff** (rejected — publication by edit is exactly what D27/D28 close); **a hosted viewer** (rejected — an access-control service is a product, and an offline engine cannot be the authorization point for it); **read-time keys** (rejected — a consumer outside the engine cannot hold one, and it would make the bundle non-portable); **delete-on-revoke** (rejected — the consumer's copy is already out, so deletion would be a false promise and a lost audit trail) |
 
 > **Decision note — the release path (2026-10-24, issue #307).** The release path is the **tag
 > run** (guard → build/tests → cohort + CLI over OIDC → GitHub Release → pages deploy);
@@ -492,6 +493,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco entity [--json \| --jsonld [--out <file> [--force]] [--bare]] [--lang <l>]` | the **entity projection** for surfaces this engine does not render (issue #287): the schema.org entity assembled by `structuredData()` — `@id`, `sameAs`, type and fields — plus the readiness `gaps` (geoCheck codes, verbatim). `--json` emits `{ schemaVersion: "1", entity: { id, type, name, sameAs, email }, gaps: [{ code, detail }], jsonld: null, faqJsonLd }` — `faqJsonLd` is the assembler's `FAQPage` node, or `null` when `faq[]` is undeclared (#360); `--jsonld` emits the **same assembler output** the renderers embed as a paste-ready `<script type="application/ld+json">` block, plus the `FAQPage` block after it when the workspace declares `faq[]` (never an empty FAQPage, no invented `@id`, `faq[].source` as `acceptedAnswer.citation`); `--bare` = raw JSON (the entity object alone, or a JSON array of the emitted nodes in block order when the FAQPage is present); `--out <file>` writes the bytes atomically and refuses an existing file without `--force`. **Both modes resolve one `lang`** (`--lang`, else `.pascorc defaults.lang`) so a gap and the emitted field cannot disagree. **One assembler, no CLI-local builder**: the projection never invents `@id` and never re-derives the entity or the FAQPage (§15.4). Exit `1` when `@id` is absent (the entity has no declared home) or the `--out` write fails; `0` otherwise; `2` is usage. Offline and deterministic (D19). Contract: §7.2 |
 | `pasco export ai-policy [--out <dir> \| --check [--file <robots.txt>]] [--json] [--lang <l>]` | the §12 M9 stance as an artifact (issue #290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed `ai-retrieval` crawlers allowed, the listed `ai-training` crawlers disallowed; the file declares that an unlisted crawler is not restricted, each UA commented with its registry entry/operator/source/date), `llms.txt` (the workspace index, with a coverage assertion over every document it claims) and `AI-POLICY.md` (allowed · blocked · the explicit-list limit · who can change it · the date, quoting the M9 floor verbatim); `--check` exits `1` on an incomplete or unsourced entry, a duplicate token, an `as_of` that is malformed/future/older than 180 days, or a `policy.as_of` that is stale or predates its rows; `--check --file` verifies a **committed** `robots.txt` against the registry instead of the list (#477) — parsing it by group (RFC 9309 §2.2) and exiting `1` with one finding per fact (`missing` · `duplicate` · `wrong-group` · `wildcard` · `orphan-rule`), which catches the two lists swapped — a structurally valid file that states the opposite policy; that mode reads no workspace and no clock. `--out` refuses to write an unsourced or stale list. The crawler list is projected from `platforms/registry.yaml` (`ai:`) by `pnpm gen:platforms` — never a hardcoded UA list in the CLI. Offline; `--check` alone is the declared clock-reading path. Contract: §7.3 |
 | `pasco cite-check [<answers.ndjson>] [--json]` | the **citation matcher** over saved answers (issue #291): reads the runner's NDJSON (stdin when no path), matches the workspace's declared entity against each answer and emits, per answer and **never aggregated**, `{ cited, confidence, spans, reasons }`. Fixed ladder — `citation-url` (a citation on the entity's own page or its `sameAs`/claimed-handle set — host, and the declared path or a descendant) and `exact-name` (word-bounded, case- and accent-normalized) are **high**; `alias` (`identity.orgName`) and `handle` (a declared handle) are **medium**; `partial` (any contiguous multi-token prefix of the name, ≥ 2 tokens) is **low**, and `low` is never a citation downstream. The matcher **refuses to guess**: a one-word name hit whose sentence carries no declared disambiguator is ambiguous (`cited: false`, with the longer capitalised reading quoted as `competing:<phrase>`), a mention inside a contrast clause is not a citation, and a declared qualifier or an adjacent capital never disqualifies a hit by itself. Offline, no model, no clock (D19). Exit `0` on a successful read (a non-citation is data, not a failure) · `1` the workspace cannot load, or the input path cannot be read · `2` usage or **malformed NDJSON** (never a silent skip). Contract: §7.4 |
+| `pasco curate <id> [--json] [--now <iso8601>]` · `pasco curate --list [--json]` | the **scoped disclosure** of a named bundle over the record (D29, issue #501; **contract only — not implemented**, §7.12): `<id>` materializes one curation from `content/curations.yaml` for the surface it names — the D22 view derivation plus the explicitly `include`d `private`/`unlisted` rows — and never for anything else. Additive only: it adds named rows to what the surface already receives, never removes or edits one and **never flips an entry's `visibility`** (D27), so the output is strictly narrower than the public projection. `--list` prints the ledger as data (id · surface · `expires` · `revoked`), refuses to render it nowhere else, and `export profile` never carries it. A curation without `expires` is refused at load (absence never decides); an expired one is listed and refused. Materializing is an egress act over the exact manifest, so it carries the D28 receipt obligation like a public export, and every curated row is named in both the artifact and the receipt (`curated:<id>`). There is **no reader and no retrieval endpoint** (§7.12). Exit `0` materialized or listed · `1` a load/schema failure (D12), a malformed `--now`, or a curation refused by name — unknown `id`, missing `expires`, `expires` already past, or revoked · `2` usage (no `id` without `--list`, `--list` with an `id`). `--list` never exits `1` for an expired or revoked grant: it lists them WITH their state and exits `0` — refusing to *materialize* is the `1`, listing is not (the ordinary/default distinction §7.12 draws). Contract: §7.12 |
 | `pasco export profile [--json] [--now <iso8601>] [--all\|--public]` | the **normalized profile** for programmatic consumers (issue #348): `{ schemaVersion, engine, source: { commit, generatedAt }, scope, profile }`. **Default: the public projection** (D27); `--public` names it, `--all` returns the full SSOT. In `--all`, `profile` is exactly what `core.load()` returns — **every root the workspace declares, plus every *list* root defaulted to `[]`; an optional *object* root (`newsletter`, `podcast`, `audiences`, `active`) appears only when declared** (no valid empty value exists — §7.5); in the public projection the same roots are present with visibility filtered (private/unlisted entries and their ledger records omitted). `artifactRefs` stay ids a consumer joins to `profile.artifacts[]` (`load()` already refuses a dangling ref), `publications[].url` as declared, `deployments` included in `--all`; the public projection carries only records for public units — never a CLI-local rebuild and never `compile(profile, platform)`'s platform slice (§15.4). `schemaVersion` (`"2"`) is the frozen payload version a consumer refuses if it does not know (§7.5); `scope` is `"public"` or `"all"`; `source.commit` is the workspace git `HEAD` (`null` outside a git repository); **no clock enters the payload** — `generatedAt` is `null` unless `--now` pins it verbatim after a real-calendar check, so two runs over one workspace produce byte-identical PAYLOADS (the run itself appends an audit line, §7.11; the egress audit timestamp is the one clock read on this path and never enters the payload). Exit `1` on a load/schema failure (D12), a malformed `--now`, or an egress refusal (below) · `2` usage (including `--all` with `--public`). **Egress (D28, §7.11):** `--all` is privileged on every run and a `private → public` transition is privileged against the last recorded egress; both require `--confirm <digest>` (refusal: exit `1`, `data.egress`, nothing emitted, nothing recorded) and every authorized egress appends one line to `.pasco/egress/audit.log`. Contract: §7.5 |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22). **The read report also ends with the derived publication truth per surface (§20.1, #242): ledger · artifact-vs-SSOT · declared cap — computed on every read, stored nowhere** |
@@ -1767,6 +1769,122 @@ The GATE's only clock read is the audit timestamp (`at`); a surface may keep its
 own declared clock read, which the gate neither adds nor removes (`post export`'s
 `--date` defaults to now — docs/post-mvp.md; `preview`'s freshness stamp, §7.9).
 
+### 7.12 `curate` — the scoped-disclosure contract (D29, issue #501)
+
+**Not implemented yet.** This section fixes the contract D29 ratifies; a slice of
+its own ships it. Nothing below changes behavior today, and nothing below
+reopens D27 (privacy by default) or D28 (egress authorization).
+
+**The object.** A *curation* is one named grant of named rows to one consumer:
+
+```yaml
+curations:
+  - id: cv-2026-acme                     # stable, unique, the handle audit and receipts use
+    surface: cv                          # the consumer it is handed to (D26: the CV first)
+    recipient: { label: Acme hiring, token: rt_7f3c… }   # operator's label + an OPAQUE token
+    purpose: application for the staff engineer role
+    expires: 2026-12-31                  # REQUIRED — an open-ended grant is refused (see below)
+    view: cv                             # optional: narrows via D22 selection, never widens
+    include: [experience:exp-consultant-independent, projects:p-clapps]
+    created: 2026-11-07
+```
+
+**Derivation, not a second record.** A curation is a *view derivation* like D22's
+`selection.views` (the issues #520/#497 code path), plus an explicit list of rows
+the surface would not otherwise receive. It is never a copy of the data: the rows
+keep their home in `content/*.yaml`, and a curated row that is later edited shows
+its new text — the grant names a row, it does not freeze it.
+
+**Additive and scoped.** A curation can only **ADD** rows to what the surface is
+already entitled to receive; it can never remove or edit one, and it **never
+flips an entry's `visibility`**. `visibility` stays the tool the user decides
+with; a grant is strictly narrower than the public projection, so it is not a
+second visibility model and cannot become the new default by accumulation.
+`include` names rows by their stable `id` — a `private` or `unlisted` row, never a
+block wildcard, so a grant always says out loud which rows it exposes.
+
+**Narrowing is the `view`'s job, so there is no `exclude` field.** A curation
+carries no deny list: the optional `view` already reaches a D22 view rule, which
+owns `excludeKeys`/`excludeTags` (§21.2) and applies them to the rows the surface
+receives. A curation-level `exclude` would restate that mechanism while inviting
+the one reading this contract must not permit — that a grant can *subtract* a row
+the surface was already entitled to. Adding a row is the grant; removing one is
+`visibility` (D27) or the view, never a curation.
+
+**One decision per curation.** There is no chain: a curation cannot build on
+another curation. Composition would hide what was promised to whom, and the
+ledger could no longer answer *"what did this recipient get?"* for a single row.
+
+**No silent rows.** A curated row passes the same publish filters as a public one
+(the §19.5 artifact bound and the renderer honesty rules apply unchanged), and it
+is **named explicitly in the artifact and in the authorization receipt** (D28).
+It never enters the default public projection, never enters another curation, and
+never reaches a renderer by omission.
+
+**Recipients are opaque tokens.** The ledger stores `recipientToken` and the
+operator's own `label`, and **nothing that identifies a person** — no email, no
+handle, no address. This is also the only identifier a consumer outside the
+engine may be given: it kills "make the recipient a fact", which would put a third
+party's contact data inside the record the engine publishes.
+
+**The ledger is data** (the D18 pattern): `content/curations.yaml`, schema-additive,
+diffable, `pasco`-owned, append-with-supersede. It is never rendered and never
+part of any projection — `export profile` included. Revoking records a fact
+(`revoked: <date>`) and **keeps the row**; it never deletes, because the audit
+trail is the point.
+
+**Versioning follows the workspace, not a payload.** `curations.yaml` carries **no
+`schemaVersion` field** — exactly like the D18 ledger (`deployments`, §19.1): the
+file is workspace data, and workspace data is versioned by the **contract schema**
+(`schema/profile.schema.json`), whose own changelog-in-`description` is the single
+version record ("additive since v1 (semver minor)"). A change to this shape
+therefore **adds a contract minor and appends one sentence to that description**;
+it never bumps a version inside the file and never needs a migration, because an
+earlier workspace with no `curations.yaml` (or an older one) still validates. The
+`schemaVersion` string a consumer pins belongs to **payloads the CLI emits**
+(`export profile`, §7.5), not to files the workspace stores — the two axes are
+separate, and conflating them is what this paragraph forbids. A breaking change to
+the ledger shape is not available under a minor: it would reopen D29 rather than
+edit this file.
+
+**Expiry bounds new materializations, not delivered artifacts.** A grant is
+portable and irrevocable by construction: once materialized, the consumer keeps
+the bytes (the export's `source.commit` pins them). `expires` therefore stops the
+*next* bundle cut and invalidates the *receipt* — an expired receipt is
+unverifiable, so the act needs reauthorization — but it is **not** revocation of
+an artifact already delivered. Delivery is like sending an email; the honest way
+to revoke is to revoke the authorization, and the contract says so rather than
+promising a deletion it cannot perform.
+
+**Absence never decides.** A curation without `expires` is **refused** at load
+(missing ≠ never expires). An expired curation is listed and refused by name.
+Nothing is inferred about the past: a consumer that received a bundle does not
+become a fact, and an expired grant is not silently "renewed". A curation that a
+re-cut no longer needs is superseded by a new `id`, not edited.
+
+**No reader.** There is no hosted reading room, no retrieval endpoint and no auth
+server: an offline engine cannot be the authorization point for a reader it does
+not operate, and an access-control service is a separate product (D29). v1 is
+**public plus explicitly curated rows**; a `private` row never enters by default.
+
+**Audit.** Rows exposed by a curation are reported by their curation
+(`curated:<id>`) and authorized exactly like public rows under D28 — being
+curated does not make an egress act less privileged. A row the operator wanted
+*and* granted, which the surface still does not receive, is a finding
+`curation-unreachable` at the existing WARN severity (no fourth level is added to
+the §7.1 envelope): without it the operator cannot tell "did not want" from
+"wanted and never got".
+
+**Bounds (§7.5).** Fields appear in the artifact shape; scope and `expires` are
+evaluated at run time against `--now`. There is no "validating" or "pending"
+state: the artifact either carries the rows or does not.
+
+**Alternatives rejected** — per-recipient profiles (a second truth, §9); flipping
+`visibility` for the handoff (publication by edit, the leak D27 closes); a hosted
+viewer (an access-control product the offline engine cannot authorize); read-time
+keys (a consumer outside the engine cannot hold one; it would make the bundle
+non-portable); delete-on-revoke (the consumer's copy is already out).
+
 ## 8. GEO as a cross-cutting layer
 
 **Epistemic status of the number (#433).** `geoCheck` returns an **index**, not a
@@ -2013,7 +2131,7 @@ policy — instead of keeping a second copy of the classification (#477). Decisi
 10. **M10 (fact selection, D22/§21 — issue #235)**: `.pascorc` → `selection.views` + `selectFacts()` in core + `build --view` + `status --selection` + the five selection findings; Phase 1 is **schema-free** (selection by §19.2 key, and `artifacts[].tags` finally read as §18.9 declared). Phase 2 adds optional `tags[]` to six entry blocks (not `skills`); **Phase 3** (several views per platform, `profiles/<view>/`) needs a D19 amendment and stays out of scope until asked for.
 11. **Answer-engine surface (schema v1.10 — issues #288 → #289 → #287)**: `identity.definition` + `faq[]` (the citable facts, #288) · the `structuredData()` projection **of `definition`/`faq[]`** ✅ shipped (#316: `description` from `definition` + a separate `FAQPage` JSON-LD node, only when the fields exist) · geoCheck v2 citability codes (#289 — ✅ shipped, freshness INFO, honest name-collision) · `pasco entity --json/--jsonld` (#287 — ✅ shipped, §7.2), the entity projection for surfaces the engine does not render: it emits `structuredData()`'s own output, never a second assembler — and since #360 its `--jsonld` carries the `FAQPage` block (plus `faqJsonLd` in `--json`), leaving the published-page embedding to M5 (`surface.kind`, D23).
 12. **M11 (presence audit — issue #283)**: `pasco audit --json` (§7.1) — the offline findings projection (three fixed classes, exit 1 on FAIL) over `load`/schema, `reconciledDrift`, `geoCheck`'s `faq-coverage` premise, the completeness `evidence` premise and the `fact-present` rule; `fact-present` executes in `pasco check` and compares the artifact `pasco build` last wrote against the SSOT render symmetrically. Scoring/prioritisation/branding stay in the consuming layer; the presence unit itself is **D23 (§5, §22, #262)** — every surface carries a `kind`, `releases[]` is the event, and `pasco presence` / `pasco release plan` derive the fan-out from the §19 ledger.
-13. **M12 (egress authorization — D28, issue #503)**: publishing and exporting are **authorized acts**, not file edits. D27 (#502) makes private the default and the export public; this milestone adds the gate: detect `private → public` and `--all` at egress, require a receipt over the exact manifest (S503a: the manifest digest echoed by `--confirm`; S503b: the signature — hardware key/WebAuthn with user presence, 2FA fallback), append the disclosure to an audit log, and keep agents read-only and keyless. `--all` is a break-glass path, never the default. The **vault at-rest is not an engine deliverable**: recommend/evaluate an existing OSS layer (e.g. SOPS+age, git-crypt, Cryptomator) and contribute upstream only for a real gap. `curate` (#501) remains the separate “what is disclosed” axis. Implementation is tracked by #503; the contract is D28. **S503a (shipped, §7.11):** the detection compares the public projection against the **last recorded egress** (`.pasco/egress/baseline.json`); that SUPERSEDES the “against the §19 ledger” wording this row carried before — the ledger stores the content hash of units that were DEPLOYED, so a private row has no record and cannot answer “what was public before”. The signed receipt over the same digest, the break-glass `--all` and the keyless agent are S503b; no signatures ship in S503a.
+13. **M12 (egress authorization — D28, issue #503)**: publishing and exporting are **authorized acts**, not file edits. D27 (#502) makes private the default and the export public; this milestone adds the gate: detect `private → public` and `--all` at egress, require a receipt over the exact manifest (S503a: the manifest digest echoed by `--confirm`; S503b: the signature — hardware key/WebAuthn with user presence, 2FA fallback), append the disclosure to an audit log, and keep agents read-only and keyless. `--all` is a break-glass path, never the default. The **vault at-rest is not an engine deliverable**: recommend/evaluate an existing OSS layer (e.g. SOPS+age, git-crypt, Cryptomator) and contribute upstream only for a real gap. `curate` (#501) remains the separate “what is disclosed” axis: its contract is ratified as **D29** (a named, expiring, additive bundle over the record, ledgered in `content/curations.yaml`, with no reader of its own, §7.12); the gate here decides *who authorizes* it, and an implementation of either is its own slice. Implementation is tracked by #503; the contract is D28. **S503a (shipped, §7.11):** the detection compares the public projection against the **last recorded egress** (`.pasco/egress/baseline.json`); that SUPERSEDES the “against the §19 ledger” wording this row carried before — the ledger stores the content hash of units that were DEPLOYED, so a private row has no record and cannot answer “what was public before”. The signed receipt over the same digest, the break-glass `--all` and the keyless agent are S503b; no signatures ship in S503a.
 
 ## 13. Resolved decisions (former open questions)
 
