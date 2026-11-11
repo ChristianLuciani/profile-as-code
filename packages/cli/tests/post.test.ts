@@ -103,6 +103,67 @@ describe("pasco post (week-1 MVP)", () => {
     expect(body).not.toContain("Secret Org");
   });
 
+  it("does not leak a private achievement into the exported payload (review F1 of #503/S503a)", () => {
+    const ws = workspace();
+    seed(ws, "private-ach");
+    writeFileSync(
+      join(ws, "content", "achievements.yaml"),
+      "- id: secret-result\n  statement:\n    en: Secret internal result\n  kind: milestone\n  basis: reported\n  visibility: private\n",
+    );
+    // The chosen variant is recorded directly — an agent with write access could
+    // do it, and `post choose` already refuses a dangling ref. This pins the
+    // EXPORT path: the private row is out of the public projection, so the fact
+    // is dangling and the payload is never written.
+    mkdirSync(join(ws, "posts", "private-ach", "linkedin"), { recursive: true });
+    writeFileSync(
+      join(ws, "posts", "private-ach", "linkedin", "v1.md"),
+      "Result: {{fact:achievements[0].statement.en}}\n",
+    );
+    const ledgerPath = join(ws, "posts", "private-ach", "post.yaml");
+    writeFileSync(
+      ledgerPath,
+      readFileSync(ledgerPath, "utf8").replace(
+        "channels: {}",
+        "channels:\n  linkedin:\n    chosen: v1",
+      ),
+    );
+    writeFileSync(join(ws, "postiz.yaml"), "channels:\n  linkedin: li-123\n");
+    const exported = run(["post", "export", "private-ach", "--workspace", ws]);
+    expect(exported.code).toBe(1);
+    expect(exported.stderr).toMatch(/dangling fact ref/);
+    expect(existsSync(join(ws, "posts", "private-ach", "postiz.json"))).toBe(false);
+  });
+
+  it("post export is an egress surface of the D28 gate (#503/S503a)", () => {
+    const ws = workspace();
+    seed(ws, "gate1");
+    variant(ws, "gate1", "linkedin", "v1", OK_POST);
+    writeFileSync(join(ws, "postiz.yaml"), "channels:\n  linkedin: li-123\n");
+    // A row with no `visibility` is PRIVATE (D27): publishing it is a later act.
+    writeFileSync(
+      join(ws, "content", "projects.yaml"),
+      "- name: quiet-project\n  status: active\n  description:\n    en: Not published yet.\n  links:\n    - https://example.com/quiet\n",
+    );
+    const first = run(["post", "export", "gate1", "--workspace", ws]);
+    expect(first.code, first.stderr).toBe(0);
+    const logFile = join(ws, ".pasco", "egress", "audit.log");
+    const firstLine = JSON.parse(readFileSync(logFile, "utf8").trim().split("\n")[0] ?? "{}") as {
+      operation?: string;
+    };
+    // The record names its own surface, so a reader can tell it apart from build.
+    expect(firstLine.operation).toBe("post-export");
+
+    const projectsPath = join(ws, "content", "projects.yaml");
+    writeFileSync(projectsPath, `${readFileSync(projectsPath, "utf8")}  visibility: public\n`);
+    const refused = run(["post", "export", "gate1", "--json", "--workspace", ws]);
+    expect(refused.code).toBe(1);
+    const envelope = JSON.parse(refused.stdout) as {
+      data?: { egress?: { reasons?: string[]; transitions?: string[] } };
+    };
+    expect(envelope.data?.egress?.reasons).toEqual(["private-to-public"]);
+    expect(envelope.data?.egress?.transitions).toEqual(["projects[0]"]);
+  });
+
   it("seeds, emits tasks, chooses, checks and exports a Postiz draft", () => {
     const ws = workspace();
     seed(ws, "s1");
