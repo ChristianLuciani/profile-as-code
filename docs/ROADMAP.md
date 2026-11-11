@@ -1,6 +1,6 @@
 # Roadmap — de acá a lo planificado
 
-> **Generado** 2026-09-24 · **actualizado** 2026-11-07 (D27 + seguridad de egreso #503) desde el estado verificado del repo (no del declarado).
+> **Generado** 2026-09-24 · **actualizado** 2026-11-09 (M12/S503a: gate de egreso mínimo) desde el estado verificado del repo (no del declarado).
 > Canónico del plan: `docs/SPEC.md` §12. Este documento agrega **qué está realmente hecho**
 > y **en qué orden conviene seguir**, con la evidencia de cada afirmación.
 > Regenerar/corregir cuando la evidencia cambie.
@@ -18,7 +18,7 @@
 | **M7** evidence core | ✅ | **✅ cerrado** | schema v1.4 (`credentials[]`/`artifacts[]`), `registryCheck`, `hasCredential` en JSON-LD |
 | **M8** media pipeline | ✅ | **✅ contrato sí, deploy no** | `assets/` + `manifest.json` + `collectMedia` en core; los playbooks de deploy son M4 |
 | **M9** training-time corpus presence | ⏳ contrato sí, decisión **deferida** (Q10, post-M3) | **✗ no empezado** — piso ya definido: **privado-first** (bloquea crawlers de entrenamiento, sin licencia abierta) con opt-in explícito del dueño | `docs/research/03-training-time-visibility.md` (PR #135 + corrección de consentimiento, 2026-10-05); SPEC §12 M9 + §14 Q10 |
-| **M12** egress authorization (D28) | pendiente | **✗ no empezado** — D28 registrada; gate de egreso sin implementar | SPEC §12 M12; #503 (epic) |
+| **M12** egress authorization (D28) | pendiente | **⚠️ parcial — S503a ✅ / S503b ✗** — gate mínimo: el manifest de lo que sale (digest `sha256`), detección `private → public` contra el último egreso registrado y de `--all`, `--confirm <digest>` o rechazo (exit 1, sin escribir), y audit log append-only en `.pasco/egress/audit.log` (`keyId: null` — **sin firmas todavía**). Falta S503b: recibo firmado (hardware key/WebAuthn), `--all` break-glass y agente read-only/keyless | `packages/core/src/egress.ts`, `packages/cli/src/egress-gate.ts`, `packages/{core,cli}/tests/egress*.test.ts`; contrato SPEC §7.11 |
 
 **Fuera de los milestones — lo que la serie `0.2.0` → `0.3.6` entrega (2026-10-09 → 2026-10-26; 0.3.6 en preparación):**
 

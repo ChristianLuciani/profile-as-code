@@ -29,12 +29,13 @@
  * (§18.5, pre-dating D27). A hand-built slice must not be a bypass.
  */
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   compile,
+  egressManifest,
   load,
   type Platform,
   type PlatformProfile,
@@ -48,6 +49,12 @@ import { RENDERERS } from "../src/generated/renderers.gen.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI = join(__dirname, "..", "dist", "index.js");
 const FIXTURE = join(__dirname, "..", "..", "core", "tests", "fixtures", "leak-matrix");
+/** The COMMITTED fixture is a source, never the workspace under test: the CLI
+ *  writes `.pasco/egress/` into any workspace it runs on (D28, #503). The copy is
+ *  made once per process; the cases that only run the CLI against it share it. */
+const WS = join(mkdtempSync(join(tmpdir(), "pasco-leak-ws-")), "workspace");
+cpSync(FIXTURE, WS, { recursive: true });
+rmSync(join(WS, ".pasco"), { recursive: true, force: true });
 
 /**
  * The scan set — three classes, because a single prefix cannot cover every way
@@ -97,7 +104,7 @@ function expectNoLeak(surface: string, text: string): void {
   expect(hits, `${surface} emitted a non-public row (SPEC §18.5 / D27)`).toEqual([]);
 }
 
-const tempDirs: string[] = [];
+const tempDirs: string[] = [dirname(WS)];
 afterAll(() => {
   for (const dir of tempDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
@@ -183,7 +190,7 @@ describe("D27 leak — the JSON-LD surface", () => {
 
   it("`pasco entity` emits no non-public row, in either output", () => {
     for (const flag of ["--jsonld", "--json"]) {
-      const res = run(["entity", flag, "--workspace", FIXTURE]);
+      const res = run(["entity", flag, "--workspace", WS]);
       expect(res.code, `${flag}: ${res.stderr}`).toBe(0);
       expectNoLeak(`pasco entity ${flag}`, res.stdout);
     }
@@ -192,11 +199,23 @@ describe("D27 leak — the JSON-LD surface", () => {
 
 describe("D27 leak — the export surface", () => {
   it("`pasco export profile` defaults to the clean projection; `--all` is the control", () => {
-    const publicRun = run(["export", "profile", "--json", "--workspace", FIXTURE]);
+    const publicRun = run(["export", "profile", "--json", "--workspace", WS]);
     expect(publicRun.code, publicRun.stderr).toBe(0);
     expectNoLeak("pasco export profile", publicRun.stdout);
 
-    const allRun = run(["export", "profile", "--all", "--json", "--workspace", FIXTURE]);
+    // `--all` is a privileged egress (D28, SPEC §7.11): the positive control
+    // echoes the manifest digest the gate requires instead of changing the flag.
+    const allDigest = egressManifest(load(WS), "all").digest;
+    const allRun = run([
+      "export",
+      "profile",
+      "--all",
+      "--confirm",
+      allDigest,
+      "--json",
+      "--workspace",
+      WS,
+    ]);
     expect(allRun.code, allRun.stderr).toBe(0);
     // The markers EXIST in the SSOT — a clean default is the filter, not a
     // fixture that never had the value. One representative per marker CLASS:
@@ -245,13 +264,13 @@ describe("D27 leak — the export surface", () => {
 describe("D27 leak — the preview and audit surfaces", () => {
   it("the preview document carries no non-public row", () => {
     const dir = tempDir();
-    const res = run(["preview", "--out", dir, "--workspace", FIXTURE]);
+    const res = run(["preview", "--out", dir, "--workspace", WS]);
     expect(res.code, res.stderr).toBe(0);
     expectNoLeak("pasco preview", readFileSync(join(dir, "index.html"), "utf8"));
   });
 
   it("`pasco audit --public` reports no non-public row", () => {
-    const res = run(["audit", "--public", "--json", "--workspace", FIXTURE]);
+    const res = run(["audit", "--public", "--json", "--workspace", WS]);
     // A FAIL finding is a legitimate exit 1; a load/schema error is NOT — parse
     // the envelope so a broken fixture cannot keep this case green.
     const parsed = JSON.parse(res.stdout) as { data?: { view?: string }; error?: unknown };

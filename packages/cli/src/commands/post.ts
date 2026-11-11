@@ -31,6 +31,7 @@ import {
   parseVariants,
   UsageError,
 } from "../contract.js";
+import { authorizeEgress, egressRefusalData } from "../egress-gate.js";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section, warn } from "../output.js";
 import {
@@ -129,6 +130,8 @@ export interface PostArgs {
   dateArg?: string;
   formatArg?: string;
   fromArg?: string;
+  /** `--confirm <digest>` on `post export`: the D28 egress receipt (§7.11). */
+  confirmArg?: string;
   pascorc: Pascorc;
 }
 
@@ -1222,6 +1225,29 @@ function handleExport(args: PostArgs): number {
   const loaded = loadProfile(args.workspace);
   if (typeof loaded === "number") return loaded;
   const profile = loaded;
+  // ── D28 egress authorization (SPEC §7.11, #503/S503a) ─────────────────────
+  // The exported Postiz payload IS an egress of the workspace's facts: it goes
+  // through the same gate as `build`/`export profile`, so a unit that flipped
+  // private → public cannot reach a channel without the operator's `--confirm`.
+  const egress = authorizeEgress({
+    workspace: args.workspace,
+    profile,
+    operation: "post-export",
+    scope: "public",
+    at: new Date().toISOString(),
+    ...(args.confirmArg !== undefined ? { confirm: args.confirmArg } : {}),
+  });
+  if (!egress.ok) {
+    return report("post", false, EXIT.FAIL, {
+      error: {
+        kind: "egress",
+        message: egress.message,
+        violations: egress.violations,
+        hint: egress.hint,
+      },
+      data: egressRefusalData(egress),
+    });
+  }
   const ledger = readLedger(args.workspace, seedId);
   const integrationIds = readPostizConfig(args.workspace);
   // Two passes: PLAN everything that can fail (rules, front matter, required
