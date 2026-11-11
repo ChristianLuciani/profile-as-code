@@ -1790,7 +1790,8 @@ curations:
 ```
 
 **Derivation, not a second record.** A curation is a *view derivation* like D22's
-`selection.views` (the issues #520/#497 code path), plus an explicit list of rows
+`selection.views` (the code path D22 implemented — `packages/core/src/selection.ts`,
+`packages/cli/src/workspace.ts`), plus an explicit list of rows
 the surface would not otherwise receive. It is never a copy of the data: the rows
 keep their home in `content/*.yaml`, and a curated row that is later edited shows
 its new text — the grant names a row, it does not freeze it.
