@@ -74,9 +74,9 @@ The cycle:
   pasco build [platform]  write the per-platform artifacts
 
 Each command's tag says where it sits in the cycle: [write] · [read] · [check]. The
-tag is about the RECORD, not the engine's local .pasco/ state: preview writes its
-page and export profile/build append the D28 egress audit line there, and both stay
-[read] because neither edits content/ or the rendered profiles/ output.
+tag is about the RECORD (content/ and the rendered profiles/ output): preview and
+export profile write only the engine's local .pasco/ state (preview's page, the D28
+egress audit line), so they stay [read]; build is [write] because it owns profiles/.
 The rules behind it (fact-present, build's order, char caps): README.md in the installed package.
 
 Commands:
