@@ -69,14 +69,14 @@
   <main id="main">
     <section class="wrap hero">
       <div class="hero-copy">
-        <p class="eyebrow">CLI-first · TypeScript · MIT</p>
+        <p class="eyebrow">CLI-first · Agent-first · TypeScript · MIT</p>
         <h1>Your professional identity, <em>as code.</em></h1>
         <p class="lede">
           profile-as-code is a versioned source of truth for your professional identity: your facts
           live once in YAML, and the engine renders consistent, platform-specific texts for GitHub,
-          LinkedIn, Upwork, X, and other surfaces. It is for technical people who would rather
-          maintain one folder than eight profiles by hand. Install the CLI, run <code>pasco init</code>,
-          and keep every profile in sync from one place.
+          LinkedIn, Upwork, X, and more. It ships with 14 SOTA platform skills and a CLI natively
+          designed for AI agents and harnesses. Keep every profile synchronized, quotable by AI answer
+          engines, and entirely under your own control.
         </p>
         <div class="actions">
           <a class="button primary" href="https://www.npmjs.com/package/@profile-as-code/cli">Install from npm</a>
@@ -121,18 +121,46 @@
         </article>
         <article class="card">
           <p class="card-index" aria-hidden="true">02</p>
-          <h3>Texts are angles, not copies</h3>
+          <h3>14 SOTA platform skills</h3>
           <p>
-            Bios and headlines are authored per platform and language, and rendered as deterministic base texts.
-            The engine does not invent facts: it renders the ones you declared; the variant picker is still partial.
+            Curated platform intelligence for LinkedIn, GitHub, Upwork, Substack, and more: official
+            character limits, ranking algorithms, SEO/GEO criteria, and playbooks exportable via
+            <code>pasco skills:export</code>.
           </p>
         </article>
         <article class="card">
           <p class="card-index" aria-hidden="true">03</p>
-          <h3>Consistency is citability</h3>
+          <h3>Built for agents & harnesses</h3>
           <p>
-            Search engines and language models read and cite profiles. Identical facts across
-            surfaces, semantic anchors, and structured data are what make a profile quotable.
+            Deterministic exit codes, structured <code>--json</code> outputs, comment-preserving atomic
+            edits with <code>pasco edit</code>, and refinement prompts designed for Claude, Pi, Cursor, or DSH.
+          </p>
+        </article>
+        <article class="card">
+          <p class="card-index" aria-hidden="true">04</p>
+          <h3>Consistency is citability (GEO)</h3>
+          <p>
+            Search engines and AI answer engines (Perplexity, ChatGPT, Gemini) cross-reference your profiles.
+            Ensure citability with identical facts, schema.org JSON-LD (<code>pasco entity</code>), and offline
+            verification with <code>pasco cite-check</code>.
+          </p>
+        </article>
+        <article class="card">
+          <p class="card-index" aria-hidden="true">05</p>
+          <h3>Privacy & sovereignty</h3>
+          <p>
+            Your facts live on your machine or private repo. Private fields by default with
+            <code>visibility: private</code> and strict audit for accidental exposure (<code>pasco audit --public</code>).
+            Zero telemetry, zero vendor lock-in.
+          </p>
+        </article>
+        <article class="card">
+          <p class="card-index" aria-hidden="true">06</p>
+          <h3>Full-lifecycle tooling</h3>
+          <p>
+            Inspect rendered surfaces in a local self-contained HTML page with <code>pasco preview</code>,
+            check health with <code>doctor</code>, diagnose contradictions with <code>audit</code>,
+            and bootstrap from live links with <code>discover</code>.
           </p>
         </article>
       </div>
@@ -219,7 +247,7 @@
         </div>
         <div class="status-item">
           <h3 class="status-label">Works</h3>
-          <p><code>init</code>, <code>validate</code>, <code>build</code>, <code>diff</code>, <code>status</code>, and the offline rules of <code>check</code>. Renderers: GitHub profile and organization, plus the paste family.</p>
+          <p><code>init</code>, <code>doctor</code>, <code>validate</code>, <code>build</code>, <code>preview</code>, <code>edit</code>, <code>check</code>, <code>audit</code>, <code>entity</code>, <code>cite-check</code>, <code>export ai-policy</code>, <code>skills:export</code>, <code>diff</code>, <code>status</code>, <code>discover</code>, and <code>migrate</code>. Renderers: GitHub profile and organization, plus the paste family. 14 bundled platform skills.</p>
         </div>
         <div class="status-item">
           <h3 class="status-label">Partial</h3>
