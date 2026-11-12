@@ -559,6 +559,30 @@ describe("the integrity chain — one memory, one scope (#520)", () => {
     expect(after[1]?.method).toBe("none");
   });
 
+  it("a forged history — re-signed segment + updated logTail — is NOT detected: the wider declared S503b limit (witness, not a fix)", () => {
+    const ws = workspace();
+    authorized(ws);
+    authorized(ws); // two honest lines
+    // The attacker erases the first egress from history: drops its line,
+    // re-signs the surviving segment and updates the baseline's `logTail` to
+    // the new tail. The baseline's CONTENT is untouched, so the content
+    // binding still holds (`logTail` is excluded from it by design) and the
+    // state reads `recorded` — without a key the engine cannot tell this from
+    // an honest state. S503b's signed receipt closes it; this test pins the
+    // boundary instead of hiding it.
+    const baseline = baselineOf(ws);
+    const forged = resignChain(audit(ws).records.slice(1));
+    baseline.logTail = forged[forged.length - 1]?.hash ?? baseline.logTail;
+    writeBaseline(ws, baseline);
+    writeLogRecords(ws, forged);
+
+    const r = run(["export", "profile", "--json", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    const after = audit(ws).records;
+    expect(after).toHaveLength(2); // the erased line stays erased
+    expect(after[0]?.baseline).toBe("recorded"); // the forged state reads recorded
+  });
+
   it("a confirmed run over a broken state re-arms: a new genesis, with the break on the record", () => {
     const ws = workspace();
     const records = authorized(ws);

@@ -1775,8 +1775,9 @@ refuses a version it does not know): a pre-chain v1 log or baseline reads as
 workspace, a declared one-time cost.
 
 **Verification reads, never repairs (issue #520).** Every gate run re-walks the
-current chain segment (the lines after the last `prev: null` genesis, or from
-the first line if there is none) and checks both bindings: each line's `hash`
+current chain segment (the lines after the last `prev: null` genesis; a log
+with NO genesis is `unreadable` — every segment must start with `prev: null`)
+and checks both bindings: each line's `hash`
 recomputes, each `prev` links, the baseline's `logTail` equals the tail's
 `hash`, and the baseline's content minus `logTail` hashes to the tail's
 `baselineHash`. Any failure — a malformed line, a broken `prev`, a stale
@@ -1813,13 +1814,22 @@ same advice — give it an `id`).
 `.pasco/` is local state under the workspace (the same home as `preview`'s
 document, §7.9); it is never rendered, and a workspace that does not ignore it
 sees it as untracked state. The log is tamper-EVIDENT (the chain, issue #520),
-not tamper-PROOF: a fully coherent rewrite — chain, cache and content
-recomputed together, within what the workspace publishes — is undetectable
-without a key, and the contract test pins it as a witness, not a fix. S503b closes all
-of it with a receipt signed over this same digest (hardware key/WebAuthn with user
-presence; 2FA fallback), a break-glass `--all` and a keyless read-only agent — the
-record shape is already the one it will use: `keyId` becomes a field value, not a
-new record.
+not tamper-PROOF. TWO classes are undetectable without a key, and the contract
+tests pin both as witnesses, not fixes: (a) a fully coherent rewrite — chain,
+cache and content recomputed together, within what the workspace publishes;
+(b) a **forged history** — the current segment re-signed (every line's `hash`
+recomputed, every `prev` relinked) with the baseline's `logTail` updated to the
+new tail: the baseline's content stays intact, the state reads `recorded`, and
+audit lines can be falsified or erased at will (the `logTail` exclusion from
+the content binding is what makes the baseline survive it). What the chain
+guarantees is that `baseline.json` cannot move without the log moving with it
+and vice versa — the headline attack (edit or delete the baseline to publish a
+flip without `--confirm`) is closed; what it does NOT guarantee is the
+AUTHENTICITY of the history, that these lines record what really ran. That is
+S503b's job: a receipt signed over this same digest (hardware key/WebAuthn with
+user presence; 2FA fallback), a break-glass `--all` and a keyless read-only
+agent — the record shape is already the one it will use: `keyId` becomes a
+field value, not a new record.
 
 **Exit matrix.** `build`: `0` written · `1` a schema/load/selection failure, or
 the egress was refused (`error.kind: "egress"`) · `2` usage. `export profile`: `0`
