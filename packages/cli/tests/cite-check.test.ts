@@ -16,9 +16,11 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import {
   CITE_CHECK_SCHEMA_VERSION,
   type CiteCheckReport,
@@ -34,6 +36,11 @@ const FIXTURES = join(__dirname, "fixtures", "cite-check");
 const PERSON = join(__dirname, "..", "..", "core", "tests", "fixtures", "cite-person");
 const BRAND = join(__dirname, "..", "..", "core", "tests", "fixtures", "cite-brand");
 const INVALID = join(__dirname, "fixtures", "invalid");
+
+const tempDirs: string[] = [];
+afterAll(() => {
+  for (const dir of tempDirs) rmSync(dir, { recursive: true, force: true });
+});
 
 interface RunResult {
   code: number;
@@ -297,16 +304,30 @@ describe("the published surface", () => {
   });
 
   it("human output reports per answer and no citation rate", () => {
-    const result = run([
-      "cite-check",
-      join(FIXTURES, "answers-person.ndjson"),
-      "--workspace",
-      PERSON,
-    ]);
+    const input = join(FIXTURES, "answers-person.ndjson");
+    const result = run(["cite-check", input, "--workspace", PERSON]);
     expect(result.code).toBe(0);
     expect(result.stdout).toContain("#1 — cited (high)");
     expect(result.stdout).toContain("#2 — not cited (low)");
     expect(result.stdout).toContain("3 answer(s) read");
-    expect(result.stdout).not.toMatch(/rate|percentage|score/i);
+    // The header embeds the input path (the source label), so the forbidden
+    // vocabulary is judged on the report WITHOUT it: a checkout whose absolute
+    // path contains a forbidden token is not a defect of the output (#519).
+    expect(result.stdout).toContain(input);
+    expect(result.stdout.split(input).join("")).not.toMatch(/rate|percentage|score/i);
+  });
+
+  it("a source path that contains a forbidden token is not reported as one (#519)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pasco-cite-rate-"));
+    tempDirs.push(dir);
+    const input = join(dir, "answers-person.ndjson");
+    cpSync(join(FIXTURES, "answers-person.ndjson"), input);
+    expect(input).toMatch(/rate/);
+    const result = run(["cite-check", input, "--workspace", PERSON]);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain(input);
+    expect(result.stdout).toContain("#1 — cited (high)");
+    expect(result.stdout).toContain("#2 — not cited (low)");
+    expect(result.stdout.split(input).join("")).not.toMatch(/rate|percentage|score/i);
   });
 });
