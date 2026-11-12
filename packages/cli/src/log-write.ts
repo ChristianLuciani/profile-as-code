@@ -37,7 +37,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { type Achievement, LoadError, load } from "@profile-as-code/core";
+import { type Achievement, FACTS_DIR, factsDir, LoadError, load } from "@profile-as-code/core";
 import { isScalar, isSeq, parseDocument, stringify } from "yaml";
 import {
   owningFile,
@@ -107,7 +107,7 @@ export interface AppendArgs {
 /** The file that owns the `achievements` root, or the canonical path when the
  *  workspace does not declare it yet. */
 export function achievementsFile(workspace: string): string {
-  return owningFile(workspace, ROOT) ?? `content/${ROOT}.yaml`;
+  return owningFile(workspace, ROOT) ?? `${factsDir(workspace)}/${ROOT}.yaml`;
 }
 
 /**
@@ -181,7 +181,7 @@ function appendLocked(args: AppendArgs, deps: WriteDeps): AppendOutcome {
 export function appendText(
   original: string,
   rowText: string,
-  file = "content/achievements.yaml",
+  file = `${FACTS_DIR}/achievements.yaml`,
 ): string {
   const document = parseDocument(original);
   if (document.errors.length > 0) {

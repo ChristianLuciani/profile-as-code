@@ -26,7 +26,7 @@ server, no account.
 
 ## Get a workspace
 
-`pasco` reads a **workspace folder** (`content/*.yaml` + `.pascorc`) by configured
+`pasco` reads a **workspace folder** (`facts/*.yaml` + `.pascorc`) by configured
 path. That folder does not have to be a git repository, and it does not have to live
 on GitHub — a repo is the **recommended** place to keep it, not a requirement
 ([SPEC §9](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md)). Three on-ramps, each with its capability difference
@@ -77,7 +77,7 @@ Canonical home: [SPEC §7](https://github.com/ChristianLuciani/profile-as-code/b
 
 **Where do the per-platform character caps come from?**
 
-> The **limit executor** measures the workspace's `content/checks.yaml` when it
+> The **limit executor** measures the workspace's `facts/checks.yaml` when it
 > declares checks, else the caps shipped with the package (#240); the `max-chars`
 > rows the shipped `skills/<platform>/checks.yaml` declare are **declared and not
 > executed** — no skill row reaches that executor.
@@ -91,20 +91,20 @@ Canonical home: [SPEC §7](https://github.com/ChristianLuciani/profile-as-code/b
 
 | Command | Purpose | Status |
 |---|---|---|
-| `pasco init [dir]` | Scaffold a profile-data workspace (`content/identity.yaml`, `README.md`, `.pascorc`) — `pasco validate`-clean | ✅ |
+| `pasco init [dir]` | Scaffold a profile-data workspace (`facts/identity.yaml`, `README.md`, `.pascorc`) — `pasco validate`-clean | ✅ |
 | `pasco validate [--json]` | Schema **fail** (exit 1) + drift/geo **warn** (exit 0) — D12 | ✅ |
 | `pasco doctor [--json]` | **Engine · schema · workspace** on one line (#348): the installed CLI version, the profile-contract version this build validates (from the schema `$id`), the resolved workspace and whether it loads, plus the **effective** `.pascorc` engine requirement (the strictest declaration in every config the resolution consulted, with its file). `--json` emits `{ engine, schema, workspace, requirement: { declared, met, state, problem?, source? } }`, where `state` is `absent` · `met` · `NOT MET` · `INVALID` — an absent declaration is a state, never a silent pass. `--contract-delta` (#439) prints what changed between the workspace's birth-time contract floor (`.pascorc` `contract`) and the contract this build validates — one row per minor with the fields it added and what they buy — and `--json` carries the rows as `contractDelta`; the flag reports and never changes the exit code. With `--contract-delta`, a loaded workspace also carries `migration` — the schema v2.0 rows still missing `visibility` (D27, #498), the report `pasco migrate` resolves. Exit 0 healthy · 1 unhealthy · 2 usage; offline, no clock, no writes | ✅ v1 |
-| `pasco migrate [--json]` | The **schema v2.0 visibility migration** (D27, #498): writes `visibility: public` on every `credentials`, `artifacts`, `projects` and `experience` row that lacks the field, so a workspace written under the pre-v2.0 `absent = public` rule keeps its published output. A row that already declares any value is untouched ⇒ idempotent; `achievements` keeps its required field and is never touched. The write is a **source splice**, not a re-serialization: comments, alignment and every existing byte survive; the whole migrated `content/` goes through the same `load()` gate before the atomic replace under `content/.pasco-edit.lock`. On success with rows migrated it also writes `contract: "2.0"` into the workspace `.pascorc` (creating it if absent), so new rows stay private. `--json` emits `{ schemaVersion, migrated: [{ file, rows }], rows, missing }` (`missing` is the post-run residual, empty on success). Exit 0 migrated or already current · 1 load/write failure, or a `>= 2.0`/INVALID contract floor while rows would be rewritten (nothing written) · 2 usage | ✅ v1 |
+| `pasco migrate [--json]` | The **schema v2.0 visibility migration** (D27, #498): writes `visibility: public` on every `credentials`, `artifacts`, `projects` and `experience` row that lacks the field, so a workspace written under the pre-v2.0 `absent = public` rule keeps its published output. A row that already declares any value is untouched ⇒ idempotent; `achievements` keeps its required field and is never touched. The write is a **source splice**, not a re-serialization: comments, alignment and every existing byte survive; the whole migrated `facts/` goes through the same `load()` gate before the atomic replace under `facts/.pasco-edit.lock`. On success with rows migrated it also writes `contract: "2.0"` into the workspace `.pascorc` (creating it if absent), so new rows stay private. `--json` emits `{ schemaVersion, migrated: [{ file, rows }], rows, missing }` (`missing` is the post-run residual, empty on success). Exit 0 migrated or already current · 1 load/write failure, or a `>= 2.0`/INVALID contract floor while rows would be rewritten (nothing written) · 2 usage | ✅ v1 |
 | `pasco build [platform] [--lang]` | Deterministic base texts per platform+lang; platforms with a renderer (the eight registered in the generated renderer map) write `profiles/<platform>/README.md` + bundled media; renderer-less manual surfaces with a bio row write `profiles/<platform>.md` (#239). Empty render = no-trace unbuild of the generated output, preserving `profiles/<platform>/variants/` (chosen-variant input, #238; pure profiles/, §15.1 — v1.7). Media in `profiles/<platform>/assets/` + `assets/manifest.json` (M8/§18.6 — see [the media pipeline guide](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/media-pipeline.md)). Egress gate (D28, §7.11): a `private → public` transition since the last recorded egress refuses the build (exit 1, digest printed, nothing written) until `--confirm <digest>` | ✅ |
 | `pasco preview [--out <dir>] [--no-open] [--lang <l>] [--now <iso>] [--json]` | The **local view** (#282): **one** self-contained HTML file of the surfaces `pasco build` writes — inline CSS, no `<script>`, no external asset, no HTTP server. Sections are the published surfaces (`#github-readme`, `#linkedin`, …) plus the ones this language does not publish, named with their reason; the check state is the same report `pasco check` prints, and the text is `build`'s own render decision tree. Default `<workspace>/.pasco/preview/index.html`, then opened in the browser; `--out <dir>` writes and opens **nothing** (the CI-artifact transport). A privacy gate refuses the write (exit 1) on an absolute machine path, a credential shape, an external asset, active content, or a source outside the workspace | ✅ v1 |
-| `pasco edit <contract-path> [--set <text> [--check]]` · `--list [<block>]` · `--create <root> [--check]` | Resolve **one** contract field by contract path; `--set` **writes it** (comment-preserving range splice, validated, atomic) and `--set --check` previews the **published lines the edit changes** (or says it changes nothing). Covers the answer-engine surface too: `identity.definition.<lang>`, `faq[id=<slug>,lang=<l>].q|.a` and `faq[id=<slug>].source` (#435). `--list` is the read-only discovery surface: every addressable row, one per line, `--json` as `{ addresses: [{ address, kind, readOnly }], warnings }` (#411). `--create <root>` seeds a root the workspace does not declare yet (`content/faq.yaml`): schema-valid template, refused when the root exists, same validation + cap pre-flight, `--check` previews it (#435). Epic #247, S1–S5 landed | ✅ S1–S5 (read · preview · write · surface impact · cap pre-flight · machine contract) + `--list` + `--create` |
+| `pasco edit <contract-path> [--set <text> [--check]]` · `--list [<block>]` · `--create <root> [--check]` | Resolve **one** contract field by contract path; `--set` **writes it** (comment-preserving range splice, validated, atomic) and `--set --check` previews the **published lines the edit changes** (or says it changes nothing). Covers the answer-engine surface too: `identity.definition.<lang>`, `faq[id=<slug>,lang=<l>].q|.a` and `faq[id=<slug>].source` (#435). `--list` is the read-only discovery surface: every addressable row, one per line, `--json` as `{ addresses: [{ address, kind, readOnly }], warnings }` (#411). `--create <root>` seeds a root the workspace does not declare yet (`facts/faq.yaml`): schema-valid template, refused when the root exists, same validation + cap pre-flight, `--check` previews it (#435). Epic #247, S1–S5 landed | ✅ S1–S5 (read · preview · write · surface impact · cap pre-flight · machine contract) + `--list` + `--create` |
 | `pasco diff [--json]` | Changes since the last `release-*` tag (git-based → CHANGELOG hint) | ✅ |
 | `pasco status [platform] [--mark <ledgerKey> <platform>] [--verify] [--write-checklist] [--completeness]` | Per-entry deploy report — origin · surfaces · in-sync/stale/never · **certification** (verified/attested/unverifiable/out-of-band-drift, §19.5) + the derived **publication truth** per surface (§20.1, #242) + ledger write paths (D18, §19) | ✅ |
 | `pasco presence [--json]` / `pasco release plan [<id>] [--json]` | **Presence board** (D23/§22, #262): every surface a release has addressed, at its newest release, with the ledger-derived state (`in-sync`/`stale`/`never`), and the **release plan** — the ordered fan-out (`repo-meta` → `profile` → `distribution`, then slug), each surface's state and the per-kind **factual spine**. Copy per channel lives in the shipped skills, not the engine | ✅ v1 |
 | `pasco refine <platform> [--lang] [--variants N] [--choose <id>]` | Agent-driven variant flow (D10/D11/D13); the chosen body is `profiles/<platform>/variants/<id>.md` (a complete platform artifact), rendered by `pasco build` (#238) | 🚧 template + `--choose` (full flow M3) |
-| `pasco check [platform]` | The workspace's checks declared in `content/` (schema-validated catalog) — or the conservative caps shipped with pasco when it declares none (#240) — + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) + offline `max-chars`/`min-chars` over headlines/bios (#240) + `fact-present` (the built surface's fact tokens vs the SSOT render, #283) + **`text/same-across-platforms`** — the advisory narrative rule (#462, SPEC §21.8): two different platforms carrying a byte-identical `headline`, or a `bio` in the same `length` band, get a **warn** naming both platforms and the text kind; never a failure + **`check/link-platform-icon`** (#511): a link `platform` with no icon in its registry row draws no badge, so it is named as a **warn** (`--json`: `data.linkIcons`) — the link still renders | 🚧 offline rules today (limits + registry + media + fact-present + the narrative advisory; remaining catalog M3/M4) |
+| `pasco check [platform]` | The workspace's checks declared in `facts/` (schema-validated catalog) — or the conservative caps shipped with pasco when it declares none (#240) — + registry rules (M7/§18.8) + media-transport rules (M8/§18.6) + offline `max-chars`/`min-chars` over headlines/bios (#240) + `fact-present` (the built surface's fact tokens vs the SSOT render, #283) + **`text/same-across-platforms`** — the advisory narrative rule (#462, SPEC §21.8): two different platforms carrying a byte-identical `headline`, or a `bio` in the same `length` band, get a **warn** naming both platforms and the text kind; never a failure + **`check/link-platform-icon`** (#511): a link `platform` with no icon in its registry row draws no badge, so it is named as a **warn** (`--json`: `data.linkIcons`) — the link still renders | 🚧 offline rules today (limits + registry + media + fact-present + the narrative advisory; remaining catalog M3/M4) |
 | `pasco discover <url>... [--json] [--allow-host <hosts>] [--observations <file>]` | **Provisional profile** from public surfaces (#329, SPEC §7.10), for a prospect with no workspace: reads schema.org JSON-LD + links only (no prose mining), attaches per-fact provenance (`attested: false`) and lists `absent` fields; reports the audit's class names with discovery's own predicates (SPEC §7.10); closed host allowlist checked before any request (sequential, no retries, no credentials). `--observations` takes the rows a human read by hand (`surface`, `field` = `name`/`link`/`experience`, `value`, `url`, `retrieved_at`) for surfaces the machine cannot read (LinkedIn 999, no `Person` node): no request is made, the rows enter the same provisional profile/findings, and `--json` (payload **v2**: `via`, nullable `status`) marks each surface `via: fetch|manual`; a disagreement between two surfaces is a `contradiction` (two different names included). **Writes nothing** | ✅ v1 |
-| `pasco log --statement <text> --kind metric\|milestone --basis <basis> [flags]` | The **capture path** of the impact log (D25/S2, §23.6, #496): writes **one** schema-valid row to `content/achievements.yaml`. `--basis` required; `--visibility` defaults to **`private`** (D27) and is printed; on a `metric` only `--unit` is required (`--target` alone = a `planned` goal, `--value` alone = a `measured` result), and any metric flag on a `milestone` is exit 2; `--date` is optional and absent means **undated** (no clock is read), a malformed date is exit 2; `--ref` is repeatable. `--id` is optional and otherwise deterministic from the statement + date — a collision is exit 1 with nothing written. The write is atomic (temp copy → the same `load()` gate → rename under `content/.pasco-edit.lock`), creates a missing file with a header and preserves every byte of an existing block-sequence file (comments/layout; an empty `[]`/null root is the only token replaced). Exit 0 written · 1 load/integrity failure, collision, or an unappendable flow-style file · 2 usage | ✅ v1 |
+| `pasco log --statement <text> --kind metric\|milestone --basis <basis> [flags]` | The **capture path** of the impact log (D25/S2, §23.6, #496): writes **one** schema-valid row to `facts/achievements.yaml`. `--basis` required; `--visibility` defaults to **`private`** (D27) and is printed; on a `metric` only `--unit` is required (`--target` alone = a `planned` goal, `--value` alone = a `measured` result), and any metric flag on a `milestone` is exit 2; `--date` is optional and absent means **undated** (no clock is read), a malformed date is exit 2; `--ref` is repeatable. `--id` is optional and otherwise deterministic from the statement + date — a collision is exit 1 with nothing written. The write is atomic (temp copy → the same `load()` gate → rename under `facts/.pasco-edit.lock`), creates a missing file with a header and preserves every byte of an existing block-sequence file (comments/layout; an empty `[]`/null root is the only token replaced). Exit 0 written · 1 load/integrity failure, collision, or an unappendable flow-style file · 2 usage | ✅ v1 |
 | `pasco achievements [--targets] [--since <date>] [--until <date>] [--json]` | The **career impact log** (D24/§23, #446): one row per result — `metric` (`value`/`target`/`baseline`/`unit`/`direction`) or `milestone` — with the units it belongs to (`refs`), how the result is known (`basis`) and its required `visibility`. The status is **DERIVED** at read time (`planned` · `measured` · `achieved` · `partial`), never stored; `--targets` prints only the planned goals. `--since`/`--until` (D25/S3, #497) filter the fact `date` with **inclusive** bounds (each optional); the two filters are ANDed (status selects the set, `undated` is counted on it, then the range keeps the dated rows inside it); an invalid date or `since > until` is exit 2. A date-less row is never lost: `scope.undated` counts it — withheld from the range in the log view (and said out loud), returned by `--targets` (a goal is date-less by nature). Private rows are part of this **local** retrieval (D27). `--json` emits `{ schemaVersion: "1", scope, achievements }` (`undated` is additive). Read-only | ✅ v1 |
 | `pasco audit [--json] [--public]` | Offline **diagnostic projection**, findings only (no score/prioritisation/branding, #283): three fixed classes — `dangling-ref` FAIL · `contradiction` FAIL · `unsourced-claim` WARN — exit 1 iff any FAIL; `--json` carries `{ schemaVersion: "2", view, scope: { catalog, declared, checked, notRun, notBuildable }, findings }`. `view` is `"all"` (default, the SSOT) or `"public"` (`--public`, D27): the publishable projection, so a private row never becomes a public finding | ✅ v1 |
 | `pasco entity [--json \| --jsonld [--out <file>] [--bare]]` | The **entity projection** for surfaces the engine does not render (#287): `--json` is the frozen view — `entity { id, type, name, sameAs, email }`, the structured-data `gaps` (geoCheck codes verbatim), `jsonld: null` and `faqJsonLd` (the `FAQPage` node, `null` when the workspace declares no `faq[]`); `--jsonld` is the **same assembler output** the renderers embed, as paste-ready `<script type="application/ld+json">` blocks — the entity first, then the `FAQPage` when it exists (#360). Exit 1 when `@id` is absent (never invented) | ✅ v1 |
@@ -118,17 +118,17 @@ The partial commands are explicit, and each one says what still owns the rest:
 
 - **`refine`** — without `--choose` it emits the **agent task template** the
   executing agent works from (the CLI never calls an LLM and never wires the hub);
-  `--choose` records the pick in `content/active.yaml`. The platform skill ships
+  `--choose` records the pick in `facts/active.yaml`. The platform skill ships
   **inside this package**, so the template prints its real path on an npm install
   (and says `no skill for <platform>` vs `skills not shipped` distinctly —
   #253). The full variant flow is M3.
 - **`check`** — executes the offline rules that exist today: the brand handle
   matrix (brand flavor only, D15/§17), the evidence-registry checks (M7/§18.8),
   the media-transport rules (M8/§18.6), the `max-chars` / `min-chars` rows
-  declared in the workspace's `content/` (or the package's conservative caps when
+  declared in the workspace's `facts/` (or the package's conservative caps when
   it declares none) over the headline/bio rows that exist
   (offline, warn-class, #240), and **`fact-present`** — for the surfaces whose
-  catalog declares it (`content/checks.yaml` ∪ the shipped
+  catalog declares it (`facts/checks.yaml` ∪ the shipped
   `skills/<platform>/checks.yaml`): the artifact `pasco build` last wrote is
   compared **symmetrically** against the SSOT render — a URL, ISO
   date or number one side carries and the other does not, or a text difference no
@@ -224,7 +224,7 @@ fact the SSOT does not carry has no `factRef` by definition.
 Exit `1` iff a `FAIL` finding exists, `0` otherwise (WARN-only included); `2` is
 a usage error, and a schema/load failure is the standard error envelope at exit
 `1`. The audit never touches the network, and no finding is derived from
-`content/deployments.yaml` (the ledger is not a fact source) — it works on a
+`facts/deployments.yaml` (the ledger is not a fact source) — it works on a
 workspace that has neither a ledger nor a built artifact.
 
 What it composes ([SPEC §7.1](https://github.com/ChristianLuciani/profile-as-code/blob/main/docs/SPEC.md)): `load`/schema, `reconciledDrift` (drift
@@ -572,7 +572,7 @@ only, with no Pages; the artifact is readable by anyone with repository access.
 
 One command answers *"what will the published text be?"* and, when asked, **writes
 exactly one scalar** without touching a byte of anything else: the dogfood that
-opened the epic had to hash `content/*.yaml` before and after and read a
+opened the epic had to hash `facts/*.yaml` before and after and read a
 `pasco build` scrollback to answer the same question.
 
 ```sh
@@ -583,7 +583,7 @@ pasco edit headlines[platform=github-readme,lang=en].text --set "…" --check
 pasco edit identity.definition.en --set "…"                 # the canonical definition
 pasco edit 'faq[id=what-is-elena,lang=en].a' --set "…"      # one answer
 pasco edit identity.links[platform=github].url              # read-only (the URL SSOT)
-pasco edit --create faq                                     # seed a missing root (content/faq.yaml)
+pasco edit --create faq                                     # seed a missing root (facts/faq.yaml)
 ```
 
 Addressable fields (by **contract path**, never by line/offset — the schema is the
@@ -621,13 +621,13 @@ dropped and the row is listed by its platform when that resolves to one row (the
 warning says so). Any address that resolves to **more than one row** (a duplicate
 headline/bio, a label-less link sharing its platform) is a warning too: the list
 advertises only paths that resolve to exactly one row, the bar `edit` enforces. `--list` never locates a CST
-node, never takes `content/.pasco-edit.lock` and writes nothing; an empty
+node, never takes `facts/.pasco-edit.lock` and writes nothing; an empty
 workspace prints the header alone (exit 0). Combining `--list` with `--set`,
 `--check`, `--create` or an address is usage (exit 2), never a silently ignored
 argument.
 
 **Creating a missing root (`--create`, #435).** The splice never invents bytes, so
-it cannot create `content/faq.yaml` — the answer-engine surface the product
+it cannot create `facts/faq.yaml` — the answer-engine surface the product
 exists to be quoted through. `--create <root>` is a **different operation**, not
 a rewrite of the writer: it writes a schema-valid **template** for a root the
 workspace does not declare yet, refuses when the root already exists (idempotent:
@@ -635,7 +635,7 @@ nothing is written, exit 1), and validates the result through the same `load()`
 gate over a temp copy before the file reaches disk. It runs the same cap
 pre-flight as `--set`, and `--check` previews the seed (validates it, writes
 nothing). Both the root name and the file form are accepted:
-`pasco edit --create faq` / `pasco edit --create content/faq.yaml`. Seedable
+`pasco edit --create faq` / `pasco edit --create facts/faq.yaml`. Seedable
 roots today: `faq` (3 placeholder pairs — the schema minimum). Every value is a
 `<placeholder>` the owner replaces: the engine never invents facts (D11/D14).
 
@@ -644,7 +644,7 @@ locates the scalar and only those bytes are replaced, so comments, alignment and
 layout survive *by construction* and the diff is **one line** (a document
 re-serialization would normalize both — measured 2026-10-21). The new text goes to
 a temp file in the same directory, is validated by `load()` + schema over a temp
-copy of `content/`, and only then replaces the file atomically — **an invalid
+copy of `facts/`, and only then replaces the file atomically — **an invalid
 edit never reaches disk**. CRLF and the final newline are preserved. Block scalars
 (`|`, `>`) and multi-line scalars are **refused** in v1 (a replacement would change
 the line count), and so are **anchored/aliased** scalars (rewriting one would
@@ -652,7 +652,7 @@ silently change every alias). The file's node must still hold the value the
 command resolved — a row inserted or reordered since the address was resolved is
 a **staleness** refusal (exit 1), not a silent write to the wrong row.
 Concurrent `pasco edit` writers on one workspace serialize on
-`content/.pasco-edit.lock` (a second waits 2 s, then refuses; a lock left by a
+`facts/.pasco-edit.lock` (a second waits 2 s, then refuses; a lock left by a
 crash is broken after 30 s — `--create` takes the same lock and re-checks the
 root immediately before its exclusive create); an external editor is caught by the re-read
 immediately before the atomic rename. A symlinked
@@ -706,7 +706,7 @@ surface while no artifact changes (a headline on a paste-only surface), and both
 lines are true.
 
 **The cap pre-flight (S4, #251).** Before a headline/bio value is accepted, the
-edit measures it against the catalog's own `max-chars` cap — `content/checks.yaml`
+edit measures it against the catalog's own `max-chars` cap — `facts/checks.yaml`
 when the workspace declares checks, the **sourced caps shipped with pasco**
 otherwise — and prints the cap, its **cited source** and its provenance tier. Over-cap is a
 **warning**, never a block (D12: facts warn, schema fails): `edit` says so, `check`
@@ -850,7 +850,7 @@ pasco status --write-checklist        # regenerate CHECKLIST.md from the ledger
 pasco status                          # …also prints the derived publication-truth line:
                                       #   github-readme: in-sync · artifact: matches-SSOT · limits: ok
 pasco refine linkedin --variants 3            # emits the agent task template (full flow M3)
-pasco refine linkedin --choose linkedin-en-2   # records the chosen variant in content/active.yaml
+pasco refine linkedin --choose linkedin-en-2   # records the chosen variant in facts/active.yaml
 pasco check github-readme
 pasco audit                                  # findings only: dangling-ref · contradiction · unsourced-claim
 pasco audit --json                           # { schemaVersion, findings } — exit 1 iff any FAIL

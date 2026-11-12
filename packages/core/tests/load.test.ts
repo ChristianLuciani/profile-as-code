@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { compile, LoadError, load, SchemaValidationError } from "../src/index.js";
+import { compile, factsDir, LoadError, load, SchemaValidationError } from "../src/index.js";
 
 const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
 
@@ -380,6 +380,50 @@ describe("publication.kind (v1.14 — a derived, never-stored classification)", 
         venue: "Somewhere",
         year: 2024,
       });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("facts dir (D30) — the content/ → facts/ rename with a read alias", () => {
+  it("loads a workspace whose facts live in facts/", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pasco-core-"));
+    const dirName = join(dir, "facts");
+    mkdirSync(dirName, { recursive: true });
+    writeFileSync(join(dirName, "identity.yaml"), "name: Someone\n", "utf8");
+    try {
+      const profile = load(dir);
+      expect(profile.identity.name).toBe("Someone");
+      expect(factsDir(dir)).toBe("facts");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("still loads a legacy workspace whose facts live in content/ (the read alias)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pasco-core-"));
+    const dirName = join(dir, "content");
+    mkdirSync(dirName, { recursive: true });
+    writeFileSync(join(dirName, "identity.yaml"), "name: Someone\n", "utf8");
+    try {
+      const profile = load(dir);
+      expect(profile.identity.name).toBe("Someone");
+      expect(factsDir(dir)).toBe("content");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a workspace with BOTH facts/ and content/ as ambiguous", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pasco-core-"));
+    for (const name of ["facts", "content"]) {
+      mkdirSync(join(dir, name), { recursive: true });
+      writeFileSync(join(dir, name, "identity.yaml"), `name: from-${name}\n`, "utf8");
+    }
+    try {
+      expect(() => load(dir)).toThrow(/both facts\/ and content\//);
+      expect(() => factsDir(dir)).toThrow(LoadError);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

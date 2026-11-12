@@ -45,7 +45,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { LoadError, load } from "@profile-as-code/core";
+import { factsDir, LoadError, load } from "@profile-as-code/core";
 import { isAlias, isMap, isScalar, isSeq, parseDocument, type Scalar, stringify } from "yaml";
 import { UsageError } from "./contract.js";
 
@@ -68,14 +68,15 @@ export interface WriteTarget {
  * "the root exists" means.
  */
 export function owningFile(workspace: string, root: string): string | undefined {
+  const dirName = factsDir(workspace);
   let entries: string[];
   try {
-    entries = readdirSync(join(workspace, "content"));
+    entries = readdirSync(join(workspace, dirName));
   } catch {
     return undefined;
   }
   const match = entries.filter((name) => new RegExp(`^${root}\\.ya?ml$`, "i").test(name)).sort()[0];
-  return match === undefined ? undefined : `content/${match}`;
+  return match === undefined ? undefined : `${dirName}/${match}`;
 }
 
 export interface WriteOutcome {
@@ -130,7 +131,7 @@ function sleep(ms: number): void {
  *  SAME lock, so an edit and a log can never interleave a read/validate/rename
  *  pair on `content/achievements.yaml` (one home for the workspace write mutex). */
 export function withWriteLock<T>(workspace: string, waitMs: number, run: () => T): T {
-  const lockPath = join(workspace, "content", LOCK_NAME);
+  const lockPath = join(workspace, factsDir(workspace), LOCK_NAME);
   const started = Date.now();
   for (;;) {
     try {
@@ -157,7 +158,7 @@ export function withWriteLock<T>(workspace: string, waitMs: number, run: () => T
       }
       if (Date.now() - started >= waitMs) {
         throw new WriteRefusedError(
-          `another pasco edit is writing this workspace (content/${LOCK_NAME}) — retry in a moment`,
+          `another pasco edit is writing this workspace (${factsDir(workspace)}/${LOCK_NAME}) — retry in a moment`,
         );
       }
       sleep(25);
@@ -357,7 +358,11 @@ function writeEditLocked(
   const validate = deps.validate ?? ((workspace: string) => void load(workspace));
   const tempWorkspace = mkdtempSync(join(tmpdir(), "pasco-edit-write-"));
   try {
-    cpSync(join(args.workspace, "content"), join(tempWorkspace, "content"), { recursive: true });
+    cpSync(
+      join(args.workspace, factsDir(args.workspace)),
+      join(tempWorkspace, factsDir(args.workspace)),
+      { recursive: true },
+    );
     const copy = join(tempWorkspace, args.target.file);
     // `cpSync` copies the mode; a read-only content file must still be writable
     // in the throwaway copy, and no temp path may leak in an error (rule 9).
@@ -458,7 +463,7 @@ export function previewCreate(args: CreateArgs, deps: WriteDeps = {}): { file: s
     );
   }
   validateSeed(args, deps);
-  return { file: `content/${args.root}.yaml` };
+  return { file: `${factsDir(args.workspace)}/${args.root}.yaml` };
 }
 
 /** The seed write: lock → validate → exclusive create of the NEW file. */
@@ -512,7 +517,11 @@ export function validateContentFile(
   const validate = deps.validate ?? ((workspace: string) => void load(workspace));
   const tempWorkspace = mkdtempSync(join(tmpdir(), "pasco-content-validate-"));
   try {
-    cpSync(join(args.workspace, "content"), join(tempWorkspace, "content"), { recursive: true });
+    cpSync(
+      join(args.workspace, factsDir(args.workspace)),
+      join(tempWorkspace, factsDir(args.workspace)),
+      { recursive: true },
+    );
     writeFileSync(join(tempWorkspace, args.file), args.text, { mode: 0o600 });
     validate(tempWorkspace);
   } catch (err) {
@@ -529,7 +538,11 @@ export function validateContentFile(
 /** The seed's validation: the same gate, at `content/<root>.yaml`. */
 function validateSeed(args: CreateArgs, deps: WriteDeps): void {
   validateContentFile(
-    { workspace: args.workspace, file: `content/${args.root}.yaml`, text: args.text },
+    {
+      workspace: args.workspace,
+      file: `${factsDir(args.workspace)}/${args.root}.yaml`,
+      text: args.text,
+    },
     deps,
   );
 }

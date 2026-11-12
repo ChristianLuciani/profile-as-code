@@ -311,7 +311,7 @@ export function runAchievements(args: AchievementsArgs): number {
     line(
       args.targets === true
         ? "No row declares a `target` without a `value` yet — the goal view is empty."
-        : "Add content/achievements.yaml: one row per result, with `basis` and `visibility` (D24).",
+        : "Add facts/achievements.yaml: one row per result, with `basis` and `visibility` (D24).",
     );
     return EXIT.OK;
   }

@@ -263,7 +263,7 @@ export function selectRelease(profile: LoadedProfile, id?: string): Release {
   const releases = [...profile.releases].sort(newestFirst);
   if (releases.length === 0) {
     throw new PresenceError(
-      "the workspace declares no releases[] — add one to content/releases.yaml (schema v1.15, D23)",
+      "the workspace declares no releases[] — add one to facts/releases.yaml (schema v1.15, D23)",
     );
   }
   if (id === undefined) return releases[0] as Release;

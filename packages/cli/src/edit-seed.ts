@@ -78,7 +78,7 @@ export function parseCreateRoot(raw: string): SeedableRoot {
   const root = match?.[1];
   if (root === undefined) {
     throw new UsageError(
-      `--create takes a root name or its content file (faq · content/faq.yaml) — got ${JSON.stringify(raw)}`,
+      `--create takes a root name or its facts file (faq · facts/faq.yaml) — got ${JSON.stringify(raw)}`,
     );
   }
   if (!(SEEDABLE_ROOTS as readonly string[]).includes(root)) {

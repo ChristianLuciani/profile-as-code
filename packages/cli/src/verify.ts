@@ -33,6 +33,7 @@ import {
   certificationVerdict,
   declaredReason,
   deployStatus,
+  factsDir,
   fetchFailureReason,
   type LedgerReport,
   type LoadedProfile,
@@ -76,9 +77,9 @@ export const depsOf = (args: StatusArgs, profile: LoadedProfile): StatusDeps => 
   fetchText: args.deps?.fetchText ?? (async () => ({ status: 0 })),
 });
 
-/** `content/deployments.yaml` of a workspace — the one ledger home. */
+/** `<factsDir>/deployments.yaml` of a workspace — the one ledger home. */
 export function ledgerPathOf(workspace: string): string {
-  return join(workspace, "content", "deployments.yaml");
+  return join(workspace, factsDir(workspace), "deployments.yaml");
 }
 
 /** Read the ledger as parsed YAML. Returns a failure envelope on invalid YAML —
@@ -96,7 +97,7 @@ export function readLedger(
         fail: report("status", false, EXIT.FAIL, {
           error: {
             kind,
-            message: `content/deployments.yaml: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
+            message: `${factsDir(args.workspace)}/deployments.yaml: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
           },
         }),
       };
@@ -283,9 +284,7 @@ function finishVerify(
   line(
     "  certification compares the LIVE digest against the stored anchor; a record with no anchor is unverifiable: unattributed",
   );
-  line(
-    "  the ledger file was written — committing content/deployments.yaml is the operator's (D2)",
-  );
+  line("  the ledger file was written — committing facts/deployments.yaml is the operator's (D2)");
   return EXIT.OK;
 }
 

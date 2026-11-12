@@ -943,7 +943,7 @@ export function runEdit(args: EditArgs): number {
   // path for links (identity.yaml carries the URL SSOT — §3).
   if (address.kind === "link" && args.setArg !== undefined) {
     throw new UsageError(
-      `${address.address} is read-only — links live in content/identity.yaml (the URL SSOT, §3)`,
+      `${address.address} is read-only — links live in facts/identity.yaml (the URL SSOT, §3)`,
     );
   }
   if (args.check && args.setArg === undefined) {
@@ -1144,7 +1144,7 @@ export function runEdit(args: EditArgs): number {
     const scope = limitScope(address);
     if (preflight.limit === undefined) {
       line(
-        `limits: ${preflight.length} chars — cap unknown (no sourced max-chars for this ${scope} in the catalog: the workspace's content/checks.yaml or the caps shipped with pasco)`,
+        `limits: ${preflight.length} chars — cap unknown (no sourced max-chars for this ${scope} in the catalog: the workspace's facts/checks.yaml or the caps shipped with pasco)`,
       );
     } else {
       const over = preflight.over ? " — OVER" : " — ok";

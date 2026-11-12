@@ -149,6 +149,9 @@ export {
   untrackedRows,
 } from "./ledger.js";
 export {
+  FACTS_DIR,
+  factsDir,
+  LEGACY_FACTS_DIR,
   LoadError,
   load,
   normalizeProfile,

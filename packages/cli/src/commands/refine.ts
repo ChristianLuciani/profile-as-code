@@ -11,7 +11,14 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Lang, Platform } from "@profile-as-code/core";
-import { compile, LoadError, load, SchemaValidationError, textOf } from "@profile-as-code/core";
+import {
+  compile,
+  factsDir,
+  LoadError,
+  load,
+  SchemaValidationError,
+  textOf,
+} from "@profile-as-code/core";
 import { parseDocument, stringify } from "yaml";
 import {
   DEFAULT_VARIANTS,
@@ -65,19 +72,21 @@ function recordVariant(
   lang: Lang,
   variantId: string,
 ): { chosenAt: string } {
-  const activePath = join(workspace, "content", "active.yaml");
+  const activePath = join(workspace, factsDir(workspace), "active.yaml");
   let active: Record<string, unknown> = {};
   if (existsSync(activePath)) {
     const doc = parseDocument(readFileSync(activePath, "utf8"));
     if (doc.errors.length > 0) {
       throw new Error(
-        `content/active.yaml: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
+        `${factsDir(workspace)}/active.yaml: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
       );
     }
     const node = doc.toJS({ maxAliasCount: 100 });
     if (node !== null && node !== undefined) {
       if (typeof node !== "object" || Array.isArray(node)) {
-        throw new Error("content/active.yaml must contain a mapping (platform → variant entry)");
+        throw new Error(
+          `${factsDir(workspace)}/active.yaml must contain a mapping (platform → variant entry)`,
+        );
       }
       active = node as Record<string, unknown>;
     }
@@ -136,7 +145,7 @@ export function runRefine(args: RefineArgs): number {
       });
     }
     line(
-      `recorded active[${platform}] = { lang: ${lang}, variantId: ${args.choose}, chosenAt: ${chosenAt} } (content/active.yaml)`,
+      `recorded active[${platform}] = { lang: ${lang}, variantId: ${args.choose}, chosenAt: ${chosenAt} } (facts/active.yaml)`,
     );
     if (!hasBody) {
       line(

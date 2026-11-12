@@ -5,12 +5,12 @@
 > operator, a commercial feature, or a service — not to grow the engine.
 
 A post is a **projection of a seed**, not an identity fact. The store lives in
-the user's workspace at `posts/` — **the stream**, beside `content/` (identity) and
+the user's workspace at `posts/` — **the stream**, beside `facts/` (identity) and
 `profiles/` (generated output), outside `profile.schema.json`. The three top-level
-directories are three grains and never nest (#267): no `content/posts` (mixes the
+directories are three grains and never nest (#267): no `facts/posts` (mixes the
 stream into the identity root and forces `load()` to ignore a subtree), no
-`content/identities` (plural, and it contradicts D15: one workspace per identity),
-no `content/profiles` (collides with the generated output directory), and no
+`facts/identities` (plural, and it contradicts D15: one workspace per identity),
+no `facts/profiles` (collides with the generated output directory), and no
 `posts/content` (the stream never owns the SSOT):
 
 ```

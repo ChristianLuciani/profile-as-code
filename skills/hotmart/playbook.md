@@ -48,6 +48,6 @@ Orden sugerido (a verificar en el primer paste — SOTA-2026 §5/§6):
 
 ## No hacerlo a mano en el workspace
 
-- El paste solo se registra vía `--mark`; editar `content/deployments.yaml`
+- El paste solo se registra vía `--mark`; editar `facts/deployments.yaml`
   a mano rompe el contrato D18 (solo `pasco` escribe el ledger).
 - No pegues variantes no elegidas (solo la fila activa de bios es deployable).

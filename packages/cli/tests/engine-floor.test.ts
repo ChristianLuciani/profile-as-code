@@ -73,7 +73,7 @@ function removeFloor(dir: string): void {
 /** A contract field this engine does not know — the issue's failure shape. */
 function addUnrecognizedKey(dir: string): void {
   writeFileSync(
-    join(dir, "content", "identity.yaml"),
+    join(dir, "facts", "identity.yaml"),
     'name: Test Person\nbogusField: "this engine does not know this key"\n',
   );
 }
@@ -183,7 +183,7 @@ describe("an Unrecognized key with no declared floor names the upgrade (#434)", 
     const dir = scaffold();
     removeFloor(dir);
     // A missing required field, not an unknown one.
-    writeFileSync(join(dir, "content", "identity.yaml"), "# no name\n");
+    writeFileSync(join(dir, "facts", "identity.yaml"), "# no name\n");
 
     const res = run(["validate", "--workspace", dir]);
     expect(res.code).toBe(1);

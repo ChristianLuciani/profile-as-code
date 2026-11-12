@@ -4,7 +4,7 @@ El esqueleto del workspace **brand** (flavor: brand, D15/§17) se genera con el
 propio engine — no se duplica acá:
 
 ```sh
-pasco init --flavor brand        # crea content/{flavor,identity,socialHandles,newsletter,podcast,press,audiences}.yaml
+pasco init --flavor brand        # crea facts/{flavor,identity,socialHandles,newsletter,podcast,press,audiences}.yaml
 ```
 
 El template repo `profile-data-template` sigue siendo la fuente del esqueleto
@@ -19,7 +19,7 @@ mismo contrato.
 
 1. `pasco init --flavor brand` en la carpeta que elijas (recomendado: un repo privado,
    `profile-data-topia`).
-2. Llenar `content/` (identity org + handle matrix + newsletter/podcast/press/audiences).
+2. Llenar `facts/` (identity org + handle matrix + newsletter/podcast/press/audiences).
 3. `pasco validate` → 0 drift warnings en la matrix; `pasco check` → handle rules OK.
 4. `pasco build github-org --lang en` → `profiles/github-org/README.md` (git deploy).
 5. Deploy: el humano mergea.

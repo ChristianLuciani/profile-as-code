@@ -1,5 +1,6 @@
 /**
- * load(workspace) — parse `content/*.yaml` of a profile-data workspace, merge
+ * load(workspace) — parse the facts files (`facts/*.yaml`, legacy `content/*.yaml`
+ * — D30) of a profile-data workspace, merge
  * into one Profile, validate against the generated Zod schema (fail on schema,
  * D12) and normalize.
  *
@@ -21,7 +22,7 @@ import { checkLedgerIntegrity } from "./ledger.js";
 import { checkRegistryIntegrity } from "./registry.js";
 import type { LoadedProfile, Profile } from "./types.js";
 
-/** Workspace-level failure: missing/unreadable content dir, bad YAML, config error. */
+/** Workspace-level failure: missing/unreadable facts dir, bad YAML, config error. */
 export class LoadError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);
@@ -95,37 +96,64 @@ export function normalizeProfile(profile: Profile): LoadedProfile {
   };
 }
 
-/** Read and merge every `content/*.yaml` (or `*.yml`) of a workspace.
+/** The facts directory (D30): new workspaces use `facts/`; `content/` is the
+ *  pre-D30 name, still read so every existing workspace keeps loading. */
+export const FACTS_DIR = "facts";
+export const LEGACY_FACTS_DIR = "content";
+
+/**
+ * The workspace's facts directory: `facts/` when it exists, else the legacy
+ * `content/` (D30). Having BOTH is ambiguous — the ledger, the active-variant
+ * skin and every write path would have to guess which one is the SSOT — so it
+ * is a LoadError, never a silent pick (D12).
+ *
+ * @param workspace path to the workspace root
+ * @returns the directory NAME (`facts` or `content`), not a path
+ * @throws LoadError — both directories exist
+ */
+export function factsDir(workspace: string): string {
+  const hasFacts = existsSync(join(workspace, FACTS_DIR));
+  const hasLegacy = existsSync(join(workspace, LEGACY_FACTS_DIR));
+  if (hasFacts && hasLegacy) {
+    throw new LoadError(
+      `workspace has both ${FACTS_DIR}/ and ${LEGACY_FACTS_DIR}/ — ambiguous (D30): keep exactly one (run pasco migrate, or remove the leftover directory)`,
+    );
+  }
+  return hasFacts ? FACTS_DIR : LEGACY_FACTS_DIR;
+}
+
+/** Read and merge every `<factsDir>/*.yaml` (or `*.yml`) of a workspace.
  *  File name = root property: `bios.yaml` contributes `{ bios: <list> }`,
  *  `identity.yaml` contributes `{ identity: <object> }`, … (schema/README.md
  *  mapping table). An empty file contributes nothing. */
-function readContentFiles(workspace: string): Record<string, unknown> {
-  const contentDir = join(workspace, "content");
-  if (!existsSync(contentDir)) {
+function readFactsFiles(workspace: string): Record<string, unknown> {
+  const dirName = factsDir(workspace);
+  const dir = join(workspace, dirName);
+  if (!existsSync(dir)) {
     throw new LoadError(
-      `workspace has no content/ directory: ${contentDir} (expected content/*.yaml per schema/README.md)`,
+      `workspace has no ${dirName}/ directory: ${dir} (expected ${dirName}/*.yaml per schema/README.md)`,
     );
   }
 
-  const files = readdirSync(contentDir)
+  const files = readdirSync(dir)
     .filter((file) => /\.ya?ml$/i.test(file) && !file.startsWith("."))
     .sort();
 
   const merged: Record<string, unknown> = {};
   for (const file of files) {
     const rootKey = file.replace(/\.ya?ml$/i, "");
-    const fullPath = join(contentDir, file);
+    const fullPath = join(dir, file);
     const doc = parseDocument(readFileSync(fullPath, "utf8"));
     if (doc.errors.length > 0) {
       throw new LoadError(
-        `content/${file}: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
+        `${dirName}/${file}: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
       );
     }
     const node = doc.toJS({ maxAliasCount: 100 });
     if (node === null || node === undefined) continue; // empty file → no contribution
     if (rootKey in merged) {
       throw new LoadError(
-        `content/${file}: duplicate root property "${rootKey}" (already provided by another content file) — each root property belongs to exactly one file`,
+        `${dirName}/${file}: duplicate root property "${rootKey}" (already provided by another content file) — each root property belongs to exactly one file`,
       );
     }
     merged[rootKey] = node;
@@ -136,8 +164,8 @@ function readContentFiles(workspace: string): Record<string, unknown> {
 /**
  * Load a profile-data workspace into a normalized, schema-valid Profile.
  *
- * @param workspace path to the workspace root (must contain `content/`)
- * @throws LoadError — workspace problems (missing content dir, YAML errors, duplicate root keys)
+ * @param workspace path to the workspace root (must contain the facts dir — D30)
+ * @throws LoadError — workspace problems (missing facts dir, YAML errors, duplicate root keys)
  * @throws SchemaValidationError — merged profile violates the contract (D12: fail on schema),
  *   including the post-Zod ledger integrity checks (D18 §19: duplicate ids, ambiguous
  *   composite keys when addressed, ledger key pattern, surface enum — gen-zod drops
@@ -145,7 +173,7 @@ function readContentFiles(workspace: string): Record<string, unknown> {
  *   integrity checks (D17 §18: duplicate ids, dangling cross-refs, locator XOR).
  */
 export function load(workspace: string): LoadedProfile {
-  const merged = readContentFiles(workspace);
+  const merged = readFactsFiles(workspace);
   const profile = validateProfile(merged);
   const ledgerIssues = checkLedgerIntegrity(profile);
   if (ledgerIssues.length > 0) {

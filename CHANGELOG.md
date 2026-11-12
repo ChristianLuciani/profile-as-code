@@ -9,6 +9,18 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+- **D30 — the SSOT directory is `facts/`, `content/` retired by alias** — the
+  workspace directory holding the typed record was named `content/` before the
+  post stream existed (#264, #267); once `posts/` became a grain, `content` sat
+  ambiguously between "the record" and "content to publish". `load()` now
+  resolves the SSOT directory as `facts/` when it exists and falls back to
+  `content/` for legacy workspaces (dual-read, never dual-write — a workspace
+  holding both is a load error, D12); `pasco init` scaffolds `facts/`; existing
+  workspaces rename **opt-in** with `pasco migrate --facts-dir` (refuses when
+  both directories exist). Every functional path, error message, doc, skill and
+  template names `facts/`; fixtures with `content/` still load and now double as
+  the compatibility proof. Spec: `docs/SPEC.md` D30 + §9.
+
 - **D27 leak surfaces — the renderer/JSON-LD guards and the per-surface leak
   suite (#498, D27/S4c)** — `github-readme` re-applies `isPublicEntry()` to the
   `projects` block it emits (credentials and artifacts already did), so a

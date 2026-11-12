@@ -41,6 +41,6 @@ export function catalogSource(profile: LoadedProfile): CatalogSource {
 /** The text report's sentence for a source (the HTML preview phrases its own). */
 export function catalogLabel(source: CatalogSource): string {
   return source === "workspace"
-    ? "workspace checks (declared in content/, schema-validated catalog)"
+    ? "workspace checks (declared in facts/, schema-validated catalog)"
     : "workspace checks: none declared — the conservative caps shipped with pasco apply (#240)";
 }

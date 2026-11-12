@@ -40,6 +40,7 @@ import { basename, join, dirname as parentDir, relative, resolve } from "node:pa
 import type { LoadedProfile, MediaAsset, Platform } from "@profile-as-code/core";
 import {
   collectMedia,
+  factsDir,
   LoadError,
   load,
   needsVisibilityMigration,
@@ -113,9 +114,9 @@ export function countFacts(value: unknown): number {
   return 0;
 }
 
-/** Every `content/**` file the workspace declares (the provenance set). */
+/** Every `<factsDir>/**` file the workspace declares (the provenance set). */
 function contentSources(workspace: string): PreviewSource[] {
-  const root = join(workspace, "content");
+  const root = join(workspace, factsDir(workspace));
   if (!existsSync(root)) return [];
   const out: PreviewSource[] = [];
   const walk = (dir: string): void => {

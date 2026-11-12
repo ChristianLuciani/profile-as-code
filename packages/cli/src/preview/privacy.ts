@@ -48,6 +48,7 @@
 
 import { existsSync, realpathSync } from "node:fs";
 import { basename, join, resolve, sep } from "node:path";
+import { factsDir } from "@profile-as-code/core";
 
 export type PrivacyRule =
   | "absolute-path"
@@ -176,7 +177,7 @@ const CREDENTIAL_FILE =
 
 /** The roots the preview may read: the workspace's own data surface. */
 export function declaredRoots(workspace: string): readonly string[] {
-  return [join(workspace, "content"), join(workspace, ".pascorc")];
+  return [join(workspace, factsDir(workspace)), join(workspace, ".pascorc")];
 }
 
 /** Every refusal class, in one place so `--json` and the docs can list them. */

@@ -11,7 +11,7 @@ pointer is asserted by `packages/cli/tests/skill-two-axis.test.ts`.
 
 | Axis | What it is | May it differ per surface? |
 |---|---|---|
-| **Facts** | `content/*.yaml` — name, dates, roles, numbers, DOIs, links, evidence | **No.** One and identical everywhere. A contradiction between two surfaces is a defect (GEO/citability), not an adaptation. |
+| **Facts** | `facts/*.yaml` — name, dates, roles, numbers, DOIs, links, evidence | **No.** One and identical everywhere. A contradiction between two surfaces is a defect (GEO/citability), not an adaptation. |
 | **Narrative** | reader, emphasis, **order**, subset, composition | **Yes — deliberately.** It **must not** be propagated "for consistency". |
 
 The texts shared verbatim across surfaces are the root-block facts themselves

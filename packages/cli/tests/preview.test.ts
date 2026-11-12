@@ -118,7 +118,7 @@ describe("pasco preview — the artifact", () => {
       "- id: gh-headline\n  platform: github-readme\n  rule: max-chars\n  value: 280\n",
     );
     const declared = preview();
-    expect(declared).toContain("declared limits (content/)");
+    expect(declared).toContain("declared limits (facts/)");
     // The row is the workspace's (the table lists platform · rule · value).
     expect(declared).toMatch(
       /<td><code>github-readme<\/code><\/td><td>max-chars<\/td><td><code>280<\/code><\/td>/,

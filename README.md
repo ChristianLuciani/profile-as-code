@@ -70,7 +70,7 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
                         │ datos del usuario        │ outputs listos
         ┌───────────────▼──────────┐   ┌───────────▼──────────────┐
         │  REPO PRIVADO (tuyo)     │   │  deploy: pegar (LinkedIn,│
-        │  content/*.yaml          │   │  Upwork…) o git/API      │
+        │  facts/*.yaml          │   │  Upwork…) o git/API      │
         │  profiles/ (generados)   │   │  (GitHub README, web)    │
         │  CHANGELOG · CHECKLIST   │   │                          │
         └──────────────────────────┘   └──────────────────────────┘

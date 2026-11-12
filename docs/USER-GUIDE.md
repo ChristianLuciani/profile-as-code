@@ -57,12 +57,12 @@ Core principles (SPEC §5 decisions, abbreviated):
   (schema + drift-check). Prose (bios, headlines) is generated per platform, in
   variants **you** choose.
 - **The schema is the contract.** `schema/profile.schema.json` — every
-  `content/*.yaml` file must satisfy it. `pasco validate` is the judge.
+  `facts/*.yaml` file must satisfy it. `pasco validate` is the judge.
 - **The engine never owns your data.** It reads your workspace by configured
-  path (D14) and never edits your `content/*.yaml` facts — the only file it
+  path (D14) and never edits your `facts/*.yaml` facts — the only file it
   writes there is the variant you pick with `pasco refine --choose`
-  (→ `content/active.yaml`). Generated outputs are separate: `profiles/` (§5),
-  the `content/deployments.yaml` ledger and `CHECKLIST.md` (§7).
+  (→ `facts/active.yaml`). Generated outputs are separate: `profiles/` (§5),
+  the `facts/deployments.yaml` ledger and `CHECKLIST.md` (§7).
 - **GEO is consistency.** An LLM that reads your LinkedIn and your GitHub must
   find identical facts — contradictions get you filtered out. That is why the
   engine checks drift across platforms.
@@ -76,7 +76,7 @@ meaning "published".
 
 | # | Step | Command | The question it answers |
 |---|---|---|---|
-| 1 | **Edit** one file, one root property | `nano content/<block>.yaml` | what do I actually want to say? ([§4.4](#44-your-first-edit-without-an-editor)) |
+| 1 | **Edit** one file, one root property | `nano facts/<block>.yaml` | what do I actually want to say? ([§4.4](#44-your-first-edit-without-an-editor)) |
 | 2 | **Validate** the source of truth | `pasco validate` | is this schema-valid, and does it drift from my other platforms? ([§5](#5-validate--build)) |
 | 3 | **Build** the artifact | `pasco build <platform>` | what exact bytes go to the platform? ([§5](#5-validate--build)) |
 | 4 | **Publish** it | paste, or PR the artifact into `<you>/<you>` | is the platform showing the new text? ([§7](#7-deploy)) |
@@ -281,8 +281,8 @@ overwrite** anything that exists:
 
 | Flavor | What it creates |
 |---|---|
-| `person` (default) | `content/identity.yaml` + `content/checks.yaml` + `README.md` + `.pascorc` |
-| `brand` | `content/{identity,socialHandles,newsletter,podcast,press,audiences,flavor,checks}.yaml` + `README.md` + `.pascorc` |
+| `person` (default) | `facts/identity.yaml` + `facts/checks.yaml` + `README.md` + `.pascorc` |
+| `brand` | `facts/{identity,socialHandles,newsletter,podcast,press,audiences,flavor,checks}.yaml` + `README.md` + `.pascorc` |
 
 `newsletter` and `podcast` are **flavor-neutral** (#481): the brand scaffold
 creates them by default, and a `person` workspace may declare them too — a writer
@@ -310,7 +310,7 @@ pasco init /path/to/where-you-already-work/profile-data
 ```
 
 Point `pasco init` at the folder you want (it refuses to overwrite an existing
-`content/`), or move a folder you already have to its new home. **Same
+`facts/`), or move a folder you already have to its new home. **Same
 capabilities as Option B by construction** (validate / build / refine / check),
 same absence of automation and history unless your storage provides them.
 
@@ -398,7 +398,7 @@ you never need flags.
 
 ### 4.1 The golden rule: one file = one root property
 
-Every file in `content/` maps to one root property of the schema — the file
+Every file in `facts/` maps to one root property of the schema — the file
 holds the value **directly**, with no wrapper key. `bios.yaml` contains the
 `bios[]` array itself; `identity.yaml` contains the `identity` object itself.
 
@@ -427,7 +427,7 @@ moved structured-data from 80 to 100 with that one line (#260).
 Brand flavor (D15) adds: `socialHandles` (handle matrix with claim status),
 `newsletter`, `podcast`, `press`, `audiences`, and org-identity fields in
 `identity.yaml` (`orgName`, `logo`, `mission`, `tagline`, `brandVoice`,
-`established`). Every workspace declares its flavor in `content/flavor.yaml`
+`established`). Every workspace declares its flavor in `facts/flavor.yaml`
 (default `person`).
 
 **Nationality is a code, not a country name.** `identity.nationality` (v1.13/#334) takes
@@ -439,7 +439,7 @@ node carries no `nationality`. It is optional and does not change your GEO score
 absent:
 
 ```yaml
-# content/identity.yaml
+# facts/identity.yaml
 name: Elena Vasquez
 location: Madrid, Spain   # where you live
 nationality: VE           # ISO 3166-1 alpha-2 (citizenship)
@@ -528,7 +528,7 @@ first few edits.
 
 ```sh
 cd ~/profile-data-<username>
-nano content/identity.yaml     # name, location, links[] — the GEO anchor
+nano facts/identity.yaml     # name, location, links[] — the GEO anchor
 # Ctrl-O, Enter, Ctrl-X
 pasco validate
 ```
@@ -538,7 +538,7 @@ Three habits that prevent almost every first-run error:
 1. **A block goes in its own file.** A `bios:` list pasted into `identity.yaml`
    fails with a schema error that names the root property (`identity`) and the
    unexpected key — one file carries exactly one root, so that root is your file.
-   It is not a bug, it is the file. Paste it in `content/bios.yaml`.
+   It is not a bug, it is the file. Paste it in `facts/bios.yaml`.
 2. **One value, one line.** Multi-line YAML block scalars (`|`, `>`) are legal
    YAML, but `pasco edit` (epic #247) writes single-line scalars only: it refuses
    a block or multi-line value (and a `--set` containing a line break) — and an
@@ -557,7 +557,7 @@ command without `--set`, which prints the current value of the address:
 ```sh
 pasco edit 'positioning.statement.en' --set '<the text you adopted>'
 pasco edit 'positioning.statement.en'          # receipt: the text you wrote
-grep -n '<the text you adopted>' content/positioning.yaml   # receipt: the line in the file
+grep -n '<the text you adopted>' facts/positioning.yaml   # receipt: the line in the file
 pasco validate
 ```
 
@@ -565,8 +565,8 @@ With `nano` the receipt is the `grep`: no tool wrote the line, so the file has t
 show it.
 
 ```sh
-nano content/identity.yaml
-grep -n 'definition' content/identity.yaml     # receipt: the line you added
+nano facts/identity.yaml
+grep -n 'definition' facts/identity.yaml     # receipt: the line you added
 pasco validate
 ```
 
@@ -596,7 +596,7 @@ never creates them.
 
 A **root the workspace does not declare yet** needs `pasco edit --create <root>`
 first — the write is a byte-range splice over existing bytes, so it cannot create
-`content/faq.yaml` on its own (#435). `pasco edit --create faq` writes a three-pair
+`facts/faq.yaml` on its own (#435). `pasco edit --create faq` writes a three-pair
 placeholder template (the schema floor), refuses when the root already exists
 (idempotent), and `--create faq --check` previews it without writing. Replace every
 `<placeholder>`: the engine never invents facts.
@@ -748,7 +748,7 @@ gap, not a workspace fix.
 The routine never changes:
 
 ```sh
-# 1. Edit content/<file>.yaml
+# 1. Edit facts/<file>.yaml
 # 2. Validate
 pasco validate
 # 3. Build (regenerate outputs)
@@ -848,7 +848,7 @@ pasco refine linkedin --choose linkedin-en-2   # id convention: <platform>-<lang
 ```
 
 The full variant generation flow lands with M3; `--choose` already works and
-writes only `content/active.yaml` — the §5/§7 outputs are generated separately.
+writes only `facts/active.yaml` — the §5/§7 outputs are generated separately.
 
 ### Posts (`pasco post`, experimental)
 
@@ -882,7 +882,7 @@ your re-paste list.
 
 A platform will truncate a text that is too long, and **`pasco validate` will not
 warn you** — caps are not schema, they are per-surface limits (D12: facts warn,
-schema fails). The catalogue is the workspace's `content/checks.yaml`; `pasco init`
+schema fails). The catalogue is the workspace's `facts/checks.yaml`; `pasco init`
 copies the engine defaults into it, and **if the file declares any check it replaces
 the defaults** (`profile.checks` wins whole, it is not merged row by row): the rows
 you keep still apply, but a row you delete no longer falls back to the engine's copy.
@@ -977,7 +977,7 @@ All of it is offline and deterministic:
   the SSOT render **in both directions**: a URL, date or number the surface adds
   or omits, and a text difference no fact token explains. `pasco check` runs the
   same rule and reports it as a warning; the audit grades it. The catalog is the
-  workspace's `content/checks.yaml` plus the shipped
+  workspace's `facts/checks.yaml` plus the shipped
   `skills/<platform>/checks.yaml`; `link-in-identity` stays a separate premise.
 
 `path` is a fact address (`projects[hub].links[0]`, `publications[routing]`,
@@ -1005,7 +1005,7 @@ FAIL class exits `1` here and `0` there. The difference is declared, not inciden
 `geo` coverage scores are deliberately **not** findings: a short canonical
 definition is a citability signal, not a pointer or a contradiction
 (`docs/SPEC.md` §7.1). `pasco audit` touches no network and works on a workspace
-with no `content/deployments.yaml` and nothing built; `pasco status --verify` is
+with no `facts/deployments.yaml` and nothing built; `pasco status --verify` is
 still the way to compare with the LIVE page.
 
 ### Emit the entity (`pasco entity`, #287)
@@ -1057,14 +1057,14 @@ Two deploy classes (D9):
 
 Non-negotiables:
 
-- Never hand-edit a deployed surface. If it's wrong, fix `content/`, rebuild,
+- Never hand-edit a deployed surface. If it's wrong, fix `facts/`, rebuild,
   redeploy — the SSOT is the only place edits happen.
 - After pasting, verify facts — cross-platform factual consistency is the whole
   point (GEO). Then confirm the deploy in the ledger:
   `pasco status --mark <ledgerKey> <platform>` records `deployedAt` + the current
   `contentHash` — a `<ledgerKey>` is the key `pasco status` prints for the row: a
   block name (`identity`) or `<block>:<id>` (`experience:exp-acme`). Only `pasco`
-  writes `content/deployments.yaml` (D14). It also
+  writes `facts/deployments.yaml` (D14). It also
   records the **certification** of the deploy (`attested`: *you* said so).
 - `pasco status` is the per-entry answer to "what is published where, and what's
   out of date": every unit shows `in-sync` / `stale` / `never` per surface, plus
@@ -1127,7 +1127,7 @@ For the git/API class, "publish" is a pull request into your **profile** repo
 workspace, publish from a checkout of the profile repo:
 
 ```sh
-# 1. build in the workspace (where content/ and .pascorc live)
+# 1. build in the workspace (where facts/ and .pascorc live)
 cd ~/profile-data-<username>
 pasco build github-readme            # -> profiles/github-readme/README.md
 
@@ -1145,7 +1145,7 @@ gh pr create --fill
 a `"workspace": "."` field resolves relative to that file's directory (D14:
 `--workspace` → `.pascorc` → cwd). Run `pasco build` from inside `../profile-readme`
 — or from a parent of the workspace — and the run stops with
-`workspace has no content/` (or builds a different workspace than the one you mean),
+`workspace has no facts/` (or builds a different workspace than the one you mean),
 while the file you commit stays the old one. Run it from the workspace root, or pass
 `--workspace <path>` explicitly; the flag wins.
 
@@ -1165,7 +1165,7 @@ same loop:
 
 ```sh
 cd ~/profile-data-<username>
-$EDITOR content/<file>.yaml
+$EDITOR facts/<file>.yaml
 pasco validate                       # fix schema; read drift warnings
 pasco build                          # regenerate outputs
 $EDITOR CHANGELOG.md               # what changed → which platforms to re-paste
@@ -1325,10 +1325,10 @@ One workspace per identity, same engine (D14/D15):
 | Renderers | this repo, `packages/renderers` | deterministic per-platform artifacts |
 | Platform skills (SOTA knowledge) | this repo, `skills/<platform>/` | applied by your agent during `pasco refine` (M3) |
 | Deploy playbooks | per-platform skills, `skills/<platform>/playbook.md` where shipped (shared `templates/playbooks/` planned, M4/M5) | copy-paste + verification steps |
-| Your facts | `profile-data-<username>` (private), `content/*.yaml` | the SSOT — the only thing you edit |
+| Your facts | `profile-data-<username>` (private), `facts/*.yaml` | the SSOT — the only thing you edit |
 | Generated outputs | your workspace, `profiles/` | committed deploy artifacts — never hand-edited |
 | Posts (the stream) | your workspace, `posts/` | seeds + per-channel projections (`pasco post`, experimental #264) — never identity facts, and never read by `pasco validate` |
-| Chosen variants | your workspace, `content/active.yaml` | what is live per platform/lang |
+| Chosen variants | your workspace, `facts/active.yaml` | what is live per platform/lang |
 | Re-paste ledger | your workspace, `CHANGELOG.md` + `CHECKLIST.md` | what changed and what was verified |
 
 ---
@@ -1344,7 +1344,7 @@ pasco edit <contract-path> [--set <text> [--check]]  # read / preview / write on
 pasco edit --list [<block>]                # every contract path this workspace has (#411)
 pasco diff [--json]                        # changes since last release-* tag
 pasco refine <platform> [--lang] [--variants N]   # emit the agent task template (full flow M3)
-pasco refine <platform> --choose <id>      # record chosen variant in content/active.yaml
+pasco refine <platform> --choose <id>      # record chosen variant in facts/active.yaml
 pasco check [platform]                     # offline rules + checks catalog + fact-present (rest M4)
 pasco audit [--json]                       # findings only: dangling-ref · contradiction · unsourced-claim
 pasco entity [--json | --jsonld]           # schema.org entity view / paste-ready JSON-LD block (#287)

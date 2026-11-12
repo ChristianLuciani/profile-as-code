@@ -76,7 +76,7 @@ describe("the shipped catalogs state the premise/cap split (#455)", () => {
     for (const { platform, header } of catalogs) {
       const text = flat(header);
       expect(text, `${platform}: the union decides which premises run`).toContain(
-        "content/checks.yaml",
+        "facts/checks.yaml",
       );
       expect(text, `${platform}: name what the union decides (premises)`).toMatch(/premisas?/i);
       expect(text, `${platform}: name where the caps come from`).toContain(

@@ -34,6 +34,9 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
+  FACTS_DIR,
+  factsDir,
+  LEGACY_FACTS_DIR,
   LoadError,
   load,
   missingVisibility,
@@ -269,7 +272,7 @@ function validateMigration(
   const validate = deps.validate ?? ((path: string) => void load(path));
   const temp = mkdtempSync(join(tmpdir(), "pasco-migrate-"));
   try {
-    cpSync(join(workspace, "content"), join(temp, "content"), {
+    cpSync(join(workspace, factsDir(workspace)), join(temp, factsDir(workspace)), {
       recursive: true,
       dereference: true,
     });
@@ -377,6 +380,9 @@ export function migrateVisibility(workspace: string, deps: MigrateDeps = {}): Mi
 
 export interface MigrateArgs {
   workspace: string;
+  /** D30: rename the legacy `content/` directory to `facts/` before the
+   *  visibility migration. Opt-in; idempotent. */
+  factsDir?: boolean;
   /** The effective contract floor (every consulted `.pascorc`; the STRICTEST wins for the migration policy). */
   contractFloor?: ContractFloor;
 }
@@ -422,9 +428,24 @@ function bumpContractFloor(workspace: string): void {
   renameSync(temp, path);
 }
 
+/** The D30 facts-dir migration: rename the legacy `content/` to `facts/`.
+ *  Opt-in (`--facts-dir`); idempotent — a workspace already on `facts/` (or
+ *  with neither directory) is untouched. BOTH directories present is ambiguous
+ *  (the same rule `factsDir()` enforces at load) and refused. Runs BEFORE the
+ *  visibility migration so the whole run happens on the final layout. */
+export function migrateFactsDir(workspace: string): boolean {
+  const hasLegacy = existsSync(join(workspace, LEGACY_FACTS_DIR));
+  const hasFacts = existsSync(join(workspace, FACTS_DIR));
+  if (!hasLegacy || hasFacts) return false;
+  renameSync(join(workspace, LEGACY_FACTS_DIR), join(workspace, FACTS_DIR));
+  return true;
+}
+
 export function runMigrate(args: MigrateArgs): number {
   try {
     assertFloorWritable(args.workspace);
+    const renamed = args.factsDir === true ? migrateFactsDir(args.workspace) : false;
+    if (renamed) line(`renamed content/ -> facts/ (D30)`);
     const outcome = migrateVisibility(args.workspace, {
       contractFloor: args.contractFloor,
     });
