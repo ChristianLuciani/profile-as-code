@@ -1794,14 +1794,18 @@ D22's `selection.views`, plus an explicit list of rows the surface would not
 otherwise receive. Three places make up the path D22 implemented, none of them
 interchangeable: the shared **resolver** that turns a view name into its rule
 (`resolveView` in `packages/core/src/selection.ts` — declared view, else
-`default`, else no filtering; `pasco build` repeats it under its `unknown view`
-error, `status` under `--selection`), the **subset-only application** that
-applies that rule to the record (`selectFacts`, same module), and the
+`default`, else no filtering), the **subset-only application** that applies that
+rule to the record (`selectFacts`, same module, its only caller), and the
 **sanitizer** every consumer of the policy runs first (`sanitizeSelectionPolicy`
 in `packages/cli/src/workspace.ts`, called by `build`, `status`, `publication`
-and `artifact-render`). It is never a copy of the data: the rows keep their home
-in `content/*.yaml`, and a curated row that is later edited shows its new text
-— the grant names a row, it does not freeze it.
+and `artifact-render`). The commands do not call the resolver: `build` and
+`status` each re-derive the rule inline as `views?.[name] ?? default`
+(`build.ts:101`, `status.ts:485`), and only `build` adds the `unknown view`
+error on top (`build.ts:102-106`); `status` has none.
+
+It is never a copy of the data: the rows keep their home in
+`content/*.yaml`, and a curated row that is later edited shows its new text —
+the grant names a row, it does not freeze it.
 
 **Additive and scoped.** A curation can only **ADD** rows to what the surface is
 already entitled to receive; it can never remove or edit one, and it **never
@@ -1813,21 +1817,23 @@ block wildcard, so a grant always says out loud which rows it exposes.
 
 **Narrowing is the `view`'s job, so there is no `exclude` field.** A curation
 carries no deny list: the optional `view` already reaches a D22 view rule, which
-owns `excludeKeys`/`excludeTags` (§21.2) and applies them to the rows the surface
-receives. Two properties of the D22 engine bind that sentence rather than sit
+owns `excludeKeys`/`excludeTags` (§21.2). That rule runs over the
+**unfiltered** record — every row, whatever its `visibility` — and
+visibility is applied to the **selected** result afterwards (`compile`:
+selection, then `isPublicEntry`). So the order is: the view narrows the whole
+record, visibility narrows what the view kept, and a curated `include` lands
+**after** both — the view never sees those rows, so it can neither select nor
+exclude them. Two properties of the D22 engine bind that order rather than sit
 beside it. The rule is **subset-only**: it removes entries and never edits,
-renames or re-derives one (§21.1) — which is why a `view` can narrow a
+renames or re-derives one (D22, §5) — which is why a `view` can narrow a
 curation without ever softening the additive guarantee above, and why §21.4
-makes every omission WARN. And the engine applies that rule to the
-**unfiltered** record, then applies visibility to the **selected** result
-(`compile`: selection, then `isPublicEntry`) — the reverse of §21's rule that
-"visibility removes non-public entries before selection". The two orders emit
-the same rows, since each filter is per-entry and independent; only the
+makes every omission WARN. And the engine's order is the reverse of §21's rule
+that "visibility removes non-public entries before selection": the two orders
+emit the same rows, since each filter is per-entry and independent; only the
 accounting moves. A view's `excludeKeys` may still name a row that is now
-`private` — that is §21.2's pre-v2.0 hiding workaround, not an error — and
-hiding a row is never a *view* omission, which §21.4 scopes to selection
-alone. What a curation adds lands **after** selection: a view cannot select
-what it cannot see.
+`private` — that is the pre-v2.0 hiding workaround (`compile.ts:122-124`), not
+an error — and hiding a row is never a *view* omission, which §21.4 scopes to
+selection alone.
 
 **A curation is a grant, never a filter.** A curation-level `exclude` would
 restate that mechanism while inviting the one reading this contract must not
