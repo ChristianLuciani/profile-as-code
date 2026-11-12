@@ -1789,14 +1789,19 @@ curations:
     created: 2026-11-07
 ```
 
-**Derivation, not a second record.** A curation is a *view derivation* like D22's
-`selection.views` (the code path D22 implemented — the rule itself in
-`packages/core/src/selection.ts`, the shared sanitizer in
-`packages/cli/src/workspace.ts` that every consumer of the policy runs), plus an
-explicit list of rows
-the surface would not otherwise receive. It is never a copy of the data: the rows
-keep their home in `content/*.yaml`, and a curated row that is later edited shows
-its new text — the grant names a row, it does not freeze it.
+**Derivation, not a second record.** A curation is a *view derivation* like
+D22's `selection.views`, plus an explicit list of rows the surface would not
+otherwise receive. Three places make up the path D22 implemented, none of them
+interchangeable: the shared **resolver** that turns a view name into its rule
+(`resolveView` in `packages/core/src/selection.ts` — declared view, else
+`default`, else no filtering; `pasco build` repeats it under its `unknown view`
+error, `status` under `--selection`), the **subset-only application** that
+applies that rule to the record (`selectFacts`, same module), and the
+**sanitizer** every consumer of the policy runs first (`sanitizeSelectionPolicy`
+in `packages/cli/src/workspace.ts`, called by `build`, `status`, `publication`
+and `artifact-render`). It is never a copy of the data: the rows keep their home
+in `content/*.yaml`, and a curated row that is later edited shows its new text
+— the grant names a row, it does not freeze it.
 
 **Additive and scoped.** A curation can only **ADD** rows to what the surface is
 already entitled to receive; it can never remove or edit one, and it **never
@@ -1809,10 +1814,26 @@ block wildcard, so a grant always says out loud which rows it exposes.
 **Narrowing is the `view`'s job, so there is no `exclude` field.** A curation
 carries no deny list: the optional `view` already reaches a D22 view rule, which
 owns `excludeKeys`/`excludeTags` (§21.2) and applies them to the rows the surface
-receives. A curation-level `exclude` would restate that mechanism while inviting
-the one reading this contract must not permit — that a grant can *subtract* a row
-the surface was already entitled to. Adding a row is the grant; removing one is
-`visibility` (D27) or the view, never a curation.
+receives. Two properties of the D22 engine bind that sentence rather than sit
+beside it. The rule is **subset-only**: it removes entries and never edits,
+renames or re-derives one (§21.1) — which is why a `view` can narrow a
+curation without ever softening the additive guarantee above, and why §21.4
+makes every omission WARN. And the engine applies that rule to the
+**unfiltered** record, then applies visibility to the **selected** result
+(`compile`: selection, then `isPublicEntry`) — the reverse of §21's rule that
+"visibility removes non-public entries before selection". The two orders emit
+the same rows, since each filter is per-entry and independent; only the
+accounting moves. A view's `excludeKeys` may still name a row that is now
+`private` — that is §21.2's pre-v2.0 hiding workaround, not an error — and
+hiding a row is never a *view* omission, which §21.4 scopes to selection
+alone. What a curation adds lands **after** selection: a view cannot select
+what it cannot see.
+
+**A curation is a grant, never a filter.** A curation-level `exclude` would
+restate that mechanism while inviting the one reading this contract must not
+permit — that a grant can *subtract* a row the surface was entitled to.
+Adding a row is the grant; removing one is `visibility` (D27) or the view, and
+never a curation.
 
 **One decision per curation.** There is no chain: a curation cannot build on
 another curation. Composition would hide what was promised to whom, and the
