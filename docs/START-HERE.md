@@ -31,6 +31,12 @@ pasco validate                    # schema (fails) + drift/geo (warns)
 pasco build github-readme         # writes profiles/github-readme/README.md
 ```
 
+The first time a unit moves `private → public`, `pasco build` refuses once
+(exit 1, nothing written) and prints a digest: re-run the command it prints with
+`--confirm <digest>` to authorize that publication once. This is the egress gate
+(D28) — a refusal writes nothing, so re-running is never a bypass
+([SPEC §7.11](SPEC.md)).
+
 Then publish: copy the generated text for manual platforms, or open a PR against
 `<you>/<you>` with the GitHub artifact ([§7](USER-GUIDE.md#7-deploy)) — never a push
 to its `main`.

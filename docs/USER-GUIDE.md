@@ -631,6 +631,12 @@ pasco diff [--json]                  # what changed since the last release tag
 
 - `pasco build` without an argument renders **all** platforms; with
   `--lang` you pick the language slice (defaults to `.pascorc → defaults.lang`).
+- **Publication is an authorized act (D28, [SPEC §7.11](SPEC.md)).** The first
+  time a unit moves `private → public` since the last recorded egress, `pasco
+  build` (and `export profile --all`) refuses once — exit `1`, nothing written —
+  and prints the manifest digest; re-run the command with `--confirm <digest>`
+  to authorize exactly that publication. A refusal writes nothing, so re-running
+  is never a bypass.
 - **The artifact is a function of the last `build`, and its path carries no
   language.** One path per surface (`profiles/<platform>/README.md` or
   `profiles/<platform>.md`) is written for the `lang` you built, so building
