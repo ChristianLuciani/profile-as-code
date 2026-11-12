@@ -1720,7 +1720,7 @@ and an operational receipt, and the log owns the durable record either way.
 
 **The audit log.** Every authorized egress — privileged or not — appends ONE line
 to `.pasco/egress/audit.log`: `{ version, at, operation, scope, digest, units,
-keyId, method, reasons, baseline }`. It is JSONL opened with `O_APPEND` (an
+keyId, method, reasons, baseline, prev, baselineHash, hash }`. It is JSONL opened with `O_APPEND` (an
 earlier line is never rewritten) and it is never rendered. `operation` is `build`,
 `export-profile` or `post-export`; `digest` is the confirmed manifest; **`keyId` is `null` and
 `method` is `digest-confirm` or `none`** — S503a has no key, and the record says
@@ -1743,6 +1743,55 @@ a secret could be read from. There is no rotation in S503a — the file grows by
 line per egress, and a rotation policy (which must not rewrite an existing line)
 is S503b's decision, not a silent truncation here.
 
+**The memory model (issue #520): ONE memory, ONE scope — the log is evidence,
+never state.** The gate keeps exactly one comparison memory,
+`.pasco/egress/baseline.json`, and it always records the PUBLIC manifest
+(`egressBaselineOf` refuses any other scope: the baseline answers "what was
+public at the last recorded egress", and `--all` publishes nothing even though
+it discloses everything). An `--all` egress writes no memory of its own — the
+SSOT digest it authorizes lives only in its audit line, history and not state —
+and it still moves the public baseline, because it disclosed the public view as
+part of the whole: a later public export of the same state is not a new
+transition. The design REJECTS a second, `--all`-scope memory: with two
+memories in one structure the verification compares the cache's public set
+against a line that recorded the SSOT, and the honest sequence `export profile
+--all --confirm` → `export profile` (public) broke with exit 1
+`baseline-unreadable` (measured, issue #520 comment of 2026-11-12). The rule
+that prevents the class: **the log is never a comparison source** — the gate
+decides from `baseline.json` alone and reads the log only to verify that the
+evidence is intact.
+
+**The integrity chain (issue #520).** Every audit line carries `prev` (the
+previous line's `hash`; `null` on a chain's first line), `baselineHash` and
+`hash`. The two hash rules are exact: `hash` is `sha256:` over the canonical
+serialization of the line EXCLUDING `hash` and `baselineHash`; `baselineHash`
+is `sha256:` over the canonical serialization of the baseline state the line
+produced EXCLUDING `logTail`. The baseline gains `logTail` — the `hash` of the
+line it sits at; a legitimately written baseline always has one (the append
+precedes the write), so an absent or null `logTail` is itself a failed binding.
+The manifest version moves 1 → 2 because the record shape grew (a reader
+refuses a version it does not know): a pre-chain v1 log or baseline reads as
+`unreadable`, which is the safe direction — one `--confirm` re-arms the
+workspace, a declared one-time cost.
+
+**Verification reads, never repairs (issue #520).** Every gate run re-walks the
+current chain segment (the lines after the last `prev: null` genesis, or from
+the first line if there is none) and checks both bindings: each line's `hash`
+recomputes, each `prev` links, the baseline's `logTail` equals the tail's
+`hash`, and the baseline's content minus `logTail` hashes to the tail's
+`baselineHash`. Any failure — a malformed line, a broken `prev`, a stale
+`logTail`, a baseline whose content does not match the tail's `baselineHash` —
+makes the state `unreadable` with the exact problem: the run is privileged
+(`baseline-unreadable`), nothing is repaired. A CONFIRMED run over an
+unreadable state re-arms: its line starts a NEW chain segment (`prev: null`)
+and records `baseline: "unreadable"`, so the break and the re-arm are both on
+the record; the previous segment stays as unverifiable history. Closed by this
+model, each a contract test: editing a line (its `hash` no longer recomputes),
+re-signing the chain after an edit (the tail moves, `logTail` no longer
+matches), re-accommodating the cache without the tail's `baselineHash`,
+truncating the log, and deleting the log while keeping the cache (the binding
+points at a tail that is not there).
+
 **Declared limits (S503a).** No signature, no key: the digest proves the operator
 SAW the manifest, not WHO they are. An agent that can write the workspace can also
 re-run the command with the digest, edit `.pasco/egress/`, or work from a fresh
@@ -1757,7 +1806,10 @@ stable `id` removes the class; §19.2 reports such a row as untracked, with the
 same advice — give it an `id`).
 `.pasco/` is local state under the workspace (the same home as `preview`'s
 document, §7.9); it is never rendered, and a workspace that does not ignore it
-sees it as untracked state. The log is local, not tamper-evident. S503b closes all
+sees it as untracked state. The log is tamper-EVIDENT (the chain, issue #520),
+not tamper-PROOF: a fully coherent rewrite — chain, cache and content
+recomputed together, within what the workspace publishes — is undetectable
+without a key, and the contract test pins it as a witness, not a fix. S503b closes all
 of it with a receipt signed over this same digest (hardware key/WebAuthn with user
 presence; 2FA fallback), a break-glass `--all` and a keyless read-only agent — the
 record shape is already the one it will use: `keyId` becomes a field value, not a
