@@ -56,8 +56,11 @@ import { publicProjection, VISIBILITY_BLOCKS } from "./visibility.js";
 
 /** The manifest contract version. Bumped additively when the record shape grows
  *  (S503b fills `keyId` with the signing key's id; the reader refuses a version
- *  it does not know). */
-export const EGRESS_MANIFEST_VERSION = 1 as const;
+ *  it does not know). Version 2 adds the integrity chain (#520): `prev`,
+ *  `baselineHash` and `hash` on every audit line, `logTail` on the baseline —
+ *  a pre-chain v1 log or baseline reads as `unreadable`, the safe direction
+ *  (one `--confirm` re-arms the workspace). */
+export const EGRESS_MANIFEST_VERSION = 2 as const;
 
 /** Which view leaves the workspace: the D27 public projection or the full SSOT. */
 export type EgressScope = "public" | "all";
@@ -94,6 +97,14 @@ export interface EgressUnit {
   id?: string;
 }
 
+/** The state paths, in the spelling every message and the SPEC use (a machine
+ *  path in a published surface is rule-9 noise). The CLI re-exports these. */
+export const EGRESS_AUDIT_REL = ".pasco/egress/audit.log";
+export const EGRESS_BASELINE_REL = ".pasco/egress/baseline.json";
+
+/** The digest shape every manifest/baseline/hash value must have. */
+const SHA256 = /^sha256:[0-9a-f]{64}$/;
+
 /** What a scope discloses, plus the digest that names it. `units` is the list
  *  the operator can read; `digest` is what the confirmation covers. */
 export interface EgressManifest {
@@ -107,7 +118,11 @@ export interface EgressManifest {
 /** The last egress the engine recorded for this workspace — the memory that
  *  makes "private → public" a transition instead of a state. Stored as STATE
  *  (`.pasco/egress/baseline.json`), never derived: it answers "what was
- *  disclosed before", which no current file can reconstruct. */
+ *  disclosed before", which no current file can reconstruct.
+ *
+ *  ONE memory, ONE scope (#520): the baseline always records the PUBLIC
+ *  manifest (`egressBaselineOf` refuses any other), and it is the gate's only
+ *  comparison memory — the audit log is evidence, never a second memory. */
 export interface EgressBaseline {
   version: typeof EGRESS_MANIFEST_VERSION;
   /** When the baseline was recorded (ISO 8601) — the audit record's timestamp. */
@@ -118,6 +133,10 @@ export interface EgressBaseline {
   digest: string;
   /** The keys of the units that were public at that egress. */
   publicUnits: string[];
+  /** The `hash` of the audit line this baseline sits at. A legitimately
+   *  written baseline always has one (the append precedes the write), so an
+   *  absent or unhash-shaped `logTail` is itself a failed binding. */
+  logTail: string;
 }
 
 /** One line of the append-only audit log (`.pasco/egress/audit.log`). The four
@@ -142,7 +161,20 @@ export interface EgressAuditRecord {
    *  S503a limit) or an unreadable file (`unreadable` — the run was NOT silently
    *  treated as clean; it is on the record). */
   baseline: "recorded" | "absent" | "unreadable";
+  /** The previous line's `hash`; `null` starts a chain segment — the first
+   *  line of the log, or the re-arm after an unreadable state (#520). */
+  prev: string | null;
+  /** `sha256:` over the baseline state this line produced, EXCLUDING
+   *  `logTail` — the content binding between the line and its memory. */
+  baselineHash: string;
+  /** `sha256:` over the canonical serialization of this line EXCLUDING `hash`
+   *  and `baselineHash` — the chain link the next line's `prev` names. */
+  hash: string;
 }
+
+/** The record before it is sealed: everything except the two chain fields the
+ *  seal computes. */
+export type EgressRecordCore = Omit<EgressAuditRecord, "hash" | "baselineHash">;
 
 function rowsOf(profile: LoadedProfile, block: EgressBlock): Record<string, unknown>[] {
   const rows = (profile as unknown as Record<string, unknown>)[block];
@@ -183,10 +215,15 @@ export function egressManifest(profile: LoadedProfile, scope: EgressScope): Egre
   };
 }
 
-/** The baseline a manifest records — the PUBLIC manifest is the only valid
- *  input: the baseline answers "what was published", and `--all` publishes
- *  nothing even though it discloses everything. */
-export function egressBaselineOf(manifest: EgressManifest, at: string): EgressBaseline {
+/** The baseline content a manifest records — the PUBLIC manifest is the only
+ *  valid input: the baseline answers "what was published", and `--all`
+ *  publishes nothing even though it discloses everything. The `logTail` that
+ *  binds it to the audit line is added by `egressSeal`, which knows the line's
+ *  hash; the content WITHOUT the binding is what `baselineHash` covers. */
+export function egressBaselineOf(
+  manifest: EgressManifest,
+  at: string,
+): Omit<EgressBaseline, "logTail"> {
   if (manifest.scope !== "public") {
     throw new Error(
       `egressBaselineOf: the baseline tracks the public manifest, got scope "${manifest.scope}"`,
@@ -214,7 +251,7 @@ export function egressBaselineOf(manifest: EgressManifest, at: string): EgressBa
  */
 export function newlyPublicUnits(
   manifest: EgressManifest,
-  baseline: EgressBaseline | null,
+  baseline: Pick<EgressBaseline, "publicUnits"> | null,
 ): EgressUnit[] {
   if (manifest.scope !== "public") {
     throw new Error(`newlyPublicUnits: compare the public manifest, got scope "${manifest.scope}"`);
@@ -224,9 +261,10 @@ export function newlyPublicUnits(
   return manifest.units.filter((unit) => !before.has(unit.key));
 }
 
-/** The audit record of one egress. The caller supplies `at` (the ONE clock read
- *  of the gate — an audit line is history, not a rendered artifact) and `keyId`
- *  (`null` until S503b). */
+/** The audit record of one egress, before sealing. The caller supplies `at`
+ *  (the ONE clock read of the gate — an audit line is history, not a rendered
+ *  artifact), `keyId` (`null` until S503b) and `prev` (the verified tail's
+ *  `hash`, or `null` to start a chain segment). */
 export function egressAuditRecord(args: {
   at: string;
   operation: EgressOperation;
@@ -234,7 +272,8 @@ export function egressAuditRecord(args: {
   reasons: readonly EgressReason[];
   keyId: string | null;
   baseline: EgressAuditRecord["baseline"];
-}): EgressAuditRecord {
+  prev: string | null;
+}): EgressRecordCore {
   return {
     version: EGRESS_MANIFEST_VERSION,
     at: args.at,
@@ -246,6 +285,65 @@ export function egressAuditRecord(args: {
     method: args.reasons.length > 0 ? "digest-confirm" : "none",
     reasons: [...args.reasons],
     baseline: args.baseline,
+    prev: args.prev,
+  };
+}
+
+/** The chain link of one audit line: `sha256:` over the canonical
+ *  serialization of the record EXCLUDING `hash` and `baselineHash` (#520). The
+ *  exclusions are what break the would-be cycle between the two bindings: the
+ *  line's `baselineHash` names the baseline, the baseline's `logTail` names the
+ *  line's `hash`. */
+export function egressLineHash(core: EgressRecordCore): string {
+  return `sha256:${createHash("sha256").update(canonicalJson(core)).digest("hex")}`;
+}
+
+/** The content binding of one audit line: `sha256:` over the canonical
+ *  serialization of the baseline the line produced, EXCLUDING `logTail` (#520).
+ *  Editing the baseline's memory (its `publicUnits`) without re-signing the
+ *  line that produced it fails exactly here. */
+export function egressBaselineHash(content: Omit<EgressBaseline, "logTail">): string {
+  return `sha256:${createHash("sha256").update(canonicalJson(content)).digest("hex")}`;
+}
+
+/**
+ * Seal one egress: the audit record and the baseline it produces, with the two
+ * bindings computed in the only order that terminates —
+ *
+ *   1. the record core (with `prev` = the verified tail, or `null`),
+ *   2. `hash` over the core,
+ *   3. the baseline content from the PUBLIC manifest, with `logTail` = `hash`,
+ *   4. `baselineHash` over the content (which excludes `logTail`).
+ *
+ * The caller appends the record BEFORE writing the baseline (the append is the
+ * authorization; the baseline is the memory that follows it).
+ */
+export function egressSeal(args: {
+  at: string;
+  operation: EgressOperation;
+  /** The manifest that was AUTHORIZED — `--all` seals the SSOT digest. */
+  manifest: EgressManifest;
+  /** The PUBLIC manifest the baseline records — one memory, one scope. */
+  publicManifest: EgressManifest;
+  reasons: readonly EgressReason[];
+  keyId: string | null;
+  baseline: EgressAuditRecord["baseline"];
+  prev: string | null;
+}): { record: EgressAuditRecord; baseline: EgressBaseline } {
+  const core = egressAuditRecord({
+    at: args.at,
+    operation: args.operation,
+    manifest: args.manifest,
+    reasons: args.reasons,
+    keyId: args.keyId,
+    baseline: args.baseline,
+    prev: args.prev,
+  });
+  const hash = egressLineHash(core);
+  const content = egressBaselineOf(args.publicManifest, args.at);
+  return {
+    record: { ...core, baselineHash: egressBaselineHash(content), hash },
+    baseline: { ...content, logTail: hash },
   };
 }
 
@@ -303,6 +401,15 @@ export function parseEgressAudit(text: string): {
     ) {
       problems.push("baseline");
     }
+    if (record.prev !== null && (typeof record.prev !== "string" || !SHA256.test(record.prev))) {
+      problems.push("prev");
+    }
+    if (typeof record.baselineHash !== "string" || !SHA256.test(record.baselineHash)) {
+      problems.push("baselineHash");
+    }
+    if (typeof record.hash !== "string" || !SHA256.test(record.hash)) {
+      problems.push("hash");
+    }
     if (problems.length > 0) {
       malformed.push({ line, reason: `missing/invalid: ${problems.join(", ")}` });
       continue;
@@ -318,7 +425,185 @@ export function parseEgressAudit(text: string): {
       method: record.method as "digest-confirm" | "none",
       reasons: record.reasons as EgressReason[],
       baseline: record.baseline as EgressAuditRecord["baseline"],
+      prev: record.prev as string | null,
+      baselineHash: record.baselineHash as string,
+      hash: record.hash as string,
     });
   }
   return { records, malformed };
+}
+
+/** What a read of the egress state found. `state` uses the audit record's
+ *  vocabulary (`recorded` / `absent` / `unreadable`); `tailHash` is the hash a
+ *  new line links to — meaningful only when the log's chain verified. */
+export interface EgressStateRead {
+  state: EgressAuditRecord["baseline"];
+  baseline: EgressBaseline | null;
+  problem?: string;
+  tailHash: string | null;
+}
+
+/**
+ * Verify the egress state — the log's chain plus its binding to the baseline
+ * — WITHOUT repairing anything (#520). The gate decides from the baseline
+ * alone; this read exists so a tampered state can never pass as clean:
+ *
+ *   - both files missing → `absent` (the declared fresh-workspace limit);
+ *   - a malformed line anywhere, a broken `prev`/`hash` in the CURRENT segment
+ *     (the lines after the last `prev: null` genesis), a `logTail` that is not
+ *     the current tail, or a baseline whose content does not hash to the tail's
+ *     `baselineHash` → `unreadable` with the exact problem;
+ *   - one file without the other → `unreadable` (deleting either memory is not
+ *     a reset: the log cannot rebuild the baseline — `units` is a count — and
+ *     a baseline without its log has no evidence);
+ *   - otherwise `recorded`, with the parsed baseline.
+ *
+ * An old chain segment (before the last genesis) is unverifiable history: a
+ * re-arm starts a new segment exactly because the old one broke, so enforcing
+ * it would keep the workspace bricked forever. The re-arm line records
+ * `baseline: "unreadable"`, which is where the break stays visible.
+ */
+export function verifyEgressState(
+  logText: string | null,
+  baselineText: string | null,
+): EgressStateRead {
+  if (logText === null && baselineText === null) {
+    return { state: "absent", baseline: null, tailHash: null };
+  }
+  if (logText === null) {
+    return {
+      state: "unreadable",
+      baseline: null,
+      tailHash: null,
+      problem: `${EGRESS_BASELINE_REL} exists but ${EGRESS_AUDIT_REL} does not — the memory without its evidence`,
+    };
+  }
+  const { records, malformed } = parseEgressAudit(logText);
+  if (malformed.length > 0) {
+    const first = malformed[0];
+    if (first === undefined) throw new Error("malformed is non-empty");
+    return {
+      state: "unreadable",
+      baseline: null,
+      tailHash: null,
+      problem: `${EGRESS_AUDIT_REL} line ${first.line}: ${first.reason}`,
+    };
+  }
+  if (records.length === 0) {
+    return baselineText === null
+      ? { state: "absent", baseline: null, tailHash: null }
+      : {
+          state: "unreadable",
+          baseline: null,
+          tailHash: null,
+          problem: `${EGRESS_AUDIT_REL} is empty but ${EGRESS_BASELINE_REL} exists`,
+        };
+  }
+
+  let genesis = -1;
+  for (let index = records.length - 1; index >= 0; index--) {
+    if (records[index]?.prev === null) {
+      genesis = index;
+      break;
+    }
+  }
+  if (genesis === -1) {
+    return {
+      state: "unreadable",
+      baseline: null,
+      tailHash: records[records.length - 1]?.hash ?? null,
+      problem: `${EGRESS_AUDIT_REL}: no chain genesis — every segment starts with prev: null`,
+    };
+  }
+  for (let index = genesis; index < records.length; index++) {
+    const record = records[index];
+    if (record === undefined) break;
+    const { hash: _hash, baselineHash: _baselineHash, ...core } = record;
+    if (egressLineHash(core) !== record.hash) {
+      return {
+        state: "unreadable",
+        baseline: null,
+        tailHash: null,
+        problem: `${EGRESS_AUDIT_REL} line ${index + 1}: hash does not recompute`,
+      };
+    }
+    if (index > genesis && record.prev !== records[index - 1]?.hash) {
+      return {
+        state: "unreadable",
+        baseline: null,
+        tailHash: null,
+        problem: `${EGRESS_AUDIT_REL} line ${index + 1}: prev does not link to line ${index}`,
+      };
+    }
+  }
+  const tail = records[records.length - 1];
+  if (tail === undefined) {
+    return {
+      state: "unreadable",
+      baseline: null,
+      tailHash: null,
+      problem: `${EGRESS_AUDIT_REL}: no tail record`,
+    };
+  }
+  if (baselineText === null) {
+    return {
+      state: "unreadable",
+      baseline: null,
+      tailHash: tail.hash,
+      problem: `${EGRESS_BASELINE_REL} is missing while ${EGRESS_AUDIT_REL} has ${records.length} record(s) — the log cannot rebuild the memory (units is a count)`,
+    };
+  }
+
+  let parsed: Partial<EgressBaseline>;
+  try {
+    parsed = JSON.parse(baselineText) as Partial<EgressBaseline>;
+  } catch (err) {
+    return {
+      state: "unreadable",
+      baseline: null,
+      tailHash: tail.hash,
+      problem: `${EGRESS_BASELINE_REL}: ${(err as Error).message}`,
+    };
+  }
+  if (
+    parsed.version !== EGRESS_MANIFEST_VERSION ||
+    typeof parsed.digest !== "string" ||
+    !SHA256.test(parsed.digest) ||
+    !Array.isArray(parsed.publicUnits) ||
+    !parsed.publicUnits.every((key) => typeof key === "string") ||
+    typeof parsed.logTail !== "string" ||
+    !SHA256.test(parsed.logTail)
+  ) {
+    return {
+      state: "unreadable",
+      baseline: null,
+      tailHash: tail.hash,
+      problem: `${EGRESS_BASELINE_REL}: not an egress baseline (version ${EGRESS_MANIFEST_VERSION} + sha256 digest + publicUnits + logTail)`,
+    };
+  }
+  const baseline: EgressBaseline = {
+    version: EGRESS_MANIFEST_VERSION,
+    at: typeof parsed.at === "string" ? parsed.at : "",
+    digest: parsed.digest,
+    publicUnits: parsed.publicUnits,
+    logTail: parsed.logTail,
+  };
+  if (baseline.logTail !== tail.hash) {
+    return {
+      state: "unreadable",
+      baseline: null,
+      tailHash: tail.hash,
+      problem: `${EGRESS_BASELINE_REL} binds to ${baseline.logTail}, the log's tail is ${tail.hash}`,
+    };
+  }
+  const { logTail: _logTail, ...content } = baseline;
+  if (egressBaselineHash(content) !== tail.baselineHash) {
+    return {
+      state: "unreadable",
+      baseline: null,
+      tailHash: tail.hash,
+      problem: `${EGRESS_BASELINE_REL} does not match the line that produced it (${EGRESS_AUDIT_REL} line ${records.length})`,
+    };
+  }
+  return { state: "recorded", baseline, tailHash: tail.hash };
 }

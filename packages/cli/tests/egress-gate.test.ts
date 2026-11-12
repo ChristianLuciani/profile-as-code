@@ -33,7 +33,15 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { egressManifest, load, parseEgressAudit } from "@profile-as-code/core";
+import {
+  type EgressAuditRecord,
+  type EgressBaseline,
+  egressBaselineHash,
+  egressLineHash,
+  egressManifest,
+  load,
+  parseEgressAudit,
+} from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -87,6 +95,47 @@ function flipFirstProjectPublic(ws: string): void {
   const flipped = text.replace("  status: active\n", "  status: active\n  visibility: public\n");
   expect(flipped).not.toBe(text);
   writeFileSync(path, flipped);
+}
+
+const FLIPPED_KEY = "projects:sovereign-hub";
+
+function baselineOf(ws: string): EgressBaseline {
+  return JSON.parse(
+    readFileSync(join(ws, ".pasco", "egress", "baseline.json"), "utf8"),
+  ) as EgressBaseline;
+}
+
+function writeBaseline(ws: string, baseline: EgressBaseline): void {
+  writeFileSync(
+    join(ws, ".pasco", "egress", "baseline.json"),
+    `${JSON.stringify(baseline, null, 2)}\n`,
+  );
+}
+
+function writeLogRecords(ws: string, records: EgressAuditRecord[]): void {
+  writeFileSync(
+    join(ws, ".pasco", "egress", "audit.log"),
+    `${records.map((record) => JSON.stringify(record)).join("\n")}\n`,
+  );
+}
+
+/** The attacker's primitive: re-sign the chain in place — recompute every
+ *  line's `prev` link and `hash` from its (possibly edited) content. The
+ *  attacker has the repo, so they hash exactly like the engine does. */
+function resignChain(records: EgressAuditRecord[]): EgressAuditRecord[] {
+  const out: EgressAuditRecord[] = [];
+  for (const [index, record] of records.entries()) {
+    const prev = index === 0 ? null : (out[index - 1]?.hash ?? null);
+    const { hash: _hash, baselineHash: _baselineHash, ...core } = { ...record, prev };
+    out.push({ ...record, prev, hash: egressLineHash(core) });
+  }
+  return out;
+}
+
+/** One authorized public egress: one log line, one recorded baseline. */
+function authorized(ws: string): EgressAuditRecord[] {
+  expect(run(["export", "profile", "--json", "--workspace", ws]).code).toBe(0);
+  return audit(ws).records;
 }
 
 interface Envelope {
@@ -335,5 +384,238 @@ describe("state the gate cannot trust is never treated as clean", () => {
     expect(
       readdirSync(join(ws, ".pasco", "egress")).filter((name) => name.endsWith(".tmp")),
     ).toEqual([]);
+  });
+});
+
+describe("the integrity chain — one memory, one scope (#520)", () => {
+  it("the honest sequence: --all --confirm → public → build → flip → confirm → build", () => {
+    const ws = workspace();
+    const allDigest = digestOf(ws, "all");
+    expect(
+      run(["export", "profile", "--json", "--all", "--confirm", allDigest, "--workspace", ws]).code,
+    ).toBe(0);
+
+    // ONE memory, one scope: the --all line records the SSOT digest it
+    // authorized, the baseline records the PUBLIC manifest — never the SSOT.
+    const afterAll = audit(ws).records;
+    expect(afterAll).toHaveLength(1);
+    expect(afterAll[0]?.scope).toBe("all");
+    expect(afterAll[0]?.digest).toBe(allDigest);
+    expect(afterAll[0]?.prev).toBeNull(); // the chain's genesis
+    const baseline = baselineOf(ws);
+    expect(baseline.digest).toBe(digestOf(ws, "public"));
+    expect(baseline.logTail).toBe(afterAll[0]?.hash);
+
+    // The sequence that broke the previous attempt (measured exit 1 there).
+    expect(run(["export", "profile", "--json", "--workspace", ws]).code).toBe(0);
+    expect(run(["build", "github-readme", "--json", "--workspace", ws]).code).toBe(0);
+
+    flipFirstProjectPublic(ws);
+    expect(run(["build", "github-readme", "--json", "--workspace", ws]).code).toBe(1);
+    expect(
+      run([
+        "build",
+        "github-readme",
+        "--json",
+        "--confirm",
+        digestOf(ws, "public"),
+        "--workspace",
+        ws,
+      ]).code,
+    ).toBe(0);
+
+    // Every line links to its predecessor's hash.
+    const records = audit(ws).records;
+    expect(records).toHaveLength(4);
+    for (const [index, record] of records.entries()) {
+      if (index === 0) expect(record?.prev).toBeNull();
+      else expect(record?.prev).toBe(records[index - 1]?.hash);
+    }
+  });
+
+  it("editing a line breaks the chain: privileged, reported with the line number, never repaired", () => {
+    const ws = workspace();
+    const records = authorized(ws);
+    records[0]!.operation = "post-export"; // falsified history
+    writeLogRecords(ws, records);
+
+    const r = run(["export", "profile", "--json", "--workspace", ws]);
+    expect(r.code).toBe(1);
+    const envelope = JSON.parse(r.stdout) as Envelope;
+    expect(envelope.data?.egress?.reasons).toEqual(["baseline-unreadable"]);
+    expect(envelope.error?.message).toMatch(/line 1/);
+    expect(audit(ws).records).toHaveLength(1); // the refusal recorded nothing
+  });
+
+  it("re-signing the chain after an edit still fails: the tail moved, the baseline did not", () => {
+    const ws = workspace();
+    const records = authorized(ws);
+    records[0]!.reasons = ["full-export"]; // a lie, but a consistently signed one
+    writeLogRecords(ws, resignChain(records));
+
+    const r = run(["export", "profile", "--json", "--workspace", ws]);
+    expect(r.code).toBe(1);
+    const envelope = JSON.parse(r.stdout) as Envelope;
+    expect(envelope.data?.egress?.reasons).toEqual(["baseline-unreadable"]);
+    expect(envelope.error?.message).toMatch(/binds to .* the log's tail is/);
+  });
+
+  it("re-signing the chain and re-accommodating the cache still fails without the tail's baselineHash", () => {
+    const ws = workspace();
+    const records = authorized(ws);
+    flipFirstProjectPublic(ws);
+    records[0]!.units += 1; // the log lies about what was disclosed
+    writeLogRecords(ws, resignChain(records));
+    const baseline = baselineOf(ws);
+    baseline.publicUnits = [...baseline.publicUnits, FLIPPED_KEY];
+    writeBaseline(ws, baseline);
+
+    const r = run(["export", "profile", "--json", "--workspace", ws]);
+    expect(r.code).toBe(1);
+    const envelope = JSON.parse(r.stdout) as Envelope;
+    expect(envelope.data?.egress?.reasons).toEqual(["baseline-unreadable"]);
+    // The re-signed tail no longer matches the baseline's logTail — caught
+    // before the content binding even runs.
+    expect(envelope.error?.message).toMatch(/binds to .* the log's tail is/);
+  });
+
+  it("editing the cache alone cannot authorize a flip (the issue's headline attack)", () => {
+    const ws = workspace();
+    authorized(ws);
+    flipFirstProjectPublic(ws);
+    const baseline = baselineOf(ws);
+    baseline.publicUnits = [...baseline.publicUnits, FLIPPED_KEY];
+    writeBaseline(ws, baseline);
+
+    const r = run(["export", "profile", "--json", "--workspace", ws]);
+    expect(r.code).toBe(1);
+    const envelope = JSON.parse(r.stdout) as Envelope;
+    expect(envelope.data?.egress?.reasons).toEqual(["baseline-unreadable"]);
+    // The tail is untouched, so this is caught by the CONTENT binding: the
+    // baseline no longer hashes to the line that produced it.
+    expect(envelope.error?.message).toMatch(/does not match the line that produced it/);
+  });
+
+  it("truncating the log is detected: the tail the baseline binds to is gone", () => {
+    const ws = workspace();
+    authorized(ws);
+    expect(run(["export", "profile", "--json", "--workspace", ws]).code).toBe(0);
+    const records = audit(ws).records;
+    expect(records).toHaveLength(2);
+
+    writeLogRecords(ws, records.slice(0, 1));
+    expect(run(["export", "profile", "--json", "--workspace", ws]).code).toBe(1);
+
+    writeFileSync(join(ws, ".pasco", "egress", "audit.log"), "");
+    expect(run(["export", "profile", "--json", "--workspace", ws]).code).toBe(1);
+  });
+
+  it("deleting the log while keeping the cache is privileged", () => {
+    const ws = workspace();
+    authorized(ws);
+    rmSync(join(ws, ".pasco", "egress", "audit.log"));
+
+    const r = run(["export", "profile", "--json", "--workspace", ws]);
+    expect(r.code).toBe(1);
+    const envelope = JSON.parse(r.stdout) as Envelope;
+    expect(envelope.data?.egress?.reasons).toEqual(["baseline-unreadable"]);
+  });
+
+  it("deleting the baseline while the log remains is privileged — editar baseline.json (o borrarlo) no publica (#520)", () => {
+    const ws = workspace();
+    authorized(ws);
+    flipFirstProjectPublic(ws);
+    rmSync(join(ws, ".pasco", "egress", "baseline.json"));
+
+    const r = run(["export", "profile", "--json", "--workspace", ws]);
+    expect(r.code).toBe(1);
+    const envelope = JSON.parse(r.stdout) as Envelope;
+    expect(envelope.data?.egress?.reasons).toEqual(["baseline-unreadable"]);
+  });
+
+  it("a fully coherent rewrite is NOT detected — the declared S503b limit (witness, not a fix)", () => {
+    const ws = workspace();
+    const records = authorized(ws);
+    flipFirstProjectPublic(ws);
+    // The attacker recomputes EVERY binding: the cache admits the flipped row
+    // and the tail line's baselineHash is recomputed over it (the `hash` field
+    // excludes `baselineHash`, so the chain itself does not move). Without a
+    // key the engine cannot distinguish this from an honest state — S503b's
+    // signed receipt closes it; this test pins the boundary instead of hiding it.
+    const baseline = baselineOf(ws);
+    baseline.publicUnits = [...baseline.publicUnits, FLIPPED_KEY];
+    writeBaseline(ws, baseline);
+    const tail = records[records.length - 1]!;
+    const { logTail: _logTail, ...content } = baseline;
+    tail.baselineHash = egressBaselineHash(content);
+    writeLogRecords(ws, records);
+
+    const r = run(["export", "profile", "--json", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    // The success payload is the frozen v2 contract (no egress block): the
+    // witness is the audit line — a clean egress the attacker manufactured.
+    const after = audit(ws).records;
+    expect(after[1]?.reasons).toEqual([]);
+    expect(after[1]?.method).toBe("none");
+  });
+
+  it("a confirmed run over a broken state re-arms: a new genesis, with the break on the record", () => {
+    const ws = workspace();
+    const records = authorized(ws);
+    records[0]!.digest = `sha256:${"f".repeat(64)}`;
+    writeLogRecords(ws, records);
+
+    const confirmed = run([
+      "export",
+      "profile",
+      "--json",
+      "--confirm",
+      digestOf(ws, "public"),
+      "--workspace",
+      ws,
+    ]);
+    expect(confirmed.code).toBe(0);
+    const after = audit(ws).records;
+    expect(after).toHaveLength(2);
+    expect(after[1]?.prev).toBeNull(); // a new chain segment
+    expect(after[1]?.baseline).toBe("unreadable");
+    expect(after[1]?.reasons).toEqual(["baseline-unreadable"]);
+
+    // The re-arm is itself recorded; the next egress compares normally again.
+    expect(run(["export", "profile", "--json", "--workspace", ws]).code).toBe(0);
+    const final = audit(ws).records;
+    expect(final[2]?.baseline).toBe("recorded");
+    expect(final[2]?.prev).toBe(final[1]?.hash);
+  });
+
+  it("a pre-chain (v1) log and baseline are unreadable — the declared one-time cost of v2", () => {
+    const ws = workspace();
+    authorized(ws);
+    const v1Record = {
+      version: 1,
+      at: "2026-11-01T00:00:00.000Z",
+      operation: "export-profile",
+      scope: "public",
+      digest: digestOf(ws, "public"),
+      units: 2,
+      keyId: null,
+      method: "none",
+      reasons: [],
+      baseline: "absent",
+    };
+    const v1Baseline = {
+      version: 1,
+      at: "2026-11-01T00:00:00.000Z",
+      digest: digestOf(ws, "public"),
+      publicUnits: baselineOf(ws).publicUnits,
+    };
+    writeLogRecords(ws, [v1Record as unknown as EgressAuditRecord]);
+    writeBaseline(ws, v1Baseline as unknown as EgressBaseline);
+
+    expect(run(["export", "profile", "--json", "--workspace", ws]).code).toBe(1);
+    expect(
+      run(["export", "profile", "--json", "--confirm", digestOf(ws, "public"), "--workspace", ws])
+        .code,
+    ).toBe(0);
   });
 });

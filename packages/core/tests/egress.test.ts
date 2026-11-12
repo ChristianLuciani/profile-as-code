@@ -24,11 +24,15 @@ import {
   EGRESS_MANIFEST_VERSION,
   egressAuditLine,
   egressAuditRecord,
+  egressBaselineHash,
   egressBaselineOf,
+  egressLineHash,
   egressManifest,
+  egressSeal,
   load,
   newlyPublicUnits,
   parseEgressAudit,
+  verifyEgressState,
 } from "../src/index.js";
 import type { LoadedProfile } from "../src/types.js";
 
@@ -164,6 +168,232 @@ describe("private → public — a transition against the recorded baseline", ()
   });
 });
 
+describe("the integrity chain — the line and its memory are bound (#520)", () => {
+  const manifest = egressManifest(fixture(), "public");
+
+  it("the seal binds the line and the baseline to each other, and to prev", () => {
+    const first = egressSeal({
+      at: "2026-11-12T00:00:00.000Z",
+      operation: "export-profile",
+      manifest,
+      publicManifest: manifest,
+      reasons: [],
+      keyId: null,
+      baseline: "absent",
+      prev: null,
+    });
+    expect(first.record.prev).toBeNull();
+    expect(first.baseline.logTail).toBe(first.record.hash);
+    const { logTail: _logTail, ...content } = first.baseline;
+    expect(first.record.baselineHash).toBe(egressBaselineHash(content));
+    const { hash: _hash, baselineHash: _baselineHash, ...core } = first.record;
+    expect(first.record.hash).toBe(egressLineHash(core));
+
+    // The second egress links to the first line's hash.
+    const second = egressSeal({
+      at: "2026-11-12T00:00:01.000Z",
+      operation: "build",
+      manifest,
+      publicManifest: manifest,
+      reasons: [],
+      keyId: null,
+      baseline: "recorded",
+      prev: first.record.hash,
+    });
+    expect(second.record.prev).toBe(first.record.hash);
+    expect(second.baseline.logTail).toBe(second.record.hash);
+  });
+
+  it("the hash rules are exact: content-sensitive, deterministic, exclusions honored", () => {
+    const core = {
+      version: EGRESS_MANIFEST_VERSION,
+      at: "2026-11-12T00:00:00.000Z",
+      operation: "build" as const,
+      scope: "public" as const,
+      digest: manifest.digest,
+      units: 3,
+      keyId: null,
+      method: "none" as const,
+      reasons: [],
+      baseline: "absent" as const,
+      prev: null,
+    };
+    expect(egressLineHash(core)).toBe(egressLineHash({ ...core }));
+    expect(egressLineHash(core)).not.toBe(egressLineHash({ ...core, units: 4 }));
+    // baselineHash is EXCLUDED from the line hash: editing the binding the line
+    // records does not move the chain link — the CONTENT binding catches it.
+    const sealed = egressSeal({
+      at: core.at,
+      operation: "build",
+      manifest,
+      publicManifest: manifest,
+      reasons: [],
+      keyId: null,
+      baseline: "absent",
+      prev: null,
+    });
+    const retampered = { ...sealed.record, baselineHash: `sha256:${"0".repeat(64)}` };
+    const { hash: _h, baselineHash: _b, ...retamperedCore } = retampered;
+    expect(egressLineHash(retamperedCore)).toBe(sealed.record.hash);
+    // logTail is EXCLUDED from the baseline hash for the same reason.
+    const { logTail: _lt, ...content } = sealed.baseline;
+    expect(egressBaselineHash(content)).toBe(sealed.record.baselineHash);
+  });
+
+  it("the seal always records the PUBLIC manifest in the baseline (--all publishes nothing)", () => {
+    const all = egressManifest(fixture(), "all");
+    const sealed = egressSeal({
+      at: "2026-11-12T00:00:00.000Z",
+      operation: "export-profile",
+      manifest: all,
+      publicManifest: manifest,
+      reasons: ["full-export"],
+      keyId: null,
+      baseline: "absent",
+      prev: null,
+    });
+    expect(sealed.record.digest).toBe(all.digest);
+    expect(sealed.baseline.digest).toBe(manifest.digest);
+  });
+
+  it("verifyEgressState — the honest pair is `recorded`; both files missing is `absent`", () => {
+    const sealed = egressSeal({
+      at: "2026-11-12T00:00:00.000Z",
+      operation: "export-profile",
+      manifest,
+      publicManifest: manifest,
+      reasons: [],
+      keyId: null,
+      baseline: "absent",
+      prev: null,
+    });
+    const log = `${egressAuditLine(sealed.record)}`;
+    const baseline = `${JSON.stringify(sealed.baseline, null, 2)}\n`;
+    expect(verifyEgressState(null, null)).toEqual({
+      state: "absent",
+      baseline: null,
+      tailHash: null,
+    });
+    const ok = verifyEgressState(log, baseline);
+    expect(ok.state).toBe("recorded");
+    expect(ok.baseline).toEqual(sealed.baseline);
+    expect(ok.tailHash).toBe(sealed.record.hash);
+  });
+
+  it("verifyEgressState — every tamper reads as `unreadable` with the exact problem", () => {
+    const sealed = egressSeal({
+      at: "2026-11-12T00:00:00.000Z",
+      operation: "export-profile",
+      manifest,
+      publicManifest: manifest,
+      reasons: [],
+      keyId: null,
+      baseline: "absent",
+      prev: null,
+    });
+    const log = egressAuditLine(sealed.record);
+    const baseline = `${JSON.stringify(sealed.baseline, null, 2)}\n`;
+    const unreadable = (logText: string | null, baselineText: string | null, pattern: RegExp) => {
+      const read = verifyEgressState(logText, baselineText);
+      expect(read.state).toBe("unreadable");
+      expect(read.baseline).toBeNull();
+      expect(read.problem).toMatch(pattern);
+    };
+
+    unreadable(log, null, /missing while .*audit\.log has 1 record/);
+    unreadable(null, baseline, /baseline\.json exists but .*audit\.log does not/);
+    unreadable("", baseline, /is empty but/);
+    unreadable(`${log}garbage\n`, baseline, /line 2/);
+    const edited = JSON.parse(log) as Record<string, unknown>;
+    edited.operation = "post-export";
+    unreadable(`${JSON.stringify(edited)}\n`, baseline, /line 1: hash does not recompute/);
+    // a stale logTail: the baseline binds to a line that is no longer the tail
+    const second = egressSeal({
+      at: "2026-11-12T00:00:01.000Z",
+      operation: "build",
+      manifest,
+      publicManifest: manifest,
+      reasons: [],
+      keyId: null,
+      baseline: "recorded",
+      prev: sealed.record.hash,
+    });
+    unreadable(
+      `${log}${egressAuditLine(second.record)}`,
+      baseline,
+      /binds to .* the log's tail is/,
+    );
+    // a cache edited behind the producing line's back
+    const tamperedBaseline = {
+      ...sealed.baseline,
+      publicUnits: [...sealed.baseline.publicUnits, "projects:backdoor"],
+    };
+    unreadable(
+      log,
+      `${JSON.stringify(tamperedBaseline)}\n`,
+      /does not match the line that produced it/,
+    );
+    // a chain with no genesis
+    const noGenesis = { ...sealed.record, prev: `sha256:${"1".repeat(64)}` };
+    const { hash: _h, baselineHash: _b, ...noGenesisCore } = noGenesis;
+    const resignedNoGenesis = { ...noGenesis, hash: egressLineHash(noGenesisCore) };
+    unreadable(egressAuditLine(resignedNoGenesis), baseline, /no chain genesis/);
+  });
+
+  it("verifyEgressState — an old segment's break is tolerated after a re-arm genesis", () => {
+    const broken = egressSeal({
+      at: "2026-11-12T00:00:00.000Z",
+      operation: "export-profile",
+      manifest,
+      publicManifest: manifest,
+      reasons: [],
+      keyId: null,
+      baseline: "absent",
+      prev: null,
+    });
+    const falsified = { ...broken.record, operation: "post-export" as const };
+    const rearm = egressSeal({
+      at: "2026-11-12T00:00:01.000Z",
+      operation: "build",
+      manifest,
+      publicManifest: manifest,
+      reasons: ["baseline-unreadable"],
+      keyId: null,
+      baseline: "unreadable",
+      prev: null,
+    });
+    const log = `${egressAuditLine(falsified)}${egressAuditLine(rearm.record)}`;
+    const baseline = `${JSON.stringify(rearm.baseline, null, 2)}\n`;
+    const read = verifyEgressState(log, baseline);
+    expect(read.state).toBe("recorded");
+    expect(read.tailHash).toBe(rearm.record.hash);
+  });
+
+  it("verifyEgressState — a v1 (pre-chain) state is unreadable, never clean", () => {
+    const v1Log = `${JSON.stringify({
+      version: 1,
+      at: "2026-11-01T00:00:00.000Z",
+      operation: "export-profile",
+      scope: "public",
+      digest: manifest.digest,
+      units: 2,
+      keyId: null,
+      method: "none",
+      reasons: [],
+      baseline: "absent",
+    })}\n`;
+    const v1Baseline = `${JSON.stringify({
+      version: 1,
+      at: "2026-11-01T00:00:00.000Z",
+      digest: manifest.digest,
+      publicUnits: ["projects:alpha"],
+    })}\n`;
+    const read = verifyEgressState(v1Log, v1Baseline);
+    expect(read.state).toBe("unreadable");
+    expect(read.problem).toMatch(/version|prev|baselineHash|hash/);
+  });
+});
+
 describe("the audit record — operation · digest · keyId · timestamp", () => {
   const manifest = egressManifest(fixture(), "public");
 
@@ -175,6 +405,7 @@ describe("the audit record — operation · digest · keyId · timestamp", () =>
       reasons: ["private-to-public"],
       keyId: null,
       baseline: "recorded",
+      prev: null,
     });
     expect(record.version).toBe(EGRESS_MANIFEST_VERSION);
     expect(record.at).toBe("2026-11-09T12:00:00.000Z");
@@ -194,6 +425,7 @@ describe("the audit record — operation · digest · keyId · timestamp", () =>
       reasons: [],
       keyId: null,
       baseline: "absent",
+      prev: null,
     });
     expect(record.method).toBe("none");
     expect(record.reasons).toEqual([]);
@@ -201,14 +433,16 @@ describe("the audit record — operation · digest · keyId · timestamp", () =>
 
   it("the line is one JSONL record terminated by a newline", () => {
     const line = egressAuditLine(
-      egressAuditRecord({
+      egressSeal({
         at: "2026-11-09T12:00:00.000Z",
         operation: "build",
         manifest,
+        publicManifest: manifest,
         reasons: [],
         keyId: null,
         baseline: "absent",
-      }),
+        prev: null,
+      }).record,
     );
     expect(line.endsWith("\n")).toBe(true);
     expect(line.trimEnd().includes("\n")).toBe(false);
@@ -217,24 +451,28 @@ describe("the audit record — operation · digest · keyId · timestamp", () =>
 
   it("appending never rewrites: the parsed prefix is the previous log", () => {
     const first = egressAuditLine(
-      egressAuditRecord({
+      egressSeal({
         at: "2026-11-09T12:00:00.000Z",
         operation: "build",
         manifest,
+        publicManifest: manifest,
         reasons: [],
         keyId: null,
         baseline: "absent",
-      }),
+        prev: null,
+      }).record,
     );
     const second = egressAuditLine(
-      egressAuditRecord({
+      egressSeal({
         at: "2026-11-09T12:00:01.000Z",
         operation: "export-profile",
         manifest,
+        publicManifest: manifest,
         reasons: [],
         keyId: null,
         baseline: "recorded",
-      }),
+        prev: parseEgressAudit(first).records[0]?.hash ?? null,
+      }).record,
     );
     const log = `${first}${second}`;
     expect(log.startsWith(first)).toBe(true);
@@ -245,14 +483,16 @@ describe("the audit record — operation · digest · keyId · timestamp", () =>
 
   it("a malformed line is REPORTED with its number, never repaired or dropped", () => {
     const good = egressAuditLine(
-      egressAuditRecord({
+      egressSeal({
         at: "2026-11-09T12:00:00.000Z",
         operation: "build",
         manifest,
+        publicManifest: manifest,
         reasons: [],
         keyId: null,
         baseline: "absent",
-      }),
+        prev: null,
+      }).record,
     );
     const parsed = parseEgressAudit(`${good}not json\n{"version":1}\n`);
     expect(parsed.records).toHaveLength(1);
