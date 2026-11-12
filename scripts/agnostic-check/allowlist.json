@@ -30,6 +30,12 @@
       "fileWide": true,
       "reason": "synthesized test input: the absolute path is the INPUT that proves the privacy scanner flags absolute paths \u2014 the gate would be untested without a path to detect. OUT OF SCOPE of #369: the finding here is an operatorPath shape (an absolute-path fixture), and `names` can only express `privateNames`, so the entry stays file-wide; a name-scoped exemption is not applicable without inventing a new mechanism.",
       "removalTrigger": "when the privacy scanner's absolute-path case is driven from a fixture file instead"
+    },
+    {
+      "path": "docs/SPEC.md",
+      "names": ["profile-ui"],
+      "reason": "§9.1 is the canonical family table — it must name every family member, including the private GUI product `profile-ui` (added 2026-11-12); the row itself declares the surface private. Narrowed to that name, so any OTHER private name in the SPEC still fails E-AGNOSTIC.",
+      "removalTrigger": "when `profile-ui` goes public (or the §9.1 row is removed) — then the name leaves privateNames and this entry goes with it"
     }
   ]
 }
