@@ -71,7 +71,10 @@ publishing is a deliberate act.
   hosted onboarding** (§12 M5). **Reopening trigger, on the *first* of either:** the **first hosted
   use case** (a real user who cannot take on-ramp A, B or C), or **M5 + web consumption live** (the
   web renderer exists and generated profiles are consumed on the web). Reopening means scoping a
-  **milestone of its own** — auth, storage, secrets, privacy, cost — not extending M5.
+  **milestone of its own** — auth, storage, secrets, privacy, cost — not extending M5. A
+  private, local-first GUI that edits the workspace (§9.1 `profile-ui`) is likewise not a
+  hosted on-ramp — no server, no account, no hosted use case; the trigger is touched only
+  by a venture-operated hosted component.
 - **No CV/PDF renderer in-engine.** Layout, pagination and file format are not contract
   concerns. A CV is a **view consumed outside this repo** (D26, D25): it reads
   `pasco export profile --json` — the public projection by default (D27) — and the
@@ -2031,12 +2034,22 @@ This table is the canonical terminology; docs and code reference it, never inven
 | Engine | `profile-as-code` | public (product) | schema, core, CLI `pasco`, renderers |
 | Template | `profile-data-template` | public | on-ramp **A** skeleton (example workspace + instructions) |
 | Workspace (per user) | `profile-data-<username>` | private by default | the user's facts (SSOT) — what they edit; a folder first, stored in a repo by recommendation |
+| GUI (private product) | `profile-ui` | private | the editing (SoR) surface over the engine — consumes it only through its frozen contracts (§7); **not** the M5 consumption renderer and not a hosted on-ramp (the §2 trigger does not fire) |
 | Deploy surfaces | e.g. `ChristianLuciani/ChristianLuciani`, CV site | public | rendered output (never edited by hand) |
 
 Future workspaces follow the same family: individual identities today, **commercial/brand
 identities** now (multi-workspace: one workspace per identity, same engine) — the naming
 stays `profile-data`-first regardless of the identity's nature, so a brand workspace is
 `profile-data-topia`, not `topia-data` (the family prefix wins; D15).
+
+**The GUI product (2026-11-11):** `profile-ui` is a **private** commercial surface in this
+family — a local-first GUI that *edits* the workspace (the SoR surface) and consumes the
+engine only through its frozen contracts (§7). It is **not** the M5 web renderer (§12: M5
+renders profiles that already live in a workspace for *consumption*; the GUI *edits* the
+facts) and it does **not** fire the §2 hosted-onboarding trigger (no server, no account,
+no hosted use case — only a venture-operated hosted component would). Naming the private
+repo here is deliberate: the NAME is family-public; everything inside the repo stays
+private.
 
 **Per-user naming (2026-09-07):** every workspace repo carries its owner —
 `profile-data-<username>` (e.g. `profile-data-christianluciani`). The operator's first
@@ -2147,7 +2160,7 @@ Two different "templates" (previous confusion):
 2. **M2**: renderer `github-readme` + CI + dogfood (Christian's real GitHub README) — detailed in §15.
 3. **M3**: SOTA research per platform (GitHub→LinkedIn→Upwork→X→ResearchGate→Substack) → skills v1 + `pasco refine`.
 4. **M4 (presence surfaces — profile bodies)**: renderers linkedin/upwork/x/researchgate/substack + playbooks + `pasco check` + checks.yaml per skill + per-entry deploy ledger (D18 — `deployments` + `pasco status`: deploy state becomes data, CHECKLIST becomes a generated view) + profile-completeness checklist and `%` (§20, issue #102 — `completeness()` in core, `pasco status --completeness`, the `github-readme` progress line).
-5. **M5 (presence consumption — web renderer)**: web renderer (cv-cluciani consumes generated profiles), template release, CONTRIBUTING. **Scope boundary:** M5 is a **consumption** renderer — it renders profiles that already live in a workspace (§9); it is **not** a hosted onboarding. The hosted on-ramp stays a **v1 non-goal** with an explicit reopening trigger (§2, issue #122).
+5. **M5 (presence consumption — web renderer)**: web renderer (cv-cluciani consumes generated profiles), template release, CONTRIBUTING. **Scope boundary:** M5 is a **consumption** renderer — it renders profiles that already live in a workspace (§9); it is **not** a hosted onboarding. The hosted on-ramp stays a **v1 non-goal** with an explicit reopening trigger (§2, issue #122). The private GUI product `profile-ui` (§9.1, 2026-11-11) is an *editing* (SoR) surface over the engine's frozen contracts — it is not M5 and does not fire the §2 trigger.
 6. **M6 (brand flavor)**: schema v1.1 brand additions (§17) + `pasco init --flavor brand` + renderer `github-org` + handle-matrix checks + `skills/github-org/` + dogfood `profile-data-topia` (private).
 7. **M7 (evidence core)**: schema v1.4 — `credentials[]`/`artifacts[]` + cross-refs (§18) · `pasco check`: `credential-expiry`, registry live-links, `no-private-in-public-output` · JSON-LD `hasCredential` · compact registry section in `github-readme` · template: `media/` scaffold + `docs/evidence-packs.md` + power-user symlink/stow doc (issue #48).
 8. **M8 (media pipeline)**: full `assets/` renderer-output definition (byte-stable, checksummed bundling — Q9 resolved as D19: one `assets/` dir per platform output) · deploy playbooks publish media to the public surface · git-lfs guidance · portfolio-site consumption lands **with M5** (the web renderer does not exist yet — engine-side contract ships first).
