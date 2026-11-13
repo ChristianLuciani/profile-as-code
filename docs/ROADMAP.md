@@ -139,13 +139,12 @@ vieja. Chico, docs-only; una sesión lo cierra.
 
 Esta sección **no describe** el estado de cada issue: lo **cita**. Lo que el roadmap afirma
 de sí mismo es lo que el repo demuestra (archivos, tests, SPEC); la fase de un issue o PR se
-lee en el tracker, con la fecha y el sha de la verificación. Motivo y criterio de cierre:
-#532.
+lee en el tracker. Motivo y criterio de cierre: #532.
 
 | Issue | Qué queda abierto (fuente) | Verificado |
 |---|---|---|
 | **#501** · M13 `curate` | único `needs-decision` abierto del racimo D29: el slice y su dependencia con S503b | 2026-11-13 |
-| **#520** · integridad del egreso | puntos (2)/(3) del issue: on-ramps sin `--confirm` y cláusula de rechazo de `--all` en §7; el hallazgo principal está cerrado por PR #528 (`c22df70`, §7.11) | `main@a90263d`, 2026-11-13 |
+| **#520** · integridad del egreso | el issue sigue abierto; el hallazgo principal y los puntos (2)/(3) están en `main` (PR #528, `c22df70`; commit `3edcc347`), así que lo que resta se lee en el tracker | `main@a90263d`, 2026-11-13 |
 | **#529** · A de #493 | el puntero `block:id` en `highlights` + `claim-against-unbuilt`/`claim-without-proof`; **A es aditivo sobre el schema** (campo opcional, `pnpm gen:zod`) y **B** es la dirección que exige bendición del operador y bump de mayor | 2026-11-13 |
 | **#493** · postura del claim | decidida 2026-11-12 (A ahora, B dirección, C futura, D rechazada); la construcción vive en #529 | 2026-11-13 |
 | **#507** · `release:verify` | una sola sonda por paquete; el 404 transitorio de npm se lee como `FAIL` (medido en el corte de v0.5.0) | 2026-11-13 |
