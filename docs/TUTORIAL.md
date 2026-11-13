@@ -155,6 +155,10 @@ find profiles -type f | sort
 cat profiles/github-readme/README.md
 ```
 
+> The first time a unit moves `private → public`, this command refuses once
+> (exit 1, nothing written) and prints a digest: re-run it with
+> `--confirm <digest>` exactly as the refusal prints ([SPEC §7.11](SPEC.md)).
+
 **Expect** one file, `profiles/github-readme/README.md`. It contains your name, the links as
 badges, a project block when you have one, and the experience as `jobTitle`/`worksFor` inside a
 **JSON-LD block** — alongside `@id` (from the `role: identity` link), `description` (from
