@@ -72,19 +72,27 @@ export type {
   EgressManifest,
   EgressOperation,
   EgressReason,
+  EgressRecordCore,
   EgressScope,
+  EgressStateRead,
   EgressUnit,
 } from "./egress.js";
 export {
   disclosureUnits,
+  EGRESS_AUDIT_REL,
+  EGRESS_BASELINE_REL,
   EGRESS_BLOCKS,
   EGRESS_MANIFEST_VERSION,
   egressAuditLine,
   egressAuditRecord,
+  egressBaselineHash,
   egressBaselineOf,
+  egressLineHash,
   egressManifest,
+  egressSeal,
   newlyPublicUnits,
   parseEgressAudit,
+  verifyEgressState,
 } from "./egress.js";
 /**
  * The AI crawler policy, projected from the `ai:` block of

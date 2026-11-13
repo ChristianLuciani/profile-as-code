@@ -450,10 +450,12 @@ pasco export profile --json --all --confirm sha256:…          # the full SSOT 
 pasco export profile --json --now 2026-10-28T00:00:00Z | jq .  # pin the stamp
 ```
 
-**`--all` is a privileged egress (D28, SPEC §7.11).** The first `--all` run is
-refused (exit 1) and prints the manifest digest — the `sha256` of the exact
-payload, not a "yes/no" — plus the units a `private → public` transition would
-disclose; the same rule gates `pasco build`. Re-running with
+**`--all` is a privileged egress (D28, SPEC §7.11).** Every `--all` run requires
+`--confirm`: refused (exit 1), it prints the reason — `--all` is a break-glass
+export of the full SSOT — and the manifest digest, the `sha256` of the exact
+payload, not a "yes/no"; the one-line-per-unit list appears only when a
+`private → public` transition since the last recorded egress is also being
+authorized. The same rule gates `pasco build`. Re-running with
 `--confirm <that digest>` authorizes exactly that manifest, and the egress is
 appended to `.pasco/egress/audit.log` (operation · digest · `keyId: null` until
 S503b · timestamp). A refusal writes nothing and records nothing, so it is never

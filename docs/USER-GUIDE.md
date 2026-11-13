@@ -638,6 +638,12 @@ pasco diff [--json]                  # what changed since the last release tag
 
 - `pasco build` without an argument renders **all** platforms; with
   `--lang` you pick the language slice (defaults to `.pascorc → defaults.lang`).
+- **Publication is an authorized act (D28, [SPEC §7.11](SPEC.md)).** The first
+  time a unit moves `private → public` since the last recorded egress, `pasco
+  build` (and `export profile --all`) refuses once — exit `1`, nothing written —
+  and prints the manifest digest; re-run the command with `--confirm <digest>`
+  to authorize exactly that publication. A refusal writes nothing, so re-running
+  is never a bypass.
 - **The artifact is a function of the last `build`, and its path carries no
   language.** One path per surface (`profiles/<platform>/README.md` or
   `profiles/<platform>.md`) is written for the `lang` you built, so building
@@ -913,7 +919,7 @@ pasco edit 'positioning.statement.en'
 # Update a value with schema pre-checking
 pasco edit 'positioning.statement.en' --set 'Senior Systems Engineer specializing in distributed architectures.' --check
 
-# Seed a missing optional root file (e.g. content/faq.yaml)
+# Seed a missing optional root file (e.g. facts/faq.yaml)
 pasco edit --create faq --check
 ```
 
@@ -1441,7 +1447,7 @@ pasco build [platform] [--lang] [--json]   # base texts; renderers write profile
 pasco preview [--out <dir>] [--no-open]    # one self-contained HTML page, opened locally (#282)
 pasco edit <contract-path> [--set <text> [--check]]  # read / preview / write one contract field (#247)
 pasco edit --list [<block>]                # every contract path this workspace has (#411)
-pasco edit --create <root> [--check]       # seed missing root file (e.g. content/faq.yaml)
+pasco edit --create <root> [--check]       # seed missing root file (e.g. facts/faq.yaml)
 pasco diff [--json]                        # changes since last release-* tag
 pasco status [--mark] [--verify] [--json]  # deploy ledger, live verification & publication truth
 pasco refine <platform> [--lang] [--variants N]   # emit the agent task template (full flow M3)

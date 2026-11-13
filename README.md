@@ -96,7 +96,7 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 
 | ¿Qué te preocupa? | La solución de `profile-as-code` | Beneficio concreto |
 |---|---|---|
-| **Perfiles desincronizados** | Una sola fuente de verdad en YAML (`content/*.yaml`) compilada a cada red. | Modificás un puesto o logro una sola vez; `pasco build` genera los textos optimizados para cada plataforma y `pasco status` te permite trackear qué perfiles ya actualizaste manualmente. |
+| **Perfiles desincronizados** | Una sola fuente de verdad en YAML (`facts/*.yaml`) compilada a cada red. | Modificás un puesto o logro una sola vez; `pasco build` genera los textos optimizados para cada plataforma y `pasco status` te permite trackear qué perfiles ya actualizaste manualmente. |
 | **Límites de caracteres y reglas rotas** | Compilación determinista con validación de schema y 14 skills SOTA de plataformas. | Tu biografía o experiencia encaja exactamente en los límites y aprovecha el algoritmo de cada red. |
 | **Pérdida de citabilidad ante IAs (GEO)** | Generación de Schema.org JSON-LD (`pasco entity`), verificación offline (`cite-check`) y políticas IA (`export ai-policy`). | Los motores de respuesta (Perplexity, ChatGPT, Gemini) indexan y citan tu trayectoria sin inventar datos. |
 | **Trabajo manual repetitivo** | CLI optimizado para agentes de IA (flags `--json`, `edit --list`, `edit --set --check`, `refine`). | Tu agente inteligente (Claude, Pi, Cursor, DSH) puede auditar, proponer cambios y actualizar tu perfil de forma segura. |
@@ -122,7 +122,7 @@ El CLI `pasco` ofrece un conjunto integral de comandos para gestionar el ciclo d
 - 📦 **`pasco export profile`** — Emite el objeto de perfil normalizado y versionado para integraciones o scripts.
 - 🧠 **`pasco skills:export <dir>`** — Exporta las 14 skills SOTA de plataformas para cargarlas inmediatamente en tu entorno de agentes (Claude Code, Pi, DSH, Cursor...).
 - 🔄 **`pasco diff [--json]`** — Compara los perfiles generados contra tags Git o versiones previas para ver qué cambia antes de desplegar.
-- 📊 **`pasco status [--mark] [--verify]`** — Consulta el ledger de despliegues (`content/deployments.yaml`), marca despliegues manuales y verifica la vigencia de perfiles en vivo.
+- 📊 **`pasco status [--mark] [--verify]`** — Consulta el ledger de despliegues (`facts/deployments.yaml`), marca despliegues manuales y verifica la vigencia de perfiles en vivo.
 - 📦 **`pasco migrate [--json]`** — Actualiza automáticamente workspaces de versiones anteriores al Schema v2.0 preservando comentarios.
 
 ## Estado
@@ -139,7 +139,7 @@ Plataformas (enum D16): **49** (34 Postiz + 15 operator extras) · renderers: **
 | Investigación SOTA por plataforma | 🚧 `skills/github-readme` + `skills/github-org` + `skills/kofi` + `skills/hotmart`; resto: asistente **SOTA Research**, ver `docs/research/RUN.md` |
 | Schema JSON v2.0 (contrato) | ✅ `schema/profile.schema.json` (person + brand flavor) |
 | Core engine (load · drift · geo · compile) | ✅ `packages/core` (tests, CI) |
-| CLI `pasco` | ✅ init·validate·build·diff·status; check ejecuta reglas offline M6/M7/M8 + `fact-present` (#283) + la advisory `text/same-across-platforms` (#462); `audit --json` ✅ (hallazgos: `dangling-ref` · `contradiction` · `unsourced-claim`, sin score); `entity --json/--jsonld` ✅ (proyección schema.org + bloque JSON-LD paste-ready, #287); refine 🚧; skills:export ✅ — detalle en [`packages/cli/README.md`](packages/cli/README.md) |
+| CLI `pasco` | ✅ init·validate·build·diff·status; check ejecuta reglas offline M6/M7/M8 + `fact-present` (#283) + la advisory `text/same-across-platforms` (#462); `audit --json` ✅ (hallazgos: `dangling-ref` · `contradiction` · `unsourced-claim`, sin score); `entity --json/--jsonld` ✅ (proyección schema.org + bloque JSON-LD paste-ready, #287); gate de egreso D28 ✅ — un flip `private → public` o `--all` pide `--confirm <digest>` una vez (SPEC §7.11, #503/#520); refine 🚧; skills:export ✅ — detalle en [`packages/cli/README.md`](packages/cli/README.md) |
 | Renderer GitHub (dogfood) | ✅ `github-readme` + `github-org` (brand) + la familia paste (`kofi` v1.7; `buymeacoffee`/`liberapay`/`gumroad`/`payhip` v1.8; `hotmart` v1.9) |
 
 **Brand flavor (M6, D15):** el mismo engine modela identidades de marca — `pasco init

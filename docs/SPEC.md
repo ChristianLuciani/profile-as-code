@@ -498,7 +498,7 @@ declared renderer or an explicit "not implemented yet").
 | `pasco export ai-policy [--out <dir> \| --check [--file <robots.txt>]] [--json] [--lang <l>]` | the §12 M9 stance as an artifact (issue #290): `--out` writes `robots.txt` (**two named groups, no wildcard** — the listed `ai-retrieval` crawlers allowed, the listed `ai-training` crawlers disallowed; the file declares that an unlisted crawler is not restricted, each UA commented with its registry entry/operator/source/date), `llms.txt` (the workspace index, with a coverage assertion over every document it claims) and `AI-POLICY.md` (allowed · blocked · the explicit-list limit · who can change it · the date, quoting the M9 floor verbatim); `--check` exits `1` on an incomplete or unsourced entry, a duplicate token, an `as_of` that is malformed/future/older than 180 days, or a `policy.as_of` that is stale or predates its rows; `--check --file` verifies a **committed** `robots.txt` against the registry instead of the list (#477) — parsing it by group (RFC 9309 §2.2) and exiting `1` with one finding per fact (`missing` · `duplicate` · `wrong-group` · `wildcard` · `orphan-rule`), which catches the two lists swapped — a structurally valid file that states the opposite policy; that mode reads no workspace and no clock. `--out` refuses to write an unsourced or stale list. The crawler list is projected from `platforms/registry.yaml` (`ai:`) by `pnpm gen:platforms` — never a hardcoded UA list in the CLI. Offline; `--check` alone is the declared clock-reading path. Contract: §7.3 |
 | `pasco cite-check [<answers.ndjson>] [--json]` | the **citation matcher** over saved answers (issue #291): reads the runner's NDJSON (stdin when no path), matches the workspace's declared entity against each answer and emits, per answer and **never aggregated**, `{ cited, confidence, spans, reasons }`. Fixed ladder — `citation-url` (a citation on the entity's own page or its `sameAs`/claimed-handle set — host, and the declared path or a descendant) and `exact-name` (word-bounded, case- and accent-normalized) are **high**; `alias` (`identity.orgName`) and `handle` (a declared handle) are **medium**; `partial` (any contiguous multi-token prefix of the name, ≥ 2 tokens) is **low**, and `low` is never a citation downstream. The matcher **refuses to guess**: a one-word name hit whose sentence carries no declared disambiguator is ambiguous (`cited: false`, with the longer capitalised reading quoted as `competing:<phrase>`), a mention inside a contrast clause is not a citation, and a declared qualifier or an adjacent capital never disqualifies a hit by itself. Offline, no model, no clock (D19). Exit `0` on a successful read (a non-citation is data, not a failure) · `1` the workspace cannot load, or the input path cannot be read · `2` usage or **malformed NDJSON** (never a silent skip). Contract: §7.4 |
 | `pasco curate <id> [--json] [--now <iso8601>]` · `pasco curate --list [--json]` | the **scoped disclosure** of a named bundle over the record (D29, issue #501; **contract only — not implemented**, §7.12): `<id>` materializes one curation from `facts/curations.yaml` for the surface it names — the D22 view derivation plus the explicitly `include`d `private`/`unlisted` rows — and never for anything else. Additive only: it adds named rows to what the surface already receives, never removes or edits one and **never flips an entry's `visibility`** (D27), so the output is strictly narrower than the public projection. `--list` prints the ledger as data (id · surface · `expires` · `revoked`), refuses to render it nowhere else, and `export profile` never carries it. A curation without `expires` is refused at load (absence never decides); an expired one is listed and refused. Materializing is an egress act over the exact manifest, so it carries the D28 receipt obligation like a public export, and every curated row is named in both the artifact and the receipt (`curated:<id>`). There is **no reader and no retrieval endpoint** (§7.12). Exit `0` materialized or listed · `1` a load/schema failure (D12), a malformed `--now`, or a curation refused by name — unknown `id`, missing `expires`, `expires` already past, or revoked · `2` usage (no `id` without `--list`, `--list` with an `id`). `--list` never exits `1` for an expired or revoked grant: it lists them WITH their state and exits `0` — refusing to *materialize* is the `1`, listing is not (the ordinary/default distinction §7.12 draws). Contract: §7.12 |
-| `pasco export profile [--json] [--now <iso8601>] [--all\|--public]` | the **normalized profile** for programmatic consumers (issue #348): `{ schemaVersion, engine, source: { commit, generatedAt }, scope, profile }`. **Default: the public projection** (D27); `--public` names it, `--all` returns the full SSOT. In `--all`, `profile` is exactly what `core.load()` returns — **every root the workspace declares, plus every *list* root defaulted to `[]`; an optional *object* root (`newsletter`, `podcast`, `audiences`, `active`) appears only when declared** (no valid empty value exists — §7.5); in the public projection the same roots are present with visibility filtered (private/unlisted entries and their ledger records omitted). `artifactRefs` stay ids a consumer joins to `profile.artifacts[]` (`load()` already refuses a dangling ref), `publications[].url` as declared, `deployments` included in `--all`; the public projection carries only records for public units — never a CLI-local rebuild and never `compile(profile, platform)`'s platform slice (§15.4). `schemaVersion` (`"2"`) is the frozen payload version a consumer refuses if it does not know (§7.5); `scope` is `"public"` or `"all"`; `source.commit` is the workspace git `HEAD` (`null` outside a git repository); **no clock enters the payload** — `generatedAt` is `null` unless `--now` pins it verbatim after a real-calendar check, so two runs over one workspace produce byte-identical PAYLOADS (the run itself appends an audit line, §7.11; the egress audit timestamp is the one clock read on this path and never enters the payload). Exit `1` on a load/schema failure (D12), a malformed `--now`, or an egress refusal (below) · `2` usage (including `--all` with `--public`). **Egress (D28, §7.11):** `--all` is privileged on every run and a `private → public` transition is privileged against the last recorded egress; both require `--confirm <digest>` (refusal: exit `1`, `data.egress`, nothing emitted, nothing recorded) and every authorized egress appends one line to `.pasco/egress/audit.log`. Contract: §7.5 |
+| `pasco export profile [--json] [--now <iso8601>] [--all\|--public]` | the **normalized profile** for programmatic consumers (issue #348): `{ schemaVersion, engine, source: { commit, generatedAt }, scope, profile }`. **Default: the public projection** (D27); `--public` names it, `--all` returns the full SSOT. In `--all`, `profile` is exactly what `core.load()` returns — **every root the workspace declares, plus every *list* root defaulted to `[]`; an optional *object* root (`newsletter`, `podcast`, `audiences`, `active`) appears only when declared** (no valid empty value exists — §7.5); in the public projection the same roots are present with visibility filtered (private/unlisted entries and their ledger records omitted). `artifactRefs` stay ids a consumer joins to `profile.artifacts[]` (`load()` already refuses a dangling ref), `publications[].url` as declared, `deployments` included in `--all`; the public projection carries only records for public units — never a CLI-local rebuild and never `compile(profile, platform)`'s platform slice (§15.4). `schemaVersion` (`"2"`) is the frozen payload version a consumer refuses if it does not know (§7.5); `scope` is `"public"` or `"all"`; `source.commit` is the workspace git `HEAD` (`null` outside a git repository); **no clock enters the payload** — `generatedAt` is `null` unless `--now` pins it verbatim after a real-calendar check, so two runs over one workspace produce byte-identical PAYLOADS (the run itself appends an audit line, §7.11; the egress audit timestamp is the one clock read on this path and never enters the payload). Exit `1` on a load/schema failure (D12), a malformed `--now`, or an egress refusal (below) · `2` usage (including `--all` with `--public`). **Egress (D28, §7.11):** `--all` is privileged on every run and a `private → public` transition is privileged against the last recorded egress; both require `--confirm <digest>` (refusal: exit `1`, `data.egress`, nothing emitted, nothing recorded — the refusal prints the reason and the manifest digest; the one-line-per-unit transition list appears only when a transition is being authorized) and every authorized egress appends one line to `.pasco/egress/audit.log`. Contract: §7.5 |
 | `pasco diff` | what changed since last release (→ CHANGELOG hint) |
 | `pasco status [platform] [--mark <ledgerKey> <surface>] [--verify] [--write-checklist] [--completeness] [--selection]` | per-entry deploy report — origin · published surfaces · in-sync/stale/never (D18, §19); `--mark` confirms a manual paste and records the artifact anchor; `--verify` runs the opt-in C1 live check (§19.5, v1.10 — the only network-touching path, and `pasco`'s second ledger write trigger); `--completeness` reports the profile-completeness checklist + `%` (§20, issue #102); `--write-checklist` folds both dimensions into the generated `CHECKLIST.md`; `--selection` (boolean; name it with `--view`) prints the resolved view — every entry emitted, every omission with its reason (§21, D22). **The read report also ends with the derived publication truth per surface (§20.1, #242): ledger · artifact-vs-SSOT · declared cap — computed on every read, stored nowhere** |
 | `pasco log --statement <text> --kind metric\|milestone --basis <basis> [flags]` | the **capture path** of the impact log (D25/S2, §23.6, #496): writes ONE schema-valid row to `facts/achievements.yaml` and prints its derived status. `--basis` required (`measured` \| `estimated` \| `reported` \| `attested`); `--visibility` defaults to `private` (D27) and is printed; on `metric` only `--unit` is required — `--target` alone is a `planned` goal and `--value` alone a `measured` result, with `--baseline`/`--direction` optional; any metric flag on a `milestone` is exit 2; `--date` is optional and absent means the row is `undated` (no clock is read, D19), a malformed date is exit 2; `--ref` is repeatable; `--id` is optional and otherwise derived deterministically from the statement + date, a collision is exit 1 with nothing written. The write is atomic (temp copy → the same `load()` gate → rename under `facts/.pasco-edit.lock`), a missing file is created with a header, and appending to a block-sequence file preserves every existing byte (comments/layout; an empty `[]`/null root is the only token replaced). `--json` emits the standard envelope with `{ file, created, row, id, visibility }`. Exit `0` written · `1` load/integrity failure, collision, or a file that cannot be appended (flow-style root, document-end marker) · `2` usage or an invalid input. Offline, no clock, no LLM. Contract: §23.6 |
@@ -1721,7 +1721,7 @@ and an operational receipt, and the log owns the durable record either way.
 
 **The audit log.** Every authorized egress — privileged or not — appends ONE line
 to `.pasco/egress/audit.log`: `{ version, at, operation, scope, digest, units,
-keyId, method, reasons, baseline }`. It is JSONL opened with `O_APPEND` (an
+keyId, method, reasons, baseline, prev, baselineHash, hash }`. It is JSONL opened with `O_APPEND` (an
 earlier line is never rewritten) and it is never rendered. `operation` is `build`,
 `export-profile` or `post-export`; `digest` is the confirmed manifest; **`keyId` is `null` and
 `method` is `digest-confirm` or `none`** — S503a has no key, and the record says
@@ -1744,6 +1744,62 @@ a secret could be read from. There is no rotation in S503a — the file grows by
 line per egress, and a rotation policy (which must not rewrite an existing line)
 is S503b's decision, not a silent truncation here.
 
+**The memory model (issue #520): ONE memory, ONE scope — the log is evidence,
+never state.** The gate keeps exactly one comparison memory,
+`.pasco/egress/baseline.json`, and it always records the PUBLIC manifest
+(`egressBaselineOf` refuses any other scope: the baseline answers "what was
+public at the last recorded egress", and `--all` publishes nothing even though
+it discloses everything). An `--all` egress writes no memory of its own — the
+SSOT digest it authorizes lives only in its audit line, history and not state —
+and it still moves the public baseline, because it disclosed the public view as
+part of the whole: a later public export of the same state is not a new
+transition. The design REJECTS a second, `--all`-scope memory: with two
+memories in one structure the verification compares the cache's public set
+against a line that recorded the SSOT, and the honest sequence `export profile
+--all --confirm` → `export profile` (public) broke with exit 1
+`baseline-unreadable` (measured, issue #520 comment of 2026-11-12). The rule
+that prevents the class: **the log is never a comparison source** — the gate
+decides from `baseline.json` alone and reads the log only to verify that the
+evidence is intact.
+
+**The integrity chain (issue #520).** Every audit line carries `prev` (the
+previous line's `hash`; `null` on a chain's first line), `baselineHash` and
+`hash`. The two hash rules are exact: `hash` is `sha256:` over the canonical
+serialization of the line EXCLUDING `hash` and `baselineHash`; `baselineHash`
+is `sha256:` over the canonical serialization of the baseline state the line
+produced EXCLUDING `logTail`. The baseline gains `logTail` — the `hash` of the
+line it sits at; a legitimately written baseline always has one (the append
+precedes the write), so an absent or null `logTail` is itself a failed binding.
+The manifest version moves 1 → 2 because the record shape grew (a reader
+refuses a version it does not know): a pre-chain v1 log or baseline reads as
+`unreadable`, which is the safe direction — one `--confirm` re-arms the
+workspace, a declared one-time cost.
+
+**Verification reads, never repairs (issue #520).** Every gate run re-walks the
+current chain segment (the lines after the last `prev: null` genesis; a log
+with NO genesis is `unreadable` — every segment must start with `prev: null`)
+and checks both bindings: each line's `hash`
+recomputes, each `prev` links, the baseline's `logTail` equals the tail's
+`hash`, and the baseline's content minus `logTail` hashes to the tail's
+`baselineHash`. Any failure — a malformed line, a broken `prev`, a stale
+`logTail`, a baseline whose content does not match the tail's `baselineHash` —
+makes the state `unreadable` with the exact problem: the run is privileged
+(`baseline-unreadable`), nothing is repaired. A CONFIRMED run over an
+unreadable state re-arms: its line starts a NEW chain segment (`prev: null`)
+and records `baseline: "unreadable"`, so the break and the re-arm are both on
+the record; the previous segment stays as unverifiable history. Closed by this
+model, each a contract test: editing a line (its `hash` no longer recomputes),
+re-signing the chain after an edit (the tail moves, `logTail` no longer
+matches), re-accommodating the cache without the tail's `baselineHash`,
+truncating the log, and deleting the log while keeping the cache (the binding
+points at a tail that is not there). One file without the other is
+`unreadable`, never `absent`: a baseline without its log carries a `logTail`
+that binds to nothing, and a log without its baseline leaves the tail's memory
+missing — either way the run is privileged, so editing or deleting
+`baseline.json` cannot convert a flip into a clean egress (the issue's own
+expectation). Only when BOTH files are missing is the state `absent` — the
+declared fresh-clone limit, where the first egress becomes the baseline.
+
 **Declared limits (S503a).** No signature, no key: the digest proves the operator
 SAW the manifest, not WHO they are. An agent that can write the workspace can also
 re-run the command with the digest, edit `.pasco/egress/`, or work from a fresh
@@ -1758,11 +1814,23 @@ stable `id` removes the class; §19.2 reports such a row as untracked, with the
 same advice — give it an `id`).
 `.pasco/` is local state under the workspace (the same home as `preview`'s
 document, §7.9); it is never rendered, and a workspace that does not ignore it
-sees it as untracked state. The log is local, not tamper-evident. S503b closes all
-of it with a receipt signed over this same digest (hardware key/WebAuthn with user
-presence; 2FA fallback), a break-glass `--all` and a keyless read-only agent — the
-record shape is already the one it will use: `keyId` becomes a field value, not a
-new record.
+sees it as untracked state. The log is tamper-EVIDENT (the chain, issue #520),
+not tamper-PROOF. TWO classes are undetectable without a key, and the contract
+tests pin both as witnesses, not fixes: (a) a fully coherent rewrite — chain,
+cache and content recomputed together, within what the workspace publishes;
+(b) a **forged history** — the current segment re-signed (every line's `hash`
+recomputed, every `prev` relinked) with the baseline's `logTail` updated to the
+new tail: the baseline's content stays intact, the state reads `recorded`, and
+audit lines can be falsified or erased at will (the `logTail` exclusion from
+the content binding is what makes the baseline survive it). What the chain
+guarantees is that `baseline.json` cannot move without the log moving with it
+and vice versa — the headline attack (edit or delete the baseline to publish a
+flip without `--confirm`) is closed; what it does NOT guarantee is the
+AUTHENTICITY of the history, that these lines record what really ran. That is
+S503b's job: a receipt signed over this same digest (hardware key/WebAuthn with
+user presence; 2FA fallback), a break-glass `--all` and a keyless read-only
+agent — the record shape is already the one it will use: `keyId` becomes a
+field value, not a new record.
 
 **Exit matrix.** `build`: `0` written · `1` a schema/load/selection failure, or
 the egress was refused (`error.kind: "egress"`) · `2` usage. `export profile`: `0`
