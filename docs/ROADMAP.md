@@ -1,6 +1,6 @@
 # Roadmap — de acá a lo planificado
 
-> **Generado** 2026-09-24 · **actualizado** 2026-11-13 (triaje post-merge: #517/#518 S503a+D29, #521/#527 cerrados, #529 abierto; D28, D29, M12, M13 y las correcciones abiertas) desde el estado verificado del repo (no del declarado).
+> **Generado** 2026-09-24 · **actualizado** 2026-11-13 (D28/S503a + #520, D29, D30, M12/M13 y las correcciones abiertas) desde el estado verificado del repo (no del declarado). El estado del tracker se **cita con fecha**, no se replica (#532).
 > Canónico del plan: `docs/SPEC.md` §12. Este documento agrega **qué está realmente hecho**
 > y **en qué orden conviene seguir**, con la evidencia de cada afirmación.
 > Regenerar/corregir cuando la evidencia cambie.
@@ -140,10 +140,12 @@ vieja. Chico, docs-only; una sesión lo cierra.
 - **#501** (M13) — `curate`: **única decisión abierta del racimo D29** (`needs-decision` vivo).
   La decisión es el slice (contrato → ledger → materialización) y su dependencia con S503b; el
   contrato ya está ratificado (D29, §7.12), la implementación todavía no existe.
-- **#520** — **mergeado** en `c22df70` (PR #528): una sola memoria (`baseline.json` siempre el
-  manifiesto público) y cadena de integridad en el audit log; el límite residual —reescrito
-  coherente e historia re-firmada, indetectables sin llave— queda declarado en §7.11 y lo cierra
-  S503b. El issue sigue abierto por la revisión de esos dos límites.
+- **#520** — el hallazgo principal está cerrado por PR #528 (`c22df70`): una sola memoria
+  (`baseline.json` siempre el manifiesto público) y cadena de integridad en el audit log (§7.11).
+  Lo que queda abierto son los puntos (2)/(3) del issue — on-ramps sin el bucle `--confirm` y la
+  cláusula del rechazo de `--all` en la fila `export profile` de §7 — verificados ausentes en
+  `main@a90263d` (2026-11-13). Los límites de autenticidad (reescrito coherente, historia
+  re-firmada) están declarados en §7.11 y los cierra S503b; no son motivo de apertura.
 - **#507** — `release:verify` hace UNA sonda por paquete y trata el 404 transitorio de npm
   como `FAIL` mientras el registry procesa (medido en el corte de v0.5.0). Arreglo: deadline +
   reintento + estado `processing`.
@@ -151,11 +153,13 @@ vieja. Chico, docs-only; una sesión lo cierra.
   `claim-against-unbuilt`/`claim-without-proof`. **A toca el contrato** (campo opcional en
   `$defs/experienceItem`, `pnpm gen:zod`). **B** queda como dirección, no asignada: promoverla
   exige bendición explícita del operador, un bump de mayor del contrato y la evidencia de A en
-  uso. Abierto; sin comentario de claim en el tracker (verificado 2026-11-13).
+  uso.
 - **#493** — abierto como postura y elección A/B/C/D: **decidida 2026-11-12** (A ahora, B como
   dirección, C futura, D rechazada); su `needs-decision` fue retirado. La construcción vive en
   #529 y el cierre de #493 es de quien mergee #529.
-- **Cerrados en esta ronda:** issue #519 (cerrado por el PR #527) y PR #521 (mergeada, `a2e8bbc`).
+- **Cerrados en esta ronda (2026-11-13):** issue #519 (por el PR #527) y PR #521 (mergeada,
+  `a2e8bbc`). #517 y #518 (S503a + D29) están mergeados y su efecto vive en la tabla M12 y en la
+  sección de seguridad; no tienen fila propia porque no queda nada abierto de ellos.
 - **Fuera del racimo:** #508 (migrate general) y #478 (docs del scaffold) siguen abiertos y se
   rastrean en la sección de registro; #503 (M12) espera S503b y #520.
 
