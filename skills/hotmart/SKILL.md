@@ -1,13 +1,13 @@
 ---
 name: hotmart-profile
 description: >
-  Transforma los hechos del SSOT (profile-data/content/*.yaml) en el cuerpo de
+  Transforma los hechos del SSOT (profile-data/facts/*.yaml) en el cuerpo de
   perfil de la página de creador de Hotmart — texto PLANO listo para pegar, no
   markdown ni dump. Hotmart es la tienda de productos digitales + membresías
   (Members Area / recurring billing) para los mercados hispano/luso — familia
   creator-monetization (research/SOTA-2026.md). El agente ejecutante produce N
   variantes; el humano elige; la elegida se registra como variante activa
-  (content/active.yaml) y el paste se marca en el ledger (D18) con
+  (facts/active.yaml) y el paste se marca en el ledger (D18) con
   `pasco status --mark`.
 model: juicio (frontier) — el ángulo de storefront (vender productos, no pedir
   donaciones) no es delegable a modelos pequeños
@@ -39,7 +39,7 @@ dashboard ANTES del primer paste — y reconciliá este skill con lo verificado.
 
 > Los HECHOS son sagrados (byte-idénticos al SSOT); solo la HISTORIA varía.
 
-- Nombres, fechas, DOIs, números, URLs: **idénticos** a `content/*.yaml`.
+- Nombres, fechas, DOIs, números, URLs: **idénticos** a `facts/*.yaml`.
 - Texto **plano** para el cuerpo de perfil: sin markdown, sin HTML — no hay
   documentación de formato enriquecido para ese campo (SOTA-2026 §6 [?]);
   asumí texto plano hasta verificar lo contrario.
@@ -57,12 +57,12 @@ dashboard ANTES del primer paste — y reconciliá este skill con lo verificado.
 Lee el workspace (ruta del `.pascorc` o `--workspace`):
 
 ```
-content/identity.yaml      → nombre, email de contacto (hecho, v1.5), links canónicos
-content/positioning.yaml   → statement + ángulos por audiencia + anclas GEO
-content/projects.yaml      → qué construís (status + evidence verificable)
-content/skills.yaml        → stack con pesos por plataforma
-content/bios.yaml          → textos base por plataforma (punto de partida)
-content/keywords.yaml      → SEO + GEO (associations/claims)
+facts/identity.yaml      → nombre, email de contacto (hecho, v1.5), links canónicos
+facts/positioning.yaml   → statement + ángulos por audiencia + anclas GEO
+facts/projects.yaml      → qué construís (status + evidence verificable)
+facts/skills.yaml        → stack con pesos por plataforma
+facts/bios.yaml          → textos base por plataforma (punto de partida)
+facts/keywords.yaml      → SEO + GEO (associations/claims)
 ```
 
 ## Estrategia comunicativa (3 preguntas — storefront ≠ tip jar)
@@ -120,7 +120,7 @@ documenta acá con fuente.
      el catálogo como infraestructura independiente.
 - Cada variante: `variantId` = `hotmart-<lang>-<n>` (ej. `hotmart-es-1`).
 - El humano elige; se registra con `pasco refine hotmart --choose <id>` →
-  escribe `content/active.yaml`; el paste posterior se marca con
+  escribe `facts/active.yaml`; el paste posterior se marca con
   `pasco status --mark <ledgerKey> hotmart` (D18).
 
 ## Verificación (checks)

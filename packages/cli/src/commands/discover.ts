@@ -15,7 +15,7 @@
  * untrusted input, and an unvalidated fetch would be an SSRF primitive (the same
  * reason `status --verify` validates first).
  *
- * The command writes NOTHING: no `content/`, no ledger, no artifact. `wrote:
+ * The command writes NOTHING: no `facts/`, no ledger, no artifact. `wrote:
  * false` is part of the report so the invariant is visible, and a test asserts
  * the workspace is byte-identical after a run.
  *

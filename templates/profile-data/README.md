@@ -11,7 +11,7 @@ instalación para arrancar y trae el paquete completo — ejemplo comentado, doc
 licencia y automatización. Requiere cuenta y repo.
 
 **v1.10 (#288):** el esqueleto del template añadirá sus filas de `definition` + `faq`
-(`content/{identity,faq}.yaml`) cuando el template tire de este schema; el motor ya lo
+(`facts/{identity,faq}.yaml`) cuando el template tire de este schema; el motor ya lo
 proyecta (`structuredData()` → `description` + `FAQPage`, #316) y los fixtures del engine
 lo ejercitan.
 
@@ -37,7 +37,7 @@ Guía completa (EN): [`docs/USER-GUIDE.md`](../../docs/USER-GUIDE.md) §3. Contr
 
 1. El usuario forkea / usa el template → `profile-data-<username>` (privado recomendado:
    `gh repo create profile-data-<username> --template https://github.com/ChristianLuciani/profile-data-template --private`).
-2. Llena `content/` con sus datos (el ejemplo incluido es ficticio y documenta el schema).
+2. Llena `facts/` con sus datos (el ejemplo incluido es ficticio y documenta el schema).
 3. Corre `pasco validate` / `pasco build` / `pasco refine` (engine, por ruta — ver `.pascorc`).
 4. Deploy: manual con `CHECKLIST.md` (LinkedIn, Upwork…) o git/API (GitHub README).
 

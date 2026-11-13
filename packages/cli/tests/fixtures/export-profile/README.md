@@ -5,8 +5,8 @@ This directory is the workspace `packages/cli/tests/export-profile.test.ts` runs
 `--json` payload it must produce (with `<commit>` and `<version>` substituted by
 the test, the only values that move with a commit or a release).
 
-**Provenance — accepted coupling.** The `content/` tree is `packages/core/tests/
-fixtures/complete/content/` plus:
+**Provenance — accepted coupling.** The `facts/` tree is `packages/core/tests/
+fixtures/complete/facts/` plus:
 
 - **added** `faq.yaml` and `languages.yaml` — the `complete` fixture predates the
   answer surface (v1.10) and never declared spoken languages; the golden has to

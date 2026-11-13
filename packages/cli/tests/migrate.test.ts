@@ -17,6 +17,7 @@
 import { spawnSync } from "node:child_process";
 import {
   cpSync,
+  existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -577,4 +578,34 @@ describe("the contract-floor policy table (D27/S4a)", () => {
       }
     });
   }
+});
+
+describe("pasco migrate --facts-dir (D30)", () => {
+  it("renames the legacy content/ to facts/ and the migrated paths report facts/", () => {
+    const dir = workspace();
+    const res = run(["migrate", "--facts-dir", "--workspace", dir]);
+    expect(res.code).toBe(0);
+    expect(res.stdout).toContain("renamed content/ -> facts/ (D30)");
+    expect(existsSync(join(dir, "facts", "credentials.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "content"))).toBe(false);
+    expect(res.stdout).toContain("facts/credentials.yaml");
+  });
+
+  it("is idempotent — a workspace already on facts/ is not renamed again", () => {
+    const dir = workspace();
+    expect(run(["migrate", "--facts-dir", "--workspace", dir]).code).toBe(0);
+    const second = run(["migrate", "--facts-dir", "--workspace", dir]);
+    expect(second.code).toBe(0);
+    expect(second.stdout).not.toContain("renamed");
+    expect(existsSync(join(dir, "facts"))).toBe(true);
+  });
+
+  it("without --facts-dir a legacy workspace keeps its directory name", () => {
+    const dir = workspace();
+    const res = run(["migrate", "--workspace", dir]);
+    expect(res.code).toBe(0);
+    expect(res.stdout).not.toContain("renamed");
+    expect(existsSync(join(dir, "content"))).toBe(true);
+    expect(existsSync(join(dir, "facts"))).toBe(false);
+  });
 });

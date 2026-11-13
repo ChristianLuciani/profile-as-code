@@ -68,8 +68,8 @@ find . -type f | sort
 
 ```
 ./.pascorc
-./content/checks.yaml
-./content/identity.yaml
+./facts/checks.yaml
+./facts/identity.yaml
 ./README.md
 ```
 
@@ -83,7 +83,7 @@ giving it a repo is the recommended extra, not a requirement.
 
 ## Step 3 — the first edit
 
-`content/identity.yaml` holds facts only — one file maps to one root property
+`facts/identity.yaml` holds facts only — one file maps to one root property
 ([§4.1](USER-GUIDE.md#41-the-golden-rule-one-file--one-root-property)). Open it and replace the
 template with:
 
@@ -119,7 +119,7 @@ validate: schema validation failed (D12 fail-on-schema) — 1 violation(s)
 ```
 
 It names the **root property** (`identity`), which is the same as the file only because the
-mapping is 1:1 — `bios` belongs in `content/bios.yaml`. The message is actionable once you know
+mapping is 1:1 — `bios` belongs in `facts/bios.yaml`. The message is actionable once you know
 that; it is not the file path the guide historically promised.
 
 ## Step 4 — validate, and read the score
@@ -244,7 +244,7 @@ is invisible to `diff`.
 Two blocks, in their own files ([§6](USER-GUIDE.md#6-add-entries--update-content)):
 
 ```sh
-cat > content/experience.yaml <<'EOF'
+cat > facts/experience.yaml <<'EOF'
 - id: exp-demo
   role:
     en: Demo Engineer
@@ -257,7 +257,7 @@ cat > content/experience.yaml <<'EOF'
       - Shipped a demo profile as code.
 EOF
 
-cat > content/projects.yaml <<'EOF'
+cat > facts/projects.yaml <<'EOF'
 - id: proj-demo
   name: demo-profile
   status: active
@@ -295,9 +295,9 @@ pasco diff
 ```
 diff since release tag 'release-2026-10'
   files changed:
-    content/experience.yaml → root: experience
-    content/identity.yaml → root: identity
-    content/projects.yaml → root: projects
+    facts/experience.yaml → root: experience
+    facts/identity.yaml → root: identity
+    facts/projects.yaml → root: projects
     profiles/github-readme/README.md → root: profiles/github-readme/README.md
   hint: texts or facts changed — re-verify deployed profiles (re-paste per platform playbook)
 ```
@@ -335,7 +335,7 @@ git log -1 --format='%b'     # → Signed-off-by: Your Name <you@example.com>
 ```
 
 Then confirm the deploy in the ledger — `pasco` is the only writer of
-`content/deployments.yaml`:
+`facts/deployments.yaml`:
 
 ```sh
 cd ~/pasco-tutorial-demo
@@ -424,7 +424,7 @@ block below is a command that ran and the lines it printed.
 `headlines[platform=…,lang=…].text`. It does not create rows, so the first step is the YAML.
 
 ```sh
-cat > content/headlines.yaml <<'YAML'
+cat > facts/headlines.yaml <<'YAML'
 - platform: github-readme
   lang: en
   text: Engineer building demo profiles with profile-as-code.
@@ -467,7 +467,7 @@ address is usage (exit `2`). In the published **0.3.7** this walkthrough measure
 > `id`, never index; a repeated id exits `1` instead of choosing), `--list` covers six scopes
 > (`positioning`, `headlines`, `bios`, `identity.definition`, `identity.links`, `faq` — one
 > address per line, no headers), and
-> `pasco edit --create faq` seeds `content/faq.yaml` — a separate operation that refuses an
+> `pasco edit --create faq` seeds `facts/faq.yaml` — a separate operation that refuses an
 > existing root. The 0.3.7 transcript above is left as the dated record it is.
 
 ### M13 — `export profile`: deterministic, no clock in the payload
@@ -552,7 +552,7 @@ It exits `1` with one finding per fact (`missing` · `duplicate` · `wrong-group
 
 ### M17 — `presence` and `release plan`
 
-`presence` needs `content/releases.yaml`; `release plan` exits `1` without it. A release row is
+`presence` needs `facts/releases.yaml`; `release plan` exits `1` without it. A release row is
 `{id, version, date, surfaces[], changedUnits[]}`; surfaces are registry slugs of any RELEASE kind (an `identity` row is refused — it has no body to fan out), and the
 state is derived from `deployments[key][surface]` vs the unit hash.
 
@@ -576,7 +576,7 @@ pasco discover https://dev.to/ben
 pasco discover https://dev.to/ben --json
 ```
 
-The command is read-only (`wrote: false`; `content/` unchanged) and closed-allowlist (a host
+The command is read-only (`wrote: false`; `facts/` unchanged) and closed-allowlist (a host
 outside it is `host-not-allowed` with no request). It builds a provisional profile from the
 surface's **schema.org `Person`/`Organization` JSON-LD and its links** — never prose. Only those
 two node types qualify. A GitHub profile has none, and the project site's JSON-LD is
@@ -617,7 +617,7 @@ pasco post import /tmp/import-posts --channel linkedin
 pasco post list
 ```
 
-The store is `posts/` (outside `content/` and the schema). `task` writes the agent bundle — seed,
+The store is `posts/` (outside `facts/` and the schema). `task` writes the agent bundle — seed,
 facts, skill, channel rules — and never calls a model; `choose` records the body under
 `posts/<id>/<channel>/<variant>.md`; `check` gates max-chars, URLs against the SSOT, `{{fact:…}}`
 refs and claims; `export` reads `postiz.yaml` (`channels: {linkedin: …, x: …}`) and writes the
@@ -638,7 +638,7 @@ pasco refine linkedin --choose linkedin-en-1
 ```
 
 Without `--choose` it prints the agent task (facts, skill, existing texts, anchors) and writes
-nothing. With `--choose` it writes **only** `content/active.yaml`; the body is workspace input at
+nothing. With `--choose` it writes **only** `facts/active.yaml`; the body is workspace input at
 `profiles/<platform>/variants/<id>.md`. Once chosen, `build <platform>` writes that body verbatim,
 and `edit` names the variant instead of promising a change the SSOT text cannot reach. The
 template has two defects: the experience line renders a langMap role as `[object Object]`, and the
@@ -655,7 +655,7 @@ pasco build github-org --lang en
 pasco check
 ```
 
-The scaffold writes `content/{identity,socialHandles,newsletter,podcast,press,audiences,flavor,checks}.yaml`
+The scaffold writes `facts/{identity,socialHandles,newsletter,podcast,press,audiences,flavor,checks}.yaml`
 plus `README.md` and `.pascorc`; it validates with only `name`. `build github-org` is brand-only and
 writes `# <name>`, tagline, mission, logo, one badge per **claimed** handle on a
 curated platform (the renderer's declared limit, #428: a claimed slug outside the
@@ -677,19 +677,19 @@ Resolution is `--workspace` → `.pascorc` in the current directory → cwd; the
 
 ```sh
 cd /tmp/pasco-outside
-pasco doctor              # invalid: no content/
+pasco doctor              # invalid: no facts/
 pasco doctor --workspace ~/pasco-tutorial-demo   # valid
 cd /tmp/pasco-pointer     # .pascorc: {"workspace": "<absolute path to the workspace>"}
 pasco doctor              # the pointer wins over cwd
 pasco doctor --workspace ~/pasco-brand-demo      # the flag wins over the pointer
 cd ~/pasco-tutorial-demo/content
-pasco doctor              # invalid: …/content/content
+pasco doctor              # invalid: …/facts/content
 pasco doctor --workspace ..   # valid
 ```
 
 The trap is real: `.pascorc` is read **only** in the directory you run from, never upward. From a
 subdirectory, pass `--workspace ..` (or `--workspace <root>`); a relative flag resolves against
-cwd. An invalid path exits `1` and names the missing `content/` directory.
+cwd. An invalid path exits `1` and names the missing `facts/` directory.
 
 ### What Part 2 found
 

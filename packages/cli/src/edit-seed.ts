@@ -2,7 +2,7 @@
  * `pasco edit --create <root>` — the seed templates (#435).
  *
  * The write is a byte-range splice over EXISTING bytes, so it cannot invent a
- * root: `content/faq.yaml` — the answer-engine surface the product exists to be
+ * root: `facts/faq.yaml` — the answer-engine surface the product exists to be
  * quoted through — had to be hand-written. `--create` is a DIFFERENT operation
  * (never a rewrite of the splice, #435 ADR-lite): it writes a schema-valid seed
  * for a root the workspace does not declare yet, refuses when the root already
@@ -66,19 +66,20 @@ export function seedTemplate(root: SeedableRoot): string {
 
 /**
  * Normalize `--create`'s argument to a root name: both `faq` and the file form
- * the issue documents (`content/faq.yaml`, case-insensitive extension) are
- * accepted; anything else — a nested path, an absolute path, an unknown root —
- * is a usage error that names what CAN be seeded.
+ * (`facts/faq.yaml`, case-insensitive extension — the legacy `facts/` prefix
+ * accepted too, D30) are accepted; anything else — a nested path, an absolute
+ * path, an unknown root — is a usage error that names what CAN be seeded.
  */
 export function parseCreateRoot(raw: string): SeedableRoot {
   const text = raw.trim();
-  const match = /^(?:content\/)?([A-Za-z][A-Za-z0-9]*)(?:\.ya?ml)?$/i.exec(text);
-  // `content/faq.yaml` normalizes to `faq`; `faq.yaml` and `content/faq` do too.
-  // A path with a directory beyond `content/` never matches (no traversal).
+  const match = /^(?:(?:facts|content)\/)?([A-Za-z][A-Za-z0-9]*)(?:\.ya?ml)?$/i.exec(text);
+  // `facts/faq.yaml` normalizes to `faq`; `faq.yaml` and `facts/faq` do too
+  // (legacy `facts/faq.yaml` as well — D30 alias).
+  // A path with a directory beyond `facts/` never matches (no traversal).
   const root = match?.[1];
   if (root === undefined) {
     throw new UsageError(
-      `--create takes a root name or its content file (faq · content/faq.yaml) — got ${JSON.stringify(raw)}`,
+      `--create takes a root name or its facts file (faq · facts/faq.yaml) — got ${JSON.stringify(raw)}`,
     );
   }
   if (!(SEEDABLE_ROOTS as readonly string[]).includes(root)) {

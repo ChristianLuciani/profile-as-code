@@ -2,7 +2,7 @@
 
 ## Pre-requisitos
 
-- Workspace brand (`pasco init --flavor brand`) con `content/` lleno y
+- Workspace brand (`pasco init --flavor brand`) con `facts/` lleno y
   `pasco validate` en verde.
 - Org de GitHub creado (privado hasta pasar el checklist de public-readiness).
 

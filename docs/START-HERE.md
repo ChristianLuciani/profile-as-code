@@ -212,7 +212,7 @@ see any of them; the `grep` can.
 
    `pasco edit` reaches the answer-engine fields too (`identity.definition.<lang>`,
    `faq[id=…,lang=…].q|.a`, `faq[id=…].source`), and `pasco edit --create faq` seeds
-   a root that does not exist yet (`content/faq.yaml`); the address table and the
+   a root that does not exist yet (`facts/faq.yaml`); the address table and the
    caps are in [§4.4](USER-GUIDE.md#44-your-first-edit-without-an-editor) (#435).
    When you do edit by hand, the receipt is the `grep` **and** `pasco validate`.
 
@@ -271,7 +271,7 @@ with the address table and the authored caps, is
 - Not the contract — [SPEC.md](SPEC.md) is, decision by decision.
 - Not a tutorial for a specific platform — `skills/<platform>/` carries the living
   knowledge per surface. Caps are not there: they live in your workspace's
-  `content/checks.yaml`, and the engine defaults are mostly `[?]` until you cite a
+  `facts/checks.yaml`, and the engine defaults are mostly `[?]` until you cite a
   source ([§6](USER-GUIDE.md#platform-caps-at-edit-time)).
 
 If a step here contradicts the guide, the guide wins and this page is the bug.

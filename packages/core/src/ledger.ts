@@ -1,7 +1,7 @@
 /**
  * D18 — per-entry deploy-status ledger (SPEC §19, issue #37).
  *
- * Deploy state is DATA (content/deployments.yaml), not hand-maintained prose.
+ * Deploy state is DATA (facts/deployments.yaml), not hand-maintained prose.
  * This module owns everything the ledger needs beyond Zod:
  *
  *   - canonical hashing (sorted keys, sans ledger metadata id/origin — adding an

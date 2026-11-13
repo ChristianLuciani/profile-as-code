@@ -2,7 +2,7 @@
  * The conservative, sourced cap catalog (#240).
  *
  * One home: `pasco init` writes `DEFAULT_CHECKS_YAML`; `pasco check` falls back
- * to the parsed `DEFAULT_CHECKS` when a workspace has no `content/checks.yaml`
+ * to the parsed `DEFAULT_CHECKS` when a workspace has no `facts/checks.yaml`
  * (the dogfood workspace predates the catalog). Each note carries its source,
  * full date and provenance tier; `[?]` means curated/third-party, not the
  * platform's own documented limit.

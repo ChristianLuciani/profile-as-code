@@ -347,7 +347,7 @@ describe("pasco achievements — a range that matches nothing (F1)", () => {
     expect(result.code).toBe(0);
     expect(result.stdout).toContain("0 of 1 row(s) in 2020-01-01 … 2020-12-31 (inclusive)");
     expect(result.stdout).not.toContain("the log is empty");
-    expect(result.stdout).not.toContain("Add content/achievements.yaml");
+    expect(result.stdout).not.toContain("Add facts/achievements.yaml");
   });
 
   it("goal view: prints 0 of N planned in the range, never 'the goal view is empty'", () => {
@@ -372,7 +372,7 @@ describe("pasco achievements — a range that matches nothing (F1)", () => {
     expect(result.code).toBe(0);
     expect(result.stdout).toContain("the log is empty");
     expect(result.stdout).toContain("since 2020-01-01 (inclusive)");
-    expect(result.stdout).toContain("Add content/achievements.yaml");
+    expect(result.stdout).toContain("Add facts/achievements.yaml");
     expect(result.stdout).not.toContain("0 of 0");
   });
 

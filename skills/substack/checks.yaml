@@ -1,5 +1,5 @@
 # checks.yaml — machine-readable criteria for `pasco check substack`
-# Misma rule catalog que el schema; la unión con content/checks.yaml decide qué
+# Misma rule catalog que el schema; la unión con facts/checks.yaml decide qué
 # premisas corren (fact-present) y los caps de caracteres salen del catálogo del
 # workspace cuando declara checks — entero, sin merge por fila — o de los defaults
 # del paquete; nunca de estas filas (SPEC §7, pasco check).
@@ -8,7 +8,7 @@
 # 2026-11-05). Substack documents NO character limit for the profile bio, the
 # short description, the hero text or the About body [?] — the max-chars row is a
 # curated soft cap, never a hard rule (SOTA-2026 §1, §2.1, §6). A workspace that
-# copies it into content/checks.yaml gets a WARN (D12), never a block.
+# copies it into facts/checks.yaml gets a WARN (D12), never a block.
 
 - id: s-profile-bio-soft
   platform: substack

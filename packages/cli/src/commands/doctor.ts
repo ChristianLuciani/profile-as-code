@@ -217,7 +217,7 @@ function describeContractDelta(delta: ContractDeltaReport): string[] {
       // The remedy must name the version the workspace is coming FROM: declaring
       // the INSTALLED contract resolves to `none` and erases the very answer the
       // user asked for (fresh pass F1). `pasco init` is not a remedy either — it
-      // refuses a directory that already has `content/` (F3).
+      // refuses a directory that already has `facts/` (F3).
       return [
         `no delta — no .pascorc declares a contract floor, so there is nothing to diff (add "contract" with the contract version this workspace was written against — the one your previous engine validated — then re-run)`,
       ];

@@ -14,7 +14,7 @@ skills/
     ├── research/             # investigación versionada, con fuentes fechadas
     │   └── SOTA-<año>.md
     ├── playbook.md           # pasos de deploy manual + verificación post-pega
-    └── checks.yaml           # premisas machine-readable: la unión con content/checks.yaml decide qué corre; los caps salen del catálogo del workspace cuando declara checks (entero, sin merge por fila) o de los defaults del paquete (SPEC §7)
+    └── checks.yaml           # premisas machine-readable: la unión con facts/checks.yaml decide qué corre; los caps salen del catálogo del workspace cuando declara checks (entero, sin merge por fila) o de los defaults del paquete (SPEC §7)
 ```
 
 Every `skills/<plataforma>/` carries a `SKILL.md` — the profile channels and the

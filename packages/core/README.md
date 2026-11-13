@@ -11,13 +11,13 @@ The contract source is `schema/profile.schema.json` (D3) — Zod schemas are
 ```ts
 import { load, driftCheck, geoCheck, compile } from '@profile-as-code/core';
 
-const profile = load('/path/to/profile-data');        // parse content/*.yaml + validate (FAIL on schema, D12)
+const profile = load('/path/to/profile-data');        // parse facts/*.yaml + validate (FAIL on schema, D12)
 const issues  = driftCheck(profile);                     // Issue[] — WARN only, never throws (D12)
 const geo     = geoCheck(profile);                       // GeoReport — 0..100 score, not a gate (§8)
 const slice   = compile(profile, 'linkedin', 'es');      // PlatformProfile — language-aware renderer slice
 ```
 
-- **`load(workspace)`** — reads `content/*.yaml` (file name = root property:
+- **`load(workspace)`** — reads `facts/*.yaml` (file name = root property:
   `bios.yaml` → `bios[]`, `identity.yaml` → `identity`, …), merges, validates
   against the generated Zod, normalizes (collections default to `[]`).
   Throws `LoadError` (workspace problems) / `SchemaValidationError` (contract

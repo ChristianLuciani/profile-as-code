@@ -12,7 +12,7 @@
 | **M1** spec + schema + core + CLI skeleton | ✅ | **✅ cerrado** | `schema/`, `packages/core` (10 archivos de test), CLI con 8 comandos |
 | **M2** renderer github-readme + CI + dogfood | ✅ | **✅ cerrado** | `packages/renderers/github-readme`; el README real de `ChristianLuciani/ChristianLuciani` (10.3 KB) lleva el marker generado |
 | **M3** SOTA research + skills v1 + `pasco refine` | pendiente | **⚠️ parcial** — skills ✅ y **viajan con el paquete** (copia generada `packages/cli/skills/` en `files`, #253; `pasco skills:export` #254); `refine` parcial (template + `--choose`; el flujo completo es M3) | header PARTIAL de `packages/cli/src/commands/refine.ts` (re-verificado 2026-10-24) |
-| **M4** renderers linkedin/upwork/x/researchgate/substack + `pasco check` + ledger | pendiente | **⚠️ parcial** — ledger ✅ (D18), `check` parcial, los renderers M4 ✗ | `deployments` en schema (v1.3); `check.ts` ejecuta reglas offline M6/M7/M8 + limits (`CHECK_OWNER`, `packages/cli/src/commands/check.ts`; catálogo `content/checks.yaml`); el repo tiene 8 renderers (GitHub ×2 + la familia funding-paste entregada en `0.2.0`, D16/D17) — los M4 no (verificado 2026-10-24, `ls packages/renderers/`) |
+| **M4** renderers linkedin/upwork/x/researchgate/substack + `pasco check` + ledger | pendiente | **⚠️ parcial** — ledger ✅ (D18), `check` parcial, los renderers M4 ✗ | `deployments` en schema (v1.3); `check.ts` ejecuta reglas offline M6/M7/M8 + limits (`CHECK_OWNER`, `packages/cli/src/commands/check.ts`; catálogo `facts/checks.yaml`); el repo tiene 8 renderers (GitHub ×2 + la familia funding-paste entregada en `0.2.0`, D16/D17) — los M4 no (verificado 2026-10-24, `ls packages/renderers/`) |
 | **M5** web renderer + template release + CONTRIBUTING | pendiente | **⚠️ parcial** — template release ✅ (`profile-data-template` PUBLIC, #273) y CONTRIBUTING existe; web renderer ✗ | `gh repo view ChristianLuciani/profile-data-template --json visibility` → `PUBLIC` (2026-10-23); sin `packages/renderers/web` (2026-10-24) |
 | **M6** brand flavor | ✅ | **✅ cerrado** | `flavor: brand`, `github-org` renderer, `skills/github-org/`, `templates/profile-data-brand` |
 | **M7** evidence core | ✅ | **✅ cerrado** | schema v1.4 (`credentials[]`/`artifacts[]`), `registryCheck`, `hasCredential` en JSON-LD |
@@ -34,7 +34,7 @@
   release (job `site` de `.github/workflows/release.yml` → `pages.yml`). La página viva hoy
   (2026-10-24) es la landing anterior; la nueva sale con el primer release bajo esta
   maquinaria.
-- **Scaffold + on-ramps**: tres granos (`content/` identidad · `profiles/` generado ·
+- **Scaffold + on-ramps**: tres granos (`facts/` identidad · `profiles/` generado ·
   `posts/` stream) en los templates de `pasco init` (#267); `profile-data-template` PUBLIC
   (#273); hosted on-ramp declarado **v1 non-goal** con trigger de reapertura (#221/#222,
   SPEC §2).
@@ -90,7 +90,7 @@ El **vault en reposo no se construye**: se recomienda/evalúa una capa OSS exist
 SOPS+age, git-crypt, Cryptomator) y se contribuye upstream solo si hay un gap real. `curate`
 (#501) sigue siendo el eje de *qué* se divulga y su contrato ya está ratificado (D29: un pack
 con nombre, con `expires`, aditivo —solo suma filas nombradas, nunca da vuelta una `visibility`—
-con el ledger en `content/curations.yaml` y sin lector propio); #503 decide *quién autoriza*
+con el ledger en `facts/curations.yaml` y sin lector propio); #503 decide *quién autoriza*
 publicarlo o exportarlo (D28). La implementación de cualquiera de los dos es su propio slice.
 
 ### Después — superficie por plataforma

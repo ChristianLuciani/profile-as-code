@@ -115,9 +115,9 @@ deliberate exclusions (SOTA-2026 §8) — the paste is the only path:
 
 ## Do not do it by hand in the workspace
 
-- The paste is recorded only through `--mark`; editing `content/deployments.yaml`
+- The paste is recorded only through `--mark`; editing `facts/deployments.yaml`
   by hand breaks the D18 contract (only `pasco` writes the ledger).
 - Do not paste a variant that was not chosen: only the active row is deployable.
-- Do not add a `max-chars` row to `content/checks.yaml` to make the shipped soft
+- Do not add a `max-chars` row to `facts/checks.yaml` to make the shipped soft
   cap apply — that is not how the executor works (#455), and the shipped value is
   curation, not a limit.

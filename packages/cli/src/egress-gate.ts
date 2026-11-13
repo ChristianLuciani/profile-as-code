@@ -23,7 +23,7 @@
  * second memory — the gate decides from the baseline alone and reads the log
  * only to verify that the evidence is intact.
  *
- * Both live with the workspace (like `preview`'s `.pasco/`), outside `content/`
+ * Both live with the workspace (like `preview`'s `.pasco/`), outside `facts/`
  * and `profiles/`: the audit log is never rendered.
  *
  * **Order of the writes is the guarantee.** The record and the baseline are

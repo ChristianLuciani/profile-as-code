@@ -1,11 +1,11 @@
 ---
 name: kofi-profile
 description: >
-  Transforma los hechos del SSOT (profile-data/content/*.yaml) en el texto
+  Transforma los hechos del SSOT (profile-data/facts/*.yaml) en el texto
   About de la página de creador de Ko-fi — texto PLANO listo para pegar, no
   markdown ni dump. Patrón: funding-page de creador (research/SOTA-2026.md).
   El agente ejecutante produce N variantes; el humano elige; la elegida se
-  registra como variante activa (content/active.yaml) y el paste se marca en
+  registra como variante activa (facts/active.yaml) y el paste se marca en
   el ledger (D18) con `pasco status --mark`.
 model: juicio (frontier) — los ángulos de soporte/cita no son delegables a modelos pequeños
 applies_to: kofi
@@ -30,7 +30,7 @@ fila de `bios`.
 
 > Los HECHOS son sagrados (byte-idénticos al SSOT); solo la HISTORIA varía.
 
-- Nombres, fechas, DOIs, números, URLs: **idénticos** a `content/*.yaml`.
+- Nombres, fechas, DOIs, números, URLs: **idénticos** a `facts/*.yaml`.
 - Texto **plano** para el About: sin markdown, sin HTML, sin links inline —
   el card About se renders como texto plano y los links viven en el feature
   **Social links** (hasta 15, `https://` completo) (SOTA-2026 §2, [WEB S12]).
@@ -42,12 +42,12 @@ fila de `bios`.
 Lee el workspace (ruta del `.pascorc` o `--workspace`):
 
 ```
-content/identity.yaml      → nombre, email de contacto (hecho, v1.5), links canónicos
-content/positioning.yaml   → statement + ángulos por audiencia + anclas GEO
-content/projects.yaml      → qué construís (status + evidence verificable)
-content/skills.yaml        → stack con pesos por plataforma
-content/bios.yaml          → textos base por plataforma (punto de partida)
-content/keywords.yaml      → SEO + GEO (associations/claims)
+facts/identity.yaml      → nombre, email de contacto (hecho, v1.5), links canónicos
+facts/positioning.yaml   → statement + ángulos por audiencia + anclas GEO
+facts/projects.yaml      → qué construís (status + evidence verificable)
+facts/skills.yaml        → stack con pesos por plataforma
+facts/bios.yaml          → textos base por plataforma (punto de partida)
+facts/keywords.yaml      → SEO + GEO (associations/claims)
 ```
 
 ## Estrategia comunicativa (3 preguntas — SOTA-2026 §7)
@@ -96,7 +96,7 @@ social separado del About ([OFICIAL S4]).
      cada peso) para donantes pragmáticos.
 - Cada variante: `variantId` = `kofi-<lang>-<n>` (ej. `kofi-es-1`).
 - El humano elige; se registra con `pasco refine kofi --choose <id>` → escribe
-  `content/active.yaml`; el paste posterior se marca con
+  `facts/active.yaml`; el paste posterior se marca con
   `pasco status --mark <ledgerKey> kofi` (D18).
 
 ## Verificación (checks)

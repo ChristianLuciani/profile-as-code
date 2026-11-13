@@ -1,6 +1,6 @@
 /**
  * The capture path's write mechanism (D25/S2, issue #496) — `pasco log` appends
- * ONE schema-valid row to `content/achievements.yaml`.
+ * ONE schema-valid row to `facts/achievements.yaml`.
  *
  * It is NOT the `pasco edit` splice (#249): the splice replaces ONE scalar in
  * place, while a capture ADDS a row. Appending is the mechanism that preserves
@@ -13,12 +13,12 @@
  *      `--create` pattern of #435 — a seed, never an invented fact);
  *   2. a **collision** (declared or derived id) is refused before any write:
  *      capture never overwrites a row;
- *   3. the whole `content/` plus the new text goes through the same `load()` gate
+ *   3. the whole `facts/` plus the new text goes through the same `load()` gate
  *      over a temp copy (`validateContentFile`), then the real file is replaced by
  *      an **atomic rename** with its mode preserved;
  *   4. the file is re-read immediately before the rename, so a concurrent writer
  *      is refused (`StaleEditError`) instead of silently lost;
- *   5. the write runs under `content/.pasco-edit.lock`, the SAME lock `pasco edit`
+ *   5. the write runs under `facts/.pasco-edit.lock`, the SAME lock `pasco edit`
  *      uses — the two writers can never interleave a read/validate/rename pair.
  *
  * A non-empty FLOW-style root (`[ { id: … } ]`) is refused: the capture path
@@ -37,7 +37,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { type Achievement, LoadError, load } from "@profile-as-code/core";
+import { type Achievement, FACTS_DIR, factsDir, LoadError, load } from "@profile-as-code/core";
 import { isScalar, isSeq, parseDocument, stringify } from "yaml";
 import {
   owningFile,
@@ -49,7 +49,7 @@ import {
 } from "./edit-write.js";
 
 /** The root property the capture path writes. The file name IS the root
- *  property (`load()` matches `content/<root>.ya?ml`, extension case-insensitive). */
+ *  property (`load()` matches `facts/<root>.ya?ml`, extension case-insensitive). */
 const ROOT = "achievements";
 
 /** The header of a file this command creates. It names the block and its two
@@ -107,7 +107,7 @@ export interface AppendArgs {
 /** The file that owns the `achievements` root, or the canonical path when the
  *  workspace does not declare it yet. */
 export function achievementsFile(workspace: string): string {
-  return owningFile(workspace, ROOT) ?? `content/${ROOT}.yaml`;
+  return owningFile(workspace, ROOT) ?? `${factsDir(workspace)}/${ROOT}.yaml`;
 }
 
 /**
@@ -181,7 +181,7 @@ function appendLocked(args: AppendArgs, deps: WriteDeps): AppendOutcome {
 export function appendText(
   original: string,
   rowText: string,
-  file = "content/achievements.yaml",
+  file = `${FACTS_DIR}/achievements.yaml`,
 ): string {
   const document = parseDocument(original);
   if (document.errors.length > 0) {
