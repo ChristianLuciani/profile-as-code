@@ -76,12 +76,52 @@ If your change is to a document, run the page projection too — `pnpm site` reg
 
 ## Route 3 — an agent acting for a person
 
+`pasco` is built **agent-first**: whether executing inside an LLM harness (Claude Code,
+Pi, DeepSeek Harness, Cursor, Windsurf) or an automated CI runner, the CLI provides
+deterministic exit codes (`0` for success/warnings, `1` for failures) and structured
+`--json` payloads across all inspection commands.
+
 Start from the machine-readable surfaces, never from a rendered page:
 
 ```sh
+pasco doctor --json       # engine health, schema status, and migration deltas
 pasco validate --json     # schema (FAIL, exit 1) + drift/geo (WARN, exit 0) — D12
 pasco status --json       # per surface: sync · artifact · limits  (publication truth)
-pasco check --json        # platform caps: does any text exceed the declared limit
+pasco audit --json        # offline diagnostic projection: dangling-ref · contradiction · unsourced-claim
+pasco audit --public --json # strict audit of what is publishable (D27 public projection)
+pasco check --json        # platform caps, handle matrix, media transport, fact-presence
+```
+
+### Safe automated mutations
+
+Agents should avoid arbitrary string manipulation on raw YAML, which strips comments and
+risks malformed documents. Use the atomic, comment-preserving `edit` command:
+
+```sh
+pasco edit --list                                   # list every addressable contract path
+pasco edit 'positioning.statement.en'               # read current field value
+pasco edit 'positioning.statement.en' --set '<text>' --check  # write and validate atomically
+```
+
+### Bundled platform skills
+
+Do not invent platform character limits, formatting rules, or SEO/GEO heuristics. `pasco`
+ships 14 SOTA platform skills (LinkedIn, GitHub, Upwork, Substack, Ko-fi, X...) directly
+within `@profile-as-code/cli`:
+
+```sh
+pasco skills:export ~/.agent-skills                 # export bundled skills into your harness or context
+```
+
+### GEO, AI policies, and citability
+
+Answer engines (Perplexity, ChatGPT, Gemini, Claude) cross-reference professional identities.
+Keep facts quotable and protect data ownership:
+
+```sh
+pasco entity --jsonld     # paste-ready schema.org Person/Organization JSON-LD
+pasco cite-check          # deterministic offline verification of answer-engine citations
+pasco export ai-policy    # generates robots.txt, llms.txt, and AI-POLICY.md (allows search, restricts training)
 ```
 
 **The mistake this route makes:** reporting "done" from `validate` alone. `validate`
