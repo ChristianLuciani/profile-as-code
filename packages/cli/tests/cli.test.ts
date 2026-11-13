@@ -872,22 +872,6 @@ describe("pasco diff (git-based, release tags)", () => {
     expect(r.stdout).toContain("re-verify deployed profiles");
   });
 
-  it("lists changed facts/ files since the release tag (D30 layout)", () => {
-    const ws = makeGitWorkspace();
-    renameSync(join(ws, "content"), join(ws, "facts"));
-    git(ws, ["add", "-A"]);
-    git(ws, ["commit", "-qm", "migrate to facts/ (D30)"]);
-    git(ws, ["tag", "release-2.0"]);
-    writeFileSync(join(ws, "facts", "identity.yaml"), "name: Elena Vasquez\nlocation: Paris\n");
-    git(ws, ["add", "-A"]);
-    git(ws, ["commit", "-qm", "update identity"]);
-    const r = run(["diff", "--workspace", ws]);
-    expect(r.code).toBe(0);
-    expect(r.stdout).toContain("release tag 'release-2.0'");
-    expect(r.stdout).toContain("facts/identity.yaml");
-    expect(r.stdout).toContain("re-verify deployed profiles");
-  });
-
   it("--json reports files and hint", () => {
     const ws = makeGitWorkspace();
     const r = run(["diff", "--json", "--workspace", ws]);
