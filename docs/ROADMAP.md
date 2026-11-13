@@ -18,7 +18,7 @@
 | **M7** evidence core | ✅ | **✅ cerrado** | schema v1.4 (`credentials[]`/`artifacts[]`), `registryCheck`, `hasCredential` en JSON-LD |
 | **M8** media pipeline | ✅ | **✅ contrato sí, deploy no** | `assets/` + `manifest.json` + `collectMedia` en core; los playbooks de deploy son M4 |
 | **M9** training-time corpus presence | ⏳ contrato sí, decisión **deferida** (Q10, post-M3) | **✗ no empezado** — piso ya definido: **privado-first** (bloquea crawlers de entrenamiento, sin licencia abierta) con opt-in explícito del dueño | `docs/research/03-training-time-visibility.md` (PR #135 + corrección de consentimiento, 2026-10-05); SPEC §12 M9 + §14 Q10 |
-| **M12** egress authorization (D28) | pendiente | **⚠️ parcial — S503a ✅ / S503b ✗** — gate mínimo: el manifest de lo que sale (digest `sha256`), detección `private → public` contra el último egreso registrado y de `--all`, `--confirm <digest>` o rechazo (exit 1, sin escribir), y audit log append-only en `.pasco/egress/audit.log` (`keyId: null` — **sin firmas todavía**). Falta S503b: recibo firmado (hardware key/WebAuthn), `--all` break-glass y agente read-only/keyless. **Integridad del registro abierta en #520** (draft PR #528) | `packages/core/src/egress.ts`, `packages/cli/src/egress-gate.ts`, `packages/{core,cli}/tests/egress*.test.ts`; contrato SPEC §7.11 |
+| **M12** egress authorization (D28) | pendiente | **⚠️ parcial — S503a ✅ / S503b ✗** — gate mínimo: el manifest de lo que sale (digest `sha256`), detección `private → public` contra el último egreso registrado y de `--all`, `--confirm <digest>` o rechazo (exit 1, sin escribir), y audit log append-only en `.pasco/egress/audit.log` (`keyId: null` — **sin firmas todavía**). La memoria del gate es una sola y está encadenada al log (SPEC §7.11, #520); queda el límite de autenticidad que cierra S503b: recibo firmado (hardware key/WebAuthn), `--all` break-glass y agente read-only/keyless | `packages/core/src/egress.ts`, `packages/cli/src/egress-gate.ts`, `packages/{core,cli}/tests/egress*.test.ts`; contrato SPEC §7.11 |
 | **M13** `curate` — divulgación con alcance (D29) | **no está en el SPEC** — §12 lista M1–M12; D29 vive en §5 y §7.12 | **✗ contrato sí, código no** — contrato ratificado; sin implementación ni decisión de slice | SPEC §5 D29, §7.12; #501 |
 
 **Fuera de los milestones — lo que la serie `0.2.0` → `0.3.6` entrega (2026-10-09 → 2026-10-26; 0.3.6 en preparación):**
@@ -86,9 +86,10 @@ como default y el export público; #503 agrega el gate de egreso: detectar `priv
 `export --all` contra el último egreso registrado, exigir un **recibo** sobre el manifiesto exacto
 (hoy `--confirm <digest>`; **S503b**: firma con llave hardware/WebAuthn con presencia humana; 2FA
 como fallback), registrar la divulgación en un audit log y mantener al agente **read-only y sin
-llaves**. `--all` es break-glass, nunca el default. **S503a ya está en `main`** (§7.11); el
-registro de autorización todavía es falsificable y eso lo cierra **#520** (integridad del baseline
-y del audit log, on-ramps con `--confirm`).
+llaves**. `--all` es break-glass, nunca el default. **S503a ya está en `main`** (§7.11), y su
+memoria de autorización es una sola y está encadenada al audit log (#520, `c22df70`); lo que
+queda es la **autenticidad** del registro — un reescrito coherente o una historia re-firmada
+siguen siendo indetectables sin llave — y eso lo cierra **S503b** con el recibo firmado.
 
 El **vault en reposo no se construye**: se recomienda/evalúa una capa OSS existente (p. ej.
 SOPS+age, git-crypt, Cryptomator) y se contribuye upstream solo si hay un gap real. `curate`
@@ -139,17 +140,18 @@ vieja. Chico, docs-only; una sesión lo cierra.
 - **#501** (M13) — `curate`: **única decisión abierta del racimo D29** (`needs-decision` vivo).
   La decisión es el slice (contrato → ledger → materialización) y su dependencia con S503b; el
   contrato ya está ratificado (D29, §7.12), la implementación todavía no existe.
-- **#520** — la memoria de autorización de S503a es reescribible y el audit log no tiene cadena
-  de integridad. Decisión del operador registrada (UNA memoria); implementación en **draft PR
-  #528**, pendiente de review y merge.
+- **#520** — **mergeado** en `c22df70` (PR #528): una sola memoria (`baseline.json` siempre el
+  manifiesto público) y cadena de integridad en el audit log; el límite residual —reescrito
+  coherente e historia re-firmada, indetectables sin llave— queda declarado en §7.11 y lo cierra
+  S503b. El issue sigue abierto por la revisión de esos dos límites.
 - **#507** — `release:verify` hace UNA sonda por paquete y trata el 404 transitorio de npm
   como `FAIL` mientras el registry procesa (medido en el corte de v0.5.0). Arreglo: deadline +
   reintento + estado `processing`.
-- **#529** — implementa **A** de #493 (puntero `block:id` en `highlights` +
-  `claim-against-unbuilt`/`claim-without-proof`). **B** queda como dirección, no asignada: la
-  decisión de #493 fija que promoverla exige bendición explícita del operador, un bump de mayor
-  del contrato y la evidencia de A en uso. Abierto; sin comentario de claim en el tracker
-  (verificado 2026-11-13).
+- **#529** — implementa **A** de #493: el puntero `block:id` en `highlights` más las clases
+  `claim-against-unbuilt`/`claim-without-proof`. **A toca el contrato** (campo opcional en
+  `$defs/experienceItem`, `pnpm gen:zod`). **B** queda como dirección, no asignada: promoverla
+  exige bendición explícita del operador, un bump de mayor del contrato y la evidencia de A en
+  uso. Abierto; sin comentario de claim en el tracker (verificado 2026-11-13).
 - **#493** — abierto como postura y elección A/B/C/D: **decidida 2026-11-12** (A ahora, B como
   dirección, C futura, D rechazada); su `needs-decision` fue retirado. La construcción vive en
   #529 y el cierre de #493 es de quien mergee #529.
