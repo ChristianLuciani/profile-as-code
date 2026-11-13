@@ -145,7 +145,7 @@ export function runRefine(args: RefineArgs): number {
       });
     }
     line(
-      `recorded active[${platform}] = { lang: ${lang}, variantId: ${args.choose}, chosenAt: ${chosenAt} } (facts/active.yaml)`,
+      `recorded active[${platform}] = { lang: ${lang}, variantId: ${args.choose}, chosenAt: ${chosenAt} } (${factsDir(args.workspace)}/active.yaml)`,
     );
     if (!hasBody) {
       line(

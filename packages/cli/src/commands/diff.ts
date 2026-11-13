@@ -109,7 +109,7 @@ export function runDiff(args: DiffArgs): number {
     .map((p) => (wsPrefix === "" ? p : p.slice(wsPrefix.length)))
     .map((p) => ({
       path: p,
-      root: p.replace(/^content\//, "").replace(/\.ya?ml$/, ""),
+      root: p.replace(/^(?:facts|content)\//, "").replace(/\.ya?ml$/, ""),
     }));
 
   const changedRoots = new Set(files.map((f) => f.root).filter(Boolean));

@@ -38,9 +38,13 @@ export function catalogSource(profile: LoadedProfile): CatalogSource {
   return profile.checks.length > 0 ? "workspace" : "defaults";
 }
 
-/** The text report's sentence for a source (the HTML preview phrases its own). */
+/** The text report's sentence for a source (the HTML preview phrases its own).
+ *  Names the SOURCE, never the file: `load()` merges the facts dir's
+ *  `*.y{a,}ml` by root property and reports no source, and the directory name
+ *  itself varies (D30 alias) — a hardcoded path would be a claim the engine
+ *  cannot make (false for a legacy `facts/` workspace, false for `checks.yml`). */
 export function catalogLabel(source: CatalogSource): string {
   return source === "workspace"
-    ? "workspace checks (declared in facts/, schema-validated catalog)"
+    ? "workspace checks (schema-validated catalog)"
     : "workspace checks: none declared — the conservative caps shipped with pasco apply (#240)";
 }

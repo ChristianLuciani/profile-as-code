@@ -13,6 +13,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -855,6 +856,38 @@ describe("pasco diff (git-based, release tags)", () => {
     expect(r.stdout).toContain("re-verify deployed profiles");
   });
 
+  it("lists changed facts/ files since the release tag (D30 layout)", () => {
+    const ws = makeGitWorkspace();
+    renameSync(join(ws, "content"), join(ws, "facts"));
+    git(ws, ["add", "-A"]);
+    git(ws, ["commit", "-qm", "migrate to facts/ (D30)"]);
+    git(ws, ["tag", "release-2.0"]);
+    writeFileSync(join(ws, "facts", "identity.yaml"), "name: Elena Vasquez\nlocation: Paris\n");
+    git(ws, ["add", "-A"]);
+    git(ws, ["commit", "-qm", "update identity"]);
+    const r = run(["diff", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("release tag 'release-2.0'");
+    expect(r.stdout).toContain("facts/identity.yaml");
+    expect(r.stdout).toContain("re-verify deployed profiles");
+  });
+
+  it("lists changed facts/ files since the release tag (D30 layout)", () => {
+    const ws = makeGitWorkspace();
+    renameSync(join(ws, "content"), join(ws, "facts"));
+    git(ws, ["add", "-A"]);
+    git(ws, ["commit", "-qm", "migrate to facts/ (D30)"]);
+    git(ws, ["tag", "release-2.0"]);
+    writeFileSync(join(ws, "facts", "identity.yaml"), "name: Elena Vasquez\nlocation: Paris\n");
+    git(ws, ["add", "-A"]);
+    git(ws, ["commit", "-qm", "update identity"]);
+    const r = run(["diff", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("release tag 'release-2.0'");
+    expect(r.stdout).toContain("facts/identity.yaml");
+    expect(r.stdout).toContain("re-verify deployed profiles");
+  });
+
   it("--json reports files and hint", () => {
     const ws = makeGitWorkspace();
     const r = run(["diff", "--json", "--workspace", ws]);
@@ -1047,9 +1080,7 @@ describe("pasco check (offline rules) + pasco skills:export (shipped skills)", (
   it("names the catalog source, never a filename it cannot know (#dogfood)", () => {
     const declared = run(["check", "github-readme", "--workspace", MINIMAL]);
     expect(declared.code).toBe(0);
-    expect(declared.stdout).toContain(
-      "workspace checks (declared in facts/, schema-validated catalog)",
-    );
+    expect(declared.stdout).toContain("workspace checks (schema-validated catalog)");
     expect(declared.stdout).not.toContain("content/checks.yaml");
 
     const noFile = join(tempDir(), "ws-no-catalog");
@@ -1084,7 +1115,7 @@ describe("pasco check (offline rules) + pasco skills:export (shipped skills)", (
     );
     const ymlRun = run(["check", "github-readme", "--workspace", yml]);
     expect(ymlRun.code).toBe(0);
-    expect(ymlRun.stdout).toContain("declared in facts/");
+    expect(ymlRun.stdout).toContain("workspace checks (schema-validated catalog)");
     expect(ymlRun.stdout).toContain("yml-cap");
     expect(ymlRun.stdout).not.toContain("content/checks.yaml");
   });

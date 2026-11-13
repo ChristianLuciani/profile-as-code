@@ -284,7 +284,9 @@ function finishVerify(
   line(
     "  certification compares the LIVE digest against the stored anchor; a record with no anchor is unverifiable: unattributed",
   );
-  line("  the ledger file was written — committing facts/deployments.yaml is the operator's (D2)");
+  line(
+    `  the ledger file was written — committing ${factsDir(args.workspace)}/deployments.yaml is the operator's (D2)`,
+  );
   return EXIT.OK;
 }
 

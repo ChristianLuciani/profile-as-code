@@ -23,6 +23,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -1552,6 +1553,26 @@ describe("pasco edit --create — seeding a missing root (#435)", () => {
     expect(r.stdout).toContain("<the first question this entity answers>");
     expect(existsSync(join(dir, "content", "faq.yaml"))).toBe(false);
   });
+  it("--check accepts the facts/ file form on a facts/ workspace (D30)", () => {
+    const dir = workspace();
+    renameSync(join(dir, "content"), join(dir, "facts"));
+    const r = edit(dir, "--create", "facts/faq.yaml", "--check");
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("root:     faq");
+    expect(r.stdout).toContain("file:     facts/faq.yaml");
+    expect(existsSync(join(dir, "facts", "faq.yaml"))).toBe(false);
+  });
+
+  it("accepts the facts/ file form on a facts/ workspace (D30)", () => {
+    const dir = workspace();
+    renameSync(join(dir, "content"), join(dir, "facts"));
+    const r = edit(dir, "--create", "facts/faq.yaml", "--check");
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("root:     faq");
+    expect(r.stdout).toContain("file:     facts/faq.yaml");
+    expect(existsSync(join(dir, "facts", "faq.yaml"))).toBe(false);
+  });
+
   it("--check validates the seed and writes nothing", () => {
     const dir = workspace();
     const before = workspaceHash(dir);

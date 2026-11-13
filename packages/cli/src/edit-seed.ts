@@ -66,14 +66,15 @@ export function seedTemplate(root: SeedableRoot): string {
 
 /**
  * Normalize `--create`'s argument to a root name: both `faq` and the file form
- * the issue documents (`facts/faq.yaml`, case-insensitive extension) are
- * accepted; anything else — a nested path, an absolute path, an unknown root —
- * is a usage error that names what CAN be seeded.
+ * (`facts/faq.yaml`, case-insensitive extension — the legacy `facts/` prefix
+ * accepted too, D30) are accepted; anything else — a nested path, an absolute
+ * path, an unknown root — is a usage error that names what CAN be seeded.
  */
 export function parseCreateRoot(raw: string): SeedableRoot {
   const text = raw.trim();
-  const match = /^(?:content\/)?([A-Za-z][A-Za-z0-9]*)(?:\.ya?ml)?$/i.exec(text);
-  // `facts/faq.yaml` normalizes to `faq`; `faq.yaml` and `facts/faq` do too.
+  const match = /^(?:(?:facts|content)\/)?([A-Za-z][A-Za-z0-9]*)(?:\.ya?ml)?$/i.exec(text);
+  // `facts/faq.yaml` normalizes to `faq`; `faq.yaml` and `facts/faq` do too
+  // (legacy `facts/faq.yaml` as well — D30 alias).
   // A path with a directory beyond `facts/` never matches (no traversal).
   const root = match?.[1];
   if (root === undefined) {

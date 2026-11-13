@@ -36,6 +36,7 @@ import {
   completenessLine,
   declaredReason,
   deployStatus,
+  factsDir,
   type Lang,
   type LedgerReport,
   LoadError,
@@ -647,7 +648,9 @@ export async function runStatus(args: StatusArgs): Promise<number> {
         },
       });
     }
-    line("CHECKLIST.md regenerated from facts/deployments.yaml (AUTO-GENERATED view)");
+    line(
+      `CHECKLIST.md regenerated from ${factsDir(args.workspace)}/deployments.yaml (AUTO-GENERATED view)`,
+    );
     line(`  Profile completeness: ${completenessLine(completion)}`);
     line(`  Certification: ${certificationLineOf(reportData)}`);
   }
