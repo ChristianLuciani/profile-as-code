@@ -1,6 +1,6 @@
 # Roadmap — de acá a lo planificado
 
-> **Generado** 2026-09-24 · **actualizado** 2026-11-09 (M12/S503a: gate de egreso mínimo) desde el estado verificado del repo (no del declarado).
+> **Generado** 2026-09-24 · **actualizado** 2026-11-13 (D28/S503a + #520, D29, D30, M12/M13 y las correcciones abiertas) desde el estado verificado del repo (no del declarado). El estado del tracker se **cita con fecha**, no se replica (#532).
 > Canónico del plan: `docs/SPEC.md` §12. Este documento agrega **qué está realmente hecho**
 > y **en qué orden conviene seguir**, con la evidencia de cada afirmación.
 > Regenerar/corregir cuando la evidencia cambie.
@@ -18,7 +18,8 @@
 | **M7** evidence core | ✅ | **✅ cerrado** | schema v1.4 (`credentials[]`/`artifacts[]`), `registryCheck`, `hasCredential` en JSON-LD |
 | **M8** media pipeline | ✅ | **✅ contrato sí, deploy no** | `assets/` + `manifest.json` + `collectMedia` en core; los playbooks de deploy son M4 |
 | **M9** training-time corpus presence | ⏳ contrato sí, decisión **deferida** (Q10, post-M3) | **✗ no empezado** — piso ya definido: **privado-first** (bloquea crawlers de entrenamiento, sin licencia abierta) con opt-in explícito del dueño | `docs/research/03-training-time-visibility.md` (PR #135 + corrección de consentimiento, 2026-10-05); SPEC §12 M9 + §14 Q10 |
-| **M12** egress authorization (D28) | pendiente | **⚠️ parcial — S503a ✅ / S503b ✗** — gate mínimo: el manifest de lo que sale (digest `sha256`), detección `private → public` contra el último egreso registrado y de `--all`, `--confirm <digest>` o rechazo (exit 1, sin escribir), y audit log append-only en `.pasco/egress/audit.log` (`keyId: null` — **sin firmas todavía**). Falta S503b: recibo firmado (hardware key/WebAuthn), `--all` break-glass y agente read-only/keyless | `packages/core/src/egress.ts`, `packages/cli/src/egress-gate.ts`, `packages/{core,cli}/tests/egress*.test.ts`; contrato SPEC §7.11 |
+| **M12** egress authorization (D28) | pendiente | **⚠️ parcial — S503a ✅ / S503b ✗** — gate mínimo: el manifest de lo que sale (digest `sha256`), detección `private → public` contra el último egreso registrado y de `--all`, `--confirm <digest>` o rechazo (exit 1, sin escribir), y audit log append-only en `.pasco/egress/audit.log` (`keyId: null` — **sin firmas todavía**). La memoria del gate es una sola y está encadenada al log (SPEC §7.11, #520); queda el límite de autenticidad que cierra S503b: recibo firmado (hardware key/WebAuthn), `--all` break-glass y agente read-only/keyless | `packages/core/src/egress.ts`, `packages/cli/src/egress-gate.ts`, `packages/{core,cli}/tests/egress*.test.ts`; contrato SPEC §7.11 |
+| **M13** `curate` — divulgación con alcance (D29) | **no está en el SPEC** — §12 lista M1–M12; D29 vive en §5 y §7.12 | **✗ contrato sí, código no** — contrato ratificado; sin implementación ni decisión de slice | SPEC §5 D29, §7.12; #501 |
 
 **Fuera de los milestones — lo que la serie `0.2.0` → `0.3.6` entrega (2026-10-09 → 2026-10-26; 0.3.6 en preparación):**
 
@@ -82,9 +83,13 @@ publicación de #242 en vez de una segunda tabla de caps.
 **M12 · Egreso autorizado (#503, D28)**
 Publicar y exportar son **actos autorizados**, no ediciones de archivo. D27 (#502) dejó `private`
 como default y el export público; #503 agrega el gate de egreso: detectar `private → public` y
-`export --all` contra el ledger, exigir un **recibo firmado** sobre el manifiesto exacto (llave
-hardware/WebAuthn con presencia humana; 2FA como fallback), registrar la divulgación en un audit
-log y mantener al agente **read-only y sin llaves**. `--all` es break-glass, nunca el default.
+`export --all` contra el último egreso registrado, exigir un **recibo** sobre el manifiesto exacto
+(hoy `--confirm <digest>`; **S503b**: firma con llave hardware/WebAuthn con presencia humana; 2FA
+como fallback), registrar la divulgación en un audit log y mantener al agente **read-only y sin
+llaves**. `--all` es break-glass, nunca el default. **S503a ya está en `main`** (§7.11), y su
+memoria de autorización es una sola y está encadenada al audit log (#520, `c22df70`); lo que
+queda es la **autenticidad** del registro — un reescrito coherente o una historia re-firmada
+siguen siendo indetectables sin llave — y eso lo cierra **S503b** con el recibo firmado.
 
 El **vault en reposo no se construye**: se recomienda/evalúa una capa OSS existente (p. ej.
 SOPS+age, git-crypt, Cryptomator) y se contribuye upstream solo si hay un gap real. `curate`
@@ -92,6 +97,12 @@ SOPS+age, git-crypt, Cryptomator) y se contribuye upstream solo si hay un gap re
 con nombre, con `expires`, aditivo —solo suma filas nombradas, nunca da vuelta una `visibility`—
 con el ledger en `facts/curations.yaml` y sin lector propio); #503 decide *quién autoriza*
 publicarlo o exportarlo (D28). La implementación de cualquiera de los dos es su propio slice.
+
+**Trabajo de registro que hace útil D27/D29** — sin él el registro sigue publication-shaped:
+- **#508** `pasco migrate` **general** (clase A aditiva / clase B `--apply-rewrites`, nunca borra;
+  tabla pineada al schema). El `migrate` de v2.0 **ya está en `main`** (#509) como su primera
+  instancia; falta el contrato general y #508 lo declara parcialmente aterrizado.
+- **#478** docs del scaffold: `pasco init` no distingue qué es artefacto de deploy en `profiles/`.
 
 ### Después — superficie por plataforma
 
@@ -123,6 +134,26 @@ checklist y la sección libre de `docs/STANDARDS.md` que siguen en presente con 
 vieja. Chico, docs-only; una sesión lo cierra.
 **8 · #175** — el estrato de respuesta externa se publica cuando existan 3 PRs externos
 (bloqueado por naturaleza — el trigger es el mundo, no el repo).
+
+### Ahora — correcciones abiertas (cita del tracker, 2026-11-13)
+
+Esta sección **no describe** el estado de cada issue: lo **cita**. Lo que el roadmap afirma
+de sí mismo es lo que el repo demuestra (archivos, tests, SPEC); la fase de un issue o PR se
+lee en el tracker. Motivo y criterio de cierre: #532.
+
+| Issue | Qué queda abierto (fuente) | Verificado |
+|---|---|---|
+| **#501** · M13 `curate` | único `needs-decision` abierto del racimo D29: el slice y su dependencia con S503b | 2026-11-13 |
+| **#520** · integridad del egreso | el issue sigue abierto; el hallazgo principal y los puntos (2)/(3) están en `main` (PR #528, `c22df70`; commit `3edcc347`), así que lo que resta se lee en el tracker | `main@a90263d`, 2026-11-13 |
+| **#529** · A de #493 | el puntero `block:id` en `highlights` + `claim-against-unbuilt`/`claim-without-proof`; **A es aditivo sobre el schema** (campo opcional, `pnpm gen:zod`) y **B** es la dirección que exige bendición del operador y bump de mayor | 2026-11-13 |
+| **#493** · postura del claim | decidida 2026-11-12 (A ahora, B dirección, C futura, D rechazada); la construcción vive en #529 | 2026-11-13 |
+| **#507** · `release:verify` | una sola sonda por paquete; el 404 transitorio de npm se lee como `FAIL` (medido en el corte de v0.5.0) | 2026-11-13 |
+| **#532** · forma del roadmap | esta sección: citar el tracker en vez de replicarlo | 2026-11-13 |
+
+Cerrados en esta ronda (2026-11-13): issue #519 (por el PR #527) y PR #521 (mergeada,
+`a2e8bbc`). #517 y #518 (S503a + D29) están mergeados y su efecto vive en la tabla M12 y en la
+sección de seguridad. #508 (migrate general) y #478 (docs del scaffold) se rastrean en la
+sección de registro; #503 (M12) espera S503b y #520.
 
 ### Transversal — no milestone
 
