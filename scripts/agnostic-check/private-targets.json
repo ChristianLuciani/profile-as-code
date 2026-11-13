@@ -64,6 +64,10 @@
     {
       "name": "identeco-cifereca",
       "reason": "operator's private identity-design corpus \u2014 not openable by a reader of this repo. Declared after #370 genericized its 5 citations: the matcher is token-based and blind to the citation form, so the name alone must be enough to fail the gate if it returns"
+    },
+    {
+      "name": "profile-ui",
+      "reason": "the operator's private product GUI repo (SPEC §9.1 family, added 2026-11-12) — not openable by a reader of this repo"
     }
   ],
   "privateRepos": [
