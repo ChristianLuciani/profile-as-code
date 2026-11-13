@@ -66,6 +66,13 @@ Core principles (SPEC §5 decisions, abbreviated):
 - **GEO is consistency.** An LLM that reads your LinkedIn and your GitHub must
   find identical facts — contradictions get you filtered out. That is why the
   engine checks drift across platforms.
+- **Agent-first & harness-ready.** Built from the ground up for execution by AI agents
+  and harnesses (Claude Code, Pi, DeepSeek Harness, Cursor, Windsurf). Structured `--json`
+  payloads across all inspection commands, deterministic exit codes, and comment-preserving
+  atomic edits (`pasco edit`) ensure agents never corrupt YAML files or hallucinate schema structures.
+- **Codified platform intelligence (Skills).** 14 bundled platform skills (`skills/`)
+  encode official character constraints, ranking algorithms, and SEO/GEO nuances, ready to
+  export into agent harnesses via `pasco skills:export`.
 
 ## 0.5 The full cycle of one change
 
@@ -866,6 +873,97 @@ open until it is filled in `post.yaml` by hand. The short rules ship for
 (short is the default). `task` on a channel in neither set exits `2` naming the
 rule file it expected. The walkthrough lives in [the tutorial](TUTORIAL.md) (M20).
 
+### 6.4 The Agent-First & Harness Workflow
+
+`profile-as-code` is architected as an **agent-first engine**. Managing eight distinct
+platform profiles with strict character limits, SEO/GEO requirements, and cross-platform
+consistency is an ideal task for autonomous LLM agents operating within an agent harness
+(such as Claude Code, Pi, DeepSeek Harness, Cursor, or Windsurf).
+
+Instead of forcing agents to guess YAML schemas or run fragile string substitutions, `pasco`
+supplies a complete machine-readable interface:
+
+#### 1. Machine-readable inspection & diagnosis
+
+Every diagnostic command supports `--json` and emits structured payloads with deterministic
+exit codes (`0` for success or actionable warnings; `1` for schema errors or failing audit findings):
+
+```sh
+pasco doctor --json       # environment and engine health, schema status, migration deltas
+pasco validate --json     # schema conformance (exit 1 on error) + drift/geo warnings (exit 0)
+pasco audit [--json]      # deep diagnostic projection: dangling-ref, contradiction, unsourced-claim
+pasco audit --public --json # strict audit of what is publishable (D27 public projection)
+pasco check --json        # platform caps, handle matrix, media transport, fact presence
+pasco status --json       # publication truth per surface: sync · artifact · limits
+```
+
+#### 2. Safe, comment-preserving atomic edits
+
+Agents must never overwrite YAML files wholesale with blind string concatenation, which strips
+user comments and easily produces malformed YAML. The `edit` command provides atomic,
+comment-preserving splices:
+
+```sh
+# Discover addressable paths
+pasco edit --list
+
+# Read an existing contract value
+pasco edit 'positioning.statement.en'
+
+# Update a value with schema pre-checking
+pasco edit 'positioning.statement.en' --set 'Senior Systems Engineer specializing in distributed architectures.' --check
+
+# Seed a missing optional root file (e.g. content/faq.yaml)
+pasco edit --create faq --check
+```
+
+#### 3. Bundled SOTA platform skills
+
+Agents do not need to scrape or hallucinate platform character limits, ranking algorithms,
+or profile conventions. The CLI packages 14 living SOTA platform skills directly within
+`@profile-as-code/cli`:
+
+```sh
+# List bundled platform skills
+pasco skills:export --list
+
+# Export skills into your agent workspace or harness skill directory
+pasco skills:export .agent-skills
+```
+
+Exported skills include platform-specific guides for GitHub (profile & organization), LinkedIn,
+Upwork, Substack, Ko-fi, X, and more. When an agent crafts a headline or bio, it consults
+the corresponding skill to satisfy exact constraints (e.g., LinkedIn headline 220 chars,
+GitHub bio 160 chars) and optimize for discovery.
+
+#### 4. GEO, Answer Engines & AI Policy
+
+Language models and answer engines (Perplexity, ChatGPT, Claude, Gemini) actively index
+public profiles. `pasco` provides dedicated tools to ensure your profile is accurately cited
+while protecting your intellectual property:
+
+```sh
+# Generate copy-paste Schema.org Person/Organization JSON-LD
+pasco entity --jsonld
+
+# Deterministically verify that saved answer-engine responses accurately cite declared facts
+pasco cite-check
+
+# Export crawler policies: allows retrieval by search engines while blocking training scrapers
+pasco export ai-policy
+```
+
+#### 5. Local preview before publishing
+
+Before any change is published to a live platform, the agent (or user) can generate a
+self-contained local HTML preview:
+
+```sh
+pasco preview --no-open   # writes .pasco/preview/index.html
+```
+
+---
+
 ### Keep `CHANGELOG.md` and tags honest
 
 Every workspace change gets a CHANGELOG line (date + what changed + which
@@ -1337,20 +1435,27 @@ One workspace per identity, same engine (D14/D15):
 
 ```sh
 pasco init [dir] [--flavor person|brand]   # scaffold a workspace (never overwrites)
+pasco doctor [--json]                      # environment, schema & engine health
 pasco validate [--json]                    # schema FAIL + drift/geo WARN (D12)
 pasco build [platform] [--lang] [--json]   # base texts; renderers write profiles/
 pasco preview [--out <dir>] [--no-open]    # one self-contained HTML page, opened locally (#282)
 pasco edit <contract-path> [--set <text> [--check]]  # read / preview / write one contract field (#247)
 pasco edit --list [<block>]                # every contract path this workspace has (#411)
+pasco edit --create <root> [--check]       # seed missing root file (e.g. content/faq.yaml)
 pasco diff [--json]                        # changes since last release-* tag
+pasco status [--mark] [--verify] [--json]  # deploy ledger, live verification & publication truth
 pasco refine <platform> [--lang] [--variants N]   # emit the agent task template (full flow M3)
 pasco refine <platform> --choose <id>      # record chosen variant in content/active.yaml
 pasco check [platform]                     # offline rules + checks catalog + fact-present (rest M4)
-pasco audit [--json]                       # findings only: dangling-ref · contradiction · unsourced-claim
+pasco audit [--json] [--public]            # diagnostic findings: dangling-ref · contradiction · unsourced-claim
+pasco discover <url>... [--json]           # bootstrap provisional profile from public JSON-LD & metadata
 pasco entity [--json | --jsonld]           # schema.org entity view / paste-ready JSON-LD block (#287)
-pasco export profile --json [--now <iso>] [--public | --all]  # the profile object for scripts/sites (#348)
+pasco cite-check [--answers <file>]        # offline citation verification across answer-engine responses
+pasco export ai-policy [--out <dir>]       # generate robots.txt + llms.txt + AI-POLICY.md
+pasco export profile --json [--now <iso>] [--public | --all]  # normalized profile object for scripts/sites (#348)
 pasco skills:export --list                 # platform skills shipped with this package
-pasco skills:export <dir> [--force]        # copy them; --force overlays a non-empty dir
+pasco skills:export <dir> [--force]        # copy 14 SOTA platform skills to dir; --force overlays
+pasco migrate [--json]                     # upgrade schema v1 workspace to v2.0 preserving comments
 pasco --workspace <path> <cmd>             # target a workspace explicitly
 pasco --json <cmd>                         # machine-readable output
 ```

@@ -25,11 +25,6 @@
   <meta name="twitter:title" content="profile-as-code — tu identidad profesional, como código">
   <meta name="twitter:description" content="Un workspace YAML, textos por plataforma. CLI-first, open source, código con licencia MIT.">
   <meta name="twitter:image" content="https://christianluciani.github.io/profile-as-code/brand/identity.png">
-  <!-- Este espejo NO porta un version claim (ni `softwareVersion` ni
-       `@profile-as-code/cli@X`): la versión se publica en la landing EN y en los
-       docs, ambos gateados por `scripts/site-check/version-check.mjs`. Un segundo
-       lugar que mantener por release es exactamente el drift que el engine evita
-       (issue #308). -->
   <link rel="icon" href="../brand/mark-tile.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../styles.css">
 </head>
@@ -71,14 +66,14 @@
   <main id="main">
     <section class="wrap hero">
       <div class="hero-copy">
-        <p class="eyebrow">CLI-first · TypeScript · MIT</p>
+        <p class="eyebrow">CLI-first · Agente-first · TypeScript · MIT</p>
         <h1>Tu identidad profesional, <em>como código.</em></h1>
         <p class="lede">
           profile-as-code es una fuente de verdad versionada para tu identidad profesional: tus datos
           viven una sola vez en YAML y el engine renderiza textos consistentes y específicos por
-          plataforma para GitHub, LinkedIn, Upwork, X y otras superficies. Es para gente técnica que
-          prefiere mantener una carpeta antes que ocho perfiles a mano. Instalás la CLI, corrés
-          <code>pasco init</code> y mantenés todos tus perfiles en sincronía desde un solo lugar.
+          plataforma para GitHub, LinkedIn, Upwork, X y más. Integra 14 skills SOTA de plataformas
+          y un CLI diseñado nativamente para agentes de IA y harnesses. Mantené todos tus perfiles
+          en sincronía, citables por modelos de lenguaje y bajo tu control absoluto.
         </p>
         <div class="actions">
           <a class="button primary" href="https://www.npmjs.com/package/@profile-as-code/cli">Instalar desde npm</a>
@@ -124,19 +119,47 @@
         </article>
         <article class="card">
           <p class="card-index" aria-hidden="true">02</p>
-          <h3>Los textos son ángulos, no copias</h3>
+          <h3>14 Skills SOTA de plataformas</h3>
           <p>
-            Bios y titulares se escriben por plataforma e idioma, y se renderizan como textos base
-            deterministas. El engine no inventa datos: renderiza los que declaraste; el selector de
-            variantes todavía es parcial.
+            Conocimiento especializado empaquetado para LinkedIn, GitHub, Upwork, Substack y más:
+            límites de caracteres, reglas algorítmicas, SEO/GEO y playbooks listos para exportar con
+            <code>pasco skills:export</code>.
           </p>
         </article>
         <article class="card">
           <p class="card-index" aria-hidden="true">03</p>
-          <h3>La consistencia es citabilidad</h3>
+          <h3>Diseñado para agentes y harnesses</h3>
           <p>
-            Los buscadores y los modelos de lenguaje leen y citan perfiles. Datos idénticos entre
-            superficies, anclas semánticas y datos estructurados son lo que hace citable un perfil.
+            Comandos con salidas <code>--json</code>, edición atómica que preserva comentarios con
+            <code>pasco edit</code>, diagnósticos deterministas y plantillas de refinamiento pensadas
+            para Claude, Pi, Cursor o DSH.
+          </p>
+        </article>
+        <article class="card">
+          <p class="card-index" aria-hidden="true">04</p>
+          <h3>Consistencia y citabilidad (GEO)</h3>
+          <p>
+            Los buscadores y modelos de IA (Perplexity, ChatGPT, Gemini) cruzan tus datos.
+            Garantizá citabilidad con hechos idénticos, proyección Schema.org JSON-LD (<code>pasco entity</code>)
+            y verificación offline con <code>pasco cite-check</code>.
+          </p>
+        </article>
+        <article class="card">
+          <p class="card-index" aria-hidden="true">05</p>
+          <h3>Privacidad y soberanía total</h3>
+          <p>
+            Tus datos viven en tu máquina o tu repo privado. Campos privados por defecto con
+            <code>visibility: private</code> y auditoría estricta de fugas públicas (<code>pasco audit --public</code>).
+            Cero telemetría, cero dependencias en la nube.
+          </p>
+        </article>
+        <article class="card">
+          <p class="card-index" aria-hidden="true">06</p>
+          <h3>Tooling completo para desarrolladores</h3>
+          <p>
+            Previsualizá todos los perfiles en una página HTML local con <code>pasco preview</code>,
+            revisá la salud con <code>doctor</code>, auditá contradicciones con <code>audit</code>
+            e importá datos existentes con <code>discover</code>.
           </p>
         </article>
       </div>
@@ -224,7 +247,7 @@
         </div>
         <div class="status-item">
           <h3 class="status-label">Funciona</h3>
-          <p><code>init</code>, <code>validate</code>, <code>build</code>, <code>diff</code>, <code>status</code> y las reglas offline de <code>check</code>. Renderers: perfil y organización de GitHub, más la familia de paste.</p>
+          <p><code>init</code>, <code>doctor</code>, <code>validate</code>, <code>build</code>, <code>preview</code>, <code>edit</code>, <code>check</code>, <code>audit</code>, <code>entity</code>, <code>cite-check</code>, <code>export ai-policy</code>, <code>skills:export</code>, <code>diff</code>, <code>status</code>, <code>discover</code> y <code>migrate</code>. Renderers: perfil y organización de GitHub, más la familia de paste. 14 skills de plataforma integradas.</p>
         </div>
         <div class="status-item">
           <h3 class="status-label">Parcial</h3>
