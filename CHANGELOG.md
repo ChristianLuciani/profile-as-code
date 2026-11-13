@@ -9,6 +9,12 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+_(nothing yet — the next cycle)_
+
+## [0.6.0] - 2026-11-13
+
+### Added
+
 - **D30 — the SSOT directory is `facts/`, `content/` retired by alias** — the
   workspace directory holding the typed record was named `content/` before the
   post stream existed (#264, #267); once `posts/` became a grain, `content` sat
@@ -121,7 +127,7 @@ minor versions may contain breaking contract changes.
   defaults to `private`, and `--date` is optional with **no clock read** (absent =
   `undated`, reported by the read view instead of hidden). A derived id collides as
   exit 1 with nothing written; the write is atomic (temp copy → `load()` → rename
-  under the shared `content/.pasco-edit.lock`), so an invalid input never reaches
+  under the shared `facts/.pasco-edit.lock`), so an invalid input never reaches
   disk, and appending to a block-sequence file preserves every existing byte
   (comments survive; an empty `[]`/null root is the only token replaced). The
   `--json` scope gains the additive `undated` key under the same
