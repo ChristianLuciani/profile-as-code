@@ -1831,6 +1831,13 @@ record, visibility narrows what the view kept, and a curated `include` lands
 **after** both — the view never sees those rows, so it can neither select nor
 exclude them.
 
+That order is the engine's, and it is not the order §18.5 states. §18.5 puts
+the filter in four places — `compile()`, `structuredData()`,
+`publicProjection()` and `pasco post` — and only `compile()` runs it after
+selection; the other three read the unfiltered record, which for them is the
+same thing. The contract does not rank the two statements, and this section
+does not either: what follows is what the code does, with its call sites.
+
 The rule is **subset-only**: it removes entries and never edits, renames or
 re-derives one (D22, §5) — which is why a `view` narrows a curation without
 ever softening the additive guarantee above, and why §21.4 makes every
@@ -1857,6 +1864,10 @@ it** — `github-readme` passes `p.projects.filter(isPublicEntry)`
 guard is the renderer's, not the engine's: a renderer that skipped it would pin
 a row it must not emit. The emitted set is the same either way, since each
 filter is per-entry; the pinned head is not.
+
+`skills` is the exception the same rule requires: it carries no `visibility`
+field (§18.5), so `github-readme` hands it to `orderedForSurface` unfiltered
+(`index.ts:315-320`) and that is correct, not a missing guard.
 
 A view's `excludeKeys` may still name a row that is now `private` — that is
 the pre-v2.0 hiding workaround (`compile.ts:122-124`), not an error — and
