@@ -1829,28 +1829,41 @@ visibility is applied to the **selected** result afterwards (`compile`:
 selection, then `isPublicEntry`). So the order is: the view narrows the whole
 record, visibility narrows what the view kept, and a curated `include` lands
 **after** both — the view never sees those rows, so it can neither select nor
-exclude them. Two properties of the D22 engine bind that order rather than sit
-beside it. The rule is **subset-only**: it removes entries and never edits,
-renames or re-derives one (D22, §5) — which is why a `view` can narrow a
-curation without ever softening the additive guarantee above, and why §21.4
-makes every omission WARN. And the accounting differs by surface, in a way this
-contract states rather than leaves to be discovered. `selectFacts` reports the
-rows *selection* kept, before visibility (`selection.ts:386-397`), which is what
-`status --selection` prints; `compile` then filters the selected profile for
-visibility and recomputes `selected` over the rows the artifact actually emits
-(`compile.ts:132-155`). The two counts answer different questions, and only the
-second one is a fact about a surface. The order a surface emits is recomputed
-from the rows that survive that filter: `report.ordered` stays the view's
-declared order over the *pre-visibility* survivors, so it can name a row the
-artifact no longer emits, while `orderedForSurface` re-pins `orderKeys` over the
-array the renderer is handed — already visibility-filtered (`github-readme`
-`index.ts:273-281`) — and a key with no surviving row simply pins nothing. The
-emitted set is the same either way, since each filter is per-entry; the
-pinned head is not. A view's `excludeKeys` may still name a row that is now
-`private` — that is the pre-v2.0 hiding workaround (`compile.ts:122-124`),
-not an error — and hiding a row is never a *view* omission: §21.4 says so
-in as many words ("Visibility is not a selection omission"), reporting a
-`private` entry as a count and never as `selection/omits-facts`.
+exclude them.
+
+The rule is **subset-only**: it removes entries and never edits, renames or
+re-derives one (D22, §5) — which is why a `view` narrows a curation without
+ever softening the additive guarantee above, and why §21.4 makes every
+omission WARN.
+
+The accounting differs by surface, and this contract states the difference
+rather than leaving it to be discovered. `selectFacts` applies no visibility
+filter at all: its `selected` counts the rows the view kept, non-public ones
+included (`selection.ts:391-395`). `compile` then filters the selected profile
+and recomputes `selected` over the rows the artifact actually emits
+(`compile.ts:132-155`). `status --selection` prints the first of the two
+(`status.ts:495-515`), so its counts include `private` rows — and §21's
+preamble promise that it "reports the public/private counts"
+(`SPEC.md:3365-3369`) is **not implemented**. Only `compile`'s count is a fact
+about a surface.
+
+The order a surface emits is recomputed from the rows that survive that filter.
+`report.ordered` stays the view's declared order over the *pre-visibility*
+survivors, so it can name a row the artifact no longer emits;
+`orderedForSurface` re-pins `orderKeys` over the array the renderer is handed,
+and that array is already visibility-filtered **because the renderer filtered
+it** — `github-readme` passes `p.projects.filter(isPublicEntry)`
+(`index.ts:274`), so a pinned key whose row is private has no slot to pin. That
+guard is the renderer's, not the engine's: a renderer that skipped it would pin
+a row it must not emit. The emitted set is the same either way, since each
+filter is per-entry; the pinned head is not.
+
+A view's `excludeKeys` may still name a row that is now `private` — that is
+the pre-v2.0 hiding workaround (`compile.ts:122-124`), not an error — and
+hiding a row is never a *view* omission: §21.4 says so in as many words
+("Visibility is not a selection omission"), reporting a `private` entry as a
+count and never as `selection/omits-facts`.
+
 **A curation is a grant, never a filter.** A curation-level `exclude` would
 restate that mechanism while inviting the one reading this contract must not
 permit — that a grant can *subtract* a row the surface was entitled to.
