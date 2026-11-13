@@ -9,7 +9,7 @@ updated, and stay in sync as the engine evolves.
 >
 > Audience: a **user** of the engine (not an engine contributor). Contributor
 > docs live in [CONTRIBUTING.md](../CONTRIBUTING.md); the product contract is
-> [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli@0.5.0`
+> [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli@0.6.0`
 > — release `v0.5.0` (cut 2026-11-07; the npm publish of that release is the runbook's
 > irreversible step — `docs/ci-cd.md` §Releasing; #113, #207).
 > Keep that claim in its canonical form: the release barrier
@@ -144,7 +144,7 @@ pasco --version                  # the bin — expect 0.4.0
 One global install: no clone, no build, nothing written outside the npm prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
-> **Status**: `@profile-as-code/cli@0.5.0` is **published** and tagged `latest` (published
+> **Status**: `@profile-as-code/cli@0.6.0` is **published** and tagged `latest` (published
 > 2026-11-04T19:12:43Z; `npm view @profile-as-code/cli version` → `0.4.0`, checked 2026-11-04)
 > [OFICIAL] [WEB: registry.npmjs.org]. Earlier publications stay dated records: `0.3.7`
 > (2026-10-31), `0.3.6`
@@ -1324,7 +1324,7 @@ node packages/cli/dist/index.js --version  # receipt: the rebuilt version
 The schema is additive, so an old workspace keeps validating — which is why an
 upgrade can look finished while the workspace still misses every field and check the
 new engine knows. This path targets the engine this guide tracks,
-`@profile-as-code/cli@0.5.0`; the release barrier fails the publish when that claim
+`@profile-as-code/cli@0.6.0`; the release barrier fails the publish when that claim
 and `packages/cli/package.json` disagree. It is the order that worked on a real
 0.3.0 → 0.3.7 upgrade (#440). Every step ends with a **receipt**: the command plus
 the read-back that proves the effect landed
