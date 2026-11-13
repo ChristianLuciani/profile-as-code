@@ -104,10 +104,10 @@ Every URL field validates through the single `$defs/url` node, which carries
 
 ## How content files map to the profile
 
-`pasco load(workspace)` reads `content/*.yaml`, **merges** them into one Profile object and
+`pasco load(workspace)` reads `facts/*.yaml`, **merges** them into one Profile object and
 validates the result against this schema. File → root property mapping:
 
-| File (content/) | Root property(s) | Notes |
+| File (facts/) | Root property(s) | Notes |
 |---|---|---|
 | `identity.yaml` | `identity` | Required at profile level (the GEO anchor). v1.5 (issue #71): `email` — the contact email as a fact (NOT in `links[]`; renderers emit a mailto: href + JSON-LD `email`). v1.6 (#103): `links[].role` — `identity` \| `realization` \| `aggregator` (see §15.4). v1.13 (#334): `nationality` — ISO 3166-1 alpha-2 code, emitted as Person JSON-LD `Country.identifier` (no `nationality` property on the Organization JSON-LD for brand) |
 | `flavor.yaml` | `flavor` | v1.1 (D15): `person` \| `brand`. **The file value IS the root value** — a bare scalar (`brand`), not a key:value map. `newsletter`/`podcast` are flavor-neutral (#481) |

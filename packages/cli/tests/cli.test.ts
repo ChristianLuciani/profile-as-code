@@ -13,6 +13,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -65,8 +66,12 @@ function runFake(pkg: string, args: string[]): RunResult {
   return { code: res.status ?? -1, stdout: res.stdout ?? "", stderr: res.stderr ?? "" };
 }
 
-function git(dir: string, args: string[]): void {
-  execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", stdio: "pipe" });
+function git(dir: string, args: string[], env?: NodeJS.ProcessEnv): void {
+  execFileSync("git", ["-C", dir, ...args], {
+    encoding: "utf8",
+    stdio: "pipe",
+    ...(env ? { env: { ...process.env, ...env } } : {}),
+  });
 }
 
 /** `git`, capturing trimmed stdout (sync) — for SHAs a test must assert against. */
@@ -149,7 +154,7 @@ describe("surface", () => {
 
   // #387: the help is a published surface read by a stranger. A command list
   // says what each command does, never that the artifact is a rendering of
-  // content/ — the cycle block states the loop before the list.
+  // facts/ — the cycle block states the loop before the list.
   it("opens with the cycle block, in order, before the command list (#387)", () => {
     const r = run(["--help"]);
     expect(r.code).toBe(0);
@@ -160,7 +165,7 @@ describe("surface", () => {
     const block = r.stdout.slice(cycleAt, commandsAt);
     const steps = [
       "pasco init <dir>",
-      "edit content/*.yaml",
+      "edit facts/*.yaml",
       "pasco validate",
       "pasco build [platform]",
     ];
@@ -622,7 +627,7 @@ describe("pasco build (compile slices)", () => {
     mkdirSync(join(dir, "profiles", "github-org", "variants"), { recursive: true });
     writeFileSync(join(dir, "profiles", "github-org", "variants", "org-1.md"), "ORG BODY\n");
     writeFileSync(
-      join(dir, "content", "active.yaml"),
+      join(dir, "facts", "active.yaml"),
       'github-org:\n  lang: en\n  variantId: org-1\n  chosenAt: "2026-10-19T12:00:00.000Z"\n',
     );
     const r = run(["build", "github-org", "--workspace", dir]);
@@ -855,6 +860,28 @@ describe("pasco diff (git-based, release tags)", () => {
     expect(r.stdout).toContain("re-verify deployed profiles");
   });
 
+  it("lists changed facts/ files since the release tag (D30 layout)", () => {
+    const ws = makeGitWorkspace();
+    renameSync(join(ws, "content"), join(ws, "facts"));
+    git(ws, ["add", "-A"]);
+    // Same-second creatordate tie with release-1.0: the latest-tag pick must
+    // still resolve to release-2.0 (diff.ts refname tiebreak).
+    const at = gitOut(ws, ["log", "-1", "--format=%cI", "release-1.0"]);
+    git(ws, ["commit", "-qm", "migrate to facts/ (D30)"], {
+      GIT_COMMITTER_DATE: at,
+      GIT_AUTHOR_DATE: at,
+    });
+    git(ws, ["tag", "release-2.0"]);
+    writeFileSync(join(ws, "facts", "identity.yaml"), "name: Elena Vasquez\nlocation: Paris\n");
+    git(ws, ["add", "-A"]);
+    git(ws, ["commit", "-qm", "update identity"]);
+    const r = run(["diff", "--workspace", ws]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("release tag 'release-2.0'");
+    expect(r.stdout).toContain("facts/identity.yaml");
+    expect(r.stdout).toContain("re-verify deployed profiles");
+  });
+
   it("--json reports files and hint", () => {
     const ws = makeGitWorkspace();
     const r = run(["diff", "--json", "--workspace", ws]);
@@ -930,8 +957,8 @@ describe("pasco init (scaffold)", () => {
     const dir = join(tempDir(), "ws");
     const r = run(["init", dir]);
     expect(r.code).toBe(0);
-    expect(existsSync(join(dir, "content", "identity.yaml"))).toBe(true);
-    expect(existsSync(join(dir, "content", "checks.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "facts", "identity.yaml"))).toBe(true);
+    expect(existsSync(join(dir, "facts", "checks.yaml"))).toBe(true);
     expect(existsSync(join(dir, "README.md"))).toBe(true);
     expect(existsSync(join(dir, ".pascorc"))).toBe(true);
     const v = run(["validate", "--workspace", dir]);
@@ -953,10 +980,10 @@ describe("pasco init (scaffold)", () => {
       "press.yaml",
       "audiences.yaml",
     ]) {
-      expect(existsSync(join(dir, "content", f))).toBe(true);
+      expect(existsSync(join(dir, "facts", f))).toBe(true);
     }
     // flavor.yaml value IS the root value → bare scalar
-    expect(readFileSync(join(dir, "content", "flavor.yaml"), "utf8")).toContain("brand");
+    expect(readFileSync(join(dir, "facts", "flavor.yaml"), "utf8")).toContain("brand");
     const v = run(["validate", "--workspace", dir]);
     expect(v.code).toBe(0);
     expect(v.stdout).toContain("valid");
@@ -976,12 +1003,22 @@ describe("pasco init (scaffold)", () => {
     expect(r.stderr).toContain("unknown flavor");
   });
 
-  it("refuses to overwrite an existing content/", () => {
+  it("refuses to overwrite an existing facts/", () => {
+    const dir = tempDir();
+    mkdirSync(join(dir, "facts"));
+    const r = run(["init", dir]);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("already exists");
+  });
+
+  it("refuses to scaffold next to a legacy content/ (both dirs would fail D30)", () => {
     const dir = tempDir();
     mkdirSync(join(dir, "content"));
     const r = run(["init", dir]);
     expect(r.code).toBe(1);
-    expect(r.stderr).toContain("already exists");
+    expect(r.stderr).toContain("refusing to scaffold");
+    expect(r.stderr).toContain("pasco migrate --facts-dir");
+    expect(existsSync(join(dir, "facts"))).toBe(false);
   });
 });
 
@@ -1037,14 +1074,12 @@ describe("pasco check (offline rules) + pasco skills:export (shipped skills)", (
   it("names the catalog source, never a filename it cannot know (#dogfood)", () => {
     const declared = run(["check", "github-readme", "--workspace", MINIMAL]);
     expect(declared.code).toBe(0);
-    expect(declared.stdout).toContain(
-      "workspace checks (declared in content/, schema-validated catalog)",
-    );
+    expect(declared.stdout).toContain("workspace checks (schema-validated catalog)");
     expect(declared.stdout).not.toContain("content/checks.yaml");
 
     const noFile = join(tempDir(), "ws-no-catalog");
     expect(run(["init", noFile]).code).toBe(0);
-    rmSync(join(noFile, "content", "checks.yaml"));
+    rmSync(join(noFile, "facts", "checks.yaml"));
     const defaults = run(["check", "github-readme", "--workspace", noFile]);
     expect(defaults.code).toBe(0);
     expect(defaults.stdout).toContain("none declared");
@@ -1057,7 +1092,7 @@ describe("pasco check (offline rules) + pasco skills:export (shipped skills)", (
     // A file that declares zero rows still reads as "none declared" — same source.
     const emptyFile = join(tempDir(), "ws-empty-catalog");
     expect(run(["init", emptyFile]).code).toBe(0);
-    writeFileSync(join(emptyFile, "content", "checks.yaml"), "");
+    writeFileSync(join(emptyFile, "facts", "checks.yaml"), "");
     const empty = run(["check", "github-readme", "--workspace", emptyFile]);
     expect(empty.code).toBe(0);
     expect(empty.stdout).toContain("none declared");
@@ -1067,14 +1102,14 @@ describe("pasco check (offline rules) + pasco skills:export (shipped skills)", (
     // never attributed to checks.yaml.
     const yml = join(tempDir(), "ws-yml-catalog");
     expect(run(["init", yml]).code).toBe(0);
-    rmSync(join(yml, "content", "checks.yaml"));
+    rmSync(join(yml, "facts", "checks.yaml"));
     writeFileSync(
-      join(yml, "content", "checks.yml"),
+      join(yml, "facts", "checks.yml"),
       "- id: yml-cap\n  platform: github-readme\n  rule: max-chars\n  value: 120\n",
     );
     const ymlRun = run(["check", "github-readme", "--workspace", yml]);
     expect(ymlRun.code).toBe(0);
-    expect(ymlRun.stdout).toContain("declared in content/");
+    expect(ymlRun.stdout).toContain("workspace checks (schema-validated catalog)");
     expect(ymlRun.stdout).toContain("yml-cap");
     expect(ymlRun.stdout).not.toContain("content/checks.yaml");
   });
@@ -1083,11 +1118,11 @@ describe("pasco check (offline rules) + pasco skills:export (shipped skills)", (
     const dir = join(tempDir(), "ws-caps");
     expect(run(["init", dir]).code).toBe(0);
     writeFileSync(
-      join(dir, "content", "headlines.yaml"),
+      join(dir, "facts", "headlines.yaml"),
       `- platform: upwork\n  lang: en\n  text: "${"x".repeat(80)}"\n`,
     );
     writeFileSync(
-      join(dir, "content", "bios.yaml"),
+      join(dir, "facts", "bios.yaml"),
       `- platform: upwork\n  lang: en\n  length: long\n  text: "${"y".repeat(132)}"\n`,
     );
 
@@ -1129,11 +1164,11 @@ describe("pasco check (offline rules) + pasco skills:export (shipped skills)", (
     const dir = join(tempDir(), "ws-all");
     expect(run(["init", dir]).code).toBe(0);
     writeFileSync(
-      join(dir, "content", "bios.yaml"),
+      join(dir, "facts", "bios.yaml"),
       `- platform: upwork\n  lang: en\n  length: long\n  text: "${"y".repeat(132)}"\n`,
     );
     writeFileSync(
-      join(dir, "content", "checks.yaml"),
+      join(dir, "facts", "checks.yaml"),
       "- id: all-bio\n  platform: all\n  rule: max-chars\n  value: 5\n  surface: bio\n",
     );
     const r = run(["check", "github-readme", "--json", "--workspace", dir]);
@@ -1197,7 +1232,7 @@ describe("pasco check (offline rules) + pasco skills:export (shipped skills)", (
     run(["init", "--flavor", "brand", dir]);
     // a claimed handle without url and one on a wrong host → offline violations
     writeFileSync(
-      join(dir, "content", "socialHandles.yaml"),
+      join(dir, "facts", "socialHandles.yaml"),
       "- platform: x\n  handle: topiapress\n  status: claimed\n- platform: bluesky\n  handle: topiapress\n  status: claimed\n  url: https://instagram.com/topiapress\n",
     );
     const r = run(["check", "--workspace", dir]);

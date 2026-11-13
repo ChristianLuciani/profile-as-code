@@ -483,7 +483,7 @@ export function runAudit(args: AuditArgs): number {
       );
     } else if (scope.declared.length === 0) {
       line(
-        "  an empty scope is not a clean audit — no check catalog declares the surface-facts rule for this workspace's surfaces (add a content/checks.yaml row to declare it)",
+        "  an empty scope is not a clean audit — no check catalog declares the surface-facts rule for this workspace's surfaces (add a facts/checks.yaml row to declare it)",
       );
     } else if (runnableNotRun.length === 0 && scope.notBuildable.length > 0) {
       // #490: distinguish "not built yet" (actionable) from "not buildable" (the

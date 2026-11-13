@@ -6,7 +6,7 @@
  * `pasco status` the same question per surface — and a second copy is exactly the
  * duplication D5/AGENTS rule 7 forbids. `check.ts` and `publication.ts` both
  * import this module; the catalog stays where it was: the workspace's
- * `content/checks.yaml` when it declares checks, else `DEFAULT_CHECKS` — whole
+ * `facts/checks.yaml` when it declares checks, else `DEFAULT_CHECKS` — whole
  * catalog, never merged (#255).
  *
  * Contract preserved from #240: deterministic, offline, WARN-only (D12: facts

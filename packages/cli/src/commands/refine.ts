@@ -3,7 +3,7 @@
  *
  * PARTIAL — agent-driven refinement (D10/D11/D13): the CLI never calls an LLM and
  * never wires the hub. It emits the task template the executing agent works from,
- * and — with --choose — records the user's chosen variant in content/active.yaml.
+ * and — with --choose — records the user's chosen variant in facts/active.yaml.
  * The full variant flow (generate → user picks → commit active) lands with the
  * SOTA research + skills v1 session (SPEC §12 M3).
  */
@@ -11,7 +11,14 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Lang, Platform } from "@profile-as-code/core";
-import { compile, LoadError, load, SchemaValidationError, textOf } from "@profile-as-code/core";
+import {
+  compile,
+  factsDir,
+  LoadError,
+  load,
+  SchemaValidationError,
+  textOf,
+} from "@profile-as-code/core";
 import { parseDocument, stringify } from "yaml";
 import {
   DEFAULT_VARIANTS,
@@ -65,19 +72,21 @@ function recordVariant(
   lang: Lang,
   variantId: string,
 ): { chosenAt: string } {
-  const activePath = join(workspace, "content", "active.yaml");
+  const activePath = join(workspace, factsDir(workspace), "active.yaml");
   let active: Record<string, unknown> = {};
   if (existsSync(activePath)) {
     const doc = parseDocument(readFileSync(activePath, "utf8"));
     if (doc.errors.length > 0) {
       throw new Error(
-        `content/active.yaml: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
+        `${factsDir(workspace)}/active.yaml: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
       );
     }
     const node = doc.toJS({ maxAliasCount: 100 });
     if (node !== null && node !== undefined) {
       if (typeof node !== "object" || Array.isArray(node)) {
-        throw new Error("content/active.yaml must contain a mapping (platform → variant entry)");
+        throw new Error(
+          `${factsDir(workspace)}/active.yaml must contain a mapping (platform → variant entry)`,
+        );
       }
       active = node as Record<string, unknown>;
     }
@@ -136,7 +145,7 @@ export function runRefine(args: RefineArgs): number {
       });
     }
     line(
-      `recorded active[${platform}] = { lang: ${lang}, variantId: ${args.choose}, chosenAt: ${chosenAt} } (content/active.yaml)`,
+      `recorded active[${platform}] = { lang: ${lang}, variantId: ${args.choose}, chosenAt: ${chosenAt} } (${factsDir(args.workspace)}/active.yaml)`,
     );
     if (!hasBody) {
       line(
@@ -172,7 +181,7 @@ export function runRefine(args: RefineArgs): number {
   const publications = slice.publications.map((p) => p.title).join(" | ");
   // #482: the publication block is identity-bearing copy for the profile surface
   // (`substack` is one slug over profile + publication), so the task carries it
-  // instead of making the agent rediscover `content/newsletter.yaml`. The two
+  // instead of making the agent rediscover `facts/newsletter.yaml`. The two
   // langMaps resolve with the same `textOf` rule as `role`; absent => "—".
   // #483: `compile()` passes `newsletter` raw into EVERY slice, so only the slice
   // whose platform owns the block may show it — a task for Linkedin must not list

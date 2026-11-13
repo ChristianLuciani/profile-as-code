@@ -45,7 +45,7 @@ design, billing and analytics out (SOTA-2026 §8).
 
 > Facts are sacred (byte-identical to the SSOT); only the STORY varies.
 
-- Names, dates, numbers, URLs: **identical** to `content/*.yaml`.
+- Names, dates, numbers, URLs: **identical** to `facts/*.yaml`.
 - URLs ONLY from `identity.links` and `newsletter.url` (drift rule). Never
   invent a link — the profile has its own links field; links do not go in the
   bio.
@@ -58,13 +58,13 @@ design, billing and analytics out (SOTA-2026 §8).
 ## Data source
 
 ```
-content/identity.yaml      → name, handle, photo (pointer), email, links, definition, nationality
-content/bios.yaml          → platform=substack: short = profile bio; long = About page body
-content/newsletter.yaml    → name, url (canonical), description (short description), cadence
-content/positioning.yaml   → statement + per-audience angles + GEO anchors
-content/keywords.yaml      → seo.substack + geo.claims
-content/faq.yaml           → the citable surface (definition + faq[]; also feeds the JSON-LD)
-content/projects.yaml      → what is being published NOW, with verifiable evidence
+facts/identity.yaml      → name, handle, photo (pointer), email, links, definition, nationality
+facts/bios.yaml          → platform=substack: short = profile bio; long = About page body
+facts/newsletter.yaml    → name, url (canonical), description (short description), cadence
+facts/positioning.yaml   → statement + per-audience angles + GEO anchors
+facts/keywords.yaml      → seo.substack + geo.claims
+facts/faq.yaml           → the citable surface (definition + faq[]; also feeds the JSON-LD)
+facts/projects.yaml      → what is being published NOW, with verifiable evidence
 ```
 
 `newsletter` and `podcast` are **flavor-neutral** blocks (SPEC §17, #481): a
@@ -141,7 +141,7 @@ catalog, they stay curated (D12: facts warn, the schema fails).
      often, what they will not get).
 - Each variant: `variantId` = `substack-<lang>-<n>` (e.g. `substack-es-1`).
 - The human picks; it is recorded with `pasco refine substack --choose <id>` →
-  writes `content/active.yaml`. The later paste is marked with
+  writes `facts/active.yaml`. The later paste is marked with
   `pasco status --mark <ledgerKey> substack` (D18).
 - `pasco refine substack` resolves THIS file: it is the profile command, not the
   post command. A post is written with `pasco post` (see `post.md`).

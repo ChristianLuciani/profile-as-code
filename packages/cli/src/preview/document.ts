@@ -56,7 +56,7 @@ export interface PreviewSection {
   notes: readonly string[];
 }
 
-/** A declared limit row (`content/`, conventionally `checks.yaml`): the cap that applies where. */
+/** A declared limit row (`facts/`, conventionally `checks.yaml`): the cap that applies where. */
 export interface PreviewLimit {
   platform: string;
   rule: string;
@@ -278,7 +278,7 @@ function renderLimits(limits: readonly PreviewLimit[], source: CatalogSource): s
   if (limits.length === 0) return "";
   const caption =
     source === "workspace"
-      ? "declared limits (content/)"
+      ? "declared limits (workspace catalog)"
       : "declared limits (caps shipped with pasco, #240)";
   return `<table class="limits"><caption>${caption}</caption><thead><tr><th>platform</th><th>rule</th><th>value</th></tr></thead><tbody>${limits
     .map(

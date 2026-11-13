@@ -157,7 +157,7 @@ describe("pasco status — derived publication truth (#242)", () => {
 
     // Edit the SSOT *in a way the artifact renders* — the README H1 comes from
     // `identity.name` — and do not rebuild.
-    const identity = join(ws, "content", "identity.yaml");
+    const identity = join(ws, "facts", "identity.yaml");
     writeFileSync(
       identity,
       readFileSync(identity, "utf8").replace(/^name: .*$/m, "name: Ada Lovelace"),
@@ -178,7 +178,7 @@ describe("pasco status — derived publication truth (#242)", () => {
     // built `es` artifact is not called divergent (the declared v1 behaviour).
     const ws = initWorkspace();
     writeFileSync(
-      join(ws, "content", "positioning.yaml"),
+      join(ws, "facts", "positioning.yaml"),
       'statement:\n  en: "English statement for the README"\n  es: "Declaración en español"\n',
     );
     expect(run(["build", "github-readme", "--lang", "es"], ws).code).toBe(0);
@@ -215,11 +215,11 @@ describe("pasco status — derived publication truth (#242)", () => {
     const ws = initWorkspace();
     // The dogfood's exact event: an 80-char Upwork title against the 50 cap.
     writeFileSync(
-      join(ws, "content", "headlines.yaml"),
+      join(ws, "facts", "headlines.yaml"),
       `- platform: upwork\n  lang: en\n  text: "${"x".repeat(80)}"\n`,
     );
     writeFileSync(
-      join(ws, "content", "bios.yaml"),
+      join(ws, "facts", "bios.yaml"),
       `- platform: upwork\n  lang: en\n  length: long\n  text: "${"y".repeat(132)}"\n`,
     );
     expect(run(["build"], ws).code).toBe(0);
@@ -243,16 +243,16 @@ describe("pasco status — derived publication truth (#242)", () => {
     // `pasco check`'s finding (review #256, F2).
     const ws = initWorkspace();
     writeFileSync(
-      join(ws, "content", "headlines.yaml"),
+      join(ws, "facts", "headlines.yaml"),
       '- platform: upwork\n  lang: en\n  text: "short"\n',
     );
     // A paste surface needs a bio row to have an artifact on disk at all.
     writeFileSync(
-      join(ws, "content", "bios.yaml"),
+      join(ws, "facts", "bios.yaml"),
       '- platform: upwork\n  lang: en\n  length: long\n  text: "A bio for upwork"\n',
     );
     writeFileSync(
-      join(ws, "content", "checks.yaml"),
+      join(ws, "facts", "checks.yaml"),
       "- id: upwork-title-min\n  platform: upwork\n  rule: min-chars\n  value: 50\n  surface: headline\n",
     );
     expect(run(["build"], ws).code).toBe(0);
@@ -273,15 +273,15 @@ describe("pasco status — derived publication truth (#242)", () => {
     // passing-gate failure this line exists to end (review #256, F3).
     const ws = initWorkspace();
     writeFileSync(
-      join(ws, "content", "checks.yaml"),
+      join(ws, "facts", "checks.yaml"),
       '- id: upwork-title-max\n  platform: upwork\n  rule: max-chars\n  value: "50"\n  surface: headline\n',
     );
     writeFileSync(
-      join(ws, "content", "headlines.yaml"),
+      join(ws, "facts", "headlines.yaml"),
       `- platform: upwork\n  lang: en\n  text: "${"x".repeat(80)}"\n`,
     );
     writeFileSync(
-      join(ws, "content", "bios.yaml"),
+      join(ws, "facts", "bios.yaml"),
       `- platform: upwork\n  lang: en\n  length: long\n  text: "${"y".repeat(132)}"\n`,
     );
     expect(run(["build"], ws).code).toBe(0);
@@ -306,7 +306,7 @@ describe("pasco status — derived publication truth (#242)", () => {
   it("--platform filters the publication report too", () => {
     const ws = initWorkspace();
     writeFileSync(
-      join(ws, "content", "bios.yaml"),
+      join(ws, "facts", "bios.yaml"),
       `- platform: upwork\n  lang: en\n  length: long\n  text: "A bio for upwork"\n`,
     );
     expect(run(["build"], ws).code).toBe(0);
@@ -327,13 +327,13 @@ describe("pasco status — derived publication truth (#242)", () => {
     expect(r.stdout).toContain("no surface published yet");
   });
 
-  it("is DERIVED: a status run changes no byte of content/ or profiles/ (SPEC §20)", () => {
+  it("is DERIVED: a status run changes no byte of facts/ or profiles/ (SPEC §20)", () => {
     const ws = initWorkspace();
     expect(run(["build"], ws).code).toBe(0);
-    const before = hashTree(join(ws, "content")) + hashTree(join(ws, "profiles"));
+    const before = hashTree(join(ws, "facts")) + hashTree(join(ws, "profiles"));
     expect(run(["status", "--workspace", ws]).code).toBe(0);
     expect(run(["status", "--json", "--workspace", ws]).code).toBe(0);
-    const after = hashTree(join(ws, "content")) + hashTree(join(ws, "profiles"));
+    const after = hashTree(join(ws, "facts")) + hashTree(join(ws, "profiles"));
     expect(after).toBe(before);
   });
 

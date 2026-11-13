@@ -3,7 +3,7 @@
  * §23, issue #446).
  *
  * A READ-ONLY view. It writes nothing, resolves nothing at the network and
- * derives everything from `content/achievements.yaml`: the status of each row
+ * derives everything from `facts/achievements.yaml`: the status of each row
  * comes from `core/src/achievements.ts` (`achievementStatus`), never from the
  * workspace (a stored status could disagree with the numbers it describes).
  *
@@ -311,7 +311,7 @@ export function runAchievements(args: AchievementsArgs): number {
     line(
       args.targets === true
         ? "No row declares a `target` without a `value` yet — the goal view is empty."
-        : "Add content/achievements.yaml: one row per result, with `basis` and `visibility` (D24).",
+        : "Add facts/achievements.yaml: one row per result, with `basis` and `visibility` (D24).",
     );
     return EXIT.OK;
   }

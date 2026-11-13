@@ -1,11 +1,11 @@
 ---
 name: github-readme-profile
 description: >
-  Transforma los hechos del SSOT (profile-data/content/*.yaml) en un GitHub profile
+  Transforma los hechos del SSOT (profile-data/facts/*.yaml) en un GitHub profile
   README con estrategia comunicativa y estética deliberada — NO un dump de CV.
   Patrón: OSS Maintainer / minimalista senior (research/SOTA-2026.md). El agente
   ejecutante produce N variantes en prosa; el humano elige; la elegida se registra
-  como variante activa (content/active.yaml).
+  como variante activa (facts/active.yaml).
 model: juicio (frontier) — la estrategia narrativa no es delegable a modelos pequeños
 applies_to: github-readme
 projection: agent-agnostic (AionUi, OpenHands, Claude Code, Cursor, pi…)
@@ -27,7 +27,7 @@ determinista (`pasco build`) — esta skill es la capa de **juicio y narrativa**
 
 > Los HECHOS son sagrados (byte-idénticos al SSOT); solo la HISTORIA varía.
 
-- Nombres, fechas, DOIs, números, URLs: **idénticos** a `content/*.yaml`. Prohibido
+- Nombres, fechas, DOIs, números, URLs: **idénticos** a `facts/*.yaml`. Prohibido
   inventar, redondear o alterar un hecho. El **orden** NO es un hecho: es narrativa
   (vive en la vista / `orderKeys`, SPEC §21.2), y por eso puede diferir entre
   superficies sin contradecir el SSOT.
@@ -39,13 +39,13 @@ determinista (`pasco build`) — esta skill es la capa de **juicio y narrativa**
 Lee el workspace (ruta del `.pascorc` o `--workspace`):
 
 ```
-content/identity.yaml      → nombre, ubicación, links canónicos (TU fuente de URLs)
-content/positioning.yaml   → statement + ángulos por audiencia + anclas GEO
-content/projects.yaml      → qué construís (status + evidence verificable)
-content/publications.yaml  → papers/preprints con DOI
-content/skills.yaml        → stack con pesos por plataforma
-content/bios.yaml          → textos base por plataforma (punto de partida)
-content/keywords.yaml      → SEO + GEO (associations/claims)
+facts/identity.yaml      → nombre, ubicación, links canónicos (TU fuente de URLs)
+facts/positioning.yaml   → statement + ángulos por audiencia + anclas GEO
+facts/projects.yaml      → qué construís (status + evidence verificable)
+facts/publications.yaml  → papers/preprints con DOI
+facts/skills.yaml        → stack con pesos por plataforma
+facts/bios.yaml          → textos base por plataforma (punto de partida)
+facts/keywords.yaml      → SEO + GEO (associations/claims)
 ```
 
 ## Estrategia comunicativa (framework de 3 preguntas — SOTA-2026 §3)
@@ -97,7 +97,7 @@ Liderá con #3 filtrado por #1: **stewardship** (proyectos vivos con proof), no 
   3. **Investigador**: lidera con publicaciones/DOI, proyectos como aplicación.
 - Cada variante: `variantId` = `githubreadme-<lang>-<n>` (ej. `githubreadme-en-1`).
 - El humano elige; se registra con `pasco refine github-readme --choose <id>` →
-  escribe `content/active.yaml`.
+  escribe `facts/active.yaml`.
 
 ## Verificación (checks)
 

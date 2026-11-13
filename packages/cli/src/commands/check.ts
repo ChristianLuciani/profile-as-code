@@ -2,8 +2,8 @@
  * pasco check [platform]
  *
  * Runs the deterministic, offline rules NOW (brand handle matrix, v1.1/§17) and
- * reports the declarative checks the workspace declares in its `content/`
- * catalog (conventionally `content/checks.yaml`; the schema-validated catalog)
+ * reports the declarative checks the workspace declares in its `facts/`
+ * catalog (conventionally `facts/checks.yaml`; the schema-validated catalog)
  * per platform — or, when it declares none, the conservative caps shipped with
  * the package (#240), saying so. The
  * offline limit slice (#240) now executes `max-chars` / `min-chars` over the
@@ -385,8 +385,8 @@ export function runCheck(args: CheckArgs): number {
   line(
     "pasco check: the offline rules above ran — evidence registry, media transport, text limits, the advisory narrative rule (text/same-across-platforms), link icons (check/link-platform-icon), surface facts, and (for brand) the handle matrix.",
   );
-  // Name the SOURCE, never the file: `load()` merges content/*.y(a)ml by root
-  // property and reports no source, so `content/checks.yaml` was a claim the
+  // Name the SOURCE, never the file: `load()` merges facts/*.y(a)ml by root
+  // property and reports no source, so `facts/checks.yaml` was a claim the
   // engine cannot make (false for an empty file, false for `checks.yml`).
   section(
     `${catalogLabel(catalogSource(profile))}${platform !== undefined ? ` for ${platform}` : ""}: ${checks.length}`,

@@ -18,7 +18,7 @@
  *     and a numeric claim with no source on the surface (`unsourced-claim`, the
  *     ONE predicate in `claims.ts`).
  *
- * The result is NOT a workspace and is NEVER written: no `content/`, no ledger,
+ * The result is NOT a workspace and is NEVER written: no `facts/`, no ledger,
  * no `pasco` state. That is why it is a distinct type instead of a schema
  * version: the provisional shape borrows the Profile geometry so the engine's
  * checks run unchanged, but it is not the persisted contract (D3) and must not

@@ -12,7 +12,7 @@
  * seed, and a short post derived from an essay carries `derivedFrom: <seed-id>`
  * (the essay owns the canonical text; the derived seed has no seed.md).
  *
- * The store is deliberately OUTSIDE `content/` and outside the profile schema:
+ * The store is deliberately OUTSIDE `facts/` and outside the profile schema:
  * a post is an event/projection, not an identity fact, and it must never enter
  * `artifacts[]` (D17 is immutable-work scoped). Only this module writes it.
  */

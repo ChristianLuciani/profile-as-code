@@ -98,7 +98,7 @@ describe("pasco preview — the artifact", () => {
   // Dogfood 2026-11-04: the limits table captioned the package defaults as
   // "declared limits (content/checks.yaml)" on a workspace with no catalog. The
   // caption now names the SOURCE the executor resolved, and never a filename
-  // (`load()` merges content/*.y(a)ml and reports no source).
+  // (`load()` merges the facts dir's *.y(a)ml and reports no source).
   it("captions the limits table with the source it read, never a filename (#dogfood)", () => {
     const workspace = workspaceCopy();
     const out = join(workspace, "out");
@@ -118,7 +118,7 @@ describe("pasco preview — the artifact", () => {
       "- id: gh-headline\n  platform: github-readme\n  rule: max-chars\n  value: 280\n",
     );
     const declared = preview();
-    expect(declared).toContain("declared limits (content/)");
+    expect(declared).toContain("declared limits (workspace catalog)");
     // The row is the workspace's (the table lists platform · rule · value).
     expect(declared).toMatch(
       /<td><code>github-readme<\/code><\/td><td>max-chars<\/td><td><code>280<\/code><\/td>/,

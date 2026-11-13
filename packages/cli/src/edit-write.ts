@@ -19,7 +19,7 @@
  *  5. **no-op = 0 + `noop: true`** — re-setting an identical value is not a write
  *     and not an error; the exit matrix stays 0/1/2.
  *  6. temp file in the same directory → `load()` + schema over a temp copy of
- *     `content/` → **atomic rename**. An invalid file never reaches disk, a
+ *     `facts/` → **atomic rename**. An invalid file never reaches disk, a
  *     symlinked content file keeps its link (the target is replaced), and the
  *     file's mode is preserved.
  *  7. CRLF and the final newline are preserved: only the scalar's byte range is
@@ -45,7 +45,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { LoadError, load } from "@profile-as-code/core";
+import { factsDir, LoadError, load } from "@profile-as-code/core";
 import { isAlias, isMap, isScalar, isSeq, parseDocument, type Scalar, stringify } from "yaml";
 import { UsageError } from "./contract.js";
 
@@ -60,22 +60,23 @@ export interface WriteTarget {
  * The content file that owns a root property. The file NAME is the root property
  * (schema/README.md) and `load()` matches the extension case-insensitively, so
  * this scans the directory instead of guessing: a default like
- * `content/headlines.yaml` would point S2 at a file that may not exist while
- * `content/headlines.YAML` owns the block (review of #331, F4).
+ * `facts/headlines.yaml` would point S2 at a file that may not exist while
+ * `facts/headlines.YAML` owns the block (review of #331, F4).
  *
  * Shared with `--create` (#435), which must refuse a root that ALREADY exists
  * under any extension case: resolution and creation cannot disagree on what
  * "the root exists" means.
  */
 export function owningFile(workspace: string, root: string): string | undefined {
+  const dirName = factsDir(workspace);
   let entries: string[];
   try {
-    entries = readdirSync(join(workspace, "content"));
+    entries = readdirSync(join(workspace, dirName));
   } catch {
     return undefined;
   }
   const match = entries.filter((name) => new RegExp(`^${root}\\.ya?ml$`, "i").test(name)).sort()[0];
-  return match === undefined ? undefined : `content/${match}`;
+  return match === undefined ? undefined : `${dirName}/${match}`;
 }
 
 export interface WriteOutcome {
@@ -96,7 +97,7 @@ export interface CreateOutcome {
 }
 
 export interface WriteDeps {
-  /** Validation seam. Production = `load()` over a temp copy of `content/`.
+  /** Validation seam. Production = `load()` over a temp copy of `facts/`.
    *  Tests inject a throwing validator to pin "an invalid edit never reaches
    *  disk" (the acceptance's forced-invalid fixture). */
   validate?: (workspace: string) => void;
@@ -111,7 +112,7 @@ export interface WriteDeps {
   beforeRename?: (tempFile: string) => void;
 }
 
-/** The advisory lock's path — inside `content/`, dot-prefixed so `load()`'s
+/** The advisory lock's path — inside `facts/`, dot-prefixed so `load()`'s
  *  `*.yaml` scan ignores it. */
 const LOCK_NAME = ".pasco-edit.lock";
 const LOCK_STALE_MS = 30_000;
@@ -128,9 +129,9 @@ function sleep(ms: number): void {
  *
  *  Exported for the capture path (#496): `pasco log` appends its row under the
  *  SAME lock, so an edit and a log can never interleave a read/validate/rename
- *  pair on `content/achievements.yaml` (one home for the workspace write mutex). */
+ *  pair on `facts/achievements.yaml` (one home for the workspace write mutex). */
 export function withWriteLock<T>(workspace: string, waitMs: number, run: () => T): T {
-  const lockPath = join(workspace, "content", LOCK_NAME);
+  const lockPath = join(workspace, factsDir(workspace), LOCK_NAME);
   const started = Date.now();
   for (;;) {
     try {
@@ -157,7 +158,7 @@ export function withWriteLock<T>(workspace: string, waitMs: number, run: () => T
       }
       if (Date.now() - started >= waitMs) {
         throw new WriteRefusedError(
-          `another pasco edit is writing this workspace (content/${LOCK_NAME}) — retry in a moment`,
+          `another pasco edit is writing this workspace (${factsDir(workspace)}/${LOCK_NAME}) — retry in a moment`,
         );
       }
       sleep(25);
@@ -351,13 +352,17 @@ function writeEditLocked(
 
   const nextText = splicedText(original, node, args.target.path, args.value);
 
-  // Validate BEFORE touching the real file: a temp copy of `content/` with the
+  // Validate BEFORE touching the real file: a temp copy of `facts/` with the
   // new text goes through the same `load()` the CLI uses (schema + ledger +
   // registry integrity), so a broken edit fails here and the original survives.
   const validate = deps.validate ?? ((workspace: string) => void load(workspace));
   const tempWorkspace = mkdtempSync(join(tmpdir(), "pasco-edit-write-"));
   try {
-    cpSync(join(args.workspace, "content"), join(tempWorkspace, "content"), { recursive: true });
+    cpSync(
+      join(args.workspace, factsDir(args.workspace)),
+      join(tempWorkspace, factsDir(args.workspace)),
+      { recursive: true },
+    );
     const copy = join(tempWorkspace, args.target.file);
     // `cpSync` copies the mode; a read-only content file must still be writable
     // in the throwaway copy, and no temp path may leak in an error (rule 9).
@@ -375,7 +380,7 @@ function writeEditLocked(
   }
 
   // Re-read IMMEDIATELY before the rename: validation took real time (a temp
-  // copy of content/ + load()), and two concurrent `pasco edit --set` on the
+  // copy of facts/ + load()), and two concurrent `pasco edit --set` on the
   // same file would otherwise both report success and one value would vanish
   // (review of #332, N1). The residual window between this read and the
   // rename is microseconds; there is no portable way to close it further.
@@ -441,11 +446,11 @@ export interface CreateArgs {
  * `--create` is a DIFFERENT operation from the range splice, never a rewrite of
  * it: the splice keeps its safety property (never invents bytes), and creation
  * gets its own guard. The seed text is validated by the SAME `load()` gate the
- * splice uses (schema, ledger, registry) over a temp copy of `content/`; the real
+ * splice uses (schema, ledger, registry) over a temp copy of `facts/`; the real
  * file is written only after that passes, so an invalid seed never reaches disk.
  *
  * The idempotence guard is the root's EXISTENCE, under any extension case:
- * creating `faq` when `content/faq.YAML` exists would make a second file claim
+ * creating `faq` when `facts/faq.YAML` exists would make a second file claim
  * the same root property, which `load()` rejects (`duplicate root property`). The
  * refusal is an exit-1 write refusal, not usage: the command was right and the
  * workspace already has the block.
@@ -458,7 +463,7 @@ export function previewCreate(args: CreateArgs, deps: WriteDeps = {}): { file: s
     );
   }
   validateSeed(args, deps);
-  return { file: `content/${args.root}.yaml` };
+  return { file: `${factsDir(args.workspace)}/${args.root}.yaml` };
 }
 
 /** The seed write: lock → validate → exclusive create of the NEW file. */
@@ -466,7 +471,7 @@ export function createRoot(args: CreateArgs, deps: WriteDeps = {}): CreateOutcom
   return withWriteLock(args.workspace, deps.lockWaitMs ?? 2_000, () => {
     const { file } = previewCreate(args, deps);
     const filePath = join(args.workspace, file);
-    // Validation took real time (a temp copy of content/ + load()); an external
+    // Validation took real time (a temp copy of facts/ + load()); an external
     // editor may have created the same root in the window. Refuse instead of
     // overwriting — the same "re-read before the rename" discipline as the splice.
     if (owningFile(args.workspace, args.root) !== undefined) {
@@ -496,8 +501,8 @@ export function createRoot(args: CreateArgs, deps: WriteDeps = {}): CreateOutcom
   });
 }
 
-/** The shared validation gate: a temp copy of `content/` plus `text` written at
- *  `file` (workspace-relative, e.g. `content/achievements.yaml`), through the
+/** The shared validation gate: a temp copy of `facts/` plus `text` written at
+ *  `file` (workspace-relative, e.g. `facts/achievements.yaml`), through the
  *  same `load()` the CLI uses. Never touches the workspace.
  *
  *  ONE home for "validate a content write before it reaches disk" — `--create`
@@ -512,7 +517,11 @@ export function validateContentFile(
   const validate = deps.validate ?? ((workspace: string) => void load(workspace));
   const tempWorkspace = mkdtempSync(join(tmpdir(), "pasco-content-validate-"));
   try {
-    cpSync(join(args.workspace, "content"), join(tempWorkspace, "content"), { recursive: true });
+    cpSync(
+      join(args.workspace, factsDir(args.workspace)),
+      join(tempWorkspace, factsDir(args.workspace)),
+      { recursive: true },
+    );
     writeFileSync(join(tempWorkspace, args.file), args.text, { mode: 0o600 });
     validate(tempWorkspace);
   } catch (err) {
@@ -526,10 +535,14 @@ export function validateContentFile(
   }
 }
 
-/** The seed's validation: the same gate, at `content/<root>.yaml`. */
+/** The seed's validation: the same gate, at `facts/<root>.yaml`. */
 function validateSeed(args: CreateArgs, deps: WriteDeps): void {
   validateContentFile(
-    { workspace: args.workspace, file: `content/${args.root}.yaml`, text: args.text },
+    {
+      workspace: args.workspace,
+      file: `${factsDir(args.workspace)}/${args.root}.yaml`,
+      text: args.text,
+    },
     deps,
   );
 }

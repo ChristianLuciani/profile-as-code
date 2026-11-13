@@ -5,7 +5,7 @@
  * from, records the human's choice, checks the chosen text against the channel
  * rules + the profile's URL/claim SSOT, and (optionally) builds a Postiz
  * `POST /posts` payload or a paste checklist. A post is a projection of a seed,
- * not an identity fact: the store lives in `posts/`, outside `content/` and
+ * not an identity fact: the store lives in `posts/`, outside `facts/` and
  * outside `profile.schema.json` (D17).
  *
  * Two seed formats (#266):

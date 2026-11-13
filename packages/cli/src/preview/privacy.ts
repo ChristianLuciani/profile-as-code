@@ -48,6 +48,7 @@
 
 import { existsSync, realpathSync } from "node:fs";
 import { basename, join, resolve, sep } from "node:path";
+import { factsDir } from "@profile-as-code/core";
 
 export type PrivacyRule =
   | "absolute-path"
@@ -176,7 +177,7 @@ const CREDENTIAL_FILE =
 
 /** The roots the preview may read: the workspace's own data surface. */
 export function declaredRoots(workspace: string): readonly string[] {
-  return [join(workspace, "content"), join(workspace, ".pascorc")];
+  return [join(workspace, factsDir(workspace)), join(workspace, ".pascorc")];
 }
 
 /** Every refusal class, in one place so `--json` and the docs can list them. */
@@ -298,7 +299,7 @@ export function isInside(root: string, path: string): boolean {
 /**
  * Provenance over the sources: every file the preview read must (a) exist, (b)
  * resolve inside the workspace, and (c) not be a credential-shaped file. The
- * declared roots are the workspace's `content/` + `.pascorc`; media is admitted
+ * declared roots are the workspace's `facts/` + `.pascorc`; media is admitted
  * only when its resolved path stays inside the workspace, which is exactly the
  * line §18.6 already draws for the bundle (`origin: "workspace"`).
  */

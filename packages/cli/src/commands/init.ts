@@ -1,6 +1,6 @@
 /**
  * pasco init [dir] [--flavor person|brand] — scaffold a workspace skeleton
- * (SPEC §9): content/ YAML files, README.md, .pascorc. Minimal but
+ * (SPEC §9): facts/ YAML files, README.md, .pascorc. Minimal but
  * `pasco validate`-clean (exit 0).
  *
  * Two flavors (D15/§17):
@@ -14,7 +14,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Flavor } from "@profile-as-code/core";
-import { PROFILE_SCHEMA_VERSION } from "@profile-as-code/core";
+import { FACTS_DIR, LEGACY_FACTS_DIR, PROFILE_SCHEMA_VERSION } from "@profile-as-code/core";
 import { DEFAULT_CHECKS_YAML } from "../default-checks.js";
 import { engineFloorFor } from "../engine-gate.js";
 import { EXIT } from "../exit.js";
@@ -22,12 +22,12 @@ import { line, report, section } from "../output.js";
 import { CLI_VERSION } from "../version.js";
 import { WORKSPACE_NAME } from "../workspace.js";
 
-const FLAVOR_BRAND_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — content/ flavor (D15/§17)
+const FLAVOR_BRAND_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — facts/ flavor (D15/§17)
 # The file value IS the root value: a bare scalar (file name = root property).
 brand
 `;
 
-const IDENTITY_TEMPLATE = `# ${WORKSPACE_NAME} workspace — content/ identity (contract: schema/profile.schema.json)
+const IDENTITY_TEMPLATE = `# ${WORKSPACE_NAME} workspace — facts/ identity (contract: schema/profile.schema.json)
 # Only "name" is required. Comments are examples — uncomment and adapt.
 name: Your Name
 # location: City, Country
@@ -41,7 +41,7 @@ name: Your Name
 #     url: https://linkedin.com/in/you
 `;
 
-const BRAND_IDENTITY_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — content/ identity (contract: schema/profile.schema.json)
+const BRAND_IDENTITY_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — facts/ identity (contract: schema/profile.schema.json)
 # Brand flavor (D15/§17): name is the display name; orgName is the legal name
 # when it differs. mission/tagline are langMaps (EN required).
 name: Your Brand
@@ -66,7 +66,7 @@ name: Your Brand
 #     url: https://x.com/yourbrand
 `;
 
-const BRAND_SOCIAL_HANDLES_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — content/ socialHandles (handle matrix, §17)
+const BRAND_SOCIAL_HANDLES_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — facts/ socialHandles (handle matrix, §17)
 # One row per platform: handle + claim status. A claimed handle should carry a
 # url (or match identity.links) — drift rules handle-claimed / handle-consistent.
 # Seed: your brand-handles availability sweep.
@@ -79,7 +79,7 @@ const BRAND_SOCIAL_HANDLES_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — c
 #   status: pending
 `;
 
-const BRAND_NEWSLETTER_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — content/ newsletter (§17)
+const BRAND_NEWSLETTER_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — facts/ newsletter (§17)
 # platform: substack | ghost. url is required.
 # platform: substack
 # url: https://yourbrand.substack.com
@@ -88,14 +88,14 @@ const BRAND_NEWSLETTER_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — conte
 # cadence: monthly
 `;
 
-const BRAND_PODCAST_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — content/ podcast (§17)
+const BRAND_PODCAST_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — facts/ podcast (§17)
 # title is a langMap and required; status: planned | live.
 # title:
 #   en: Your Brand Radio
 # status: planned
 `;
 
-const BRAND_PRESS_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — content/ press (§17)
+const BRAND_PRESS_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — facts/ press (§17)
 # Media mentions: outlet, headline (langMap), resolvable URL, date.
 # - outlet: Example Gazette
 #   title:
@@ -104,7 +104,7 @@ const BRAND_PRESS_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — content/ p
 #   date: 2026-01-01
 `;
 
-const BRAND_AUDIENCES_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — content/ audiences (§17)
+const BRAND_AUDIENCES_TEMPLATE = `# ${WORKSPACE_NAME} brand workspace — facts/ audiences (§17)
 # Reader profiles (not recruiters): audience name → per-lang angle.
 # readers:
 #   en: High-epistemic readers who want constructive futures.
@@ -120,8 +120,8 @@ private by default and never leaves your control (D14: integration by configured
 ## The cycle
 
 \`\`\`sh
-pasco init <dir>        scaffold a workspace (content/, README.md, .pascorc)
-edit content/*.yaml     the single source of truth — edit these, not profiles/
+pasco init <dir>        scaffold a workspace (facts/, README.md, .pascorc)
+edit facts/*.yaml       the single source of truth — edit these, not profiles/
 pasco validate          schema + drift + geo (warnings)
 pasco build [platform]  write the per-platform artifacts
 \`\`\`
@@ -129,10 +129,10 @@ pasco build [platform]  write the per-platform artifacts
 ## Files
 
 Three grains, one per area — nothing nests one inside another:
-\`content/\` is identity, \`profiles/\` is generated output (its \`variants/\` subdir is input),
+\`facts/\` is identity, \`profiles/\` is generated output (its \`variants/\` subdir is input),
 \`posts/\` is the stream.
 
-- \`content/*.yaml\` — identity facts, the SSOT (file name = root property; the contract is described in the [schema documentation](https://github.com/ChristianLuciani/profile-as-code/blob/main/schema/README.md))
+- \`facts/*.yaml\` — identity facts, the SSOT (file name = root property; the contract is described in the [schema documentation](https://github.com/ChristianLuciani/profile-as-code/blob/main/schema/README.md))
 - \`profiles/\` — generated outputs (created by pasco build; committed: they ARE the deploy artifacts)
 - \`profiles/<platform>/variants/\` — chosen variant bodies (INPUT, #238; preserved by build)
 - \`posts/\` — the stream, created by \`pasco post\` (#264): seeds + per-channel projections; never identity facts
@@ -155,7 +155,7 @@ pasco build github-readme --lang en   # deterministic base texts
 pasco refine github-readme --variants 3   # agent-driven variants (template + --choose; full flow M3)
 \`\`\`
 
-See the [CLI reference](https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/cli#readme) for the full command reference, including what \`check\` compares against \`content/\`, the order \`build\` chooses an artifact, and where the per-platform character caps come from.
+See the [CLI reference](https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/cli#readme) for the full command reference, including what \`check\` compares against \`facts/\`, the order \`build\` chooses an artifact, and where the per-platform character caps come from.
 `;
 
 const BRAND_README_TEMPLATE = `# ${WORKSPACE_NAME}
@@ -168,8 +168,8 @@ checks drift and renders brand surfaces. Private by default (D14: configured pat
 ## The cycle
 
 \`\`\`sh
-pasco init <dir>        scaffold a workspace (content/, README.md, .pascorc)
-edit content/*.yaml     the single source of truth — edit these, not profiles/
+pasco init <dir>        scaffold a workspace (facts/, README.md, .pascorc)
+edit facts/*.yaml       the single source of truth — edit these, not profiles/
 pasco validate          schema + drift + geo (warnings)
 pasco build [platform]  write the per-platform artifacts
 \`\`\`
@@ -177,10 +177,10 @@ pasco build [platform]  write the per-platform artifacts
 ## Files
 
 Three grains, one per area — nothing nests one inside another:
-\`content/\` is identity, \`profiles/\` is generated output (its \`variants/\` subdir is input),
+\`facts/\` is identity, \`profiles/\` is generated output (its \`variants/\` subdir is input),
 \`posts/\` is the stream.
 
-- \`content/*.yaml\` — the brand profile, identity facts (file name = root property; the contract is described in the [schema documentation](https://github.com/ChristianLuciani/profile-as-code/blob/main/schema/README.md))
+- \`facts/*.yaml\` — the brand profile, identity facts (file name = root property; the contract is described in the [schema documentation](https://github.com/ChristianLuciani/profile-as-code/blob/main/schema/README.md))
 - \`profiles/\` — generated outputs (github-org README is the first deploy artifact; pasco build also writes manual-paste files)
 - \`profiles/<platform>/variants/\` — chosen variant bodies (INPUT, #238; preserved by build)
 - \`posts/\` — the stream, created by \`pasco post\` (#264): seeds + per-channel projections; never identity facts
@@ -203,7 +203,7 @@ pasco check                   # handle-matrix rules (handle-claimed / handle-con
 pasco build github-org --lang en   # org README (git deploy)
 \`\`\`
 
-See the [CLI reference](https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/cli#readme) for the full command reference, including what \`check\` compares against \`content/\`, the order \`build\` chooses an artifact, and where the per-platform character caps come from.
+See the [CLI reference](https://github.com/ChristianLuciani/profile-as-code/tree/main/packages/cli#readme) for the full command reference, including what \`check\` compares against \`facts/\`, the order \`build\` chooses an artifact, and where the per-platform character caps come from.
 `;
 
 /**
@@ -251,12 +251,24 @@ const BRAND_FILES: Record<string, string> = {
 /** `pasco init [dir] [--flavor person|brand]` — scaffold into <dir> (default: cwd). Refuses to overwrite. */
 export function runInit(args: InitArgs): number {
   const dir = resolve(args.cwd, args.dir ?? ".");
-  const contentDir = join(dir, "content");
+  const factsDirPath = join(dir, FACTS_DIR);
+  const legacyDir = join(dir, LEGACY_FACTS_DIR);
   const brand = args.flavor === "brand";
 
-  if (existsSync(contentDir)) {
+  if (existsSync(factsDirPath)) {
     return report("init", false, EXIT.FAIL, {
-      error: { kind: "exists", message: `refusing to scaffold: ${contentDir} already exists` },
+      error: { kind: "exists", message: `refusing to scaffold: ${factsDirPath} already exists` },
+    });
+  }
+  if (existsSync(legacyDir)) {
+    // D30: scaffolding facts/ next to a legacy content/ would produce a
+    // workspace that fails to load on every command (both directories is a
+    // LoadError). The existing workspace needs the rename, not a scaffold.
+    return report("init", false, EXIT.FAIL, {
+      error: {
+        kind: "exists",
+        message: `refusing to scaffold: ${legacyDir} already exists (D30) — this is an existing workspace: run pasco migrate --facts-dir instead of init`,
+      },
     });
   }
 
@@ -265,7 +277,10 @@ export function runInit(args: InitArgs): number {
     : { "identity.yaml": IDENTITY_TEMPLATE, "checks.yaml": DEFAULT_CHECKS_YAML };
 
   const targets: { path: string; content: string }[] = [
-    ...Object.entries(files).map(([name, content]) => ({ path: join(contentDir, name), content })),
+    ...Object.entries(files).map(([name, content]) => ({
+      path: join(factsDirPath, name),
+      content,
+    })),
     { path: join(dir, "README.md"), content: brand ? BRAND_README_TEMPLATE : README_TEMPLATE },
     { path: join(dir, ".pascorc"), content: pascorcTemplate(CLI_VERSION, PROFILE_SCHEMA_VERSION) },
   ];
@@ -277,7 +292,7 @@ export function runInit(args: InitArgs): number {
     }
   }
 
-  mkdirSync(contentDir, { recursive: true });
+  mkdirSync(factsDirPath, { recursive: true });
   for (const t of targets) writeFileSync(t.path, t.content);
 
   section(`scaffolded ${WORKSPACE_NAME} workspace (flavor: ${brand ? "brand" : "person"})`);

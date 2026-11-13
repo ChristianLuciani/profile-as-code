@@ -68,7 +68,11 @@ export function runDiff(args: DiffArgs): number {
   const root = rootRes.out.trim();
 
   const tagPattern = args.pascorc.diff?.tagPattern ?? "release-*";
-  const tags = lines(git(root, ["tag", "-l", "--sort=-creatordate", tagPattern]));
+  // -refname first: git treats the LAST --sort key as primary, so creatordate
+  // stays the ranking and refname only breaks same-second ties (release-2.0 > release-1.0).
+  const tags = lines(
+    git(root, ["tag", "-l", "--sort=-refname", "--sort=-creatordate", tagPattern]),
+  );
   const tag = tags[0] ?? null;
 
   let base = "";
@@ -109,7 +113,7 @@ export function runDiff(args: DiffArgs): number {
     .map((p) => (wsPrefix === "" ? p : p.slice(wsPrefix.length)))
     .map((p) => ({
       path: p,
-      root: p.replace(/^content\//, "").replace(/\.ya?ml$/, ""),
+      root: p.replace(/^(?:facts|content)\//, "").replace(/\.ya?ml$/, ""),
     }));
 
   const changedRoots = new Set(files.map((f) => f.root).filter(Boolean));

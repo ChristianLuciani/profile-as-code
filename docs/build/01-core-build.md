@@ -34,7 +34,7 @@ already defined in the schema).
    (use `json-schema-to-zod` or equivalent). The generated file is committed.
 3. **`packages/core/src`**:
    - `types.ts` — exported types (`Profile` via `z.infer`, plus `Issue`, `GeoReport`, `PlatformProfile`)
-   - `load.ts` — `load(workspace)`: parse `content/*.yaml`, merge into one Profile, validate against
+   - `load.ts` — `load(workspace)`: parse `facts/*.yaml`, merge into one Profile, validate against
      generated Zod (**fail on schema**, D12), normalize → `Profile`
    - `drift.ts` — `driftCheck(profile): Issue[]`: factual contradictions (same date/role/paper written
      differently across surfaces), URLs not present in `identity.links`, `start > end`, malformed
