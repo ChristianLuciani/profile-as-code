@@ -9,9 +9,19 @@
  *   `.pasco/egress/audit.log`     APPEND-ONLY. One JSON line per egress, opened
  *                                 with O_APPEND — an earlier line is never
  *                                 rewritten, and a malformed line is reported,
- *                                 never repaired.
+ *                                 never repaired. Every line is SEALED into an
+ *                                 integrity chain (#520): `prev` (the previous
+ *                                 line's `hash`), `baselineHash` (the memory
+ *                                 the line produced) and `hash` (the link the
+ *                                 next line's `prev` names).
  *   `.pasco/egress/baseline.json` the last PUBLIC manifest (keys + digest),
+ *                                 bound to the log line it sits at (`logTail`),
  *                                 written atomically (tmp + rename).
+ *
+ * ONE memory, ONE scope (#520): the baseline is the gate's only comparison
+ * memory and always records the PUBLIC manifest; the log is evidence, never a
+ * second memory — the gate decides from the baseline alone and reads the log
+ * only to verify that the evidence is intact.
  *
  * Both live with the workspace (like `preview`'s `.pasco/`), outside `content/`
  * and `profiles/`: the audit log is never rendered.
@@ -52,18 +62,18 @@ import type {
   LoadedProfile,
 } from "@profile-as-code/core";
 import {
-  EGRESS_MANIFEST_VERSION,
+  EGRESS_AUDIT_REL,
+  EGRESS_BASELINE_REL,
   egressAuditLine,
-  egressAuditRecord,
-  egressBaselineOf,
   egressManifest,
+  egressSeal,
   newlyPublicUnits,
+  verifyEgressState,
 } from "@profile-as-code/core";
 
-/** The state paths, relative to the workspace — the spelling every message and
- *  the SPEC use (a machine path in a published surface is rule-9 noise). */
-export const EGRESS_AUDIT_REL = ".pasco/egress/audit.log";
-export const EGRESS_BASELINE_REL = ".pasco/egress/baseline.json";
+/** The state paths are core's (the contract owns the spelling); re-exported so
+ *  the CLI's messages and tests keep one source. */
+export { EGRESS_AUDIT_REL, EGRESS_BASELINE_REL } from "@profile-as-code/core";
 export const EGRESS_AUDIT_FLAG = "--confirm";
 
 export function egressStateDir(workspace: string): string {
@@ -78,51 +88,36 @@ export function egressBaselinePath(workspace: string): string {
   return join(egressStateDir(workspace), "baseline.json");
 }
 
-/** The digest shape every manifest/baseline value must have. */
-const SHA256 = /^sha256:[0-9a-f]{64}$/;
-
-/** Read the recorded baseline. A missing file is `absent` (the first egress);
- *  an unreadable or foreign file is `unreadable` with the exact problem — never
+/** Read and VERIFY the egress state — the log's chain and its binding to the
+ *  baseline (#520). Both files missing is `absent` (the first egress); anything
+ *  that fails verification is `unreadable` with the exact problem — never
  *  silently `absent`, because the two mean different things to the gate (the
- *  unreadable one makes the run privileged, §7.11). */
-export function readEgressBaseline(workspace: string): {
+ *  unreadable one makes the run privileged, §7.11). Deleting either file while
+ *  the other remains is not a reset: it reads as `unreadable`. The verification
+ *  itself is core's (`verifyEgressState`); this wrapper owns the file I/O. */
+export function readEgressState(workspace: string): {
   baseline: EgressBaseline | null;
   state: EgressAuditRecord["baseline"];
   problem?: string;
+  tailHash: string | null;
 } {
-  const path = egressBaselinePath(workspace);
-  if (!existsSync(path)) return { baseline: null, state: "absent" };
-  try {
-    const parsed = JSON.parse(readFileSync(path, "utf8")) as Partial<EgressBaseline>;
-    if (
-      parsed.version !== EGRESS_MANIFEST_VERSION ||
-      typeof parsed.digest !== "string" ||
-      !SHA256.test(parsed.digest) ||
-      !Array.isArray(parsed.publicUnits) ||
-      !parsed.publicUnits.every((key) => typeof key === "string")
-    ) {
-      return {
-        baseline: null,
-        state: "unreadable",
-        problem: `${EGRESS_BASELINE_REL}: not an egress baseline (version ${EGRESS_MANIFEST_VERSION} + sha256 digest + publicUnits)`,
-      };
+  const logPath = egressAuditPath(workspace);
+  const baselinePath = egressBaselinePath(workspace);
+  const read = (path: string, rel: string): { text: string | null; error?: string } => {
+    if (!existsSync(path)) return { text: null };
+    try {
+      return { text: readFileSync(path, "utf8") };
+    } catch (err) {
+      return { text: null, error: `${rel}: ${(err as Error).message}` };
     }
-    return {
-      baseline: {
-        version: EGRESS_MANIFEST_VERSION,
-        at: typeof parsed.at === "string" ? parsed.at : "",
-        digest: parsed.digest,
-        publicUnits: parsed.publicUnits,
-      },
-      state: "recorded",
-    };
-  } catch (err) {
-    return {
-      baseline: null,
-      state: "unreadable",
-      problem: `${EGRESS_BASELINE_REL}: ${(err as Error).message}`,
-    };
+  };
+  const log = read(logPath, EGRESS_AUDIT_REL);
+  const baselineFile = read(baselinePath, EGRESS_BASELINE_REL);
+  const ioProblem = log.error ?? baselineFile.error;
+  if (ioProblem !== undefined) {
+    return { baseline: null, state: "unreadable", problem: ioProblem, tailHash: null };
   }
+  return verifyEgressState(log.text, baselineFile.text);
 }
 
 /** Write the baseline atomically: a temp file in the same directory, then a
@@ -210,12 +205,13 @@ function reasonViolation(reason: EgressReason, count: number): { path: string; m
   };
 }
 
-function reasonText(reasons: readonly EgressReason[], count: number): string {
+function reasonText(reasons: readonly EgressReason[], count: number, problem?: string): string {
   return reasons
     .map((reason) => {
       if (reason === "full-export") return "`--all` is a break-glass export of the full SSOT";
       if (reason === "baseline-unreadable") {
-        return "the last recorded egress is unreadable, so nothing was compared";
+        const why = problem === undefined ? "" : ` (${problem})`;
+        return `the last recorded egress is unreadable, so nothing was compared${why}`;
       }
       return `${count} unit(s) moved private → public since the last recorded egress`;
     })
@@ -235,7 +231,7 @@ function reasonText(reasons: readonly EgressReason[], count: number): string {
 export function authorizeEgress(req: EgressRequest): EgressAuthorized | EgressRefusal {
   const publicManifest = egressManifest(req.profile, "public");
   const manifest = req.scope === "all" ? egressManifest(req.profile, "all") : publicManifest;
-  const { baseline, state: baselineState, problem } = readEgressBaseline(req.workspace);
+  const { baseline, state: baselineState, problem, tailHash } = readEgressState(req.workspace);
   const transitions = newlyPublicUnits(publicManifest, baseline);
   const reasons: EgressReason[] = [];
   if (req.scope === "all") reasons.push("full-export");
@@ -260,7 +256,7 @@ export function authorizeEgress(req: EgressRequest): EgressAuthorized | EgressRe
         manifest,
         reasons,
         transitions,
-        message: `egress authorization required (D28, SPEC §7.11): ${reasonText(reasons, transitions.length)}`,
+        message: `egress authorization required (D28, SPEC §7.11): ${reasonText(reasons, transitions.length, problem)}`,
         hint: `nothing was written and the audit log gained no record — re-run with ${EGRESS_AUDIT_FLAG} ${manifest.digest} to authorize exactly this manifest`,
         violations,
       };
@@ -279,14 +275,20 @@ export function authorizeEgress(req: EgressRequest): EgressAuthorized | EgressRe
     }
   }
 
-  const record = egressAuditRecord({
+  // The chain link (#520): a line continues the chain only when the state it
+  // read VERIFIED — an unreadable state re-arms with a new genesis (`prev:
+  // null`), so the break and the re-arm are both on the record.
+  const sealed = egressSeal({
     at: req.at,
     operation: req.operation,
     manifest,
+    publicManifest,
     reasons,
     keyId: req.keyId ?? null,
     baseline: baselineState,
+    prev: baselineState === "recorded" ? tailHash : null,
   });
+  const record = sealed.record;
   // The two writes are separated on purpose: the audit line IS the
   // authorization and the baseline is the comparison memory. If the append
   // fails, nothing was recorded and the egress is refused. If it succeeds and
@@ -308,7 +310,7 @@ export function authorizeEgress(req: EgressRequest): EgressAuthorized | EgressRe
     };
   }
   try {
-    writeEgressBaseline(req.workspace, egressBaselineOf(publicManifest, req.at));
+    writeEgressBaseline(req.workspace, sealed.baseline);
   } catch (err) {
     return {
       ok: false,
