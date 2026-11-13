@@ -1793,27 +1793,97 @@ curations:
     created: 2026-11-07
 ```
 
-**Derivation, not a second record.** A curation is a *view derivation* like D22's
-`selection.views` (the issues #520/#497 code path), plus an explicit list of rows
-the surface would not otherwise receive. It is never a copy of the data: the rows
-keep their home in `facts/*.yaml`, and a curated row that is later edited shows
-its new text — the grant names a row, it does not freeze it.
+**Derivation, not a second record.** A curation is a *view derivation* like
+D22's `selection.views`, plus an explicit list of rows the surface would not
+otherwise receive. Three places make up the D22 path, none of them
+interchangeable: the shared **resolver** that turns a view name into its rule
+(`resolveView` in `packages/core/src/selection.ts`), the **subset-only
+application** that applies it to the record (`selectFacts`, same module, and its
+only caller), and the **sanitizer** the CLI's own callers run before handing the
+policy over (`sanitizeSelectionPolicy` in `packages/cli/src/workspace.ts`, four
+call sites: `build`, `status`, `publication` and `artifact-render`); `compile`
+takes the policy as given, so the sanitizing is a CLI floor, not a core
+guarantee. The commands do not call the resolver: `build` and `status` each
+re-derive the rule inline as `views?.[name] ?? default` (`build.ts:101`,
+`status.ts:485`), and both resolve it a second time inside `selectFacts`, which
+does call `resolveView`. Only one of them treats an undeclared `--view` as an
+error (`build.ts:102-106`; `status` falls back silently).
+
+It is never a copy of the data: the rows keep their home in
+`facts/*.yaml`, and a curated row that is later edited shows its new text —
+the grant names a row, it does not freeze it.
 
 **Additive and scoped.** A curation can only **ADD** rows to what the surface is
 already entitled to receive; it can never remove or edit one, and it **never
 flips an entry's `visibility`**. `visibility` stays the tool the user decides
 with; a grant is strictly narrower than the public projection, so it is not a
 second visibility model and cannot become the new default by accumulation.
-`include` names rows by their stable `id` — a `private` or `unlisted` row, never a
-block wildcard, so a grant always says out loud which rows it exposes.
+`include` names rows by their stable `id` — a `private` or `unlisted` row,
+never a block wildcard, so a grant always says out loud which rows it
+exposes.
 
 **Narrowing is the `view`'s job, so there is no `exclude` field.** A curation
 carries no deny list: the optional `view` already reaches a D22 view rule, which
-owns `excludeKeys`/`excludeTags` (§21.2) and applies them to the rows the surface
-receives. A curation-level `exclude` would restate that mechanism while inviting
-the one reading this contract must not permit — that a grant can *subtract* a row
-the surface was already entitled to. Adding a row is the grant; removing one is
-`visibility` (D27) or the view, never a curation.
+owns `excludeKeys`/`excludeTags` (§21.2). That rule runs over the
+**unfiltered** record — every row, whatever its `visibility` — and
+visibility is applied to the **selected** result afterwards (`compile`:
+selection, then `isPublicEntry`). So the order is: the view narrows the whole
+record, visibility narrows what the view kept, and a curated `include` lands
+**after** both — the view never sees those rows, so it can neither select nor
+exclude them.
+
+That order is the engine's, and it is not the order §18.5 states. §18.5 puts
+the filter in four places, but only two of them can observe the order.
+`compile()` is the only one that runs it after selection. `structuredData()`
+is called on the slice `compile()` already filtered (`compile.ts:201`,
+`structured-data.ts:116`), so its own filter is a second pass over an array
+that is already public. `publicProjection()` and `pasco post` read the SSOT
+and never see a selected record. The contract does not rank the two
+statements, and this section does not either: what follows is what the code
+does, with its call sites.
+
+The rule is **subset-only**: it removes entries and never edits, renames or
+re-derives one (D22, §5) — which is why a `view` narrows a curation without
+ever softening the additive guarantee above, and why §21.4 makes every
+omission WARN.
+
+The accounting differs by surface, and this contract states the difference
+rather than leaving it to be discovered. `selectFacts` applies no visibility
+filter at all: its `selected` counts the rows the view kept, non-public ones
+included (`selection.ts:391-395`). `compile` then filters the selected profile
+and recomputes `selected` over the rows the artifact actually emits
+(`compile.ts:132-155`). `status --selection` prints the first of the two
+(`status.ts:495-515`), so its counts include `private` rows — and §21's
+preamble promise that it "reports the public/private counts"
+(`SPEC.md:3379-3383`) is **not implemented**. Only `compile`'s count is a fact
+about a surface.
+
+The order a surface emits is recomputed from the rows that survive that filter.
+`report.ordered` stays the view's declared order over the *pre-visibility*
+survivors, so it can name a row the artifact no longer emits;
+`orderedForSurface` re-pins `orderKeys` over the array the renderer is handed,
+and that array is already visibility-filtered **because the renderer filtered
+it** — `github-readme` passes `p.projects.filter(isPublicEntry)`
+(`index.ts:274`), so a pinned key whose row is private has no slot to pin. That
+guard is the renderer's, not the engine's: a renderer that skipped it would pin
+a row it must not emit. The emitted set is the same either way, since each
+filter is per-entry; the pinned head is not.
+
+`skills` is the exception the same rule requires: it carries no `visibility`
+field (§18.5), so `github-readme` hands it to `orderedForSurface` unfiltered
+(`index.ts:315-320`) and that is correct, not a missing guard.
+
+A view's `excludeKeys` may still name a row that is now `private` — that is
+the pre-v2.0 hiding workaround (`compile.ts:122-124`), not an error — and
+hiding a row is never a *view* omission: §21.4 says so in as many words
+("Visibility is not a selection omission"), reporting a `private` entry as a
+count and never as `selection/omits-facts`.
+
+**A curation is a grant, never a filter.** A curation-level `exclude` would
+restate that mechanism while inviting the one reading this contract must not
+permit — that a grant can *subtract* a row the surface was entitled to.
+Adding a row is the grant; removing one is `visibility` (D27) or the view, and
+never a curation.
 
 **One decision per curation.** There is no chain: a curation cannot build on
 another curation. Composition would hide what was promised to whom, and the
