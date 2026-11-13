@@ -14,7 +14,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import type { Flavor } from "@profile-as-code/core";
-import { FACTS_DIR, PROFILE_SCHEMA_VERSION } from "@profile-as-code/core";
+import { FACTS_DIR, LEGACY_FACTS_DIR, PROFILE_SCHEMA_VERSION } from "@profile-as-code/core";
 import { DEFAULT_CHECKS_YAML } from "../default-checks.js";
 import { engineFloorFor } from "../engine-gate.js";
 import { EXIT } from "../exit.js";
@@ -251,12 +251,24 @@ const BRAND_FILES: Record<string, string> = {
 /** `pasco init [dir] [--flavor person|brand]` — scaffold into <dir> (default: cwd). Refuses to overwrite. */
 export function runInit(args: InitArgs): number {
   const dir = resolve(args.cwd, args.dir ?? ".");
-  const contentDir = join(dir, FACTS_DIR);
+  const factsDirPath = join(dir, FACTS_DIR);
+  const legacyDir = join(dir, LEGACY_FACTS_DIR);
   const brand = args.flavor === "brand";
 
-  if (existsSync(contentDir)) {
+  if (existsSync(factsDirPath)) {
     return report("init", false, EXIT.FAIL, {
-      error: { kind: "exists", message: `refusing to scaffold: ${contentDir} already exists` },
+      error: { kind: "exists", message: `refusing to scaffold: ${factsDirPath} already exists` },
+    });
+  }
+  if (existsSync(legacyDir)) {
+    // D30: scaffolding facts/ next to a legacy content/ would produce a
+    // workspace that fails to load on every command (both directories is a
+    // LoadError). The existing workspace needs the rename, not a scaffold.
+    return report("init", false, EXIT.FAIL, {
+      error: {
+        kind: "exists",
+        message: `refusing to scaffold: ${legacyDir} already exists (D30) — this is an existing workspace: run pasco migrate --facts-dir instead of init`,
+      },
     });
   }
 
@@ -265,7 +277,10 @@ export function runInit(args: InitArgs): number {
     : { "identity.yaml": IDENTITY_TEMPLATE, "checks.yaml": DEFAULT_CHECKS_YAML };
 
   const targets: { path: string; content: string }[] = [
-    ...Object.entries(files).map(([name, content]) => ({ path: join(contentDir, name), content })),
+    ...Object.entries(files).map(([name, content]) => ({
+      path: join(factsDirPath, name),
+      content,
+    })),
     { path: join(dir, "README.md"), content: brand ? BRAND_README_TEMPLATE : README_TEMPLATE },
     { path: join(dir, ".pascorc"), content: pascorcTemplate(CLI_VERSION, PROFILE_SCHEMA_VERSION) },
   ];
@@ -277,7 +292,7 @@ export function runInit(args: InitArgs): number {
     }
   }
 
-  mkdirSync(contentDir, { recursive: true });
+  mkdirSync(factsDirPath, { recursive: true });
   for (const t of targets) writeFileSync(t.path, t.content);
 
   section(`scaffolded ${WORKSPACE_NAME} workspace (flavor: ${brand ? "brand" : "person"})`);

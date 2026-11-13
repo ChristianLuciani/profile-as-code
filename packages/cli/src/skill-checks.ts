@@ -3,7 +3,7 @@
  * declare?".
  *
  * A skill ships its own `checks.yaml` (`skills/<platform>/checks.yaml`, SPEC §16.1)
- * and `pasco check` unions the workspace's `content/checks.yaml` with the shipped
+ * and `pasco check` unions the workspace's `facts/checks.yaml` with the shipped
  * skill catalog to decide WHICH PREMISES run (SPEC §7) — the text-limit executor
  * reads the workspace catalog or the package defaults, never these rows (#455).
  * A rule executor that ignored the catalog would run a premise nobody declared,
@@ -31,7 +31,7 @@ import type { LoadedProfile } from "@profile-as-code/core";
 import { parse } from "yaml";
 import { skillsDir } from "./skill-path.js";
 
-/** One catalog row, structurally compatible with the workspace's `content/checks.yaml`. */
+/** One catalog row, structurally compatible with the workspace's `facts/checks.yaml`. */
 export interface CatalogRow {
   id?: string;
   platform: string;

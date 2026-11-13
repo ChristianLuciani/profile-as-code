@@ -983,6 +983,16 @@ describe("pasco init (scaffold)", () => {
     expect(r.code).toBe(1);
     expect(r.stderr).toContain("already exists");
   });
+
+  it("refuses to scaffold next to a legacy content/ (both dirs would fail D30)", () => {
+    const dir = tempDir();
+    mkdirSync(join(dir, "content"));
+    const r = run(["init", dir]);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("refusing to scaffold");
+    expect(r.stderr).toContain("pasco migrate --facts-dir");
+    expect(existsSync(join(dir, "facts"))).toBe(false);
+  });
 });
 
 describe("pasco refine (partial: template + record)", () => {

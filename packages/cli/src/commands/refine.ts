@@ -3,7 +3,7 @@
  *
  * PARTIAL — agent-driven refinement (D10/D11/D13): the CLI never calls an LLM and
  * never wires the hub. It emits the task template the executing agent works from,
- * and — with --choose — records the user's chosen variant in content/active.yaml.
+ * and — with --choose — records the user's chosen variant in facts/active.yaml.
  * The full variant flow (generate → user picks → commit active) lands with the
  * SOTA research + skills v1 session (SPEC §12 M3).
  */
@@ -181,7 +181,7 @@ export function runRefine(args: RefineArgs): number {
   const publications = slice.publications.map((p) => p.title).join(" | ");
   // #482: the publication block is identity-bearing copy for the profile surface
   // (`substack` is one slug over profile + publication), so the task carries it
-  // instead of making the agent rediscover `content/newsletter.yaml`. The two
+  // instead of making the agent rediscover `facts/newsletter.yaml`. The two
   // langMaps resolve with the same `textOf` rule as `role`; absent => "—".
   // #483: `compile()` passes `newsletter` raw into EVERY slice, so only the slice
   // whose platform owns the block may show it — a task for Linkedin must not list

@@ -13,7 +13,7 @@
  * fail, via their root key.
  */
 
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseDocument } from "yaml";
 import { checkAchievementIntegrity } from "./achievements.js";
@@ -105,15 +105,29 @@ export const LEGACY_FACTS_DIR = "content";
  * The workspace's facts directory: `facts/` when it exists, else the legacy
  * `content/` (D30). Having BOTH is ambiguous — the ledger, the active-variant
  * skin and every write path would have to guess which one is the SSOT — so it
- * is a LoadError, never a silent pick (D12).
+ * is a LoadError, never a silent pick (D12). A candidate name that exists but
+ * is not a directory is the same defect class — readdir would die on a raw
+ * ENOTDIR — so the boundary names the actual problem instead (D12).
  *
  * @param workspace path to the workspace root
  * @returns the directory NAME (`facts` or `content`), not a path
- * @throws LoadError — both directories exist
+ * @throws LoadError — both directories exist, or a candidate name is not a directory
  */
 export function factsDir(workspace: string): string {
-  const hasFacts = existsSync(join(workspace, FACTS_DIR));
-  const hasLegacy = existsSync(join(workspace, LEGACY_FACTS_DIR));
+  const factsPath = join(workspace, FACTS_DIR);
+  const legacyPath = join(workspace, LEGACY_FACTS_DIR);
+  for (const [name, path] of [
+    [FACTS_DIR, factsPath],
+    [LEGACY_FACTS_DIR, legacyPath],
+  ] as const) {
+    if (existsSync(path) && !statSync(path).isDirectory()) {
+      throw new LoadError(
+        `workspace has a file named ${name}/ — expected a directory (D30): rename or remove it`,
+      );
+    }
+  }
+  const hasFacts = existsSync(factsPath);
+  const hasLegacy = existsSync(legacyPath);
   if (hasFacts && hasLegacy) {
     throw new LoadError(
       `workspace has both ${FACTS_DIR}/ and ${LEGACY_FACTS_DIR}/ — ambiguous (D30): keep exactly one (run pasco migrate, or remove the leftover directory)`,

@@ -3,7 +3,7 @@
  * §23, issue #446).
  *
  * A READ-ONLY view. It writes nothing, resolves nothing at the network and
- * derives everything from `content/achievements.yaml`: the status of each row
+ * derives everything from `facts/achievements.yaml`: the status of each row
  * comes from `core/src/achievements.ts` (`achievementStatus`), never from the
  * workspace (a stored status could disagree with the numbers it describes).
  *

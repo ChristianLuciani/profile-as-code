@@ -15,7 +15,8 @@ minor versions may contain breaking contract changes.
   ambiguously between "the record" and "content to publish". `load()` now
   resolves the SSOT directory as `facts/` when it exists and falls back to
   `content/` for legacy workspaces (dual-read, never dual-write — a workspace
-  holding both is a load error, D12); `pasco init` scaffolds `facts/`; existing
+  holding both is a load error, D12); `pasco init` scaffolds `facts/` and refuses a
+  legacy `content/` workspace (run `pasco migrate --facts-dir`); existing
   workspaces rename **opt-in** with `pasco migrate --facts-dir` (refuses when
   both directories exist). Every functional path, error message, doc, skill and
   template names `facts/`; fixtures with `content/` still load and now double as

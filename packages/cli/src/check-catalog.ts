@@ -8,12 +8,12 @@
  *  - the rule was copied in four call sites (`check`, `edit` twice, and
  *    `publicationOfCaller` for `status`), so a change had to find them all;
  *  - two published surfaces (the `check` report and `preview`'s limits table)
- *    attributed the rows to `content/checks.yaml` even when that file did not
+ *    attributed the rows to `facts/checks.yaml` even when that file did not
  *    exist — it printed over the package defaults on a real workspace with no
  *    catalog at all.
  *
  * The FILENAME is deliberately not derivable from here. `load()` merges every
- * `content/*.y{a,}ml` by root property and reports no source, so no surface can
+ * `facts/*.y{a,}ml` by root property and reports no source, so no surface can
  * know which file declared the rows: claiming the conventional name was false for
  * an empty `checks.yaml` (declared, zero rows) and for a workspace using
  * `checks.yml`. Surfaces name the SOURCE (workspace vs package), which is the

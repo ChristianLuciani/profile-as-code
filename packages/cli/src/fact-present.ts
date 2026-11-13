@@ -31,7 +31,7 @@
  * Declared v1 limits (stated, never silently absent):
  *   - the scope is the surfaces the profile TARGETS (bios · headlines · active ·
  *     keywords.seo · socialHandles · newsletter, #483) **that also DECLARE the
- *     premise** in their catalog (workspace `content/checks.yaml` ∪ the shipped
+ *     premise** in their catalog (workspace `facts/checks.yaml` ∪ the shipped
  *     `skills/<platform>/checks.yaml`) — the rule never runs a premise nobody
  *     declared (#283/F6). A declared surface with no artifact is reported in
  *     `notRun`; its `notBuildable` subset names the ones `renderArtifact` cannot
@@ -50,7 +50,7 @@
  *     against the implicit view — the same declared consequence §20.1's artifact
  *     axis carries, because neither command may guess which view produced the bytes;
  *   - the ledger is not a fact source: no finding derives from
- *     `content/deployments.yaml` (it is still loaded as part of the workspace).
+ *     `facts/deployments.yaml` (it is still loaded as part of the workspace).
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -332,7 +332,7 @@ export function factPresentFindings(args: {
     args.platform !== undefined ? [args.platform] : targetedSurfaces(args.profile);
   // The catalog decides WHICH surfaces this premise runs on (#283/F6): a surface
   // that never declared `fact-present` is not measured, and neither is one the
-  // user's `content/checks.yaml` does not name when the skill ships no catalog.
+  // user's `facts/checks.yaml` does not name when the skill ships no catalog.
   const declared = declaredSurfaces("fact-present", candidates, args.checks);
 
   const checked: string[] = [];

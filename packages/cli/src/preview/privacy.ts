@@ -299,7 +299,7 @@ export function isInside(root: string, path: string): boolean {
 /**
  * Provenance over the sources: every file the preview read must (a) exist, (b)
  * resolve inside the workspace, and (c) not be a credential-shaped file. The
- * declared roots are the workspace's `content/` + `.pascorc`; media is admitted
+ * declared roots are the workspace's `facts/` + `.pascorc`; media is admitted
  * only when its resolved path stays inside the workspace, which is exactly the
  * line §18.6 already draws for the bundle (`origin: "workspace"`).
  */

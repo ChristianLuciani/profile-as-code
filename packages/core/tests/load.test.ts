@@ -428,4 +428,26 @@ describe("facts dir (D30) — the content/ → facts/ rename with a read alias",
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("refuses a FILE named facts/ with a LoadError, not a raw ENOTDIR", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pasco-core-"));
+    writeFileSync(join(dir, "facts"), "not a directory\n", "utf8");
+    try {
+      expect(() => load(dir)).toThrow(/file named facts\//);
+      expect(() => factsDir(dir)).toThrow(LoadError);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses a FILE named content/ with a LoadError, not a raw ENOTDIR", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pasco-core-"));
+    writeFileSync(join(dir, "content"), "not a directory\n", "utf8");
+    try {
+      expect(() => load(dir)).toThrow(/file named content\//);
+      expect(() => factsDir(dir)).toThrow(LoadError);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

@@ -56,7 +56,7 @@ export interface PreviewSection {
   notes: readonly string[];
 }
 
-/** A declared limit row (`content/`, conventionally `checks.yaml`): the cap that applies where. */
+/** A declared limit row (`facts/`, conventionally `checks.yaml`): the cap that applies where. */
 export interface PreviewLimit {
   platform: string;
   rule: string;

@@ -4,7 +4,7 @@
  * Read mode: key · origin · surfaces · sync state (in-sync / stale / never) per
  *   trackable unit, plus untracked rows (no id) and removed ledger keys.
  * --mark <ledgerKey> <platform> [--at <iso>]: confirm a manual paste — the ONLY
- *   hand-triggered write to content/deployments.yaml (D14 write rule: only
+ *   hand-triggered write to facts/deployments.yaml (D14 write rule: only
  *   `pasco` mutates the ledger). Records the CURRENT contentHash → the unit goes
  *   in-sync until the SSOT changes again — plus the §19.5 certification
  *   (`attested`, and the `artifactHash` ANCHOR when the surface has an extractor).

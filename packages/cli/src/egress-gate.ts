@@ -13,7 +13,7 @@
  *   `.pasco/egress/baseline.json` the last PUBLIC manifest (keys + digest),
  *                                 written atomically (tmp + rename).
  *
- * Both live with the workspace (like `preview`'s `.pasco/`), outside `content/`
+ * Both live with the workspace (like `preview`'s `.pasco/`), outside `facts/`
  * and `profiles/`: the audit log is never rendered.
  *
  * **Order of the writes is the guarantee.** The record and the baseline are

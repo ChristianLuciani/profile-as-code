@@ -287,7 +287,7 @@ export function publicationTruth(args: {
   workspace: string;
   profile: LoadedProfile;
   reportData: LedgerReport;
-  /** The cap rows measured: the workspace's `content/` catalog (conventionally
+  /** The cap rows measured: the workspace's `facts/` catalog (conventionally
    *  `checks.yaml`), else the conservative catalog shipped with the package
    *  (#240) — `publicationOfCaller` picks the same source for `status` and
    *  `status --verify`. The skills catalog is NOT merged in: it declares which

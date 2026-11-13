@@ -12,7 +12,7 @@
  * alignment and every existing byte survive by construction (the `pasco edit`
  * precedent). A row that already declares any visibility value is left alone,
  * which is what makes the command idempotent. Before anything reaches disk the
- * whole migrated `content/` goes through the same `load()` gate the CLI uses;
+ * whole migrated `facts/` goes through the same `load()` gate the CLI uses;
  * then the files are replaced atomically under the shared content write lock.
  *
  * Exit: 0 migrated or already current · 1 load/write failure (nothing written) ·
@@ -61,7 +61,7 @@ interface Insertion {
 
 /** A content file with at least one missing visibility. */
 export interface VisibilityFileEdit {
-  /** Workspace-relative path (`content/credentials.yaml`). */
+  /** Workspace-relative path (`facts/credentials.yaml`). */
   file: string;
   original: string;
   text: string;
@@ -241,7 +241,7 @@ export interface MigrateOutcome {
 
 export interface MigrateDeps {
   /** Validation seam (tests inject a throwing validator). Production: `load()`
-   *  over a temp copy of `content/` with every planned file applied. */
+   *  over a temp copy of `facts/` with every planned file applied. */
   validate?: (workspace: string) => void;
   lockWaitMs?: number;
   /** The effective contract floor. Re-checked INSIDE the write lock: a row that
@@ -263,7 +263,7 @@ export function planVisibilityMigration(workspace: string): VisibilityFileEdit[]
 }
 
 /** The validation gate: every planned file applied to ONE temp copy of
- *  `content/`, through the same `load()` the CLI uses. */
+ *  `facts/`, through the same `load()` the CLI uses. */
 function validateMigration(
   workspace: string,
   edits: readonly VisibilityFileEdit[],

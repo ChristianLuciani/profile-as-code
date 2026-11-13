@@ -3,7 +3,7 @@
  *
  * S1 is READ-ONLY on purpose: it answers "what will the published text be?"
  * without touching a byte. The dogfood that opened the epic had to hash
- * `content/` before/after and read a `pasco build` scrollback to answer the same
+ * `facts/` before/after and read a `pasco build` scrollback to answer the same
  * question; this command replaces both and carries zero write risk.
  *
  * The published answer is derived from the ARTIFACT, never from the addressed row
@@ -26,7 +26,7 @@
  * #435 adds the answer-engine surface (`identity.definition.<lang>`,
  * `faq[id=…,lang=…].q|.a`, `faq[id=…].source`) under the SAME resolution rules,
  * plus `--create <root>` — a SEPARATE operation that seeds a root the workspace
- * does not declare yet (`content/faq.yaml`). The splice still never invents
+ * does not declare yet (`facts/faq.yaml`). The splice still never invents
  * bytes; creation has its own guard (`edit-write.ts`, `edit-seed.ts`).
  */
 
@@ -140,7 +140,7 @@ function linkNote(row: { platform?: string; label?: string }): string | undefine
  * A resolved contract path.
  *
  * `locate` is S2's write handle and carries TWO paths on purpose: `path` is
- * FILE-relative (what a CST can resolve in `content/<root>.yaml` — the file's
+ * FILE-relative (what a CST can resolve in `facts/<root>.yaml` — the file's
  * root is the block itself, e.g. a `bios.yaml` array, not `{bios: [...]}`), and
  * `profilePath` is the merged-profile path `applyEdit` uses. Conflating them was
  * a defect of the review's round 1 (N5 of round 2); a test pins both.
