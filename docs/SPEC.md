@@ -1854,7 +1854,7 @@ and recomputes `selected` over the rows the artifact actually emits
 (`compile.ts:132-155`). `status --selection` prints the first of the two
 (`status.ts:495-515`), so its counts include `private` rows — and §21's
 preamble promise that it "reports the public/private counts"
-(`SPEC.md:3365-3369`) is **not implemented**. Only `compile`'s count is a fact
+(`SPEC.md:3379-3383`) is **not implemented**. Only `compile`'s count is a fact
 about a surface.
 
 The order a surface emits is recomputed from the rows that survive that filter.
