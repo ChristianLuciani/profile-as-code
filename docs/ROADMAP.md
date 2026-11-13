@@ -1,6 +1,6 @@
 # Roadmap — de acá a lo planificado
 
-> **Generado** 2026-09-24 · **actualizado** 2026-11-11 (triaje post-merge #517/#518: D28/S503a, D29, M12 y filas de ingestión) desde el estado verificado del repo (no del declarado).
+> **Generado** 2026-09-24 · **actualizado** 2026-11-13 (triaje post-merge #517/#518/#521/#527/#529: D28/S503a, D29, M12, M13 y las correcciones abiertas) desde el estado verificado del repo (no del declarado).
 > Canónico del plan: `docs/SPEC.md` §12. Este documento agrega **qué está realmente hecho**
 > y **en qué orden conviene seguir**, con la evidencia de cada afirmación.
 > Regenerar/corregir cuando la evidencia cambie.
@@ -97,10 +97,11 @@ con nombre, con `expires`, aditivo —solo suma filas nombradas, nunca da vuelta
 con el ledger en `content/curations.yaml` y sin lector propio); #503 decide *quién autoriza*
 publicarlo o exportarlo (D28). La implementación de cualquiera de los dos es su propio slice.
 
-**El ingreso de datos que hace útil D27/D29** — sin él el registro sigue publication-shaped:
-- **#508** `pasco migrate` general (clase A aditiva / clase B `--apply-rewrites`, nunca borra;
-  tabla pineada al schema). El `migrate` de v2.0 que D27 ya promete es su primera instancia.
-- **#478** el scaffold de `init` no distingue qué es artefacto de deploy en `profiles/`.
+**Trabajo de registro que hace útil D27/D29** — sin él el registro sigue publication-shaped:
+- **#508** `pasco migrate` **general** (clase A aditiva / clase B `--apply-rewrites`, nunca borra;
+  tabla pineada al schema). El `migrate` de v2.0 **ya está en `main`** (#509) como su primera
+  instancia; falta el contrato general y #508 lo declara parcialmente aterrizado.
+- **#478** docs del scaffold: `pasco init` no distingue qué es artefacto de deploy en `profiles/`.
 
 ### Después — superficie por plataforma
 
@@ -133,18 +134,20 @@ vieja. Chico, docs-only; una sesión lo cierra.
 **8 · #175** — el estrato de respuesta externa se publica cuando existan 3 PRs externos
 (bloqueado por naturaleza — el trigger es el mundo, no el repo).
 
-### Ahora — correcciones abiertas (triaje 2026-11-11)
+### Ahora — correcciones abiertas (triaje 2026-11-13)
 
-- **#519** — el test de `cite-check` afirma «no `rate`» sobre un output que embebe el path del
-  checkout: falla en cualquier worktree cuyo nombre contenga `rate` (le costó un pase de
-  diagnóstico durante el merge de #518). Arreglo: acotar la aserción al reporte, no al path.
+- **#520** — la memoria de autorización de S503a es reescribible y el audit log no tiene cadena
+  de integridad. Decisión del operador registrada (UNA memoria); implementación en **draft PR
+  #528**, pendiente de review y merge.
 - **#507** — `release:verify` hace UNA sonda por paquete y trata el 404 transitorio de npm
   como `FAIL` mientras el registry procesa (medido en el corte de v0.5.0). Arreglo: deadline +
   reintento + estado `processing`.
-- **#521** (PR abierto) — D29 cita mal `#520/#497` como el code path de `selection.views`;
-  corrige a los archivos reales.
-- **#493** — auditabilidad: el claim sin postura viaja al CV. Es del eje de **D26/D29** y su
-  fix de dato vive en el workspace del operador, no acá. Espera decisión A/B/C.
+- **#529** — implementa **A** de #493 (puntero `block:id` en `highlights` +
+  `claim-against-unbuilt`/`claim-without-proof`); **B** queda registrada como dirección (v1.17).
+- **#493** — abierto como postura y elección A/B/C/D: **decidida 2026-11-12** (A ahora, B como
+  dirección, C futura, D rechazada); `needs-decision` retirado. La construcción vive en #529 y
+  el cierre de #493 es de quien mergee #529.
+- **Cerrados en esta ronda:** #519 (PR #527) y #521 (mergeada, `a2e8bbc`).
 
 ### Transversal — no milestone
 
