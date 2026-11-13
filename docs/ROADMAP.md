@@ -135,33 +135,26 @@ vieja. Chico, docs-only; una sesión lo cierra.
 **8 · #175** — el estrato de respuesta externa se publica cuando existan 3 PRs externos
 (bloqueado por naturaleza — el trigger es el mundo, no el repo).
 
-### Ahora — correcciones abiertas (triaje 2026-11-13)
+### Ahora — correcciones abiertas (cita del tracker, 2026-11-13)
 
-- **#501** (M13) — `curate`: **única decisión abierta del racimo D29** (`needs-decision` vivo).
-  La decisión es el slice (contrato → ledger → materialización) y su dependencia con S503b; el
-  contrato ya está ratificado (D29, §7.12), la implementación todavía no existe.
-- **#520** — el hallazgo principal está cerrado por PR #528 (`c22df70`): una sola memoria
-  (`baseline.json` siempre el manifiesto público) y cadena de integridad en el audit log (§7.11).
-  Lo que queda abierto son los puntos (2)/(3) del issue — on-ramps sin el bucle `--confirm` y la
-  cláusula del rechazo de `--all` en la fila `export profile` de §7 — verificados ausentes en
-  `main@a90263d` (2026-11-13). Los límites de autenticidad (reescrito coherente, historia
-  re-firmada) están declarados en §7.11 y los cierra S503b; no son motivo de apertura.
-- **#507** — `release:verify` hace UNA sonda por paquete y trata el 404 transitorio de npm
-  como `FAIL` mientras el registry procesa (medido en el corte de v0.5.0). Arreglo: deadline +
-  reintento + estado `processing`.
-- **#529** — implementa **A** de #493: el puntero `block:id` en `highlights` más las clases
-  `claim-against-unbuilt`/`claim-without-proof`. **A toca el contrato** (campo opcional en
-  `$defs/experienceItem`, `pnpm gen:zod`). **B** queda como dirección, no asignada: promoverla
-  exige bendición explícita del operador, un bump de mayor del contrato y la evidencia de A en
-  uso.
-- **#493** — abierto como postura y elección A/B/C/D: **decidida 2026-11-12** (A ahora, B como
-  dirección, C futura, D rechazada); su `needs-decision` fue retirado. La construcción vive en
-  #529 y el cierre de #493 es de quien mergee #529.
-- **Cerrados en esta ronda (2026-11-13):** issue #519 (por el PR #527) y PR #521 (mergeada,
-  `a2e8bbc`). #517 y #518 (S503a + D29) están mergeados y su efecto vive en la tabla M12 y en la
-  sección de seguridad; no tienen fila propia porque no queda nada abierto de ellos.
-- **Fuera del racimo:** #508 (migrate general) y #478 (docs del scaffold) siguen abiertos y se
-  rastrean en la sección de registro; #503 (M12) espera S503b y #520.
+Esta sección **no describe** el estado de cada issue: lo **cita**. Lo que el roadmap afirma
+de sí mismo es lo que el repo demuestra (archivos, tests, SPEC); la fase de un issue o PR se
+lee en el tracker, con la fecha y el sha de la verificación. Motivo y criterio de cierre:
+#532.
+
+| Issue | Qué queda abierto (fuente) | Verificado |
+|---|---|---|
+| **#501** · M13 `curate` | único `needs-decision` abierto del racimo D29: el slice y su dependencia con S503b | 2026-11-13 |
+| **#520** · integridad del egreso | puntos (2)/(3) del issue: on-ramps sin `--confirm` y cláusula de rechazo de `--all` en §7; el hallazgo principal está cerrado por PR #528 (`c22df70`, §7.11) | `main@a90263d`, 2026-11-13 |
+| **#529** · A de #493 | el puntero `block:id` en `highlights` + `claim-against-unbuilt`/`claim-without-proof`; **A es aditivo sobre el schema** (campo opcional, `pnpm gen:zod`) y **B** es la dirección que exige bendición del operador y bump de mayor | 2026-11-13 |
+| **#493** · postura del claim | decidida 2026-11-12 (A ahora, B dirección, C futura, D rechazada); la construcción vive en #529 | 2026-11-13 |
+| **#507** · `release:verify` | una sola sonda por paquete; el 404 transitorio de npm se lee como `FAIL` (medido en el corte de v0.5.0) | 2026-11-13 |
+| **#532** · forma del roadmap | esta sección: citar el tracker en vez de replicarlo | 2026-11-13 |
+
+Cerrados en esta ronda (2026-11-13): issue #519 (por el PR #527) y PR #521 (mergeada,
+`a2e8bbc`). #517 y #518 (S503a + D29) están mergeados y su efecto vive en la tabla M12 y en la
+sección de seguridad. #508 (migrate general) y #478 (docs del scaffold) se rastrean en la
+sección de registro; #503 (M12) espera S503b y #520.
 
 ### Transversal — no milestone
 
