@@ -1,6 +1,6 @@
 # Roadmap — de acá a lo planificado
 
-> **Generado** 2026-09-24 · **actualizado** 2026-11-13 (triaje post-merge #517/#518/#521/#527/#529: D28/S503a, D29, M12, M13 y las correcciones abiertas) desde el estado verificado del repo (no del declarado).
+> **Generado** 2026-09-24 · **actualizado** 2026-11-13 (triaje post-merge: #517/#518 S503a+D29, #521/#527 cerrados, #529 abierto; D28, D29, M12, M13 y las correcciones abiertas) desde el estado verificado del repo (no del declarado).
 > Canónico del plan: `docs/SPEC.md` §12. Este documento agrega **qué está realmente hecho**
 > y **en qué orden conviene seguir**, con la evidencia de cada afirmación.
 > Regenerar/corregir cuando la evidencia cambie.
@@ -136,6 +136,9 @@ vieja. Chico, docs-only; una sesión lo cierra.
 
 ### Ahora — correcciones abiertas (triaje 2026-11-13)
 
+- **#501** (M13) — `curate`: **única decisión abierta del racimo D29** (`needs-decision` vivo).
+  La decisión es el slice (contrato → ledger → materialización) y su dependencia con S503b; el
+  contrato ya está ratificado (D29, §7.12), la implementación todavía no existe.
 - **#520** — la memoria de autorización de S503a es reescribible y el audit log no tiene cadena
   de integridad. Decisión del operador registrada (UNA memoria); implementación en **draft PR
   #528**, pendiente de review y merge.
@@ -144,10 +147,13 @@ vieja. Chico, docs-only; una sesión lo cierra.
   reintento + estado `processing`.
 - **#529** — implementa **A** de #493 (puntero `block:id` en `highlights` +
   `claim-against-unbuilt`/`claim-without-proof`); **B** queda registrada como dirección (v1.17).
+  Abierto, sin claim.
 - **#493** — abierto como postura y elección A/B/C/D: **decidida 2026-11-12** (A ahora, B como
-  dirección, C futura, D rechazada); `needs-decision` retirado. La construcción vive en #529 y
-  el cierre de #493 es de quien mergee #529.
+  dirección, C futura, D rechazada); su `needs-decision` fue retirado. La construcción vive en
+  #529 y el cierre de #493 es de quien mergee #529.
 - **Cerrados en esta ronda:** #519 (PR #527) y #521 (mergeada, `a2e8bbc`).
+- **Fuera del racimo:** #508 (migrate general) y #478 (docs del scaffold) siguen abiertos y se
+  rastrean en la sección de registro; #503 (M12) espera S503b y #520.
 
 ### Transversal — no milestone
 
