@@ -5,10 +5,10 @@
 </p>
 
 **Tu identidad profesional como código.** Un solo source of truth versionado (YAML) → textos optimizados
-por plataforma (LinkedIn, GitHub, Upwork, X, ResearchGate…) con **skills por plataforma** que codifican el
-conocimiento SOTA de cada red.
+por plataforma (LinkedIn, GitHub, Upwork, X, ResearchGate…) con **skills especializadas por plataforma** que codifican el
+conocimiento SOTA de cada red, y un CLI diseñado para que los **agentes de IA y harnesses** auditen, mantengan y auditen tu perfil de forma autónoma.
 
-> CLI-first · TypeScript · Sin infraestructura · Tus datos siempre tuyos.
+> CLI-first · TypeScript · Agente-first (Harness-ready) · Sin infraestructura · Tus datos siempre tuyos.
 
 ![CI](https://github.com/ChristianLuciani/profile-as-code/actions/workflows/ci.yml/badge.svg)
 ![License: MIT for the code](https://img.shields.io/badge/license-MIT%20code-green.svg)
@@ -33,9 +33,9 @@ requisito (SPEC §9). Tres on-ramps, cada uno con su diferencia de capacidades a
 | **`pasco init`** local | carpeta mínima y válida en segundos | **no** | **ninguno** |
 | **Traé tu almacenamiento** | el mismo `pasco init`, escrito en la ruta que elijas (disco, nube, otro host git) | igual que `pasco init` | **ninguno** |
 
-El paquete `@profile-as-code/cli` está **publicado en npm** (0.4.0 — `npm view`, checked 2026-11-04), así que los dos
+El paquete `@profile-as-code/cli` está **publicado en npm** (@profile-as-code/cli@0.5.0 — `npm view`, checked 2026-11-12), así que los dos
 caminos sin cuenta funcionan hoy sin acceso a ningún repo. El template repo (on-ramp A) es
-**público** (verificado 2026-10-23: `gh repo view ChristianLuciani/profile-data-template
+**público** (verificado 2026-11-12: `gh repo view ChristianLuciani/profile-data-template
 --json visibility` → `PUBLIC`, HTTP 200), así que **Use this template** resuelve para cualquiera
 — la cuenta y el repo siguen siendo el requisito del on-ramp A (STANDARDS community item 10).
 
@@ -77,20 +77,53 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 ```
 
 - **Hechos y storytelling separados:** los datos son deterministas (schema, validación, drift-check);
-  los textos son *ángulos* por plataforma, generados con IA y **elegidos por vos** (3 variantes → elegís una).
-- **Skills por plataforma** (una por LinkedIn, Upwork, GitHub, X…): límites oficiales, ranking/**SEO+GEO**,
-  ángulos por audiencia, trampas y *checks* ejecutables. Se proyectan a tu skill-studio de agente.
-- **GEO (generative engine optimization) como capa transversal:** los LLM leen y citan perfiles hoy.
-  La consistencia factual cross-platform ES citabilidad — un modelo que cruza LinkedIn vs GitHub y encuentra
-  contradicciones te descarta. El `geoCheck` del core garantiza hechos idénticos, anclas semánticas y
-  readiness para datos estructurados (schema.org JSON-LD).
+  los textos son *ángulos* por plataforma, generados con asistencia de agentes de IA y **elegidos por vos** (variantes que revisás y aprobás).
+- **Skills SOTA por plataforma** (14 skills empaquetadas en el CLI para LinkedIn, Upwork, GitHub, Substack, Ko-fi, X…): límites oficiales de caracteres, reglas de indexación/**SEO+GEO**,
+  ángulos por audiencia, trampas conocidas y *checks* ejecutables. Se exportan directamente con `pasco skills:export <dir>` para integrarlas en tus agentes y harnesses.
+- **Agent-First y Harness-Ready:** diseñado desde la raíz para la automatización asistida por IA. Salidas `--json` estructuradas en todos los comandos clave, códigos de salida deterministas, edición atómica sin pérdida de comentarios (`pasco edit <path> --set <val> [--check]`), y plantillas de refinamiento (`pasco refine`).
+- **GEO (Generative Engine Optimization) y Citabilidad de IA:** los LLM y motores de respuesta (Perplexity, ChatGPT, Claude) leen y citan perfiles profesionales hoy.
+  La consistencia factual cross-platform ES citabilidad: un modelo que cruza LinkedIn vs GitHub y encuentra
+  contradicciones te descarta. `pasco` garantiza hechos idénticos, anclas semánticas, proyección Schema.org JSON-LD paste-ready (`pasco entity --jsonld`), verificación offline de citas (`pasco cite-check`), y directivas claras para rastreadores (`pasco export ai-policy`).
+- **Privacidad y soberanía de datos (Local-first):** tus datos residen en tu máquina o en tu propio repositorio privado. Control de visibilidad granular (`visibility: public` / `private`) con auditoría de fugas (`pasco audit --public`). Ninguna cuenta forzada ni telemetría oculta.
 - **Multilingüe:** contenido por idioma (`EN` esencial para reclutadores internacionales, `ES` nativo,
   `FR` deseable). Docs del repo en inglés (D8).
-- **Deploy como checklist:** las plataformas sin API (LinkedIn, Upwork) se marcan como "pegar + verificar";
-  las con API (GitHub) se actualizan por git/API. `pasco status --mark` confirma el deploy
+- **Deploy como checklist y verificación en vivo:** las plataformas sin API (LinkedIn, Upwork) se marcan como "pegar + verificar";
+  las que tienen API (GitHub) se actualizan por git/API. `pasco status --mark` confirma el deploy
   (`attested`, §19.5) y `pasco status --verify` —opt-in, el único camino con red— comprueba que la
-  página viva siga coincidiendo con el ancla, o lo reporta honestamente (`unverifiable`,
-  `out-of-band-drift`).
+  página viva siga coincidiendo con el ancla, reportando honestamente cualquier drift externo.
+
+## Ventajas y Beneficios para el Usuario
+
+| ¿Qué te preocupa? | La solución de `profile-as-code` | Beneficio concreto |
+|---|---|---|
+| **Perfiles desincronizados** | Una sola fuente de verdad en YAML (`content/*.yaml`) compilada a cada red. | Modificás un puesto o logro una sola vez; `pasco build` genera los textos optimizados para cada plataforma y `pasco status` te permite trackear qué perfiles ya actualizaste manualmente. |
+| **Límites de caracteres y reglas rotas** | Compilación determinista con validación de schema y 14 skills SOTA de plataformas. | Tu biografía o experiencia encaja exactamente en los límites y aprovecha el algoritmo de cada red. |
+| **Pérdida de citabilidad ante IAs (GEO)** | Generación de Schema.org JSON-LD (`pasco entity`), verificación offline (`cite-check`) y políticas IA (`export ai-policy`). | Los motores de respuesta (Perplexity, ChatGPT, Gemini) indexan y citan tu trayectoria sin inventar datos. |
+| **Trabajo manual repetitivo** | CLI optimizado para agentes de IA (flags `--json`, `edit --list`, `edit --set --check`, `refine`). | Tu agente inteligente (Claude, Pi, Cursor, DSH) puede auditar, proponer cambios y actualizar tu perfil de forma segura. |
+| **Riesgo de fugar datos privados** | Campos con `visibility: private` por defecto y auditoría estricta (`pasco audit --public`). | Notas personales, compensaciones o datos de contacto confidenciales jamás se publican accidentalmente. |
+| **Visualización antes de publicar** | Vista previa HTML local y autónoma con `pasco preview`. | Inspeccionás exactamente cómo se ve cada perfil antes de copiarlo o hacer push. |
+
+## Qué podés hacer con el CLI `pasco` (v0.5.0)
+
+El CLI `pasco` ofrece un conjunto integral de comandos para gestionar el ciclo de vida completo de tu perfil:
+
+- 🚀 **`pasco init [dir] [--flavor brand]`** — Inicializa un nuevo workspace con estructura completa, listo para personas u organizaciones (`brand`).
+- 🩺 **`pasco doctor [--json]`** — Revisa la salud del entorno, requisitos de Node/motor, schema y deltas de migración pendientes.
+- ✅ **`pasco validate [--json]`** — Valida tus datos contra el JSON Schema v2.0, verifica drifts entre hechos y perfiles, y comprueba consistencia GEO.
+- 🔨 **`pasco build [platform] [--lang]`** — Compila determinísticamente los perfiles optimizados para cada plataforma configurada.
+- 👁️ **`pasco preview [--out <dir>] [--no-open]`** — Genera una página HTML local y autónoma en `.pasco/preview/` para ver todos los perfiles renderizados en tu navegador.
+- ✏️ **`pasco edit <path> [--set <text> [--check]]`** — Lee, previsualiza o modifica campos específicos del contrato YAML preservando comentarios (`--list` para explorar rutas disponibles).
+- 🔍 **`pasco check [platform]`** — Ejecuta reglas offline de coherencia de marca, matriz de handles sociales, transporte de medios y presencia de hechos.
+- 🛡️ **`pasco audit [--json] [--public]`** — Diagnóstico estricto offline en 3 clases: referencias rotas (`dangling-ref`), contradicciones (`contradiction`) y afirmaciones sin fuente (`unsourced-claim`).
+- 🌐 **`pasco discover <url>...`** — Reconstruye un perfil inicial a partir de JSON-LD y metadatos públicos de tus perfiles existentes.
+- 🏷️ **`pasco entity [--jsonld]`** — Proyecta tu perfil a Schema.org (`Person` / `Organization`) y genera bloques JSON-LD listos para incrustar en tu sitio web.
+- 🎯 **`pasco cite-check`** — Verifica de forma offline y determinista si las respuestas de motores de IA citan con fidelidad tus fuentes declaradas.
+- 🤖 **`pasco export ai-policy`** — Exporta `robots.txt`, `llms.txt` y `AI-POLICY.md` (permite indexación y búsqueda por IA, bloquea entrenamiento indiscriminado).
+- 📦 **`pasco export profile`** — Emite el objeto de perfil normalizado y versionado para integraciones o scripts.
+- 🧠 **`pasco skills:export <dir>`** — Exporta las 14 skills SOTA de plataformas para cargarlas inmediatamente en tu entorno de agentes (Claude Code, Pi, DSH, Cursor...).
+- 🔄 **`pasco diff [--json]`** — Compara los perfiles generados contra tags Git o versiones previas para ver qué cambia antes de desplegar.
+- 📊 **`pasco status [--mark] [--verify]`** — Consulta el ledger de despliegues (`content/deployments.yaml`), marca despliegues manuales y verifica la vigencia de perfiles en vivo.
+- 📦 **`pasco migrate [--json]`** — Actualiza automáticamente workspaces de versiones anteriores al Schema v2.0 preservando comentarios.
 
 ## Estado
 
@@ -152,7 +185,7 @@ profile-as-code/
 ├── packages/
 │   ├── core/             # ✅ load · drift · geo · compile (Zod desde schema)
 │   ├── renderers/        # github-readme + github-org + kofi — más adapters por plataforma (seam de contribución)
-│   └── cli/              # pasco — init·validate·build·diff·status + audit/entity ✅ + edit S1 (preview read-only, #248) (refine/check 🚧, skills:export ✅; check ejecuta reglas offline M6/M7/M8, igual que packages/cli/README.md)
+│   └── cli/              # pasco — init·doctor·validate·build·preview·edit·check·audit·entity·cite-check·export·skills:export·diff·status·discover·migrate (v0.5.0)
 ├── skills/               # skills por plataforma (conocimiento SOTA)
 ├── templates/
 │   ├── profile-data/       # on-ramp A: puntero al template repo del workspace (SPEC §9.2)
