@@ -66,8 +66,12 @@ function runFake(pkg: string, args: string[]): RunResult {
   return { code: res.status ?? -1, stdout: res.stdout ?? "", stderr: res.stderr ?? "" };
 }
 
-function git(dir: string, args: string[]): void {
-  execFileSync("git", ["-C", dir, ...args], { encoding: "utf8", stdio: "pipe" });
+function git(dir: string, args: string[], env?: NodeJS.ProcessEnv): void {
+  execFileSync("git", ["-C", dir, ...args], {
+    encoding: "utf8",
+    stdio: "pipe",
+    ...(env ? { env: { ...process.env, ...env } } : {}),
+  });
 }
 
 /** `git`, capturing trimmed stdout (sync) — for SHAs a test must assert against. */
@@ -860,7 +864,13 @@ describe("pasco diff (git-based, release tags)", () => {
     const ws = makeGitWorkspace();
     renameSync(join(ws, "content"), join(ws, "facts"));
     git(ws, ["add", "-A"]);
-    git(ws, ["commit", "-qm", "migrate to facts/ (D30)"]);
+    // Same-second creatordate tie with release-1.0: the latest-tag pick must
+    // still resolve to release-2.0 (diff.ts refname tiebreak).
+    const at = gitOut(ws, ["log", "-1", "--format=%cI", "release-1.0"]);
+    git(ws, ["commit", "-qm", "migrate to facts/ (D30)"], {
+      GIT_COMMITTER_DATE: at,
+      GIT_AUTHOR_DATE: at,
+    });
     git(ws, ["tag", "release-2.0"]);
     writeFileSync(join(ws, "facts", "identity.yaml"), "name: Elena Vasquez\nlocation: Paris\n");
     git(ws, ["add", "-A"]);
