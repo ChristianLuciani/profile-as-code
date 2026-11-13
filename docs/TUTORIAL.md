@@ -485,6 +485,11 @@ optional object roots (`positioning`, `active`) are absent when undeclared.
 
 ### M14 — `skills:export`: list, copy, overlay
 
+`pasco` bundles 14 SOTA platform skills that encapsulate exact character caps, ranking algorithms,
+SEO/GEO rules, and best practices. When using AI agents in a harness (such as Claude Code, Pi,
+DeepSeek Harness, Cursor, or Windsurf), exporting these skills gives your agent immediate, offline
+access to each platform's rules without guessing:
+
 ```sh
 pasco skills:export --list
 pasco skills:export /tmp/pasco-skills-out
@@ -494,7 +499,8 @@ pasco skills:export /tmp/pasco-skills-out --force
 
 `--list` reports 14 channels (12 with `SKILL.md`; `linkedin` and `x` are post-only). A non-empty
 destination refuses with `1`; `--force` overlays, never deletes. The destination may not sit inside
-the shipped tree.
+the shipped tree. Once exported into an agent's skill directory, the agent can use them directly
+to refine texts or review profile content.
 
 ### M15 — `build --lang es` and all platforms
 
