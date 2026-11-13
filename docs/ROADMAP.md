@@ -18,8 +18,8 @@
 | **M7** evidence core | ✅ | **✅ cerrado** | schema v1.4 (`credentials[]`/`artifacts[]`), `registryCheck`, `hasCredential` en JSON-LD |
 | **M8** media pipeline | ✅ | **✅ contrato sí, deploy no** | `assets/` + `manifest.json` + `collectMedia` en core; los playbooks de deploy son M4 |
 | **M9** training-time corpus presence | ⏳ contrato sí, decisión **deferida** (Q10, post-M3) | **✗ no empezado** — piso ya definido: **privado-first** (bloquea crawlers de entrenamiento, sin licencia abierta) con opt-in explícito del dueño | `docs/research/03-training-time-visibility.md` (PR #135 + corrección de consentimiento, 2026-10-05); SPEC §12 M9 + §14 Q10 |
-| **M12** egress authorization (D28) | pendiente | **⚠️ parcial — S503a ✅ / S503b ✗** — gate mínimo: el manifest de lo que sale (digest `sha256`), detección `private → public` contra el último egreso registrado y de `--all`, `--confirm <digest>` o rechazo (exit 1, sin escribir), y audit log append-only en `.pasco/egress/audit.log` (`keyId: null` — **sin firmas todavía**). Falta S503b: recibo firmado (hardware key/WebAuthn), `--all` break-glass y agente read-only/keyless | `packages/core/src/egress.ts`, `packages/cli/src/egress-gate.ts`, `packages/{core,cli}/tests/egress*.test.ts`; contrato SPEC §7.11 |
-| **M13** `curate` — divulgación con alcance (D29) | ⏳ contrato ratificado (D29, §7.12) | **✗ contrato sí, código no** — contrato ratificado; sin implementación ni decisión de slice | SPEC §5 D29, §7.12; #501 |
+| **M12** egress authorization (D28) | pendiente | **⚠️ parcial — S503a ✅ / S503b ✗** — gate mínimo: el manifest de lo que sale (digest `sha256`), detección `private → public` contra el último egreso registrado y de `--all`, `--confirm <digest>` o rechazo (exit 1, sin escribir), y audit log append-only en `.pasco/egress/audit.log` (`keyId: null` — **sin firmas todavía**). Falta S503b: recibo firmado (hardware key/WebAuthn), `--all` break-glass y agente read-only/keyless. **Integridad del registro abierta en #520** (draft PR #528) | `packages/core/src/egress.ts`, `packages/cli/src/egress-gate.ts`, `packages/{core,cli}/tests/egress*.test.ts`; contrato SPEC §7.11 |
+| **M13** `curate` — divulgación con alcance (D29) | **no está en el SPEC** — §12 lista M1–M12; D29 vive en §5 y §7.12 | **✗ contrato sí, código no** — contrato ratificado; sin implementación ni decisión de slice | SPEC §5 D29, §7.12; #501 |
 
 **Fuera de los milestones — lo que la serie `0.2.0` → `0.3.6` entrega (2026-10-09 → 2026-10-26; 0.3.6 en preparación):**
 
@@ -146,12 +146,14 @@ vieja. Chico, docs-only; una sesión lo cierra.
   como `FAIL` mientras el registry procesa (medido en el corte de v0.5.0). Arreglo: deadline +
   reintento + estado `processing`.
 - **#529** — implementa **A** de #493 (puntero `block:id` en `highlights` +
-  `claim-against-unbuilt`/`claim-without-proof`); **B** queda registrada como dirección (v1.17).
-  Abierto, sin claim.
+  `claim-against-unbuilt`/`claim-without-proof`). **B** queda como dirección, no asignada: la
+  decisión de #493 fija que promoverla exige bendición explícita del operador, un bump de mayor
+  del contrato y la evidencia de A en uso. Abierto; sin comentario de claim en el tracker
+  (verificado 2026-11-13).
 - **#493** — abierto como postura y elección A/B/C/D: **decidida 2026-11-12** (A ahora, B como
   dirección, C futura, D rechazada); su `needs-decision` fue retirado. La construcción vive en
   #529 y el cierre de #493 es de quien mergee #529.
-- **Cerrados en esta ronda:** #519 (PR #527) y #521 (mergeada, `a2e8bbc`).
+- **Cerrados en esta ronda:** issue #519 (cerrado por el PR #527) y PR #521 (mergeada, `a2e8bbc`).
 - **Fuera del racimo:** #508 (migrate general) y #478 (docs del scaffold) siguen abiertos y se
   rastrean en la sección de registro; #503 (M12) espera S503b y #520.
 
