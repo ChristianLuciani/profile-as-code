@@ -1832,11 +1832,14 @@ record, visibility narrows what the view kept, and a curated `include` lands
 exclude them.
 
 That order is the engine's, and it is not the order §18.5 states. §18.5 puts
-the filter in four places — `compile()`, `structuredData()`,
-`publicProjection()` and `pasco post` — and only `compile()` runs it after
-selection; the other three read the unfiltered record, which for them is the
-same thing. The contract does not rank the two statements, and this section
-does not either: what follows is what the code does, with its call sites.
+the filter in four places, but only two of them can observe the order.
+`compile()` is the only one that runs it after selection. `structuredData()`
+is called on the slice `compile()` already filtered (`compile.ts:201`,
+`structured-data.ts:116`), so its own filter is a second pass over an array
+that is already public. `publicProjection()` and `pasco post` read the SSOT
+and never see a selected record. The contract does not rank the two
+statements, and this section does not either: what follows is what the code
+does, with its call sites.
 
 The rule is **subset-only**: it removes entries and never edits, renames or
 re-derives one (D22, §5) — which is why a `view` narrows a curation without
