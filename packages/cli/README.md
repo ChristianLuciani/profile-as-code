@@ -6,10 +6,20 @@ contract source is [the profile schema](https://github.com/ChristianLuciani/prof
 
 ## Install
 
+The package is published on the **npm registry** and can be installed with any compatible package manager.
+
 ```sh
+# Recommended (npm comes with Node.js):
 npm i -g @profile-as-code/cli   # the package
 pasco --version                 # the bin — prints the installed version
 ```
+
+> **Tip:** You can also use pnpm or yarn:
+> ```sh
+> pnpm add -g @profile-as-code/cli
+> # or
+> yarn global add @profile-as-code/cli
+> ```
 
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it installs.
 The install adds one global bin and nothing else: no post-install script, no
