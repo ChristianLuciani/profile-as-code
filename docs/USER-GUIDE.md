@@ -519,6 +519,11 @@ Two kinds of results (D12):
   platforms or GEO gaps. These do not block you, but fix them: contradictions
   are exactly what gets a profile discounted by LLMs reading it.
 
+Beyond shape, the contract guarantees: URLs are http(s)-only (a `javascript:`
+value fails validation and never reaches a published profile), unknown
+files/keys fail instead of being silently ignored, and `load()` refuses
+duplicate entry ids and dangling cross-references.
+
 `pasco validate` also prints a GEO **index** (0–100), one line per
 section, and one line per code that has something to report (score `0` or
 `n/a`). Before the number it prints its basis — *heuristic index over the
