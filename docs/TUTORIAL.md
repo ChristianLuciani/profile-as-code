@@ -35,13 +35,22 @@ step 8 onward; everything before it works without a repository.
 
 ## Step 1 — install the CLI
 
-The published package is the user path ([§2](USER-GUIDE.md#2-install-the-pasco-cli)):
+The published package is the user path ([§2](USER-GUIDE.md#2-install-the-pasco-cli)).
+It is published on the **npm registry** and can be installed with any compatible package manager:
 
 ```sh
+# Recommended (npm comes with Node.js):
 npm i -g @profile-as-code/cli
-pasco --version        # → pasco 0.3.7
+pasco --version        # → pasco 0.5.0
 npm view @profile-as-code/cli version   # → the same number
 ```
+
+> **Tip:** You can also use pnpm or yarn:
+> ```sh
+> pnpm add -g @profile-as-code/cli
+> # or
+> yarn global add @profile-as-code/cli
+> ```
 
 If you already keep a development build of `pasco` on your machine, install into a throwaway
 prefix instead so you do not replace it — this is what the measured run did:
