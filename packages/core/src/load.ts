@@ -16,7 +16,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseDocument } from "yaml";
-import { checkAchievementIntegrity } from "./achievements.js";
+import { checkAchievementIntegrity, checkExperienceHighlightRefs } from "./achievements.js";
 import { profileSchema } from "./generated/schema.zod.js";
 import { checkLedgerIntegrity } from "./ledger.js";
 import { checkRegistryIntegrity } from "./registry.js";
@@ -200,6 +200,10 @@ export function load(workspace: string): LoadedProfile {
   const achievementIssues = checkAchievementIntegrity(profile);
   if (achievementIssues.length > 0) {
     throw new SchemaValidationError(achievementIssues);
+  }
+  const highlightRefIssues = checkExperienceHighlightRefs(profile);
+  if (highlightRefIssues.length > 0) {
+    throw new SchemaValidationError(highlightRefIssues);
   }
   return normalizeProfile(profile);
 }

@@ -123,9 +123,11 @@ export const ACHIEVEMENT_REF_BLOCKS = [
 ] as const;
 type RefBlock = (typeof ACHIEVEMENT_REF_BLOCKS)[number];
 
-/** `block:id` ids the profile actually declares, per block. */
-function declaredIds(profile: Profile): Map<RefBlock, Set<string>> {
-  const rows: Record<RefBlock, { id?: string }[] | undefined> = {
+/** The ref-addressable rows of a profile, per block. */
+function refRows(
+  profile: Profile,
+): Record<RefBlock, { id?: string; visibility?: string }[] | undefined> {
+  return {
     experience: profile.experience,
     projects: profile.projects,
     publications: profile.publications,
@@ -134,6 +136,11 @@ function declaredIds(profile: Profile): Map<RefBlock, Set<string>> {
     credentials: profile.credentials,
     artifacts: profile.artifacts,
   };
+}
+
+/** `block:id` ids the profile actually declares, per block. */
+function declaredIds(profile: Profile): Map<RefBlock, Set<string>> {
+  const rows = refRows(profile);
   const map = new Map<RefBlock, Set<string>>();
   for (const block of ACHIEVEMENT_REF_BLOCKS) {
     const ids = new Set<string>();
@@ -141,6 +148,15 @@ function declaredIds(profile: Profile): Map<RefBlock, Set<string>> {
     map.set(block, ids);
   }
   return map;
+}
+
+/** The entry a `block:id` pointer addresses, or undefined when it dangles. */
+function entryByRef(
+  profile: Profile,
+  block: RefBlock,
+  id: string,
+): { id?: string; visibility?: string } | undefined {
+  return refRows(profile)[block]?.find((row) => row.id === id);
 }
 
 function issue(path: string, message: string): RegistryIssue {
@@ -281,5 +297,51 @@ export function checkAchievementIntegrity(profile: Profile): RegistryIssue[] {
     }
   }
 
+  return issues;
+}
+
+/**
+ * Post-Zod contract checks for `experience[].highlightRefs` (D31, #529) — the
+ * `achievements[].refs` grammar applied to the highlights channel, resolved by
+ * the same block table:
+ *
+ * - a dangling `highlightRefs[]` entry fails `load` (same class as `artifactRefs`);
+ * - a PUBLIC experience row pointing at a private/unlisted entry is the §18.5
+ *   leak, the same rule `achievements[].refs` answers to.
+ *
+ * The audit's claim rules (`claim-against-unbuilt` / `claim-without-proof`) are
+ * CLI findings, not load failures — a highlight is a claim, not a broken pointer.
+ */
+export function checkExperienceHighlightRefs(profile: Profile): RegistryIssue[] {
+  const issues: RegistryIssue[] = [];
+  const ids = declaredIds(profile);
+  for (const [index, entry] of (profile.experience ?? []).entries()) {
+    for (const [refIndex, ref] of (entry.highlightRefs ?? []).entries()) {
+      const separator = ref.indexOf(":");
+      const block = ref.slice(0, separator) as RefBlock;
+      const id = ref.slice(separator + 1);
+      const path = `experience[${index}].highlightRefs[${refIndex}]`;
+      if (!ids.get(block)?.has(id)) {
+        issues.push(
+          issue(
+            path,
+            `references ${block}[].id "${id}" which does not exist (dangling cross-ref, load fails)`,
+          ),
+        );
+        continue;
+      }
+      if (isPublicEntry(entry)) {
+        const target = entryByRef(profile, block, id);
+        if (target !== undefined && !isPublicEntry(target)) {
+          issues.push(
+            issue(
+              path,
+              `a public experience row highlights ${block}[].id "${id}" with visibility "${target.visibility ?? "private"}" — public output renders only public entries (§18.5); if this workspace predates schema v2.0 run \`pasco migrate\` once, otherwise make it public or make the experience non-public`,
+            ),
+          );
+        }
+      }
+    }
+  }
   return issues;
 }

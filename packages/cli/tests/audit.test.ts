@@ -222,6 +222,140 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
     });
   });
 
+  describe("D30 highlight claim codes (#529, option A of #493)", () => {
+    const identity = "name: Someone\n";
+    const experienceWithRefs = (visibility: string) => `- id: exp-x
+  role: Consultant
+  org: Independent
+  start: 2024-01-01
+  highlights:
+    en: SaaS architecture for clinical management (see CLAPPS.AI).
+  highlightRefs: ["projects:proj-clapps"]
+  visibility: ${visibility}
+`;
+
+    it("claim-against-unbuilt + claim-without-proof: a public highlight pointing at a planning project with no sourced evidence", () => {
+      const ws = workspace({
+        "identity.yaml": identity,
+        "projects.yaml": `- id: proj-clapps
+  name: CLAPPS.AI
+  status: planning
+  description:
+    en: Clinical management platform.
+  visibility: public
+`,
+        "experience.yaml": experienceWithRefs("public"),
+      });
+      const { code, data } = audit(ws);
+      // WARN-only findings never fail the audit (the frozen exit contract).
+      expect(code).toBe(0);
+      const findings = (data as { findings: Finding[] }).findings;
+      const byCode = new Map(findings.map((f) => [f.code, f]));
+      const againstUnbuilt = byCode.get("claim-against-unbuilt");
+      const withoutProof = byCode.get("claim-without-proof");
+      expect(againstUnbuilt).toMatchObject({
+        class: "unsourced-claim",
+        severity: "WARN",
+        path: "experience[exp-x].highlights",
+      });
+      expect(againstUnbuilt?.detail).toContain('status "planning"');
+      expect(withoutProof).toMatchObject({
+        class: "unsourced-claim",
+        severity: "WARN",
+        path: "experience[exp-x].highlights",
+      });
+      expect(withoutProof?.detail).toContain("projects[proj-clapps]");
+    });
+
+    it("no claim findings when the target project is delivered and sourced", () => {
+      const ws = workspace({
+        "identity.yaml": identity,
+        "projects.yaml": `- id: proj-clapps
+  name: CLAPPS.AI
+  status: active
+  description:
+    en: Clinical management platform.
+  evidence:
+    - claim:
+        en: 10k clinics onboard.
+      source: https://example.com/metrics
+  visibility: public
+`,
+        "experience.yaml": experienceWithRefs("public"),
+      });
+      const { code, data } = audit(ws);
+      expect(code).toBe(0);
+      const findings = (data as { findings: Finding[] }).findings;
+      expect(findings.some((f) => f.code === "claim-against-unbuilt")).toBe(false);
+      expect(findings.some((f) => f.code === "claim-without-proof")).toBe(false);
+    });
+
+    it("a private experience row never emits findings (D27, same as achievements[])", () => {
+      const ws = workspace({
+        "identity.yaml": identity,
+        "projects.yaml": `- id: proj-clapps
+  name: CLAPPS.AI
+  status: planning
+  description:
+    en: Clinical management platform.
+  visibility: public
+`,
+        "experience.yaml": experienceWithRefs("private"),
+      });
+      const { code, data } = audit(ws);
+      expect(code).toBe(0);
+      const findings = (data as { findings: Finding[] }).findings;
+      expect(findings.some((f) => f.path.startsWith("experience["))).toBe(false);
+    });
+
+    it("an experience row without highlightRefs emits nothing (zero false positives)", () => {
+      const ws = workspace({
+        "identity.yaml": identity,
+        "projects.yaml": `- id: proj-clapps
+  name: CLAPPS.AI
+  status: planning
+  description:
+    en: Clinical management platform.
+  visibility: public
+`,
+        "experience.yaml": `- id: exp-x
+  role: Consultant
+  org: Independent
+  start: 2024-01-01
+  highlights:
+    en: SaaS architecture for clinical management (see CLAPPS.AI).
+  visibility: public
+`,
+      });
+      const { code, data } = audit(ws);
+      expect(code).toBe(0);
+      const findings = (data as { findings: Finding[] }).findings;
+      expect(findings.some((f) => f.code !== undefined)).toBe(false);
+    });
+
+    it("the human output names the code and the exact row so the author knows which bullet to fix", () => {
+      const ws = workspace({
+        "identity.yaml": identity,
+        "projects.yaml": `- id: proj-clapps
+  name: CLAPPS.AI
+  status: planning
+  description:
+    en: Clinical management platform.
+  visibility: public
+`,
+        "experience.yaml": experienceWithRefs("public"),
+      });
+      const { code, out } = human(() => runAudit({ workspace: ws, pascorc: PASCO }));
+      expect(code).toBe(0);
+      expect(out).toContain(
+        "WARN unsourced-claim · claim-against-unbuilt experience[exp-x].highlights",
+      );
+      expect(out).toContain(
+        "WARN unsourced-claim · claim-without-proof experience[exp-x].highlights",
+      );
+    });
+  });
+
   it("audits a workspace with no content/deployments.yaml and no profiles/", () => {
     // Every fixture above has neither: the SSOT-internal classes must still run.
     const { code, data } = audit(join(FIXTURES, "contradiction"));
