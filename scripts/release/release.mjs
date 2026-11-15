@@ -28,6 +28,12 @@
  *            needs this).
  *   verify — reads the registry, the Release and the live page: the tag
  *            published, with attestations, and the page says this version.
+ *            npm processes a publish ASYNCHRONOUSLY ("may take a few minutes")
+ *            and the Release and Pages jobs run after it, so a surface that is
+ *            not live YET is not a failure: it is retried with backoff up to
+ *            --deadline (default 10 min, #507). Exit codes: 0 VERIFIED,
+ *            2 PROCESSING (--no-wait: still pending, not failed), 1 NOT
+ *            VERIFIED — only after the deadline, naming what it never saw.
  *
  * Zero dependencies, node >=22. `cut --dry-run` and `pages --dry-run` make no
  * network call; `check` fetches origin unless `--offline`; `cut`, `pages` and
@@ -378,10 +384,64 @@ async function fetchText(url) {
   return response.text();
 }
 
+/** Post-publish verification polls with backoff (#507): a single probe is a
+ *  race, not a measurement — the registry, the Release page and the Pages
+ *  deploy all land AFTER the publish steps, at different times. A probe that
+ *  answers "not there YET" returns `pending` and is retried until the
+ *  deadline; only then does it FAIL, naming what it never saw. */
+export const VERIFY_DEADLINE_MS = 10 * 60_000;
+export const VERIFY_INTERVAL_MS = 5_000;
+const VERIFY_MAX_INTERVAL_MS = 30_000;
+
+const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Runs one probe until it settles or the deadline passes. A probe returns
+ *  `[true | false | "pending", detail]`; `pending` means "not live yet".
+ *  `deadlineMs: 0` is a single pass — a pending probe stays pending (the run
+ *  reports PROCESSING, it does not fail). */
+async function settle(label, probe, { deadlineMs, intervalMs, now, sleep, log }) {
+  const start = now();
+  let wait = intervalMs;
+  for (;;) {
+    const [state, detail] = await probe();
+    if (state !== "pending") return [state, detail];
+    if (deadlineMs === 0) return ["pending", detail];
+    const elapsed = now() - start;
+    if (elapsed >= deadlineMs) {
+      return [false, `${detail} — never live within ${deadlineMs} ms`];
+    }
+    log(`release: WAIT ${label} — ${detail} (${elapsed} ms elapsed, deadline ${deadlineMs} ms)`);
+    await sleep(Math.min(wait, deadlineMs - elapsed));
+    wait = Math.min(wait * 2, VERIFY_MAX_INTERVAL_MS);
+  }
+}
+
+async function defaultReleasePageExists(root, slug, tag) {
+  const gh = run("gh", ["release", "view", tag, "--repo", slug, "--json", "tagName"], {
+    root,
+    allowFail: true,
+  });
+  return gh.status === 0;
+}
+
 /** Reads the published surfaces. Every surface is ATTEMPTED: one unreachable
  *  URL is a FAIL row, never the end of the report (and a rejected fetch is
- *  caught, not a stack). */
-export async function verifyRelease({ root = ROOT, version = null } = {}) {
+ *  caught, not a stack). A surface that is merely not live YET is retried up
+ *  to `deadlineMs` (#507). `deps` injects the network/gh/clock surfaces so the
+ *  self-test runs offline. Exit: 0 VERIFIED, 2 PROCESSING, 1 NOT VERIFIED. */
+export async function verifyRelease({
+  root = ROOT,
+  version = null,
+  deadlineMs = VERIFY_DEADLINE_MS,
+  intervalMs = VERIFY_INTERVAL_MS,
+  deps = {},
+} = {}) {
+  const fetchJsonImpl = deps.fetchJson ?? fetchJson;
+  const fetchTextImpl = deps.fetchText ?? fetchText;
+  const releasePageExists = deps.releasePageExists ?? defaultReleasePageExists;
+  const now = deps.now ?? (() => Date.now());
+  const sleep = deps.sleep ?? defaultSleep;
+  const log = deps.log ?? ((line) => console.log(line));
   let cli;
   let core;
   try {
@@ -399,8 +459,14 @@ export async function verifyRelease({ root = ROOT, version = null } = {}) {
   const checks = [];
   const record = async (label, probe) => {
     try {
-      const [ok, detail] = await probe();
-      checks.push([label, ok, detail]);
+      const [state, detail] = await settle(label, probe, {
+        deadlineMs,
+        intervalMs,
+        now,
+        sleep,
+        log,
+      });
+      checks.push([label, state, detail]);
     } catch (error) {
       checks.push([label, false, `unreachable: ${error.message}`]);
     }
@@ -408,10 +474,10 @@ export async function verifyRelease({ root = ROOT, version = null } = {}) {
 
   let cliMeta = { status: 0, body: null };
   await record("npm @profile-as-code/cli", async () => {
-    cliMeta = await fetchJson(`https://registry.npmjs.org/@profile-as-code/cli/${target}`);
-    return cliMeta.status === 200
-      ? [true, `published, gitHead ${cliMeta.body.gitHead ?? "?"}`]
-      : [false, "not on the registry"];
+    cliMeta = await fetchJsonImpl(`https://registry.npmjs.org/@profile-as-code/cli/${target}`);
+    if (cliMeta.status === 200) return [true, `published, gitHead ${cliMeta.body.gitHead ?? "?"}`];
+    if (cliMeta.status === 404) return ["pending", "not on the registry yet"];
+    return [false, `registry answered HTTP ${cliMeta.status}`];
   });
   if (cliMeta.status === 200) {
     await record("cli gitHead is the tag", async () => [
@@ -426,10 +492,12 @@ export async function verifyRelease({ root = ROOT, version = null } = {}) {
 
   let coreMeta = { status: 0, body: null };
   await record("npm @profile-as-code/core", async () => {
-    coreMeta = await fetchJson(`https://registry.npmjs.org/@profile-as-code/core/${core.version}`);
-    return coreMeta.status === 200
-      ? [true, `published ${core.version}`]
-      : [false, "not on the registry"];
+    coreMeta = await fetchJsonImpl(
+      `https://registry.npmjs.org/@profile-as-code/core/${core.version}`,
+    );
+    if (coreMeta.status === 200) return [true, `published ${core.version}`];
+    if (coreMeta.status === 404) return ["pending", "not on the registry yet"];
+    return [false, `registry answered HTTP ${coreMeta.status}`];
   });
   if (coreMeta.status === 200) {
     await record("core attestations", async () => [
@@ -445,32 +513,63 @@ export async function verifyRelease({ root = ROOT, version = null } = {}) {
   });
   if (slug !== null) {
     await record("GitHub Release", async () => {
-      const gh = run("gh", ["release", "view", tag, "--repo", slug, "--json", "tagName"], {
-        root,
-        allowFail: true,
-      });
-      return [gh.status === 0, gh.status === 0 ? `${tag} page exists` : "no Release for the tag"];
+      const exists = await releasePageExists(root, slug, tag);
+      return exists ? [true, `${tag} page exists`] : ["pending", "no Release for the tag yet"];
     });
     const [owner, name] = slug.split("/");
     await record("live page softwareVersion", async () => {
-      const html = await fetchText(`https://${owner}.github.io/${name}/`);
+      const html = await fetchTextImpl(`https://${owner}.github.io/${name}/`);
       const live = html.match(/"softwareVersion"\s*:\s*"([^"]+)"/)?.[1] ?? null;
-      return [
-        live === target,
-        live === null ? "page does not expose softwareVersion" : `page says ${live}`,
-      ];
+      if (live === target) return [true, `page says ${live}`];
+      if (live === null) return [false, "page does not expose softwareVersion"];
+      return ["pending", `page says ${live} (Pages deploys last)`];
     });
   }
 
   let failed = 0;
-  for (const [label, ok, detail] of checks) {
-    if (!ok) failed += 1;
-    console.log(`release: ${ok ? "OK  " : "FAIL"} ${label} — ${detail}`);
+  let pending = 0;
+  for (const [label, state, detail] of checks) {
+    if (state === false) failed += 1;
+    else if (state === "pending") pending += 1;
+    const mark = state === true ? "OK  " : state === "pending" ? "WAIT" : "FAIL";
+    log(`release: ${mark} ${label} — ${detail}`);
   }
-  console.log(
-    failed === 0 ? `release: VERIFIED ${tag}` : `release: NOT VERIFIED — ${failed} check(s) failed`,
-  );
-  return failed === 0 ? 0 : 1;
+  if (failed > 0) {
+    log(`release: NOT VERIFIED ${tag} — ${failed} check(s) failed`);
+    return 1;
+  }
+  if (pending > 0) {
+    log(
+      `release: PROCESSING ${tag} — ${pending} surface(s) not live yet; ` +
+        "re-run, or pass a longer --deadline",
+    );
+    return 2;
+  }
+  log(`release: VERIFIED ${tag}`);
+  return 0;
+}
+
+async function cmdVerify(args) {
+  const options = parse(args, {
+    version: null,
+    deadlineMs: VERIFY_DEADLINE_MS,
+    intervalMs: VERIFY_INTERVAL_MS,
+    noWait: false,
+  });
+  const deadlineMs = options.noWait ? 0 : Number(options.deadlineMs);
+  const intervalMs = Number(options.intervalMs);
+  if (!Number.isFinite(deadlineMs) || deadlineMs < 0)
+    throw new Refused(
+      `--deadline must be a non-negative number of ms (got "${options.deadlineMs}")`,
+    );
+  if (!Number.isFinite(intervalMs) || intervalMs <= 0)
+    throw new Refused(`--interval must be a positive number of ms (got "${options.intervalMs}")`);
+  return await verifyRelease({
+    root: options.root,
+    version: options.version,
+    deadlineMs,
+    intervalMs,
+  });
 }
 
 /** Flags that carry no value (the rest consume the next token). */
@@ -525,7 +624,10 @@ function usage() {
       "  check   [--ref origin/main] [--root DIR] [--offline] preconditions (fetches origin)",
       "  cut     [--yes] [--dry-run] [--ref ..]              tag + push (human-run)",
       "  pages   --ref <commit-or-tag> [--release vX] [--dry-run]   re-deploy the site",
-      "  verify  [--version X.Y.Z]                            registry + Release + page",
+      "  verify  [--version X.Y.Z] [--deadline MS] [--interval MS] [--no-wait]",
+      "           registry + Release + page; a surface not live yet is retried until",
+      "           the deadline (default 600000 ms): exit 0 VERIFIED, 2 PROCESSING,",
+      "           1 NOT VERIFIED (only after the deadline, naming what it never saw)",
       "",
       "cut refuses without --yes: the tag push is the irreversible publish step.",
       "The workflow publishes; this script never does.",
@@ -544,7 +646,7 @@ async function main() {
       case "pages":
         return cmdPages(args);
       case "verify":
-        return await verifyRelease(parse(args, {}));
+        return await cmdVerify(args);
       case "--help":
       case "-h":
       case undefined:
