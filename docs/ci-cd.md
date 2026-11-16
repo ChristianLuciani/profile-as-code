@@ -858,10 +858,12 @@ inside ONE window shared by the whole run — `--deadline` (default 600000 ms) i
 global, never restarted per surface — and reports three states — exit `0`
 `VERIFIED`, exit `2` `PROCESSING` (`--no-wait`: still pending, not failed), and
 exit `1` `NOT VERIFIED`, only after the window closes, naming what it never saw.
-A network error or a `gh` failure mid-window is transient too: it retries inside the
-same window and FAILs only when the window closes unanswered. Hard FAILs are never
-retried: a registry answer that is not 404, a page without a valid `softwareVersion`,
-a page NEWER than the tag, or a Release the tool cannot read (auth). `--no-wait`
+A network error on a fetch probe mid-window is transient too: it retries inside the
+same window and FAILs only when the window closes unanswered. A `gh` failure reading
+the Release is NOT transient — it is a hard FAIL, because with `gh` down we cannot
+know whether the Release exists. Hard FAILs are never retried: a registry answer
+that is not 404, a page without a valid `softwareVersion`, a page NEWER than the tag,
+or a Release the tool cannot read (auth). `--no-wait`
 cannot be combined with `--deadline`/`--interval`. The
 script never publishes — the workflow does — and its self-test
 (`node scripts/release/test.mjs`, run in CI) provokes the `check` preconditions

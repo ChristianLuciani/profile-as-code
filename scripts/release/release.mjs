@@ -639,6 +639,10 @@ const BOOLEAN_FLAGS = new Set(["yes", "dryRun", "noPush", "offline"]);
  *  separator every runner inserts. */
 function parse(args, defaults) {
   const options = { ...defaults, root: ROOT };
+  // Unknown options are refused, never silently ignored: `--deadline-ms` is
+  // not `--deadline`, and a silently dropped flag is exactly how a release
+  // tool lies (the pass-1 MAJOR of #538 was born on this ground).
+  const known = new Set([...BOOLEAN_FLAGS, ...Object.keys(defaults), "root"]);
   const rest = [...args];
   while (rest.length > 0) {
     const token = rest.shift();
@@ -658,6 +662,7 @@ function parse(args, defaults) {
     if (!token.startsWith("--")) throw new Refused(`unexpected argument "${token}"`);
     const [key, inline] = token.slice(2).split("=", 2);
     const name = key.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+    if (!known.has(name)) throw new Refused(`unknown option "--${key}" (see --help)`);
     const isBoolean =
       BOOLEAN_FLAGS.has(name) || defaults[name] === true || defaults[name] === false;
     if (inline !== undefined) {

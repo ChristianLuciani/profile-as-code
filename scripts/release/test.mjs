@@ -849,6 +849,20 @@ await itAsync("verify: a network error that clears inside the window reports OK"
   }
 });
 
+it("an unknown option is refused, never silently ignored (--deadline-ms is not --deadline)", () => {
+  const root = fixture();
+  try {
+    const verify = release(root, ["verify", "--deadline-ms", "3000"]);
+    assert.equal(verify.status, 1);
+    assert.match(verify.stderr, /unknown option "--deadline-ms"/);
+    const check = release(root, ["check", "--bogus"]);
+    assert.equal(check.status, 1);
+    assert.match(check.stderr, /unknown option "--bogus"/);
+  } finally {
+    cleanup(root);
+  }
+});
+
 if (failures > 0) {
   console.error(`release self-test: ${failures} failure(s)`);
   process.exitCode = 1;
