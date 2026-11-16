@@ -407,12 +407,22 @@ const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function settle(label, probe, { startedAt, deadlineMs, intervalMs, now, sleep, log }) {
   let wait = intervalMs;
   for (;;) {
-    const [state, detail] = await probe();
+    let state;
+    let detail;
+    try {
+      [state, detail] = await probe();
+    } catch (error) {
+      // A rejected fetch mid-window (timeout/5xx) is as transient as a 404:
+      // the window exists to wait for the surfaces, so network errors retry
+      // too and only FAIL when the window closes without an answer (#507).
+      [state, detail] = ["pending", `unreachable: ${error.message}`];
+    }
     if (state !== "pending") return [state, detail];
     if (deadlineMs === 0) return ["pending", detail];
     const elapsed = now() - startedAt;
     if (elapsed >= deadlineMs) {
-      return [false, `${detail} — never live within the ${deadlineMs} ms window`];
+      const what = detail.startsWith("unreachable") ? "never answered" : "never live";
+      return [false, `${detail} — ${what} within the ${deadlineMs} ms window`];
     }
     log(`release: WAIT ${label} — ${detail} (${elapsed} of ${deadlineMs} ms window elapsed)`);
     await sleep(Math.min(wait, deadlineMs - elapsed));
@@ -420,12 +430,30 @@ async function settle(label, probe, { startedAt, deadlineMs, intervalMs, now, sl
   }
 }
 
+/** Tri-state: `{exists: true}` · `{exists: false}` (the Release genuinely does
+ *  not exist YET — retry) · `{exists: false, error}` (gh itself failed: auth,
+ *  network — NOT "not created yet"; the probe turns this into a hard FAIL, it
+ *  must not burn the whole window waiting for a Release we cannot read). */
 async function defaultReleasePageExists(root, slug, tag) {
   const gh = run("gh", ["release", "view", tag, "--repo", slug, "--json", "tagName"], {
     root,
     allowFail: true,
   });
-  return gh.status === 0;
+  if (gh.status === 0) return { exists: true };
+  const out = `${gh.stdout}\n${gh.stderr}`;
+  if (/not found|no releases|does not exist/i.test(out)) return { exists: false };
+  const error = (gh.stderr || gh.stdout || `gh exited ${gh.status}`).trim().split("\n")[0];
+  return { exists: false, error };
+}
+
+/** a vs b: negative / 0 / positive (MAJOR.MINOR.PATCH). */
+function compareSemver(a, b) {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < 3; i += 1) {
+    if (pa[i] !== pb[i]) return (pa[i] ?? 0) - (pb[i] ?? 0);
+  }
+  return 0;
 }
 
 /** Reads the published surfaces. Every surface is ATTEMPTED: one unreachable
@@ -521,8 +549,11 @@ export async function verifyRelease({
   });
   if (slug !== null) {
     await record("GitHub Release", async () => {
-      const exists = await releasePageExists(root, slug, tag);
-      return exists ? [true, `${tag} page exists`] : ["pending", "no Release for the tag yet"];
+      const result = await releasePageExists(root, slug, tag);
+      if (result.error !== undefined) return [false, `cannot read the Release: ${result.error}`];
+      return result.exists
+        ? [true, `${tag} page exists`]
+        : ["pending", "no Release for the tag yet"];
     });
     const [owner, name] = slug.split("/");
     await record("live page softwareVersion", async () => {
@@ -530,6 +561,15 @@ export async function verifyRelease({
       const live = html.match(/"softwareVersion"\s*:\s*"([^"]+)"/)?.[1] ?? null;
       if (live === target) return [true, `page says ${live}`];
       if (live === null) return [false, "page does not expose softwareVersion"];
+      if (!semver(live))
+        return [false, `page exposes softwareVersion "${live}", which is not MAJOR.MINOR.PATCH`];
+      // A page NEWER than the tag is not "deploying this release": it is a
+      // hard FAIL, never retried as pending.
+      if (compareSemver(live, target) > 0)
+        return [
+          false,
+          `page says ${live} — NEWER than the tag ${tag}; the live page is not this release`,
+        ];
       return ["pending", `page says ${live} (Pages deploys last)`];
     });
   }
@@ -557,13 +597,26 @@ export async function verifyRelease({
   return 0;
 }
 
-async function cmdVerify(args) {
+export async function cmdVerify(args, deps = {}) {
   const options = parse(args, {
     version: null,
     deadline: VERIFY_DEADLINE_MS,
     interval: VERIFY_INTERVAL_MS,
     noWait: false,
   });
+  // `--no-wait` must not silently override an explicit window: refuse the mix.
+  if (
+    options.noWait &&
+    args.some(
+      (a) =>
+        a === "--deadline" ||
+        a.startsWith("--deadline=") ||
+        a === "--interval" ||
+        a.startsWith("--interval="),
+    )
+  ) {
+    throw new Refused("--no-wait cannot be combined with --deadline/--interval — pick one");
+  }
   const deadlineMs = options.noWait ? 0 : Number(options.deadline);
   const intervalMs = Number(options.interval);
   if (!Number.isFinite(deadlineMs) || deadlineMs < 0)
@@ -575,6 +628,7 @@ async function cmdVerify(args) {
     version: options.version,
     deadlineMs,
     intervalMs,
+    deps,
   });
 }
 
@@ -634,6 +688,7 @@ function usage() {
       "           registry + Release + page; pending surfaces share ONE --deadline",
       "           window (default 600000 ms, global to the run): exit 0 VERIFIED,",
       "           2 PROCESSING, 1 NOT VERIFIED (only after the window closes)",
+      "           --no-wait is a single pass and cannot be combined with --deadline/--interval",
       "",
       "cut refuses without --yes: the tag push is the irreversible publish step.",
       "The workflow publishes; this script never does.",

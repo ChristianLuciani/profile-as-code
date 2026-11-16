@@ -35,7 +35,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { changelogSection, sectionIsSubstantive, verifyRelease } from "./release.mjs";
+import { changelogSection, cmdVerify, sectionIsSubstantive, verifyRelease } from "./release.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.join(HERE, "release.mjs");
@@ -529,7 +529,7 @@ function stubbedVerifyDeps(overrides = {}) {
     lines,
     deps: {
       fetchText: async () => JSON.stringify({ softwareVersion: "0.4.0" }),
-      releasePageExists: async () => true,
+      releasePageExists: async () => ({ exists: true }),
       now: () => (t += 1000),
       sleep: async () => {},
       log: (line) => lines.push(line),
@@ -702,6 +702,148 @@ it("the CLI refuses a --interval that is not a positive number of ms", () => {
     const result = release(root, ["verify", "--interval", "0"]);
     assert.equal(result.status, 1);
     assert.match(result.stderr, /--interval must be a positive number of ms/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+await itAsync(
+  "verify: --deadline reaches verifyRelease through the CLI path (parse → cmdVerify), not the default",
+  async () => {
+    const root = taggedFixture();
+    try {
+      const { deps, lines } = stubbedVerifyDeps({
+        fetchJson: async () => ({ status: 404, body: null }),
+      });
+      const code = await cmdVerify(
+        ["--root", root, "--deadline", "3000", "--interval", "500"],
+        deps,
+      );
+      assert.equal(code, 1);
+      assert.ok(
+        lines.some((l) => /3000 ms window/.test(l)),
+        lines.join("\n"),
+      );
+      assert.ok(!lines.some((l) => /600000 ms window/.test(l)), lines.join("\n"));
+    } finally {
+      cleanup(root);
+    }
+  },
+);
+
+it("verify refuses --no-wait combined with --deadline/--interval (no silent override)", () => {
+  const root = fixture();
+  try {
+    for (const extra of [
+      ["--no-wait", "--deadline", "100"],
+      ["--no-wait", "--interval=100"],
+    ]) {
+      const result = release(root, ["verify", ...extra]);
+      assert.equal(result.status, 1, JSON.stringify(extra));
+      assert.match(result.stderr, /--no-wait cannot be combined/);
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
+await itAsync(
+  "verify: a live page NEWER than the tag is a hard FAIL, never retried as pending",
+  async () => {
+    const root = taggedFixture();
+    try {
+      const head = git(root, ["rev-parse", "v0.4.0^{commit}"]);
+      const { deps, lines } = stubbedVerifyDeps({
+        fetchJson: async () => ({
+          status: 200,
+          body: { gitHead: head, dist: { attestations: { present: true } } },
+        }),
+        fetchText: async () => JSON.stringify({ softwareVersion: "9.9.9" }),
+      });
+      const code = await verifyRelease({ root, deadlineMs: 60_000, intervalMs: 1_000, deps });
+      assert.equal(code, 1);
+      assert.ok(
+        lines.some((l) =>
+          /FAIL live page softwareVersion — page says 9\.9\.9 — NEWER than the tag/.test(l),
+        ),
+        lines.join("\n"),
+      );
+      assert.ok(!lines.some((l) => /WAIT live page/.test(l)), lines.join("\n"));
+    } finally {
+      cleanup(root);
+    }
+  },
+);
+
+await itAsync(
+  "verify: a gh FAILURE reading the Release (auth/network) is a hard FAIL, not 'not created yet'",
+  async () => {
+    const root = taggedFixture();
+    try {
+      const head = git(root, ["rev-parse", "v0.4.0^{commit}"]);
+      const { deps, lines } = stubbedVerifyDeps({
+        fetchJson: async () => ({
+          status: 200,
+          body: { gitHead: head, dist: { attestations: { present: true } } },
+        }),
+        releasePageExists: async () => ({ exists: false, error: "gh: auth expired" }),
+      });
+      const code = await verifyRelease({ root, deadlineMs: 60_000, intervalMs: 1_000, deps });
+      assert.equal(code, 1);
+      assert.ok(
+        lines.some((l) =>
+          /FAIL GitHub Release — cannot read the Release: gh: auth expired/.test(l),
+        ),
+        lines.join("\n"),
+      );
+      assert.ok(!lines.some((l) => /WAIT GitHub Release/.test(l)), lines.join("\n"));
+    } finally {
+      cleanup(root);
+    }
+  },
+);
+
+await itAsync(
+  "verify: a network error mid-window retries and only FAILs when the window closes unanswered",
+  async () => {
+    const root = taggedFixture();
+    try {
+      const { deps, lines } = stubbedVerifyDeps({
+        fetchJson: async () => {
+          throw new Error("fetch failed: timeout");
+        },
+      });
+      const code = await verifyRelease({ root, deadlineMs: 3_000, intervalMs: 500, deps });
+      assert.equal(code, 1);
+      assert.ok(
+        lines.some((l) => /never answered within the 3000 ms window/.test(l)),
+        lines.join("\n"),
+      );
+    } finally {
+      cleanup(root);
+    }
+  },
+);
+
+await itAsync("verify: a network error that clears inside the window reports OK", async () => {
+  const root = taggedFixture();
+  try {
+    const head = git(root, ["rev-parse", "v0.4.0^{commit}"]);
+    let calls = 0;
+    const { deps, lines } = stubbedVerifyDeps({
+      fetchJson: async () => {
+        calls += 1;
+        if (calls === 1) throw new Error("fetch failed: connection reset");
+        return { status: 200, body: { gitHead: head, dist: { attestations: { present: true } } } };
+      },
+    });
+    const code = await verifyRelease({ root, deadlineMs: 60_000, intervalMs: 1_000, deps });
+    assert.equal(code, 0);
+    assert.ok(calls >= 2, `expected a retry after the network error, got ${calls}`);
+    assert.ok(
+      lines.some((l) => /release: VERIFIED v0\.4\.0/.test(l)),
+      lines.join("\n"),
+    );
   } finally {
     cleanup(root);
   }
