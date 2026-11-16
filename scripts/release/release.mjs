@@ -617,6 +617,13 @@ export async function cmdVerify(args, deps = {}) {
   ) {
     throw new Refused("--no-wait cannot be combined with --deadline/--interval — pick one");
   }
+  // An EMPTY value (`--deadline=`) must not become Number("") === 0: that
+  // would silently turn the run into a single pass (PROCESSING) while the
+  // refusal below claims it validates a non-negative number.
+  if (!options.noWait && String(options.deadline).trim() === "")
+    throw new Refused('--deadline needs a value (got "")');
+  if (String(options.interval).trim() === "")
+    throw new Refused('--interval needs a value (got "")');
   const deadlineMs = options.noWait ? 0 : Number(options.deadline);
   const intervalMs = Number(options.interval);
   if (!Number.isFinite(deadlineMs) || deadlineMs < 0)

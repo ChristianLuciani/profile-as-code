@@ -849,6 +849,19 @@ await itAsync("verify: a network error that clears inside the window reports OK"
   }
 });
 
+it('verify refuses an EMPTY --deadline=/--interval= (Number("") === 0 would be a silent single pass)', () => {
+  const root = fixture();
+  try {
+    for (const flag of ["--deadline=", "--interval="]) {
+      const result = release(root, ["verify", flag]);
+      assert.equal(result.status, 1, flag);
+      assert.match(result.stderr, /needs a value \(got ""\)/);
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
 it("an unknown option is refused, never silently ignored (--deadline-ms is not --deadline)", () => {
   const root = fixture();
   try {
