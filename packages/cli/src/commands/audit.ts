@@ -10,7 +10,10 @@
  * check that raised it):
  *   dangling-ref    a pointer that does not resolve in the current view   FAIL
  *   contradiction   two surfaces assert incompatible values for one datum  FAIL
- *   unsourced-claim a quantitative claim with no evidence                 WARN
+ *   unsourced-claim a claim with no evidence behind it                    WARN
+ *                   codes: the quantitative-claim rule, plus D31's
+ *                   `claim-against-unbuilt` / `claim-without-proof` over
+ *                   `experience[].highlightRefs` (#529)
  * Exit 1 iff a FAIL finding exists; 0 otherwise (WARN-only included); a schema or
  * load failure is the standard error envelope at exit 1 (D12: schema fails).
  *
@@ -76,12 +79,18 @@ export const AUDIT_SCOPE_KEYS = [
 
 export type AuditClass = FactFindingClass;
 
+/** The rule codes carried inside the `unsourced-claim` class (D31, #529). The
+ *  code is the machine-readable rule id; the CLASS keeps the frozen severity. */
+export type AuditClaimCode = "claim-against-unbuilt" | "claim-without-proof";
+
 export interface AuditFinding {
   class: AuditClass;
   severity: "FAIL" | "WARN";
   /** factRef (or the artifact path for a surface finding). */
   path: string;
   detail: string;
+  /** Rule code when the class carries one (D31); absent for the bare classes. */
+  code?: AuditClaimCode;
 }
 
 /**
@@ -122,10 +131,20 @@ export type AuditView = "all" | "public";
 /** Severity is a property of the CLASS, fixed by the contract — never inherited
  *  from the severity the composing check happens to use (drift warns, the audit
  *  grades; see the header). */
-export const AUDIT_SEVERITY: Record<AuditClass, "FAIL" | "WARN"> = {
+export const AUDIT_SEVERITY: Record<AuditClass | AuditClaimCode, "FAIL" | "WARN"> = {
   "dangling-ref": "FAIL",
   contradiction: "FAIL",
   "unsourced-claim": "WARN",
+  "claim-against-unbuilt": "WARN",
+  "claim-without-proof": "WARN",
+};
+
+/** Code → class (D31, #529): both highlight codes map to `unsourced-claim`
+ *  (WARN), NEVER to `contradiction` — a highlight without proof is an absence
+ *  of proof, not two surfaces disagreeing about one datum. */
+export const AUDIT_CODE_CLASS: Record<AuditClaimCode, AuditClass> = {
+  "claim-against-unbuilt": "unsourced-claim",
+  "claim-without-proof": "unsourced-claim",
 };
 
 /**
@@ -243,8 +262,19 @@ function toWorkspaceAddress(
   return `${block}[${at}]${path.slice(match[0].length)}`;
 }
 
-export function finding(cls: AuditClass, path: string, detail: string): AuditFinding {
-  return { class: cls, severity: AUDIT_SEVERITY[cls], path, detail };
+export function finding(
+  cls: AuditClass,
+  path: string,
+  detail: string,
+  code?: AuditClaimCode,
+): AuditFinding {
+  return {
+    class: cls,
+    severity: AUDIT_SEVERITY[cls],
+    path,
+    detail,
+    ...(code === undefined ? {} : { code }),
+  };
 }
 
 /** Every SSOT-side finding: drift, project evidence, faq claims.
@@ -317,6 +347,55 @@ function ssotFindings(
         `the ${achievement.basis} claim carries no pointer (\`source\`, \`artifactId\` or \`credentialId\`) — a claim with no evidence behind it`,
       ),
     );
+  }
+
+  // D31 (#529): a PUBLIC experience row whose bullets declare `highlightRefs`
+  // pointers is graded against the target — the channel #493 showed can publish
+  // a claim with no declared posture. v1 scope (SPEC §7.1): only `projects:`
+  // refs are graded, because `projects` is the only block that carries
+  // `evidence[]`. A private row never emits findings (D27, same as the
+  // achievements[] rule above); a dangling ref already failed `load`, so it
+  // cannot appear here. The address is row + field (`experience[<id>].highlights`)
+  // because `highlightRefs` is one flat list per row, not per bullet.
+  const deliveredProjectStatuses = new Set(["active", "maintained", "archived"]);
+  for (const [index, entry] of (profile.experience ?? []).entries()) {
+    if (!isPublicEntry(entry)) continue;
+    for (const ref of entry.highlightRefs ?? []) {
+      if (!ref.startsWith("projects:")) continue;
+      const id = ref.slice("projects:".length);
+      const project = (profile.projects ?? []).find((p) => p.id === id);
+      if (project === undefined) continue;
+      const row = entry.id ?? String(index);
+      const path = `experience[${row}].highlights`;
+      // `status` is optional in the contract: an ABSENT status asserts nothing,
+      // so only an explicit non-delivery status (e.g. `planning`) is a finding —
+      // the conservative direction, same doctrine as isQuantitativeClaim.
+      // The class comes from AUDIT_CODE_CLASS (the single source: both codes
+      // map to `unsourced-claim`, never `contradiction`) — not from a literal
+      // at the call site. The detail names the ref in `block:id` form (SPEC
+      // §7.1), the same spelling the `highlightRefs[]` field carries.
+      if (project.status !== undefined && !deliveredProjectStatuses.has(project.status)) {
+        findings.push(
+          finding(
+            AUDIT_CODE_CLASS["claim-against-unbuilt"],
+            path,
+            `a highlight points at ${ref} whose status "${project.status}" is not a declared delivery state (active, maintained, archived) — the record does not mark the cited unit as delivered`,
+            "claim-against-unbuilt",
+          ),
+        );
+      }
+      const sourced = (project.evidence ?? []).some((evidence) => evidence.source.trim() !== "");
+      if (!sourced) {
+        findings.push(
+          finding(
+            AUDIT_CODE_CLASS["claim-without-proof"],
+            path,
+            `a highlight points at ${ref} with no evidence row that carries a \`source\` — a claim without proof`,
+            "claim-without-proof",
+          ),
+        );
+      }
+    }
   }
 
   // `geo/faq-coverage` owns the premise (≥3 rows, duplicate `q`, a row without
@@ -507,7 +586,9 @@ export function runAudit(args: AuditArgs): number {
     line("  no findings");
   } else {
     for (const item of findings) {
-      line(`  ${item.severity} ${item.class} ${item.path}`);
+      line(
+        `  ${item.severity} ${item.class}${item.code === undefined ? "" : ` · ${item.code}`} ${item.path}`,
+      );
       line(`    ${item.detail}`);
     }
   }

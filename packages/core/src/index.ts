@@ -21,6 +21,7 @@ export {
   achievementScope,
   achievementStatus,
   checkAchievementIntegrity,
+  checkExperienceHighlightRefs,
   DEFAULT_ACHIEVEMENT_DIRECTION,
 } from "./achievements.js";
 /** The ONE home of every text-order comparison (D19 byte-parity, #305) —

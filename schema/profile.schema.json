@@ -405,7 +405,16 @@
         "end": { "anyOf": [{ "$ref": "#/$defs/date" }, { "const": "present" }] },
         "highlights": {
           "anyOf": [{ "$ref": "#/$defs/langMap" }, { "$ref": "#/$defs/langMapList" }],
-          "description": "v1: langMap of strings (separator-delimited). v1.1 (additive): langMap of string arrays (bullets)."
+          "description": "v1: langMap of strings (separator-delimited). v1.1 (additive): langMap of string arrays (bullets). The values stay strings — the pointer to what backs a bullet lives in `highlightRefs` (D31, #529), not in the text."
+        },
+        "highlightRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(experience|projects|publications|education|press|credentials|artifacts):[a-z0-9][a-z0-9._:-]*$"
+          },
+          "uniqueItems": true,
+          "description": "Additive (D31, #529): the `block:id` units that back this role's `highlights` bullets, one list per row (not per bullet or per lang). Exactly the `achievements[].refs` grammar — same pattern, same resolution: core resolves them and a dangling ref fails `load` (same class as `artifactRefs`). `pasco audit` grades them (`claim-against-unbuilt` / `claim-without-proof`, SPEC §7.1). A document without this field validates unchanged."
         },
         "visibility": {
           "$ref": "#/$defs/visibility",
