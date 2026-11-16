@@ -222,7 +222,7 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
     });
   });
 
-  describe("D30 highlight claim codes (#529, option A of #493)", () => {
+  describe("D31 highlight claim codes (#529, option A of #493)", () => {
     const identity = "name: Someone\n";
     const experienceWithRefs = (visibility: string, projectId = "proj-clapps") => `- id: exp-x
   role: Consultant
