@@ -854,9 +854,10 @@ override; `pnpm release:verify` reads the registry, the Release and the live pag
 `softwareVersion` back, reporting every surface it attempted. npm processes a
 publish asynchronously and the Release and Pages jobs run after it, so a surface
 that is not live **yet** is not a failure (#507): `verify` retries it with backoff
-up to `--deadline` (default 600000 ms) and reports three states — exit `0`
+inside ONE window shared by the whole run — `--deadline` (default 600000 ms) is
+global, never restarted per surface — and reports three states — exit `0`
 `VERIFIED`, exit `2` `PROCESSING` (`--no-wait`: still pending, not failed), and
-exit `1` `NOT VERIFIED`, only after the deadline, naming what it never saw. The
+exit `1` `NOT VERIFIED`, only after the window closes, naming what it never saw. The
 script never publishes — the workflow does — and its self-test
 (`node scripts/release/test.mjs`, run in CI) provokes the `check` preconditions
 (local and remote, including a tag that exists only on origin), the `cut`/`pages`

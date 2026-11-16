@@ -30,10 +30,12 @@
  *            published, with attestations, and the page says this version.
  *            npm processes a publish ASYNCHRONOUSLY ("may take a few minutes")
  *            and the Release and Pages jobs run after it, so a surface that is
- *            not live YET is not a failure: it is retried with backoff up to
- *            --deadline (default 10 min, #507). Exit codes: 0 VERIFIED,
- *            2 PROCESSING (--no-wait: still pending, not failed), 1 NOT
- *            VERIFIED — only after the deadline, naming what it never saw.
+ *            not live YET is not a failure: every pending surface shares ONE
+ *            retry window of --deadline (default 10 min, #507) — the deadline
+ *            is global to the run, never restarted per probe. Exit codes:
+ *            0 VERIFIED, 2 PROCESSING (--no-wait: still pending, not failed),
+ *            1 NOT VERIFIED — only after the window closes, naming what it
+ *            never saw.
  *
  * Zero dependencies, node >=22. `cut --dry-run` and `pages --dry-run` make no
  * network call; `check` fetches origin unless `--offline`; `cut`, `pages` and
@@ -387,30 +389,32 @@ async function fetchText(url) {
 /** Post-publish verification polls with backoff (#507): a single probe is a
  *  race, not a measurement — the registry, the Release page and the Pages
  *  deploy all land AFTER the publish steps, at different times. A probe that
- *  answers "not there YET" returns `pending` and is retried until the
- *  deadline; only then does it FAIL, naming what it never saw. */
+ *  answers "not there YET" returns `pending` and is retried inside ONE window
+ *  shared by the whole run (`startedAt` is the run's clock, never restarted
+ *  per probe — otherwise four pending surfaces could wait 4× the deadline);
+ *  only when the window closes does a pending probe FAIL, naming what it
+ *  never saw. */
 export const VERIFY_DEADLINE_MS = 10 * 60_000;
 export const VERIFY_INTERVAL_MS = 5_000;
 const VERIFY_MAX_INTERVAL_MS = 30_000;
 
 const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Runs one probe until it settles or the deadline passes. A probe returns
- *  `[true | false | "pending", detail]`; `pending` means "not live yet".
- *  `deadlineMs: 0` is a single pass — a pending probe stays pending (the run
- *  reports PROCESSING, it does not fail). */
-async function settle(label, probe, { deadlineMs, intervalMs, now, sleep, log }) {
-  const start = now();
+/** Runs one probe until it settles or the shared window closes. A probe
+ *  returns `[true | false | "pending", detail]`; `pending` means "not live
+ *  yet". `deadlineMs: 0` is a single pass — a pending probe stays pending (the
+ *  run reports PROCESSING, it does not fail). */
+async function settle(label, probe, { startedAt, deadlineMs, intervalMs, now, sleep, log }) {
   let wait = intervalMs;
   for (;;) {
     const [state, detail] = await probe();
     if (state !== "pending") return [state, detail];
     if (deadlineMs === 0) return ["pending", detail];
-    const elapsed = now() - start;
+    const elapsed = now() - startedAt;
     if (elapsed >= deadlineMs) {
-      return [false, `${detail} — never live within ${deadlineMs} ms`];
+      return [false, `${detail} — never live within the ${deadlineMs} ms window`];
     }
-    log(`release: WAIT ${label} — ${detail} (${elapsed} ms elapsed, deadline ${deadlineMs} ms)`);
+    log(`release: WAIT ${label} — ${detail} (${elapsed} of ${deadlineMs} ms window elapsed)`);
     await sleep(Math.min(wait, deadlineMs - elapsed));
     wait = Math.min(wait * 2, VERIFY_MAX_INTERVAL_MS);
   }
@@ -457,9 +461,13 @@ export async function verifyRelease({
   if (tagCommit.status !== 0) throw new Refused(`tag ${tag} does not resolve locally`);
 
   const checks = [];
+  // ONE window for the whole run: the clock starts before the first probe, so
+  // a probe that begins late finds the window already (partly) consumed.
+  const startedAt = now();
   const record = async (label, probe) => {
     try {
       const [state, detail] = await settle(label, probe, {
+        startedAt,
         deadlineMs,
         intervalMs,
         now,
@@ -625,9 +633,9 @@ function usage() {
       "  cut     [--yes] [--dry-run] [--ref ..]              tag + push (human-run)",
       "  pages   --ref <commit-or-tag> [--release vX] [--dry-run]   re-deploy the site",
       "  verify  [--version X.Y.Z] [--deadline MS] [--interval MS] [--no-wait]",
-      "           registry + Release + page; a surface not live yet is retried until",
-      "           the deadline (default 600000 ms): exit 0 VERIFIED, 2 PROCESSING,",
-      "           1 NOT VERIFIED (only after the deadline, naming what it never saw)",
+      "           registry + Release + page; pending surfaces share ONE --deadline",
+      "           window (default 600000 ms, global to the run): exit 0 VERIFIED,",
+      "           2 PROCESSING, 1 NOT VERIFIED (only after the window closes)",
       "",
       "cut refuses without --yes: the tag push is the irreversible publish step.",
       "The workflow publishes; this script never does.",

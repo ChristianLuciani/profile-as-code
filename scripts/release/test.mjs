@@ -582,7 +582,7 @@ await itAsync(
       assert.equal(code, 1);
       assert.ok(
         lines.some((l) =>
-          /release: FAIL npm @profile-as-code\/cli — not on the registry yet — never live within 3000 ms/.test(
+          /release: FAIL npm @profile-as-code\/cli — not on the registry yet — never live within the 3000 ms window/.test(
             l,
           ),
         ),
@@ -590,6 +590,44 @@ await itAsync(
       );
       assert.ok(
         lines.some((l) => /release: NOT VERIFIED v0\.4\.0/.test(l)),
+        lines.join("\n"),
+      );
+    } finally {
+      cleanup(root);
+    }
+  },
+);
+
+await itAsync(
+  "verify: the deadline is ONE window shared by every probe, never restarted per probe",
+  async () => {
+    const root = taggedFixture();
+    try {
+      let cliCalls = 0;
+      let coreCalls = 0;
+      const { deps, lines } = stubbedVerifyDeps({
+        fetchJson: async (url) => {
+          if (url.endsWith("/cli/0.4.0")) {
+            cliCalls += 1;
+            return { status: 404, body: null };
+          }
+          coreCalls += 1;
+          return { status: 404, body: null };
+        },
+      });
+      const code = await verifyRelease({ root, deadlineMs: 3_000, intervalMs: 500, deps });
+      assert.equal(code, 1);
+      assert.ok(
+        cliCalls >= 2,
+        `the first pending probe retries inside the window, got ${cliCalls}`,
+      );
+      // The window is global: by the time the SECOND pending probe runs, the
+      // clock has passed the deadline, so it fails on its FIRST pass instead of
+      // opening a fresh 3000 ms window of its own.
+      assert.equal(coreCalls, 1, "a later pending probe must not restart the deadline");
+      assert.equal(
+        lines.filter((l) => /never live within the 3000 ms window/.test(l)).length,
+        2,
         lines.join("\n"),
       );
     } finally {
