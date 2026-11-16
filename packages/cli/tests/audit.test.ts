@@ -25,6 +25,7 @@ import { fileURLToPath } from "node:url";
 import { load } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
 import {
+  AUDIT_CODE_CLASS,
   AUDIT_SCHEMA_VERSION,
   AUDIT_SCOPE_KEYS,
   factRef,
@@ -223,6 +224,14 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
   });
 
   describe("D31 highlight claim codes (#529, option A of #493)", () => {
+    it("AUDIT_CODE_CLASS is the single source: both codes map to unsourced-claim, never contradiction", () => {
+      // The D31 loop reads the class from this map (no literal at the call
+      // site), so the "never contradiction" rule lives in exactly one place.
+      expect(AUDIT_CODE_CLASS["claim-against-unbuilt"]).toBe("unsourced-claim");
+      expect(AUDIT_CODE_CLASS["claim-without-proof"]).toBe("unsourced-claim");
+      expect(Object.values(AUDIT_CODE_CLASS).some((cls) => cls === "contradiction")).toBe(false);
+    });
+
     const identity = "name: Someone\n";
     const experienceWithRefs = (visibility: string, projectId = "proj-clapps") => `- id: exp-x
   role: Consultant
@@ -264,7 +273,7 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
         severity: "WARN",
         path: "experience[exp-x].highlights",
       });
-      expect(withoutProof?.detail).toContain("projects[proj-clapps]");
+      expect(withoutProof?.detail).toContain("projects:proj-clapps");
     });
 
     it("no claim findings when the target project is delivered and sourced", () => {

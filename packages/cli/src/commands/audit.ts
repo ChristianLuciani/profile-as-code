@@ -370,12 +370,16 @@ function ssotFindings(
       // `status` is optional in the contract: an ABSENT status asserts nothing,
       // so only an explicit non-delivery status (e.g. `planning`) is a finding —
       // the conservative direction, same doctrine as isQuantitativeClaim.
+      // The class comes from AUDIT_CODE_CLASS (the single source: both codes
+      // map to `unsourced-claim`, never `contradiction`) — not from a literal
+      // at the call site. The detail names the ref in `block:id` form (SPEC
+      // §7.1), the same spelling the `highlightRefs[]` field carries.
       if (project.status !== undefined && !deliveredProjectStatuses.has(project.status)) {
         findings.push(
           finding(
-            "unsourced-claim",
+            AUDIT_CODE_CLASS["claim-against-unbuilt"],
             path,
-            `a highlight points at projects[${id}] whose status "${project.status}" is not a declared delivery state (active, maintained, archived) — the record does not mark the cited unit as delivered`,
+            `a highlight points at ${ref} whose status "${project.status}" is not a declared delivery state (active, maintained, archived) — the record does not mark the cited unit as delivered`,
             "claim-against-unbuilt",
           ),
         );
@@ -384,9 +388,9 @@ function ssotFindings(
       if (!sourced) {
         findings.push(
           finding(
-            "unsourced-claim",
+            AUDIT_CODE_CLASS["claim-without-proof"],
             path,
-            `a highlight points at projects[${id}] with no evidence row that carries a \`source\` — a claim without proof`,
+            `a highlight points at ${ref} with no evidence row that carries a \`source\` — a claim without proof`,
             "claim-without-proof",
           ),
         );
