@@ -560,18 +560,16 @@ export async function verifyRelease({
 async function cmdVerify(args) {
   const options = parse(args, {
     version: null,
-    deadlineMs: VERIFY_DEADLINE_MS,
-    intervalMs: VERIFY_INTERVAL_MS,
+    deadline: VERIFY_DEADLINE_MS,
+    interval: VERIFY_INTERVAL_MS,
     noWait: false,
   });
-  const deadlineMs = options.noWait ? 0 : Number(options.deadlineMs);
-  const intervalMs = Number(options.intervalMs);
+  const deadlineMs = options.noWait ? 0 : Number(options.deadline);
+  const intervalMs = Number(options.interval);
   if (!Number.isFinite(deadlineMs) || deadlineMs < 0)
-    throw new Refused(
-      `--deadline must be a non-negative number of ms (got "${options.deadlineMs}")`,
-    );
+    throw new Refused(`--deadline must be a non-negative number of ms (got "${options.deadline}")`);
   if (!Number.isFinite(intervalMs) || intervalMs <= 0)
-    throw new Refused(`--interval must be a positive number of ms (got "${options.intervalMs}")`);
+    throw new Refused(`--interval must be a positive number of ms (got "${options.interval}")`);
   return await verifyRelease({
     root: options.root,
     version: options.version,

@@ -685,6 +685,28 @@ await itAsync(
   },
 );
 
+it("the CLI refuses a --deadline that is not a non-negative number of ms", () => {
+  const root = fixture();
+  try {
+    const result = release(root, ["verify", "--deadline", "abc"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /--deadline must be a non-negative number of ms/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+it("the CLI refuses a --interval that is not a positive number of ms", () => {
+  const root = fixture();
+  try {
+    const result = release(root, ["verify", "--interval", "0"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /--interval must be a positive number of ms/);
+  } finally {
+    cleanup(root);
+  }
+});
+
 if (failures > 0) {
   console.error(`release self-test: ${failures} failure(s)`);
   process.exitCode = 1;
