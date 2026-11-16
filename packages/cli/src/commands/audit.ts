@@ -375,7 +375,7 @@ function ssotFindings(
           finding(
             "unsourced-claim",
             path,
-            `a highlight points at projects[${id}] with status "${project.status}" — a claim against an unbuilt unit (delivery states: active, maintained, archived)`,
+            `a highlight points at projects[${id}] whose status "${project.status}" is not a declared delivery state (active, maintained, archived) — the record does not mark the cited unit as delivered`,
             "claim-against-unbuilt",
           ),
         );

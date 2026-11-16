@@ -224,13 +224,13 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
 
   describe("D30 highlight claim codes (#529, option A of #493)", () => {
     const identity = "name: Someone\n";
-    const experienceWithRefs = (visibility: string) => `- id: exp-x
+    const experienceWithRefs = (visibility: string, projectId = "proj-clapps") => `- id: exp-x
   role: Consultant
   org: Independent
   start: 2024-01-01
   highlights:
     en: SaaS architecture for clinical management (see CLAPPS.AI).
-  highlightRefs: ["projects:proj-clapps"]
+  highlightRefs: ["projects:${projectId}"]
   visibility: ${visibility}
 `;
 
@@ -289,6 +289,63 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
       expect(findings.some((f) => f.code === "claim-against-unbuilt")).toBe(false);
       expect(findings.some((f) => f.code === "claim-without-proof")).toBe(false);
     });
+
+    it.each(["planning", "experimental"])(
+      "a non-delivery status (%s) emits claim-against-unbuilt whose wording does not claim the unit is unbuilt",
+      (status) => {
+        // `experimental` is a valid enum value the D31 delivery list does not
+        // name: the finding must say "not a declared delivery state", never
+        // "unbuilt" — an experimental project exists (review F2 of #539).
+        const ws = workspace({
+          "identity.yaml": identity,
+          "projects.yaml": `- id: proj-x
+  name: Project X
+  status: ${status}
+  description:
+    en: A platform.
+  visibility: public
+`,
+          "experience.yaml": experienceWithRefs("public", "proj-x"),
+        });
+        const { code, data } = audit(ws);
+        expect(code).toBe(0);
+        const findings = (data as { findings: Finding[] }).findings;
+        const againstUnbuilt = findings.find((f) => f.code === "claim-against-unbuilt");
+        expect(againstUnbuilt).toMatchObject({
+          class: "unsourced-claim",
+          severity: "WARN",
+          path: "experience[exp-x].highlights",
+        });
+        expect(againstUnbuilt?.detail).toContain(`status "${status}"`);
+        expect(againstUnbuilt?.detail).toContain("not a declared delivery state");
+        expect(againstUnbuilt?.detail).not.toContain("unbuilt");
+      },
+    );
+
+    it.each(["maintained", "archived"])(
+      "a delivery status (%s) with sourced evidence emits no highlight claim findings",
+      (status) => {
+        const ws = workspace({
+          "identity.yaml": identity,
+          "projects.yaml": `- id: proj-x
+  name: Project X
+  status: ${status}
+  description:
+    en: A platform.
+  evidence:
+    - claim:
+        en: 10k users.
+      source: https://example.com/metrics
+  visibility: public
+`,
+          "experience.yaml": experienceWithRefs("public", "proj-x"),
+        });
+        const { code, data } = audit(ws);
+        expect(code).toBe(0);
+        const findings = (data as { findings: Finding[] }).findings;
+        expect(findings.some((f) => f.code !== undefined)).toBe(false);
+      },
+    );
 
     it("a private experience row never emits findings (D27, same as achievements[])", () => {
       const ws = workspace({
