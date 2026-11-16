@@ -347,6 +347,28 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
       },
     );
 
+    it("an ABSENT project status is not a claim-against-unbuilt finding (D31 carve-out, pinned)", () => {
+      // `status` is optional on projects[] (required: ["name"]): a row without
+      // it asserts nothing, so only the proof side may fire — the carve-out
+      // is contract (D31/§7.1), not just a code comment (review pass 2, F1).
+      const ws = workspace({
+        "identity.yaml": identity,
+        "projects.yaml": `- id: proj-x
+  name: Project X
+  description:
+    en: A platform.
+  visibility: public
+`,
+        "experience.yaml": experienceWithRefs("public", "proj-x"),
+      });
+      const { code, data } = audit(ws);
+      expect(code).toBe(0);
+      const findings = (data as { findings: Finding[] }).findings;
+      expect(findings.some((f) => f.code === "claim-against-unbuilt")).toBe(false);
+      // The target still has no sourced evidence, so the proof side fires.
+      expect(findings.some((f) => f.code === "claim-without-proof")).toBe(true);
+    });
+
     it("a private experience row never emits findings (D27, same as achievements[])", () => {
       const ws = workspace({
         "identity.yaml": identity,
