@@ -33,7 +33,7 @@ requisito (SPEC §9). Tres on-ramps, cada uno con su diferencia de capacidades a
 | **`pasco init`** local | carpeta mínima y válida en segundos | **no** | **ninguno** |
 | **Traé tu almacenamiento** | el mismo `pasco init`, escrito en la ruta que elijas (disco, nube, otro host git) | igual que `pasco init` | **ninguno** |
 
-El paquete `@profile-as-code/cli` está **publicado en npm** (@profile-as-code/cli@0.6.0 — `npm view`, checked 2026-11-12), así que los dos
+El paquete `@profile-as-code/cli` está **publicado en npm** (@profile-as-code/cli@0.5.0 — `npm view`, checked 2026-11-17; esta rama prepara la 0.6.0, que se publica con el tag `v0.6.0`), así que los dos
 caminos sin cuenta funcionan hoy sin acceso a ningún repo. El template repo (on-ramp A) es
 **público** (verificado 2026-11-12: `gh repo view ChristianLuciani/profile-data-template
 --json visibility` → `PUBLIC`, HTTP 200), así que **Use this template** resuelve para cualquiera
@@ -103,7 +103,7 @@ de *versionar* tu presencia profesional ni de hacerla consistente sin copiar-peg
 | **Riesgo de fugar datos privados** | Campos con `visibility: private` por defecto y auditoría estricta (`pasco audit --public`). | Notas personales, compensaciones o datos de contacto confidenciales jamás se publican accidentalmente. |
 | **Visualización antes de publicar** | Vista previa HTML local y autónoma con `pasco preview`. | Inspeccionás exactamente cómo se ve cada perfil antes de copiarlo o hacer push. |
 
-## Qué podés hacer con el CLI `pasco` (v0.5.0)
+## Qué podés hacer con el CLI `pasco` (v0.6.0)
 
 El CLI `pasco` ofrece un conjunto integral de comandos para gestionar el ciclo de vida completo de tu perfil:
 
@@ -185,7 +185,7 @@ profile-as-code/
 ├── packages/
 │   ├── core/             # ✅ load · drift · geo · compile (Zod desde schema)
 │   ├── renderers/        # github-readme + github-org + kofi — más adapters por plataforma (seam de contribución)
-│   └── cli/              # pasco — init·doctor·validate·build·preview·edit·check·audit·entity·cite-check·export·skills:export·diff·status·discover·migrate (v0.5.0)
+│   └── cli/              # pasco — init·doctor·validate·build·preview·edit·check·audit·entity·cite-check·export·skills:export·diff·status·discover·migrate (v0.6.0)
 ├── skills/               # skills por plataforma (conocimiento SOTA)
 ├── templates/
 │   ├── profile-data/       # on-ramp A: puntero al template repo del workspace (SPEC §9.2)

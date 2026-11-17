@@ -107,7 +107,7 @@ _(nothing yet — the next cycle)_
   writes `visibility: public` on every row that lacks the field (a row that
   declares any value is untouched, so a second run is a no-op), splices the line
   into the original text so comments and layout survive, validates the whole
-  migrated `content/` through the same `load()` gate and replaces each file
+  migrated `facts/` through the same `load()` gate and replaces each file
   atomically under the shared lock. `pasco doctor --contract-delta` now also
   reports the rows still missing the field (`migration` in the JSON block), and
   a golden test pins that a migrated workspace renders byte-identically to the

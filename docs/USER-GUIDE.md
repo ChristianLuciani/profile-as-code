@@ -10,7 +10,7 @@ updated, and stay in sync as the engine evolves.
 > Audience: a **user** of the engine (not an engine contributor). Contributor
 > docs live in [CONTRIBUTING.md](../CONTRIBUTING.md); the product contract is
 > [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli@0.6.0`
-> — release `v0.5.0` (cut 2026-11-07; the npm publish of that release is the runbook's
+> — release `v0.6.0` (cut with the `v0.6.0` tag; the npm publish of that release is the runbook's
 > irreversible step — `docs/ci-cd.md` §Releasing; #113, #207).
 > Keep that claim in its canonical form: the release barrier
 > (`scripts/site-check/version-check.mjs`) fails the publish when it disagrees
@@ -138,18 +138,19 @@ Two paths. **Option A is the intended path for users** (published on npm);
 
 ```sh
 npm i -g @profile-as-code/cli    # the package
-pasco --version                  # the bin — expect 0.4.0
+pasco --version                  # the bin — expect 0.6.0
 ```
 
 One global install: no clone, no build, nothing written outside the npm prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
-> **Status**: `@profile-as-code/cli@0.6.0` is **published** and tagged `latest` (published
-> 2026-11-04T19:12:43Z; `npm view @profile-as-code/cli version` → `0.4.0`, checked 2026-11-04)
-> [OFICIAL] [WEB: registry.npmjs.org]. Earlier publications stay dated records: `0.3.7`
-> (2026-10-31), `0.3.6`
-> (2026-10-27), `0.3.5` (2026-10-24; tag `v0.3.5` → `c69e6b7`), `0.3.0` (2026-10-11; tag
-> `v0.3.0` → `21e4cde`).
+> **Status**: `@profile-as-code/cli@0.6.0` is the release this branch prepares; it is
+> published by the `v0.6.0` tag push (the tag push IS the publish, §Releasing). Until
+> then npm serves `latest` = `0.5.0` (published 2026-11-07T20:41:24Z;
+> `npm view @profile-as-code/cli version` → `0.5.0`, checked 2026-11-17)
+> [OFICIAL] [WEB: registry.npmjs.org]. Earlier publications stay dated records: `0.4.0`
+> (2026-11-04), `0.3.7` (2026-10-31), `0.3.6` (2026-10-27), `0.3.5` (2026-10-24; tag
+> `v0.3.5` → `c69e6b7`), `0.3.0` (2026-10-11; tag `v0.3.0` → `21e4cde`).
 > Caveat, closing (#293): the engine repo is **public** (measured 2026-10-24) — `repository.url`
 > resolves for any reader now. The 0.3.0 tarball was published over OIDC while the source
 > repository was private; provenance attestations require a public source repo, so it carries

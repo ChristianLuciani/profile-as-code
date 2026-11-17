@@ -939,6 +939,14 @@ know whether it is *complete*, so this preparation is a human step:
    fails when any `@profile-as-code/cli@<version>` disagrees with `packages/cli/package.json`, and
    fails when a declared claim-free surface (the `/es/` mirror) states a version at all. A version
    stated in another form is not gated: keep it canonical.
+   Since #531 (two cycles repeated the same defect, #505 and #531): a mechanical token bump
+   must not drag dated evidence from another release. Regenerate every parenthesized
+   receipt against the live registry before tagging (`npm view @profile-as-code/cli version`
+   → the `latest` tag) and sweep the non-canonical forms — `(vX.Y.Z)` headings, `expect X.Y.Z`
+   comments, `checked <date>` citations — in EVERY surface the preparation touches, README
+   included (it is outside the barrier's DOCS/LANDINGS list, so the gate cannot catch it).
+   A "published <date>" receipt that predates the version's first commit is an impossible
+   claim, not a stale one.
 4. Commit that preparation to `main`, then `git tag v<version> && git push origin v<version>` —
    the tag push IS the publish (reconciled 2026-10-24; the order of the next steps is
    [§Releasing — the primary path](#releasing--the-primary-path-issue-208): the tag run
