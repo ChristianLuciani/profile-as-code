@@ -711,6 +711,13 @@ function usage() {
 async function main() {
   const [command, ...args] = process.argv.slice(2);
   try {
+    // A subcommand's --help/-h prints the same usage as the top-level --help
+    // and exits 0 — never a self-referential "unknown option --help (see
+    // --help)" refusal (review pass 5, F1).
+    if (args.includes("--help") || args.includes("-h")) {
+      usage();
+      return 0;
+    }
     switch (command) {
       case "check":
         return cmdCheck(args);

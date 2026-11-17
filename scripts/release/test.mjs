@@ -862,6 +862,20 @@ it('verify refuses an EMPTY --deadline=/--interval= (Number("") === 0 would be a
   }
 });
 
+it("a subcommand accepts --help/-h: prints usage, exit 0 (no self-referential refusal)", () => {
+  const root = fixture();
+  try {
+    for (const flag of ["--help", "-h"]) {
+      const result = release(root, ["verify", flag]);
+      assert.equal(result.status, 0, flag);
+      assert.match(result.stdout, /release — cut a profile-as-code release/);
+      assert.doesNotMatch(result.stderr, /unknown option/);
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
 it("an unknown option is refused, never silently ignored (--deadline-ms is not --deadline)", () => {
   const root = fixture();
   try {
