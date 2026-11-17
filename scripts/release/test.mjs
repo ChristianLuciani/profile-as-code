@@ -19,7 +19,13 @@
  *      exact commands in `--dry-run`;
  *   4. `pages --dry-run` names `pages.yml`, the repo derived from `origin`, and
  *      both inputs;
- *   5. the entrypoint guard decides by realpath, so a symlinked invocation runs.
+ *   5. the entrypoint guard decides by realpath, so a symlinked invocation runs;
+ *   6. `verify` separates "not live YET" from "not published" (#507), with the
+ *      fetch/gh/clock surfaces stubbed so it runs offline: a probe that flips
+ *      404 → 200 inside the deadline reports VERIFIED (exit 0), an always-404
+ *      probe FAILs only after the deadline naming what it never saw (exit 1),
+ *      a single pass (--no-wait) with a pending probe reports PROCESSING
+ *      (exit 2, never a FAIL), and a hard failure is never retried.
  *
  * Zero dependencies, node >=22. Usage: node scripts/release/test.mjs
  */
@@ -29,7 +35,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { changelogSection, sectionIsSubstantive } from "./release.mjs";
+import { changelogSection, cmdVerify, sectionIsSubstantive, verifyRelease } from "./release.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SCRIPT = path.join(HERE, "release.mjs");
@@ -40,6 +46,16 @@ let failures = 0;
 function it(name, fn) {
   try {
     fn();
+    console.log(`  ok   ${name}`);
+  } catch (error) {
+    failures += 1;
+    console.error(`  FAIL ${name}\n       ${error.message}`);
+  }
+}
+
+async function itAsync(name, fn) {
+  try {
+    await fn();
     console.log(`  ok   ${name}`);
   } catch (error) {
     failures += 1;
@@ -491,6 +507,384 @@ it("an unknown command is refused, not ignored", () => {
     const result = release(root, ["publish"]);
     assert.equal(result.status, 1);
     assert.match(result.stderr, /unknown command "publish"/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+/** A fixture with the release tag already created locally. */
+function taggedFixture(version = "0.4.0") {
+  const root = fixture({ version });
+  git(root, ["tag", `v${version}`]);
+  return root;
+}
+
+/** verifyRelease with every network/gh/clock surface stubbed: fully offline.
+ *  The fake clock advances 1 s per read, so a deadline of N ms costs N probes,
+ *  and `sleep` is a no-op — the retry loop runs as fast as the stubs answer. */
+function stubbedVerifyDeps(overrides = {}) {
+  const lines = [];
+  let t = 0;
+  return {
+    lines,
+    deps: {
+      fetchText: async () => JSON.stringify({ softwareVersion: "0.4.0" }),
+      releasePageExists: async () => ({ exists: true }),
+      now: () => (t += 1000),
+      sleep: async () => {},
+      log: (line) => lines.push(line),
+      ...overrides,
+    },
+  };
+}
+
+await itAsync(
+  "verify: a probe that flips 404 → 200 inside the deadline reports VERIFIED (exit 0)",
+  async () => {
+    const root = taggedFixture();
+    try {
+      const head = git(root, ["rev-parse", "v0.4.0^{commit}"]);
+      let cliCalls = 0;
+      const { deps, lines } = stubbedVerifyDeps({
+        fetchJson: async (url) => {
+          if (url.endsWith("/cli/0.4.0")) {
+            cliCalls += 1;
+            if (cliCalls === 1) return { status: 404, body: null };
+          }
+          return {
+            status: 200,
+            body: { gitHead: head, dist: { attestations: { present: true } } },
+          };
+        },
+      });
+      const code = await verifyRelease({ root, deadlineMs: 60_000, intervalMs: 1_000, deps });
+      assert.equal(code, 0);
+      assert.ok(cliCalls >= 2, `expected at least one retry, got ${cliCalls} cli probe(s)`);
+      assert.ok(
+        lines.some((l) => /release: VERIFIED v0\.4\.0/.test(l)),
+        lines.join("\n"),
+      );
+    } finally {
+      cleanup(root);
+    }
+  },
+);
+
+await itAsync(
+  "verify: an always-404 probe FAILs only after the deadline, naming what it never saw (exit 1)",
+  async () => {
+    const root = taggedFixture();
+    try {
+      const { deps, lines } = stubbedVerifyDeps({
+        fetchJson: async () => ({ status: 404, body: null }),
+      });
+      const code = await verifyRelease({ root, deadlineMs: 3_000, intervalMs: 500, deps });
+      assert.equal(code, 1);
+      assert.ok(
+        lines.some((l) =>
+          /release: FAIL npm @profile-as-code\/cli — not on the registry yet — never live within the 3000 ms window/.test(
+            l,
+          ),
+        ),
+        lines.join("\n"),
+      );
+      assert.ok(
+        lines.some((l) => /release: NOT VERIFIED v0\.4\.0/.test(l)),
+        lines.join("\n"),
+      );
+    } finally {
+      cleanup(root);
+    }
+  },
+);
+
+await itAsync(
+  "verify: the deadline is ONE window shared by every probe, never restarted per probe",
+  async () => {
+    const root = taggedFixture();
+    try {
+      let cliCalls = 0;
+      let coreCalls = 0;
+      const { deps, lines } = stubbedVerifyDeps({
+        fetchJson: async (url) => {
+          if (url.endsWith("/cli/0.4.0")) {
+            cliCalls += 1;
+            return { status: 404, body: null };
+          }
+          coreCalls += 1;
+          return { status: 404, body: null };
+        },
+      });
+      const code = await verifyRelease({ root, deadlineMs: 3_000, intervalMs: 500, deps });
+      assert.equal(code, 1);
+      assert.ok(
+        cliCalls >= 2,
+        `the first pending probe retries inside the window, got ${cliCalls}`,
+      );
+      // The window is global: by the time the SECOND pending probe runs, the
+      // clock has passed the deadline, so it fails on its FIRST pass instead of
+      // opening a fresh 3000 ms window of its own.
+      assert.equal(coreCalls, 1, "a later pending probe must not restart the deadline");
+      assert.equal(
+        lines.filter((l) => /never live within the 3000 ms window/.test(l)).length,
+        2,
+        lines.join("\n"),
+      );
+    } finally {
+      cleanup(root);
+    }
+  },
+);
+
+await itAsync(
+  "verify: a single pass (--no-wait, deadline 0) with a pending probe is PROCESSING — exit 2, not FAIL",
+  async () => {
+    const root = taggedFixture();
+    try {
+      const { deps, lines } = stubbedVerifyDeps({
+        fetchJson: async () => ({ status: 404, body: null }),
+      });
+      const code = await verifyRelease({ root, deadlineMs: 0, intervalMs: 500, deps });
+      assert.equal(code, 2);
+      assert.ok(
+        lines.some((l) => /release: PROCESSING v0\.4\.0/.test(l)),
+        lines.join("\n"),
+      );
+      assert.ok(!lines.some((l) => /NOT VERIFIED/.test(l)), lines.join("\n"));
+    } finally {
+      cleanup(root);
+    }
+  },
+);
+
+await itAsync(
+  "verify: a hard failure (page without softwareVersion) is FAIL immediately, never retried",
+  async () => {
+    const root = taggedFixture();
+    try {
+      const head = git(root, ["rev-parse", "v0.4.0^{commit}"]);
+      const { deps, lines } = stubbedVerifyDeps({
+        fetchJson: async () => ({
+          status: 200,
+          body: { gitHead: head, dist: { attestations: { present: true } } },
+        }),
+        fetchText: async () => "<html>no json-ld here</html>",
+      });
+      const code = await verifyRelease({ root, deadlineMs: 60_000, intervalMs: 1_000, deps });
+      assert.equal(code, 1);
+      assert.ok(
+        lines.some((l) =>
+          /release: FAIL live page softwareVersion — page does not expose softwareVersion/.test(l),
+        ),
+        lines.join("\n"),
+      );
+      assert.ok(!lines.some((l) => /WAIT live page/.test(l)), lines.join("\n"));
+    } finally {
+      cleanup(root);
+    }
+  },
+);
+
+it("the CLI refuses a --deadline that is not a non-negative number of ms", () => {
+  const root = fixture();
+  try {
+    const result = release(root, ["verify", "--deadline", "abc"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /--deadline must be a non-negative number of ms/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+it("the CLI refuses a --interval that is not a positive number of ms", () => {
+  const root = fixture();
+  try {
+    const result = release(root, ["verify", "--interval", "0"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /--interval must be a positive number of ms/);
+  } finally {
+    cleanup(root);
+  }
+});
+
+await itAsync(
+  "verify: --deadline reaches verifyRelease through the CLI path (parse → cmdVerify), not the default",
+  async () => {
+    const root = taggedFixture();
+    try {
+      const { deps, lines } = stubbedVerifyDeps({
+        fetchJson: async () => ({ status: 404, body: null }),
+      });
+      const code = await cmdVerify(
+        ["--root", root, "--deadline", "3000", "--interval", "500"],
+        deps,
+      );
+      assert.equal(code, 1);
+      assert.ok(
+        lines.some((l) => /3000 ms window/.test(l)),
+        lines.join("\n"),
+      );
+      assert.ok(!lines.some((l) => /600000 ms window/.test(l)), lines.join("\n"));
+    } finally {
+      cleanup(root);
+    }
+  },
+);
+
+it("verify refuses --no-wait combined with --deadline/--interval (no silent override)", () => {
+  const root = fixture();
+  try {
+    for (const extra of [
+      ["--no-wait", "--deadline", "100"],
+      ["--no-wait", "--interval=100"],
+    ]) {
+      const result = release(root, ["verify", ...extra]);
+      assert.equal(result.status, 1, JSON.stringify(extra));
+      assert.match(result.stderr, /--no-wait cannot be combined/);
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
+await itAsync(
+  "verify: a live page NEWER than the tag is a hard FAIL, never retried as pending",
+  async () => {
+    const root = taggedFixture();
+    try {
+      const head = git(root, ["rev-parse", "v0.4.0^{commit}"]);
+      const { deps, lines } = stubbedVerifyDeps({
+        fetchJson: async () => ({
+          status: 200,
+          body: { gitHead: head, dist: { attestations: { present: true } } },
+        }),
+        fetchText: async () => JSON.stringify({ softwareVersion: "9.9.9" }),
+      });
+      const code = await verifyRelease({ root, deadlineMs: 60_000, intervalMs: 1_000, deps });
+      assert.equal(code, 1);
+      assert.ok(
+        lines.some((l) =>
+          /FAIL live page softwareVersion — page says 9\.9\.9 — NEWER than the tag/.test(l),
+        ),
+        lines.join("\n"),
+      );
+      assert.ok(!lines.some((l) => /WAIT live page/.test(l)), lines.join("\n"));
+    } finally {
+      cleanup(root);
+    }
+  },
+);
+
+await itAsync(
+  "verify: a gh FAILURE reading the Release (auth/network) is a hard FAIL, not 'not created yet'",
+  async () => {
+    const root = taggedFixture();
+    try {
+      const head = git(root, ["rev-parse", "v0.4.0^{commit}"]);
+      const { deps, lines } = stubbedVerifyDeps({
+        fetchJson: async () => ({
+          status: 200,
+          body: { gitHead: head, dist: { attestations: { present: true } } },
+        }),
+        releasePageExists: async () => ({ exists: false, error: "gh: auth expired" }),
+      });
+      const code = await verifyRelease({ root, deadlineMs: 60_000, intervalMs: 1_000, deps });
+      assert.equal(code, 1);
+      assert.ok(
+        lines.some((l) =>
+          /FAIL GitHub Release — cannot read the Release: gh: auth expired/.test(l),
+        ),
+        lines.join("\n"),
+      );
+      assert.ok(!lines.some((l) => /WAIT GitHub Release/.test(l)), lines.join("\n"));
+    } finally {
+      cleanup(root);
+    }
+  },
+);
+
+await itAsync(
+  "verify: a network error mid-window retries and only FAILs when the window closes unanswered",
+  async () => {
+    const root = taggedFixture();
+    try {
+      const { deps, lines } = stubbedVerifyDeps({
+        fetchJson: async () => {
+          throw new Error("fetch failed: timeout");
+        },
+      });
+      const code = await verifyRelease({ root, deadlineMs: 3_000, intervalMs: 500, deps });
+      assert.equal(code, 1);
+      assert.ok(
+        lines.some((l) => /never answered within the 3000 ms window/.test(l)),
+        lines.join("\n"),
+      );
+    } finally {
+      cleanup(root);
+    }
+  },
+);
+
+await itAsync("verify: a network error that clears inside the window reports OK", async () => {
+  const root = taggedFixture();
+  try {
+    const head = git(root, ["rev-parse", "v0.4.0^{commit}"]);
+    let calls = 0;
+    const { deps, lines } = stubbedVerifyDeps({
+      fetchJson: async () => {
+        calls += 1;
+        if (calls === 1) throw new Error("fetch failed: connection reset");
+        return { status: 200, body: { gitHead: head, dist: { attestations: { present: true } } } };
+      },
+    });
+    const code = await verifyRelease({ root, deadlineMs: 60_000, intervalMs: 1_000, deps });
+    assert.equal(code, 0);
+    assert.ok(calls >= 2, `expected a retry after the network error, got ${calls}`);
+    assert.ok(
+      lines.some((l) => /release: VERIFIED v0\.4\.0/.test(l)),
+      lines.join("\n"),
+    );
+  } finally {
+    cleanup(root);
+  }
+});
+
+it('verify refuses an EMPTY --deadline=/--interval= (Number("") === 0 would be a silent single pass)', () => {
+  const root = fixture();
+  try {
+    for (const flag of ["--deadline=", "--interval="]) {
+      const result = release(root, ["verify", flag]);
+      assert.equal(result.status, 1, flag);
+      assert.match(result.stderr, /needs a value \(got ""\)/);
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
+it("a subcommand accepts --help/-h: prints usage, exit 0 (no self-referential refusal)", () => {
+  const root = fixture();
+  try {
+    for (const flag of ["--help", "-h"]) {
+      const result = release(root, ["verify", flag]);
+      assert.equal(result.status, 0, flag);
+      assert.match(result.stdout, /release — cut a profile-as-code release/);
+      assert.doesNotMatch(result.stderr, /unknown option/);
+    }
+  } finally {
+    cleanup(root);
+  }
+});
+
+it("an unknown option is refused, never silently ignored (--deadline-ms is not --deadline)", () => {
+  const root = fixture();
+  try {
+    const verify = release(root, ["verify", "--deadline-ms", "3000"]);
+    assert.equal(verify.status, 1);
+    assert.match(verify.stderr, /unknown option "--deadline-ms"/);
+    const check = release(root, ["check", "--bogus"]);
+    assert.equal(check.status, 1);
+    assert.match(check.stderr, /unknown option "--bogus"/);
   } finally {
     cleanup(root);
   }
