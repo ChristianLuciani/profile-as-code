@@ -38,6 +38,7 @@ import {
   idTokenGranted,
   manifestViolations,
   orderViolations,
+  pageCommandSetViolations,
   parseSteps,
   provenanceRequested,
   publishInvocations,
@@ -1171,6 +1172,57 @@ test("expectedRepositoryUrl — GITHUB_REPOSITORY wins over the git remote", () 
     }),
     REPO_URL,
   );
+});
+
+// ── PAGE COMMAND SET (#531 pass 4) ────────────────────────────────────────
+
+function cliFixture(commands, pageTokens) {
+  const root = mkdtempSync(path.join(os.tmpdir(), "rehearsal-page-"));
+  mkdirSync(path.join(root, "packages", "cli", "src", "commands"), { recursive: true });
+  writeFileSync(
+    path.join(root, "packages", "cli", "package.json"),
+    JSON.stringify({ name: "@profile-as-code/cli", version: "0.6.0" }),
+  );
+  for (const c of commands)
+    writeFileSync(path.join(root, "packages", "cli", "src", "commands", `${c}.ts`), "");
+  mkdirSync(path.join(root, "site"), { recursive: true });
+  writeFileSync(
+    path.join(root, "site", "index.html"),
+    `<p>${pageTokens.map((t) => `<code>${t}</code>`).join(", ")}</p>`,
+  );
+  return root;
+}
+
+test("PAGE COMMAND SET — every shipped command on the page passes", () => {
+  const root = cliFixture(
+    ["audit", "log", "skills-export", "robots"],
+    ["audit", "log", "skills:export"],
+  );
+  try {
+    assert.deepEqual(pageCommandSetViolations(root), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("PAGE COMMAND SET — a shipped command missing from the page is refused", () => {
+  const root = cliFixture(["audit", "log"], ["audit"]);
+  try {
+    const violations = pageCommandSetViolations(root);
+    assert.equal(violations.length, 1);
+    assert.match(violations[0], /missing shipped CLI commands: log/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("PAGE COMMAND SET — a workspace without packages/cli skips (minimal fixture)", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "rehearsal-page-"));
+  try {
+    assert.deepEqual(pageCommandSetViolations(root), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 // ── end-to-end wiring of check() ──────────────────────────────────────────────

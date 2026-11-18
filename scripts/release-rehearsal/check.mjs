@@ -51,7 +51,15 @@ import { createHash } from "node:crypto";
  *
  * Usage:  node scripts/release-rehearsal/check.mjs [--root DIR] [--help]
  */
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -1159,7 +1167,10 @@ const PAGE_EXEMPT_COMMANDS = new Set(["robots"]);
 /** PAGE COMMAND SET (#531 pass 4): every shipped CLI command must appear in the
  *  landing page's `<code>` tokens. The version barrier does not parse command
  *  sets, and `pasco log` shipped in 0.6.0 undocumented on the page. */
-function pageCommandSetViolations(root) {
+export function pageCommandSetViolations(root) {
+  // A minimal fixture without the CLI package has no command set to compare:
+  // skip (the real workspace always has packages/cli).
+  if (!existsSync(path.join(root, "packages", "cli", "package.json"))) return [];
   const commandsDir = path.join(root, "packages", "cli", "src", "commands");
   let files;
   try {
