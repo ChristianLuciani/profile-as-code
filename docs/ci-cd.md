@@ -945,7 +945,10 @@ know whether it is *complete*, so this preparation is a human step:
    asserts the order/manifests before the tag exists.
 2. Move the release-worthy `[Unreleased]` entries under a new
    `## [<version>] - <date>` heading; keep forward-looking `### Planned` items under
-   `[Unreleased]`.
+   `[Unreleased]`. Since #531: before tagging, re-cut the notes against the ACTUAL diff —
+   `git diff v<previous-tag>..HEAD --stat` — because PRs merged after this section was
+   cut (e.g. #538/#539 landed after the 0.6.0 notes) would otherwise ship in the tag
+   undocumented. Date the heading at merge time, not at preparation time.
 3. If the release changes what the page claims (status, command set, version), update
    `site/index.html` **and** the version claim in `docs/USER-GUIDE.md` in the same preparation
    commit — the page is deployed from the released commit (#277), so a stale claim goes public.

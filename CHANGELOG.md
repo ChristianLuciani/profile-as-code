@@ -11,7 +11,7 @@ minor versions may contain breaking contract changes.
 
 _(nothing yet — the next cycle)_
 
-## [0.6.0] - 2026-11-13
+## [0.6.0] - 2026-11-17
 
 ### Added
 
@@ -152,6 +152,25 @@ _(nothing yet — the next cycle)_
   version that `docs/SCHEMA-CONTRACT.md` repeats by hand must match the schema
   bytes (scoped to the *current* table — the released one stays historical).
   Out of scope and declared: `github-org` still keeps its curated badge table.
+
+- **`experience[].highlightRefs` — the highlights channel gains an explicit pointer (#529, #493, D31)** —
+  highlights stay strings; the new OPTIONAL `highlightRefs[]` field on an experience row lists the
+  `block:id` units backing its bullets, with exactly the `achievements[].refs` grammar (same pattern,
+  resolved by core: a dangling ref fails `load`). `pasco audit` now grades PUBLIC rows' pointers:
+  `claim-against-unbuilt` when a `projects:` target's status is explicitly not a delivery state
+  (`active`/`maintained`/`archived`; an absent `status` asserts nothing and is not a finding), and
+  `claim-without-proof` when the target has no `evidence[]` row with a `source` — both WARN under
+  the `unsourced-claim` class, never FAIL. Spec: `docs/SPEC.md` D31 + §7.1.
+
+- **`release:verify` separates PROCESSING from FAIL during npm's async publish window (#507)** —
+  a surface that is not live YET is retried with backoff inside ONE window shared by the whole run
+  (`--deadline`, default 10 min, global — never restarted per probe). Exit codes: `0` VERIFIED,
+  `2` PROCESSING (`--no-wait`: single pass, not failed), `1` NOT VERIFIED only after the window
+  closes, naming what it never saw. Hard failures are never retried: non-404 registry answers, a
+  page without a valid `softwareVersion`, a page NEWER than the tag, or a Release the tool cannot
+  read (gh auth/network). Network errors on fetch probes retry inside the same window. The option
+  parser refuses unknown flags and empty values; `--no-wait` cannot be combined with
+  `--deadline`/`--interval`.
 
 ## [0.5.0] - 2026-11-07
 
