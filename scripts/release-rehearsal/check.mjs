@@ -51,7 +51,15 @@ import { createHash } from "node:crypto";
  *
  * Usage:  node scripts/release-rehearsal/check.mjs [--root DIR] [--help]
  */
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -1148,6 +1156,68 @@ function readTarball(file) {
  * — the verdict the self-test and the CLI share. `options.pack` is the seam for the
  * self-test (it can substitute a packer that fails); the CLI never passes it.
  */
+const COMMAND_DISPLAY_ALIAS = {
+  "skills-export": "skills:export",
+  "export-profile": "export profile",
+};
+// `robots` is not a standalone user command: it is the robots.txt artifact of
+// `pasco export ai-policy` (covered by that page token).
+const PAGE_EXEMPT_COMMANDS = new Set(["robots"]);
+
+/** PAGE COMMAND SET (#531 pass 4): every shipped CLI command must appear in the
+ *  landing page's `<code>` tokens. The version barrier does not parse command
+ *  sets, and `pasco log` shipped in 0.6.0 undocumented on the page. */
+const COMMAND_SURFACES = [
+  { file: "site/index.html", kind: "code" }, // landing page: <code> tokens
+  { file: "README.md", kind: "md" }, // command section + tree: `code` spans
+  { file: "docs/USER-GUIDE.md", kind: "md" }, // --help command list
+];
+
+export function pageCommandSetViolations(root) {
+  // A minimal fixture without the CLI package has no command set to compare:
+  // skip (the real workspace always has packages/cli).
+  if (!existsSync(path.join(root, "packages", "cli", "package.json"))) return [];
+  const commandsDir = path.join(root, "packages", "cli", "src", "commands");
+  let files;
+  try {
+    files = readdirSync(commandsDir).filter((f) => f.endsWith(".ts"));
+  } catch (error) {
+    return [`E-REHEARSAL: unreadable ${commandsDir}: ${error.message}`];
+  }
+  const commands = files
+    .map((f) => f.replace(/\.ts$/, ""))
+    .filter((c) => !PAGE_EXEMPT_COMMANDS.has(c))
+    .map((c) => COMMAND_DISPLAY_ALIAS[c] ?? c);
+  const violations = [];
+  for (const surface of COMMAND_SURFACES) {
+    let text;
+    try {
+      text = readFileSync(path.join(root, surface.file), "utf8");
+    } catch (error) {
+      violations.push(`E-REHEARSAL: unreadable ${surface.file}: ${error.message}`);
+      continue;
+    }
+    const tokens =
+      surface.kind === "code"
+        ? [...text.matchAll(/<code>([^<]+)<\/code>/g)].map((m) => m[1].trim())
+        : [...text.matchAll(/`([^`\n]+)`/g)].map((m) => m[1].trim());
+    const missing = commands.filter(
+      (display) =>
+        !tokens.some((t) => {
+          const pattern = new RegExp(`\\b${display.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+          return t === display || t.startsWith(`${display} `) || pattern.test(t);
+        }),
+    );
+    if (missing.length > 0) {
+      violations.push(
+        `E-REHEARSAL: ${surface.file} command set is missing shipped CLI commands: ${missing.join(", ")} ` +
+          "— add them in the SAME preparation commit (#531 pass 5: the runbook promises this gate covers the page AND the docs)",
+      );
+    }
+  }
+  return violations;
+}
+
 export async function check(root, options = {}) {
   const context = [`release rehearsal — workspace: ${path.resolve(root)}`, "publishes: nothing"];
   const violations = [];
@@ -1218,6 +1288,7 @@ export async function check(root, options = {}) {
       throw new GateError(`unreadable ${workflowPath}: ${error.message}`);
     }
     violations.push(...runtimeDependencyViolations(packages, workspaceNames));
+    violations.push(...pageCommandSetViolations(root));
     const mechanism = workflowViolations(workflow);
     violations.push(...mechanism.violations);
     if (mechanism.order) {

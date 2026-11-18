@@ -9,6 +9,12 @@ minor versions may contain breaking contract changes.
 
 ## [Unreleased]
 
+_(nothing yet — the next cycle)_
+
+## [0.6.0] - 2026-11-18
+
+### Added
+
 - **D30 — the SSOT directory is `facts/`, `content/` retired by alias** — the
   workspace directory holding the typed record was named `content/` before the
   post stream existed (#264, #267); once `posts/` became a grain, `content` sat
@@ -101,7 +107,7 @@ minor versions may contain breaking contract changes.
   writes `visibility: public` on every row that lacks the field (a row that
   declares any value is untouched, so a second run is a no-op), splices the line
   into the original text so comments and layout survive, validates the whole
-  migrated `content/` through the same `load()` gate and replaces each file
+  migrated `facts/` through the same `load()` gate and replaces each file
   atomically under the shared lock. `pasco doctor --contract-delta` now also
   reports the rows still missing the field (`migration` in the JSON block), and
   a golden test pins that a migrated workspace renders byte-identically to the
@@ -121,7 +127,7 @@ minor versions may contain breaking contract changes.
   defaults to `private`, and `--date` is optional with **no clock read** (absent =
   `undated`, reported by the read view instead of hidden). A derived id collides as
   exit 1 with nothing written; the write is atomic (temp copy → `load()` → rename
-  under the shared `content/.pasco-edit.lock`), so an invalid input never reaches
+  under the shared `facts/.pasco-edit.lock`), so an invalid input never reaches
   disk, and appending to a block-sequence file preserves every existing byte
   (comments survive; an empty `[]`/null root is the only token replaced). The
   `--json` scope gains the additive `undated` key under the same
@@ -146,6 +152,25 @@ minor versions may contain breaking contract changes.
   version that `docs/SCHEMA-CONTRACT.md` repeats by hand must match the schema
   bytes (scoped to the *current* table — the released one stays historical).
   Out of scope and declared: `github-org` still keeps its curated badge table.
+
+- **`experience[].highlightRefs` — the highlights channel gains an explicit pointer (#529, #493, D31)** —
+  highlights stay strings; the new OPTIONAL `highlightRefs[]` field on an experience row lists the
+  `block:id` units backing its bullets, with exactly the `achievements[].refs` grammar (same pattern,
+  resolved by core: a dangling ref fails `load`). `pasco audit` now grades PUBLIC rows' pointers:
+  `claim-against-unbuilt` when a `projects:` target's status is explicitly not a delivery state
+  (`active`/`maintained`/`archived`; an absent `status` asserts nothing and is not a finding), and
+  `claim-without-proof` when the target has no `evidence[]` row with a `source` — both WARN under
+  the `unsourced-claim` class, never FAIL. Spec: `docs/SPEC.md` D31 + §7.1.
+
+- **`release:verify` separates PROCESSING from FAIL during npm's async publish window (#507)** —
+  a surface that is not live YET is retried with backoff inside ONE window shared by the whole run
+  (`--deadline`, default 10 min, global — never restarted per probe). Exit codes: `0` VERIFIED,
+  `2` PROCESSING (`--no-wait`: single pass, not failed), `1` NOT VERIFIED only after the window
+  closes, naming what it never saw. Hard failures are never retried: non-404 registry answers, a
+  page without a valid `softwareVersion`, a page NEWER than the tag, or a Release the tool cannot
+  read (gh auth/network). Network errors on fetch probes retry inside the same window. The option
+  parser refuses unknown flags and empty values; `--no-wait` cannot be combined with
+  `--deadline`/`--interval`.
 
 ## [0.5.0] - 2026-11-07
 

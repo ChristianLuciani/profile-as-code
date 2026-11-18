@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "The shared GitHub surface knowledge of SPEC §19.5 — the ONE home of the owner resolution every GitHub adapter delegates to, plus its conformance body (issue #224, residual of #216; D5).",
   "type": "module",
   "license": "MIT",

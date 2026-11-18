@@ -9,8 +9,8 @@ updated, and stay in sync as the engine evolves.
 >
 > Audience: a **user** of the engine (not an engine contributor). Contributor
 > docs live in [CONTRIBUTING.md](../CONTRIBUTING.md); the product contract is
-> [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli@0.5.0`
-> — release `v0.5.0` (cut 2026-11-07; the npm publish of that release is the runbook's
+> [SPEC.md](SPEC.md). This guide tracks `pasco` at `@profile-as-code/cli@0.6.0`
+> — release `v0.6.0` (cut with the `v0.6.0` tag; the npm publish of that release is the runbook's
 > irreversible step — `docs/ci-cd.md` §Releasing; #113, #207).
 > Keep that claim in its canonical form: the release barrier
 > (`scripts/site-check/version-check.mjs`) fails the publish when it disagrees
@@ -141,7 +141,7 @@ The `@profile-as-code/cli` package is published on the **npm registry** and can 
 ```sh
 # Recommended (npm comes with Node.js):
 npm i -g @profile-as-code/cli    # the package
-pasco --version                  # the bin — expect 0.5.0
+pasco --version                  # the bin — expect 0.6.0
 ```
 
 > **Tip:** You can also use pnpm or yarn if you prefer:
@@ -154,12 +154,13 @@ pasco --version                  # the bin — expect 0.5.0
 One global install: no clone, no build, nothing written outside the package manager prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
-> **Status**: `@profile-as-code/cli@0.5.0` is **published** and tagged `latest` (published
-> 2026-11-04T19:12:43Z; `npm view @profile-as-code/cli version` → `0.4.0`, checked 2026-11-04)
-> [OFICIAL] [WEB: registry.npmjs.org]. Earlier publications stay dated records: `0.3.7`
-> (2026-10-31), `0.3.6`
-> (2026-10-27), `0.3.5` (2026-10-24; tag `v0.3.5` → `c69e6b7`), `0.3.0` (2026-10-11; tag
-> `v0.3.0` → `21e4cde`).
+> **Status**: `@profile-as-code/cli@0.6.0` is the release this branch prepares; it is
+> published by the `v0.6.0` tag push (the tag push IS the publish, §Releasing). Until
+> then npm serves `latest` = `0.5.0` (published 2026-11-07T20:41:24Z;
+> `npm view @profile-as-code/cli version` → `0.5.0`, checked 2026-11-17)
+> [OFICIAL] [WEB: registry.npmjs.org]. Earlier publications stay dated records: `0.4.0`
+> (2026-11-04), `0.3.7` (2026-10-31), `0.3.6` (2026-10-27), `0.3.5` (2026-10-24; tag
+> `v0.3.5` → `c69e6b7`), `0.3.0` (2026-10-11; tag `v0.3.0` → `21e4cde`).
 > Caveat, closing (#293): the engine repo is **public** (measured 2026-10-24) — `repository.url`
 > resolves for any reader now. The 0.3.0 tarball was published over OIDC while the source
 > repository was private; provenance attestations require a public source repo, so it carries
@@ -214,7 +215,7 @@ pasco --help      # command list + exit-code contract
 
 `--help` prints `init`, `validate`, `doctor`, `migrate`, `build`, `preview`, `edit`, `diff`, `refine`,
 `check`, `audit`, `discover`, `entity`, `cite-check`, `post`, `status`, `presence`,
-`release plan`, `achievements`, `export profile`, `export ai-policy` and
+`release plan`, `log`, `achievements`, `export profile`, `export ai-policy` and
 `skills:export`, plus the exit-code contract: `0` ok · `1` schema or
 workspace failure (or a data finding that blocks the command — `pasco edit` exits
 `1` when the address is not exactly one row, the target is read-only or stale, the
@@ -1339,7 +1340,7 @@ node packages/cli/dist/index.js --version  # receipt: the rebuilt version
 The schema is additive, so an old workspace keeps validating — which is why an
 upgrade can look finished while the workspace still misses every field and check the
 new engine knows. This path targets the engine this guide tracks,
-`@profile-as-code/cli@0.5.0`; the release barrier fails the publish when that claim
+`@profile-as-code/cli@0.6.0`; the release barrier fails the publish when that claim
 and `packages/cli/package.json` disagree. It is the order that worked on a real
 0.3.0 → 0.3.7 upgrade (#440). Every step ends with a **receipt**: the command plus
 the read-back that proves the effect landed
