@@ -969,8 +969,10 @@ know whether it is *complete*, so this preparation is a human step:
    claim, not a stale one.
    Every command the tag ships must appear in the landing page's command set AND in the
    README/USER-GUIDE command lists in the SAME preparation commit — enforced by the
-   `PAGE COMMAND SET` step of `pnpm rehearse:release` (#531 pass 4: `pasco log` shipped in
-   0.6.0 undocumented on the page because no gate parsed command sets).
+   `PAGE COMMAND SET` step of `pnpm rehearse:release`, which scans ALL THREE surfaces
+   (`site/index.html` `<code>` tokens, README.md and docs/USER-GUIDE.md code spans)
+   (#531 pass 4: `pasco log` shipped in 0.6.0 undocumented because no gate parsed
+   command sets; pass 5: the gate covers the docs too, so this clause is mechanical).
 4. Commit that preparation to `main`, then `git tag v<version> && git push origin v<version>` —
    the tag push IS the publish (reconciled 2026-10-24; the order of the next steps is
    [§Releasing — the primary path](#releasing--the-primary-path-issue-208): the tag run

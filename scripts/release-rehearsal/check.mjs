@@ -1167,6 +1167,12 @@ const PAGE_EXEMPT_COMMANDS = new Set(["robots"]);
 /** PAGE COMMAND SET (#531 pass 4): every shipped CLI command must appear in the
  *  landing page's `<code>` tokens. The version barrier does not parse command
  *  sets, and `pasco log` shipped in 0.6.0 undocumented on the page. */
+const COMMAND_SURFACES = [
+  { file: "site/index.html", kind: "code" }, // landing page: <code> tokens
+  { file: "README.md", kind: "md" }, // command section + tree: `code` spans
+  { file: "docs/USER-GUIDE.md", kind: "md" }, // --help command list
+];
+
 export function pageCommandSetViolations(root) {
   // A minimal fixture without the CLI package has no command set to compare:
   // skip (the real workspace always has packages/cli).
@@ -1178,34 +1184,38 @@ export function pageCommandSetViolations(root) {
   } catch (error) {
     return [`E-REHEARSAL: unreadable ${commandsDir}: ${error.message}`];
   }
-  let page;
-  try {
-    page = readFileSync(path.join(root, "site", "index.html"), "utf8");
-  } catch (error) {
-    return [`E-REHEARSAL: unreadable site/index.html: ${error.message}`];
-  }
-  const tokens = [...page.matchAll(/<code>([^<]+)<\/code>/g)].map((m) => m[1].trim());
-  const missing = [];
-  for (const file of files) {
-    const command = file.replace(/\.ts$/, "");
-    if (PAGE_EXEMPT_COMMANDS.has(command)) continue;
-    const display = COMMAND_DISPLAY_ALIAS[command] ?? command;
-    const covered = tokens.some(
-      (t) =>
-        t === display ||
-        t.startsWith(`${display} `) ||
-        t === command ||
-        t.startsWith(`${command} `),
+  const commands = files
+    .map((f) => f.replace(/\.ts$/, ""))
+    .filter((c) => !PAGE_EXEMPT_COMMANDS.has(c))
+    .map((c) => COMMAND_DISPLAY_ALIAS[c] ?? c);
+  const violations = [];
+  for (const surface of COMMAND_SURFACES) {
+    let text;
+    try {
+      text = readFileSync(path.join(root, surface.file), "utf8");
+    } catch (error) {
+      violations.push(`E-REHEARSAL: unreadable ${surface.file}: ${error.message}`);
+      continue;
+    }
+    const tokens =
+      surface.kind === "code"
+        ? [...text.matchAll(/<code>([^<]+)<\/code>/g)].map((m) => m[1].trim())
+        : [...text.matchAll(/`([^`\n]+)`/g)].map((m) => m[1].trim());
+    const missing = commands.filter(
+      (display) =>
+        !tokens.some((t) => {
+          const pattern = new RegExp(`\\b${display.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+          return t === display || t.startsWith(`${display} `) || pattern.test(t);
+        }),
     );
-    if (!covered) missing.push(display);
+    if (missing.length > 0) {
+      violations.push(
+        `E-REHEARSAL: ${surface.file} command set is missing shipped CLI commands: ${missing.join(", ")} ` +
+          "— add them in the SAME preparation commit (#531 pass 5: the runbook promises this gate covers the page AND the docs)",
+      );
+    }
   }
-  if (missing.length > 0) {
-    return [
-      `E-REHEARSAL: site/index.html command set is missing shipped CLI commands: ${missing.join(", ")} ` +
-        "— add them to the page's <code> list in the same preparation commit (#531)",
-    ];
-  }
-  return [];
+  return violations;
 }
 
 export async function check(root, options = {}) {

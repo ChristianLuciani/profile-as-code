@@ -1176,7 +1176,7 @@ test("expectedRepositoryUrl — GITHUB_REPOSITORY wins over the git remote", () 
 
 // ── PAGE COMMAND SET (#531 pass 4) ────────────────────────────────────────
 
-function cliFixture(commands, pageTokens) {
+function cliFixture(commands, pageTokens, mdTokens = pageTokens) {
   const root = mkdtempSync(path.join(os.tmpdir(), "rehearsal-page-"));
   mkdirSync(path.join(root, "packages", "cli", "src", "commands"), { recursive: true });
   writeFileSync(
@@ -1190,6 +1190,10 @@ function cliFixture(commands, pageTokens) {
     path.join(root, "site", "index.html"),
     `<p>${pageTokens.map((t) => `<code>${t}</code>`).join(", ")}</p>`,
   );
+  mkdirSync(path.join(root, "docs"), { recursive: true });
+  const md = `<p>${mdTokens.map((t) => `\`${t}\``).join(", ")}</p>`;
+  writeFileSync(path.join(root, "README.md"), md);
+  writeFileSync(path.join(root, "docs", "USER-GUIDE.md"), md);
   return root;
 }
 
@@ -1205,12 +1209,27 @@ test("PAGE COMMAND SET — every shipped command on the page passes", () => {
   }
 });
 
-test("PAGE COMMAND SET — a shipped command missing from the page is refused", () => {
+test("PAGE COMMAND SET — a shipped command missing from the page is refused on ALL THREE surfaces", () => {
   const root = cliFixture(["audit", "log"], ["audit"]);
   try {
     const violations = pageCommandSetViolations(root);
-    assert.equal(violations.length, 1);
-    assert.match(violations[0], /missing shipped CLI commands: log/);
+    assert.equal(violations.length, 3);
+    for (const v of violations) assert.match(v, /missing shipped CLI commands: log/);
+    assert.match(violations[0], /site\/index\.html/);
+    assert.match(violations[1], /README\.md/);
+    assert.match(violations[2], /USER-GUIDE\.md/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("PAGE COMMAND SET — a command on the page but absent from the docs is refused", () => {
+  const root = cliFixture(["audit", "log"], ["audit", "log"], ["audit"]);
+  try {
+    const violations = pageCommandSetViolations(root);
+    assert.equal(violations.length, 2);
+    assert.ok(violations.every((v) => /README\.md|USER-GUIDE\.md/.test(v)));
+    assert.ok(violations.every((v) => /log/.test(v)));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
