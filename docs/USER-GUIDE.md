@@ -154,10 +154,9 @@ pasco --version                  # the bin — expect 0.6.0
 One global install: no clone, no build, nothing written outside the package manager prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
-> **Status**: `@profile-as-code/cli@0.6.0` is the release this branch prepares; it is
-> published by the `v0.6.0` tag push (the tag push IS the publish, §Releasing). Until
-> then npm serves `latest` = `0.5.0` (published 2026-11-07T20:41:24Z;
-> `npm view @profile-as-code/cli version` → `0.5.0`, checked 2026-11-17)
+> **Status**: `@profile-as-code/cli@0.6.0` is **published** and tagged `latest`
+> (published 2026-11-18T17:02:01Z; `npm view @profile-as-code/cli version` → `0.6.0`,
+> checked 2026-11-18; the `v0.6.0` tag push is the publish, §Releasing)
 > [OFICIAL] [WEB: registry.npmjs.org]. Earlier publications stay dated records: `0.4.0`
 > (2026-11-04), `0.3.7` (2026-10-31), `0.3.6` (2026-10-27), `0.3.5` (2026-10-24; tag
 > `v0.3.5` → `c69e6b7`), `0.3.0` (2026-10-11; tag `v0.3.0` → `21e4cde`).
@@ -170,6 +169,53 @@ One global install: no clone, no build, nothing written outside the package mana
 > [OFICIAL] [WEB: registry.npmjs.org, checked 2026-10-26]. The key migration itself is **done**
 > ([#80](https://github.com/ChristianLuciani/profile-as-code/issues/80) closed; token deleted
 > in npm and GitHub).
+>
+
+### Updating pasco (upgrade)
+
+```sh
+npm i -g @profile-as-code/cli@latest     # npm (or: pnpm add -g @profile-as-code/cli@latest)
+pasco --version                          # must match `npm view @profile-as-code/cli version`
+```
+
+After the upgrade, in the workspace:
+
+```sh
+pasco doctor     # engine · schema · workspace on one line; flags contract drift
+pasco migrate    # if the release moved the contract (schema v2.0: visibility) — idempotent
+pasco validate   # schema + drift + geo
+pasco audit      # findings only (D31 highlightRefs grading included since 0.6.0)
+pasco build      # rebuild the profiles
+```
+
+#### Troubleshooting: `pasco --version` still shows the old version after upgrading
+
+Two global installs can coexist — npm's prefix (`npm prefix -g`, e.g. `~/.local`) and
+pnpm's `PNPM_HOME` (e.g. `~/Library/pnpm`) — and `PATH` silently picks the older bin.
+Diagnose and fix (case measured 2026-11-18, macOS: pnpm global added over an npm global):
+
+```sh
+which -a pasco                        # every pasco on PATH, in resolution order
+readlink -f "$(which pasco)"          # which installed package the winning bin points at
+npm rm -g @profile-as-code/cli        # remove the stale npm global (sudo if it was global-root)
+hash -r && source ~/.zshrc            # drop the shell's command-path cache, reload PATH
+pasco --version                       # now the upgraded version
+```
+
+If you cannot (or do not want to) fix the globals, pin per invocation — this always runs
+the published version regardless of PATH:
+
+```sh
+npx -y @profile-as-code/cli@latest --version
+pnpm dlx @profile-as-code/cli@latest --version
+```
+
+Caveat right after a publish: `npm view` can serve a stale CDN cache for a short while;
+if the version looks wrong, read the registry document directly:
+
+```sh
+node -e "fetch('https://registry.npmjs.org/@profile-as-code%2fcli').then(r=>r.json()).then(d=>console.log(d['dist-tags']))"
+```
 >
 > Why the names (the names were checked 2026-09-30): the bin was renamed `pac` → `pasco`
 > (issue #38) because an unrelated npm package named `pac` already ships a `pac`
