@@ -934,7 +934,9 @@ The Release page's notes are the `## [<version>]` section of `CHANGELOG.md`. The
 pre-publish step validates that the section **exists and is non-empty** — it cannot
 know whether it is *complete*, so this preparation is a human step:
 
-1. Bump the version of every package whose content changed. The CLI's tag rule is
+1. Bump the version of every package whose content changed — **manifest-only changes
+   count**: the published tarball carries `package.json`, so a devDependency/peerDependency
+   range that never ships is a silent no-op on npm (#531 pass 4). The CLI's tag rule is
    unchanged: `packages/cli/package.json` `version` must equal the tag (enforced by
    the release guard). The five seam packages version independently — bump each
    changed one in the same preparation commit; a package whose version is already
@@ -948,7 +950,8 @@ know whether it is *complete*, so this preparation is a human step:
    `[Unreleased]`. Since #531: before tagging, re-cut the notes against the ACTUAL diff —
    `git diff v<previous-tag>..HEAD --stat` — because PRs merged after this section was
    cut (e.g. #538/#539 landed after the 0.6.0 notes) would otherwise ship in the tag
-   undocumented. Date the heading at merge time, not at preparation time.
+   undocumented. Date the heading with the **UTC date of the PR's merge into `main`** —
+   not the branch-internal merge with main, not preparation time.
 3. If the release changes what the page claims (status, command set, version), update
    `site/index.html` **and** the version claim in `docs/USER-GUIDE.md` in the same preparation
    commit — the page is deployed from the released commit (#277), so a stale claim goes public.
@@ -964,6 +967,10 @@ know whether it is *complete*, so this preparation is a human step:
    included (it is outside the barrier's DOCS/LANDINGS list, so the gate cannot catch it).
    A "published <date>" receipt that predates the version's first commit is an impossible
    claim, not a stale one.
+   Every command the tag ships must appear in the landing page's command set AND in the
+   README/USER-GUIDE command lists in the SAME preparation commit — enforced by the
+   `PAGE COMMAND SET` step of `pnpm rehearse:release` (#531 pass 4: `pasco log` shipped in
+   0.6.0 undocumented on the page because no gate parsed command sets).
 4. Commit that preparation to `main`, then `git tag v<version> && git push origin v<version>` —
    the tag push IS the publish (reconciled 2026-10-24; the order of the next steps is
    [§Releasing — the primary path](#releasing--the-primary-path-issue-208): the tag run

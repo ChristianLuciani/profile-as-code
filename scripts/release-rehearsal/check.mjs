@@ -1148,6 +1148,55 @@ function readTarball(file) {
  * — the verdict the self-test and the CLI share. `options.pack` is the seam for the
  * self-test (it can substitute a packer that fails); the CLI never passes it.
  */
+const COMMAND_DISPLAY_ALIAS = {
+  "skills-export": "skills:export",
+  "export-profile": "export profile",
+};
+// `robots` is not a standalone user command: it is the robots.txt artifact of
+// `pasco export ai-policy` (covered by that page token).
+const PAGE_EXEMPT_COMMANDS = new Set(["robots"]);
+
+/** PAGE COMMAND SET (#531 pass 4): every shipped CLI command must appear in the
+ *  landing page's `<code>` tokens. The version barrier does not parse command
+ *  sets, and `pasco log` shipped in 0.6.0 undocumented on the page. */
+function pageCommandSetViolations(root) {
+  const commandsDir = path.join(root, "packages", "cli", "src", "commands");
+  let files;
+  try {
+    files = readdirSync(commandsDir).filter((f) => f.endsWith(".ts"));
+  } catch (error) {
+    return [`E-REHEARSAL: unreadable ${commandsDir}: ${error.message}`];
+  }
+  let page;
+  try {
+    page = readFileSync(path.join(root, "site", "index.html"), "utf8");
+  } catch (error) {
+    return [`E-REHEARSAL: unreadable site/index.html: ${error.message}`];
+  }
+  const tokens = [...page.matchAll(/<code>([^<]+)<\/code>/g)].map((m) => m[1].trim());
+  const missing = [];
+  for (const file of files) {
+    const command = file.replace(/\.ts$/, "");
+    if (PAGE_EXEMPT_COMMANDS.has(command)) continue;
+    const display = COMMAND_DISPLAY_ALIAS[command] ?? command;
+    const covered = tokens.some(
+      (t) =>
+        t === display ||
+        t.startsWith(`${display} `) ||
+        t === command ||
+        t.startsWith(`${command} `),
+    );
+    if (!covered) missing.push(display);
+  }
+  if (missing.length > 0) {
+    return [
+      `E-REHEARSAL: site/index.html command set is missing shipped CLI commands: ${missing.join(", ")} ` +
+        "— add them to the page's <code> list in the same preparation commit (#531)",
+    ];
+  }
+  return [];
+}
+
 export async function check(root, options = {}) {
   const context = [`release rehearsal — workspace: ${path.resolve(root)}`, "publishes: nothing"];
   const violations = [];
@@ -1218,6 +1267,7 @@ export async function check(root, options = {}) {
       throw new GateError(`unreadable ${workflowPath}: ${error.message}`);
     }
     violations.push(...runtimeDependencyViolations(packages, workspaceNames));
+    violations.push(...pageCommandSetViolations(root));
     const mechanism = workflowViolations(workflow);
     violations.push(...mechanism.violations);
     if (mechanism.order) {

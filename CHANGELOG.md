@@ -11,7 +11,7 @@ minor versions may contain breaking contract changes.
 
 _(nothing yet — the next cycle)_
 
-## [0.6.0] - 2026-11-17
+## [0.6.0] - 2026-11-18
 
 ### Added
 

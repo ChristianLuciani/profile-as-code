@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared paste-renderer core: pasteSource() plus its conformance body. The ONE home of the paste invariant every paste adapter delegates to — SPEC §15.1 / D18.",
   "type": "module",
   "license": "MIT",

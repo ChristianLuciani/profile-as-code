@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Markdown-safety helpers shared by markdown-emitting renderers: CommonMark-safe destinations (`mdHref`) and link text (`mdText`). SPEC §15.2.",
   "type": "module",
   "license": "MIT",

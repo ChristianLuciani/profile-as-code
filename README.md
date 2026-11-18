@@ -124,6 +124,8 @@ El CLI `pasco` ofrece un conjunto integral de comandos para gestionar el ciclo d
 - 🔄 **`pasco diff [--json]`** — Compara los perfiles generados contra tags Git o versiones previas para ver qué cambia antes de desplegar.
 - 📊 **`pasco status [--mark] [--verify]`** — Consulta el ledger de despliegues (`facts/deployments.yaml`), marca despliegues manuales y verifica la vigencia de perfiles en vivo.
 - 📦 **`pasco migrate [--json]`** — Actualiza automáticamente workspaces de versiones anteriores al Schema v2.0 preservando comentarios.
+- **`pasco log --statement <text> --kind metric|milestone --basis <basis>`** — Captura UN logro en `facts/achievements.yaml` (privado por defecto, D27); **`pasco achievements [--targets]`** lee el impacto derivado.
+- **`pasco post`** y **`pasco presence [--json]`** — Publicación asistida y tablero de presencia de superficies (D23).
 
 ## Estado
 
@@ -185,7 +187,7 @@ profile-as-code/
 ├── packages/
 │   ├── core/             # ✅ load · drift · geo · compile (Zod desde schema)
 │   ├── renderers/        # github-readme + github-org + kofi — más adapters por plataforma (seam de contribución)
-│   └── cli/              # pasco — init·doctor·validate·build·preview·edit·check·audit·entity·cite-check·export·skills:export·diff·status·discover·migrate (v0.6.0)
+│   └── cli/              # pasco — init·doctor·validate·build·preview·edit·check·audit·entity·cite-check·export·skills:export·diff·status·discover·log·achievements·post·presence·migrate (v0.6.0)
 ├── skills/               # skills por plataforma (conocimiento SOTA)
 ├── templates/
 │   ├── profile-data/       # on-ramp A: puntero al template repo del workspace (SPEC §9.2)

@@ -215,7 +215,7 @@ pasco --help      # command list + exit-code contract
 
 `--help` prints `init`, `validate`, `doctor`, `migrate`, `build`, `preview`, `edit`, `diff`, `refine`,
 `check`, `audit`, `discover`, `entity`, `cite-check`, `post`, `status`, `presence`,
-`release plan`, `achievements`, `export profile`, `export ai-policy` and
+`release plan`, `log`, `achievements`, `export profile`, `export ai-policy` and
 `skills:export`, plus the exit-code contract: `0` ok · `1` schema or
 workspace failure (or a data finding that blocks the command — `pasco edit` exits
 `1` when the address is not exactly one row, the target is read-only or stale, the
