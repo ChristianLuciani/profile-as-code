@@ -89,7 +89,7 @@
       <figure class="terminal">
         <figcaption class="sr-only">Quick start: install the CLI, scaffold a workspace, validate it.</figcaption>
         <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
-        <pre><code><span class="t-prompt">$</span> npm i -g @profile-as-code/cli
+        <pre><code><span class="t-prompt">$</span> npm i -g @profile-as-code/cli<span class="t-comment">  # or: pnpm add -g @profile-as-code/cli</span>
 <span class="t-prompt">$</span> pasco init my-profile
 <span class="t-comment"># minimal, validating workspace</span>
 <span class="t-prompt">$</span> cd my-profile
@@ -116,7 +116,8 @@
           <h3>Facts stay facts</h3>
           <p>
             Dates, roles, projects, and publications are structured data validated against a JSON
-            Schema. Drift checks warn when a fact disagrees across platforms; schema violations fail.
+            Schema. Drift checks warn when a fact disagrees across platforms; schema violations fail
+            with the exact path. URLs are http(s)-only — a `javascript:` link can't reach your profile.
           </p>
         </article>
         <article class="card">

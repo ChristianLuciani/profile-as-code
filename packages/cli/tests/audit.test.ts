@@ -25,6 +25,7 @@ import { fileURLToPath } from "node:url";
 import { load } from "@profile-as-code/core";
 import { afterAll, describe, expect, it } from "vitest";
 import {
+  AUDIT_CODE_CLASS,
   AUDIT_SCHEMA_VERSION,
   AUDIT_SCOPE_KEYS,
   factRef,
@@ -219,6 +220,227 @@ describe("pasco audit — the frozen output contract (SPEC §7.1)", () => {
       class: "unsourced-claim",
       severity: "WARN",
       path: "projects[hub].description",
+    });
+  });
+
+  describe("D31 highlight claim codes (#529, option A of #493)", () => {
+    it("AUDIT_CODE_CLASS is the single source: both codes map to unsourced-claim, never contradiction", () => {
+      // The D31 loop reads the class from this map (no literal at the call
+      // site), so the "never contradiction" rule lives in exactly one place.
+      expect(AUDIT_CODE_CLASS["claim-against-unbuilt"]).toBe("unsourced-claim");
+      expect(AUDIT_CODE_CLASS["claim-without-proof"]).toBe("unsourced-claim");
+      expect(Object.values(AUDIT_CODE_CLASS).some((cls) => cls === "contradiction")).toBe(false);
+    });
+
+    const identity = "name: Someone\n";
+    const experienceWithRefs = (visibility: string, projectId = "proj-clapps") => `- id: exp-x
+  role: Consultant
+  org: Independent
+  start: 2024-01-01
+  highlights:
+    en: SaaS architecture for clinical management (see CLAPPS.AI).
+  highlightRefs: ["projects:${projectId}"]
+  visibility: ${visibility}
+`;
+
+    it("claim-against-unbuilt + claim-without-proof: a public highlight pointing at a planning project with no sourced evidence", () => {
+      const ws = workspace({
+        "identity.yaml": identity,
+        "projects.yaml": `- id: proj-clapps
+  name: CLAPPS.AI
+  status: planning
+  description:
+    en: Clinical management platform.
+  visibility: public
+`,
+        "experience.yaml": experienceWithRefs("public"),
+      });
+      const { code, data } = audit(ws);
+      // WARN-only findings never fail the audit (the frozen exit contract).
+      expect(code).toBe(0);
+      const findings = (data as { findings: Finding[] }).findings;
+      const byCode = new Map(findings.map((f) => [f.code, f]));
+      const againstUnbuilt = byCode.get("claim-against-unbuilt");
+      const withoutProof = byCode.get("claim-without-proof");
+      expect(againstUnbuilt).toMatchObject({
+        class: "unsourced-claim",
+        severity: "WARN",
+        path: "experience[exp-x].highlights",
+      });
+      expect(againstUnbuilt?.detail).toContain('status "planning"');
+      expect(withoutProof).toMatchObject({
+        class: "unsourced-claim",
+        severity: "WARN",
+        path: "experience[exp-x].highlights",
+      });
+      expect(withoutProof?.detail).toContain("projects:proj-clapps");
+    });
+
+    it("no claim findings when the target project is delivered and sourced", () => {
+      const ws = workspace({
+        "identity.yaml": identity,
+        "projects.yaml": `- id: proj-clapps
+  name: CLAPPS.AI
+  status: active
+  description:
+    en: Clinical management platform.
+  evidence:
+    - claim:
+        en: 10k clinics onboard.
+      source: https://example.com/metrics
+  visibility: public
+`,
+        "experience.yaml": experienceWithRefs("public"),
+      });
+      const { code, data } = audit(ws);
+      expect(code).toBe(0);
+      const findings = (data as { findings: Finding[] }).findings;
+      expect(findings.some((f) => f.code === "claim-against-unbuilt")).toBe(false);
+      expect(findings.some((f) => f.code === "claim-without-proof")).toBe(false);
+    });
+
+    it.each(["planning", "experimental"])(
+      "a non-delivery status (%s) emits claim-against-unbuilt whose wording does not claim the unit is unbuilt",
+      (status) => {
+        // `experimental` is a valid enum value the D31 delivery list does not
+        // name: the finding must say "not a declared delivery state", never
+        // "unbuilt" — an experimental project exists (review F2 of #539).
+        const ws = workspace({
+          "identity.yaml": identity,
+          "projects.yaml": `- id: proj-x
+  name: Project X
+  status: ${status}
+  description:
+    en: A platform.
+  visibility: public
+`,
+          "experience.yaml": experienceWithRefs("public", "proj-x"),
+        });
+        const { code, data } = audit(ws);
+        expect(code).toBe(0);
+        const findings = (data as { findings: Finding[] }).findings;
+        const againstUnbuilt = findings.find((f) => f.code === "claim-against-unbuilt");
+        expect(againstUnbuilt).toMatchObject({
+          class: "unsourced-claim",
+          severity: "WARN",
+          path: "experience[exp-x].highlights",
+        });
+        expect(againstUnbuilt?.detail).toContain(`status "${status}"`);
+        expect(againstUnbuilt?.detail).toContain("not a declared delivery state");
+        expect(againstUnbuilt?.detail).not.toContain("unbuilt");
+      },
+    );
+
+    it.each(["maintained", "archived"])(
+      "a delivery status (%s) with sourced evidence emits no highlight claim findings",
+      (status) => {
+        const ws = workspace({
+          "identity.yaml": identity,
+          "projects.yaml": `- id: proj-x
+  name: Project X
+  status: ${status}
+  description:
+    en: A platform.
+  evidence:
+    - claim:
+        en: 10k users.
+      source: https://example.com/metrics
+  visibility: public
+`,
+          "experience.yaml": experienceWithRefs("public", "proj-x"),
+        });
+        const { code, data } = audit(ws);
+        expect(code).toBe(0);
+        const findings = (data as { findings: Finding[] }).findings;
+        expect(findings.some((f) => f.code !== undefined)).toBe(false);
+      },
+    );
+
+    it("an ABSENT project status is not a claim-against-unbuilt finding (D31 carve-out, pinned)", () => {
+      // `status` is optional on projects[] (required: ["name"]): a row without
+      // it asserts nothing, so only the proof side may fire — the carve-out
+      // is contract (D31/§7.1), not just a code comment (review pass 2, F1).
+      const ws = workspace({
+        "identity.yaml": identity,
+        "projects.yaml": `- id: proj-x
+  name: Project X
+  description:
+    en: A platform.
+  visibility: public
+`,
+        "experience.yaml": experienceWithRefs("public", "proj-x"),
+      });
+      const { code, data } = audit(ws);
+      expect(code).toBe(0);
+      const findings = (data as { findings: Finding[] }).findings;
+      expect(findings.some((f) => f.code === "claim-against-unbuilt")).toBe(false);
+      // The target still has no sourced evidence, so the proof side fires.
+      expect(findings.some((f) => f.code === "claim-without-proof")).toBe(true);
+    });
+
+    it("a private experience row never emits findings (D27, same as achievements[])", () => {
+      const ws = workspace({
+        "identity.yaml": identity,
+        "projects.yaml": `- id: proj-clapps
+  name: CLAPPS.AI
+  status: planning
+  description:
+    en: Clinical management platform.
+  visibility: public
+`,
+        "experience.yaml": experienceWithRefs("private"),
+      });
+      const { code, data } = audit(ws);
+      expect(code).toBe(0);
+      const findings = (data as { findings: Finding[] }).findings;
+      expect(findings.some((f) => f.path.startsWith("experience["))).toBe(false);
+    });
+
+    it("an experience row without highlightRefs emits nothing (zero false positives)", () => {
+      const ws = workspace({
+        "identity.yaml": identity,
+        "projects.yaml": `- id: proj-clapps
+  name: CLAPPS.AI
+  status: planning
+  description:
+    en: Clinical management platform.
+  visibility: public
+`,
+        "experience.yaml": `- id: exp-x
+  role: Consultant
+  org: Independent
+  start: 2024-01-01
+  highlights:
+    en: SaaS architecture for clinical management (see CLAPPS.AI).
+  visibility: public
+`,
+      });
+      const { code, data } = audit(ws);
+      expect(code).toBe(0);
+      const findings = (data as { findings: Finding[] }).findings;
+      expect(findings.some((f) => f.code !== undefined)).toBe(false);
+    });
+
+    it("the human output names the code and the exact row so the author knows which bullet to fix", () => {
+      const ws = workspace({
+        "identity.yaml": identity,
+        "projects.yaml": `- id: proj-clapps
+  name: CLAPPS.AI
+  status: planning
+  description:
+    en: Clinical management platform.
+  visibility: public
+`,
+        "experience.yaml": experienceWithRefs("public"),
+      });
+      const { code, out } = human(() => runAudit({ workspace: ws, pascorc: PASCO }));
+      expect(code).toBe(0);
+      expect(out).toContain(
+        "WARN unsourced-claim · claim-against-unbuilt experience[exp-x].highlights",
+      );
+      expect(out).toContain(
+        "WARN unsourced-claim · claim-without-proof experience[exp-x].highlights",
+      );
     });
   });
 

@@ -134,14 +134,24 @@ repo, no account, nothing to clone.
 Two paths. **Option A is the intended path for users** (published on npm);
 **Option B builds from source** (contributors, or pinning an unreleased commit).
 
-### Option A — npm (the user path)
+### Option A — Install from npm registry (the user path)
+
+The `@profile-as-code/cli` package is published on the **npm registry** and can be installed with any compatible package manager.
 
 ```sh
+# Recommended (npm comes with Node.js):
 npm i -g @profile-as-code/cli    # the package
 pasco --version                  # the bin — expect 0.6.0
 ```
 
-One global install: no clone, no build, nothing written outside the npm prefix.
+> **Tip:** You can also use pnpm or yarn if you prefer:
+> ```sh
+> pnpm add -g @profile-as-code/cli
+> # or
+> yarn global add @profile-as-code/cli
+> ```
+
+One global install: no clone, no build, nothing written outside the package manager prefix.
 `@profile-as-code/cli` is the **package**; `pasco` is the **bin** it provides.
 
 > **Status**: `@profile-as-code/cli@0.6.0` is the release this branch prepares; it is
@@ -509,6 +519,11 @@ Two kinds of results (D12):
 - **Drift / GEO findings → WARN (exit 0).** Facts that contradict across
   platforms or GEO gaps. These do not block you, but fix them: contradictions
   are exactly what gets a profile discounted by LLMs reading it.
+
+Beyond shape, the contract guarantees: URLs are http(s)-only (a `javascript:`
+value fails validation and never reaches a published profile), unknown
+files/keys fail instead of being silently ignored, and `load()` refuses
+duplicate entry ids and dangling cross-references.
 
 `pasco validate` also prints a GEO **index** (0–100), one line per
 section, and one line per code that has something to report (score `0` or

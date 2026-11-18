@@ -851,12 +851,26 @@ checked commit (it refuses without `--yes`; `--dry-run` prints the two git
 commands, and a boolean flag's presence IS its value, so `--yes=false` refuses).
 `pnpm release:pages -- --ref <sha> --release v<version>` is step 3's documented
 override; `pnpm release:verify` reads the registry, the Release and the live page's
-`softwareVersion` back, reporting every surface it attempted. The script never
-publishes — the workflow does — and its self-test (`node scripts/release/test.mjs`,
-run in CI) provokes the `check` preconditions (local and remote, including a tag
-that exists only on origin), the `cut`/`pages` usage refusals and `verify`'s
-address refusals — against temporary repositories and a bare local remote — so a
-broken precondition cannot pass silently.
+`softwareVersion` back, reporting every surface it attempted. npm processes a
+publish asynchronously and the Release and Pages jobs run after it, so a surface
+that is not live **yet** is not a failure (#507): `verify` retries it with backoff
+inside ONE window shared by the whole run — `--deadline` (default 600000 ms) is
+global, never restarted per surface — and reports three states — exit `0`
+`VERIFIED`, exit `2` `PROCESSING` (`--no-wait`: still pending, not failed), and
+exit `1` `NOT VERIFIED`, only after the window closes, naming what it never saw.
+A network error on a fetch probe mid-window is transient too: it retries inside the
+same window and FAILs only when the window closes unanswered. A `gh` failure reading
+the Release is NOT transient — it is a hard FAIL, because with `gh` down we cannot
+know whether the Release exists. Hard FAILs are never retried: a registry answer
+that is not 404, a page without a valid `softwareVersion`, a page NEWER than the tag,
+or a Release the tool cannot read (auth). `--no-wait`
+cannot be combined with `--deadline`/`--interval`. The
+script never publishes — the workflow does — and its self-test
+(`node scripts/release/test.mjs`, run in CI) provokes the `check` preconditions
+(local and remote, including a tag that exists only on origin), the `cut`/`pages`
+usage refusals, `verify`'s address refusals and `verify`'s processing/deadline
+states (stubbed fetch and clock, offline) — against temporary repositories and a
+bare local remote — so a broken precondition cannot pass silently.
 
 **What a tag push does — measured.** The tag run **publishes**
 (OIDC with `dist.attestations`, the Release page created by the same run — `v0.3.5`'s run

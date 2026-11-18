@@ -24,7 +24,10 @@ No account, no repo, no terminal experience assumed. The whole path is two comma
 and one file edit.
 
 ```sh
+# Install the CLI (npm is recommended as it comes with Node.js):
 npm i -g @profile-as-code/cli     # Node >= 22
+# Alternative: pnpm add -g @profile-as-code/cli or yarn global add @profile-as-code/cli
+
 pasco init ~/profile-data-<username>
 cd ~/profile-data-<username>
 pasco validate                    # schema (fails) + drift/geo (warns)
@@ -164,7 +167,9 @@ see any of them; the `grep` can.
    ([§2](USER-GUIDE.md#2-install-the-pasco-cli)); the engine is one npm package.
 
    ```sh
+   # Recommended (npm comes with Node.js):
    npm i -g @profile-as-code/cli@latest
+   # Alternative: pnpm add -g @profile-as-code/cli@latest or yarn global add @profile-as-code/cli@latest
    pasco --version                  # receipt: the version you meant to install
    ```
 

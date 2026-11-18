@@ -86,7 +86,7 @@
       <figure class="terminal">
         <figcaption class="sr-only">Inicio rápido: instalá la CLI, creá un workspace y validalo.</figcaption>
         <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
-        <pre><code><span class="t-prompt">$</span> npm i -g @profile-as-code/cli
+        <pre><code><span class="t-prompt">$</span> npm i -g @profile-as-code/cli<span class="t-comment">  # o: pnpm add -g @profile-as-code/cli</span>
 <span class="t-prompt">$</span> pasco init my-profile
 <span class="t-comment"># un workspace mínimo que valida</span>
 <span class="t-prompt">$</span> cd my-profile
@@ -114,7 +114,8 @@
           <p>
             Fechas, roles, proyectos y publicaciones son datos estructurados validados contra un JSON
             Schema. Los chequeos de drift avisan cuando un dato no coincide entre plataformas; las
-            violaciones de schema fallan.
+            violaciones de schema fallan con la ruta exacta. Las URLs son solo http(s): un enlace
+            `javascript:` nunca llega a tu perfil publicado.
           </p>
         </article>
         <article class="card">
@@ -243,7 +244,7 @@
       <div class="status-grid">
         <div class="status-item">
           <h3 class="status-label">Paquete</h3>
-          <p>El paquete <code>@profile-as-code/cli</code> está publicado en npm y se instala con <code>npm i -g @profile-as-code/cli</code>.</p>
+          <p>El paquete <code>@profile-as-code/cli</code> está publicado en npm y se instala con <code>npm i -g @profile-as-code/cli</code> (pnpm/yarn también funcionan).</p>
         </div>
         <div class="status-item">
           <h3 class="status-label">Funciona</h3>

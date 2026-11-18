@@ -147,7 +147,7 @@ lee en el tracker. Motivo y criterio de cierre: #532.
 | **#520** · integridad del egreso | el issue sigue abierto; el hallazgo principal y los puntos (2)/(3) están en `main` (PR #528, `c22df70`; commit `3edcc347`), así que lo que resta se lee en el tracker | `main@a90263d`, 2026-11-13 |
 | **#529** · A de #493 | el puntero `block:id` en `highlights` + `claim-against-unbuilt`/`claim-without-proof`; **A es aditivo sobre el schema** (campo opcional, `pnpm gen:zod`) y **B** es la dirección que exige bendición del operador y bump de mayor | 2026-11-13 |
 | **#493** · postura del claim | decidida 2026-11-12 (A ahora, B dirección, C futura, D rechazada); la construcción vive en #529 | 2026-11-13 |
-| **#507** · `release:verify` | una sola sonda por paquete; el 404 transitorio de npm se lee como `FAIL` (medido en el corte de v0.5.0) | 2026-11-13 |
+| **#507** · `release:verify` | FIX en PR #538 (rama `vibe/release-verify-processing-c35e58`): una ventana compartida con backoff, exit 0/2/1 (VERIFIED/PROCESSING/NOT VERIFIED) y fallos duros sin reintentar; pendiente de merge | PR #538, 2026-11-15 |
 | **#532** · forma del roadmap | esta sección: citar el tracker en vez de replicarlo | 2026-11-13 |
 
 Cerrados en esta ronda (2026-11-13): issue #519 (por el PR #527) y PR #521 (mergeada,
