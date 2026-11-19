@@ -25,7 +25,6 @@ import { runDiscover } from "./commands/discover.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runEdit } from "./commands/edit.js";
 import { runEntity } from "./commands/entity.js";
-import { runSync } from "./commands/sync.js";
 import { runAiPolicyCheck, runAiPolicyExport, runAiPolicyFileCheck } from "./commands/export.js";
 import { resolveNow, runExportProfile } from "./commands/export-profile.js";
 import { runInit } from "./commands/init.js";
@@ -37,6 +36,7 @@ import { runPreview } from "./commands/preview.js";
 import { runRefine } from "./commands/refine.js";
 import { runSkillsExport } from "./commands/skills-export.js";
 import { runStatus } from "./commands/status.js";
+import { runSync } from "./commands/sync.js";
 import { runValidate } from "./commands/validate.js";
 import type { EditListBlock } from "./contract.js";
 import {
@@ -176,11 +176,10 @@ Commands:
                                 byte-identical across runs
   skills:export <dir>           [write] Copy the skill channels this package ships into <dir>
           [--force] [--list]     (--force overlays; --list shows them); no harness paths
-  sync [--to-yaml|--to-toml]     [write] Sync TOML and YAML fact files (TOML for human editing,
-          [--watch] [--overwrite]  YAML for engine); --watch auto-syncs on changes
 
 Common flags (after the command):
   --workspace <path>  Workspace path (resolution: --workspace > .pascorc > cwd, D14)
+  --json              Machine-readable output
   --help, -h          Command help
 
 Exit codes: 0 ok · 1 schema/workspace failure, a .pascorc engine requirement that
@@ -342,6 +341,7 @@ closed host allowlist: the platform hosts the engine ships, plus --allow-host
 (comma-separated). A URL outside it is reported as
 host-not-allowed with NO request made. Nothing is written: no facts/, no
 ledger, no artifact.
+  --json        machine-readable report: surfaces (with via: fetch|manual),
                 unchecked URLs, the provisional profile, its per-fact provenance
                 and the findings
   --allow-host  extra hostnames the operator declares, comma-separated
@@ -686,6 +686,7 @@ Offline; --out reads no clock and two runs produce byte-identical files, and
 The normalized profile for programmatic consumers (SPEC §7.5, #348; v2/D27 by
 #498). One payload, the same for a script, a site build or a service:
   { schemaVersion, engine, source: { commit, generatedAt }, scope, profile }
+  --json        emit the payload inside the standard envelope (command · ok ·
                 exitCode · data). Human mode prints a summary of the same object.
   --public      the D27 public projection — the DEFAULT (same bytes when named).
   --all         the full SSOT, the pre-D27 payload, for backup and consumers
@@ -731,9 +732,29 @@ Offline and deterministic: no network, and no clock enters the payload (--now pi
 generatedAt; the egress audit timestamp of SPEC §7.11 goes to .pasco/egress/ and
 never into the payload).`,
   "skills:export": `pasco skills:export <dir> [--force] [--json]
-No harness-specific destination is invented.`,
+pasco skills:export --list [--json]
+Copies the skill channels this package ships (SPEC §16) into a directory you
+name. --list shows them; an existing non-empty directory needs --force (files are
+overlaid, nothing is deleted). No harness-specific destination is invented.`,
   sync: `pasco sync [--to-yaml] [--to-toml] [--watch] [--overwrite | -f] [--json] [--workspace <path>]
-Synchronize TOML and YAML fact files. Enables human-friendly TOML editing while maintaining YAML compatibility with the engine.`,
+Synchronize TOML and YAML fact files. Enables human-friendly TOML editing
+while maintaining YAML compatibility with the engine.
+
+Options:
+  --to-yaml    Convert TOML files to YAML (default when neither --to-yaml nor --to-toml)
+  --to-toml    Convert YAML files to TOML
+  --watch      Watch for changes and sync automatically (implies --to-yaml and --to-toml)
+  --overwrite, -f  Overwrite existing files (default: skip if file exists)
+  --json       Machine-readable output
+
+Examples:
+  pasco sync --to-yaml           # Convert all TOML files to YAML
+  pasco sync --to-toml           # Convert all YAML files to TOML
+  pasco sync --watch             # Auto-sync on changes
+  pasco sync --to-yaml --overwrite  # Force overwrite existing YAML files
+
+Note: When using --watch, both TOML and YAML files are kept in sync.
+TOML files are recommended for human editing (less indentation errors).`,
   post: `pasco post <seed|task|choose|check|export|import|list> [...] [--json] [--confirm <sha256:…>] [--workspace <path>]
 MVP (week-1 experiment): a post is a PROJECTION of a seed, not an identity fact.
 Two seed formats (#266): short (distribution) and longform (the essay/newsletter).
@@ -1674,12 +1695,6 @@ async function runMain(): Promise<number> {
       });
     }
     case "skills:export": {
-  sync: `pasco sync [--to-yaml] [--to-toml] [--watch] [--overwrite | -f] [--json] [--workspace <path>]
-Synchronize TOML and YAML fact files. Enables human-friendly TOML editing
-while maintaining YAML compatibility with the engine.
-
-Options:
-
       const { flags, positionals } = parseCommandFlags(rest, {
         list: { type: "boolean" },
         force: { type: "boolean" },
@@ -1701,7 +1716,7 @@ Options:
       });
     }
     case "sync": {
-      const { flags, positionals } = parseCommandFlags(rest, {
+      const { flags, _positionals } = parseCommandFlags(rest, {
         "to-yaml": { type: "boolean" },
         "to-toml": { type: "boolean" },
         watch: { type: "boolean" },
@@ -1709,7 +1724,8 @@ Options:
         f: { type: "boolean" },
       });
       if (flags.help === true) {
-        process.stdout.write(`${COMMAND_HELP.sync}\n`);
+        process.stdout.write(`${COMMAND_HELP.sync}
+`);
         return EXIT.OK;
       }
       setJsonMode(flags.json === true);
