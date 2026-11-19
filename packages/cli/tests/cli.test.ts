@@ -50,8 +50,13 @@ function run(args: string[], cwd?: string): RunResult {
 
 /** A package-shaped layout that can run the built CLI outside the repo. */
 function fakePackage(dir: string): void {
-  mkdirSync(join(dir, "dist"), { recursive: true });
-  copyFileSync(CLI, join(dir, "dist", "index.js"));
+  const distSrc = join(__dirname, "..", "dist");
+  const distDst = join(dir, "dist");
+  mkdirSync(distDst, { recursive: true });
+  // Copy all files from dist directory (including chunk files from code splitting)
+  for (const file of readdirSync(distSrc)) {
+    copyFileSync(join(distSrc, file), join(distDst, file));
+  }
   // Resolve yaml/zod exactly as an installed package would.
   symlinkSync(join(__dirname, "..", "node_modules"), join(dir, "node_modules"), "dir");
 }

@@ -11,11 +11,12 @@
  *   pasco sync --watch            Watch for changes and sync automatically
  */
 
+import { join } from "node:path";
 import type { SyncResult, TomlToYamlOptions, YamlToTomlOptions } from "@profile-as-code/core";
-import { syncTomlYaml, watchTomlYaml } from "@profile-as-code/core";
+import { factsDir, syncTomlYaml, watchTomlYaml } from "@profile-as-code/core";
 import { EXIT } from "../exit.js";
 import { isJsonMode, line, report, section, setJsonMode } from "../output.js";
-import { resolveWorkspace, WORKSPACE_NAME } from "../workspace.js";
+import { resolveWorkspace } from "../workspace.js";
 
 /** Arguments for the sync command */
 export interface SyncArgs {
@@ -65,8 +66,9 @@ export async function runSync(args: SyncArgs): Promise<number> {
     });
   }
 
-  // Resolve workspace
-  const factsDir = resolveWorkspace(workspace, WORKSPACE_NAME);
+  // Resolve workspace and get facts directory
+  const resolvedWorkspace = resolveWorkspace(workspace);
+  const factsDirectory = join(resolvedWorkspace, factsDir(resolvedWorkspace));
 
   // Set JSON mode for output
   if (json) {
@@ -76,10 +78,10 @@ export async function runSync(args: SyncArgs): Promise<number> {
   try {
     if (watch) {
       // Watch mode: sync both directions automatically
-      line(`Watching ${factsDir} for changes...`);
+      line(`Watching ${factsDirectory} for changes...`);
 
       const stopWatch = await watchTomlYaml(
-        factsDir,
+        factsDirectory,
         {
           toYaml: true,
           toToml: true,
@@ -109,7 +111,7 @@ export async function runSync(args: SyncArgs): Promise<number> {
         toToml,
       };
 
-      const result = await syncTomlYaml(factsDir, options);
+      const result = await syncTomlYaml(factsDirectory, options);
       return reportSyncResult(result, "sync");
     }
   } catch (error) {
