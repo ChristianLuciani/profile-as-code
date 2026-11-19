@@ -1,15 +1,15 @@
 /**
  * TOML <-> YAML synchronization utilities.
- * 
+ *
  * This module provides functions to convert between TOML and YAML formats,
  * enabling users to edit TOML files (more human-friendly, less indentation errors)
  * while the engine continues to work with YAML.
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
-import { parse as parseToml, stringify as stringifyToml } from '@iarna/toml';
-import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
+import { parse as parseToml, stringify as stringifyToml } from "@iarna/toml";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 /** Options for TOML to YAML conversion */
 export interface TomlToYamlOptions {
@@ -41,7 +41,7 @@ export interface SyncResult {
 
 /**
  * Convert a single TOML file to YAML.
- * 
+ *
  * @param tomlPath - Path to the TOML file
  * @param yamlPath - Path to write the YAML file
  * @param options - Conversion options
@@ -50,7 +50,7 @@ export interface SyncResult {
 export function tomlToYamlFile(
   tomlPath: string,
   yamlPath: string,
-  options: TomlToYamlOptions = {}
+  options: TomlToYamlOptions = {},
 ): boolean {
   const { indent = 2, createDirs = true, overwrite = false } = options;
 
@@ -73,21 +73,21 @@ export function tomlToYamlFile(
   }
 
   // Read and parse TOML
-  const tomlContent = readFileSync(tomlPath, 'utf-8');
+  const tomlContent = readFileSync(tomlPath, "utf-8");
   const data = parseToml(tomlContent);
 
   // Convert to YAML
   const yamlContent = stringifyYaml(data, { indent });
 
   // Write YAML file
-  writeFileSync(yamlPath, yamlContent, 'utf-8');
+  writeFileSync(yamlPath, yamlContent, "utf-8");
 
   return true;
 }
 
 /**
  * Convert a single YAML file to TOML.
- * 
+ *
  * @param yamlPath - Path to the YAML file
  * @param tomlPath - Path to write the TOML file
  * @param options - Conversion options
@@ -96,7 +96,7 @@ export function tomlToYamlFile(
 export function yamlToTomlFile(
   yamlPath: string,
   tomlPath: string,
-  options: YamlToTomlOptions = {}
+  options: YamlToTomlOptions = {},
 ): boolean {
   const { createDirs = true, overwrite = false } = options;
 
@@ -119,21 +119,21 @@ export function yamlToTomlFile(
   }
 
   // Read and parse YAML
-  const yamlContent = readFileSync(yamlPath, 'utf-8');
+  const yamlContent = readFileSync(yamlPath, "utf-8");
   const data = parseYaml(yamlContent);
 
   // Convert to TOML
   const tomlContent = stringifyToml(data);
 
   // Write TOML file
-  writeFileSync(tomlPath, tomlContent, 'utf-8');
+  writeFileSync(tomlPath, tomlContent, "utf-8");
 
   return true;
 }
 
 /**
  * Convert all TOML files in a directory to YAML.
- * 
+ *
  * @param inputDir - Directory containing TOML files
  * @param outputDir - Directory to write YAML files (same structure as inputDir)
  * @param options - Conversion options
@@ -142,18 +142,18 @@ export function yamlToTomlFile(
 export function tomlToYamlDirectory(
   inputDir: string,
   outputDir: string,
-  options: TomlToYamlOptions = {}
+  options: TomlToYamlOptions = {},
 ): SyncResult {
   const result: SyncResult = { converted: [], skipped: [], errors: [] };
-  const { globSync } = require('glob');
+  const { globSync } = require("glob");
 
   // Find all TOML files
-  const tomlFiles = globSync(join(inputDir, '**/*.toml'));
+  const tomlFiles = globSync(join(inputDir, "**/*.toml"));
 
   for (const tomlPath of tomlFiles) {
     try {
       const relativePath = relative(inputDir, tomlPath);
-      const yamlPath = join(outputDir, relativePath.replace('.toml', '.yaml'));
+      const yamlPath = join(outputDir, relativePath.replace(".toml", ".yaml"));
 
       const success = tomlToYamlFile(tomlPath, yamlPath, options);
       if (success) {
@@ -174,7 +174,7 @@ export function tomlToYamlDirectory(
 
 /**
  * Convert all YAML files in a directory to TOML.
- * 
+ *
  * @param inputDir - Directory containing YAML files
  * @param outputDir - Directory to write TOML files (same structure as inputDir)
  * @param options - Conversion options
@@ -183,18 +183,18 @@ export function tomlToYamlDirectory(
 export function yamlToTomlDirectory(
   inputDir: string,
   outputDir: string,
-  options: YamlToTomlOptions = {}
+  options: YamlToTomlOptions = {},
 ): SyncResult {
   const result: SyncResult = { converted: [], skipped: [], errors: [] };
-  const { globSync } = require('glob');
+  const { globSync } = require("glob");
 
   // Find all YAML files
-  const yamlFiles = globSync(join(inputDir, '**/*.yaml'));
+  const yamlFiles = globSync(join(inputDir, "**/*.yaml"));
 
   for (const yamlPath of yamlFiles) {
     try {
       const relativePath = relative(inputDir, yamlPath);
-      const tomlPath = join(outputDir, relativePath.replace('.yaml', '.toml'));
+      const tomlPath = join(outputDir, relativePath.replace(".yaml", ".toml"));
 
       const success = yamlToTomlFile(yamlPath, tomlPath, options);
       if (success) {
@@ -216,25 +216,25 @@ export function yamlToTomlDirectory(
 /**
  * Synchronize TOML and YAML files in the same directory.
  * Converts TOML files to YAML (or vice versa) while preserving the directory structure.
- * 
+ *
  * @param factsDir - Directory containing fact files (TOML or YAML)
  * @param options - Conversion options
  * @returns SyncResult with details of the operation
  */
 export function syncTomlYaml(
   factsDir: string,
-  options: TomlToYamlOptions & { toYaml?: boolean; toToml?: boolean } = {}
+  options: TomlToYamlOptions & { toYaml?: boolean; toToml?: boolean } = {},
 ): SyncResult {
   const { toYaml = true, toToml = false, ...restOptions } = options;
   const result: SyncResult = { converted: [], skipped: [], errors: [] };
-  const { globSync } = require('glob');
+  const { globSync } = require("glob");
 
   if (toYaml) {
     // Convert TOML to YAML
-    const tomlFiles = globSync(join(factsDir, '**/*.toml'));
+    const tomlFiles = globSync(join(factsDir, "**/*.toml"));
     for (const tomlPath of tomlFiles) {
       try {
-        const yamlPath = tomlPath.replace('.toml', '.yaml');
+        const yamlPath = tomlPath.replace(".toml", ".yaml");
         const success = tomlToYamlFile(tomlPath, yamlPath, restOptions);
         if (success) {
           result.converted.push(`${tomlPath} -> ${yamlPath}`);
@@ -252,10 +252,10 @@ export function syncTomlYaml(
 
   if (toToml) {
     // Convert YAML to TOML
-    const yamlFiles = globSync(join(factsDir, '**/*.yaml'));
+    const yamlFiles = globSync(join(factsDir, "**/*.yaml"));
     for (const yamlPath of yamlFiles) {
       try {
-        const tomlPath = yamlPath.replace('.yaml', '.toml');
+        const tomlPath = yamlPath.replace(".yaml", ".toml");
         const success = yamlToTomlFile(yamlPath, tomlPath, restOptions);
         if (success) {
           result.converted.push(`${yamlPath} -> ${tomlPath}`);
@@ -276,7 +276,7 @@ export function syncTomlYaml(
 
 /**
  * Watch a directory for changes and sync TOML <-> YAML automatically.
- * 
+ *
  * @param factsDir - Directory to watch
  * @param options - Conversion options
  * @param callback - Optional callback for each sync event
@@ -285,17 +285,17 @@ export function syncTomlYaml(
 export function watchTomlYaml(
   factsDir: string,
   options: TomlToYamlOptions & { toYaml?: boolean; toToml?: boolean } = {},
-  callback?: (result: SyncResult) => void
+  callback?: (result: SyncResult) => void,
 ): () => void {
   const { toYaml = true, toToml = false, ...restOptions } = options;
-  const { watch } = require('chokidar');
+  const { watch } = require("chokidar");
 
-  const watcher = watch(join(factsDir, '**/*.{toml,yaml}'), {
+  const watcher = watch(join(factsDir, "**/*.{toml,yaml}"), {
     persistent: true,
     ignoreInitial: true,
   });
 
-  watcher.on('change', (path: string) => {
+  watcher.on("change", (_path: string) => {
     const result = syncTomlYaml(factsDir, { ...restOptions, toYaml, toToml });
     if (callback) {
       callback(result);

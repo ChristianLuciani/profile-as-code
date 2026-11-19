@@ -1,10 +1,10 @@
 /**
  * pasco sync  synchronize TOML and YAML fact files.
- * 
+ *
  * Enables users to edit TOML files (more human-friendly, less indentation errors)
  * while the engine continues to work with YAML. This provides the best of both
  * worlds: TOML for human editing and YAML for engine compatibility.
- * 
+ *
  * Usage:
  *   pasco sync --to-yaml          Convert all TOML files to YAML
  *   pasco sync --to-toml          Convert all YAML files to TOML
@@ -37,7 +37,14 @@ export interface SyncArgs {
  * Converts between TOML and YAML formats for fact files.
  */
 export function runSync(args: SyncArgs): number {
-  const { workspace, toYaml = false, toToml = false, watch = false, overwrite = false, json = false } = args;
+  const {
+    workspace,
+    toYaml = false,
+    toToml = false,
+    watch = false,
+    overwrite = false,
+    json = false,
+  } = args;
 
   // Validate arguments
   if (!toYaml && !toToml && !watch) {
@@ -70,17 +77,21 @@ export function runSync(args: SyncArgs): number {
     if (watch) {
       // Watch mode: sync both directions automatically
       line("sync", `Watching ${factsDir} for changes...`);
-      
-      const stopWatch = watchTomlYaml(factsDir, {
-        toYaml: true,
-        toToml: true,
-        overwrite,
-      }, (result) => {
-        reportSyncResult(result, "watch");
-      });
+
+      const stopWatch = watchTomlYaml(
+        factsDir,
+        {
+          toYaml: true,
+          toToml: true,
+          overwrite,
+        },
+        (result) => {
+          reportSyncResult(result, "watch");
+        },
+      );
 
       // Handle graceful shutdown
-      process.on('SIGINT', () => {
+      process.on("SIGINT", () => {
         stopWatch();
         line("sync", "Watch mode stopped.");
         process.exit(0);
@@ -91,7 +102,8 @@ export function runSync(args: SyncArgs): number {
       return EXIT.OK;
     } else {
       // Single sync operation
-      const options: TomlToYamlOptions & YamlToTomlOptions & { toYaml?: boolean; toToml?: boolean } = {
+      const options: TomlToYamlOptions &
+        YamlToTomlOptions & { toYaml?: boolean; toToml?: boolean } = {
         overwrite,
         toYaml,
         toToml,
@@ -147,7 +159,10 @@ function reportSyncResult(result: SyncResult, command: string): number {
     line(command, "No files to sync.");
   }
 
-  line(command, `Sync complete: ${result.converted.length} converted, ${result.skipped.length} skipped, ${result.errors.length} errors.`);
+  line(
+    command,
+    `Sync complete: ${result.converted.length} converted, ${result.skipped.length} skipped, ${result.errors.length} errors.`,
+  );
   return EXIT.OK;
 }
 
