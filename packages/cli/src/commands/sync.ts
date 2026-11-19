@@ -1,5 +1,5 @@
 /**
- * pasco sync  synchronize TOML and YAML fact files.
+ * pasco sync - synchronize TOML and YAML fact files.
  *
  * Enables users to edit TOML files (more human-friendly, less indentation errors)
  * while the engine continues to work with YAML. This provides the best of both
@@ -14,7 +14,7 @@
 import type { SyncResult, TomlToYamlOptions, YamlToTomlOptions } from "@profile-as-code/core";
 import { syncTomlYaml, watchTomlYaml } from "@profile-as-code/core";
 import { EXIT } from "../exit.js";
-import { isJsonMode, line, report, section } from "../output.js";
+import { isJsonMode, line, report, section, setJsonMode } from "../output.js";
 import { resolveWorkspace, WORKSPACE_NAME } from "../workspace.js";
 
 /** Arguments for the sync command */
@@ -36,7 +36,7 @@ export interface SyncArgs {
  * Run the sync command.
  * Converts between TOML and YAML formats for fact files.
  */
-export function runSync(args: SyncArgs): number {
+export async function runSync(args: SyncArgs): Promise<number> {
   const {
     workspace,
     toYaml = false,
@@ -76,9 +76,9 @@ export function runSync(args: SyncArgs): number {
   try {
     if (watch) {
       // Watch mode: sync both directions automatically
-      line("sync", `Watching ${factsDir} for changes...`);
+      line(`Watching ${factsDir} for changes...`);
 
-      const stopWatch = watchTomlYaml(
+      const stopWatch = await watchTomlYaml(
         factsDir,
         {
           toYaml: true,
@@ -93,7 +93,7 @@ export function runSync(args: SyncArgs): number {
       // Handle graceful shutdown
       process.on("SIGINT", () => {
         stopWatch();
-        line("sync", "Watch mode stopped.");
+        line("Watch mode stopped.");
         process.exit(0);
       });
 
@@ -109,7 +109,7 @@ export function runSync(args: SyncArgs): number {
         toToml,
       };
 
-      const result = syncTomlYaml(factsDir, options);
+      const result = await syncTomlYaml(factsDir, options);
       return reportSyncResult(result, "sync");
     }
   } catch (error) {
@@ -126,41 +126,40 @@ export function runSync(args: SyncArgs): number {
 /**
  * Report the result of a sync operation.
  */
-function reportSyncResult(result: SyncResult, command: string): number {
+function reportSyncResult(result: SyncResult, _command: string): number {
   if (isJsonMode()) {
-    line(command, JSON.stringify(result));
+    line(JSON.stringify(result));
     return result.errors.length > 0 ? EXIT.FAIL : EXIT.OK;
   }
 
   // Human-readable output
   if (result.converted.length > 0) {
-    section(command, "Converted files");
+    section("Converted files");
     for (const file of result.converted) {
-      line(command, `  [32m✓[0m ${file}`);
+      line(`  \u001b[32m\u2713\u001b[0m ${file}`);
     }
   }
 
   if (result.skipped.length > 0) {
-    section(command, "Skipped files (already exist)");
+    section("Skipped files (already exist)");
     for (const file of result.skipped) {
-      line(command, `  [33m-[0m ${file}`);
+      line(`  \u001b[33m-\u001b[0m ${file}`);
     }
   }
 
   if (result.errors.length > 0) {
-    section(command, "Errors");
+    section("Errors");
     for (const { file, error } of result.errors) {
-      line(command, `  [31m✗[0m ${file}: ${error}`);
+      line(`  \u001b[31m\u2717\u001b[0m ${file}: ${error}`);
     }
     return EXIT.FAIL;
   }
 
   if (result.converted.length === 0 && result.skipped.length === 0) {
-    line(command, "No files to sync.");
+    line("No files to sync.");
   }
 
   line(
-    command,
     `Sync complete: ${result.converted.length} converted, ${result.skipped.length} skipped, ${result.errors.length} errors.`,
   );
   return EXIT.OK;
