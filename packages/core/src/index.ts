@@ -230,6 +230,15 @@ export {
  *  two different platforms). Heuristic, so WARN and never a gate. */
 export type { TextFinding, TextKind } from "./text.js";
 export { sameTextAcrossPlatforms } from "./text.js";
+export type { SyncResult, TomlToYamlOptions, YamlToTomlOptions } from "./toml-sync.js";
+export {
+  syncTomlYaml,
+  tomlToYamlDirectory,
+  tomlToYamlFile,
+  watchTomlYaml,
+  yamlToTomlDirectory,
+  yamlToTomlFile,
+} from "./toml-sync.js";
 export type {
   ActiveEntry,
   Artifact,
@@ -274,12 +283,3 @@ export {
   publicProjection,
   VISIBILITY_BLOCKS,
 } from "./visibility.js";
-export type { SyncResult, TomlToYamlOptions, YamlToTomlOptions } from "./toml-sync.js";
-export {
-  syncTomlYaml,
-  tomlToYamlFile,
-  yamlToTomlFile,
-  tomlToYamlDirectory,
-  yamlToTomlDirectory,
-  watchTomlYaml,
-} from "./toml-sync.js";
