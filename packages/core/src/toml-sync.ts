@@ -139,13 +139,13 @@ export function yamlToTomlFile(
  * @param options - Conversion options
  * @returns SyncResult with details of the operation
  */
-export function tomlToYamlDirectory(
+export async function tomlToYamlDirectory(
   inputDir: string,
   outputDir: string,
   options: TomlToYamlOptions = {},
-): SyncResult {
+): Promise<SyncResult> {
   const result: SyncResult = { converted: [], skipped: [], errors: [] };
-  const { globSync } = require("glob");
+  const { globSync } = await import("glob");
 
   // Find all TOML files
   const tomlFiles = globSync(join(inputDir, "**/*.toml"));
@@ -180,13 +180,13 @@ export function tomlToYamlDirectory(
  * @param options - Conversion options
  * @returns SyncResult with details of the operation
  */
-export function yamlToTomlDirectory(
+export async function yamlToTomlDirectory(
   inputDir: string,
   outputDir: string,
   options: YamlToTomlOptions = {},
-): SyncResult {
+): Promise<SyncResult> {
   const result: SyncResult = { converted: [], skipped: [], errors: [] };
-  const { globSync } = require("glob");
+  const { globSync } = await import("glob");
 
   // Find all YAML files
   const yamlFiles = globSync(join(inputDir, "**/*.yaml"));
@@ -221,13 +221,13 @@ export function yamlToTomlDirectory(
  * @param options - Conversion options
  * @returns SyncResult with details of the operation
  */
-export function syncTomlYaml(
+export async function syncTomlYaml(
   factsDir: string,
   options: TomlToYamlOptions & { toYaml?: boolean; toToml?: boolean } = {},
-): SyncResult {
+): Promise<SyncResult> {
   const { toYaml = true, toToml = false, ...restOptions } = options;
   const result: SyncResult = { converted: [], skipped: [], errors: [] };
-  const { globSync } = require("glob");
+  const { globSync } = await import("glob");
 
   if (toYaml) {
     // Convert TOML to YAML
@@ -282,28 +282,28 @@ export function syncTomlYaml(
  * @param callback - Optional callback for each sync event
  * @returns Function to stop watching
  */
-export function watchTomlYaml(
+export async function watchTomlYaml(
   factsDir: string,
   options: TomlToYamlOptions & { toYaml?: boolean; toToml?: boolean } = {},
   callback?: (result: SyncResult) => void,
-): () => void {
+): Promise<() => void> {
   const { toYaml = true, toToml = false, ...restOptions } = options;
-  const { watch } = require("chokidar");
+  const { watch } = await import("chokidar");
 
   const watcher = watch(join(factsDir, "**/*.{toml,yaml}"), {
     persistent: true,
     ignoreInitial: true,
   });
 
-  watcher.on("change", (_path: string) => {
-    const result = syncTomlYaml(factsDir, { ...restOptions, toYaml, toToml });
+  watcher.on("change", async (_path: string) => {
+    const result = await syncTomlYaml(factsDir, { ...restOptions, toYaml, toToml });
     if (callback) {
       callback(result);
     }
   });
 
   // Initial sync
-  const initialResult = syncTomlYaml(factsDir, { ...restOptions, toYaml, toToml });
+  const initialResult = await syncTomlYaml(factsDir, { ...restOptions, toYaml, toToml });
   if (callback) {
     callback(initialResult);
   }
