@@ -197,7 +197,7 @@ definition:
 
 ## Integration with GUI
 
-For graphical interfaces (`profile-ui`), TOML provides several advantages:
+For graphical interfaces, TOML provides several advantages:
 
 ### 1. Simpler Parsing
 
