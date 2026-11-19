@@ -13,15 +13,15 @@ import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 /**
  * Remove null values from an object recursively.
- * TOML doesn't support null, so we omit null values or convert them to empty strings.
+ * TOML doesn't support null, so we omit null values.
+ * Empty arrays and objects are preserved.
  */
 function removeNullValues(obj: unknown): unknown {
   if (obj === null || obj === undefined) {
     return undefined; // Will be omitted when stringified
   }
   if (Array.isArray(obj)) {
-    const result = obj.map(removeNullValues).filter((item) => item !== undefined);
-    return result.length > 0 ? result : undefined;
+    return obj.map(removeNullValues);
   }
   if (typeof obj === "object") {
     const result: Record<string, unknown> = {};
@@ -31,7 +31,7 @@ function removeNullValues(obj: unknown): unknown {
         result[key] = cleanedValue;
       }
     }
-    return Object.keys(result).length > 0 ? result : undefined;
+    return result;
   }
   return obj;
 }
@@ -150,7 +150,8 @@ export function yamlToTomlFile(
   // Remove null values (TOML doesn't support null)
   const cleanedData = removeNullValues(data);
 
-  // Convert to TOML (cast to any to work around type issues)
+  // Convert to TOML
+  // biome-ignore lint/suspicious/noExplicitAny: TOML stringifier has strict type requirements
   const tomlContent = stringifyToml(cleanedData as any);
 
   // Write TOML file
@@ -258,11 +259,13 @@ export async function syncTomlYaml(
   const { globSync } = await import("glob");
 
   if (toYaml) {
-    // Convert TOML to YAML
-    const tomlFiles = globSync(join(factsDir, "**/*.toml"));
+    // Convert TOML to YAML (also handle .yml files)
+    const tomlFiles = globSync(join(factsDir, "**/*.{toml,yml}"));
     for (const tomlPath of tomlFiles) {
       try {
-        const yamlPath = tomlPath.replace(".toml", ".yaml");
+        // Determine output extension based on input
+        const ext = tomlPath.endsWith(".toml") || tomlPath.endsWith(".yml") ? ".yaml" : ".yaml";
+        const yamlPath = tomlPath.replace(/\.(toml|yml)$/, ext);
         const success = tomlToYamlFile(tomlPath, yamlPath, restOptions);
         if (success) {
           result.converted.push(`${tomlPath} -> ${yamlPath}`);
@@ -279,11 +282,11 @@ export async function syncTomlYaml(
   }
 
   if (toToml) {
-    // Convert YAML to TOML
-    const yamlFiles = globSync(join(factsDir, "**/*.yaml"));
+    // Convert YAML to TOML (handle both .yaml and .yml)
+    const yamlFiles = globSync(join(factsDir, "**/*.{yaml,yml}"));
     for (const yamlPath of yamlFiles) {
       try {
-        const tomlPath = yamlPath.replace(".yaml", ".toml");
+        const tomlPath = yamlPath.replace(/\.(yaml|yml)$/, ".toml");
         const success = yamlToTomlFile(yamlPath, tomlPath, restOptions);
         if (success) {
           result.converted.push(`${yamlPath} -> ${tomlPath}`);
@@ -320,36 +323,46 @@ export async function watchTomlYaml(
 
   // Track files being written to avoid re-triggering on our own writes
   const writingFiles = new Set<string>();
+  // Collect changed files during debounce period
+  const changedFiles = new Set<string>();
   // Debounce timer
   let debounceTimer: NodeJS.Timeout | null = null;
 
-  const watcher = watch(join(factsDir, "**/*.{toml,yaml}"), {
+  const watcher = watch(join(factsDir, "**/*.{toml,yaml,yml}"), {
     persistent: true,
     ignoreInitial: true,
   });
 
-  watcher.on("change", async (_path: string) => {
-    // Skip if this file is being written by us
-    if (writingFiles.has(_path)) {
-      return;
-    }
-
-    // Debounce to avoid rapid re-triggers
+  // Helper to schedule sync after debounce
+  const scheduleSync = () => {
     if (debounceTimer) {
       clearTimeout(debounceTimer);
     }
     debounceTimer = setTimeout(async () => {
-      // Track files we're about to write
+      // Collect all files that will be written
       const filesToWrite = new Set<string>();
-      if (toYaml) {
-        filesToWrite.add(_path.replace(".toml", ".yaml"));
+      for (const path of changedFiles) {
+        if (toYaml && path.endsWith(".toml")) {
+          filesToWrite.add(path.replace(".toml", ".yaml"));
+        }
+        if (toToml && path.endsWith(".yaml")) {
+          filesToWrite.add(path.replace(".yaml", ".toml"));
+        }
+        if (toToml && path.endsWith(".yml")) {
+          filesToWrite.add(path.replace(".yml", ".toml"));
+        }
+        if (toYaml && path.endsWith(".toml")) {
+          filesToWrite.add(path.replace(".toml", ".yml"));
+        }
       }
-      if (toToml) {
-        filesToWrite.add(_path.replace(".yaml", ".toml"));
-      }
-      
+
       // Add to writing set
-      filesToWrite.forEach(f => writingFiles.add(f));
+      for (const f of filesToWrite) {
+        writingFiles.add(f);
+      }
+
+      // Clear changed files for next batch
+      changedFiles.clear();
 
       try {
         const result = await syncTomlYaml(factsDir, { ...restOptions, toYaml, toToml });
@@ -358,10 +371,26 @@ export async function watchTomlYaml(
         }
       } finally {
         // Remove from writing set after sync completes
-        filesToWrite.forEach(f => writingFiles.delete(f));
+        for (const f of filesToWrite) {
+          writingFiles.delete(f);
+        }
       }
     }, 100); // 100ms debounce
-  });
+  };
+
+  // Handle all file events
+  const handleFileEvent = (path: string) => {
+    // Skip if this file is being written by us
+    if (writingFiles.has(path)) {
+      return;
+    }
+    changedFiles.add(path);
+    scheduleSync();
+  };
+
+  watcher.on("add", handleFileEvent);
+  watcher.on("change", handleFileEvent);
+  watcher.on("unlink", handleFileEvent);
 
   // Initial sync
   const initialResult = await syncTomlYaml(factsDir, { ...restOptions, toYaml, toToml });

@@ -130,7 +130,7 @@ export async function runSync(args: SyncArgs): Promise<number> {
  */
 function reportSyncResult(result: SyncResult, _command: string): number {
   if (isJsonMode()) {
-    line(JSON.stringify(result));
+    process.stdout.write(`${JSON.stringify(result)}\n`);
     return result.errors.length > 0 ? EXIT.FAIL : EXIT.OK;
   }
 
@@ -165,25 +165,4 @@ function reportSyncResult(result: SyncResult, _command: string): number {
     `Sync complete: ${result.converted.length} converted, ${result.skipped.length} skipped, ${result.errors.length} errors.`,
   );
   return EXIT.OK;
-}
-
-/**
- * Parse sync command arguments from process.argv.
- */
-export function parseSyncArgs(args: string[]): SyncArgs {
-  const workspace = args[0] || ".";
-  const toYaml = args.includes("--to-yaml");
-  const toToml = args.includes("--to-toml");
-  const watch = args.includes("--watch");
-  const overwrite = args.includes("--overwrite") || args.includes("-f");
-  const json = args.includes("--json");
-
-  return {
-    workspace,
-    toYaml,
-    toToml,
-    watch,
-    overwrite,
-    json,
-  };
 }
