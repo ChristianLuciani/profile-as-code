@@ -181,7 +181,6 @@ Commands:
 
 Common flags (after the command):
   --workspace <path>  Workspace path (resolution: --workspace > .pascorc > cwd, D14)
-  --json              Machine-readable output
   --help, -h          Command help
 
 Exit codes: 0 ok · 1 schema/workspace failure, a .pascorc engine requirement that
@@ -343,7 +342,6 @@ closed host allowlist: the platform hosts the engine ships, plus --allow-host
 (comma-separated). A URL outside it is reported as
 host-not-allowed with NO request made. Nothing is written: no facts/, no
 ledger, no artifact.
-  --json        machine-readable report: surfaces (with via: fetch|manual),
                 unchecked URLs, the provisional profile, its per-fact provenance
                 and the findings
   --allow-host  extra hostnames the operator declares, comma-separated
@@ -688,7 +686,6 @@ Offline; --out reads no clock and two runs produce byte-identical files, and
 The normalized profile for programmatic consumers (SPEC §7.5, #348; v2/D27 by
 #498). One payload, the same for a script, a site build or a service:
   { schemaVersion, engine, source: { commit, generatedAt }, scope, profile }
-  --json        emit the payload inside the standard envelope (command · ok ·
                 exitCode · data). Human mode prints a summary of the same object.
   --public      the D27 public projection — the DEFAULT (same bytes when named).
   --all         the full SSOT, the pre-D27 payload, for backup and consumers
@@ -1682,20 +1679,7 @@ Synchronize TOML and YAML fact files. Enables human-friendly TOML editing
 while maintaining YAML compatibility with the engine.
 
 Options:
-  --to-yaml    Convert TOML files to YAML (default when neither --to-yaml nor --to-toml)
-  --to-toml    Convert YAML files to TOML
-  --watch      Watch for changes and sync automatically (implies --to-yaml and --to-toml)
-  --overwrite, -f  Overwrite existing files (default: skip if file exists)
-  --json       Machine-readable output
 
-Examples:
-  pasco sync --to-yaml           # Convert all TOML files to YAML
-  pasco sync --to-toml           # Convert all YAML files to TOML
-  pasco sync --watch             # Auto-sync on changes
-  pasco sync --to-yaml --overwrite  # Force overwrite existing YAML files
-
-Note: When using --watch, both TOML and YAML files are kept in sync.
-TOML files are recommended for human editing (less indentation errors).`,
       const { flags, positionals } = parseCommandFlags(rest, {
         list: { type: "boolean" },
         force: { type: "boolean" },
