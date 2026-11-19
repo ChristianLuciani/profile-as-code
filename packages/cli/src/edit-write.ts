@@ -120,7 +120,7 @@ export function loadFactFile(filePath: string): unknown {
 /**
  * Write a fact file (YAML or TOML format based on extension).
  */
-export function writeFactFile(filePath: string, data: unknown): void {
+export function writeFactFile(filePath: string, data: Record<string, unknown>): void {
   if (filePath.endsWith(".toml")) {
     const content = stringifyToml(data);
     writeFileSync(filePath, content, "utf-8");

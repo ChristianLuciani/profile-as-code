@@ -265,6 +265,12 @@ interface FlagOptions {
   until?: string;
   // D30: `pasco migrate --facts-dir` — the opt-in content/ → facts/ rename.
   "facts-dir"?: boolean;
+  // `pasco sync` command flags
+  "to-yaml"?: boolean;
+  "to-toml"?: boolean;
+  watch?: boolean;
+  overwrite?: boolean;
+  f?: boolean;
 }
 
 function parseCommandFlags(
@@ -1716,7 +1722,7 @@ async function runMain(): Promise<number> {
       });
     }
     case "sync": {
-      const { flags, _positionals } = parseCommandFlags(rest, {
+      const { flags, positionals: _positionals } = parseCommandFlags(rest, {
         "to-yaml": { type: "boolean" },
         "to-toml": { type: "boolean" },
         watch: { type: "boolean" },
