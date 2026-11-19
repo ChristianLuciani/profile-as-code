@@ -25,6 +25,7 @@ import { runDiscover } from "./commands/discover.js";
 import { runDoctor } from "./commands/doctor.js";
 import { runEdit } from "./commands/edit.js";
 import { runEntity } from "./commands/entity.js";
+import { runSync } from "./commands/sync.js";
 import { runAiPolicyCheck, runAiPolicyExport, runAiPolicyFileCheck } from "./commands/export.js";
 import { resolveNow, runExportProfile } from "./commands/export-profile.js";
 import { runInit } from "./commands/init.js";
@@ -175,6 +176,8 @@ Commands:
                                 byte-identical across runs
   skills:export <dir>           [write] Copy the skill channels this package ships into <dir>
           [--force] [--list]     (--force overlays; --list shows them); no harness paths
+  sync [--to-yaml|--to-toml]     [write] Sync TOML and YAML fact files (TOML for human editing,
+          [--watch] [--overwrite]  YAML for engine); --watch auto-syncs on changes
 
 Common flags (after the command):
   --workspace <path>  Workspace path (resolution: --workspace > .pascorc > cwd, D14)
@@ -731,6 +734,25 @@ Offline and deterministic: no network, and no clock enters the payload (--now pi
 generatedAt; the egress audit timestamp of SPEC §7.11 goes to .pasco/egress/ and
 never into the payload).`,
   "skills:export": `pasco skills:export <dir> [--force] [--json]
+  sync: `pasco sync [--to-yaml] [--to-toml] [--watch] [--overwrite | -f] [--json] [--workspace <path>]
+Synchronize TOML and YAML fact files. Enables human-friendly TOML editing
+while maintaining YAML compatibility with the engine.
+
+Options:
+  --to-yaml    Convert TOML files to YAML (default when neither --to-yaml nor --to-toml)
+  --to-toml    Convert YAML files to TOML
+  --watch      Watch for changes and sync automatically (implies --to-yaml and --to-toml)
+  --overwrite, -f  Overwrite existing files (default: skip if file exists)
+  --json       Machine-readable output
+
+Examples:
+  pasco sync --to-yaml           # Convert all TOML files to YAML
+  pasco sync --to-toml           # Convert all YAML files to TOML
+  pasco sync --watch             # Auto-sync on changes
+  pasco sync --to-yaml --overwrite  # Force overwrite existing YAML files
+
+Note: When using --watch, both TOML and YAML files are kept in sync.
+TOML files are recommended for human editing (less indentation errors).`,
 pasco skills:export --list [--json]
 Copies the skill channels this package ships (SPEC §16) into a directory you
 name. --list shows them; an existing non-empty directory needs --force (files are
@@ -1675,6 +1697,25 @@ async function runMain(): Promise<number> {
       });
     }
     case "skills:export": {
+  sync: `pasco sync [--to-yaml] [--to-toml] [--watch] [--overwrite | -f] [--json] [--workspace <path>]
+Synchronize TOML and YAML fact files. Enables human-friendly TOML editing
+while maintaining YAML compatibility with the engine.
+
+Options:
+  --to-yaml    Convert TOML files to YAML (default when neither --to-yaml nor --to-toml)
+  --to-toml    Convert YAML files to TOML
+  --watch      Watch for changes and sync automatically (implies --to-yaml and --to-toml)
+  --overwrite, -f  Overwrite existing files (default: skip if file exists)
+  --json       Machine-readable output
+
+Examples:
+  pasco sync --to-yaml           # Convert all TOML files to YAML
+  pasco sync --to-toml           # Convert all YAML files to TOML
+  pasco sync --watch             # Auto-sync on changes
+  pasco sync --to-yaml --overwrite  # Force overwrite existing YAML files
+
+Note: When using --watch, both TOML and YAML files are kept in sync.
+TOML files are recommended for human editing (less indentation errors).`,
       const { flags, positionals } = parseCommandFlags(rest, {
         list: { type: "boolean" },
         force: { type: "boolean" },
@@ -1693,6 +1734,29 @@ async function runMain(): Promise<number> {
         dir: positionals[0],
         list: flags.list === true,
         force: flags.force === true,
+      });
+    }
+    case "sync": {
+      const { flags, positionals } = parseCommandFlags(rest, {
+        "to-yaml": { type: "boolean" },
+        "to-toml": { type: "boolean" },
+        watch: { type: "boolean" },
+        overwrite: { type: "boolean" },
+        f: { type: "boolean" },
+      });
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.sync}\n`);
+        return EXIT.OK;
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      return runSync({
+        workspace,
+        toYaml: flags["to-yaml"] === true,
+        toToml: flags["to-toml"] === true,
+        watch: flags.watch === true,
+        overwrite: flags.overwrite === true || flags.f === true,
+        json: flags.json === true,
       });
     }
     default:

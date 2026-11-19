@@ -274,3 +274,12 @@ export {
   publicProjection,
   VISIBILITY_BLOCKS,
 } from "./visibility.js";
+export type { SyncResult, TomlToYamlOptions, YamlToTomlOptions } from "./toml-sync.js";
+export {
+  syncTomlYaml,
+  tomlToYamlFile,
+  yamlToTomlFile,
+  tomlToYamlDirectory,
+  yamlToTomlDirectory,
+  watchTomlYaml,
+} from "./toml-sync.js";
