@@ -46,7 +46,8 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { factsDir, LoadError, load } from "@profile-as-code/core";
-import { isAlias, isMap, isScalar, isSeq, parseDocument, type Scalar, stringify } from "yaml";
+import { parse as parseToml, stringify as stringifyToml } from "@iarna/toml";
+import { parse as parseYaml, isAlias, isMap, isScalar, isSeq, parseDocument, type Scalar, stringify } from "yaml";
 import { UsageError } from "./contract.js";
 
 /** Where the value lives — the `locate` handle `pasco edit` resolved (FILE
@@ -66,6 +67,10 @@ export interface WriteTarget {
  * Shared with `--create` (#435), which must refuse a root that ALREADY exists
  * under any extension case: resolution and creation cannot disagree on what
  * "the root exists" means.
+ *
+ * TOML support: Also checks for .toml extension (TOML files can be edited
+ * and will be converted to YAML by the sync command, or loaded directly if
+ * the engine supports it in the future).
  */
 export function owningFile(workspace: string, root: string): string | undefined {
   const dirName = factsDir(workspace);
@@ -75,8 +80,43 @@ export function owningFile(workspace: string, root: string): string | undefined 
   } catch {
     return undefined;
   }
-  const match = entries.filter((name) => new RegExp(`^${root}\\.ya?ml$`, "i").test(name)).sort()[0];
-  return match === undefined ? undefined : `${dirName}/${match}`;
+  // Check for YAML files first (backward compatibility), then TOML
+  const yamlMatch = entries.filter((name) => new RegExp(`^${root}\\.ya?ml$`, "i").test(name)).sort()[0];
+  if (yamlMatch) {
+    return `${dirName}/${yamlMatch}`;
+  }
+  const tomlMatch = entries.filter((name) => new RegExp(`^${root}\\.toml$`, "i").test(name)).sort()[0];
+  return tomlMatch === undefined ? undefined : `${dirName}/${tomlMatch}`;
+}
+
+/**
+ * Load a fact file (YAML or TOML) and return its parsed content.
+ * TOML files are supported for editing convenience.
+ */
+export function loadFactFile(filePath: string): any {
+  const content = readFileSync(filePath, 'utf-8');
+  
+  if (filePath.endsWith('.toml')) {
+    return parseToml(content);
+  }
+  
+  // Default to YAML
+  return parseYaml(content);
+}
+
+/**
+ * Write a fact file (YAML or TOML format based on extension).
+ */
+export function writeFactFile(filePath: string, data: any): void {
+  if (filePath.endsWith('.toml')) {
+    const content = stringifyToml(data);
+    writeFileSync(filePath, content, 'utf-8');
+    return;
+  }
+  
+  // Default to YAML
+  const content = stringify(data);
+  writeFileSync(filePath, content, 'utf-8');
 }
 
 export interface WriteOutcome {
