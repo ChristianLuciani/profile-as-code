@@ -12,28 +12,50 @@ import { parse as parseToml, stringify as stringifyToml } from "@iarna/toml";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 
 /**
+ * Types compatible with @iarna/toml's JsonMap and AnyJson.
+ * Used to ensure type safety when converting YAML to TOML.
+ */
+type TomlArray = boolean[] | number[] | string[] | TomlMap[] | Date[];
+type TomlValue = boolean | number | string | TomlMap | Date | TomlArray;
+export interface TomlMap {
+  [key: string]: TomlValue;
+}
+type TomlCompatible = TomlMap | TomlArray | TomlValue;
+
+/**
+ * Assert that a value is a TomlMap (compatible with @iarna/toml's JsonMap).
+ * This is a type guard that ensures the value can be safely passed to stringifyToml.
+ */
+function isTomlMap(obj: unknown): obj is TomlMap {
+  return typeof obj === "object" && obj !== null && !Array.isArray(obj);
+}
+
+/**
  * Remove null values from an object recursively.
  * TOML doesn't support null, so we omit null values.
  * Empty arrays and objects are preserved.
+ * Returns a value compatible with @iarna/toml's stringify function.
  */
-export function removeNullValues(obj: unknown): unknown {
+export function removeNullValues(obj: unknown): TomlCompatible | undefined {
   if (obj === null || obj === undefined) {
     return undefined; // Will be omitted when stringified
   }
   if (Array.isArray(obj)) {
-    return obj.map(removeNullValues).filter((v) => v !== undefined);
+    const filtered = obj.map(removeNullValues).filter((v): v is TomlCompatible => v !== undefined);
+    return filtered as TomlArray;
   }
   if (typeof obj === "object") {
-    const result: Record<string, unknown> = {};
+    const result: TomlMap = {};
     for (const [key, value] of Object.entries(obj)) {
       const cleanedValue = removeNullValues(value);
       if (cleanedValue !== undefined) {
-        result[key] = cleanedValue;
+        result[key] = cleanedValue as TomlValue;
       }
     }
     return result;
   }
-  return obj;
+  // Primitive values: boolean, number, string, Date
+  return obj as TomlValue;
 }
 
 /** Options for TOML to YAML conversion */
@@ -150,9 +172,12 @@ export function yamlToTomlFile(
   // Remove null values (TOML doesn't support null)
   const cleanedData = removeNullValues(data);
 
-  // Convert to TOML
-  // biome-ignore lint/suspicious/noExplicitAny: TOML stringifier has strict type requirements
-  const tomlContent = stringifyToml(cleanedData as any);
+  // Convert to TOML - cleanedData from YAML parse is always an object
+  // removeNullValues preserves the structure, so it's safe to assert as TomlMap
+  if (!isTomlMap(cleanedData)) {
+    throw new Error("Invalid data structure for TOML conversion");
+  }
+  const tomlContent = stringifyToml(cleanedData);
 
   // Write TOML file
   writeFileSync(tomlPath, tomlContent, "utf-8");

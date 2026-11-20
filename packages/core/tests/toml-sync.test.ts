@@ -2,20 +2,20 @@
  * Tests for TOML <-> YAML synchronization utilities.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { parse as parseToml } from "@iarna/toml";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { parse as parseYaml } from "yaml";
 import {
   removeNullValues,
-  tomlToYamlFile,
-  yamlToTomlFile,
   syncTomlYaml,
   tomlToYamlDirectory,
+  tomlToYamlFile,
   yamlToTomlDirectory,
+  yamlToTomlFile,
 } from "../src/toml-sync.js";
-import { parse as parseYaml } from "yaml";
-import { parse as parseToml } from "@iarna/toml";
 
 let tempDirPath: string;
 
@@ -89,11 +89,7 @@ describe("tomlToYamlFile", () => {
     const tomlPath = join(tempDirPath, "test.toml");
     const yamlPath = join(tempDirPath, "test.yaml");
 
-    writeFileSync(
-      tomlPath,
-      `[identity]\nname = "Test User"\nlocation = "Test City"`,
-      "utf-8",
-    );
+    writeFileSync(tomlPath, `[identity]\nname = "Test User"\nlocation = "Test City"`, "utf-8");
 
     const success = tomlToYamlFile(tomlPath, yamlPath);
     expect(success).toBe(true);
@@ -188,11 +184,7 @@ describe("syncTomlYaml", () => {
     mkdirSync(factsDir, { recursive: true });
 
     writeFileSync(join(factsDir, "identity.toml"), `name = "Test"`, "utf-8");
-    writeFileSync(
-      join(factsDir, "positioning.toml"),
-      `statement = { en = "Test" }`,
-      "utf-8",
-    );
+    writeFileSync(join(factsDir, "positioning.toml"), `statement = { en = "Test" }`, "utf-8");
 
     const result = await syncTomlYaml(factsDir, { toYaml: true, toToml: false });
 
@@ -205,11 +197,7 @@ describe("syncTomlYaml", () => {
     mkdirSync(factsDir, { recursive: true });
 
     writeFileSync(join(factsDir, "identity.yaml"), `name: Test`, "utf-8");
-    writeFileSync(
-      join(factsDir, "positioning.yaml"),
-      `statement:\n  en: Test`,
-      "utf-8",
-    );
+    writeFileSync(join(factsDir, "positioning.yaml"), `statement:\n  en: Test`, "utf-8");
 
     const result = await syncTomlYaml(factsDir, { toYaml: false, toToml: true });
 
