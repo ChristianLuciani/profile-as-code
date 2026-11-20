@@ -16,12 +16,12 @@ import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
  * TOML doesn't support null, so we omit null values.
  * Empty arrays and objects are preserved.
  */
-function removeNullValues(obj: unknown): unknown {
+export function removeNullValues(obj: unknown): unknown {
   if (obj === null || obj === undefined) {
     return undefined; // Will be omitted when stringified
   }
   if (Array.isArray(obj)) {
-    return obj.map(removeNullValues);
+    return obj.map(removeNullValues).filter((v) => v !== undefined);
   }
   if (typeof obj === "object") {
     const result: Record<string, unknown> = {};
