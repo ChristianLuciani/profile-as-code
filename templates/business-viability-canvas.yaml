@@ -1,0 +1,549 @@
+# Business Viability Canvas
+# 
+# Core template for evaluating business model viability
+# Use this canvas to document your analysis before investing resources
+# 
+# Version: 1.0
+# Framework: BUSINESS-VIABILITY-FRAMEWORK.md
+#
+# Instructions:
+# 1. Fill in all required fields (marked with [REQUIRED])
+# 2. Use ranges for estimates (e.g., 100-200, not 150)
+# 3. Declare all assumptions with confidence levels
+# 4. Cite sources for all external data
+# 5. Update as_of date with each change
+
+---
+
+# Metadata
+id: "BVC-"  # Auto-generated or manual
+venture: ""  # [REQUIRED] pasco | kontablo | other
+as_of: ""  # [REQUIRED] YYYY-MM-DD
+author: ""  # [REQUIRED] Who created this canvas
+status: draft  # draft | under_review | ratified | rejected | superseded
+superseded_by: ""  # If superseded, reference the new canvas
+
+# ============================================================================
+# STEP 1: MINIMUM VIABLE CLIENT (MVC)
+# ============================================================================
+# Define the client with operational, verifiable characteristics
+# Do NOT use broad labels like "SMEs" or "agencies"
+
+mvc:
+  # Location criteria
+  location:
+    primary: ""  # [REQUIRED] e.g., "Cuenca, Ecuador"
+    secondary: []  # Optional: additional locations
+    scope: ""  # local | regional | national | global
+    
+  # Size criteria (pick at least one)
+  size:
+    employees:
+      min: null  # e.g., 5
+      max: null  # e.g., 200
+    revenue:
+      min: null  # e.g., 100000 (USD)
+      max: null  # e.g., 10000000 (USD)
+    other: ""  # e.g., "10+ active clients"
+    
+  # Industry/Type criteria
+  industry: []  # [REQUIRED] e.g., ["marketing agencies", "digital agencies"]
+  business_type: []  # e.g., ["B2B", "B2C", "SaaS"]
+  
+  # Pain point (must be specific and verifiable)
+  pain_point: ""  # [REQUIRED] e.g., "Manual profile management with disconnected systems"
+  pain_evidence: []  # Sources: ["R-022", "customer interviews", "survey data"]
+  
+  # Exclusion criteria
+  exclusion: []  # [REQUIRED] e.g., ["Already using mature ERP with profile integration"]
+  
+  # Payment capacity
+  payment_capacity:
+    formal_business: true  # [REQUIRED] Must be formal/registered
+    payment_methods: []  # e.g., ["bank transfer", "credit card", "crypto"]
+    budget_range: []  # e.g., ["100-500", "500-1000"] (USD/month)
+
+---
+
+# ============================================================================
+# STEP 2: MARKET SIZING (TAM → SAM → SOM)
+# ============================================================================
+# Every filter must have a source or declared assumption
+
+market:
+  # TAM: Total Addressable Market
+  tam:
+    value: ""  # [REQUIRED] Range: e.g., "180-250"
+    unit: ""  # [REQUIRED] e.g., "agencies" | "businesses" | "users"
+    sources: []  # [REQUIRED] e.g., ["Cámara de Comercio", "INEC Directorio"]
+    confidence: ""  # [REQUIRED] low | medium | high
+    as_of: ""  # [REQUIRED] YYYY-MM-DD
+    method: ""  # [REQUIRED] triangulation | bottom-up | top-down
+    notes: ""  # Additional context
+    
+    # Individual source estimates (for triangulation)
+    source_estimates:
+      - source: ""  # e.g., "Cámara de Comercio"
+        value: null  # e.g., 200
+        date: ""  # YYYY-MM-DD
+        notation: ""  # [OFICIAL] | [WEB] | [MI] | [?]
+        url: ""  # Optional
+    
+  # SAM: Serviceable Available Market (meets MVC criteria)
+  sam:
+    value: ""  # [REQUIRED] Range: e.g., "45-90"
+    unit: ""  # [REQUIRED]
+    
+    # Filters applied to TAM
+    filters:
+      - name: ""  # [REQUIRED] e.g., "size"
+        description: ""  # e.g., "≥5 employees or ≥USD 100K revenue"
+        rate: ""  # [REQUIRED] Percentage: e.g., "55%"
+        assumption: true  # Is this an assumption?
+        confidence: ""  # low | medium | high
+        source: ""  # Evidence source, if any
+      - name: "industry"
+        description: ""
+        rate: ""
+        assumption: true
+        confidence: ""
+        source: ""
+      - name: "pain_point"
+        description: ""
+        rate: ""
+        assumption: true
+        confidence: ""
+        source: ""
+      - name: "exclusion"
+        description: ""
+        rate: ""
+        assumption: true
+        confidence: ""
+        source: ""
+    
+    confidence: ""  # [REQUIRED]
+    as_of: ""  # [REQUIRED]
+    notes: ""
+    
+  # SOM: Serviceable Obtainable Market (realistically reachable)
+  som:
+    year_1:
+      value: ""  # [REQUIRED] Range: e.g., "9-27"
+      unit: ""  # [REQUIRED]
+      
+      # Filters applied to SAM
+      filters:
+        - name: ""  # [REQUIRED] e.g., "channel_reach"
+          description: ""  # e.g., "Can be reached through current channels"
+          rate: ""  # [REQUIRED]
+          assumption: true
+          confidence: ""
+          source: ""
+        - name: "budget_capacity"
+          description: ""
+          rate: ""
+          assumption: true
+          confidence: ""
+          source: ""
+        - name: "decision_timeline"
+          description: ""
+          rate: ""
+          assumption: true
+          confidence: ""
+          source: ""
+      
+      confidence: ""  # [REQUIRED]
+      as_of: ""  # [REQUIRED]
+      notes: ""
+    
+    year_2:
+      value: ""
+      unit: ""
+      filters: []
+      confidence: ""
+      as_of: ""
+      notes: ""
+    
+    year_3:
+      value: ""
+      unit: ""
+      filters: []
+      confidence: ""
+      as_of: ""
+      notes: ""
+
+---
+
+# ============================================================================
+# STEP 3: CONVERSION MODELING
+# ============================================================================
+# Never use a single conversion rate
+
+conversion:
+  scenarios:
+    - name: "pesimista"  # [REQUIRED]
+      description: "Only most mature, high-pain segment converts"
+      rate: ""  # [REQUIRED] Range: e.g., "2-3%"
+      expected_clients: ""  # [REQUIRED] Range: e.g., "1-2"
+      justification: ""  # Why this rate?
+    
+    - name: "base"  # [REQUIRED]
+      description: "With focused outreach, references, pilot programs"
+      rate: ""  # [REQUIRED]
+      expected_clients: ""  # [REQUIRED]
+      justification: ""
+    
+    - name: "optimista"  # [REQUIRED]
+      description: "With channel partners, regulation catalyst, strong differentiation"
+      rate: ""  # [REQUIRED]
+      expected_clients: ""  # [REQUIRED]
+      justification: ""
+
+---
+
+# ============================================================================
+# STEP 4: COMPETITIVE MAPPING & PRICING
+# ============================================================================
+
+competitive:
+  # Competitive landscape
+  competitors:
+    - name: ""  # [REQUIRED] e.g., "Manual/Excel"
+      type: ""  # [REQUIRED] direct | indirect | substitute
+      offering: ""  # [REQUIRED] e.g., "Internal processes"
+      price: ""  # e.g., "Free (sunk cost)" | "USD 100-500"
+      strengths: []  # e.g., ["Familiar", "No switching cost"]
+      weaknesses: []  # e.g., ["No auditability", "Error-prone"]
+      url: ""  # Optional
+      
+    - name: ""
+      type: ""
+      offering: ""
+      price: ""
+      strengths: []
+      weaknesses: []
+      url: ""
+  
+  # Pricing strategy
+  pricing:
+    ticket: ""  # [REQUIRED] e.g., "USD 300/month"
+    model: ""  # [REQUIRED] subscription | one-time | usage-based | tiered | freemium
+    currency: "USD"  # [REQUIRED]
+    
+    # Price anchors (what customers already pay)
+    anchors: []  # e.g., ["Blue Nova: USD 290-990", "CreceRank: USD 49-299"]
+    
+    # Anchoring justification
+    anchoring_rationale: ""  # [REQUIRED] e.g., "Positioned at 20% premium over CreceRank for added auditability"
+    
+    # Alternative pricing models considered
+    alternatives_considered: []  # e.g., ["usage-based", "freemium"]
+    rejected_reasons: []  # e.g., ["Too unpredictable", "Low conversion"]
+
+---
+
+# ============================================================================
+# STEP 5: UNIT ECONOMICS
+# ============================================================================
+# Calculate economics for each customer
+
+economics:
+  # Per-customer metrics
+  ticket:  # [REQUIRED] Same as pricing.ticket or different for calculation
+    value: null  # e.g., 300 (USD)
+    frequency: "monthly"  # monthly | annual | one-time
+    
+  cogs:  # Cost of Goods Sold (serving the customer)
+    value: null  # [REQUIRED] e.g., 150 (USD)
+    breakdown:  # Optional: detailed breakdown
+      infrastructure: null  # e.g., 50
+      support: null  # e.g., 70
+      success: null  # e.g., 30
+    notes: ""
+    
+  gross_margin:  # Ticket - COGS
+    value: null  # [REQUIRED] e.g., 150 (USD)
+    percentage: null  # [REQUIRED] e.g., 50 (%)
+    
+  # Customer Acquisition Cost
+  cac:
+    value: null  # [REQUIRED] e.g., 500 (USD)
+    breakdown:  # Optional
+      sales: null
+      marketing: null
+      onboarding: null
+    notes: ""
+    
+  # Churn
+  churn:
+    monthly: null  # [REQUIRED] Percentage: e.g., 3 (%)
+    annual: null  # Calculated: 1 - (1 - monthly)^12
+    
+  # Lifetime Value
+  ltv:
+    value: null  # [REQUIRED] e.g., 5000 (USD)
+    formula: ""  # e.g., "Ticket × Gross Margin % × (1/Churn)"
+    
+  # Key ratios
+  ratios:
+    ltv_cac: null  # [REQUIRED] e.g., 10 (LTV:CAC ratio)
+    payback_period: null  # [REQUIRED] Months: e.g., 3.3
+    gross_margin_percentage: null  # [REQUIRED] %: e.g., 50
+
+---
+
+# ============================================================================
+# STEP 6: BREAK-EVEN & FRAGILITY TEST
+# ============================================================================
+
+break_even:
+  # Fixed costs
+  fixed_costs:
+    value: null  # [REQUIRED] e.g., 2500 (USD/month)
+    breakdown:  # Optional
+      development: null
+      operations: null
+      sales_marketing: null
+      ga: null  # General & Administrative
+    notes: ""
+    
+  # Break-even calculation
+  clients: null  # [REQUIRED] e.g., 17 (Fixed Costs / Gross Margin per Client)
+  formula: ""  # e.g., "2500 / 150"
+  
+  # Fragility test
+  fragility_test:
+    som_optimista: null  # [REQUIRED] From market.som.year_1.value (upper bound)
+    ratio: null  # [REQUIRED] Break-even / SOM optimista: e.g., 0.63 (63%)
+    verdict: ""  # [REQUIRED] STRONG | MARGINAL | FRAGILE
+    threshold: 0.5  # [REQUIRED] 50% threshold
+    
+    # Detailed assessment
+    som_realista: null  # Realistic SOM estimate
+    ratio_realista: null  # Break-even / SOM realista
+    notes: ""  # e.g., "Fragile: break-even consumes 80% of realistic SOM"
+
+---
+
+# ============================================================================
+# STEP 7: DECISION SCORECARD
+# ============================================================================
+# Evaluate across multiple dimensions
+
+scorecard:
+  criteria:
+    - name: "market_size"  # [REQUIRED]
+      question: "Does SAM exceed break-even with margin?"  # [REQUIRED]
+      weight: "high"  # [REQUIRED] high | medium | low
+      score: null  # [REQUIRED] 1-5
+      justification: ""  # [REQUIRED]
+      
+    - name: "verifiable_pain"  # [REQUIRED]
+      question: "Does the customer manifest the problem?"  # [REQUIRED]
+      weight: "high"  # [REQUIRED]
+      score: null  # [REQUIRED]
+      justification: ""
+      
+    - name: "willingness_to_pay"  # [REQUIRED]
+      question: "Is there validated demand (money committed)?"  # [REQUIRED]
+      weight: "high"  # [REQUIRED]
+      score: null  # [REQUIRED]
+      justification: ""
+      
+    - name: "pricing_power"  # [REQUIRED]
+      question: "Does the differential justify the price?"  # [REQUIRED]
+      weight: "medium"  # [REQUIRED]
+      score: null  # [REQUIRED]
+      justification: ""
+      
+    - name: "customization_effort"  # [REQUIRED]
+      question: "Is it low or reducible with a wedge?"  # [REQUIRED]
+      weight: "medium"  # [REQUIRED]
+      score: null  # [REQUIRED]
+      justification: ""
+      
+    - name: "channel_access"  # [REQUIRED]
+      question: "Is there a partner that reduces CAC?"  # [REQUIRED]
+      weight: "medium"  # [REQUIRED]
+      score: null  # [REQUIRED]
+      justification: ""
+      
+    - name: "competition"  # [REQUIRED]
+      question: "Is the market fragmented or dominated?"  # [REQUIRED]
+      weight: "low"  # [REQUIRED]
+      score: null  # [REQUIRED]
+      justification: ""
+      
+    - name: "regulatory_fit"  # Optional
+      question: "Are there legal/regulatory barriers?"
+      weight: "medium"
+      score: null
+      justification: ""
+      
+    - name: "team_fit"  # Optional
+      question: "Does the team have the required capabilities?"
+      weight: "medium"
+      score: null
+      justification: ""
+      
+    - name: "timing"  # Optional
+      question: "Is the market ready for this solution?"
+      weight: "medium"
+      score: null
+      justification: ""
+  
+  # Calculated totals
+  total_score: null  # Calculated: sum(weighted scores) / sum(weights)
+  total_max: 5.0  # Maximum possible score
+  verdict: ""  # PROCEED | PROCEED_WITH_CAUTION | NO_GO
+
+---
+
+# ============================================================================
+# VALIDATION
+# ============================================================================
+# Before proceeding, validate with REAL data
+
+validation:
+  # Money committed
+  money_committed:
+    amount: null  # USD
+    count: null  # Number of commitments
+    type: []  # ["LOI", "pre-order", "paid pilot", "contract"]
+    as_of: ""
+    notes: ""
+    
+  # Pilots
+  pilots:
+    count: null  # Number of pilots
+    paid: null  # Number of paid pilots
+    completed: null  # Number completed
+    results: []  # e.g., ["Positive feedback", "2 conversions"]
+    
+  # Primary research
+  primary_research:
+    surveys: null  # Number of surveys
+    interviews: null  # Number of interviews
+    focus_groups: null  # Number of focus groups
+    findings: []  # Key findings
+    
+  # Channel validation
+  channel_validation:
+    partners: null  # Number of channel partners
+    reach: null  # Estimated reach through channels
+    commitments: []  # Partner commitments
+    
+  # Overall validation status
+  status: "NOT_VALIDATED"  # NOT_VALIDATED | PARTIALLY_VALIDATED | VALIDATED
+  confidence: ""  # low | medium | high
+  as_of: ""
+
+---
+
+# ============================================================================
+# DECISION GATES
+# ============================================================================
+# Binary gates that must pass
+
+decision_gates:
+  - name: "DG-MARKET-SIZE"  # Gate 1
+    question: "Is SAM large enough to justify investment?"
+    criteria: "SAM > 3× Break-Even"
+    result: null  # PASS | FAIL
+    notes: ""
+    
+  - name: "DG-DEMAND-VALIDATION"  # Gate 2
+    question: "Is there validated demand?"
+    criteria: "≥ 5 LOIs or 1 paid pilot"
+    result: null  # PASS | FAIL | PIVOT
+    notes: ""
+    
+  - name: "DG-UNIT-ECONOMICS"  # Gate 3
+    question: "Are unit economics sustainable?"
+    criteria: "LTV:CAC > 3:1 AND Gross Margin > 60% AND Payback < 12 months"
+    result: null  # PASS | FAIL | OPTIMIZE
+    notes: ""
+    
+  - name: "DG-FRAGILITY-TEST"  # Gate 4
+    question: "Does model pass fragility test?"
+    criteria: "Break-Even < 50% of SOM (optimista)"
+    result: null  # PASS | FAIL | REDESIGN
+    notes: ""
+
+  # Overall decision
+  overall:
+    result: null  # GO | NO_GO | DEFER
+    recommendation: ""  # Detailed recommendation
+    next_steps: []  # e.g., ["Expand geographic scope", "Find channel partners"]
+
+---
+
+# ============================================================================
+# ADVANCED MODELS (Optional)
+# ============================================================================
+
+advanced:
+  # Cohort analysis
+  cohort_analysis:
+    enabled: false
+    cohorts: []  # List of cohort definitions
+    metrics: []  # e.g., ["activation_rate", "retention_curve"]
+    
+  # Sensitivity analysis
+  sensitivity_analysis:
+    enabled: false
+    variables: []  # e.g., ["TAM", "conversion", "ticket"]
+    ranges: {}  # e.g., {"TAM": {"low": 160, "high": 240}}
+    results: {}  # Impact on break-even, etc.
+    
+  # Monte Carlo simulation
+  monte_carlo:
+    enabled: false
+    iterations: 10000
+    inputs: {}  # Variables and their distributions
+    outputs: {}  # Results distribution
+    
+  # Market growth modeling
+  market_growth:
+    enabled: false
+    growth_rate: null  # Annual growth rate
+    tam_projections: {}  # e.g., {"year_1": 200, "year_2": 230, "year_3": 265}
+    
+  # Seasonality
+  seasonality:
+    enabled: false
+    factors: {}  # e.g., {"Q1": 0.8, "Q2": 1.0, "Q3": 1.2, "Q4": 1.0}
+    
+  # Regulatory factors
+  regulatory:
+    enabled: false
+    requirements: []  # e.g., ["License required", "Compliance audit"]
+    costs: null  # Annual compliance costs
+    timeline: null  # Time to compliance
+
+---
+
+# ============================================================================
+# NOTES & OPEN QUESTIONS
+# ============================================================================
+
+notes: ""  # General notes
+open_questions: []  # e.g., ["Should we expand to Quito?"]
+assumptions: []  # List of key assumptions
+  # e.g.,
+  # - "Agencies in Cuenca have similar characteristics to those in Quito"
+  # - "No major regulatory changes in 2027"
+
+---
+
+# ============================================================================
+# REFERENCES
+# ============================================================================
+
+references:
+  internal: []  # e.g., ["R-026", "PROP-010"]
+  external: []  # e.g., ["INEC Directorio 2023", "Cámara de Comercio Cuenca"]
+
+---
+
+# END OF CANVAS
