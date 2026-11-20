@@ -31,6 +31,27 @@ function isTomlMap(obj: unknown): obj is TomlMap {
 }
 
 /**
+ * Check if an object contains null values recursively.
+ * TOML doesn't support null, so YAML files with explicit null values
+ * cannot be accurately converted to TOML (round-trip would lose the nulls).
+ *
+ * @param obj - The object to check
+ * @returns true if the object contains null values, false otherwise
+ */
+function hasNullValues(obj: unknown): boolean {
+  if (obj === null) {
+    return true;
+  }
+  if (Array.isArray(obj)) {
+    return obj.some(hasNullValues);
+  }
+  if (typeof obj === "object") {
+    return Object.values(obj).some(hasNullValues);
+  }
+  return false;
+}
+
+/**
  * Remove null values from an object recursively.
  * TOML doesn't support null, so we omit null values.
  * Empty arrays and objects are preserved.
@@ -169,15 +190,21 @@ export function yamlToTomlFile(
   const yamlContent = readFileSync(yamlPath, "utf-8");
   const data = parseYaml(yamlContent);
 
-  // Remove null values (TOML doesn't support null)
-  const cleanedData = removeNullValues(data);
+  // Check for null values (TOML doesn't support null, so we can't convert YAML with explicit nulls)
+  if (hasNullValues(data)) {
+    throw new Error(
+      `YAML file contains null values which are not supported by TOML. ` +
+      `Field: null in YAML indicates "explicitly no value" but TOML has no null type. ` +
+      `To convert to TOML, remove all null values from the YAML file first. ` +
+      `Note: This means YAML->TOML->YAML round-trip will lose explicit nulls.`,
+    );
+  }
 
-  // Convert to TOML - cleanedData from YAML parse is always an object
-  // removeNullValues preserves the structure, so it's safe to assert as TomlMap
-  if (!isTomlMap(cleanedData)) {
+  // Convert to TOML - data is guaranteed to have no nulls
+  if (!isTomlMap(data)) {
     throw new Error("Invalid data structure for TOML conversion");
   }
-  const tomlContent = stringifyToml(cleanedData);
+  const tomlContent = stringifyToml(data);
 
   // Write TOML file
   writeFileSync(tomlPath, tomlContent, "utf-8");

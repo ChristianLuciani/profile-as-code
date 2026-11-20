@@ -153,17 +153,15 @@ describe("yamlToTomlFile", () => {
     });
   });
 
-  it("handles null values by removing them", () => {
+  it("throws error on YAML with null values", () => {
     const yamlPath = join(tempDirPath, "test.yaml");
     const tomlPath = join(tempDirPath, "test.toml");
 
     writeFileSync(yamlPath, `a: 1\nb: null\nc: test`, "utf-8");
 
-    const success = yamlToTomlFile(yamlPath, tomlPath);
-    expect(success).toBe(true);
-
-    const tomlContent = parseToml(readFileSync(tomlPath, "utf-8"));
-    expect(tomlContent).toEqual({ a: 1, c: "test" });
+    expect(() => yamlToTomlFile(yamlPath, tomlPath)).toThrow(
+      "YAML file contains null values which are not supported by TOML",
+    );
   });
 
   it("skips if TOML file exists and overwrite is false", () => {
