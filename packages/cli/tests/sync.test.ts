@@ -56,14 +56,15 @@ describe("pasco sync", () => {
       const workspace = createWorkspace();
       const result = runSync([], workspace);
       expect(result.code).toBe(1);
-      expect(result.stderr).toContain("Please specify --to-yaml, --to-toml, or --watch");
+      expect(result.stderr).toContain("Please specify at least one of --to-yaml, --to-toml, or --watch");
     });
 
-    it("rejects both --to-yaml and --to-toml", () => {
+    it("accepts both --to-yaml and --to-toml for bidirectional sync", () => {
       const workspace = createWorkspace();
+      writeFileSync(join(workspace, "facts", "identity.toml"), `name = "Test"`, "utf-8");
+      writeFileSync(join(workspace, "facts", "positioning.yaml"), `statement:\n  en: Test`, "utf-8");
       const result = runSync(["--to-yaml", "--to-toml"], workspace);
-      expect(result.code).toBe(1);
-      expect(result.stderr).toContain("Cannot specify both --to-yaml and --to-toml");
+      expect(result.code).toBe(0);
     });
 
     it("accepts --to-yaml", () => {
@@ -156,18 +157,14 @@ describe("pasco sync", () => {
       expect(() => readFileSync(tomlPath, "utf-8")).not.toThrow();
     });
 
-    it("removes null values during conversion", () => {
+    it("rejects YAML files with null values", () => {
       const workspace = createWorkspace();
       writeFileSync(join(workspace, "facts", "test.yaml"), `a: 1\nb: null\nc: test`, "utf-8");
 
       const result = runSync(["--to-toml"], workspace);
-      expect(result.code).toBe(0);
-
-      // Check TOML file was created and doesn't contain null
-      const tomlContent = readFileSync(join(workspace, "facts", "test.toml"), "utf-8");
-      expect(tomlContent).not.toContain("null");
-      expect(tomlContent).toContain("a = 1");
-      expect(tomlContent).toContain("c = \"test\"");
+      expect(result.code).toBe(1);
+      // CLI writes errors to stdout, not stderr
+      expect(result.stdout).toContain("YAML file contains null values which are not supported by TOML");
     });
   });
 

@@ -742,7 +742,7 @@ pasco skills:export --list [--json]
 Copies the skill channels this package ships (SPEC §16) into a directory you
 name. --list shows them; an existing non-empty directory needs --force (files are
 overlaid, nothing is deleted). No harness-specific destination is invented.`,
-  sync: `pasco sync (--to-yaml | --to-toml | --watch) [--overwrite | -f] [--json] [--workspace <path>]
+  sync: `pasco sync (--to-yaml [--to-toml] | --watch) [--overwrite | -f] [--json] [--workspace <path>]
 Synchronize TOML and YAML fact files. Enables human-friendly TOML editing
 while maintaining YAML compatibility with the engine.
 

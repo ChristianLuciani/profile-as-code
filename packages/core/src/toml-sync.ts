@@ -401,9 +401,6 @@ export async function watchTomlYaml(
         if (toToml && path.endsWith(".yml")) {
           filesToWrite.add(path.replace(".yml", ".toml"));
         }
-        if (toYaml && path.endsWith(".toml")) {
-          filesToWrite.add(path.replace(".toml", ".yml"));
-        }
       }
 
       // Add to writing set
