@@ -171,14 +171,15 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
   for (const file of files) {
     const rootKey = file.replace(/\.(ya?ml|toml)$/i, "");
     const fullPath = join(dir, file);
+    const fileLower = file.toLowerCase();
     const priority = extensionPriority(file);
 
     // Check if we already loaded this root key
     const existing = loadedRoots.get(rootKey);
     if (existing) {
       // If both are YAML files (.yaml and .yml), throw an error
-      if (file.endsWith(".yaml") || file.endsWith(".yml")) {
-        if (existing.file.endsWith(".yaml") || existing.file.endsWith(".yml")) {
+      if (fileLower.endsWith(".yaml") || fileLower.endsWith(".yml")) {
+        if (existing.file.toLowerCase().endsWith(".yaml") || existing.file.toLowerCase().endsWith(".yml")) {
           throw new LoadError(
             `${dirName}/${file}: duplicate root property "${rootKey}" (already provided by another content file) — each root property belongs to exactly one file`,
           );
@@ -189,8 +190,8 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
         // Skip this file - we already have a higher or equal priority version
         // Warn if we're skipping a TOML file in favor of YAML
         if (
-          file.endsWith(".toml") &&
-          (existing.file.endsWith(".yaml") || existing.file.endsWith(".yml"))
+          fileLower.endsWith(".toml") &&
+          (existing.file.toLowerCase().endsWith(".yaml") || existing.file.toLowerCase().endsWith(".yml"))
         ) {
           console.warn(
             `Warning: ${dirName}/${file} is ignored because ${existing.file} already provides root property "${rootKey}" (YAML takes precedence); use \`pasco sync\` to keep files in sync`,
@@ -201,7 +202,7 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
     }
 
     let node: unknown;
-    if (file.endsWith(".toml")) {
+    if (fileLower.endsWith(".toml")) {
       node = parseToml(readFileSync(fullPath, "utf8"));
     } else {
       const doc = parseDocument(readFileSync(fullPath, "utf8"));

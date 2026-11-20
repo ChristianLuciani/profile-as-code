@@ -77,7 +77,7 @@ export async function runSync(args: SyncArgs): Promise<number> {
         {
           toYaml: true,
           toToml: true,
-          overwrite,
+          overwrite: true, // In watch mode, always overwrite to propagate changes
         },
         (result) => {
           reportSyncResult(result, "watch");

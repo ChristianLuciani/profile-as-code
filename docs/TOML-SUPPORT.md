@@ -179,10 +179,9 @@ links:
     label: LinkedIn
     url: https://linkedin.com/in/elena
     role: realization
-definition:
-  en: |
-    Elena Vasquez is a Senior AI Engineer building sovereign AI infrastructure.
-    She leads the open-source example-agentic-hub project.
+definition: |
+  Elena Vasquez is a Senior AI Engineer building sovereign AI infrastructure.
+  She leads the open-source example-agentic-hub project.
 ```
 
 ## TOML vs YAML Comparison
@@ -191,7 +190,7 @@ definition:
 |---------|------|------|-------|
 | **Indentation** | ❌ Not required | ✅ Required | TOML wins for error prevention |
 | **Comments** | ✅ Line and inline | ✅ Line and inline | Both good |
-| **Multiline strings** | ✅ Triple quotes (1.1+) | ✅ `|` and `>` | YAML more mature |
+| **Multiline strings** | ✅ Triple quotes (1.0+) | ✅ `|` and `>` | YAML more mature |
 | **Dates** | ✅ Native (`2024-01-01`) | ✅ Native | Both good |
 | **Numbers** | ✅ Native (`1.5`, `1e-3`) | ✅ Native | Both good |
 | **Booleans** | ✅ `true`/`false` | ⚠️ `true`/`false`/`yes`/`no` | TOML less ambiguous |

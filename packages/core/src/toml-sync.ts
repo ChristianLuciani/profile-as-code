@@ -277,13 +277,13 @@ export async function yamlToTomlDirectory(
   const result: SyncResult = { converted: [], skipped: [], errors: [] };
   const { globSync } = await import("glob");
 
-  // Find all YAML files
-  const yamlFiles = globSync(join(inputDir, "**/*.yaml"));
+  // Find all YAML files (both .yaml and .yml)
+  const yamlFiles = globSync(join(inputDir, "**/*.{yaml,yml}"));
 
   for (const yamlPath of yamlFiles) {
     try {
       const relativePath = relative(inputDir, yamlPath);
-      const tomlPath = join(outputDir, relativePath.replace(".yaml", ".toml"));
+      const tomlPath = join(outputDir, relativePath.replace(/\.(yaml|yml)$/, ".toml"));
 
       const success = yamlToTomlFile(yamlPath, tomlPath, options);
       if (success) {

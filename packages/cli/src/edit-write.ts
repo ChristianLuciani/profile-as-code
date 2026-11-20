@@ -263,7 +263,7 @@ function inspect(
   const original = readFileSync(filePath, "utf8");
 
   // TOML files cannot be edited with pasco edit (no CST for range splicing)
-  if (filePath.endsWith(".toml")) {
+  if (filePath.toLowerCase().endsWith(".toml")) {
     throw new UsageError(
       `${args.target.file}: TOML files cannot be edited with \`pasco edit\` — use \`pasco sync --to-yaml\` to convert to YAML first, edit the YAML file, then optionally convert back with \`pasco sync --to-toml\``,
     );
