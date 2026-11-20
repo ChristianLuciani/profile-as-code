@@ -147,7 +147,7 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
   const dir = join(workspace, dirName);
   if (!existsSync(dir)) {
     throw new LoadError(
-      `workspace has no ${dirName}/ directory: ${dir} (expected ${dirName}/*.yaml per schema/README.md)`,
+      `workspace has no ${dirName}/ directory: ${dir} (expected ${dirName}/*.{yaml,yml,toml} per schema/README.md)`,
     );
   }
 
@@ -187,6 +187,15 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
       // If we already have a YAML file and this is TOML, skip the TOML file
       if (existing.priority >= priority) {
         // Skip this file - we already have a higher or equal priority version
+        // Warn if we're skipping a TOML file in favor of YAML
+        if (
+          file.endsWith(".toml") &&
+          (existing.file.endsWith(".yaml") || existing.file.endsWith(".yml"))
+        ) {
+          console.warn(
+            `Warning: ${dirName}/${file} is ignored because ${existing.file} already provides root property "${rootKey}" (YAML takes precedence); use \`pasco sync\` to keep files in sync`,
+          );
+        }
         continue;
       }
     }

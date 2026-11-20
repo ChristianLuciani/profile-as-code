@@ -95,6 +95,9 @@ export interface YamlToTomlOptions {
   createDirs?: boolean;
   /** Whether to overwrite existing TOML files (default: false) */
   overwrite?: boolean;
+  /** Whether to strip null values from YAML before conversion (default: false) */
+  /** Note: TOML doesn't support null, so this allows conversion at the cost of losing explicit nulls */
+  stripNulls?: boolean;
 }
 
 /** Result of a synchronization operation */
@@ -188,16 +191,21 @@ export function yamlToTomlFile(
 
   // Read and parse YAML
   const yamlContent = readFileSync(yamlPath, "utf-8");
-  const data = parseYaml(yamlContent);
+  let data = parseYaml(yamlContent);
 
   // Check for null values (TOML doesn't support null, so we can't convert YAML with explicit nulls)
   if (hasNullValues(data)) {
-    throw new Error(
-      `YAML file contains null values which are not supported by TOML. ` +
-        `Field: null in YAML indicates "explicitly no value" but TOML has no null type. ` +
-        `To convert to TOML, remove all null values from the YAML file first. ` +
-        `Note: This means YAML->TOML->YAML round-trip will lose explicit nulls.`,
-    );
+    if (options.stripNulls) {
+      // Strip null values to allow conversion
+      data = removeNullValues(data);
+    } else {
+      throw new Error(
+        `YAML file contains null values which are not supported by TOML. ` +
+          `Field: null in YAML indicates "explicitly no value" but TOML has no null type. ` +
+          `To convert to TOML, use the stripNulls option or remove all null values from the YAML file first. ` +
+          `Note: This means YAML->TOML->YAML round-trip will lose explicit nulls.`,
+      );
+    }
   }
 
   // Convert to TOML - data is guaranteed to have no nulls
@@ -446,9 +454,15 @@ export async function watchTomlYaml(
   watcher.on("unlink", handleFileEvent);
 
   // Initial sync
-  const initialResult = await syncTomlYaml(factsDir, { ...restOptions, toYaml, toToml });
-  if (callback) {
-    callback(initialResult);
+  try {
+    const initialResult = await syncTomlYaml(factsDir, { ...restOptions, toYaml, toToml });
+    if (callback) {
+      callback(initialResult);
+    }
+  } catch (error) {
+    // If initial sync fails, close the watcher and re-throw
+    watcher.close();
+    throw error;
   }
 
   return () => watcher.close();
