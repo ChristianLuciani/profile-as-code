@@ -15,8 +15,8 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { parseDocument } from "yaml";
 import { parse as parseToml } from "@iarna/toml";
+import { parseDocument } from "yaml";
 import { checkAchievementIntegrity, checkExperienceHighlightRefs } from "./achievements.js";
 import { profileSchema } from "./generated/schema.zod.js";
 import { checkLedgerIntegrity } from "./ledger.js";
