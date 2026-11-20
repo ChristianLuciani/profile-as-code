@@ -284,13 +284,11 @@ export async function syncTomlYaml(
   const { globSync } = await import("glob");
 
   if (toYaml) {
-    // Convert TOML to YAML (also handle .yml files)
-    const tomlFiles = globSync(join(factsDir, "**/*.{toml,yml}"));
+    // Convert TOML to YAML (only .toml files, not .yml which are already YAML)
+    const tomlFiles = globSync(join(factsDir, "**/*.toml"));
     for (const tomlPath of tomlFiles) {
       try {
-        // Determine output extension based on input
-        const ext = tomlPath.endsWith(".toml") || tomlPath.endsWith(".yml") ? ".yaml" : ".yaml";
-        const yamlPath = tomlPath.replace(/\.(toml|yml)$/, ext);
+        const yamlPath = tomlPath.replace(/\.toml$/, ".yaml");
         const success = tomlToYamlFile(tomlPath, yamlPath, restOptions);
         if (success) {
           result.converted.push(`${tomlPath} -> ${yamlPath}`);

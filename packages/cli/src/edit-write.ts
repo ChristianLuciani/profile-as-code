@@ -76,11 +76,16 @@ export function owningFile(workspace: string, root: string): string | undefined 
   } catch {
     return undefined;
   }
-  // Check for YAML files (.yaml or .yml extension)
+  // Check for YAML files (.yaml or .yml extension) and TOML files
   const yamlMatch = entries
     .filter((name) => new RegExp(`^${root}\\.ya?ml$`, "i").test(name))
     .sort()[0];
-  return yamlMatch === undefined ? undefined : `${dirName}/${yamlMatch}`;
+  const tomlMatch = entries
+    .filter((name) => new RegExp(`^${root}\\.toml$`, "i").test(name))
+    .sort()[0];
+  // Prefer YAML over TOML for backward compatibility
+  const match = yamlMatch ?? tomlMatch;
+  return match === undefined ? undefined : `${dirName}/${match}`;
 }
 
 export interface WriteOutcome {
