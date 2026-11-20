@@ -52,12 +52,11 @@ export async function runSync(args: SyncArgs): Promise<number> {
     return report("sync", false, EXIT.USAGE, {
       error: {
         kind: "usage",
-        message: "Please specify at least one of --to-yaml, --to-toml, or --watch (can use both --to-yaml and --to-toml for bidirectional sync)",
+        message:
+          "Please specify at least one of --to-yaml, --to-toml, or --watch (can use both --to-yaml and --to-toml for bidirectional sync)",
       },
     });
   }
-
-
 
   // Resolve workspace and get facts directory
   const resolvedWorkspace = resolveWorkspace(workspace);

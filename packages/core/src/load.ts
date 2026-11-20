@@ -177,8 +177,8 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
     const existing = loadedRoots.get(rootKey);
     if (existing) {
       // If both are YAML files (.yaml and .yml), throw an error
-      if (file.endsWith('.yaml') || file.endsWith('.yml')) {
-        if (existing.file.endsWith('.yaml') || existing.file.endsWith('.yml')) {
+      if (file.endsWith(".yaml") || file.endsWith(".yml")) {
+        if (existing.file.endsWith(".yaml") || existing.file.endsWith(".yml")) {
           throw new LoadError(
             `${dirName}/${file}: duplicate root property "${rootKey}" (already provided by another content file) — each root property belongs to exactly one file`,
           );

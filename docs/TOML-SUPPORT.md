@@ -89,21 +89,26 @@ pasco sync --to-yaml --json
 
 ### Editing with `pasco edit`
 
-The `pasco edit` command now supports TOML files:
+**Note:** The `pasco edit` command does NOT support TOML files directly. This is because TOML lacks a Concrete Syntax Tree (CST), which is required for the range-splice mechanism that preserves comments and layout.
+
+To edit data that exists in TOML format:
 
 ```bash
-# Edit a field in a TOML file
+# First, convert TOML to YAML
+pasco sync --to-yaml
+
+# Then edit the YAML file
 pasco edit identity.name --set "New Name"
 
-# Works the same for TOML and YAML files
-pasco edit skills[0].name --set "New Skill"
+# Optionally convert back to TOML
+pasco sync --to-toml
 ```
 
-The command will:
-1. Detect if the file is TOML or YAML
-2. Load it appropriately
-3. Apply the edit
-4. Save in the original format
+The `pasco edit` command works with YAML files only, maintaining its guarantee of:
+- Range splice over the ORIGINAL text (only changed bytes are replaced)
+- Comments, alignment, and layout survive BY CONSTRUCTION
+- One-line diff by construction
+- No document re-serialization
 
 ### Example: Full Workflow
 

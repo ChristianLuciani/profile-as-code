@@ -2,11 +2,11 @@
  * Tests for pasco sync command.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { mkdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const CLI = join(__dirname, "..", "dist", "index.js");
 
@@ -56,13 +56,19 @@ describe("pasco sync", () => {
       const workspace = createWorkspace();
       const result = runSync([], workspace);
       expect(result.code).toBe(1);
-      expect(result.stderr).toContain("Please specify at least one of --to-yaml, --to-toml, or --watch");
+      expect(result.stderr).toContain(
+        "Please specify at least one of --to-yaml, --to-toml, or --watch",
+      );
     });
 
     it("accepts both --to-yaml and --to-toml for bidirectional sync", () => {
       const workspace = createWorkspace();
       writeFileSync(join(workspace, "facts", "identity.toml"), `name = "Test"`, "utf-8");
-      writeFileSync(join(workspace, "facts", "positioning.yaml"), `statement:\n  en: Test`, "utf-8");
+      writeFileSync(
+        join(workspace, "facts", "positioning.yaml"),
+        `statement:\n  en: Test`,
+        "utf-8",
+      );
       const result = runSync(["--to-yaml", "--to-toml"], workspace);
       expect(result.code).toBe(0);
     });
@@ -164,7 +170,9 @@ describe("pasco sync", () => {
       const result = runSync(["--to-toml"], workspace);
       expect(result.code).toBe(1);
       // CLI writes errors to stdout, not stderr
-      expect(result.stdout).toContain("YAML file contains null values which are not supported by TOML");
+      expect(result.stdout).toContain(
+        "YAML file contains null values which are not supported by TOML",
+      );
     });
   });
 
