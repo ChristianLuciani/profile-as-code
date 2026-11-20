@@ -155,7 +155,7 @@ label = "LinkedIn"
 url = "https://linkedin.com/in/elena"
 role = "realization"
 
-# Multiline strings (basic TOML 0.5.0)
+# Multiline strings (basic TOML 1.0.0)
 definition = '''
 Elena Vasquez is a Senior AI Engineer building sovereign AI infrastructure.
 She leads the open-source example-agentic-hub project.
@@ -335,7 +335,7 @@ The implementation includes comprehensive error handling:
 
 ### Limitations
 
-1. **Note**: Basic multiline strings work with TOML 0.5.0; @iarna/toml supports TOML 0.5.0 spec
+1. **Note**: Basic multiline strings work with TOML 1.0.0; @iarna/toml@2.2.5 supports TOML 1.0.0 spec
 2. **No Anchors/Aliases**: TOML doesn't support YAML's anchor/alias feature
 3. **Array of Tables**: TOML uses `[[table]]` syntax for arrays of objects
 4. **Comments**: TOML only supports end-of-line comments, not inline comments
@@ -533,7 +533,7 @@ Potential future improvements:
 
 ## References
 
-- [TOML 0.5.0 Specification](https://github.com/toml-lang/toml/blob/master/versions/en/toml-v0.5.0.md) (supported by @iarna/toml)
+- [TOML 1.0.0 Specification](https://github.com/toml-lang/toml/blob/master/versions/en/toml-v1.0.0.md) (supported by @iarna/toml@2.2.5)
 - [`@iarna/toml` package](https://github.com/iarna/toml)
 - [YAML Specification](https://yaml.org/spec/1.2/spec.html)
 

@@ -57,6 +57,35 @@ function hasNullValues(obj: unknown): boolean {
  * Empty arrays and objects are preserved.
  * Returns a value compatible with @iarna/toml's stringify function.
  */
+/**
+ * Find the path to the first null value in an object.
+ * Returns the path as a dot-separated string, or undefined if no null values found.
+ */
+function findNullPath(obj: unknown, path: string = ""): string | undefined {
+  if (obj === null) {
+    return path || "(root)";
+  }
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) {
+      const result = findNullPath(obj[i], path ? `${path}[${i}]` : `[${i}]`);
+      if (result) {
+        return result;
+      }
+    }
+  } else if (typeof obj === "object" && obj !== null) {
+    for (const key of Object.keys(obj)) {
+      const result = findNullPath(
+        (obj as Record<string, unknown>)[key],
+        path ? `${path}.${key}` : key,
+      );
+      if (result) {
+        return result;
+      }
+    }
+  }
+  return undefined;
+}
+
 export function removeNullValues(obj: unknown): TomlCompatible | undefined {
   if (obj === null || obj === undefined) {
     return undefined; // Will be omitted when stringified
@@ -199,9 +228,10 @@ export function yamlToTomlFile(
       // Strip null values to allow conversion
       data = removeNullValues(data);
     } else {
+      const nullPath = findNullPath(data);
       throw new Error(
         `YAML file contains null values which are not supported by TOML. ` +
-          `Field: null in YAML indicates "explicitly no value" but TOML has no null type. ` +
+          `Field "${nullPath}" has null value; null in YAML indicates "explicitly no value" but TOML has no null type. ` +
           `To convert to TOML, use the stripNulls option or remove all null values from the YAML file first. ` +
           `Note: This means YAML->TOML->YAML round-trip will lose explicit nulls.`,
       );
@@ -237,7 +267,7 @@ export async function tomlToYamlDirectory(
   const { globSync } = await import("glob");
 
   // Find all TOML files
-  const tomlFiles = globSync(join(inputDir, "**/*.toml"));
+  const tomlFiles = globSync(join(inputDir, "**/*.{toml,TOML}"));
 
   for (const tomlPath of tomlFiles) {
     try {
@@ -278,7 +308,7 @@ export async function yamlToTomlDirectory(
   const { globSync } = await import("glob");
 
   // Find all YAML files (both .yaml and .yml)
-  const yamlFiles = globSync(join(inputDir, "**/*.{yaml,yml}"));
+  const yamlFiles = globSync(join(inputDir, "**/*.{yaml,yml,YAML,YML}"));
 
   for (const yamlPath of yamlFiles) {
     try {
@@ -320,7 +350,7 @@ export async function syncTomlYaml(
 
   if (toYaml) {
     // Convert TOML to YAML (only .toml files, not .yml which are already YAML)
-    const tomlFiles = globSync(join(factsDir, "**/*.toml"));
+    const tomlFiles = globSync(join(factsDir, "**/*.{toml,TOML}"));
     for (const tomlPath of tomlFiles) {
       try {
         const yamlPath = tomlPath.replace(/\.toml$/, ".yaml");
@@ -341,7 +371,7 @@ export async function syncTomlYaml(
 
   if (toToml) {
     // Convert YAML to TOML (handle both .yaml and .yml)
-    const yamlFiles = globSync(join(factsDir, "**/*.{yaml,yml}"));
+    const yamlFiles = globSync(join(factsDir, "**/*.{yaml,yml,YAML,YML}"));
     for (const yamlPath of yamlFiles) {
       try {
         const tomlPath = yamlPath.replace(/\.(yaml|yml)$/, ".toml");
@@ -406,14 +436,15 @@ export async function watchTomlYaml(
       // Collect all files that will be written
       const filesToWrite = new Set<string>();
       for (const path of changedFiles) {
-        if (toYaml && path.endsWith(".toml")) {
-          filesToWrite.add(path.replace(".toml", ".yaml"));
+        const pathLower = path.toLowerCase();
+        if (toYaml && pathLower.endsWith(".toml")) {
+          filesToWrite.add(path.replace(/\.toml$/i, ".yaml"));
         }
-        if (toToml && path.endsWith(".yaml")) {
-          filesToWrite.add(path.replace(".yaml", ".toml"));
+        if (toToml && pathLower.endsWith(".yaml")) {
+          filesToWrite.add(path.replace(/\.yaml$/i, ".toml"));
         }
-        if (toToml && path.endsWith(".yml")) {
-          filesToWrite.add(path.replace(".yml", ".toml"));
+        if (toToml && pathLower.endsWith(".yml")) {
+          filesToWrite.add(path.replace(/\.yml$/i, ".toml"));
         }
       }
 
@@ -428,7 +459,11 @@ export async function watchTomlYaml(
       try {
         const result = await syncTomlYaml(factsDir, { ...restOptions, toYaml, toToml });
         if (callback) {
-          callback(result);
+          try {
+            callback(result);
+          } catch (callbackError) {
+            console.error("Error in watch callback:", callbackError);
+          }
         }
       } finally {
         // Remove from writing set after sync completes

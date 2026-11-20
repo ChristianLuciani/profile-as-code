@@ -179,7 +179,10 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
     if (existing) {
       // If both are YAML files (.yaml and .yml), throw an error
       if (fileLower.endsWith(".yaml") || fileLower.endsWith(".yml")) {
-        if (existing.file.toLowerCase().endsWith(".yaml") || existing.file.toLowerCase().endsWith(".yml")) {
+        if (
+          existing.file.toLowerCase().endsWith(".yaml") ||
+          existing.file.toLowerCase().endsWith(".yml")
+        ) {
           throw new LoadError(
             `${dirName}/${file}: duplicate root property "${rootKey}" (already provided by another content file) — each root property belongs to exactly one file`,
           );
@@ -191,7 +194,8 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
         // Warn if we're skipping a TOML file in favor of YAML
         if (
           fileLower.endsWith(".toml") &&
-          (existing.file.toLowerCase().endsWith(".yaml") || existing.file.toLowerCase().endsWith(".yml"))
+          (existing.file.toLowerCase().endsWith(".yaml") ||
+            existing.file.toLowerCase().endsWith(".yml"))
         ) {
           console.warn(
             `Warning: ${dirName}/${file} is ignored because ${existing.file} already provides root property "${rootKey}" (YAML takes precedence); use \`pasco sync\` to keep files in sync`,
