@@ -378,9 +378,15 @@ export async function watchTomlYaml(
   // Debounce timer
   let debounceTimer: NodeJS.Timeout | null = null;
 
-  const watcher = watch(join(factsDir, "**/*.{toml,yaml,yml}"), {
+  // chokidar v4 removed glob support, so we watch the directory and filter events
+  const watcher = watch(factsDir, {
     persistent: true,
     ignoreInitial: true,
+    // Only watch files with these extensions
+    ignored: (path: string) => {
+      const basename = path.split(/[\\/]/).pop() || "";
+      return !/\\.(toml|yaml|yml)$/i.test(basename) || basename.startsWith(".");
+    },
   });
 
   // Helper to schedule sync after debounce

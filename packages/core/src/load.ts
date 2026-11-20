@@ -155,10 +155,42 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
     .filter((file) => /\.(ya?ml|toml)$/i.test(file) && !file.startsWith("."))
     .sort();
 
+  // Priority order for file extensions: .yaml > .yml > .toml
+  // This ensures backward compatibility while allowing TOML as an input format
+  const extensionPriority = (file: string): number => {
+    const lower = file.toLowerCase();
+    if (lower.endsWith(".yaml")) return 3;
+    if (lower.endsWith(".yml")) return 2;
+    if (lower.endsWith(".toml")) return 1;
+    return 0;
+  };
+
   const merged: Record<string, unknown> = {};
+  const loadedRoots = new Map<string, { file: string; priority: number }>();
+
   for (const file of files) {
     const rootKey = file.replace(/\.(ya?ml|toml)$/i, "");
     const fullPath = join(dir, file);
+    const priority = extensionPriority(file);
+
+    // Check if we already loaded this root key
+    const existing = loadedRoots.get(rootKey);
+    if (existing) {
+      // If both are YAML files (.yaml and .yml), throw an error
+      if (file.endsWith('.yaml') || file.endsWith('.yml')) {
+        if (existing.file.endsWith('.yaml') || existing.file.endsWith('.yml')) {
+          throw new LoadError(
+            `${dirName}/${file}: duplicate root property "${rootKey}" (already provided by another content file) — each root property belongs to exactly one file`,
+          );
+        }
+      }
+      // If we already have a YAML file and this is TOML, skip the TOML file
+      if (existing.priority >= priority) {
+        // Skip this file - we already have a higher or equal priority version
+        continue;
+      }
+    }
+
     let node: unknown;
     if (file.endsWith(".toml")) {
       node = parseToml(readFileSync(fullPath, "utf8"));
@@ -171,12 +203,10 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
       }
       node = doc.toJS({ maxAliasCount: 100 });
     }
-    if (node === null || node === undefined) continue; // empty file → no contribution
-    if (rootKey in merged) {
-      throw new LoadError(
-        `${dirName}/${file}: duplicate root property "${rootKey}" (already provided by another content file) — each root property belongs to exactly one file`,
-      );
-    }
+    if (node === null || node === undefined) continue; // empty file \u2192 no contribution
+
+    // Store the loaded root with its priority
+    loadedRoots.set(rootKey, { file, priority });
     merged[rootKey] = node;
   }
   return merged;
