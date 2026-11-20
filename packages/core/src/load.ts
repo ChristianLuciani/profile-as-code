@@ -16,6 +16,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parseDocument } from "yaml";
+import { parse as parseToml } from "@iarna/toml";
 import { checkAchievementIntegrity, checkExperienceHighlightRefs } from "./achievements.js";
 import { profileSchema } from "./generated/schema.zod.js";
 import { checkLedgerIntegrity } from "./ledger.js";
@@ -136,10 +137,11 @@ export function factsDir(workspace: string): string {
   return hasFacts ? FACTS_DIR : LEGACY_FACTS_DIR;
 }
 
-/** Read and merge every `<factsDir>/*.yaml` (or `*.yml`) of a workspace.
+/** Read and merge every `<factsDir>/*.yaml`, `*.yml`, or `*.toml` of a workspace.
  *  File name = root property: `bios.yaml` contributes `{ bios: <list> }`,
  *  `identity.yaml` contributes `{ identity: <object> }`, … (schema/README.md
- *  mapping table). An empty file contributes nothing. */
+ *  mapping table). An empty file contributes nothing.
+ *  TOML files are supported for user editing convenience (parsed via @iarna/toml). */
 function readFactsFiles(workspace: string): Record<string, unknown> {
   const dirName = factsDir(workspace);
   const dir = join(workspace, dirName);
@@ -150,20 +152,25 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
   }
 
   const files = readdirSync(dir)
-    .filter((file) => /\.ya?ml$/i.test(file) && !file.startsWith("."))
+    .filter((file) => /\.(ya?ml|toml)$/i.test(file) && !file.startsWith("."))
     .sort();
 
   const merged: Record<string, unknown> = {};
   for (const file of files) {
-    const rootKey = file.replace(/\.ya?ml$/i, "");
+    const rootKey = file.replace(/\.(ya?ml|toml)$/i, "");
     const fullPath = join(dir, file);
-    const doc = parseDocument(readFileSync(fullPath, "utf8"));
-    if (doc.errors.length > 0) {
-      throw new LoadError(
-        `${dirName}/${file}: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
-      );
+    let node: unknown;
+    if (file.endsWith(".toml")) {
+      node = parseToml(readFileSync(fullPath, "utf8"));
+    } else {
+      const doc = parseDocument(readFileSync(fullPath, "utf8"));
+      if (doc.errors.length > 0) {
+        throw new LoadError(
+          `${dirName}/${file}: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
+        );
+      }
+      node = doc.toJS({ maxAliasCount: 100 });
     }
-    const node = doc.toJS({ maxAliasCount: 100 });
     if (node === null || node === undefined) continue; // empty file → no contribution
     if (rootKey in merged) {
       throw new LoadError(
