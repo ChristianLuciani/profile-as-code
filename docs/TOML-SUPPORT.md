@@ -448,7 +448,7 @@ Convert a YAML file to TOML.
 
 #### `syncTomlYaml(factsDir, options?)`
 
-Synchronize TOML and YAML files in a directory.
+Synchronize TOML and YAML files in the **top level** of a directory — matching `load()`, which reads the facts dir flat (files in subdirectories are not fact files and are left alone).
 
 **Parameters:**
 - `factsDir`: Directory containing fact files

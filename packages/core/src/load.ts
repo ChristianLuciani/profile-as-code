@@ -177,16 +177,16 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
     // Check if we already loaded this root key
     const existing = loadedRoots.get(rootKey);
     if (existing) {
-      // If both are YAML files (.yaml and .yml), throw an error
-      if (fileLower.endsWith(".yaml") || fileLower.endsWith(".yml")) {
-        if (
-          existing.file.toLowerCase().endsWith(".yaml") ||
-          existing.file.toLowerCase().endsWith(".yml")
-        ) {
-          throw new LoadError(
-            `${dirName}/${file}: duplicate root property "${rootKey}" (already provided by another content file) — each root property belongs to exactly one file`,
-          );
-        }
+      const newIsYaml = fileLower.endsWith(".yaml") || fileLower.endsWith(".yml");
+      const existingIsYaml =
+        existing.file.toLowerCase().endsWith(".yaml") ||
+        existing.file.toLowerCase().endsWith(".yml");
+      // Same-format clash (.yaml + .yml, or .toml + .TOML): each root property
+      // belongs to exactly one file — a hard error, never a silent skip.
+      if (newIsYaml === existingIsYaml) {
+        throw new LoadError(
+          `${dirName}/${file}: duplicate root property "${rootKey}" (already provided by another content file) — each root property belongs to exactly one file`,
+        );
       }
       // If we already have a YAML file and this is TOML, skip the TOML file
       if (existing.priority >= priority) {

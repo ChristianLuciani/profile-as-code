@@ -238,6 +238,19 @@ describe("syncTomlYaml", () => {
     expect(result.skipped).toHaveLength(1);
     expect(result.converted).toHaveLength(0);
   });
+
+  it("syncs only the top level (load() reads the facts dir flat)", async () => {
+    const factsDir = join(tempDirPath, "facts");
+    mkdirSync(join(factsDir, "sub"), { recursive: true });
+    writeFileSync(join(factsDir, "top.toml"), `a = 1`, "utf-8");
+    writeFileSync(join(factsDir, "sub", "nested.toml"), `b = 2`, "utf-8");
+
+    const result = await syncTomlYaml(factsDir, { toYaml: true, toToml: false });
+
+    expect(result.converted).toHaveLength(1);
+    expect(existsSync(join(factsDir, "top.yaml"))).toBe(true);
+    expect(existsSync(join(factsDir, "sub", "nested.yaml"))).toBe(false);
+  });
 });
 
 describe("tomlToYamlDirectory", () => {
@@ -355,6 +368,42 @@ describe("watchTomlYaml", () => {
       await waitFor(() => existsSync(join(dir, "identity.yaml")));
       writeFileSync(join(dir, "identity.toml"), `name = "V2"`, "utf-8");
       await waitFor(() => readFileSync(join(dir, "identity.yaml"), "utf-8").includes("V2"));
+    } finally {
+      await stop();
+    }
+  }, 15_000);
+
+  it("still fires when the watched dir sits under a dot-prefixed ancestor (.worktrees/, ~/.config/)", async () => {
+    const dir = join(tempDirPath, ".dotws", "facts");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "identity.toml"), `name = "V1"`, "utf-8");
+
+    const stop = await watchTomlYaml(dir, { toYaml: true, overwrite: true });
+    try {
+      await waitFor(() => existsSync(join(dir, "identity.yaml")));
+      writeFileSync(join(dir, "identity.toml"), `name = "V2"`, "utf-8");
+      await waitFor(() => readFileSync(join(dir, "identity.yaml"), "utf-8").includes("V2"));
+    } finally {
+      await stop();
+    }
+  }, 15_000);
+
+  it("never rewrites the edited source in bidirectional mode (comments survive)", async () => {
+    const dir = join(tempDirPath, "facts");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "identity.toml"), `# my header\nname = "V1" # trailing\n`, "utf-8");
+
+    const stop = await watchTomlYaml(dir, { toYaml: true, toToml: true, overwrite: true });
+    try {
+      await waitFor(() => existsSync(join(dir, "identity.yaml")));
+      writeFileSync(join(dir, "identity.toml"), `# my header\nname = "V2" # trailing\n`, "utf-8");
+      await waitFor(() => readFileSync(join(dir, "identity.yaml"), "utf-8").includes("V2"));
+      // give a hypothetical erroneous echo pass time to fire before asserting
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const toml = readFileSync(join(dir, "identity.toml"), "utf-8");
+      expect(toml).toContain("# my header");
+      expect(toml).toContain("# trailing");
+      expect(toml).toContain('name = "V2"');
     } finally {
       await stop();
     }

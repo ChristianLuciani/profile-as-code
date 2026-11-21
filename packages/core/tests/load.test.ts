@@ -517,4 +517,16 @@ describe("TOML fact files", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("refuses two TOML files claiming the same root (same rule as two YAML files)", () => {
+    const dir = makeWorkspace({
+      "identity.toml": 'name = "A"',
+      "identity.TOML": 'name = "B"',
+    });
+    try {
+      expect(() => load(dir)).toThrow(/duplicate root property "identity"/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

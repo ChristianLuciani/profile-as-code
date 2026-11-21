@@ -3,7 +3,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -119,14 +119,18 @@ describe("pasco sync", () => {
       );
     });
 
-    it("creates parent directories if needed", () => {
+    it("ignores files in subdirectories (load() reads the facts dir flat)", () => {
       const workspace = createWorkspace();
       const subdir = join(workspace, "facts", "subdir");
       mkdirSync(subdir, { recursive: true });
       writeFileSync(join(subdir, "test.toml"), `key = "value"`, "utf-8");
+      writeFileSync(join(workspace, "facts", "top.toml"), `key = "top"`, "utf-8");
 
       const result = runSync(["--to-yaml"], workspace);
       expect(result.code).toBe(0);
+
+      expect(existsSync(join(workspace, "facts", "top.yaml"))).toBe(true);
+      expect(existsSync(join(subdir, "test.yaml"))).toBe(false);
     });
 
     it("skips existing YAML files without --overwrite", () => {
