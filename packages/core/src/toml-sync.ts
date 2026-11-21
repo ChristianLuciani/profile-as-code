@@ -141,6 +141,25 @@ export function removeNullValues(obj: unknown): TomlCompatible | undefined {
   return obj as TomlValue;
 }
 
+/** True for an empty TOML document (parses to {}), e.g. a comment-only file. */
+function isEmptyTomlDoc(data: unknown): boolean {
+  return (
+    data !== null &&
+    typeof data === "object" &&
+    !Array.isArray(data) &&
+    Object.keys(data).length === 0
+  );
+}
+
+/** The YAML mirror of a TOML path: `<root>.yaml` — unless the root already has a
+ *  `.yml` file, in which case THAT file is the root's YAML mirror. load() treats
+ *  `.yaml` + `.yml` on one root as a hard duplicate-root error, so sync must never
+ *  create both. */
+function yamlMirrorOf(tomlPath: string): string {
+  const yml = tomlPath.replace(/\.toml$/i, ".yml");
+  return existsSync(yml) ? yml : tomlPath.replace(/\.toml$/i, ".yaml");
+}
+
 /** Options for TOML to YAML conversion */
 export interface TomlToYamlOptions {
   /** Indentation level for YAML output (default: 2) */
@@ -209,8 +228,10 @@ export function tomlToYamlFile(
   const tomlContent = readFileSync(tomlPath, "utf-8");
   const data = parseToml(tomlContent);
 
-  // Convert to YAML
-  const yamlContent = stringifyYaml(data, { indent });
+  // Convert to YAML. An empty TOML document (comment-only file) must not become a
+  // "{}\n" mirror: load() treats an empty YAML file as no contribution, but "{}" as
+  // an empty root that fails the schema (D12). Mirror the source: empty stays empty.
+  const yamlContent = isEmptyTomlDoc(data) ? "" : stringifyYaml(data, { indent });
 
   // Already in sync: skip the write so watch mode cannot ping-pong on our own output
   if (overwrite && existsSync(yamlPath) && readFileSync(yamlPath, "utf-8") === yamlContent) {
@@ -259,6 +280,14 @@ export function yamlToTomlFile(
   // Read and parse YAML
   const yamlContent = readFileSync(yamlPath, "utf-8");
   let data = parseYaml(yamlContent);
+
+  // An empty YAML file (parses to null) mirrors as an EMPTY TOML file — load()
+  // skips both — never as a null-value error.
+  if (data === null || data === undefined) {
+    if (overwrite && existsSync(tomlPath) && readFileSync(tomlPath, "utf-8") === "") return false;
+    writeFileSync(tomlPath, "", "utf-8");
+    return true;
+  }
 
   // Check for null values (TOML doesn't support null, so we can't convert YAML with explicit nulls)
   if (hasNullValues(data)) {
@@ -426,7 +455,7 @@ export async function syncTomlYaml(
     for (const tomlPath of tomlFiles) {
       if (conflicted.has(tomlPath)) continue;
       try {
-        const yamlPath = tomlPath.replace(/\.toml$/i, ".yaml");
+        const yamlPath = yamlMirrorOf(tomlPath);
         const success = tomlToYamlFile(tomlPath, yamlPath, restOptions);
         if (success) {
           result.converted.push(`${tomlPath} -> ${yamlPath}`);
@@ -514,7 +543,7 @@ export async function watchTomlYaml(
   /** The mirror path a change to `path` should propagate to, if any. */
   const mirrorOf = (path: string): string | undefined => {
     const lower = path.toLowerCase();
-    if (toYaml && lower.endsWith(".toml")) return path.replace(/\.toml$/i, ".yaml");
+    if (toYaml && lower.endsWith(".toml")) return yamlMirrorOf(path);
     if (toToml && lower.endsWith(".yaml")) return path.replace(/\.yaml$/i, ".toml");
     if (toToml && lower.endsWith(".yml")) return path.replace(/\.yml$/i, ".toml");
     return undefined;

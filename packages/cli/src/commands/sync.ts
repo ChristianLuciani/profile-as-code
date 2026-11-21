@@ -72,6 +72,7 @@ export async function runSync(args: SyncArgs): Promise<number> {
       // Watch mode: sync both directions automatically
       line(`Watching ${factsDirectory} for changes...`);
 
+      let watchFailed = false;
       const stopWatch = await watchTomlYaml(
         factsDirectory,
         {
@@ -82,15 +83,16 @@ export async function runSync(args: SyncArgs): Promise<number> {
           // its own mirror (so a source file's comments are never clobbered).
         },
         (result) => {
-          reportSyncResult(result, "watch");
+          if (reportSyncResult(result, "watch") !== EXIT.OK) watchFailed = true;
         },
       );
 
-      // Handle graceful shutdown
+      // Handle graceful shutdown — honoring the published exit contract:
+      // 1 if any sync batch reported errors, else 0
       process.on("SIGINT", () => {
         stopWatch();
         line("Watch mode stopped.");
-        process.exit(0);
+        process.exit(watchFailed ? EXIT.FAIL : EXIT.OK);
       });
 
       // Keep process running

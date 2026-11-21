@@ -769,6 +769,8 @@ Examples:
   pasco sync --to-yaml --overwrite  # Force overwrite existing YAML files
 
 Note: When using --watch, both TOML and YAML files are kept in sync.
+In --watch, conversion errors are reported per event and the watcher keeps
+running; on Ctrl-C the exit code is 1 if any sync batch failed, else 0.
 TOML files are recommended for human editing (less indentation errors).`,
   post: `pasco post <seed|task|choose|check|export|import|list> [...] [--json] [--confirm <sha256:…>] [--workspace <path>]
 MVP (week-1 experiment): a post is a PROJECTION of a seed, not an identity fact.

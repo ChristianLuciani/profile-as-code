@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { parse as parseToml } from "@iarna/toml";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
+import { load } from "../src/index.js";
 import {
   removeNullValues,
   type SyncResult,
@@ -268,6 +269,25 @@ describe("syncTomlYaml", () => {
     expect(readFileSync(join(factsDir, "identity.yaml"), "utf-8")).toContain("Y");
   });
 
+  it("never creates a second YAML mirror for a .yml root (.yaml + .yml would be a hard duplicate-root error in load())", async () => {
+    const factsDir = join(tempDirPath, "facts");
+    mkdirSync(factsDir, { recursive: true });
+    writeFileSync(join(factsDir, "identity.yml"), `name: Y\n`, "utf-8");
+
+    // run 1: toToml creates identity.toml; run 2 (toYaml) must mirror toml -> the
+    // EXISTING identity.yml, never a new identity.yaml
+    await syncTomlYaml(factsDir, { toYaml: false, toToml: true, overwrite: true });
+    expect(existsSync(join(factsDir, "identity.toml"))).toBe(true);
+    const r2 = await syncTomlYaml(factsDir, { toYaml: true, toToml: false, overwrite: true });
+    expect(r2.errors).toHaveLength(0);
+    expect(existsSync(join(factsDir, "identity.yaml"))).toBe(false);
+    expect(existsSync(join(factsDir, "identity.yml"))).toBe(true);
+
+    // load() must not fail with a duplicate root property
+    expect(() => load(tempDirPath)).not.toThrow();
+    expect(load(tempDirPath).identity.name).toBe("Y");
+  });
+
   it("rejects clearly when the synced directory does not exist (no silent exit-0)", async () => {
     await expect(syncTomlYaml(join(tempDirPath, "no-such-dir"), { toYaml: true })).rejects.toThrow(
       /cannot sync: directory not found/,
@@ -413,6 +433,29 @@ describe("extension case handling", () => {
     expect(yamlResult.errors).toHaveLength(0);
     expect(yamlResult.converted).toHaveLength(1);
     expect(existsSync(join(outputDir, "nested", "deep.toml"))).toBe(true);
+  });
+});
+
+describe('empty documents mirror as empty (never "{}\\n", which load() would reject)', () => {
+  it('a comment-only .toml converts to an EMPTY .yaml file, not "{}\\n"', () => {
+    const tomlPath = join(tempDirPath, "identity.toml");
+    const yamlPath = join(tempDirPath, "identity.yaml");
+    writeFileSync(tomlPath, `# nothing yet\n`, "utf-8");
+
+    expect(tomlToYamlFile(tomlPath, yamlPath)).toBe(true);
+    const yaml = readFileSync(yamlPath, "utf-8");
+    expect(yaml).not.toContain("{}");
+    // load() treats this as no contribution (parseYaml("") === null)
+    expect(parseYaml(yaml)).toBeNull();
+  });
+
+  it("an empty .yaml converts to an empty .toml instead of throwing a null error", () => {
+    const yamlPath = join(tempDirPath, "identity.yaml");
+    const tomlPath = join(tempDirPath, "identity.toml");
+    writeFileSync(yamlPath, `# nothing yet\n`, "utf-8");
+
+    expect(yamlToTomlFile(yamlPath, tomlPath)).toBe(true);
+    expect(readFileSync(tomlPath, "utf-8")).toBe("");
   });
 });
 
