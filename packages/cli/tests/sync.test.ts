@@ -227,6 +227,16 @@ describe("pasco sync", () => {
     });
   });
 
+  describe("missing facts dir", () => {
+    it("fails with exit 1 (not a silent 0) when the facts dir does not exist", () => {
+      const workspace = join(tempDirPath, "no-facts-ws");
+      mkdirSync(workspace, { recursive: true });
+      const result = runSync(["--to-yaml"], workspace);
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("directory not found");
+    });
+  });
+
   describe("workspace flag", () => {
     it("uses specified workspace path", () => {
       const workspace = createWorkspace();

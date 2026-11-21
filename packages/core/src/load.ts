@@ -184,6 +184,33 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
     const fileLower = file.toLowerCase();
     const priority = extensionPriority(file);
 
+    // Parse FIRST: an empty file contributes nothing and must not claim the root
+    // at all (no duplicate error, no precedence warning) — the precedence signal
+    // has to match the actual data flow.
+    let node: unknown;
+    if (fileLower.endsWith(".toml")) {
+      node = parseToml(readFileSync(fullPath, "utf8"));
+      // An empty TOML document parses to {} — like an empty YAML file (null),
+      // it contributes nothing instead of injecting an empty root.
+      if (
+        node !== null &&
+        typeof node === "object" &&
+        !Array.isArray(node) &&
+        Object.keys(node).length === 0
+      ) {
+        continue;
+      }
+    } else {
+      const doc = parseDocument(readFileSync(fullPath, "utf8"));
+      if (doc.errors.length > 0) {
+        throw new LoadError(
+          `${dirName}/${file}: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
+        );
+      }
+      node = doc.toJS({ maxAliasCount: 100 });
+    }
+    if (node === null || node === undefined) continue; // empty file → no contribution
+
     // Check if we already loaded this root key
     const existing = loadedRoots.get(rootKey);
     if (existing) {
@@ -224,30 +251,6 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
         );
       }
     }
-
-    let node: unknown;
-    if (fileLower.endsWith(".toml")) {
-      node = parseToml(readFileSync(fullPath, "utf8"));
-      // An empty TOML document parses to {} — like an empty YAML file (null),
-      // it contributes nothing instead of injecting an empty root.
-      if (
-        node !== null &&
-        typeof node === "object" &&
-        !Array.isArray(node) &&
-        Object.keys(node).length === 0
-      ) {
-        continue;
-      }
-    } else {
-      const doc = parseDocument(readFileSync(fullPath, "utf8"));
-      if (doc.errors.length > 0) {
-        throw new LoadError(
-          `${dirName}/${file}: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
-        );
-      }
-      node = doc.toJS({ maxAliasCount: 100 });
-    }
-    if (node === null || node === undefined) continue; // empty file \u2192 no contribution
 
     // Store the loaded root with its priority
     loadedRoots.set(rootKey, { file, priority });

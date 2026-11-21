@@ -532,6 +532,38 @@ describe("TOML fact files", () => {
     }
   });
 
+  it("an empty .yaml does not claim the root: the content-bearing .toml wins, with NO precedence warning", () => {
+    const dir = makeWorkspace({
+      "identity.yaml": "# empty\n",
+      "identity.toml": 'name = "FromToml"',
+    });
+    const warnings: string[] = [];
+    const spy = vi.spyOn(console, "warn").mockImplementation((m) => warnings.push(String(m)));
+    try {
+      expect(load(dir).identity.name).toBe("FromToml");
+      expect(warnings.filter((w) => w.includes("takes precedence"))).toHaveLength(0);
+    } finally {
+      spy.mockRestore();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("an empty .toml does not claim the root either: the content-bearing .yaml wins, with NO warning", () => {
+    const dir = makeWorkspace({
+      "identity.toml": "# empty\n",
+      "identity.yaml": "name: FromYaml\n",
+    });
+    const warnings: string[] = [];
+    const spy = vi.spyOn(console, "warn").mockImplementation((m) => warnings.push(String(m)));
+    try {
+      expect(load(dir).identity.name).toBe("FromYaml");
+      expect(warnings.filter((w) => w.includes("takes precedence"))).toHaveLength(0);
+    } finally {
+      spy.mockRestore();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("refuses two TOML files claiming the same root (same rule as two YAML files)", () => {
     const dir = makeWorkspace({
       "identity.toml": 'name = "A"',

@@ -240,6 +240,12 @@ describe("syncTomlYaml", () => {
     expect(result.converted).toHaveLength(0);
   });
 
+  it("rejects clearly when the synced directory does not exist (no silent exit-0)", async () => {
+    await expect(syncTomlYaml(join(tempDirPath, "no-such-dir"), { toYaml: true })).rejects.toThrow(
+      /cannot sync: directory not found/,
+    );
+  });
+
   it("syncs only the top level (load() reads the facts dir flat)", async () => {
     const factsDir = join(tempDirPath, "facts");
     mkdirSync(join(factsDir, "sub"), { recursive: true });

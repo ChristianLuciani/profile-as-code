@@ -43,7 +43,7 @@ The implementation uses a **hybrid approach**:
 Users can:
 1. Edit files in **TOML format** (recommended for human editing)
 2. Run `pasco sync --to-yaml` to convert TOML → YAML
-3. The engine continues to use **YAML files** (no breaking changes)
+3. The engine reads **YAML and TOML directly** (`load()` accepts both — across formats YAML wins a root clash, the same format claiming one root twice is a hard error; no breaking changes)
 
 ## Usage
 
@@ -330,7 +330,7 @@ The implementation includes comprehensive error handling:
 
 - **Missing files**: Clear error messages
 - **Invalid syntax**: Caught and reported with file and line information
-- **Overwrite protection**: Defaults to skip existing files (use `--overwrite` to force)
+- **Overwrite protection**: A one-shot sync defaults to skip existing files (use `--overwrite` to force); in `--watch` the start-up pass never overwrites — only each edit's mirror is written
 - **Type preservation**: Maintains data types during conversion
 
 ### Limitations

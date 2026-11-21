@@ -387,6 +387,17 @@ export async function syncTomlYaml(
   options: TomlToYamlOptions & { toYaml?: boolean; toToml?: boolean } = {},
 ): Promise<SyncResult> {
   const { toYaml = true, toToml = false, ...restOptions } = options;
+  // Fail loudly on a missing dir (same contract as watchTomlYaml) — a one-shot
+  // sync on a nonexistent facts dir must not exit 0 with "No files to sync".
+  let stat: ReturnType<typeof statSync>;
+  try {
+    stat = statSync(factsDir);
+  } catch {
+    throw new Error(`cannot sync: directory not found: ${factsDir}`);
+  }
+  if (!stat.isDirectory()) {
+    throw new Error(`cannot sync: not a directory: ${factsDir}`);
+  }
   const result: SyncResult = { converted: [], skipped: [], errors: [] };
 
   if (toYaml) {

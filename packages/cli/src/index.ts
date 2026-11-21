@@ -176,10 +176,11 @@ Commands:
                                 byte-identical across runs
   skills:export <dir>           [write] Copy the skill channels this package ships into <dir>
           [--force] [--list]     (--force overlays; --list shows them); no harness paths
-  sync [--to-yaml] [--to-toml]  [read]  Dual-format fact registration: humans may edit
+  sync [--to-yaml] [--to-toml]  [write] Dual-format fact registration: humans may edit
           [--watch] [--overwrite | -f]  fact files as TOML while the engine keeps
-          [--json]                reading YAML (load() also reads .toml directly; on a
-                                  root clash YAML wins). --watch auto-syncs both ways
+          [--json]                reading YAML (load() also reads .toml directly; across
+                                  formats YAML wins a root clash, the same format twice
+                                  is a hard error). --watch auto-syncs both ways
 
 Common flags (after the command):
   --workspace <path>  Workspace path (resolution: --workspace > .pascorc > cwd, D14)
@@ -195,9 +196,11 @@ published artifact; audit: at least one FAIL finding; entity: no canonical @id;
 export ai-policy: an unsourced or stale UA list, a robots.txt whose agent↔group
 map disagrees with the registry (--file), or a refused write;
 cite-check: the input file cannot be read; log: an id collision, an integrity
-failure, or a file the append cannot preserve) · 2 usage error (cite-check:
+failure, or a file the append cannot preserve; sync: a missing facts dir or
+conversion errors) · 2 usage error (cite-check:
 malformed NDJSON, never a silent skip; log/achievements: an invalid input or a
-range whose since is after its until). Drift warnings exit 0 (D12: facts warn,
+range whose since is after its until; sync: no direction flag
+(--to-yaml/--to-toml/--watch)). Drift warnings exit 0 (D12: facts warn,
 schema fails).
 
 pasco is free (MIT). Consider a tip ;)
@@ -754,7 +757,9 @@ Options:
   --to-yaml    Convert TOML files to YAML
   --to-toml    Convert YAML files to TOML
   --watch      Watch for changes and sync automatically (implies both --to-yaml and --to-toml)
-  --overwrite, -f  Overwrite existing files (default: skip if file exists)
+  --overwrite, -f  Overwrite existing files in a one-shot sync (default: skip if
+                   file exists); --watch never overwrites on start, it only mirrors
+                   each edit to the counterpart
   --json       Machine-readable output
 
 Examples:
