@@ -179,6 +179,11 @@ export function tomlToYamlFile(
   // Convert to YAML
   const yamlContent = stringifyYaml(data, { indent });
 
+  // Already in sync: skip the write so watch mode cannot ping-pong on our own output
+  if (overwrite && existsSync(yamlPath) && readFileSync(yamlPath, "utf-8") === yamlContent) {
+    return false;
+  }
+
   // Write YAML file
   writeFileSync(yamlPath, yamlContent, "utf-8");
 
@@ -244,6 +249,11 @@ export function yamlToTomlFile(
   }
   const tomlContent = stringifyToml(data);
 
+  // Already in sync: skip the write so watch mode cannot ping-pong on our own output
+  if (overwrite && existsSync(tomlPath) && readFileSync(tomlPath, "utf-8") === tomlContent) {
+    return false;
+  }
+
   // Write TOML file
   writeFileSync(tomlPath, tomlContent, "utf-8");
 
@@ -272,7 +282,7 @@ export async function tomlToYamlDirectory(
   for (const tomlPath of tomlFiles) {
     try {
       const relativePath = relative(inputDir, tomlPath);
-      const yamlPath = join(outputDir, relativePath.replace(".toml", ".yaml"));
+      const yamlPath = join(outputDir, relativePath.replace(/\.toml$/i, ".yaml"));
 
       const success = tomlToYamlFile(tomlPath, yamlPath, options);
       if (success) {
@@ -313,7 +323,7 @@ export async function yamlToTomlDirectory(
   for (const yamlPath of yamlFiles) {
     try {
       const relativePath = relative(inputDir, yamlPath);
-      const tomlPath = join(outputDir, relativePath.replace(/\.(yaml|yml)$/, ".toml"));
+      const tomlPath = join(outputDir, relativePath.replace(/\.(yaml|yml)$/i, ".toml"));
 
       const success = yamlToTomlFile(yamlPath, tomlPath, options);
       if (success) {
@@ -353,7 +363,7 @@ export async function syncTomlYaml(
     const tomlFiles = globSync(join(factsDir, "**/*.{toml,TOML}"));
     for (const tomlPath of tomlFiles) {
       try {
-        const yamlPath = tomlPath.replace(/\.toml$/, ".yaml");
+        const yamlPath = tomlPath.replace(/\.toml$/i, ".yaml");
         const success = tomlToYamlFile(tomlPath, yamlPath, restOptions);
         if (success) {
           result.converted.push(`${tomlPath} -> ${yamlPath}`);
@@ -374,7 +384,7 @@ export async function syncTomlYaml(
     const yamlFiles = globSync(join(factsDir, "**/*.{yaml,yml,YAML,YML}"));
     for (const yamlPath of yamlFiles) {
       try {
-        const tomlPath = yamlPath.replace(/\.(yaml|yml)$/, ".toml");
+        const tomlPath = yamlPath.replace(/\.(yaml|yml)$/i, ".toml");
         const success = yamlToTomlFile(yamlPath, tomlPath, restOptions);
         if (success) {
           result.converted.push(`${yamlPath} -> ${tomlPath}`);
@@ -422,8 +432,14 @@ export async function watchTomlYaml(
     ignoreInitial: true,
     // Only watch files with these extensions
     ignored: (path: string) => {
-      const basename = path.split(/[\\/]/).pop() || "";
-      return !/\\.(toml|yaml|yml)$/i.test(basename) || basename.startsWith(".");
+      const segments = path.split(/[\\/]/);
+      // Dotfiles and dot-directories (.git, .pasco-edit.lock, ...) are never watched
+      if (segments.some((segment) => segment.startsWith("."))) return true;
+      const basename = segments[segments.length - 1] ?? "";
+      // Directories (no extension) must NOT be ignored: ignoring one prunes its
+      // whole subtree and the watcher would never fire on any file inside it.
+      if (!/\.[^.\\/]+$/.test(basename)) return false;
+      return !/\.(toml|yaml|yml)$/i.test(basename);
     },
   });
 
@@ -487,6 +503,13 @@ export async function watchTomlYaml(
   watcher.on("add", handleFileEvent);
   watcher.on("change", handleFileEvent);
   watcher.on("unlink", handleFileEvent);
+
+  // Resolve only once chokidar finished its initial scan: with ignoreInitial,
+  // an edit that lands before "ready" would be swallowed as part of the scan.
+  await new Promise<void>((resolve, reject) => {
+    watcher.on("ready", () => resolve());
+    watcher.on("error", (err) => reject(err));
+  });
 
   // Initial sync
   try {

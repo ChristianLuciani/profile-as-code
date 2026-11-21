@@ -203,11 +203,31 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
         }
         continue;
       }
+      // A higher-priority file replaces a lower-priority one: when a YAML file
+      // wins over a TOML root, say so — the mirror of the skip warning above.
+      if (
+        (fileLower.endsWith(".yaml") || fileLower.endsWith(".yml")) &&
+        existing.file.toLowerCase().endsWith(".toml")
+      ) {
+        console.warn(
+          `Warning: ${dirName}/${existing.file} is ignored because ${file} also provides root property "${rootKey}" (YAML takes precedence); use \`pasco sync\` to keep files in sync`,
+        );
+      }
     }
 
     let node: unknown;
     if (fileLower.endsWith(".toml")) {
       node = parseToml(readFileSync(fullPath, "utf8"));
+      // An empty TOML document parses to {} — like an empty YAML file (null),
+      // it contributes nothing instead of injecting an empty root.
+      if (
+        node !== null &&
+        typeof node === "object" &&
+        !Array.isArray(node) &&
+        Object.keys(node).length === 0
+      ) {
+        continue;
+      }
     } else {
       const doc = parseDocument(readFileSync(fullPath, "utf8"));
       if (doc.errors.length > 0) {
