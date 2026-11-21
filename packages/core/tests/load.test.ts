@@ -473,6 +473,20 @@ describe("TOML fact files", () => {
     }
   });
 
+  it("loads MIXED-CASE extensions (.Yml, .ToMl) — one predicate shared with the sync utilities", () => {
+    const dir = makeWorkspace({
+      "identity.Yml": "name: Mixed\n",
+      "keywords.ToMl": '[seo]\nlinkedin = ["sovereign AI"]\n',
+    });
+    try {
+      const profile = load(dir);
+      expect(profile.identity.name).toBe("Mixed");
+      expect(profile.keywords?.seo?.linkedin).toContain("sovereign AI");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("treats an empty (comment-only) .toml file as no contribution, like an empty YAML file", () => {
     const dir = makeWorkspace({
       "identity.yaml": "name: Someone\n",

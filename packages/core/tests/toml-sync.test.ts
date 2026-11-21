@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import {
   removeNullValues,
+  type SyncResult,
   syncTomlYaml,
   tomlToYamlDirectory,
   tomlToYamlFile,
@@ -314,6 +315,27 @@ describe("extension case handling", () => {
     expect(existsSync(join(facts, "identity.toml"))).toBe(true);
   });
 
+  it("syncTomlYaml matches MIXED-CASE extensions exactly like load() (id.Yml, id.ToMl)", async () => {
+    // glob brace patterns (*.{toml,TOML}) miss these; load()'s /i regex reads them
+    const facts = join(tempDirPath, "facts");
+    mkdirSync(facts, { recursive: true });
+    writeFileSync(join(facts, "identity.Yml"), `name: MixedYml`, "utf-8");
+
+    const toToml = await syncTomlYaml(facts, { toYaml: false, toToml: true });
+    expect(toToml.errors).toHaveLength(0);
+    expect(toToml.converted).toHaveLength(1);
+    expect(existsSync(join(facts, "identity.toml"))).toBe(true);
+
+    const facts2 = join(tempDirPath, "facts2");
+    mkdirSync(facts2, { recursive: true });
+    writeFileSync(join(facts2, "keywords.ToMl"), `seo = "x"`, "utf-8");
+
+    const toYaml = await syncTomlYaml(facts2, { toYaml: true, toToml: false });
+    expect(toYaml.errors).toHaveLength(0);
+    expect(toYaml.converted).toHaveLength(1);
+    expect(existsSync(join(facts2, "keywords.yaml"))).toBe(true);
+  });
+
   it("tomlToYamlDirectory writes a .yaml file (never YAML bytes into a .TOML name)", async () => {
     const inputDir = join(tempDirPath, "in");
     const outputDir = join(tempDirPath, "out");
@@ -339,6 +361,24 @@ describe("extension case handling", () => {
     expect(result.errors).toHaveLength(0);
     expect(existsSync(join(outputDir, "NOTE.toml"))).toBe(true);
     expect(parseToml(readFileSync(join(outputDir, "NOTE.toml"), "utf-8"))).toEqual({ text: "hi" });
+  });
+
+  it("directory converters match mixed-case extensions (MiXeD.ToMl) like load()", async () => {
+    const inputDir = join(tempDirPath, "in");
+    const outputDir = join(tempDirPath, "out");
+    mkdirSync(join(inputDir, "nested"), { recursive: true });
+    writeFileSync(join(inputDir, "MiXeD.ToMl"), `name = "X"`, "utf-8");
+    writeFileSync(join(inputDir, "nested", "deep.YmL"), `text: hi`, "utf-8");
+
+    const tomlResult = await tomlToYamlDirectory(inputDir, outputDir);
+    expect(tomlResult.errors).toHaveLength(0);
+    expect(tomlResult.converted).toHaveLength(1);
+    expect(existsSync(join(outputDir, "MiXeD.yaml"))).toBe(true);
+
+    const yamlResult = await yamlToTomlDirectory(inputDir, outputDir);
+    expect(yamlResult.errors).toHaveLength(0);
+    expect(yamlResult.converted).toHaveLength(1);
+    expect(existsSync(join(outputDir, "nested", "deep.toml"))).toBe(true);
   });
 });
 
@@ -408,4 +448,35 @@ describe("watchTomlYaml", () => {
       await stop();
     }
   }, 15_000);
+
+  it("reports a conflict (never silently drops one side) when a file and its mirror change in the same window", async () => {
+    const dir = join(tempDirPath, "facts");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "identity.toml"), `name = "T1"`, "utf-8");
+    const results: SyncResult[] = [];
+
+    const stop = await watchTomlYaml(dir, { toYaml: true, toToml: true, overwrite: true }, (r) =>
+      results.push(r),
+    );
+    try {
+      await waitFor(() => existsSync(join(dir, "identity.yaml")));
+      // both sides edited within the same 100ms debounce window
+      writeFileSync(join(dir, "identity.toml"), `name = "T2"`, "utf-8");
+      writeFileSync(join(dir, "identity.yaml"), `name: Y2\n`, "utf-8");
+      await waitFor(() => results.some((r) => r.errors.some((e) => e.error.includes("conflict"))));
+      const toml = readFileSync(join(dir, "identity.toml"), "utf-8");
+      const yaml = readFileSync(join(dir, "identity.yaml"), "utf-8");
+      // neither side was overwritten by the sync pass
+      expect(toml).toContain('name = "T2"');
+      expect(yaml).toContain("Y2");
+    } finally {
+      await stop();
+    }
+  }, 15_000);
+
+  it("rejects clearly when the watched directory does not exist", async () => {
+    await expect(watchTomlYaml(join(tempDirPath, "no-such-dir"), {})).rejects.toThrow(
+      /directory not found/,
+    );
+  });
 });

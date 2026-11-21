@@ -142,6 +142,18 @@ export function factsDir(workspace: string): string {
  *  `identity.yaml` contributes `{ identity: <object> }`, … (schema/README.md
  *  mapping table). An empty file contributes nothing.
  *  TOML files are supported for user editing convenience (parsed via @iarna/toml). */
+
+/** The ONE "is a fact file" predicate, shared by `load()` and the sync utilities
+ *  (toml-sync.ts) so enumeration can never diverge: case-insensitive on purpose
+ *  (`identity.Yml`, `identity.TOML` are fact files) and dotfiles excluded.
+ *  Never re-express this as a glob brace pattern (`*.{toml,TOML}`) — braces only
+ *  cover all-lower/all-upper and silently miss mixed case, and glob's `nocase`
+ *  option is platform-dependent. */
+export const FACT_FILE_RE = /\.(ya?ml|toml)$/i;
+export function isFactFileName(name: string): boolean {
+  return FACT_FILE_RE.test(name) && !name.startsWith(".");
+}
+
 function readFactsFiles(workspace: string): Record<string, unknown> {
   const dirName = factsDir(workspace);
   const dir = join(workspace, dirName);
@@ -151,9 +163,7 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
     );
   }
 
-  const files = readdirSync(dir)
-    .filter((file) => /\.(ya?ml|toml)$/i.test(file) && !file.startsWith("."))
-    .sort();
+  const files = readdirSync(dir).filter(isFactFileName).sort();
 
   // Priority order for file extensions: .yaml > .yml > .toml
   // This ensures backward compatibility while allowing TOML as an input format

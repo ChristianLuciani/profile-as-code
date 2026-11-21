@@ -6,10 +6,43 @@
  * while the engine continues to work with YAML.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { parse as parseToml, stringify as stringifyToml } from "@iarna/toml";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { FACT_FILE_RE } from "./load.js";
+
+// Per-format extension predicates with the SAME case-insensitive semantics as
+// load()'s FACT_FILE_RE (load.ts) — one spelling of "valid fact file" everywhere.
+// Never re-express these as glob brace patterns (`*.{toml,TOML}`): braces only
+// cover all-lower/all-upper and silently miss mixed case like `id.Yml`, and
+// glob's `nocase` option is platform-dependent.
+const TOML_FILE_RE = /\.toml$/i;
+const YAML_FILE_RE = /\.ya?ml$/i;
+
+/** List the fact files under `dir` matching `extRe` (dotfiles/dot-dirs excluded, so
+ *  `.pasco-edit.lock` and `.git/` never appear). A missing or unreadable dir lists
+ *  as empty. `recursive` walks subdirectories (the directory converters); `false`
+ *  is the flat facts-dir listing, matching load(). */
+function listFactFiles(dir: string, extRe: RegExp, recursive: boolean): string[] {
+  let entries: string[];
+  try {
+    entries = recursive
+      ? readdirSync(dir, { recursive: true, encoding: "utf-8" })
+      : readdirSync(dir, "utf-8");
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((entry) => {
+      const segments = entry.split(/[\\/]/);
+      if (segments.some((segment) => segment.startsWith("."))) return false;
+      const base = segments[segments.length - 1] ?? "";
+      return FACT_FILE_RE.test(base) && extRe.test(base);
+    })
+    .sort()
+    .map((entry) => join(dir, entry));
+}
 
 /**
  * Types compatible with @iarna/toml's JsonMap and AnyJson.
@@ -274,10 +307,9 @@ export async function tomlToYamlDirectory(
   options: TomlToYamlOptions = {},
 ): Promise<SyncResult> {
   const result: SyncResult = { converted: [], skipped: [], errors: [] };
-  const { globSync } = await import("glob");
 
-  // Find all TOML files
-  const tomlFiles = globSync(join(inputDir, "**/*.{toml,TOML}"));
+  // Find all TOML files (case-insensitive, recursive)
+  const tomlFiles = listFactFiles(inputDir, TOML_FILE_RE, true);
 
   for (const tomlPath of tomlFiles) {
     try {
@@ -315,10 +347,8 @@ export async function yamlToTomlDirectory(
   options: YamlToTomlOptions = {},
 ): Promise<SyncResult> {
   const result: SyncResult = { converted: [], skipped: [], errors: [] };
-  const { globSync } = await import("glob");
-
-  // Find all YAML files (both .yaml and .yml)
-  const yamlFiles = globSync(join(inputDir, "**/*.{yaml,yml,YAML,YML}"));
+  // Find all YAML files (.yaml and .yml, any case)
+  const yamlFiles = listFactFiles(inputDir, YAML_FILE_RE, true);
 
   for (const yamlPath of yamlFiles) {
     try {
@@ -358,11 +388,10 @@ export async function syncTomlYaml(
 ): Promise<SyncResult> {
   const { toYaml = true, toToml = false, ...restOptions } = options;
   const result: SyncResult = { converted: [], skipped: [], errors: [] };
-  const { globSync } = await import("glob");
 
   if (toYaml) {
     // Convert TOML to YAML (only .toml files, not .yml which are already YAML)
-    const tomlFiles = globSync(join(factsDir, "*.{toml,TOML}"));
+    const tomlFiles = listFactFiles(factsDir, TOML_FILE_RE, false);
     for (const tomlPath of tomlFiles) {
       try {
         const yamlPath = tomlPath.replace(/\.toml$/i, ".yaml");
@@ -383,7 +412,7 @@ export async function syncTomlYaml(
 
   if (toToml) {
     // Convert YAML to TOML (handle both .yaml and .yml)
-    const yamlFiles = globSync(join(factsDir, "*.{yaml,yml,YAML,YML}"));
+    const yamlFiles = listFactFiles(factsDir, YAML_FILE_RE, false);
     for (const yamlPath of yamlFiles) {
       try {
         const tomlPath = yamlPath.replace(/\.(yaml|yml)$/i, ".toml");
@@ -424,8 +453,17 @@ export async function watchTomlYaml(
   callback?: (result: SyncResult) => void,
 ): Promise<() => void> {
   const { toYaml = true, toToml = false, ...restOptions } = options;
+  // Fail loudly on a missing dir instead of resolving into a silently dead watch
+  let stat: ReturnType<typeof statSync>;
+  try {
+    stat = statSync(factsDir);
+  } catch {
+    throw new Error(`cannot watch: directory not found: ${factsDir}`);
+  }
+  if (!stat.isDirectory()) {
+    throw new Error(`cannot watch: not a directory: ${factsDir}`);
+  }
   const { watch } = await import("chokidar");
-  const { globSync } = await import("glob");
 
   // Content of the mirror files WE wrote. An event for such a file whose content
   // still matches is an echo of our own write and is never converted back.
@@ -512,16 +550,38 @@ export async function watchTomlYaml(
       const batch = [...changedFiles];
       changedFiles.clear();
       const result: SyncResult = { converted: [], skipped: [], errors: [] };
-      for (const path of batch) {
+      // Echoes of our own writes are dropped FIRST, so an echo never masks a
+      // real edit of the mirror that landed in the same window.
+      const real = batch.filter((path) => {
         const written = writtenByUs.get(path);
-        if (written !== undefined) {
-          try {
-            if (readFileSync(path, "utf-8") === written) continue; // echo of our own write
-          } catch {
-            writtenByUs.delete(path); // it disappeared: stop tracking it
-          }
+        if (written === undefined) return true;
+        try {
+          return readFileSync(path, "utf-8") !== written; // changed since: a real edit
+        } catch {
+          writtenByUs.delete(path); // it disappeared: stop tracking it
+          return true;
         }
+      });
+      // A file and its mirror both changed in the SAME debounce window is a
+      // conflict: converting both directions would silently lose one — report it.
+      const inBatch = new Set(real);
+      const conflicts = new Set<string>();
+      for (const path of real) {
+        const mirror = mirrorOf(path);
+        if (mirror !== undefined && inBatch.has(mirror)) {
+          conflicts.add(path);
+          conflicts.add(mirror);
+        }
+      }
+      for (const path of real) {
+        if (conflicts.has(path)) continue;
         mergeInto(result, convertOne(path, true));
+      }
+      for (const path of [...conflicts].sort()) {
+        result.errors.push({
+          file: path,
+          error: `conflict: ${path} and ${mirrorOf(path)} both changed in the same debounce window — neither was synced; edit one of them again to resolve`,
+        });
       }
       if (result.converted.length > 0 || result.skipped.length > 0 || result.errors.length > 0) {
         notify(result);
@@ -548,12 +608,12 @@ export async function watchTomlYaml(
 
   // Initial sync: create MISSING mirrors only (overwrite: false) — a counterpart
   // that already exists is an ambiguous state the human resolves, never clobbered.
-  // Both globs are computed before any write so a just-created mirror is not
+  // Both listings are computed before any write so a just-created mirror is not
   // converted back in the same pass.
   const initial: SyncResult = { converted: [], skipped: [], errors: [] };
   const sources = [
-    ...(toYaml ? globSync(join(factsDir, "*.{toml,TOML}")) : []),
-    ...(toToml ? globSync(join(factsDir, "*.{yaml,yml,YAML,YML}")) : []),
+    ...(toYaml ? listFactFiles(factsDir, TOML_FILE_RE, false) : []),
+    ...(toToml ? listFactFiles(factsDir, YAML_FILE_RE, false) : []),
   ];
   for (const src of sources) {
     mergeInto(initial, convertOne(src, false));
