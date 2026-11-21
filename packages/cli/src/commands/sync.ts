@@ -77,7 +77,9 @@ export async function runSync(args: SyncArgs): Promise<number> {
         {
           toYaml: true,
           toToml: true,
-          overwrite: true, // In watch mode, always overwrite to propagate changes
+          // Watch semantics live inside watchTomlYaml: the start-up pass never
+          // overwrites an existing counterpart, and each edit overwrites only
+          // its own mirror (so a source file's comments are never clobbered).
         },
         (result) => {
           reportSyncResult(result, "watch");

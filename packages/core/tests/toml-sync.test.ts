@@ -240,6 +240,34 @@ describe("syncTomlYaml", () => {
     expect(result.converted).toHaveLength(0);
   });
 
+  it("bidirectional one-shot never re-canonicalizes a hand-authored .toml through the round trip", async () => {
+    const factsDir = join(tempDirPath, "facts");
+    mkdirSync(factsDir, { recursive: true });
+    const handAuthored = `# my header\nname = "T" # trailing\n`;
+    writeFileSync(join(factsDir, "identity.toml"), handAuthored, "utf-8");
+
+    const result = await syncTomlYaml(factsDir, { toYaml: true, toToml: true, overwrite: true });
+
+    expect(result.errors).toHaveLength(0);
+    expect(existsSync(join(factsDir, "identity.yaml"))).toBe(true);
+    // the source .toml keeps its exact bytes — no toml→yaml→toml round trip
+    expect(readFileSync(join(factsDir, "identity.toml"), "utf-8")).toBe(handAuthored);
+  });
+
+  it("reports a conflict instead of clobbering when a pair exists on both sides with --overwrite", async () => {
+    const factsDir = join(tempDirPath, "facts");
+    mkdirSync(factsDir, { recursive: true });
+    writeFileSync(join(factsDir, "identity.toml"), `name = "T"`, "utf-8");
+    writeFileSync(join(factsDir, "identity.yaml"), `name: Y\n`, "utf-8");
+
+    const result = await syncTomlYaml(factsDir, { toYaml: true, toToml: true, overwrite: true });
+
+    expect(result.errors.some((e) => e.error.includes("conflict"))).toBe(true);
+    expect(result.converted).toHaveLength(0);
+    expect(readFileSync(join(factsDir, "identity.toml"), "utf-8")).toContain('name = "T"');
+    expect(readFileSync(join(factsDir, "identity.yaml"), "utf-8")).toContain("Y");
+  });
+
   it("rejects clearly when the synced directory does not exist (no silent exit-0)", async () => {
     await expect(syncTomlYaml(join(tempDirPath, "no-such-dir"), { toYaml: true })).rejects.toThrow(
       /cannot sync: directory not found/,

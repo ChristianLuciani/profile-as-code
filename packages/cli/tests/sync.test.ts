@@ -83,6 +83,18 @@ describe("pasco sync", () => {
       expect(result.code).toBe(0);
     });
 
+    it("bidirectional -f does not rewrite a hand-authored .toml (no round-trip re-canonicalization)", () => {
+      const workspace = createWorkspace();
+      const toml = `# header\nname = "T" # trailing\n`;
+      writeFileSync(join(workspace, "facts", "identity.toml"), toml, "utf-8");
+
+      const result = runSync(["--to-yaml", "--to-toml", "-f"], workspace);
+      expect(result.code).toBe(0);
+
+      expect(readFileSync(join(workspace, "facts", "identity.toml"), "utf-8")).toBe(toml);
+      expect(existsSync(join(workspace, "facts", "identity.yaml"))).toBe(true);
+    });
+
     it("accepts --to-toml", () => {
       const workspace = createWorkspace();
       writeFileSync(join(workspace, "facts", "identity.yaml"), `name: Test`, "utf-8");

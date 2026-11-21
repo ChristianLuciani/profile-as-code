@@ -400,10 +400,31 @@ export async function syncTomlYaml(
   }
   const result: SyncResult = { converted: [], skipped: [], errors: [] };
 
+  // List BOTH directions BEFORE any write: a mirror written by the toYaml pass
+  // must not be re-listed by the toToml pass — converting it back would
+  // re-canonicalize a hand-authored .toml through the round trip, silently
+  // stripping its comments and layout.
+  const tomlFiles = toYaml ? listFactFiles(factsDir, TOML_FILE_RE, false) : [];
+  const yamlFiles = toToml ? listFactFiles(factsDir, YAML_FILE_RE, false) : [];
+
+  // With --overwrite, a pair present on BOTH sides would clobber one side no
+  // matter the direction — report it as a conflict and convert neither.
+  const conflicted = new Set<string>();
+  if (toYaml && toToml && restOptions.overwrite === true) {
+    const tomlSet = new Set(tomlFiles);
+    for (const yamlPath of yamlFiles) {
+      const mirror = yamlPath.replace(/\.(yaml|yml)$/i, ".toml");
+      if (tomlSet.has(mirror)) {
+        conflicted.add(yamlPath);
+        conflicted.add(mirror);
+      }
+    }
+  }
+
   if (toYaml) {
     // Convert TOML to YAML (only .toml files, not .yml which are already YAML)
-    const tomlFiles = listFactFiles(factsDir, TOML_FILE_RE, false);
     for (const tomlPath of tomlFiles) {
+      if (conflicted.has(tomlPath)) continue;
       try {
         const yamlPath = tomlPath.replace(/\.toml$/i, ".yaml");
         const success = tomlToYamlFile(tomlPath, yamlPath, restOptions);
@@ -423,8 +444,8 @@ export async function syncTomlYaml(
 
   if (toToml) {
     // Convert YAML to TOML (handle both .yaml and .yml)
-    const yamlFiles = listFactFiles(factsDir, YAML_FILE_RE, false);
     for (const yamlPath of yamlFiles) {
+      if (conflicted.has(yamlPath)) continue;
       try {
         const tomlPath = yamlPath.replace(/\.(yaml|yml)$/i, ".toml");
         const success = yamlToTomlFile(yamlPath, tomlPath, restOptions);
@@ -440,6 +461,13 @@ export async function syncTomlYaml(
         });
       }
     }
+  }
+
+  for (const path of [...conflicted].sort()) {
+    result.errors.push({
+      file: path,
+      error: `conflict: ${path} and its mirror both exist in ${factsDir} — with --overwrite neither was converted (one side would be clobbered); run one direction at a time or remove one side`,
+    });
   }
 
   return result;
