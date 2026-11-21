@@ -176,6 +176,10 @@ Commands:
                                 byte-identical across runs
   skills:export <dir>           [write] Copy the skill channels this package ships into <dir>
           [--force] [--list]     (--force overlays; --list shows them); no harness paths
+  sync [--to-yaml] [--to-toml]  [read]  Dual-format fact registration: humans may edit
+          [--watch] [--overwrite | -f]  fact files as TOML while the engine keeps
+          [--json]                reading YAML (load() also reads .toml directly; on a
+                                  root clash YAML wins). --watch auto-syncs both ways
 
 Common flags (after the command):
   --workspace <path>  Workspace path (resolution: --workspace > .pascorc > cwd, D14)

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { compile, factsDir, LoadError, load, SchemaValidationError } from "../src/index.js";
 
 const fixture = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
@@ -446,6 +446,85 @@ describe("facts dir (D30) — the content/ → facts/ rename with a read alias",
     try {
       expect(() => load(dir)).toThrow(/file named content\//);
       expect(() => factsDir(dir)).toThrow(LoadError);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("TOML fact files", () => {
+  it("loads a .toml fact file as its root property", () => {
+    const dir = makeWorkspace({ "identity.toml": 'name = "Tomas"\nlocation = "Lisbon"\n' });
+    try {
+      const profile = load(dir);
+      expect(profile.identity.name).toBe("Tomas");
+      expect(profile.identity.location).toBe("Lisbon");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("loads an uppercase .TOML file (extension matched case-insensitively)", () => {
+    const dir = makeWorkspace({ "identity.TOML": 'name = "Upper"\n' });
+    try {
+      expect(load(dir).identity.name).toBe("Upper");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("treats an empty (comment-only) .toml file as no contribution, like an empty YAML file", () => {
+    const dir = makeWorkspace({
+      "identity.yaml": "name: Someone\n",
+      "keywords.toml": "# nothing yet\n",
+    });
+    try {
+      const profile = load(dir);
+      expect(profile.identity.name).toBe("Someone");
+      expect(profile.keywords).toBeUndefined();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("lets YAML win when .yaml and .toml claim the same root, and warns", () => {
+    const dir = makeWorkspace({
+      "identity.yaml": "name: FromYaml\n",
+      "identity.toml": 'name = "FromToml"',
+    });
+    const warnings: string[] = [];
+    const spy = vi.spyOn(console, "warn").mockImplementation((msg) => warnings.push(String(msg)));
+    try {
+      const profile = load(dir);
+      expect(profile.identity.name).toBe("FromYaml");
+      expect(
+        warnings.some((w) => w.includes("identity.toml") && w.includes("YAML takes precedence")),
+      ).toBe(true);
+    } finally {
+      spy.mockRestore();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("still refuses two YAML files claiming the same root", () => {
+    const dir = makeWorkspace({
+      "identity.yaml": "name: A\n",
+      "identity.yml": "name: B\n",
+    });
+    try {
+      expect(() => load(dir)).toThrow(/duplicate root property "identity"/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses two TOML files claiming the same root (same rule as two YAML files)", () => {
+    const dir = makeWorkspace({
+      "identity.toml": 'name = "A"',
+      "identity.TOML": 'name = "B"',
+    });
+    try {
+      expect(() => load(dir)).toThrow(/duplicate root property "identity"/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

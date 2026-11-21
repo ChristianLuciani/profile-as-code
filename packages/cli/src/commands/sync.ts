@@ -135,7 +135,7 @@ function reportSyncResult(result: SyncResult, _command: string): number {
   }
 
   if (result.skipped.length > 0) {
-    section("Skipped files (already exist)");
+    section("Skipped files (already exist, or already in sync)");
     for (const file of result.skipped) {
       line(`  \u001b[33m-\u001b[0m ${file}`);
     }
