@@ -36,6 +36,7 @@ import { runPreview } from "./commands/preview.js";
 import { runRefine } from "./commands/refine.js";
 import { runSkillsExport } from "./commands/skills-export.js";
 import { runStatus } from "./commands/status.js";
+import { runSync } from "./commands/sync.js";
 import { runValidate } from "./commands/validate.js";
 import type { EditListBlock } from "./contract.js";
 import {
@@ -264,6 +265,12 @@ interface FlagOptions {
   until?: string;
   // D30: `pasco migrate --facts-dir` — the opt-in content/ → facts/ rename.
   "facts-dir"?: boolean;
+  // `pasco sync` command flags
+  "to-yaml"?: boolean;
+  "to-toml"?: boolean;
+  watch?: boolean;
+  overwrite?: boolean;
+  f?: boolean;
 }
 
 function parseCommandFlags(
@@ -735,6 +742,25 @@ pasco skills:export --list [--json]
 Copies the skill channels this package ships (SPEC §16) into a directory you
 name. --list shows them; an existing non-empty directory needs --force (files are
 overlaid, nothing is deleted). No harness-specific destination is invented.`,
+  sync: `pasco sync (--to-yaml [--to-toml] | --watch) [--overwrite | -f] [--json] [--workspace <path>]
+Synchronize TOML and YAML fact files. Enables human-friendly TOML editing
+while maintaining YAML compatibility with the engine.
+
+Options:
+  --to-yaml    Convert TOML files to YAML
+  --to-toml    Convert YAML files to TOML
+  --watch      Watch for changes and sync automatically (implies both --to-yaml and --to-toml)
+  --overwrite, -f  Overwrite existing files (default: skip if file exists)
+  --json       Machine-readable output
+
+Examples:
+  pasco sync --to-yaml           # Convert all TOML files to YAML
+  pasco sync --to-toml           # Convert all YAML files to TOML
+  pasco sync --watch             # Auto-sync on changes
+  pasco sync --to-yaml --overwrite  # Force overwrite existing YAML files
+
+Note: When using --watch, both TOML and YAML files are kept in sync.
+TOML files are recommended for human editing (less indentation errors).`,
   post: `pasco post <seed|task|choose|check|export|import|list> [...] [--json] [--confirm <sha256:…>] [--workspace <path>]
 MVP (week-1 experiment): a post is a PROJECTION of a seed, not an identity fact.
 Two seed formats (#266): short (distribution) and longform (the essay/newsletter).
@@ -1693,6 +1719,30 @@ async function runMain(): Promise<number> {
         dir: positionals[0],
         list: flags.list === true,
         force: flags.force === true,
+      });
+    }
+    case "sync": {
+      const { flags, positionals: _positionals } = parseCommandFlags(rest, {
+        "to-yaml": { type: "boolean" },
+        "to-toml": { type: "boolean" },
+        watch: { type: "boolean" },
+        overwrite: { type: "boolean" },
+        f: { type: "boolean" },
+      });
+      if (flags.help === true) {
+        process.stdout.write(`${COMMAND_HELP.sync}
+`);
+        return EXIT.OK;
+      }
+      setJsonMode(flags.json === true);
+      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
+      return runSync({
+        workspace,
+        toYaml: flags["to-yaml"] === true,
+        toToml: flags["to-toml"] === true,
+        watch: flags.watch === true,
+        overwrite: flags.overwrite === true || flags.f === true,
+        json: flags.json === true,
       });
     }
     default:

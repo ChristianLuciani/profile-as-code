@@ -66,6 +66,7 @@ export interface WriteTarget {
  * Shared with `--create` (#435), which must refuse a root that ALREADY exists
  * under any extension case: resolution and creation cannot disagree on what
  * "the root exists" means.
+ *
  */
 export function owningFile(workspace: string, root: string): string | undefined {
   const dirName = factsDir(workspace);
@@ -75,7 +76,15 @@ export function owningFile(workspace: string, root: string): string | undefined 
   } catch {
     return undefined;
   }
-  const match = entries.filter((name) => new RegExp(`^${root}\\.ya?ml$`, "i").test(name)).sort()[0];
+  // Check for YAML files (.yaml or .yml extension) and TOML files
+  const yamlMatch = entries
+    .filter((name) => new RegExp(`^${root}\\.ya?ml$`, "i").test(name))
+    .sort()[0];
+  const tomlMatch = entries
+    .filter((name) => new RegExp(`^${root}\\.toml$`, "i").test(name))
+    .sort()[0];
+  // Prefer YAML over TOML for backward compatibility
+  const match = yamlMatch ?? tomlMatch;
   return match === undefined ? undefined : `${dirName}/${match}`;
 }
 
@@ -252,6 +261,13 @@ function inspect(
   filePath: string,
 ): { original: string; node: Scalar; before: string } {
   const original = readFileSync(filePath, "utf8");
+
+  // TOML files cannot be edited with pasco edit (no CST for range splicing)
+  if (filePath.toLowerCase().endsWith(".toml")) {
+    throw new UsageError(
+      `${args.target.file}: TOML files cannot be edited with \`pasco edit\` — use \`pasco sync --to-yaml\` to convert to YAML first, edit the YAML file, then optionally convert back with \`pasco sync --to-toml\``,
+    );
+  }
   const document = parseDocument(original);
   if (document.errors.length > 0) {
     throw new LoadError(

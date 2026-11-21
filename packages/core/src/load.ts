@@ -15,6 +15,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { parse as parseToml } from "@iarna/toml";
 import { parseDocument } from "yaml";
 import { checkAchievementIntegrity, checkExperienceHighlightRefs } from "./achievements.js";
 import { profileSchema } from "./generated/schema.zod.js";
@@ -136,40 +137,90 @@ export function factsDir(workspace: string): string {
   return hasFacts ? FACTS_DIR : LEGACY_FACTS_DIR;
 }
 
-/** Read and merge every `<factsDir>/*.yaml` (or `*.yml`) of a workspace.
+/** Read and merge every `<factsDir>/*.yaml`, `*.yml`, or `*.toml` of a workspace.
  *  File name = root property: `bios.yaml` contributes `{ bios: <list> }`,
  *  `identity.yaml` contributes `{ identity: <object> }`, … (schema/README.md
- *  mapping table). An empty file contributes nothing. */
+ *  mapping table). An empty file contributes nothing.
+ *  TOML files are supported for user editing convenience (parsed via @iarna/toml). */
 function readFactsFiles(workspace: string): Record<string, unknown> {
   const dirName = factsDir(workspace);
   const dir = join(workspace, dirName);
   if (!existsSync(dir)) {
     throw new LoadError(
-      `workspace has no ${dirName}/ directory: ${dir} (expected ${dirName}/*.yaml per schema/README.md)`,
+      `workspace has no ${dirName}/ directory: ${dir} (expected ${dirName}/*.{yaml,yml,toml} per schema/README.md)`,
     );
   }
 
   const files = readdirSync(dir)
-    .filter((file) => /\.ya?ml$/i.test(file) && !file.startsWith("."))
+    .filter((file) => /\.(ya?ml|toml)$/i.test(file) && !file.startsWith("."))
     .sort();
 
+  // Priority order for file extensions: .yaml > .yml > .toml
+  // This ensures backward compatibility while allowing TOML as an input format
+  const extensionPriority = (file: string): number => {
+    const lower = file.toLowerCase();
+    if (lower.endsWith(".yaml")) return 3;
+    if (lower.endsWith(".yml")) return 2;
+    if (lower.endsWith(".toml")) return 1;
+    return 0;
+  };
+
   const merged: Record<string, unknown> = {};
+  const loadedRoots = new Map<string, { file: string; priority: number }>();
+
   for (const file of files) {
-    const rootKey = file.replace(/\.ya?ml$/i, "");
+    const rootKey = file.replace(/\.(ya?ml|toml)$/i, "");
     const fullPath = join(dir, file);
-    const doc = parseDocument(readFileSync(fullPath, "utf8"));
-    if (doc.errors.length > 0) {
-      throw new LoadError(
-        `${dirName}/${file}: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
-      );
+    const fileLower = file.toLowerCase();
+    const priority = extensionPriority(file);
+
+    // Check if we already loaded this root key
+    const existing = loadedRoots.get(rootKey);
+    if (existing) {
+      // If both are YAML files (.yaml and .yml), throw an error
+      if (fileLower.endsWith(".yaml") || fileLower.endsWith(".yml")) {
+        if (
+          existing.file.toLowerCase().endsWith(".yaml") ||
+          existing.file.toLowerCase().endsWith(".yml")
+        ) {
+          throw new LoadError(
+            `${dirName}/${file}: duplicate root property "${rootKey}" (already provided by another content file) — each root property belongs to exactly one file`,
+          );
+        }
+      }
+      // If we already have a YAML file and this is TOML, skip the TOML file
+      if (existing.priority >= priority) {
+        // Skip this file - we already have a higher or equal priority version
+        // Warn if we're skipping a TOML file in favor of YAML
+        if (
+          fileLower.endsWith(".toml") &&
+          (existing.file.toLowerCase().endsWith(".yaml") ||
+            existing.file.toLowerCase().endsWith(".yml"))
+        ) {
+          console.warn(
+            `Warning: ${dirName}/${file} is ignored because ${existing.file} already provides root property "${rootKey}" (YAML takes precedence); use \`pasco sync\` to keep files in sync`,
+          );
+        }
+        continue;
+      }
     }
-    const node = doc.toJS({ maxAliasCount: 100 });
-    if (node === null || node === undefined) continue; // empty file → no contribution
-    if (rootKey in merged) {
-      throw new LoadError(
-        `${dirName}/${file}: duplicate root property "${rootKey}" (already provided by another content file) — each root property belongs to exactly one file`,
-      );
+
+    let node: unknown;
+    if (fileLower.endsWith(".toml")) {
+      node = parseToml(readFileSync(fullPath, "utf8"));
+    } else {
+      const doc = parseDocument(readFileSync(fullPath, "utf8"));
+      if (doc.errors.length > 0) {
+        throw new LoadError(
+          `${dirName}/${file}: invalid YAML — ${doc.errors[0]?.message ?? "parse error"}`,
+        );
+      }
+      node = doc.toJS({ maxAliasCount: 100 });
     }
+    if (node === null || node === undefined) continue; // empty file \u2192 no contribution
+
+    // Store the loaded root with its priority
+    loadedRoots.set(rootKey, { file, priority });
     merged[rootKey] = node;
   }
   return merged;
