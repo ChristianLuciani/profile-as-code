@@ -581,6 +581,22 @@ describe("TOML fact files", () => {
     }
   });
 
+  it("refuses two TOML files claiming the same root even when a YAML file sorts between them", () => {
+    const dir = makeWorkspace({
+      "identity.TOML": 'name = "A"',
+      "identity.YAML": "name: Mid\n",
+      "identity.toml": 'name = "B"',
+    });
+    try {
+      // On case-insensitive filesystems, identity.TOML and identity.toml share one inode.
+      const files = readdirSync(join(dir, "content"));
+      if (files.length < 3) return;
+      expect(() => load(dir)).toThrow(/duplicate root property "identity"/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("wraps invalid TOML syntax errors in LoadError (same contract as invalid YAML)", () => {
     const dir = makeWorkspace({
       "identity.toml": 'name = "unclosed string\n',

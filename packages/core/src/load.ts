@@ -176,6 +176,7 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
 
   const merged: Record<string, unknown> = {};
   const loadedRoots = new Map<string, { file: string; priority: number }>();
+  const seenByFormat = new Map<string, { yaml?: string; toml?: string }>();
 
   for (const file of files) {
     const rootKey = file.replace(/\.(ya?ml|toml)$/i, "");
@@ -216,26 +217,32 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
     }
     if (node === null || node === undefined) continue; // empty file → no contribution
 
-    // Check if we already loaded this root key
+    const isYaml = fileLower.endsWith(".yaml") || fileLower.endsWith(".yml");
+    const seen = seenByFormat.get(rootKey) ?? {};
+    // Same-format clash (.yaml + .yml, or .toml + .TOML — even when a file of
+    // the other format sorts between them): each root property belongs to at
+    // most one file per format — a hard error, never a silent skip.
+    if ((isYaml && seen.yaml !== undefined) || (!isYaml && seen.toml !== undefined)) {
+      throw new LoadError(
+        `${dirName}/${file}: duplicate root property "${rootKey}" (already provided by another content file) — each root property belongs to exactly one file`,
+      );
+    }
+    if (isYaml) {
+      seen.yaml = file;
+    } else {
+      seen.toml = file;
+    }
+    seenByFormat.set(rootKey, seen);
+
+    // Check if we already loaded this root key (cross-format precedence)
     const existing = loadedRoots.get(rootKey);
     if (existing) {
-      const newIsYaml = fileLower.endsWith(".yaml") || fileLower.endsWith(".yml");
-      const existingIsYaml =
-        existing.file.toLowerCase().endsWith(".yaml") ||
-        existing.file.toLowerCase().endsWith(".yml");
-      // Same-format clash (.yaml + .yml, or .toml + .TOML): each root property
-      // belongs to exactly one file — a hard error, never a silent skip.
-      if (newIsYaml === existingIsYaml) {
-        throw new LoadError(
-          `${dirName}/${file}: duplicate root property "${rootKey}" (already provided by another content file) — each root property belongs to exactly one file`,
-        );
-      }
       // If we already have a YAML file and this is TOML, skip the TOML file
       if (existing.priority >= priority) {
         // Skip this file - we already have a higher or equal priority version
         // Warn if we're skipping a TOML file in favor of YAML
         if (
-          fileLower.endsWith(".toml") &&
+          !isYaml &&
           (existing.file.toLowerCase().endsWith(".yaml") ||
             existing.file.toLowerCase().endsWith(".yml"))
         ) {
@@ -247,10 +254,7 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
       }
       // A higher-priority file replaces a lower-priority one: when a YAML file
       // wins over a TOML root, say so — the mirror of the skip warning above.
-      if (
-        (fileLower.endsWith(".yaml") || fileLower.endsWith(".yml")) &&
-        existing.file.toLowerCase().endsWith(".toml")
-      ) {
+      if (isYaml && existing.file.toLowerCase().endsWith(".toml")) {
         console.warn(
           `Warning: ${dirName}/${existing.file} is ignored because ${file} also provides root property "${rootKey}" (YAML takes precedence); use \`pasco sync\` to keep files in sync`,
         );
