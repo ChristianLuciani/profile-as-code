@@ -330,7 +330,7 @@ The implementation includes comprehensive error handling:
 
 - **Missing files**: Clear error messages
 - **Invalid syntax**: Caught and reported with file and line information
-- **Overwrite protection**: A one-shot sync defaults to skip existing files (use `--overwrite` to force); in `--watch` the start-up pass never overwrites — only each edit's mirror is written
+- **Overwrite protection**: A one-shot sync defaults to skip existing files (use `--overwrite` to force). With both `--to-yaml --to-toml` and `--overwrite`, a pair whose parsed data is already in sync is skipped (no-op), while a pair present on both sides with different content is reported as a conflict and neither file is overwritten. In `--watch`, the start-up pass never overwrites — only each edit's mirror is written
 - **Type preservation**: Maintains data types during conversion
 
 ### Limitations

@@ -255,7 +255,7 @@ describe("syncTomlYaml", () => {
     expect(readFileSync(join(factsDir, "identity.toml"), "utf-8")).toBe(handAuthored);
   });
 
-  it("reports a conflict instead of clobbering when a pair exists on both sides with --overwrite", async () => {
+  it("reports a conflict instead of clobbering when a pair exists on both sides with different content and --overwrite", async () => {
     const factsDir = join(tempDirPath, "facts");
     mkdirSync(factsDir, { recursive: true });
     writeFileSync(join(factsDir, "identity.toml"), `name = "T"`, "utf-8");
@@ -267,6 +267,25 @@ describe("syncTomlYaml", () => {
     expect(result.converted).toHaveLength(0);
     expect(readFileSync(join(factsDir, "identity.toml"), "utf-8")).toContain('name = "T"');
     expect(readFileSync(join(factsDir, "identity.yaml"), "utf-8")).toContain("Y");
+  });
+
+  it("bidirectional --overwrite is a no-op (skips both, 0 errors, comments survive) when a pair is already in sync", async () => {
+    const factsDir = join(tempDirPath, "facts");
+    mkdirSync(factsDir, { recursive: true });
+    const handAuthored = `# header comment\nname = "Elena"\n`;
+    writeFileSync(join(factsDir, "identity.toml"), handAuthored, "utf-8");
+
+    // run 1: create mirror
+    const r1 = await syncTomlYaml(factsDir, { toYaml: true, toToml: false, overwrite: true });
+    expect(r1.errors).toHaveLength(0);
+    expect(r1.converted).toHaveLength(1);
+
+    // run 2: steady state with both directions + --overwrite -> no-op, not a conflict
+    const r2 = await syncTomlYaml(factsDir, { toYaml: true, toToml: true, overwrite: true });
+    expect(r2.errors).toHaveLength(0);
+    expect(r2.converted).toHaveLength(0);
+    expect(r2.skipped).toHaveLength(2);
+    expect(readFileSync(join(factsDir, "identity.toml"), "utf-8")).toBe(handAuthored);
   });
 
   it("never creates a second YAML mirror for a .yml root (.yaml + .yml would be a hard duplicate-root error in load())", async () => {
@@ -322,6 +341,23 @@ describe("tomlToYamlDirectory", () => {
 
     expect(result.converted).toHaveLength(2);
     expect(result.errors).toHaveLength(0);
+  });
+
+  it("reuses an existing .yml mirror in outputDir instead of creating a duplicate .yaml", async () => {
+    const factsDir = join(tempDirPath, "facts");
+    mkdirSync(factsDir, { recursive: true });
+    writeFileSync(join(factsDir, "identity.yml"), `name: Y\n`, "utf-8");
+
+    const toToml = await yamlToTomlDirectory(factsDir, factsDir, { overwrite: true });
+    expect(toToml.errors).toHaveLength(0);
+    expect(existsSync(join(factsDir, "identity.toml"))).toBe(true);
+
+    const toYaml = await tomlToYamlDirectory(factsDir, factsDir, { overwrite: true });
+    expect(toYaml.errors).toHaveLength(0);
+    expect(existsSync(join(factsDir, "identity.yaml"))).toBe(false);
+    expect(existsSync(join(factsDir, "identity.yml"))).toBe(true);
+    expect(() => load(tempDirPath)).not.toThrow();
+    expect(load(tempDirPath).identity.name).toBe("Y");
   });
 });
 

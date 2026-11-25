@@ -137,12 +137,6 @@ export function factsDir(workspace: string): string {
   return hasFacts ? FACTS_DIR : LEGACY_FACTS_DIR;
 }
 
-/** Read and merge every `<factsDir>/*.yaml`, `*.yml`, or `*.toml` of a workspace.
- *  File name = root property: `bios.yaml` contributes `{ bios: <list> }`,
- *  `identity.yaml` contributes `{ identity: <object> }`, … (schema/README.md
- *  mapping table). An empty file contributes nothing.
- *  TOML files are supported for user editing convenience (parsed via @iarna/toml). */
-
 /** The ONE "is a fact file" predicate, shared by `load()` and the sync utilities
  *  (toml-sync.ts) so enumeration can never diverge: case-insensitive on purpose
  *  (`identity.Yml`, `identity.TOML` are fact files) and dotfiles excluded.
@@ -154,6 +148,11 @@ export function isFactFileName(name: string): boolean {
   return FACT_FILE_RE.test(name) && !name.startsWith(".");
 }
 
+/** Read and merge every `<factsDir>/*.yaml`, `*.yml`, or `*.toml` of a workspace.
+ *  File name = root property: `bios.yaml` contributes `{ bios: <list> }`,
+ *  `identity.yaml` contributes `{ identity: <object> }`, … (schema/README.md
+ *  mapping table). An empty file contributes nothing.
+ *  TOML files are supported for user editing convenience (parsed via @iarna/toml). */
 function readFactsFiles(workspace: string): Record<string, unknown> {
   const dirName = factsDir(workspace);
   const dir = join(workspace, dirName);

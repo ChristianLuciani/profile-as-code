@@ -758,8 +758,11 @@ Options:
   --to-toml    Convert YAML files to TOML
   --watch      Watch for changes and sync automatically (implies both --to-yaml and --to-toml)
   --overwrite, -f  Overwrite existing files in a one-shot sync (default: skip if
-                   file exists); --watch never overwrites on start, it only mirrors
-                   each edit to the counterpart
+                   file exists). With both --to-yaml and --to-toml, a pair
+                   already in sync is skipped; a pair whose two sides differ is
+                   reported as a conflict and neither file is overwritten.
+                   --watch never overwrites on start, it only mirrors each edit
+                   to the counterpart
   --json       Machine-readable output
 
 Examples:

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -570,6 +570,11 @@ describe("TOML fact files", () => {
       "identity.TOML": 'name = "B"',
     });
     try {
+      // On case-insensitive filesystems (e.g. default macOS APFS), identity.toml
+      // and identity.TOML resolve to the same inode so two TOML files cannot
+      // coexist under one root.
+      const files = readdirSync(join(dir, "content"));
+      if (files.length < 2) return;
       expect(() => load(dir)).toThrow(/duplicate root property "identity"/);
     } finally {
       rmSync(dir, { recursive: true, force: true });

@@ -151,6 +151,48 @@ function isEmptyTomlDoc(data: unknown): boolean {
   );
 }
 
+/** Deep-compare two parsed fact values, ignoring prototype differences
+ *  (`@iarna/toml` produces null-prototype objects; `yaml` produces plain objects). */
+function sameFactData(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((v, i) => sameFactData(v, b[i]));
+  }
+  if (
+    a !== null &&
+    b !== null &&
+    typeof a === "object" &&
+    typeof b === "object" &&
+    !Array.isArray(a) &&
+    !Array.isArray(b) &&
+    !(a instanceof Date) &&
+    !(b instanceof Date)
+  ) {
+    const recA = a as Record<string, unknown>;
+    const recB = b as Record<string, unknown>;
+    const keysA = Object.keys(recA);
+    if (keysA.length !== Object.keys(recB).length) return false;
+    return keysA.every((k) => Object.hasOwn(recB, k) && sameFactData(recA[k], recB[k]));
+  }
+  return false;
+}
+
+/** True when a TOML file and its YAML mirror already represent the exact same
+ *  parsed data (including comments/formatting differences, or both empty).
+ *  Returns false on parse errors so the pair is not silently skipped. */
+function areFactMirrorsInSync(tomlPath: string, yamlPath: string): boolean {
+  try {
+    const rawToml = parseToml(readFileSync(tomlPath, "utf-8"));
+    const rawYaml = parseYaml(readFileSync(yamlPath, "utf-8"));
+    const normToml = isEmptyTomlDoc(rawToml) ? null : rawToml;
+    const normYaml = rawYaml === undefined ? null : rawYaml;
+    return sameFactData(normToml, normYaml);
+  } catch {
+    return false;
+  }
+}
+
 /** The YAML mirror of a TOML path: `<root>.yaml` — unless the root already has a
  *  `.yml` file, in which case THAT file is the root's YAML mirror. load() treats
  *  `.yaml` + `.yml` on one root as a hard duplicate-root error, so sync must never
@@ -343,7 +385,9 @@ export async function tomlToYamlDirectory(
   for (const tomlPath of tomlFiles) {
     try {
       const relativePath = relative(inputDir, tomlPath);
-      const yamlPath = join(outputDir, relativePath.replace(/\.toml$/i, ".yaml"));
+      // Reuse yamlMirrorOf so an existing .yml mirror in outputDir is updated
+      // in place instead of creating a sibling .yaml (duplicate root in load()).
+      const yamlPath = yamlMirrorOf(join(outputDir, relativePath));
 
       const success = tomlToYamlFile(tomlPath, yamlPath, options);
       if (success) {
@@ -436,16 +480,28 @@ export async function syncTomlYaml(
   const tomlFiles = toYaml ? listFactFiles(factsDir, TOML_FILE_RE, false) : [];
   const yamlFiles = toToml ? listFactFiles(factsDir, YAML_FILE_RE, false) : [];
 
-  // With --overwrite, a pair present on BOTH sides would clobber one side no
-  // matter the direction — report it as a conflict and convert neither.
+  // With --overwrite and BOTH directions, a pair present on both sides is:
+  // - skipped (no-op) when both files already hold the same parsed data
+  //   (steady state after a previous sync — comments on either side survive);
+  // - reported as a conflict when the two sides differ (converting either way
+  //   would clobber the other), leaving both files untouched.
+  const alreadySynced = new Set<string>();
   const conflicted = new Set<string>();
   if (toYaml && toToml && restOptions.overwrite === true) {
-    const tomlSet = new Set(tomlFiles);
+    const tomlByRoot = new Map<string, string>();
+    for (const tomlPath of tomlFiles) {
+      tomlByRoot.set(tomlPath.replace(TOML_FILE_RE, ""), tomlPath);
+    }
     for (const yamlPath of yamlFiles) {
-      const mirror = yamlPath.replace(/\.(yaml|yml)$/i, ".toml");
-      if (tomlSet.has(mirror)) {
-        conflicted.add(yamlPath);
-        conflicted.add(mirror);
+      const mirror = tomlByRoot.get(yamlPath.replace(YAML_FILE_RE, ""));
+      if (mirror !== undefined) {
+        if (areFactMirrorsInSync(mirror, yamlPath)) {
+          alreadySynced.add(yamlPath);
+          alreadySynced.add(mirror);
+        } else {
+          conflicted.add(yamlPath);
+          conflicted.add(mirror);
+        }
       }
     }
   }
@@ -454,6 +510,10 @@ export async function syncTomlYaml(
     // Convert TOML to YAML (only .toml files, not .yml which are already YAML)
     for (const tomlPath of tomlFiles) {
       if (conflicted.has(tomlPath)) continue;
+      if (alreadySynced.has(tomlPath)) {
+        result.skipped.push(tomlPath);
+        continue;
+      }
       try {
         const yamlPath = yamlMirrorOf(tomlPath);
         const success = tomlToYamlFile(tomlPath, yamlPath, restOptions);
@@ -475,6 +535,10 @@ export async function syncTomlYaml(
     // Convert YAML to TOML (handle both .yaml and .yml)
     for (const yamlPath of yamlFiles) {
       if (conflicted.has(yamlPath)) continue;
+      if (alreadySynced.has(yamlPath)) {
+        result.skipped.push(yamlPath);
+        continue;
+      }
       try {
         const tomlPath = yamlPath.replace(/\.(yaml|yml)$/i, ".toml");
         const success = yamlToTomlFile(yamlPath, tomlPath, restOptions);
@@ -495,7 +559,7 @@ export async function syncTomlYaml(
   for (const path of [...conflicted].sort()) {
     result.errors.push({
       file: path,
-      error: `conflict: ${path} and its mirror both exist in ${factsDir} — with --overwrite neither was converted (one side would be clobbered); run one direction at a time or remove one side`,
+      error: `conflict: ${path} and its mirror both exist with different content in ${factsDir} — with --overwrite neither was converted (one side would be clobbered); run one direction at a time or remove one side`,
     });
   }
 
