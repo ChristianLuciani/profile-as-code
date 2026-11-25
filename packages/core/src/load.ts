@@ -137,6 +137,17 @@ export function factsDir(workspace: string): string {
   return hasFacts ? FACTS_DIR : LEGACY_FACTS_DIR;
 }
 
+/** The ONE "is a fact file" predicate, shared by `load()` and the sync utilities
+ *  (toml-sync.ts) so enumeration can never diverge: case-insensitive on purpose
+ *  (`identity.Yml`, `identity.TOML` are fact files) and dotfiles excluded.
+ *  Never re-express this as a glob brace pattern (`*.{toml,TOML}`) — braces only
+ *  cover all-lower/all-upper and silently miss mixed case, and glob's `nocase`
+ *  option is platform-dependent. */
+export const FACT_FILE_RE = /\.(ya?ml|toml)$/i;
+export function isFactFileName(name: string): boolean {
+  return FACT_FILE_RE.test(name) && !name.startsWith(".");
+}
+
 /** Read and merge every `<factsDir>/*.yaml`, `*.yml`, or `*.toml` of a workspace.
  *  File name = root property: `bios.yaml` contributes `{ bios: <list> }`,
  *  `identity.yaml` contributes `{ identity: <object> }`, … (schema/README.md
@@ -151,9 +162,7 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
     );
   }
 
-  const files = readdirSync(dir)
-    .filter((file) => /\.(ya?ml|toml)$/i.test(file) && !file.startsWith("."))
-    .sort();
+  const files = readdirSync(dir).filter(isFactFileName).sort();
 
   // Priority order for file extensions: .yaml > .yml > .toml
   // This ensures backward compatibility while allowing TOML as an input format
@@ -167,6 +176,7 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
 
   const merged: Record<string, unknown> = {};
   const loadedRoots = new Map<string, { file: string; priority: number }>();
+  const seenByFormat = new Map<string, { yaml?: string; toml?: string }>();
 
   for (const file of files) {
     const rootKey = file.replace(/\.(ya?ml|toml)$/i, "");
@@ -174,40 +184,28 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
     const fileLower = file.toLowerCase();
     const priority = extensionPriority(file);
 
-    // Check if we already loaded this root key
-    const existing = loadedRoots.get(rootKey);
-    if (existing) {
-      // If both are YAML files (.yaml and .yml), throw an error
-      if (fileLower.endsWith(".yaml") || fileLower.endsWith(".yml")) {
-        if (
-          existing.file.toLowerCase().endsWith(".yaml") ||
-          existing.file.toLowerCase().endsWith(".yml")
-        ) {
-          throw new LoadError(
-            `${dirName}/${file}: duplicate root property "${rootKey}" (already provided by another content file) — each root property belongs to exactly one file`,
-          );
-        }
-      }
-      // If we already have a YAML file and this is TOML, skip the TOML file
-      if (existing.priority >= priority) {
-        // Skip this file - we already have a higher or equal priority version
-        // Warn if we're skipping a TOML file in favor of YAML
-        if (
-          fileLower.endsWith(".toml") &&
-          (existing.file.toLowerCase().endsWith(".yaml") ||
-            existing.file.toLowerCase().endsWith(".yml"))
-        ) {
-          console.warn(
-            `Warning: ${dirName}/${file} is ignored because ${existing.file} already provides root property "${rootKey}" (YAML takes precedence); use \`pasco sync\` to keep files in sync`,
-          );
-        }
-        continue;
-      }
-    }
-
+    // Parse FIRST: an empty file contributes nothing and must not claim the root
+    // at all (no duplicate error, no precedence warning) — the precedence signal
+    // has to match the actual data flow.
     let node: unknown;
     if (fileLower.endsWith(".toml")) {
-      node = parseToml(readFileSync(fullPath, "utf8"));
+      try {
+        node = parseToml(readFileSync(fullPath, "utf8"));
+      } catch (err) {
+        throw new LoadError(
+          `${dirName}/${file}: invalid TOML — ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+      // An empty TOML document parses to {} — like an empty YAML file (null),
+      // it contributes nothing instead of injecting an empty root.
+      if (
+        node !== null &&
+        typeof node === "object" &&
+        !Array.isArray(node) &&
+        Object.keys(node).length === 0
+      ) {
+        continue;
+      }
     } else {
       const doc = parseDocument(readFileSync(fullPath, "utf8"));
       if (doc.errors.length > 0) {
@@ -217,7 +215,51 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
       }
       node = doc.toJS({ maxAliasCount: 100 });
     }
-    if (node === null || node === undefined) continue; // empty file \u2192 no contribution
+    if (node === null || node === undefined) continue; // empty file → no contribution
+
+    const isYaml = fileLower.endsWith(".yaml") || fileLower.endsWith(".yml");
+    const seen = seenByFormat.get(rootKey) ?? {};
+    // Same-format clash (.yaml + .yml, or .toml + .TOML — even when a file of
+    // the other format sorts between them): each root property belongs to at
+    // most one file per format — a hard error, never a silent skip.
+    if ((isYaml && seen.yaml !== undefined) || (!isYaml && seen.toml !== undefined)) {
+      throw new LoadError(
+        `${dirName}/${file}: duplicate root property "${rootKey}" (already provided by another content file) — each root property belongs to exactly one file`,
+      );
+    }
+    if (isYaml) {
+      seen.yaml = file;
+    } else {
+      seen.toml = file;
+    }
+    seenByFormat.set(rootKey, seen);
+
+    // Check if we already loaded this root key (cross-format precedence)
+    const existing = loadedRoots.get(rootKey);
+    if (existing) {
+      // If we already have a YAML file and this is TOML, skip the TOML file
+      if (existing.priority >= priority) {
+        // Skip this file - we already have a higher or equal priority version
+        // Warn if we're skipping a TOML file in favor of YAML
+        if (
+          !isYaml &&
+          (existing.file.toLowerCase().endsWith(".yaml") ||
+            existing.file.toLowerCase().endsWith(".yml"))
+        ) {
+          console.warn(
+            `Warning: ${dirName}/${file} is ignored because ${existing.file} already provides root property "${rootKey}" (YAML takes precedence); use \`pasco sync\` to keep files in sync`,
+          );
+        }
+        continue;
+      }
+      // A higher-priority file replaces a lower-priority one: when a YAML file
+      // wins over a TOML root, say so — the mirror of the skip warning above.
+      if (isYaml && existing.file.toLowerCase().endsWith(".toml")) {
+        console.warn(
+          `Warning: ${dirName}/${existing.file} is ignored because ${file} also provides root property "${rootKey}" (YAML takes precedence); use \`pasco sync\` to keep files in sync`,
+        );
+      }
+    }
 
     // Store the loaded root with its priority
     loadedRoots.set(rootKey, { file, priority });

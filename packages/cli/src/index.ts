@@ -176,6 +176,11 @@ Commands:
                                 byte-identical across runs
   skills:export <dir>           [write] Copy the skill channels this package ships into <dir>
           [--force] [--list]     (--force overlays; --list shows them); no harness paths
+  sync [--to-yaml] [--to-toml]  [write] Dual-format fact registration: humans may edit
+          [--watch] [--overwrite | -f]  fact files as TOML while the engine keeps
+          [--json]                reading YAML (load() also reads .toml directly; across
+                                  formats YAML wins a root clash, the same format twice
+                                  is a hard error). --watch auto-syncs both ways
 
 Common flags (after the command):
   --workspace <path>  Workspace path (resolution: --workspace > .pascorc > cwd, D14)
@@ -191,9 +196,11 @@ published artifact; audit: at least one FAIL finding; entity: no canonical @id;
 export ai-policy: an unsourced or stale UA list, a robots.txt whose agent↔group
 map disagrees with the registry (--file), or a refused write;
 cite-check: the input file cannot be read; log: an id collision, an integrity
-failure, or a file the append cannot preserve) · 2 usage error (cite-check:
+failure, or a file the append cannot preserve; sync: a missing facts dir or
+conversion errors) · 2 usage error (cite-check:
 malformed NDJSON, never a silent skip; log/achievements: an invalid input or a
-range whose since is after its until). Drift warnings exit 0 (D12: facts warn,
+range whose since is after its until; sync: no direction flag
+(--to-yaml/--to-toml/--watch)). Drift warnings exit 0 (D12: facts warn,
 schema fails).
 
 pasco is free (MIT). Consider a tip ;)
@@ -742,7 +749,7 @@ pasco skills:export --list [--json]
 Copies the skill channels this package ships (SPEC §16) into a directory you
 name. --list shows them; an existing non-empty directory needs --force (files are
 overlaid, nothing is deleted). No harness-specific destination is invented.`,
-  sync: `pasco sync (--to-yaml [--to-toml] | --watch) [--overwrite | -f] [--json] [--workspace <path>]
+  sync: `pasco sync (--to-yaml | --to-toml | --watch) [--overwrite | -f] [--json] [--workspace <path>]
 Synchronize TOML and YAML fact files. Enables human-friendly TOML editing
 while maintaining YAML compatibility with the engine.
 
@@ -750,7 +757,12 @@ Options:
   --to-yaml    Convert TOML files to YAML
   --to-toml    Convert YAML files to TOML
   --watch      Watch for changes and sync automatically (implies both --to-yaml and --to-toml)
-  --overwrite, -f  Overwrite existing files (default: skip if file exists)
+  --overwrite, -f  Overwrite existing files in a one-shot sync (default: skip if
+                   file exists). With both --to-yaml and --to-toml, a pair
+                   already in sync is skipped; a pair whose two sides differ is
+                   reported as a conflict and neither file is overwritten.
+                   --watch never overwrites on start, it only mirrors each edit
+                   to the counterpart
   --json       Machine-readable output
 
 Examples:
@@ -760,6 +772,8 @@ Examples:
   pasco sync --to-yaml --overwrite  # Force overwrite existing YAML files
 
 Note: When using --watch, both TOML and YAML files are kept in sync.
+In --watch, conversion errors are reported per event and the watcher keeps
+running; on Ctrl-C the exit code is 1 if any sync batch failed, else 0.
 TOML files are recommended for human editing (less indentation errors).`,
   post: `pasco post <seed|task|choose|check|export|import|list> [...] [--json] [--confirm <sha256:…>] [--workspace <path>]
 MVP (week-1 experiment): a post is a PROJECTION of a seed, not an identity fact.

@@ -72,23 +72,27 @@ export async function runSync(args: SyncArgs): Promise<number> {
       // Watch mode: sync both directions automatically
       line(`Watching ${factsDirectory} for changes...`);
 
+      let watchFailed = false;
       const stopWatch = await watchTomlYaml(
         factsDirectory,
         {
           toYaml: true,
           toToml: true,
-          overwrite: true, // In watch mode, always overwrite to propagate changes
+          // Watch semantics live inside watchTomlYaml: the start-up pass never
+          // overwrites an existing counterpart, and each edit overwrites only
+          // its own mirror (so a source file's comments are never clobbered).
         },
         (result) => {
-          reportSyncResult(result, "watch");
+          if (reportSyncResult(result, "watch") !== EXIT.OK) watchFailed = true;
         },
       );
 
-      // Handle graceful shutdown
+      // Handle graceful shutdown — honoring the published exit contract:
+      // 1 if any sync batch reported errors, else 0
       process.on("SIGINT", () => {
         stopWatch();
         line("Watch mode stopped.");
-        process.exit(0);
+        process.exit(watchFailed ? EXIT.FAIL : EXIT.OK);
       });
 
       // Keep process running
@@ -135,7 +139,7 @@ function reportSyncResult(result: SyncResult, _command: string): number {
   }
 
   if (result.skipped.length > 0) {
-    section("Skipped files (already exist)");
+    section("Skipped files (already exist, or already in sync)");
     for (const file of result.skipped) {
       line(`  \u001b[33m-\u001b[0m ${file}`);
     }

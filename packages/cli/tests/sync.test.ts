@@ -3,7 +3,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -41,9 +41,11 @@ function runSync(args: string[], cwd: string): { code: number; stdout: string; s
     });
     return { code: 0, stdout: result, stderr: "" };
   } catch (error: unknown) {
-    const err = error as { code?: number; stdout?: string; stderr?: string };
+    // execFileSync reports a non-zero EXIT STATUS in `status`; `code` is only set
+    // for spawn failures — reading `code` here masked every real exit code as 1.
+    const err = error as { status?: number; stdout?: string; stderr?: string };
     return {
-      code: err.code ?? 1,
+      code: err.status ?? 1,
       stdout: err.stdout ?? "",
       stderr: err.stderr ?? "",
     };
@@ -55,7 +57,8 @@ describe("pasco sync", () => {
     it("requires at least one of --to-yaml, --to-toml, or --watch", () => {
       const workspace = createWorkspace();
       const result = runSync([], workspace);
-      expect(result.code).toBe(1);
+      // usage error (missing direction flag) = exit 2 per the CLI exit contract
+      expect(result.code).toBe(2);
       expect(result.stderr).toContain(
         "Please specify at least one of --to-yaml, --to-toml, or --watch",
       );
@@ -80,6 +83,18 @@ describe("pasco sync", () => {
       expect(result.code).toBe(0);
     });
 
+    it("bidirectional -f does not rewrite a hand-authored .toml (no round-trip re-canonicalization)", () => {
+      const workspace = createWorkspace();
+      const toml = `# header\nname = "T" # trailing\n`;
+      writeFileSync(join(workspace, "facts", "identity.toml"), toml, "utf-8");
+
+      const result = runSync(["--to-yaml", "--to-toml", "-f"], workspace);
+      expect(result.code).toBe(0);
+
+      expect(readFileSync(join(workspace, "facts", "identity.toml"), "utf-8")).toBe(toml);
+      expect(existsSync(join(workspace, "facts", "identity.yaml"))).toBe(true);
+    });
+
     it("accepts --to-toml", () => {
       const workspace = createWorkspace();
       writeFileSync(join(workspace, "facts", "identity.yaml"), `name: Test`, "utf-8");
@@ -101,14 +116,33 @@ describe("pasco sync", () => {
       expect(() => readFileSync(yamlPath, "utf-8")).not.toThrow();
     });
 
-    it("creates parent directories if needed", () => {
+    it("converts uppercase .TOML files to .yaml", () => {
+      const workspace = createWorkspace();
+      writeFileSync(join(workspace, "facts", "identity.TOML"), `name = "Upper"`, "utf-8");
+
+      const result = runSync(["--to-yaml"], workspace);
+      expect(result.code).toBe(0);
+
+      const yamlPath = join(workspace, "facts", "identity.yaml");
+      expect(() => readFileSync(yamlPath, "utf-8")).not.toThrow();
+      // the .TOML file itself must be left untouched
+      expect(readFileSync(join(workspace, "facts", "identity.TOML"), "utf-8")).toContain(
+        'name = "Upper"',
+      );
+    });
+
+    it("ignores files in subdirectories (load() reads the facts dir flat)", () => {
       const workspace = createWorkspace();
       const subdir = join(workspace, "facts", "subdir");
       mkdirSync(subdir, { recursive: true });
       writeFileSync(join(subdir, "test.toml"), `key = "value"`, "utf-8");
+      writeFileSync(join(workspace, "facts", "top.toml"), `key = "top"`, "utf-8");
 
       const result = runSync(["--to-yaml"], workspace);
       expect(result.code).toBe(0);
+
+      expect(existsSync(join(workspace, "facts", "top.yaml"))).toBe(true);
+      expect(existsSync(join(subdir, "test.yaml"))).toBe(false);
     });
 
     it("skips existing YAML files without --overwrite", () => {
@@ -202,6 +236,16 @@ describe("pasco sync", () => {
       // Should still return 0 or 1 depending on error handling
       // The important thing is it outputs valid JSON
       expect(() => JSON.parse(result.stdout.trim())).not.toThrow();
+    });
+  });
+
+  describe("missing facts dir", () => {
+    it("fails with exit 1 (not a silent 0) when the facts dir does not exist", () => {
+      const workspace = join(tempDirPath, "no-facts-ws");
+      mkdirSync(workspace, { recursive: true });
+      const result = runSync(["--to-yaml"], workspace);
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("directory not found");
     });
   });
 

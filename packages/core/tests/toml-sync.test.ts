@@ -2,20 +2,32 @@
  * Tests for TOML <-> YAML synchronization utilities.
  */
 
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse as parseToml } from "@iarna/toml";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
+import { load } from "../src/index.js";
 import {
   removeNullValues,
+  type SyncResult,
   syncTomlYaml,
   tomlToYamlDirectory,
   tomlToYamlFile,
+  watchTomlYaml,
   yamlToTomlDirectory,
   yamlToTomlFile,
 } from "../src/toml-sync.js";
+
+/** Poll until cond() holds (watch mode is event-driven, so tests must wait). */
+async function waitFor(cond: () => boolean, timeoutMs = 5000): Promise<void> {
+  const start = Date.now();
+  while (!cond()) {
+    if (Date.now() - start > timeoutMs) throw new Error("waitFor timed out");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
 
 let tempDirPath: string;
 
@@ -228,6 +240,141 @@ describe("syncTomlYaml", () => {
     expect(result.skipped).toHaveLength(1);
     expect(result.converted).toHaveLength(0);
   });
+
+  it("bidirectional one-shot never re-canonicalizes a hand-authored .toml through the round trip", async () => {
+    const factsDir = join(tempDirPath, "facts");
+    mkdirSync(factsDir, { recursive: true });
+    const handAuthored = `# my header\nname = "T" # trailing\n`;
+    writeFileSync(join(factsDir, "identity.toml"), handAuthored, "utf-8");
+
+    const result = await syncTomlYaml(factsDir, { toYaml: true, toToml: true, overwrite: true });
+
+    expect(result.errors).toHaveLength(0);
+    expect(existsSync(join(factsDir, "identity.yaml"))).toBe(true);
+    // the source .toml keeps its exact bytes — no toml→yaml→toml round trip
+    expect(readFileSync(join(factsDir, "identity.toml"), "utf-8")).toBe(handAuthored);
+  });
+
+  it("reports a conflict instead of clobbering when a pair exists on both sides with different content and --overwrite", async () => {
+    const factsDir = join(tempDirPath, "facts");
+    mkdirSync(factsDir, { recursive: true });
+    writeFileSync(join(factsDir, "identity.toml"), `name = "T"`, "utf-8");
+    writeFileSync(join(factsDir, "identity.yaml"), `name: Y\n`, "utf-8");
+
+    const result = await syncTomlYaml(factsDir, { toYaml: true, toToml: true, overwrite: true });
+
+    expect(result.errors.some((e) => e.error.includes("conflict"))).toBe(true);
+    expect(result.converted).toHaveLength(0);
+    expect(readFileSync(join(factsDir, "identity.toml"), "utf-8")).toContain('name = "T"');
+    expect(readFileSync(join(factsDir, "identity.yaml"), "utf-8")).toContain("Y");
+  });
+
+  it("bidirectional --overwrite is a no-op (skips both, 0 errors, comments survive) when a pair is already in sync", async () => {
+    const factsDir = join(tempDirPath, "facts");
+    mkdirSync(factsDir, { recursive: true });
+    const handAuthored = `# header comment\nname = "Elena"\n`;
+    writeFileSync(join(factsDir, "identity.toml"), handAuthored, "utf-8");
+
+    // run 1: create mirror
+    const r1 = await syncTomlYaml(factsDir, { toYaml: true, toToml: false, overwrite: true });
+    expect(r1.errors).toHaveLength(0);
+    expect(r1.converted).toHaveLength(1);
+
+    // run 2: steady state with both directions + --overwrite -> no-op, not a conflict
+    const r2 = await syncTomlYaml(factsDir, { toYaml: true, toToml: true, overwrite: true });
+    expect(r2.errors).toHaveLength(0);
+    expect(r2.converted).toHaveLength(0);
+    expect(r2.skipped).toHaveLength(2);
+    expect(readFileSync(join(factsDir, "identity.toml"), "utf-8")).toBe(handAuthored);
+  });
+
+  it("bidirectional --overwrite recognizes TOML native dates round-tripped to YAML ISO strings as in sync", async () => {
+    const factsDir = join(tempDirPath, "facts");
+    mkdirSync(factsDir, { recursive: true });
+    writeFileSync(
+      join(factsDir, "identity.toml"),
+      `name = "Elena"\nupdated = 2020-01-01\n`,
+      "utf-8",
+    );
+
+    const r1 = await syncTomlYaml(factsDir, { toYaml: true, toToml: false, overwrite: true });
+    expect(r1.errors).toHaveLength(0);
+    expect(r1.converted).toHaveLength(1);
+
+    // YAML 1.2 parses the serialized date as a string; steady-state bidirectional -f must be a no-op
+    const r2 = await syncTomlYaml(factsDir, { toYaml: true, toToml: true, overwrite: true });
+    expect(r2.errors).toHaveLength(0);
+    expect(r2.converted).toHaveLength(0);
+    expect(r2.skipped).toHaveLength(2);
+  });
+
+  it("reuses existing mixed-case .Yml and .TOML siblings instead of creating duplicates", async () => {
+    const factsDir = join(tempDirPath, "facts");
+    mkdirSync(factsDir, { recursive: true });
+    writeFileSync(join(factsDir, "identity.Yml"), `name: Initial\n`, "utf-8");
+
+    const r1 = await syncTomlYaml(factsDir, { toYaml: false, toToml: true, overwrite: true });
+    expect(r1.errors).toHaveLength(0);
+    expect(existsSync(join(factsDir, "identity.toml"))).toBe(true);
+
+    writeFileSync(join(factsDir, "identity.toml"), `name = "Updated"\n`, "utf-8");
+    const r2 = await syncTomlYaml(factsDir, { toYaml: true, toToml: false, overwrite: true });
+    expect(r2.errors).toHaveLength(0);
+    expect(r2.converted).toEqual([
+      `${join(factsDir, "identity.toml")} -> ${join(factsDir, "identity.Yml")}`,
+    ]);
+    expect(readFileSync(join(factsDir, "identity.Yml"), "utf-8")).toContain("Updated");
+
+    // Symmetric: an existing .TOML sibling is updated in place on YAML -> TOML
+    const factsDir2 = join(tempDirPath, "facts2");
+    mkdirSync(factsDir2, { recursive: true });
+    writeFileSync(join(factsDir2, "identity.TOML"), `name = "Old"\n`, "utf-8");
+    writeFileSync(join(factsDir2, "identity.yaml"), `name: FromYaml\n`, "utf-8");
+    const r3 = await syncTomlYaml(factsDir2, { toYaml: false, toToml: true, overwrite: true });
+    expect(r3.errors).toHaveLength(0);
+    expect(r3.converted).toEqual([
+      `${join(factsDir2, "identity.yaml")} -> ${join(factsDir2, "identity.TOML")}`,
+    ]);
+    expect(readFileSync(join(factsDir2, "identity.TOML"), "utf-8")).toContain("FromYaml");
+  });
+
+  it("never creates a second YAML mirror for a .yml root (.yaml + .yml would be a hard duplicate-root error in load())", async () => {
+    const factsDir = join(tempDirPath, "facts");
+    mkdirSync(factsDir, { recursive: true });
+    writeFileSync(join(factsDir, "identity.yml"), `name: Y\n`, "utf-8");
+
+    // run 1: toToml creates identity.toml; run 2 (toYaml) must mirror toml -> the
+    // EXISTING identity.yml, never a new identity.yaml
+    await syncTomlYaml(factsDir, { toYaml: false, toToml: true, overwrite: true });
+    expect(existsSync(join(factsDir, "identity.toml"))).toBe(true);
+    const r2 = await syncTomlYaml(factsDir, { toYaml: true, toToml: false, overwrite: true });
+    expect(r2.errors).toHaveLength(0);
+    expect(existsSync(join(factsDir, "identity.yaml"))).toBe(false);
+    expect(existsSync(join(factsDir, "identity.yml"))).toBe(true);
+
+    // load() must not fail with a duplicate root property
+    expect(() => load(tempDirPath)).not.toThrow();
+    expect(load(tempDirPath).identity.name).toBe("Y");
+  });
+
+  it("rejects clearly when the synced directory does not exist (no silent exit-0)", async () => {
+    await expect(syncTomlYaml(join(tempDirPath, "no-such-dir"), { toYaml: true })).rejects.toThrow(
+      /cannot sync: directory not found/,
+    );
+  });
+
+  it("syncs only the top level (load() reads the facts dir flat)", async () => {
+    const factsDir = join(tempDirPath, "facts");
+    mkdirSync(join(factsDir, "sub"), { recursive: true });
+    writeFileSync(join(factsDir, "top.toml"), `a = 1`, "utf-8");
+    writeFileSync(join(factsDir, "sub", "nested.toml"), `b = 2`, "utf-8");
+
+    const result = await syncTomlYaml(factsDir, { toYaml: true, toToml: false });
+
+    expect(result.converted).toHaveLength(1);
+    expect(existsSync(join(factsDir, "top.yaml"))).toBe(true);
+    expect(existsSync(join(factsDir, "sub", "nested.yaml"))).toBe(false);
+  });
 });
 
 describe("tomlToYamlDirectory", () => {
@@ -245,6 +392,23 @@ describe("tomlToYamlDirectory", () => {
     expect(result.converted).toHaveLength(2);
     expect(result.errors).toHaveLength(0);
   });
+
+  it("reuses an existing .yml mirror in outputDir instead of creating a duplicate .yaml", async () => {
+    const factsDir = join(tempDirPath, "facts");
+    mkdirSync(factsDir, { recursive: true });
+    writeFileSync(join(factsDir, "identity.yml"), `name: Y\n`, "utf-8");
+
+    const toToml = await yamlToTomlDirectory(factsDir, factsDir, { overwrite: true });
+    expect(toToml.errors).toHaveLength(0);
+    expect(existsSync(join(factsDir, "identity.toml"))).toBe(true);
+
+    const toYaml = await tomlToYamlDirectory(factsDir, factsDir, { overwrite: true });
+    expect(toYaml.errors).toHaveLength(0);
+    expect(existsSync(join(factsDir, "identity.yaml"))).toBe(false);
+    expect(existsSync(join(factsDir, "identity.yml"))).toBe(true);
+    expect(() => load(tempDirPath)).not.toThrow();
+    expect(load(tempDirPath).identity.name).toBe("Y");
+  });
 });
 
 describe("yamlToTomlDirectory", () => {
@@ -261,5 +425,245 @@ describe("yamlToTomlDirectory", () => {
 
     expect(result.converted).toHaveLength(2);
     expect(result.errors).toHaveLength(0);
+  });
+});
+
+describe("extension case handling", () => {
+  it("syncTomlYaml maps an uppercase .TOML file to .yaml", async () => {
+    const facts = join(tempDirPath, "facts");
+    mkdirSync(facts, { recursive: true });
+    writeFileSync(join(facts, "identity.TOML"), `name = "Upper"`, "utf-8");
+
+    const result = await syncTomlYaml(facts, { toYaml: true, toToml: false });
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.converted).toHaveLength(1);
+    expect(existsSync(join(facts, "identity.yaml"))).toBe(true);
+    // the source .TOML file is left untouched
+    expect(readFileSync(join(facts, "identity.TOML"), "utf-8")).toContain(`name = "Upper"`);
+  });
+
+  it("syncTomlYaml maps an uppercase .YML file to .toml", async () => {
+    const facts = join(tempDirPath, "facts");
+    mkdirSync(facts, { recursive: true });
+    writeFileSync(join(facts, "identity.YML"), `name: Upper`, "utf-8");
+
+    const result = await syncTomlYaml(facts, { toYaml: false, toToml: true });
+
+    expect(result.errors).toHaveLength(0);
+    expect(result.converted).toHaveLength(1);
+    expect(existsSync(join(facts, "identity.toml"))).toBe(true);
+  });
+
+  it("syncTomlYaml matches MIXED-CASE extensions exactly like load() (id.Yml, id.ToMl)", async () => {
+    // glob brace patterns (*.{toml,TOML}) miss these; load()'s /i regex reads them
+    const facts = join(tempDirPath, "facts");
+    mkdirSync(facts, { recursive: true });
+    writeFileSync(join(facts, "identity.Yml"), `name: MixedYml`, "utf-8");
+
+    const toToml = await syncTomlYaml(facts, { toYaml: false, toToml: true });
+    expect(toToml.errors).toHaveLength(0);
+    expect(toToml.converted).toHaveLength(1);
+    expect(existsSync(join(facts, "identity.toml"))).toBe(true);
+
+    const facts2 = join(tempDirPath, "facts2");
+    mkdirSync(facts2, { recursive: true });
+    writeFileSync(join(facts2, "keywords.ToMl"), `seo = "x"`, "utf-8");
+
+    const toYaml = await syncTomlYaml(facts2, { toYaml: true, toToml: false });
+    expect(toYaml.errors).toHaveLength(0);
+    expect(toYaml.converted).toHaveLength(1);
+    expect(existsSync(join(facts2, "keywords.yaml"))).toBe(true);
+  });
+
+  it("tomlToYamlDirectory writes a .yaml file (never YAML bytes into a .TOML name)", async () => {
+    const inputDir = join(tempDirPath, "in");
+    const outputDir = join(tempDirPath, "out");
+    mkdirSync(inputDir, { recursive: true });
+    writeFileSync(join(inputDir, "UPPER.TOML"), `name = "X"`, "utf-8");
+
+    const result = await tomlToYamlDirectory(inputDir, outputDir);
+
+    expect(result.errors).toHaveLength(0);
+    expect(existsSync(join(outputDir, "UPPER.yaml"))).toBe(true);
+    expect(existsSync(join(outputDir, "UPPER.TOML"))).toBe(false);
+    expect(parseYaml(readFileSync(join(outputDir, "UPPER.yaml"), "utf-8"))).toEqual({ name: "X" });
+  });
+
+  it("yamlToTomlDirectory maps an uppercase .YML file to .toml", async () => {
+    const inputDir = join(tempDirPath, "in");
+    const outputDir = join(tempDirPath, "out");
+    mkdirSync(inputDir, { recursive: true });
+    writeFileSync(join(inputDir, "NOTE.YML"), `text: hi`, "utf-8");
+
+    const result = await yamlToTomlDirectory(inputDir, outputDir);
+
+    expect(result.errors).toHaveLength(0);
+    expect(existsSync(join(outputDir, "NOTE.toml"))).toBe(true);
+    expect(parseToml(readFileSync(join(outputDir, "NOTE.toml"), "utf-8"))).toEqual({ text: "hi" });
+  });
+
+  it("directory converters match mixed-case extensions (MiXeD.ToMl) like load()", async () => {
+    const inputDir = join(tempDirPath, "in");
+    const outputDir = join(tempDirPath, "out");
+    mkdirSync(join(inputDir, "nested"), { recursive: true });
+    writeFileSync(join(inputDir, "MiXeD.ToMl"), `name = "X"`, "utf-8");
+    writeFileSync(join(inputDir, "nested", "deep.YmL"), `text: hi`, "utf-8");
+
+    const tomlResult = await tomlToYamlDirectory(inputDir, outputDir);
+    expect(tomlResult.errors).toHaveLength(0);
+    expect(tomlResult.converted).toHaveLength(1);
+    expect(existsSync(join(outputDir, "MiXeD.yaml"))).toBe(true);
+
+    const yamlResult = await yamlToTomlDirectory(inputDir, outputDir);
+    expect(yamlResult.errors).toHaveLength(0);
+    expect(yamlResult.converted).toHaveLength(1);
+    expect(existsSync(join(outputDir, "nested", "deep.toml"))).toBe(true);
+  });
+});
+
+describe('empty documents mirror as empty (never "{}\\n", which load() would reject)', () => {
+  it('a comment-only .toml converts to an EMPTY .yaml file, not "{}\\n"', () => {
+    const tomlPath = join(tempDirPath, "identity.toml");
+    const yamlPath = join(tempDirPath, "identity.yaml");
+    writeFileSync(tomlPath, `# nothing yet\n`, "utf-8");
+
+    expect(tomlToYamlFile(tomlPath, yamlPath)).toBe(true);
+    const yaml = readFileSync(yamlPath, "utf-8");
+    expect(yaml).not.toContain("{}");
+    // load() treats this as no contribution (parseYaml("") === null)
+    expect(parseYaml(yaml)).toBeNull();
+  });
+
+  it("an empty .yaml converts to an empty .toml instead of throwing a null error", () => {
+    const yamlPath = join(tempDirPath, "identity.yaml");
+    const tomlPath = join(tempDirPath, "identity.toml");
+    writeFileSync(yamlPath, `# nothing yet\n`, "utf-8");
+
+    expect(yamlToTomlFile(yamlPath, tomlPath)).toBe(true);
+    expect(readFileSync(tomlPath, "utf-8")).toBe("");
+  });
+});
+
+describe("idempotent overwrite", () => {
+  it("does not rewrite a target whose content is already in sync", () => {
+    const tomlPath = join(tempDirPath, "test.toml");
+    const yamlPath = join(tempDirPath, "test.yaml");
+    writeFileSync(tomlPath, `name = "Test"`, "utf-8");
+
+    expect(tomlToYamlFile(tomlPath, yamlPath, { overwrite: true })).toBe(true);
+    const written = readFileSync(yamlPath, "utf-8");
+    // second run with --overwrite: same content -> skipped, not rewritten
+    expect(tomlToYamlFile(tomlPath, yamlPath, { overwrite: true })).toBe(false);
+    expect(readFileSync(yamlPath, "utf-8")).toBe(written);
+  });
+});
+
+describe("watchTomlYaml", () => {
+  it("propagates a .toml edit to .yaml while watching (directories are traversed, not ignored)", async () => {
+    const dir = join(tempDirPath, "facts");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "identity.toml"), `name = "V1"`, "utf-8");
+
+    const stop = await watchTomlYaml(dir, { toYaml: true, overwrite: true });
+    try {
+      // the initial sync runs before watchTomlYaml resolves
+      await waitFor(() => existsSync(join(dir, "identity.yaml")));
+      // allow the OS watcher (e.g. macOS FSEvents) to settle past initial-file creation
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      writeFileSync(join(dir, "identity.toml"), `name = "V2"`, "utf-8");
+      await waitFor(() => readFileSync(join(dir, "identity.yaml"), "utf-8").includes("V2"));
+    } finally {
+      await stop();
+    }
+  }, 15_000);
+
+  it("still fires when the watched dir sits under a dot-prefixed ancestor (.worktrees/, ~/.config/)", async () => {
+    const dir = join(tempDirPath, ".dotws", "facts");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "identity.toml"), `name = "V1"`, "utf-8");
+
+    const stop = await watchTomlYaml(dir, { toYaml: true, overwrite: true });
+    try {
+      await waitFor(() => existsSync(join(dir, "identity.yaml")));
+      writeFileSync(join(dir, "identity.toml"), `name = "V2"`, "utf-8");
+      await waitFor(() => readFileSync(join(dir, "identity.yaml"), "utf-8").includes("V2"));
+    } finally {
+      await stop();
+    }
+  }, 15_000);
+
+  it("never rewrites the edited source in bidirectional mode (comments survive)", async () => {
+    const dir = join(tempDirPath, "facts");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "identity.toml"), `# my header\nname = "V1" # trailing\n`, "utf-8");
+
+    const stop = await watchTomlYaml(dir, { toYaml: true, toToml: true, overwrite: true });
+    try {
+      await waitFor(() => existsSync(join(dir, "identity.yaml")));
+      writeFileSync(join(dir, "identity.toml"), `# my header\nname = "V2" # trailing\n`, "utf-8");
+      await waitFor(() => readFileSync(join(dir, "identity.yaml"), "utf-8").includes("V2"));
+      // give a hypothetical erroneous echo pass time to fire before asserting
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const toml = readFileSync(join(dir, "identity.toml"), "utf-8");
+      expect(toml).toContain("# my header");
+      expect(toml).toContain("# trailing");
+      expect(toml).toContain('name = "V2"');
+    } finally {
+      await stop();
+    }
+  }, 15_000);
+
+  it("reports a conflict (never silently drops one side) when a file and its mirror change in the same window", async () => {
+    const dir = join(tempDirPath, "facts");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "identity.toml"), `name = "T1"`, "utf-8");
+    const results: SyncResult[] = [];
+
+    const stop = await watchTomlYaml(dir, { toYaml: true, toToml: true, overwrite: true }, (r) =>
+      results.push(r),
+    );
+    try {
+      await waitFor(() => existsSync(join(dir, "identity.yaml")));
+      // both sides edited within the same 100ms debounce window
+      writeFileSync(join(dir, "identity.toml"), `name = "T2"`, "utf-8");
+      writeFileSync(join(dir, "identity.yaml"), `name: Y2\n`, "utf-8");
+      await waitFor(() => results.some((r) => r.errors.some((e) => e.error.includes("conflict"))));
+      const toml = readFileSync(join(dir, "identity.toml"), "utf-8");
+      const yaml = readFileSync(join(dir, "identity.yaml"), "utf-8");
+      // neither side was overwritten by the sync pass
+      expect(toml).toContain('name = "T2"');
+      expect(yaml).toContain("Y2");
+    } finally {
+      await stop();
+    }
+  }, 15_000);
+
+  it("propagates a revert/undo on a previously synced mirror instead of dropping it as a stale echo", async () => {
+    const dir = join(tempDirPath, "facts");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "identity.toml"), `name = "V1"\n`, "utf-8");
+
+    const stop = await watchTomlYaml(dir, { toYaml: true, toToml: true, overwrite: true });
+    try {
+      await waitFor(() => existsSync(join(dir, "identity.yaml")));
+      const syncedYamlV1 = readFileSync(join(dir, "identity.yaml"), "utf-8");
+
+      // External edit on the mirror: V1 -> V2 (propagates to TOML)
+      writeFileSync(join(dir, "identity.yaml"), `name: V2\n`, "utf-8");
+      await waitFor(() => readFileSync(join(dir, "identity.toml"), "utf-8").includes("V2"));
+
+      // Revert/undo the mirror back to exact earlier synced bytes: must propagate back to TOML!
+      writeFileSync(join(dir, "identity.yaml"), syncedYamlV1, "utf-8");
+      await waitFor(() => readFileSync(join(dir, "identity.toml"), "utf-8").includes("V1"));
+    } finally {
+      await stop();
+    }
+  }, 15_000);
+
+  it("rejects clearly when the watched directory does not exist", async () => {
+    await expect(watchTomlYaml(join(tempDirPath, "no-such-dir"), {})).rejects.toThrow(
+      /directory not found/,
+    );
   });
 });

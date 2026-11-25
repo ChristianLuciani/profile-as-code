@@ -6,10 +6,43 @@
  * while the engine continues to work with YAML.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { basename, dirname, join, relative } from "node:path";
 import { parse as parseToml, stringify as stringifyToml } from "@iarna/toml";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { FACT_FILE_RE } from "./load.js";
+
+// Per-format extension predicates with the SAME case-insensitive semantics as
+// load()'s FACT_FILE_RE (load.ts) — one spelling of "valid fact file" everywhere.
+// Never re-express these as glob brace patterns (`*.{toml,TOML}`): braces only
+// cover all-lower/all-upper and silently miss mixed case like `id.Yml`, and
+// glob's `nocase` option is platform-dependent.
+const TOML_FILE_RE = /\.toml$/i;
+const YAML_FILE_RE = /\.ya?ml$/i;
+
+/** List the fact files under `dir` matching `extRe` (dotfiles/dot-dirs excluded, so
+ *  `.pasco-edit.lock` and `.git/` never appear). A missing or unreadable dir lists
+ *  as empty. `recursive` walks subdirectories (the directory converters); `false`
+ *  is the flat facts-dir listing, matching load(). */
+function listFactFiles(dir: string, extRe: RegExp, recursive: boolean): string[] {
+  let entries: string[];
+  try {
+    entries = recursive
+      ? readdirSync(dir, { recursive: true, encoding: "utf-8" })
+      : readdirSync(dir, "utf-8");
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((entry) => {
+      const segments = entry.split(/[\\/]/);
+      if (segments.some((segment) => segment.startsWith("."))) return false;
+      const base = segments[segments.length - 1] ?? "";
+      return FACT_FILE_RE.test(base) && extRe.test(base);
+    })
+    .sort()
+    .map((entry) => join(dir, entry));
+}
 
 /**
  * Types compatible with @iarna/toml's JsonMap and AnyJson.
@@ -108,6 +141,98 @@ export function removeNullValues(obj: unknown): TomlCompatible | undefined {
   return obj as TomlValue;
 }
 
+/** True for an empty TOML document (parses to {}), e.g. a comment-only file. */
+function isEmptyTomlDoc(data: unknown): boolean {
+  return (
+    data !== null &&
+    typeof data === "object" &&
+    !Array.isArray(data) &&
+    Object.keys(data).length === 0
+  );
+}
+
+/** Deep-compare two parsed fact values, ignoring prototype differences
+ *  (`@iarna/toml` produces null-prototype objects; `yaml` produces plain objects)
+ *  and TOML Date ↔ YAML ISO-string serialization round-trips. */
+function sameFactData(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (a instanceof Date && b instanceof Date) return a.getTime() === b.getTime();
+  if (a instanceof Date && typeof b === "string") return a.toISOString() === b;
+  if (typeof a === "string" && b instanceof Date) return b.toISOString() === a;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((v, i) => sameFactData(v, b[i]));
+  }
+  if (
+    a !== null &&
+    b !== null &&
+    typeof a === "object" &&
+    typeof b === "object" &&
+    !Array.isArray(a) &&
+    !Array.isArray(b) &&
+    !(a instanceof Date) &&
+    !(b instanceof Date)
+  ) {
+    const recA = a as Record<string, unknown>;
+    const recB = b as Record<string, unknown>;
+    const keysA = Object.keys(recA);
+    if (keysA.length !== Object.keys(recB).length) return false;
+    return keysA.every((k) => Object.hasOwn(recB, k) && sameFactData(recA[k], recB[k]));
+  }
+  return false;
+}
+
+/** True when a TOML file and its YAML mirror already represent the exact same
+ *  parsed data (including comments/formatting differences, or both empty).
+ *  Returns false on parse errors so the pair is not silently skipped. */
+function areFactMirrorsInSync(tomlPath: string, yamlPath: string): boolean {
+  try {
+    const rawToml = parseToml(readFileSync(tomlPath, "utf-8"));
+    const rawYaml = parseYaml(readFileSync(yamlPath, "utf-8"));
+    const normToml = isEmptyTomlDoc(rawToml) ? null : rawToml;
+    const normYaml = rawYaml === undefined ? null : rawYaml;
+    return sameFactData(normToml, normYaml);
+  } catch {
+    return false;
+  }
+}
+
+/** Find an existing sibling file in `dir` with the same root `stem` and an
+ *  extension matching `extRe` (case-insensitive, matching `load()`'s FACT_FILE_RE).
+ *  Sorted deterministically; returns `undefined` when no sibling exists yet. */
+function findExistingSibling(dir: string, stem: string, extRe: RegExp): string | undefined {
+  let entries: string[];
+  try {
+    entries = readdirSync(dir, "utf-8");
+  } catch {
+    return undefined;
+  }
+  const match = entries
+    .filter(
+      (entry) => !entry.startsWith(".") && extRe.test(entry) && entry.replace(extRe, "") === stem,
+    )
+    .sort()[0];
+  return match === undefined ? undefined : join(dir, match);
+}
+
+/** The YAML mirror of a TOML path: an existing YAML sibling (`.yaml`/`.yml`, any
+ *  case) in the same directory if one already exists, otherwise `<root>.yaml`.
+ *  `load()` treats two YAML files on one root as a hard duplicate-root error, so
+ *  sync must reuse the existing casing/extension instead of creating a second one. */
+function yamlMirrorOf(tomlPath: string): string {
+  const dir = dirname(tomlPath);
+  const stem = basename(tomlPath).replace(TOML_FILE_RE, "");
+  return findExistingSibling(dir, stem, YAML_FILE_RE) ?? join(dir, `${stem}.yaml`);
+}
+
+/** The TOML mirror of a YAML path: an existing TOML sibling (`.toml`, any case)
+ *  in the same directory if one already exists, otherwise `<root>.toml`.
+ *  `load()` treats two TOML files on one root as a hard duplicate-root error. */
+function tomlMirrorOf(yamlPath: string): string {
+  const dir = dirname(yamlPath);
+  const stem = basename(yamlPath).replace(YAML_FILE_RE, "");
+  return findExistingSibling(dir, stem, TOML_FILE_RE) ?? join(dir, `${stem}.toml`);
+}
+
 /** Options for TOML to YAML conversion */
 export interface TomlToYamlOptions {
   /** Indentation level for YAML output (default: 2) */
@@ -176,8 +301,15 @@ export function tomlToYamlFile(
   const tomlContent = readFileSync(tomlPath, "utf-8");
   const data = parseToml(tomlContent);
 
-  // Convert to YAML
-  const yamlContent = stringifyYaml(data, { indent });
+  // Convert to YAML. An empty TOML document (comment-only file) must not become a
+  // "{}\n" mirror: load() treats an empty YAML file as no contribution, but "{}" as
+  // an empty root that fails the schema (D12). Mirror the source: empty stays empty.
+  const yamlContent = isEmptyTomlDoc(data) ? "" : stringifyYaml(data, { indent });
+
+  // Already in sync: skip the write so watch mode cannot ping-pong on our own output
+  if (overwrite && existsSync(yamlPath) && readFileSync(yamlPath, "utf-8") === yamlContent) {
+    return false;
+  }
 
   // Write YAML file
   writeFileSync(yamlPath, yamlContent, "utf-8");
@@ -222,6 +354,14 @@ export function yamlToTomlFile(
   const yamlContent = readFileSync(yamlPath, "utf-8");
   let data = parseYaml(yamlContent);
 
+  // An empty YAML file (parses to null) mirrors as an EMPTY TOML file — load()
+  // skips both — never as a null-value error.
+  if (data === null || data === undefined) {
+    if (overwrite && existsSync(tomlPath) && readFileSync(tomlPath, "utf-8") === "") return false;
+    writeFileSync(tomlPath, "", "utf-8");
+    return true;
+  }
+
   // Check for null values (TOML doesn't support null, so we can't convert YAML with explicit nulls)
   if (hasNullValues(data)) {
     if (options.stripNulls) {
@@ -244,6 +384,11 @@ export function yamlToTomlFile(
   }
   const tomlContent = stringifyToml(data);
 
+  // Already in sync: skip the write so watch mode cannot ping-pong on our own output
+  if (overwrite && existsSync(tomlPath) && readFileSync(tomlPath, "utf-8") === tomlContent) {
+    return false;
+  }
+
   // Write TOML file
   writeFileSync(tomlPath, tomlContent, "utf-8");
 
@@ -264,15 +409,16 @@ export async function tomlToYamlDirectory(
   options: TomlToYamlOptions = {},
 ): Promise<SyncResult> {
   const result: SyncResult = { converted: [], skipped: [], errors: [] };
-  const { globSync } = await import("glob");
 
-  // Find all TOML files
-  const tomlFiles = globSync(join(inputDir, "**/*.{toml,TOML}"));
+  // Find all TOML files (case-insensitive, recursive)
+  const tomlFiles = listFactFiles(inputDir, TOML_FILE_RE, true);
 
   for (const tomlPath of tomlFiles) {
     try {
       const relativePath = relative(inputDir, tomlPath);
-      const yamlPath = join(outputDir, relativePath.replace(".toml", ".yaml"));
+      // Reuse yamlMirrorOf so an existing .yml mirror in outputDir is updated
+      // in place instead of creating a sibling .yaml (duplicate root in load()).
+      const yamlPath = yamlMirrorOf(join(outputDir, relativePath));
 
       const success = tomlToYamlFile(tomlPath, yamlPath, options);
       if (success) {
@@ -305,15 +451,13 @@ export async function yamlToTomlDirectory(
   options: YamlToTomlOptions = {},
 ): Promise<SyncResult> {
   const result: SyncResult = { converted: [], skipped: [], errors: [] };
-  const { globSync } = await import("glob");
-
-  // Find all YAML files (both .yaml and .yml)
-  const yamlFiles = globSync(join(inputDir, "**/*.{yaml,yml,YAML,YML}"));
+  // Find all YAML files (.yaml and .yml, any case)
+  const yamlFiles = listFactFiles(inputDir, YAML_FILE_RE, true);
 
   for (const yamlPath of yamlFiles) {
     try {
       const relativePath = relative(inputDir, yamlPath);
-      const tomlPath = join(outputDir, relativePath.replace(/\.(yaml|yml)$/, ".toml"));
+      const tomlPath = tomlMirrorOf(join(outputDir, relativePath));
 
       const success = yamlToTomlFile(yamlPath, tomlPath, options);
       if (success) {
@@ -334,7 +478,9 @@ export async function yamlToTomlDirectory(
 
 /**
  * Synchronize TOML and YAML files in the same directory.
- * Converts TOML files to YAML (or vice versa) while preserving the directory structure.
+ * Converts TOML files to YAML (or vice versa). Only the TOP LEVEL of `factsDir`
+ * is synced: `load()` reads the facts dir flat, so files in subdirectories are
+ * not fact files and are left alone.
  *
  * @param factsDir - Directory containing fact files (TOML or YAML)
  * @param options - Conversion options
@@ -345,15 +491,62 @@ export async function syncTomlYaml(
   options: TomlToYamlOptions & { toYaml?: boolean; toToml?: boolean } = {},
 ): Promise<SyncResult> {
   const { toYaml = true, toToml = false, ...restOptions } = options;
+  // Fail loudly on a missing dir (same contract as watchTomlYaml) — a one-shot
+  // sync on a nonexistent facts dir must not exit 0 with "No files to sync".
+  let stat: ReturnType<typeof statSync>;
+  try {
+    stat = statSync(factsDir);
+  } catch {
+    throw new Error(`cannot sync: directory not found: ${factsDir}`);
+  }
+  if (!stat.isDirectory()) {
+    throw new Error(`cannot sync: not a directory: ${factsDir}`);
+  }
   const result: SyncResult = { converted: [], skipped: [], errors: [] };
-  const { globSync } = await import("glob");
+
+  // List BOTH directions BEFORE any write: a mirror written by the toYaml pass
+  // must not be re-listed by the toToml pass — converting it back would
+  // re-canonicalize a hand-authored .toml through the round trip, silently
+  // stripping its comments and layout.
+  const tomlFiles = toYaml ? listFactFiles(factsDir, TOML_FILE_RE, false) : [];
+  const yamlFiles = toToml ? listFactFiles(factsDir, YAML_FILE_RE, false) : [];
+
+  // With --overwrite and BOTH directions, a pair present on both sides is:
+  // - skipped (no-op) when both files already hold the same parsed data
+  //   (steady state after a previous sync — comments on either side survive);
+  // - reported as a conflict when the two sides differ (converting either way
+  //   would clobber the other), leaving both files untouched.
+  const alreadySynced = new Set<string>();
+  const conflicted = new Set<string>();
+  if (toYaml && toToml && restOptions.overwrite === true) {
+    const tomlByRoot = new Map<string, string>();
+    for (const tomlPath of tomlFiles) {
+      tomlByRoot.set(tomlPath.replace(TOML_FILE_RE, ""), tomlPath);
+    }
+    for (const yamlPath of yamlFiles) {
+      const mirror = tomlByRoot.get(yamlPath.replace(YAML_FILE_RE, ""));
+      if (mirror !== undefined) {
+        if (areFactMirrorsInSync(mirror, yamlPath)) {
+          alreadySynced.add(yamlPath);
+          alreadySynced.add(mirror);
+        } else {
+          conflicted.add(yamlPath);
+          conflicted.add(mirror);
+        }
+      }
+    }
+  }
 
   if (toYaml) {
     // Convert TOML to YAML (only .toml files, not .yml which are already YAML)
-    const tomlFiles = globSync(join(factsDir, "**/*.{toml,TOML}"));
     for (const tomlPath of tomlFiles) {
+      if (conflicted.has(tomlPath)) continue;
+      if (alreadySynced.has(tomlPath)) {
+        result.skipped.push(tomlPath);
+        continue;
+      }
       try {
-        const yamlPath = tomlPath.replace(/\.toml$/, ".yaml");
+        const yamlPath = yamlMirrorOf(tomlPath);
         const success = tomlToYamlFile(tomlPath, yamlPath, restOptions);
         if (success) {
           result.converted.push(`${tomlPath} -> ${yamlPath}`);
@@ -371,10 +564,14 @@ export async function syncTomlYaml(
 
   if (toToml) {
     // Convert YAML to TOML (handle both .yaml and .yml)
-    const yamlFiles = globSync(join(factsDir, "**/*.{yaml,yml,YAML,YML}"));
     for (const yamlPath of yamlFiles) {
+      if (conflicted.has(yamlPath)) continue;
+      if (alreadySynced.has(yamlPath)) {
+        result.skipped.push(yamlPath);
+        continue;
+      }
       try {
-        const tomlPath = yamlPath.replace(/\.(yaml|yml)$/, ".toml");
+        const tomlPath = tomlMirrorOf(yamlPath);
         const success = yamlToTomlFile(yamlPath, tomlPath, restOptions);
         if (success) {
           result.converted.push(`${yamlPath} -> ${tomlPath}`);
@@ -390,11 +587,23 @@ export async function syncTomlYaml(
     }
   }
 
+  for (const path of [...conflicted].sort()) {
+    result.errors.push({
+      file: path,
+      error: `conflict: ${path} and its mirror both exist with different content in ${factsDir} — with --overwrite neither was converted (one side would be clobbered); run one direction at a time or remove one side`,
+    });
+  }
+
   return result;
 }
 
 /**
  * Watch a directory for changes and sync TOML <-> YAML automatically.
+ *
+ * Each changed file is converted to its MIRROR only — the rest of the tree is
+ * never re-scanned, so a YAML→TOML pass can never rewrite a TOML file the user
+ * just edited (which would strip its comments and formatting). Writes made by
+ * the watcher itself are recognized by content and never converted back.
  *
  * @param factsDir - Directory to watch
  * @param options - Conversion options
@@ -407,98 +616,184 @@ export async function watchTomlYaml(
   callback?: (result: SyncResult) => void,
 ): Promise<() => void> {
   const { toYaml = true, toToml = false, ...restOptions } = options;
+  // Fail loudly on a missing dir instead of resolving into a silently dead watch
+  let stat: ReturnType<typeof statSync>;
+  try {
+    stat = statSync(factsDir);
+  } catch {
+    throw new Error(`cannot watch: directory not found: ${factsDir}`);
+  }
+  if (!stat.isDirectory()) {
+    throw new Error(`cannot watch: not a directory: ${factsDir}`);
+  }
   const { watch } = await import("chokidar");
 
-  // Track files being written to avoid re-triggering on our own writes
-  const writingFiles = new Set<string>();
-  // Collect changed files during debounce period
+  // Content of the mirror files WE wrote. An event for such a file whose content
+  // still matches is an echo of our own write and is never converted back.
+  const writtenByUs = new Map<string, string>();
+  // Collect changed files during the debounce period
   const changedFiles = new Set<string>();
-  // Debounce timer
   let debounceTimer: NodeJS.Timeout | null = null;
 
-  // chokidar v4 removed glob support, so we watch the directory and filter events
+  /** The mirror path a change to `path` should propagate to, if any. */
+  const mirrorOf = (path: string): string | undefined => {
+    const lower = path.toLowerCase();
+    if (toYaml && lower.endsWith(".toml")) return yamlMirrorOf(path);
+    if (toToml && (lower.endsWith(".yaml") || lower.endsWith(".yml"))) return tomlMirrorOf(path);
+    return undefined;
+  };
+
+  /** Convert ONE source file to its mirror, recording our own writes. */
+  const convertOne = (src: string, overwrite: boolean): SyncResult => {
+    const result: SyncResult = { converted: [], skipped: [], errors: [] };
+    const dst = mirrorOf(src);
+    if (dst === undefined) return result;
+    try {
+      const ok = src.toLowerCase().endsWith(".toml")
+        ? tomlToYamlFile(src, dst, { ...restOptions, overwrite })
+        : yamlToTomlFile(src, dst, { ...restOptions, overwrite });
+      if (ok) {
+        result.converted.push(`${src} -> ${dst}`);
+        writtenByUs.set(dst, readFileSync(dst, "utf-8"));
+      } else {
+        result.skipped.push(src);
+      }
+    } catch (error) {
+      result.errors.push({
+        file: src,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    return result;
+  };
+
+  const mergeInto = (into: SyncResult, part: SyncResult): void => {
+    into.converted.push(...part.converted);
+    into.skipped.push(...part.skipped);
+    into.errors.push(...part.errors);
+  };
+
+  const notify = (result: SyncResult): void => {
+    if (!callback) return;
+    try {
+      callback(result);
+    } catch (callbackError) {
+      console.error("Error in watch callback:", callbackError);
+    }
+  };
+
+  // chokidar v4 removed glob support, so we watch the directory and filter events.
+  // depth 0 matches load()'s flat facts read: subdirectory files are not synced.
   const watcher = watch(factsDir, {
     persistent: true,
     ignoreInitial: true,
-    // Only watch files with these extensions
+    depth: 0,
     ignored: (path: string) => {
-      const basename = path.split(/[\\/]/).pop() || "";
-      return !/\\.(toml|yaml|yml)$/i.test(basename) || basename.startsWith(".");
+      // Only segments INSIDE the watched root decide — an ancestor like
+      // ~/.config/… or .worktrees/… must not disable the watcher.
+      const rel = relative(factsDir, path);
+      const segments = rel.split(/[\\/]/);
+      // Dotfiles and dot-directories inside the tree (.git, .pasco-edit.lock, …)
+      if (segments.some((segment) => segment.startsWith("."))) return true;
+      const basename = segments[segments.length - 1] ?? "";
+      // Directories (no extension) must NOT be ignored: ignoring one prunes its
+      // whole subtree and the watcher would never fire on any file inside it.
+      if (!/\.[^.\\/]+$/.test(basename)) return false;
+      return !/\.(toml|yaml|yml)$/i.test(basename);
     },
   });
 
-  // Helper to schedule sync after debounce
+  // Debounced per-file sync: each changed file is converted to its mirror ONLY.
   const scheduleSync = () => {
     if (debounceTimer) {
       clearTimeout(debounceTimer);
     }
-    debounceTimer = setTimeout(async () => {
-      // Collect all files that will be written
-      const filesToWrite = new Set<string>();
-      for (const path of changedFiles) {
-        const pathLower = path.toLowerCase();
-        if (toYaml && pathLower.endsWith(".toml")) {
-          filesToWrite.add(path.replace(/\.toml$/i, ".yaml"));
-        }
-        if (toToml && pathLower.endsWith(".yaml")) {
-          filesToWrite.add(path.replace(/\.yaml$/i, ".toml"));
-        }
-        if (toToml && pathLower.endsWith(".yml")) {
-          filesToWrite.add(path.replace(/\.yml$/i, ".toml"));
-        }
-      }
-
-      // Add to writing set
-      for (const f of filesToWrite) {
-        writingFiles.add(f);
-      }
-
-      // Clear changed files for next batch
+    debounceTimer = setTimeout(() => {
+      const batch = [...changedFiles];
       changedFiles.clear();
-
-      try {
-        const result = await syncTomlYaml(factsDir, { ...restOptions, toYaml, toToml });
-        if (callback) {
-          try {
-            callback(result);
-          } catch (callbackError) {
-            console.error("Error in watch callback:", callbackError);
+      const result: SyncResult = { converted: [], skipped: [], errors: [] };
+      // Echoes of our own writes are dropped FIRST, so an echo never masks a
+      // real edit of the mirror that landed in the same window.
+      const real = batch.filter((path) => {
+        const written = writtenByUs.get(path);
+        if (written === undefined) return true;
+        try {
+          if (readFileSync(path, "utf-8") !== written) {
+            // Real external edit: clear our recorded write so a subsequent undo
+            // back to the earlier bytes is NOT misclassified as an echo.
+            writtenByUs.delete(path);
+            return true;
           }
+          return false;
+        } catch {
+          writtenByUs.delete(path); // it disappeared: stop tracking it
+          return true;
         }
-      } finally {
-        // Remove from writing set after sync completes
-        for (const f of filesToWrite) {
-          writingFiles.delete(f);
+      });
+      // A file and its mirror both changed in the SAME debounce window is a
+      // conflict: converting both directions would silently lose one — report it.
+      const inBatch = new Set(real);
+      const conflictPartner = new Map<string, string>();
+      for (const path of real) {
+        const mirror = mirrorOf(path);
+        if (mirror !== undefined && inBatch.has(mirror)) {
+          conflictPartner.set(path, mirror);
+          conflictPartner.set(mirror, path);
         }
+      }
+      for (const path of real) {
+        if (conflictPartner.has(path)) continue;
+        mergeInto(result, convertOne(path, true));
+      }
+      for (const path of [...conflictPartner.keys()].sort()) {
+        result.errors.push({
+          file: path,
+          error: `conflict: ${path} and ${conflictPartner.get(path)} both changed in the same debounce window — neither was synced; edit one of them again to resolve`,
+        });
+      }
+      if (result.converted.length > 0 || result.skipped.length > 0 || result.errors.length > 0) {
+        notify(result);
       }
     }, 100); // 100ms debounce
   };
 
-  // Handle all file events
+  // Handle file events (unlink deliberately does nothing: deleting a source file
+  // never deletes its mirror — the engine reads the YAML side).
   const handleFileEvent = (path: string) => {
-    // Skip if this file is being written by us
-    if (writingFiles.has(path)) {
-      return;
-    }
     changedFiles.add(path);
     scheduleSync();
   };
 
   watcher.on("add", handleFileEvent);
   watcher.on("change", handleFileEvent);
-  watcher.on("unlink", handleFileEvent);
 
-  // Initial sync
-  try {
-    const initialResult = await syncTomlYaml(factsDir, { ...restOptions, toYaml, toToml });
-    if (callback) {
-      callback(initialResult);
-    }
-  } catch (error) {
-    // If initial sync fails, close the watcher and re-throw
-    watcher.close();
-    throw error;
+  // Resolve only once chokidar finished its initial scan: with ignoreInitial,
+  // an edit that lands before "ready" would be swallowed as part of the scan.
+  await new Promise<void>((resolve, reject) => {
+    watcher.on("ready", () => resolve());
+    watcher.on("error", (err) => reject(err));
+  });
+
+  // Initial sync: create MISSING mirrors only (overwrite: false) — a counterpart
+  // that already exists is an ambiguous state the human resolves, never clobbered.
+  // Both listings are computed before any write so a just-created mirror is not
+  // converted back in the same pass.
+  const initial: SyncResult = { converted: [], skipped: [], errors: [] };
+  const sources = [
+    ...(toYaml ? listFactFiles(factsDir, TOML_FILE_RE, false) : []),
+    ...(toToml ? listFactFiles(factsDir, YAML_FILE_RE, false) : []),
+  ];
+  for (const src of sources) {
+    mergeInto(initial, convertOne(src, false));
   }
+  notify(initial);
 
-  return () => watcher.close();
+  return () => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+      debounceTimer = null;
+    }
+    changedFiles.clear();
+    return watcher.close();
+  };
 }
