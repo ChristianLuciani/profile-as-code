@@ -188,7 +188,13 @@ function readFactsFiles(workspace: string): Record<string, unknown> {
     // has to match the actual data flow.
     let node: unknown;
     if (fileLower.endsWith(".toml")) {
-      node = parseToml(readFileSync(fullPath, "utf8"));
+      try {
+        node = parseToml(readFileSync(fullPath, "utf8"));
+      } catch (err) {
+        throw new LoadError(
+          `${dirName}/${file}: invalid TOML — ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
       // An empty TOML document parses to {} — like an empty YAML file (null),
       // it contributes nothing instead of injecting an empty root.
       if (

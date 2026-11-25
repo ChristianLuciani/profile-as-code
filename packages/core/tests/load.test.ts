@@ -580,4 +580,16 @@ describe("TOML fact files", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("wraps invalid TOML syntax errors in LoadError (same contract as invalid YAML)", () => {
+    const dir = makeWorkspace({
+      "identity.toml": 'name = "unclosed string\n',
+    });
+    try {
+      expect(() => load(dir)).toThrow(LoadError);
+      expect(() => load(dir)).toThrow(/invalid TOML/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
