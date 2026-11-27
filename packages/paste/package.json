@@ -53,7 +53,7 @@
     "@profile-as-code/core": "workspace:*"
   },
   "peerDependencies": {
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   },
   "peerDependenciesMeta": {
     "vitest": {
@@ -63,6 +63,6 @@
   "devDependencies": {
     "@types/node": "^26.6.6",
     "typescript": "^7.0.2",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   }
 }
