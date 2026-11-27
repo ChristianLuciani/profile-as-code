@@ -127,11 +127,12 @@ El CLI `pasco` ofrece un conjunto integral de comandos para gestionar el ciclo d
 - **`pasco log --statement <text> --kind metric|milestone --basis <basis>`** — Captura UN logro en `facts/achievements.yaml` (privado por defecto, D27); **`pasco achievements [--targets]`** lee el impacto derivado.
 - **`pasco post`** y **`pasco presence [--json]`** — Publicación asistida y tablero de presencia de superficies (D23).
 
-Si pasás una entrada de `private` a `public` (o corrés `--all`), el gate de egreso (D28, SPEC §7.11) frena una vez sin escribir nada e imprime el digest del manifiesto:
+Si pasás una entrada de `private` a `public` (o corrés `pasco export profile --all`), el gate de egreso (D28, SPEC §7.11) frena una vez sin escribir nada e imprime el digest del manifiesto:
 
 ```sh
 pasco build github-readme                       # exit 1 tras un flip private → public; imprime sha256:…
 pasco build github-readme --confirm sha256:…    # autoriza exactamente ese manifiesto una vez
+pasco export profile --all --confirm sha256:…   # mismo bucle para exportar el SSOT completo
 ```
 
 ## Estado
