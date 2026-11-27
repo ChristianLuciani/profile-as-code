@@ -1749,9 +1749,9 @@ async function runMain(): Promise<number> {
         return EXIT.OK;
       }
       setJsonMode(flags.json === true);
-      const workspace = resolveWorkspace(process.cwd(), flags.workspace);
       return runSync({
-        workspace,
+        workspace: process.cwd(),
+        workspaceFlag: flags.workspace,
         toYaml: flags["to-yaml"] === true,
         toToml: flags["to-toml"] === true,
         watch: flags.watch === true,

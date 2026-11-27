@@ -21,6 +21,8 @@ import { resolveWorkspace } from "../workspace.js";
 /** Arguments for the sync command */
 export interface SyncArgs {
   workspace: string;
+  /** Optional explicit --workspace flag (resolved against workspace/cwd) */
+  workspaceFlag?: string;
   /** Convert TOML files to YAML */
   toYaml?: boolean;
   /** Convert YAML files to TOML */
@@ -40,12 +42,18 @@ export interface SyncArgs {
 export async function runSync(args: SyncArgs): Promise<number> {
   const {
     workspace,
+    workspaceFlag,
     toYaml = false,
     toToml = false,
     watch = false,
     overwrite = false,
     json = false,
   } = args;
+
+  // Set JSON mode before argument/workspace checks so every runSync error path emits the CLI envelope
+  if (json) {
+    setJsonMode(true);
+  }
 
   // Validate arguments
   if (!toYaml && !toToml && !watch) {
@@ -58,16 +66,12 @@ export async function runSync(args: SyncArgs): Promise<number> {
     });
   }
 
-  // Resolve workspace and get facts directory
-  const resolvedWorkspace = resolveWorkspace(workspace);
-  const factsDirectory = join(resolvedWorkspace, factsDir(resolvedWorkspace));
-
-  // Set JSON mode for output
-  if (json) {
-    setJsonMode(true);
-  }
-
   try {
+    // Resolve workspace and facts directory inside try/catch so ConfigError and
+    // LoadError (e.g. facts/ + content/ ambiguity) emit the JSON error envelope.
+    const resolvedWorkspace = resolveWorkspace(workspace, workspaceFlag);
+    const factsDirectory = join(resolvedWorkspace, factsDir(resolvedWorkspace));
+
     if (watch) {
       // Watch mode: sync both directions automatically
       line(`Watching ${factsDirectory} for changes...`);

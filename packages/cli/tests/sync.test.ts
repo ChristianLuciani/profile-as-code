@@ -233,9 +233,113 @@ describe("pasco sync", () => {
       writeFileSync(join(workspace, "facts", "invalid.toml"), `name = "unclosed string`, "utf-8");
 
       const result = runSync(["--to-yaml", "--json"], workspace);
-      // Should still return 0 or 1 depending on error handling
-      // The important thing is it outputs valid JSON
-      expect(() => JSON.parse(result.stdout.trim())).not.toThrow();
+      expect(result.code).toBe(1);
+      const parsed = JSON.parse(result.stdout.trim()) as {
+        converted: string[];
+        skipped: string[];
+        errors: { file: string; error: string }[];
+      };
+      expect(parsed.errors.length).toBeGreaterThan(0);
+    });
+
+    it("emits the standard CLI error envelope for missing direction flag (exit 2)", () => {
+      const workspace = createWorkspace();
+      const result = runSync(["--json"], workspace);
+      expect(result.code).toBe(2);
+      const parsed = JSON.parse(result.stdout.trim()) as {
+        command: string;
+        ok: boolean;
+        exitCode: number;
+        error: { kind: string; message: string };
+      };
+      expect(parsed).toMatchObject({
+        command: "sync",
+        ok: false,
+        exitCode: 2,
+        error: { kind: "usage" },
+      });
+      expect(parsed.error.message).toContain("--to-yaml");
+    });
+
+    it("emits the standard CLI error envelope when facts dir is missing (exit 1)", () => {
+      const workspace = join(tempDirPath, "no-facts-json-ws");
+      mkdirSync(workspace, { recursive: true });
+      const result = runSync(["--to-yaml", "--json"], workspace);
+      expect(result.code).toBe(1);
+      const parsed = JSON.parse(result.stdout.trim()) as {
+        command: string;
+        ok: boolean;
+        exitCode: number;
+        error: { kind: string; message: string };
+      };
+      expect(parsed).toMatchObject({
+        command: "sync",
+        ok: false,
+        exitCode: 1,
+        error: { kind: "sync" },
+      });
+      expect(parsed.error.message).toContain("directory not found");
+    });
+
+    it("emits the standard CLI error envelope when facts is a regular file (exit 1)", () => {
+      const workspace = join(tempDirPath, "file-facts-json-ws");
+      mkdirSync(workspace, { recursive: true });
+      writeFileSync(join(workspace, "facts"), "not a directory", "utf-8");
+      const result = runSync(["--to-yaml", "--json"], workspace);
+      expect(result.code).toBe(1);
+      const parsed = JSON.parse(result.stdout.trim()) as {
+        command: string;
+        ok: boolean;
+        exitCode: number;
+        error: { kind: string; message: string };
+      };
+      expect(parsed).toMatchObject({
+        command: "sync",
+        ok: false,
+        exitCode: 1,
+        error: { kind: "sync" },
+      });
+      expect(parsed.error.message).toContain("expected a directory");
+    });
+
+    it("emits the standard CLI error envelope when both facts/ and content/ exist (exit 1)", () => {
+      const workspace = createWorkspace();
+      mkdirSync(join(workspace, "content"), { recursive: true });
+      const result = runSync(["--to-yaml", "--json"], workspace);
+      expect(result.code).toBe(1);
+      const parsed = JSON.parse(result.stdout.trim()) as {
+        command: string;
+        ok: boolean;
+        exitCode: number;
+        error: { kind: string; message: string };
+      };
+      expect(parsed).toMatchObject({
+        command: "sync",
+        ok: false,
+        exitCode: 1,
+        error: { kind: "sync" },
+      });
+      expect(parsed.error.message).toContain("ambiguous");
+    });
+
+    it("emits the standard CLI error envelope on invalid .pascorc JSON (exit 1)", () => {
+      const workspace = createWorkspace();
+      writeFileSync(join(workspace, ".pascorc"), "{invalid json", "utf-8");
+      const result = runSync(["--to-yaml", "--json"], workspace);
+      expect(result.code).toBe(1);
+      const parsed = JSON.parse(result.stdout.trim()) as {
+        command: string;
+        ok: boolean;
+        exitCode: number;
+        error: { kind: string; message: string };
+      };
+      expect(parsed).toMatchObject({
+        command: "sync",
+        ok: false,
+        exitCode: 1,
+        error: { kind: "sync" },
+      });
+      expect(parsed.error.message).toContain("invalid JSON in .pascorc");
     });
   });
 
