@@ -41,6 +41,11 @@ This is the egress gate
 (D28) — a refusal writes nothing, so re-running is never a bypass
 ([SPEC §7.11](SPEC.md)).
 
+```sh
+pasco build github-readme                       # exit 1 on a private → public flip; prints sha256:…
+pasco build github-readme --confirm sha256:…    # re-run with the printed digest to authorize once
+```
+
 Then publish: copy the generated text for manual platforms, or open a PR against
 `<you>/<you>` with the GitHub artifact ([§7](USER-GUIDE.md#7-deploy)) — never a push
 to its `main`.

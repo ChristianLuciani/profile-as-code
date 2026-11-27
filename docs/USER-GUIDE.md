@@ -706,6 +706,12 @@ pasco diff [--json]                  # what changed since the last release tag
   and prints the manifest digest; re-run the command with `--confirm <digest>`
   to authorize exactly that publication. A refusal writes nothing, so re-running
   is never a bypass.
+
+  ```sh
+  pasco build github-readme                       # exit 1 on a private → public flip; prints sha256:…
+  pasco build github-readme --confirm sha256:…    # authorizes that exact publication once
+  pasco export profile --all --confirm sha256:…   # same loop for a full SSOT export
+  ```
 - **The artifact is a function of the last `build`, and its path carries no
   language.** One path per surface (`profiles/<platform>/README.md` or
   `profiles/<platform>.md`) is written for the `lang` you built, so building

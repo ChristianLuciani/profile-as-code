@@ -168,6 +168,12 @@ cat profiles/github-readme/README.md
 > (exit 1, nothing written) and prints a digest: re-run it with
 > `--confirm <digest>` exactly as the refusal prints ([SPEC §7.11](SPEC.md)).
 
+```sh
+# After flipping an entry private → public:
+pasco build github-readme                       # exit 1, nothing written; prints sha256:…
+pasco build github-readme --confirm sha256:…    # authorizes that exact manifest once
+```
+
 **Expect** one file, `profiles/github-readme/README.md`. It contains your name, the links as
 badges, a project block when you have one, and the experience as `jobTitle`/`worksFor` inside a
 **JSON-LD block** — alongside `@id` (from the `role: identity` link), `description` (from
